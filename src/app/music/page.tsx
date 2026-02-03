@@ -97,7 +97,7 @@ export default function MusicPage() {
               {p.notes ? <div style={{ marginTop: 8, opacity: 0.7 }}>{p.notes}</div> : null}
 
               <div style={{ marginTop: 12, opacity: 0.7, fontSize: 12 }}>
-                Tracks: {p.tracks?.length ?? 0} (add tracks in <code>music.json</code>)
+                Tracks: {p.tracks?.length ?? 0} (IDs should be human-readable slugs like <code>yauggy-planetfall-v1</code>)
               </div>
             </div>
           ))}
