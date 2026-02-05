@@ -1,0 +1,413 @@
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: #111;
+}
+
+/* Hero */
+.hero {
+  text-align: center;
+  padding: 4rem 0 3rem;
+  border-bottom: 1px solid #eee;
+}
+
+.kicker {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: 1rem;
+}
+
+.h1 {
+  font-size: 3.5rem;
+  font-weight: 800;
+  line-height: 1.05;
+  margin: 0 0 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.accent {
+  color: #e63946;
+}
+
+.heroSub {
+  font-size: 1.25rem;
+  color: #444;
+  max-width: 600px;
+  margin: 0 auto 2rem;
+  line-height: 1.5;
+}
+
+.heroActions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.buttonPrimary {
+  display: inline-block;
+  background: #111;
+  color: #fff;
+  padding: 1rem 2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.buttonPrimary:hover {
+  background: #333;
+}
+
+.buttonSecondary {
+  display: inline-block;
+  background: transparent;
+  color: #111;
+  padding: 1rem 2rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #111;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.buttonSecondary:hover {
+  background: #111;
+  color: #fff;
+}
+
+.heroMeta {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Sections */
+.section {
+  padding: 4rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.sectionHighlight {
+  padding: 4rem 0;
+  background: #fafafa;
+  margin: 0 -2rem;
+  padding-left: 2rem;
+  padding-right: 2rem;
+}
+
+.h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 2rem;
+}
+
+.h2Light {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+
+/* Proof */
+.proofGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.proofCard {
+  text-align: center;
+}
+
+.proofPlaceholder {
+  aspect-ratio: 4/3;
+  background: linear-gradient(135deg, #f5f5f5 0%, #eee 100%);
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  font-size: 0.75rem;
+}
+
+.proofLabel {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+  color: #444;
+}
+
+.proofNote {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+/* Sprint Banner */
+.sprintBanner {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border-radius: 12px;
+  color: #fff;
+}
+
+.sprintLabel {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  margin-bottom: 1rem;
+}
+
+.sprintH2 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+}
+
+.sprintSub {
+  font-size: 1.125rem;
+  color: rgba(255,255,255,0.8);
+  max-width: 600px;
+  margin: 0 auto 1.5rem;
+  line-height: 1.5;
+}
+
+.sprintPrice {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #e63946;
+  margin-bottom: 1.5rem;
+}
+
+/* Packages */
+.packageGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+
+.packageCard {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 1.5rem;
+  position: relative;
+}
+
+.recommended {
+  border-color: #111;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.badgeRecommended {
+  position: absolute;
+  top: -10px;
+  left: 1.5rem;
+  background: #111;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+}
+
+.packageName {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.packagePrice {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+}
+
+.packageFor {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0 0 1rem;
+  line-height: 1.4;
+}
+
+.packageList {
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.packageTimeline {
+  font-size: 0.75rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+/* Process */
+.processGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.processCard {
+  text-align: center;
+  padding: 1.5rem;
+  border: 1px solid #eee;
+  border-radius: 8px;
+}
+
+.processStep {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e63946;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.5rem;
+}
+
+.processTitle {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.processDesc {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Audiences */
+.audienceGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.audienceCard {
+  padding: 1.5rem;
+  background: #fafafa;
+  border-radius: 8px;
+}
+
+.audienceLetter {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #e63946;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+}
+
+.audienceName {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.audienceNeed {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.priorityNote {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: #666;
+  text-align: center;
+}
+
+/* Intake Section */
+.intakeSub {
+  font-size: 1.125rem;
+  color: #444;
+  max-width: 600px;
+  margin: 0 0 2rem;
+  line-height: 1.5;
+}
+
+.buttonPrimaryLarge {
+  display: inline-block;
+  background: #111;
+  color: #fff;
+  padding: 1.25rem 2.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.buttonPrimaryLarge:hover {
+  background: #333;
+}
+
+.intakeMeta {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+/* Footer */
+.footer {
+  padding: 3rem 0;
+  border-top: 1px solid #eee;
+  text-align: center;
+  color: #888;
+  font-size: 0.875rem;
+}
+
+.footer a {
+  color: #111;
+  text-decoration: none;
+  margin: 0 0.5rem;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .h1 {
+    font-size: 2rem;
+  }
+
+  .heroActions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .packageGrid,
+  .processGrid,
+  .audienceGrid,
+  .proofGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sprintH2 {
+    font-size: 1.75rem;
+  }
+}
