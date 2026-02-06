@@ -26,12 +26,19 @@
             position: relative;
             overflow: hidden;
         }
+        .hero-video {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            object-fit: cover;
+            opacity: 0.4;
+            z-index: 0;
+        }
         .hero::before {
             content: '';
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
-            background: radial-gradient(ellipse at center, rgba(157, 78, 221, 0.15) 0%, transparent 70%);
-            animation: pulse 4s ease-in-out infinite;
+            background: linear-gradient(180deg, rgba(10,10,10,0.3) 0%, #0a0a0a 100%);
+            z-index: 1;
         }
         @keyframes pulse {
             0%, 100% { opacity: 0.3; }
@@ -419,6 +426,9 @@
 <body>
     <!-- HERO -->
     <section class="hero">
+        <video class="hero-video" autoplay muted loop playsinline>
+            <source src="images/hero-video.mp4" type="video/mp4">
+        </video>
         <div class="hero-content">
             <div class="hero-eyebrow">AI-Powered Creative Direction</div>
             <h1>Visual Worlds<br><span>That Move</span></h1>
@@ -440,11 +450,11 @@
             </div>
             <div class="work-grid">
                 <div class="work-item">
-                    <img src="watermelon-thumb.jpg" alt="3D Animated Character">
+                    <img src="images/synth-hero.jpg" alt="Synth-Pop Futurism">
                     <div class="work-item-content">
-                        <h3>Galactik Antics</h3>
-                        <p>Whimsical 3D character animation for product launch. Motion design that turns phone cases into collectibles.</p>
-                        <span class="tag">3D Motion</span>
+                        <h3>Neon Future Cities</h3>
+                        <p>Retro-futurist cityscapes for album art and campaigns. Synth-pop palettes meet tomorrow's aesthetic.</p>
+                        <span class="tag">Concept Art</span>
                     </div>
                 </div>
                 <div class="work-item">
