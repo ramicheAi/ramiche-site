@@ -98,7 +98,7 @@ export default function Home() {
           <span className={styles.badge}>No auto-publish</span>
           <span className={styles.badge}>PRs only</span>
           <span className={styles.badge}>Signal-first</span>
-          <a className={styles.badge} href="/music">Music Command Center</a>
+          <a className={styles.badge} href="/studio">Studio</a>
         </div>
       </header>
 
