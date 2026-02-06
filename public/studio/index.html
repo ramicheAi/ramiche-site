@@ -6,501 +6,132 @@
     <title>Ramiche Studio — Visual Worlds That Move</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Display', sans-serif;
-            background: #0a0a0a;
-            color: #fff;
-            line-height: 1.6;
-        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; background: #0a0a0a; color: #fff; line-height: 1.6; }
         .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
         
-        /* HERO */
-        .hero {
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            text-align: center;
-            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a1a 50%, #0f0a1a 100%);
-            position: relative;
-            overflow: hidden;
-        }
-        .hero-video {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            object-fit: cover;
-            opacity: 0.4;
-            z-index: 0;
-        }
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(180deg, rgba(10,10,10,0.3) 0%, #0a0a0a 100%);
-            z-index: 1;
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.6; }
-        }
-        .hero-content {
-            position: relative;
-            z-index: 1;
-            max-width: 900px;
-            padding: 40px 24px;
-        }
-        .hero-eyebrow {
-            display: inline-block;
-            background: linear-gradient(135deg, #ff006e, #ffbe0b);
-            color: #000;
-            padding: 10px 24px;
-            border-radius: 50px;
-            font-size: 0.75rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            margin-bottom: 32px;
-        }
-        .hero h1 {
-            font-size: clamp(2.5rem, 7vw, 5.5rem);
-            font-weight: 900;
-            letter-spacing: -0.02em;
-            line-height: 1.05;
-            margin-bottom: 24px;
-        }
-        .hero h1 span {
-            display: block;
-            background: linear-gradient(135deg, #9d4edd 0%, #ff006e 50%, #ffbe0b 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .hero p {
-            font-size: 1.35rem;
-            color: #a0a0a0;
-            margin-bottom: 48px;
-            max-width: 650px;
-            margin-left: auto;
-            margin-right: auto;
-            font-weight: 400;
-        }
-        .cta-button {
-            display: inline-block;
-            background: linear-gradient(135deg, #ff006e, #ffbe0b);
-            color: #000;
-            padding: 22px 56px;
-            font-size: 1.1rem;
-            font-weight: 800;
-            text-decoration: none;
-            border-radius: 50px;
-            transition: all 0.3s;
-            box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-        }
-        .cta-button:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 20px 50px rgba(255, 107, 53, 0.4);
-        }
-        .cta-button.secondary {
-            background: transparent;
-            border: 2px solid #9d4edd;
-            color: #fff;
-            margin-left: 16px;
-        }
-        .cta-button.secondary:hover {
-            background: #9d4edd;
-        }
+        .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; background: #0a0a0a; position: relative; overflow: hidden; }
+        .hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at center, rgba(157, 78, 221, 0.2) 0%, transparent 70%); }
+        .hero-content { position: relative; z-index: 1; max-width: 900px; padding: 40px 24px; }
+        .hero-eyebrow { display: inline-block; background: linear-gradient(135deg, #ff006e, #ffbe0b); color: #000; padding: 10px 24px; border-radius: 50px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 32px; }
+        .hero h1 { font-size: clamp(2.5rem, 7vw, 5rem); font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; margin-bottom: 24px; }
+        .hero h1 span { background: linear-gradient(135deg, #9d4edd 0%, #ff006e 50%, #ffbe0b 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+        .hero p { font-size: 1.25rem; color: #a0a0a0; margin-bottom: 40px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .cta-button { display: inline-block; background: linear-gradient(135deg, #ff006e, #ffbe0b); color: #000; padding: 22px 56px; font-size: 1.1rem; font-weight: 800; text-decoration: none; border-radius: 50px; transition: all 0.3s; box-shadow: 0 10px 30px rgba(255, 107, 53, 0.3); text-transform: uppercase; letter-spacing: 0.1em; }
+        .cta-button:hover { transform: translateY(-3px); box-shadow: 0 20px 50px rgba(255, 107, 53, 0.4); }
         
-        /* WORK SECTION */
-        .work {
-            padding: 160px 0;
-            background: #050505;
-        }
-        .section-header {
-            text-align: center;
-            margin-bottom: 80px;
-        }
-        .section-label {
-            display: inline-block;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
-            color: #666;
-            margin-bottom: 16px;
-        }
-        .work h2 {
-            font-size: clamp(2rem, 5vw, 3.5rem);
-            font-weight: 800;
-            margin-bottom: 24px;
-        }
-        .work h2 span {
-            background: linear-gradient(135deg, #9d4edd, #ff006e);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-        .section-desc {
-            color: #888;
-            font-size: 1.25rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        .work-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 32px;
-        }
-        .work-item {
-            background: #111;
-            border-radius: 20px;
-            overflow: hidden;
-            transition: transform 0.3s;
-            border: 1px solid #222;
-            position: relative;
-        }
-        .work-item:hover {
-            transform: translateY(-8px);
-            border-color: #444;
-        }
-        .work-item::after {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.8) 100%);
-            pointer-events: none;
-        }
-        .work-item img {
-            width: 100%;
-            height: 450px;
-            object-fit: cover;
-            transition: transform 0.5s;
-        }
-        .work-item:hover img {
-            transform: scale(1.05);
-        }
-        .work-item video {
-            width: 100%;
-            height: 450px;
-            object-fit: cover;
-        }
-        .work-item-content {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 32px;
-            z-index: 1;
-        }
-        .work-item h3 {
-            font-size: 1.5rem;
-            margin-bottom: 12px;
-            font-weight: 700;
-        }
-        .work-item p {
-            color: #aaa;
-            font-size: 1rem;
-            line-height: 1.5;
-            margin-bottom: 16px;
-        }
-        .work-item .tag {
-            display: inline-block;
-            background: rgba(157, 78, 221, 0.2);
-            color: #9d4edd;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+        .work { padding: 100px 0; background: #050505; }
+        .section-header { text-align: center; margin-bottom: 60px; }
+        .section-label { display: inline-block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.2em; color: #666; margin-bottom: 16px; }
+        .work h2 { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; margin-bottom: 16px; }
+        .work h2 span { background: linear-gradient(135deg, #9d4edd, #ff006e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .section-desc { color: #888; font-size: 1.1rem; max-width: 600px; margin: 0 auto; }
+        .work-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 32px; max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+        @media (max-width: 768px) { .work-grid { grid-template-columns: 1fr; } }
+        .work-item { background: #111; border-radius: 20px; overflow: hidden; border: 1px solid #222; transition: transform 0.3s; }
+        .work-item:hover { transform: translateY(-8px); border-color: #444; }
+        .work-item img { width: 100%; height: 350px; object-fit: cover; display: block; }
+        .work-item-content { padding: 32px; }
+        .work-item h3 { font-size: 1.5rem; margin-bottom: 12px; font-weight: 700; }
+        .work-item p { color: #888; font-size: 1rem; margin-bottom: 16px; }
+        .tag { display: inline-block; background: rgba(157, 78, 221, 0.2); color: #9d4edd; padding: 8px 16px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         
-        /* SERVICES */
-        .services {
-            padding: 160px 0;
-            background: #050505;
-        }
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 32px;
-            margin-top: 80px;
-        }
-        .service-card {
-            background: linear-gradient(180deg, #161616 0%, #111 100%);
-            border: 1px solid #2a2a2a;
-            border-radius: 24px;
-            padding: 48px 36px;
-            transition: all 0.3s;
-            position: relative;
-        }
-        .service-card:hover {
-            border-color: #9d4edd;
-            transform: translateY(-8px);
-            box-shadow: 0 20px 60px rgba(157, 78, 221, 0.15);
-        }
-        .service-card.featured {
-            background: linear-gradient(180deg, #1a0a2e 0%, #111 100%);
-            border-color: #9d4edd;
-            box-shadow: 0 0 0 1px #9d4edd;
-        }
-        .service-card.featured::before {
-            content: 'MOST POPULAR';
-            position: absolute;
-            top: 0;
-            right: 32px;
-            background: linear-gradient(135deg, #9d4edd, #ff006e);
-            color: #fff;
-            padding: 12px 24px;
-            font-size: 0.7rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            border-radius: 0 0 12px 12px;
-        }
-        .service-price {
-            font-size: 4rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, #9d4edd, #ff006e, #ffbe0b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            line-height: 1;
-        }
-        .service-card h3 {
-            font-size: 1.75rem;
-            margin: 24px 0 16px;
-            font-weight: 700;
-        }
-        .service-card ul {
-            list-style: none;
-            color: #aaa;
-            font-size: 1rem;
-        }
-        .service-card li {
-            padding: 16px 0;
-            border-bottom: 1px solid #2a2a2a;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-        }
-        .service-card li::before {
-            content: '→';
-            color: #9d4edd;
-            font-weight: 700;
-        }
+        .services { padding: 100px 0; background: #0a0a0a; }
+        .services h2 { text-align: center; font-size: 2.5rem; font-weight: 800; margin-bottom: 60px; }
+        .services-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 32px; max-width: 1000px; margin: 0 auto; padding: 0 24px; }
+        .service-card { background: linear-gradient(180deg, #161616 0%, #111 100%); border: 1px solid #2a2a2a; border-radius: 24px; padding: 48px 36px; text-align: center; transition: all 0.3s; position: relative; }
+        .service-card:hover { border-color: #9d4edd; transform: translateY(-8px); }
+        .service-card.featured { background: linear-gradient(180deg, #1a0a2e 0%, #111 100%); border-color: #9d4edd; }
+        .service-card.featured::before { content: 'MOST POPULAR'; position: absolute; top: 0; right: 32px; background: linear-gradient(135deg, #9d4edd, #ff006e); color: #fff; padding: 12px 24px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; border-radius: 0 0 12px 12px; }
+        .service-price { font-size: 3.5rem; font-weight: 900; background: linear-gradient(135deg, #9d4edd, #ff006e, #ffbe0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; margin-bottom: 8px; }
+        .service-card h3 { font-size: 1.75rem; margin: 16px 0; font-weight: 700; }
+        .service-card ul { list-style: none; color: #999; text-align: left; font-size: 1rem; }
+        .service-card li { padding: 12px 0; border-bottom: 1px solid #2a2a2a; }
+        .service-card li:before { content: "→ "; color: #9d4edd; font-weight: 700; }
         .service-card li:last-child { border: none; }
         
-        /* SPRINT */
-        .sprint {
-            padding: 160px 0;
-            text-align: center;
-            background: linear-gradient(180deg, #050505 0%, #0a0a0a 100%);
-        }
-        .sprint-box {
-            background: linear-gradient(180deg, #1a0a2e 0%, #0a0a0a 100%);
-            border: 2px solid #9d4edd;
-            border-radius: 32px;
-            padding: 80px 64px;
-            max-width: 900px;
-            margin: 0 auto;
-            position: relative;
-        }
-        .sprint-box::before {
-            content: '';
-            position: absolute;
-            top: -2px; left: -2px; right: -2px; bottom: -2px;
-            background: linear-gradient(135deg, #9d4edd, #ff006e, #ffbe0b);
-            border-radius: 32px;
-            z-index: -1;
-            opacity: 0.6;
-            filter: blur(20px);
-            animation: glow 3s ease-in-out infinite;
-        }
-        @keyframes glow {
-            0%, 100% { opacity: 0.4; }
-            50% { opacity: 0.8; }
-        }
-        .sprint-badge {
-            display: inline-block;
-            background: linear-gradient(135deg, #ff006e, #ffbe0b);
-            color: #000;
-            padding: 12px 32px;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.15em;
-            margin-bottom: 40px;
-        }
-        .sprint-price {
-            font-size: 6rem;
-            font-weight: 900;
-            background: linear-gradient(135deg, #9d4edd, #ff006e, #ffbe0b);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            line-height: 1;
-        }
-        .sprint h2 {
-            font-size: 3.5rem;
-            margin: 40px 0;
-            font-weight: 800;
-        }
-        .sprint > .container > p {
-            color: #888;
-            font-size: 1.35rem;
-            max-width: 650px;
-            margin: 0 auto 56px;
-        }
-        .sprint-features {
-            display: flex;
-            justify-content: center;
-            gap: 80px;
-            margin: 56px 0;
-            flex-wrap: wrap;
-        }
-        .sprint-feature {
-            text-align: center;
-        }
-        .sprint-feature strong {
-            display: block;
-            font-size: 2.5rem;
-            color: #fff;
-            font-weight: 800;
-        }
-        .sprint-feature span {
-            color: #888;
-            font-size: 1.1rem;
-        }
-        .urgency {
-            margin-top: 48px;
-            padding: 24px;
-            background: rgba(255, 0, 110, 0.1);
-            border: 1px solid rgba(255, 0, 110, 0.3);
-            border-radius: 16px;
-        }
-        .urgency p {
-            color: #ff006e;
-            font-weight: 600;
-            margin: 0;
-            font-size: 1.1rem;
-        }
+        .sprint { padding: 100px 0; text-align: center; background: linear-gradient(180deg, #050505 0%, #0a0a0a 100%); }
+        .sprint-box { background: linear-gradient(180deg, #1a0a2e, #0a0a0a); border: 2px solid #9d4edd; border-radius: 32px; padding: 64px 48px; max-width: 800px; margin: 0 auto; position: relative; }
+        .sprint-box::before { content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px; background: linear-gradient(135deg, #9d4edd, #ff006e, #ffbe0b); border-radius: 32px; z-index: -1; opacity: 0.5; filter: blur(20px); }
+        .sprint-badge { display: inline-block; background: linear-gradient(135deg, #ff006e, #ffbe0b); color: #000; padding: 12px 32px; border-radius: 50px; font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; margin-bottom: 32px; }
+        .sprint-price { font-size: 5rem; font-weight: 900; background: linear-gradient(135deg, #9d4edd, #ff006e, #ffbe0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+        .sprint h2 { font-size: 2.5rem; margin: 24px 0; font-weight: 800; }
+        .sprint > .container > p { color: #888; font-size: 1.25rem; max-width: 600px; margin: 0 auto 32px; }
+        .sprint-features { display: flex; justify-content: center; gap: 48px; margin: 40px 0; flex-wrap: wrap; }
+        .sprint-feature { text-align: center; }
+        .sprint-feature strong { display: block; font-size: 2rem; color: #fff; font-weight: 800; }
+        .sprint-feature span { color: #888; font-size: 1rem; }
+        .urgency { margin-top: 32px; padding: 20px; background: rgba(255, 0, 110, 0.1); border: 1px solid rgba(255, 0, 110, 0.3); border-radius: 16px; }
+        .urgency p { color: #ff006e; font-weight: 600; margin: 0; font-size: 1.1rem; }
         
-        /* FOOTER */
-        footer {
-            padding: 100px 0;
-            text-align: center;
-            border-top: 1px solid #222;
-            background: #050505;
-        }
-        footer p {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 32px;
-        }
-        footer .social {
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-            margin-bottom: 56px;
-        }
-        footer a {
-            color: #9d4edd;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 1.1rem;
-            transition: color 0.3s;
-        }
-        footer a:hover {
-            color: #ff006e;
-        }
-        footer .copyright {
-            color: #666;
-            font-size: 1rem;
-            font-weight: 400;
-        }
+        footer { padding: 80px 0; text-align: center; border-top: 1px solid #222; background: #050505; }
+        footer p { font-size: 1.25rem; font-weight: 700; margin-bottom: 24px; }
+        footer .social { display: flex; justify-content: center; gap: 32px; margin-bottom: 40px; }
+        footer a { color: #9d4edd; text-decoration: none; font-weight: 600; font-size: 1.1rem; }
     </style>
 </head>
 <body>
-    <!-- HERO -->
     <section class="hero">
-        <video class="hero-video" autoplay muted loop playsinline>
-            <source src="images/hero-video.mp4" type="video/mp4">
-        </video>
         <div class="hero-content">
             <div class="hero-eyebrow">AI-Powered Creative Direction</div>
             <h1>Visual Worlds<br><span>That Move</span></h1>
-            <p>From comic grit to synth-pop futurism—brand systems and motion design for small brands ready to stand out. We build visual identities that don't just sit there; they pull people in.</p>
-            <div>
-                <a href="#sprint" class="cta-button">Start With a Sprint →</a>
-                <a href="#work" class="cta-button secondary">See the Work</a>
-            </div>
+            <p>From comic grit to synth-pop futurism—brand systems and motion design for small brands ready to stand out.</p>
+            <a href="#sprint" class="cta-button">Start With a Sprint →</a>
         </div>
     </section>
 
-    <!-- WORK -->
     <section class="work" id="work">
-        <div class="container">
-            <div class="section-header">
-                <p class="section-label">Selected Work</p>
-                <h2><span>Comic Art</span> meets <span>Digital Motion</span></h2>
-                <p class="section-desc">Brand worlds for streetwear labels, music artists, aquatics programs, and product launches.</p>
+        <div class="section-header">
+            <p class="section-label">Selected Work</p>
+            <h2><span>Comic Art</span> meets <span>Digital Motion</span></h2>
+            <p class="section-desc">Brand worlds for streetwear, music, events, and product launches</p>
+        </div>
+        <div class="work-grid">
+            <div class="work-item">
+                <img src="images/robot.jpg" alt="Synth-Pop Futurism">
+                <div class="work-item-content">
+                    <h3>Neon Future Cities</h3>
+                    <p>Retro-futurist cityscapes for album art and campaigns</p>
+                    <span class="tag">Concept Art</span>
+                </div>
             </div>
-            <div class="work-grid">
-                <div class="work-item">
-                    <img src="images/synth-hero.jpg" alt="Synth-Pop Futurism">
-                    <div class="work-item-content">
-                        <h3>Neon Future Cities</h3>
-                        <p>Retro-futurist cityscapes for album art and campaigns. Synth-pop palettes meet tomorrow's aesthetic.</p>
-                        <span class="tag">Concept Art</span>
-                    </div>
+            <div class="work-item">
+                <img src="images/comix.jpg" alt="Underground Comix">
+                <div class="work-item-content">
+                    <h3>Street Comix Series</h3>
+                    <p>Bold inkwork for streetwear drops and brand storytelling</p>
+                    <span class="tag">Illustration</span>
                 </div>
-                <div class="work-item">
-                    <img src="comix-thumb.jpg" alt="Underground Comix Illustration">
-                    <div class="work-item-content">
-                        <h3>Street Comix Series</h3>
-                        <p>Bold inkwork and graphic novel storytelling for streetwear drops. Underground aesthetic, mainstream impact.</p>
-                        <span class="tag">Illustration</span>
-                    </div>
+            </div>
+            <div class="work-item">
+                <img src="images/baba.jpg" alt="Baba TruNoyz Logo">
+                <div class="work-item-content">
+                    <h3>Baba TruNoyz</h3>
+                    <p>Identity design for music studios and creative spaces</p>
+                    <span class="tag">Logo & Identity</span>
                 </div>
-                <div class="work-item">
-                    <img src="synth-thumb.jpg" alt="Synth-Pop Futurism">
-                    <div class="work-item-content">
-                        <h3>Neon Future Cities</h3>
-                        <p>Synth-pop futurism for album covers and poster art. Retro gradients meet tomorrow's aesthetic.</p>
-                        <span class="tag">Concept Art</span>
-                    </div>
-                </div>
-                <div class="work-item">
-                    <img src="aquatics-thumb.jpg" alt="Aquatics Logo Design">
-                    <div class="work-item-content">
-                        <h3>Saint Andrew's Aquatics</h3>
-                        <p>Brand identity systems for aquatics programs. From swim teams to event series, visual cohesion that builds trust.</p>
-                        <span class="tag">Logo & Identity</span>
-                    </div>
+            </div>
+            <div class="work-item">
+                <img src="images/galactik.jpg" alt="Galactik Antics Phone Case">
+                <div class="work-item-content">
+                    <h3>Galactik Antics</h3>
+                    <p>Psychedelic product design—monsters that sell</p>
+                    <span class="tag">Product Design</span>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- SERVICES -->
     <section class="services">
         <div class="container">
-            <div class="section-header">
-                <p class="section-label">Services</p>
-                <h2>Packages that scale with your ambition</h2>
-            </div>
+            <h2>Packages that scale</h2>
             <div class="services-grid">
                 <div class="service-card">
                     <div class="service-price">$1,500</div>
                     <h3>Starter</h3>
                     <ul>
-                        <li>Visual direction session (2 hrs)</li>
+                        <li>Visual direction session</li>
                         <li>Core identity system</li>
                         <li>5 campaign assets</li>
-                        <li>Brand guidelines (PDF)</li>
                         <li>2 revision rounds</li>
                     </ul>
                 </div>
@@ -509,10 +140,9 @@
                     <h3>Pro</h3>
                     <ul>
                         <li>Everything in Starter</li>
-                        <li>Motion graphics package (3-5 pieces)</li>
+                        <li>Motion graphics (3-5 pieces)</li>
                         <li>Website visual system</li>
-                        <li>Social media kit (10 pieces)</li>
-                        <li>Content strategy guide</li>
+                        <li>Social media kit</li>
                         <li>3 revision rounds</li>
                     </ul>
                 </div>
@@ -522,68 +152,39 @@
                     <ul>
                         <li>Everything in Pro</li>
                         <li>3D animation & video</li>
-                        <li>Ongoing creative direction (monthly)</li>
-                        <li>Priority support channel</li>
-                        <li>Unlimited asset delivery</li>
-                        <li>White-label partnership option</li>
+                        <li>Ongoing creative direction</li>
+                        <li>Unlimited support</li>
                     </ul>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- SPRINT -->
     <section class="sprint" id="sprint">
         <div class="container">
             <div class="sprint-box">
                 <div class="sprint-badge">Start Here</div>
                 <div class="sprint-price">$400</div>
                 <h2>Creative Direction Sprint</h2>
-                <p>48-hour intensive. We audit your current visuals, define your direction, and deliver 3 campaign-ready assets. Every dollar becomes credit toward your chosen package.</p>
+                <p>48-hour intensive. We audit your visuals, define your direction, and deliver 3 campaign-ready assets. $400 credit toward any package.</p>
                 <div class="sprint-features">
-                    <div class="sprint-feature">
-                        <strong>48h</strong>
-                        <span>Kickoff → Delivery</span>
-                    </div>
-                    <div class="sprint-feature">
-                        <strong>3</strong>
-                        <span>Campaign Assets</span>
-                    </div>
-                    <div class="sprint-feature">
-                        <strong>$400</strong>
-                        <span>Full Credit Applied</span>
-                    </div>
+                    <div class="sprint-feature"><strong>48h</strong><span>From kickoff</span></div>
+                    <div class="sprint-feature"><strong>3</strong><span>Assets</span></div>
+                    <div class="sprint-feature"><strong>$400</strong><span>Full credit</span></div>
                 </div>
-                <a href="https://tally.so/r/wv9Vl8" class="cta-button">Book Your Sprint →</a>
-                <div class="urgency">
-                    <p>⚡ Only 4 sprints per month. February: 2 spots remaining.</p>
-                </div>
+                <a href="mailto:studio@ramiche.com" class="cta-button">Book Your Sprint →</a>
+                <div class="urgency"><p>⚡ Only 4 sprints per month. February: 2 spots remaining.</p></div>
             </div>
         </div>
     </section>
 
-    <!-- FOOTER -->
     <footer>
-        <div class="container">
-            <p>Visual Worlds That Move</p>
-            <div class="social">
-                <a href="https://instagram.com/ramiche">Instagram</a>
-                <a href="https://t.me/ramichemusic">Telegram</a>
-            </div>
-            <p class="copyright">© 2026 Ramiche Studio. Built with AI. Delivered with soul.</p>
+        <p>Visual Worlds That Move</p>
+        <div class="social">
+            <a href="https://instagram.com/ramiche">Instagram</a>
+            <a href="mailto:studio@ramiche.com">Email</a>
         </div>
+        <p style="color: #666; font-size: 0.9rem; font-weight: 400;">© 2026 Ramiche Studio</p>
     </footer>
-
-    <script>
-        // Smooth scroll
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
-            });
-        });
-    </script>
 </body>
 </html>
