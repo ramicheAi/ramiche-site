@@ -504,18 +504,111 @@ export default function CommandCenter() {
     fetchVerse();
   }, [fetchWeather, fetchVerse]);
 
-  /* ── weather emoji helper ── */
-  const weatherEmoji = (cond: string) => {
-    const c = cond.toLowerCase();
-    if (c.includes("sun") || c.includes("clear")) return "☀️";
-    if (c.includes("cloud") && c.includes("part")) return "⛅";
-    if (c.includes("cloud")) return "☁️";
-    if (c.includes("rain") || c.includes("shower")) return "🌧️";
-    if (c.includes("thunder") || c.includes("storm")) return "⛈️";
-    if (c.includes("snow")) return "❄️";
-    if (c.includes("fog") || c.includes("mist")) return "🌫️";
-    if (c.includes("wind")) return "💨";
-    return "🌤️";
+  /* ── 3D weather scene component ── */
+  const WeatherScene = ({ condition }: { condition: string }) => {
+    const c = condition.toLowerCase();
+    const isSunny = c.includes("sun") || c.includes("clear");
+    const isCloudy = c.includes("cloud");
+    const isRainy = c.includes("rain") || c.includes("shower");
+    const isStormy = c.includes("thunder") || c.includes("storm");
+
+    return (
+      <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex-shrink-0">
+        {/* Ambient glow */}
+        <div className="absolute inset-0 rounded-full"
+          style={{
+            background: isSunny
+              ? "radial-gradient(circle, rgba(245,158,11,0.25) 0%, rgba(245,158,11,0.05) 50%, transparent 70%)"
+              : isRainy || isStormy
+                ? "radial-gradient(circle, rgba(0,240,255,0.15) 0%, transparent 60%)"
+                : "radial-gradient(circle, rgba(168,85,247,0.12) 0%, transparent 60%)",
+          }}
+        />
+        {/* Sun orb */}
+        {(isSunny || (!isCloudy && !isRainy && !isStormy)) && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2">
+            <div className="w-14 h-14 rounded-full relative"
+              style={{
+                background: "radial-gradient(circle at 35% 35%, #fcd34d 0%, #f59e0b 40%, #d97706 80%)",
+                boxShadow: "0 0 40px rgba(245,158,11,0.5), 0 0 80px rgba(245,158,11,0.2), inset 0 0 20px rgba(255,255,255,0.2)",
+                animation: "float-gentle 4s ease-in-out infinite",
+              }}>
+              {/* Sun rays */}
+              {[0,45,90,135,180,225,270,315].map(deg => (
+                <div key={deg} className="absolute top-1/2 left-1/2 w-[3px] h-6 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{
+                    background: "linear-gradient(180deg, rgba(245,158,11,0.6), transparent)",
+                    transform: `translate(-50%, -50%) rotate(${deg}deg) translateY(-22px)`,
+                    animation: `float-gentle ${3 + (deg % 3)}s ease-in-out infinite`,
+                    animationDelay: `${deg * 10}ms`,
+                  }}
+                />
+              ))}
+              {/* Inner highlight */}
+              <div className="absolute top-2 left-3 w-4 h-3 rounded-full bg-white/20 blur-sm" />
+            </div>
+          </div>
+        )}
+        {/* Cloud layers */}
+        {(isCloudy || isRainy || isStormy) && (
+          <>
+            <div className="absolute top-3 left-2"
+              style={{
+                width: "80px", height: "40px",
+                borderRadius: "40px 40px 8px 8px",
+                background: isStormy
+                  ? "linear-gradient(180deg, rgba(100,100,130,0.9) 0%, rgba(60,60,80,0.8) 100%)"
+                  : "linear-gradient(180deg, rgba(180,180,200,0.6) 0%, rgba(140,140,160,0.4) 100%)",
+                boxShadow: isStormy
+                  ? "0 8px 30px rgba(0,0,0,0.4), inset 0 -4px 15px rgba(0,0,0,0.3)"
+                  : "0 8px 25px rgba(0,0,0,0.15), inset 0 -2px 10px rgba(255,255,255,0.1)",
+                animation: "float-gentle 5s ease-in-out infinite",
+              }}
+            />
+            <div className="absolute top-6 left-8"
+              style={{
+                width: "70px", height: "35px",
+                borderRadius: "35px 35px 6px 6px",
+                background: isStormy
+                  ? "linear-gradient(180deg, rgba(80,80,110,0.85) 0%, rgba(50,50,70,0.7) 100%)"
+                  : "linear-gradient(180deg, rgba(200,200,220,0.5) 0%, rgba(160,160,180,0.3) 100%)",
+                boxShadow: "0 6px 20px rgba(0,0,0,0.1)",
+                animation: "float-gentle 6s ease-in-out infinite",
+                animationDelay: "-1.5s",
+              }}
+            />
+          </>
+        )}
+        {/* Rain drops */}
+        {(isRainy || isStormy) && (
+          <div className="absolute bottom-0 left-4 right-4 top-14 overflow-hidden">
+            {Array.from({length: 12}).map((_, i) => (
+              <div key={i} className="absolute w-[2px] rounded-full"
+                style={{
+                  height: `${8 + Math.random() * 10}px`,
+                  left: `${5 + i * 8}%`,
+                  background: "linear-gradient(180deg, rgba(0,240,255,0.5), rgba(0,240,255,0.1))",
+                  animation: `rainDrop ${0.5 + Math.random() * 0.4}s linear infinite`,
+                  animationDelay: `${Math.random() * 0.5}s`,
+                  top: 0,
+                }}
+              />
+            ))}
+          </div>
+        )}
+        {/* Lightning flash for storms */}
+        {isStormy && (
+          <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[3px] h-12 pointer-events-none"
+            style={{
+              background: "linear-gradient(180deg, rgba(255,255,255,0.9), rgba(168,85,247,0.4), transparent)",
+              clipPath: "polygon(50% 0%, 70% 40%, 55% 40%, 80% 100%, 40% 55%, 55% 55%, 30% 0%)",
+              animation: "lightningFlash 4s ease-in-out infinite",
+              opacity: 0,
+            }}
+          />
+        )}
+      </div>
+    );
   };
 
   /* ── command handler ── */
@@ -812,12 +905,12 @@ export default function CommandCenter() {
                     style={{ boxShadow: "0 0 8px rgba(245,158,11,0.6)" }} />
                   <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#f59e0b] notif-ping" />
                 </div>
-                <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#f59e0b]/50 font-bold">
+                <span className="text-sm font-mono uppercase tracking-[0.35em] text-[#f59e0b]/50 font-bold">
                   NOTIFICATIONS
                 </span>
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(245,158,11,0.12), transparent)" }} />
-              <div className="text-[9px] font-mono text-white/25">
+              <div className="text-[11px] font-mono text-white/30">
                 {NOTIFICATIONS.length} ITEMS
               </div>
             </div>
@@ -842,7 +935,7 @@ export default function CommandCenter() {
                   >
                     {n.icon}
                   </div>
-                  <span className="text-[12px] font-mono text-white/60 group-hover:text-white/80 transition-colors leading-snug">
+                  <span className="text-sm font-mono text-white/65 group-hover:text-white/85 transition-colors leading-snug">
                     {n.text}
                   </span>
                 </div>
@@ -909,34 +1002,22 @@ export default function CommandCenter() {
               </div>
               {weather ? (
                 <>
-                  <div className="flex items-start gap-4 mb-5">
-                    {/* 3D-style weather icon */}
-                    <div className="relative flex-shrink-0">
-                      <div className="text-6xl sm:text-7xl leading-none"
-                        style={{
-                          filter: "drop-shadow(0 4px 15px rgba(0,240,255,0.3))",
-                          animation: "float-gentle 4s ease-in-out infinite",
-                        }}>
-                        {weatherEmoji(weather.condition)}
+                  <div className="flex items-start gap-3 mb-4">
+                    {/* 3D weather scene */}
+                    <WeatherScene condition={weather.condition} />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-6xl sm:text-7xl font-black neon-text-cyan leading-none">
+                        {weather.tempF}<span className="text-4xl align-top">&deg;</span>
                       </div>
-                      <div className="absolute -inset-3 rounded-full pointer-events-none"
-                        style={{ background: "radial-gradient(circle, rgba(0,240,255,0.08) 0%, transparent 70%)" }} />
-                    </div>
-                    <div>
-                      <div className="text-5xl sm:text-6xl font-black neon-text-cyan leading-none">
-                        {weather.tempF}<span className="text-3xl align-top">&deg;</span>
+                      <div className="text-sm font-mono text-[#00f0ff]/50 mt-1.5">
+                        Feels like {weather.feelsLike}&deg;F
                       </div>
-                      <div className="text-[11px] font-mono text-[#00f0ff]/40 mt-1">
-                        Feels {weather.feelsLike}&deg;F
+                      <div className="text-white/85 text-lg font-bold mt-2">{weather.condition}</div>
+                      <div className="text-sm font-mono text-white/40 mt-1.5 flex gap-4">
+                        <span>💧 {weather.humidity}%</span>
+                        <span>💨 {weather.wind}</span>
                       </div>
-                    </div>
-                    <div className="pt-1">
-                      <div className="text-white/80 text-base font-bold">{weather.condition}</div>
-                      <div className="text-[11px] font-mono text-white/35 mt-1.5 space-y-0.5">
-                        <div>💧 {weather.humidity}%</div>
-                        <div>💨 {weather.wind}</div>
-                      </div>
-                      <div className="text-[9px] font-mono text-[#00f0ff]/30 mt-2 uppercase tracking-[0.3em]">
+                      <div className="text-xs font-mono text-[#00f0ff]/30 mt-2 uppercase tracking-[0.3em]">
                         Boca Raton, FL
                       </div>
                     </div>
@@ -945,18 +1026,18 @@ export default function CommandCenter() {
                     {weather.forecast.map((d) => (
                       <div
                         key={d.day}
-                        className="game-panel-sm text-center py-2.5 px-2 transition-all hover:scale-[1.02]"
+                        className="game-panel-sm text-center py-3 px-2 transition-all hover:scale-[1.02]"
                         style={{
                           background: "rgba(0,240,255,0.03)",
                           border: "1px solid rgba(0,240,255,0.06)",
                         }}
                       >
-                        <div className="text-[9px] font-mono text-[#00f0ff]/40 uppercase">{d.day}</div>
-                        <div className="text-sm text-white/70 font-bold mt-1">
+                        <div className="text-xs font-mono text-[#00f0ff]/50 uppercase">{d.day}</div>
+                        <div className="text-base text-white/75 font-bold mt-1">
                           {d.high}&deg;
-                          <span className="text-white/25 text-xs">/{d.low}&deg;</span>
+                          <span className="text-white/30 text-sm">/{d.low}&deg;</span>
                         </div>
-                        <div className="text-[8px] text-white/20 font-mono mt-0.5 truncate">{d.cond}</div>
+                        <div className="text-[10px] text-white/25 font-mono mt-0.5 truncate">{d.cond}</div>
                       </div>
                     ))}
                   </div>
@@ -989,8 +1070,8 @@ export default function CommandCenter() {
                     className="flex items-center gap-3 group"
                   >
                     <div
-                      className="text-[10px] font-mono tabular-nums w-[56px] flex-shrink-0 text-right"
-                      style={{ color: `${s.accent}60` }}
+                      className="text-xs font-mono tabular-nums w-[64px] flex-shrink-0 text-right"
+                      style={{ color: `${s.accent}70` }}
                     >
                       {s.time}
                     </div>
@@ -1001,7 +1082,7 @@ export default function CommandCenter() {
                         boxShadow: `0 0 6px ${s.accent}50`,
                       }}
                     />
-                    <div className="text-[12px] text-white/60 font-mono group-hover:text-white/80 transition-colors truncate">
+                    <div className="text-sm text-white/65 font-mono group-hover:text-white/80 transition-colors truncate">
                       {s.event}
                     </div>
                   </div>
@@ -1013,11 +1094,11 @@ export default function CommandCenter() {
           {/* ═══════ ROW 2: AGENT NETWORK ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#00f0ff]/45 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/45 font-bold">
                 AGENT NETWORK
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[9px] font-mono text-white/25">
+              <div className="text-[11px] font-mono text-white/30">
                 {activeAgents} ACTIVE // {AGENTS.length} TOTAL
               </div>
             </div>
@@ -1054,11 +1135,11 @@ export default function CommandCenter() {
           {/* ═══════ ROW 3: ACTIVE MISSIONS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#00f0ff]/45 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/45 font-bold">
                 ACTIVE MISSIONS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[9px] font-mono text-white/25">
+              <div className="text-[11px] font-mono text-white/30">
                 {activeMissions} ACTIVE // {MISSIONS.length} TOTAL
               </div>
             </div>
@@ -1107,8 +1188,8 @@ export default function CommandCenter() {
                             }}
                           />
                           <div>
-                            <h3 className="text-sm font-bold text-white/90 leading-tight">{m.name}</h3>
-                            <p className="text-[10px] text-white/30 font-mono mt-0.5">{m.desc}</p>
+                            <h3 className="text-base font-bold text-white/90 leading-tight">{m.name}</h3>
+                            <p className="text-xs text-white/35 font-mono mt-0.5">{m.desc}</p>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -1207,7 +1288,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 4: HEALTH VITALS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#e879f9]/45 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#e879f9]/45 font-bold">
                 HEALTH VITALS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(232,121,249,0.12), transparent)" }} />
@@ -1263,7 +1344,7 @@ export default function CommandCenter() {
                     : "none",
                 }}
               >
-                <div className="text-[8px] font-mono uppercase tracking-[0.3em] mb-3 text-[#e879f9]/40">
+                <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3 text-[#e879f9]/40">
                   WORKOUT
                 </div>
                 <div
@@ -1323,7 +1404,7 @@ export default function CommandCenter() {
               {/* Revenue progress arc */}
               <div className="mt-5 pt-4 border-t border-[#f59e0b]/8">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[9px] font-mono text-white/25">TARGET PROGRESS</span>
+                  <span className="text-[11px] font-mono text-white/30">TARGET PROGRESS</span>
                   <span className="text-[9px] font-mono neon-text-gold">0%</span>
                 </div>
                 <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden xp-bar-segments">
@@ -1390,7 +1471,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 6: QUICK LINKS HUB ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/30 font-bold">
                 QUICK LINKS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
@@ -1439,7 +1520,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 7: ACTIVITY FEED ═══════ */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/30 font-bold">
                 ACTIVITY FEED
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
@@ -1470,11 +1551,11 @@ export default function CommandCenter() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[11px] text-white/50 leading-snug group-hover:text-white/70 transition-colors truncate">
+                      <div className="text-sm text-white/55 leading-snug group-hover:text-white/75 transition-colors truncate">
                         {l.text}
                       </div>
                     </div>
-                    <div className="text-[9px] font-mono text-white/25 flex-shrink-0 uppercase">
+                    <div className="text-[11px] font-mono text-white/30 flex-shrink-0 uppercase">
                       {l.time}
                     </div>
                   </div>
@@ -1486,7 +1567,7 @@ export default function CommandCenter() {
           {/* ═══════ COMMAND INPUT — Send commands/approvals ═══════ */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#00f0ff]/40 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/40 font-bold">
                 COMMAND LINE
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
@@ -1532,7 +1613,7 @@ export default function CommandCenter() {
                 <div className="border-t border-white/[0.04] px-4 py-3 space-y-2 max-h-40 overflow-y-auto">
                   {commandHistory.map((cmd, i) => (
                     <div key={i} className="flex items-center gap-3">
-                      <span className="text-[9px] font-mono text-white/25 w-16 flex-shrink-0">{cmd.time}</span>
+                      <span className="text-[11px] font-mono text-white/30 w-16 flex-shrink-0">{cmd.time}</span>
                       <span className="text-[#00f0ff]/40 font-mono text-xs">&gt;</span>
                       <span className="text-[11px] font-mono text-white/50 flex-1 truncate">{cmd.text}</span>
                       <span
@@ -1684,16 +1765,21 @@ function AgentCard({
               </span>
             </div>
           )}
-          {/* Idle message */}
+          {/* Idle / sleeping state */}
           {!isActive && (
-            <div className="text-[10px] text-white/15 font-mono mt-1.5 italic">
-              Standing by...
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className="text-xs text-white/20 font-mono italic">Sleeping</span>
+              <span className="flex gap-1">
+                <span className="text-xs" style={{ animation: "zFloat 2s ease-in-out infinite", opacity: 0.3 }}>z</span>
+                <span className="text-sm" style={{ animation: "zFloat 2s ease-in-out 0.4s infinite", opacity: 0.4 }}>z</span>
+                <span className="text-base" style={{ animation: "zFloat 2s ease-in-out 0.8s infinite", opacity: 0.5 }}>Z</span>
+              </span>
             </div>
           )}
           {/* Credit usage bar */}
           <div className="mt-3 flex items-center gap-2">
-            <div className="text-[8px] font-mono text-white/20 uppercase tracking-wider w-14">Credits</div>
-            <div className="flex-1 h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+            <div className="text-[10px] font-mono text-white/25 uppercase tracking-wider w-16">Credits</div>
+            <div className="flex-1 h-2 bg-white/[0.04] rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{
@@ -1703,11 +1789,11 @@ function AgentCard({
                     : creditPct > 50
                       ? "linear-gradient(90deg, #f59e0b80, #f59e0b)"
                       : `linear-gradient(90deg, ${agent.color}60, ${agent.color})`,
-                  boxShadow: `0 0 4px ${creditPct > 80 ? "#ef444440" : `${agent.color}30`}`,
+                  boxShadow: `0 0 6px ${creditPct > 80 ? "#ef444440" : `${agent.color}30`}`,
                 }}
               />
             </div>
-            <span className="text-[9px] font-mono tabular-nums" style={{ color: creditPct > 80 ? "#ef4444" : `${agent.color}60` }}>
+            <span className="text-xs font-mono tabular-nums font-bold" style={{ color: creditPct > 80 ? "#ef4444" : `${agent.color}70` }}>
               {agent.credits.used.toLocaleString()}/{(agent.credits.limit / 1000).toFixed(0)}k
             </span>
           </div>
@@ -1751,7 +1837,7 @@ function VitalCard({
       <div className="absolute top-0 left-0 w-6 h-[1px]" style={{ background: `${color}30` }} />
       <div className="absolute top-0 left-0 w-[1px] h-6" style={{ background: `${color}30` }} />
 
-      <div className="text-[8px] font-mono uppercase tracking-[0.3em] mb-3" style={{ color: `${color}40` }}>
+      <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3" style={{ color: `${color}40` }}>
         {label}
       </div>
       <div className="flex items-baseline gap-1.5 mb-3">

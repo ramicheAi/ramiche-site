@@ -162,6 +162,31 @@ a {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 1; }
 }
+/* ── sleeping z float animation ─────────────────── */
+@keyframes zFloat {
+  0% { transform: translateY(0) scale(0.8); opacity: 0; }
+  20% { opacity: 0.5; }
+  80% { opacity: 0.3; }
+  100% { transform: translateY(-18px) scale(1.2); opacity: 0; }
+}
+
+/* ── rain drop animation ─────────────────── */
+@keyframes rainDrop {
+  0% { transform: translateY(-10px); opacity: 0; }
+  10% { opacity: 0.7; }
+  90% { opacity: 0.5; }
+  100% { transform: translateY(60px); opacity: 0; }
+}
+
+/* ── lightning flash ─────────────────── */
+@keyframes lightningFlash {
+  0%, 90%, 100% { opacity: 0; }
+  92% { opacity: 1; }
+  94% { opacity: 0; }
+  96% { opacity: 0.7; }
+  98% { opacity: 0; }
+}
+
 /* credit bar pulse */
 @keyframes credit-pulse {
   0%, 100% { opacity: 0.6; }
