@@ -115,7 +115,7 @@ interface DailyXP { date: string; pool: number; weight: number; meet: number; }
 
 interface Athlete {
   id: string; name: string; age: number; gender: "M" | "F";
-  xp: number; streak: number; weightStreak: number;
+  xp: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
@@ -188,7 +188,7 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F" }): Athle
   return {
     id: r.name.toLowerCase().replace(/\s+/g, "-"),
     name: r.name, age: r.age, gender: r.gender,
-    xp: 0, streak: 0, weightStreak: 0,
+    xp: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "",
     totalPractices: 0, weekSessions: 0, weekWeightSessions: 0, weekTarget: 5,
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
     weightChallenges: {}, quests: {},
@@ -199,7 +199,7 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F" }): Athle
 // ── storage ──────────────────────────────────────────────────
 
 const K = {
-  ROSTER: "apex-athlete-roster-v3",
+  ROSTER: "apex-athlete-roster-v4",
   PIN: "apex-athlete-pin",
   AUDIT: "apex-athlete-audit-v2",
   CHALLENGES: "apex-athlete-challenges-v2",
@@ -269,10 +269,26 @@ export default function ApexAthletePage() {
     let r = load<Athlete[]>(K.ROSTER, []);
     if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
     r = r.map(a => {
-      if (!a.dailyXP) return { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
-      if (a.dailyXP.date !== today()) return { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
+      // Ensure new fields exist for legacy data
+      if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
+      if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
+      // Reset daily XP if new day
+      if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
+      else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
+      // Auto-break streaks if last check-in was more than 1 day ago
+      if (a.lastStreakDate && a.streak > 0) {
+        const last = new Date(a.lastStreakDate); const now = new Date(today());
+        const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
+        if (diffDays > 1) a = { ...a, streak: 0 };
+      }
+      if (a.lastWeightStreakDate && a.weightStreak > 0) {
+        const last = new Date(a.lastWeightStreakDate); const now = new Date(today());
+        const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
+        if (diffDays > 1) a = { ...a, weightStreak: 0 };
+      }
       return a;
     });
+    save(K.ROSTER, r);
     setRoster(r);
     setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
     setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
@@ -372,7 +388,14 @@ export default function ApexAthletePage() {
       }
       cps[cpId] = true; a[cpMap] = cps;
       const { newAthlete, awarded } = awardXP(a, cpXP, category);
-      const final = { ...newAthlete, [cpMap]: cps };
+      let final = { ...newAthlete, [cpMap]: cps };
+      // Increment streak once per day on Practice Complete (pool) or Showed Up (weight)
+      if (category === "pool" && cpId === "practice-complete" && final.lastStreakDate !== today()) {
+        final = { ...final, streak: final.streak + 1, lastStreakDate: today(), totalPractices: final.totalPractices + 1, weekSessions: final.weekSessions + 1 };
+      }
+      if (category === "weight" && cpId === "showed-up" && final.lastWeightStreakDate !== today()) {
+        final = { ...final, weightStreak: final.weightStreak + 1, lastWeightStreakDate: today(), weekWeightSessions: final.weekWeightSessions + 1 };
+      }
       addAudit(final.id, final.name, `Checked: ${cpId}`, awarded);
       if (e) spawnXpFloat(awarded, e);
       const r = [...prev]; r[idx] = final; save(K.ROSTER, r); return r;
@@ -444,7 +467,8 @@ export default function ApexAthletePage() {
         const cp = { ...a.checkpoints, "on-time-ready": true };
         const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp }, 10, "pool");
         addAudit(newAthlete.id, newAthlete.name, "Bulk: On Time + Ready", awarded);
-        return { ...newAthlete, checkpoints: cp, totalPractices: a.totalPractices + 1, weekSessions: a.weekSessions + 1, streak: a.streak + 1 };
+        const streakAlreadyCounted = a.lastStreakDate === today();
+        return { ...newAthlete, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
       });
       save(K.ROSTER, r); return r;
     });
@@ -481,7 +505,7 @@ export default function ApexAthletePage() {
   }, [roster, saveRoster]);
 
   const resetMonth = useCallback(() => {
-    saveRoster(roster.map(a => ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster]);
 
   const addAthleteAction = useCallback(() => {
