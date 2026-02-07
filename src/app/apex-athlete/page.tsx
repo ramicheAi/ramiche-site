@@ -70,6 +70,8 @@ const POOL_CPS = [
   { id: "asked-question", name: "Asked a Question", xp: 10, desc: "Engaged with coaching" },
   { id: "positive-attitude", name: "Positive Attitude", xp: 10, desc: "Upbeat energy, no complaints" },
   { id: "cool-down-complete", name: "Cool Down Complete", xp: 5, desc: "Proper cool-down finished" },
+  { id: "lane-lines", name: "Help with Lane Lines", xp: 15, desc: "Helped set up or switch lane lines (LC ↔ SC)" },
+  { id: "no-skipped-reps", name: "No Skipped Reps", xp: 10, desc: "Completed every single rep — zero shortcuts" },
 ];
 
 const WEIGHT_CPS = [
@@ -1353,20 +1355,27 @@ export default function ApexAthletePage() {
               </div>
             )}
 
-            {/* Full ranked list */}
+            {/* Full ranked list — all athletes 1-N */}
+            <div className="flex items-center justify-between mb-4 mt-2">
+              <h3 className="text-white/30 text-[11px] uppercase tracking-[0.2em] font-bold">Full Rankings</h3>
+              <span className="text-white/15 text-[10px]">{sorted.length} athletes</span>
+            </div>
             <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/[0.06] rounded-3xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
-              {sorted.slice(3).map((a, i) => {
+              {sorted.map((a, i) => {
                 const lv = getLevel(a.xp);
                 const sk = fmtStreak(a.streak);
-                const rank = i + 4;
+                const rank = i + 1;
+                const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
                 return (
-                  <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${i < sorted.length - 4 ? "border-b border-white/[0.03]" : ""}`}>
-                    <span className="w-8 text-center text-sm font-black text-white/10 group-hover:text-white/25 transition-colors">{rank}</span>
+                  <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${rank <= 3 ? "bg-white/[0.02]" : ""} ${i < sorted.length - 1 ? "border-b border-white/[0.03]" : ""}`}>
+                    <span className={`w-8 text-center text-sm font-black transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-white/10 group-hover:text-white/25"}`}>
+                      {medalEmoji || rank}
+                    </span>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white/70 shrink-0 transition-all duration-200 group-hover:scale-110"
-                      style={{ background: `radial-gradient(circle, ${lv.color}20, ${lv.color}08)`, border: `2px solid ${lv.color}30`, boxShadow: `0 0 12px ${lv.color}10` }}>
+                      style={{ background: `radial-gradient(circle, ${lv.color}20, ${lv.color}08)`, border: `2px solid ${lv.color}${rank <= 3 ? "60" : "30"}`, boxShadow: `0 0 12px ${lv.color}${rank <= 3 ? "20" : "10"}` }}>
                       {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
-                    <span className="text-white/80 text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors">{a.name}</span>
+                    <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
                     <span className="text-[10px] font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
                     {a.streak > 0 && <span className="text-white/20 text-[10px] hidden sm:inline font-bold">🔥 {a.streak}d</span>}
                     <span className="text-[#f59e0b] text-sm font-black w-16 text-right drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
