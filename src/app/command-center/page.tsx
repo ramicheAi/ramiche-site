@@ -13,27 +13,35 @@ import Link from "next/link";
 const AGENTS = [
   {
     name: "Atlas", model: "Opus 4.6", role: "Lead Strategist",
-    status: "active" as const, color: "#00f0ff", icon: "A",
+    status: "active" as const, color: "#00f0ff", icon: "🧭",
     desc: "Orchestrates all agent actions, system-wide reasoning, mission planning",
     connections: [1, 2, 3],
+    credits: { used: 847, limit: 5000 },
+    activeTask: "Multi-roster expansion + Command Center v5",
   },
   {
     name: "Builder", model: "Sonnet 4.5", role: "Code & Ship",
-    status: "active" as const, color: "#a855f7", icon: "B",
+    status: "active" as const, color: "#a855f7", icon: "⚡",
     desc: "Full-stack engineering, rapid prototyping, deployment pipelines",
     connections: [0, 2],
+    credits: { used: 312, limit: 5000 },
+    activeTask: "Apex Athlete UI polish",
   },
   {
     name: "Scout", model: "Haiku 4.5", role: "Research & Scan",
-    status: "idle" as const, color: "#f59e0b", icon: "S",
+    status: "idle" as const, color: "#f59e0b", icon: "🔍",
     desc: "Real-time intelligence gathering, data synthesis, trend detection",
     connections: [0, 3],
+    credits: { used: 45, limit: 5000 },
+    activeTask: null,
   },
   {
     name: "Voice", model: "ChatGPT 4o", role: "Audio & TTS",
-    status: "idle" as const, color: "#e879f9", icon: "V",
+    status: "idle" as const, color: "#e879f9", icon: "🎙",
     desc: "Voice synthesis, audio content generation, natural language interface",
     connections: [0],
+    credits: { used: 0, limit: 5000 },
+    activeTask: null,
   },
 ];
 
@@ -207,8 +215,11 @@ export default function CommandCenter() {
   const [dateStr, setDateStr] = useState("");
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const [hoveredAgent, setHoveredAgent] = useState<number | null>(null);
+  const [commandInput, setCommandInput] = useState("");
+  const [commandHistory, setCommandHistory] = useState<{text: string; time: string; status: "sent"|"done"}[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentNetRef = useRef<HTMLCanvasElement>(null);
+  const cmdInputRef = useRef<HTMLInputElement>(null);
 
   /* ── live clock ── */
   useEffect(() => {
@@ -492,6 +503,29 @@ export default function CommandCenter() {
     fetchWeather();
     fetchVerse();
   }, [fetchWeather, fetchVerse]);
+
+  /* ── weather emoji helper ── */
+  const weatherEmoji = (cond: string) => {
+    const c = cond.toLowerCase();
+    if (c.includes("sun") || c.includes("clear")) return "☀️";
+    if (c.includes("cloud") && c.includes("part")) return "⛅";
+    if (c.includes("cloud")) return "☁️";
+    if (c.includes("rain") || c.includes("shower")) return "🌧️";
+    if (c.includes("thunder") || c.includes("storm")) return "⛈️";
+    if (c.includes("snow")) return "❄️";
+    if (c.includes("fog") || c.includes("mist")) return "🌫️";
+    if (c.includes("wind")) return "💨";
+    return "🌤️";
+  };
+
+  /* ── command handler ── */
+  const sendCommand = () => {
+    if (!commandInput.trim()) return;
+    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    setCommandHistory(prev => [{ text: commandInput, time: now, status: "sent" as const }, ...prev].slice(0, 10));
+    setCommandInput("");
+    cmdInputRef.current?.focus();
+  };
 
   if (!mounted) return null;
 
@@ -778,12 +812,12 @@ export default function CommandCenter() {
                     style={{ boxShadow: "0 0 8px rgba(245,158,11,0.6)" }} />
                   <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#f59e0b] notif-ping" />
                 </div>
-                <span className="text-[8px] font-mono uppercase tracking-[0.5em] text-[#f59e0b]/40">
+                <span className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#f59e0b]/50 font-bold">
                   NOTIFICATIONS
                 </span>
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(245,158,11,0.12), transparent)" }} />
-              <div className="text-[8px] font-mono text-white/15">
+              <div className="text-[9px] font-mono text-white/25">
                 {NOTIFICATIONS.length} ITEMS
               </div>
             </div>
@@ -808,7 +842,7 @@ export default function CommandCenter() {
                   >
                     {n.icon}
                   </div>
-                  <span className="text-[11px] font-mono text-white/50 group-hover:text-white/70 transition-colors leading-snug">
+                  <span className="text-[12px] font-mono text-white/60 group-hover:text-white/80 transition-colors leading-snug">
                     {n.text}
                   </span>
                 </div>
@@ -826,7 +860,7 @@ export default function CommandCenter() {
                 background: "linear-gradient(145deg, rgba(245,158,11,0.04) 0%, rgba(6,2,15,0.97) 40%, rgba(6,2,15,0.99) 100%)",
               }}
             >
-              <div className="absolute top-3 right-4 text-[8px] font-mono text-[#f59e0b]/25 tracking-[0.3em] uppercase">
+              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b]/40 tracking-[0.3em] uppercase font-bold">
                 DAILY WORD
               </div>
               <div className="absolute top-3 left-4">
@@ -870,27 +904,39 @@ export default function CommandCenter() {
                 background: "linear-gradient(145deg, rgba(0,240,255,0.04) 0%, rgba(6,2,15,0.97) 40%, rgba(6,2,15,0.99) 100%)",
               }}
             >
-              <div className="absolute top-3 right-4 text-[8px] font-mono text-[#00f0ff]/25 tracking-[0.3em] uppercase">
+              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#00f0ff]/40 tracking-[0.3em] uppercase font-bold">
                 ATMOSPHERE
               </div>
               {weather ? (
                 <>
-                  <div className="flex items-start gap-5 mb-5">
+                  <div className="flex items-start gap-4 mb-5">
+                    {/* 3D-style weather icon */}
+                    <div className="relative flex-shrink-0">
+                      <div className="text-6xl sm:text-7xl leading-none"
+                        style={{
+                          filter: "drop-shadow(0 4px 15px rgba(0,240,255,0.3))",
+                          animation: "float-gentle 4s ease-in-out infinite",
+                        }}>
+                        {weatherEmoji(weather.condition)}
+                      </div>
+                      <div className="absolute -inset-3 rounded-full pointer-events-none"
+                        style={{ background: "radial-gradient(circle, rgba(0,240,255,0.08) 0%, transparent 70%)" }} />
+                    </div>
                     <div>
                       <div className="text-5xl sm:text-6xl font-black neon-text-cyan leading-none">
                         {weather.tempF}<span className="text-3xl align-top">&deg;</span>
                       </div>
-                      <div className="text-[9px] font-mono text-[#00f0ff]/30 mt-1">
+                      <div className="text-[11px] font-mono text-[#00f0ff]/40 mt-1">
                         Feels {weather.feelsLike}&deg;F
                       </div>
                     </div>
                     <div className="pt-1">
-                      <div className="text-white/70 text-sm font-medium">{weather.condition}</div>
-                      <div className="text-[10px] font-mono text-white/25 mt-1.5 space-y-0.5">
-                        <div>{weather.humidity}% humidity</div>
-                        <div>Wind {weather.wind}</div>
+                      <div className="text-white/80 text-base font-bold">{weather.condition}</div>
+                      <div className="text-[11px] font-mono text-white/35 mt-1.5 space-y-0.5">
+                        <div>💧 {weather.humidity}%</div>
+                        <div>💨 {weather.wind}</div>
                       </div>
-                      <div className="text-[8px] font-mono text-[#00f0ff]/20 mt-2 uppercase tracking-[0.3em]">
+                      <div className="text-[9px] font-mono text-[#00f0ff]/30 mt-2 uppercase tracking-[0.3em]">
                         Boca Raton, FL
                       </div>
                     </div>
@@ -930,7 +976,7 @@ export default function CommandCenter() {
                 background: "linear-gradient(145deg, rgba(168,85,247,0.04) 0%, rgba(6,2,15,0.97) 40%, rgba(6,2,15,0.99) 100%)",
               }}
             >
-              <div className="absolute top-3 right-4 text-[8px] font-mono text-[#a855f7]/25 tracking-[0.3em] uppercase">
+              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#a855f7]/40 tracking-[0.3em] uppercase font-bold">
                 SCHEDULE
               </div>
               <div className="absolute top-3 left-4">
@@ -955,7 +1001,7 @@ export default function CommandCenter() {
                         boxShadow: `0 0 6px ${s.accent}50`,
                       }}
                     />
-                    <div className="text-[11px] text-white/50 font-mono group-hover:text-white/70 transition-colors truncate">
+                    <div className="text-[12px] text-white/60 font-mono group-hover:text-white/80 transition-colors truncate">
                       {s.event}
                     </div>
                   </div>
@@ -967,11 +1013,11 @@ export default function CommandCenter() {
           {/* ═══════ ROW 2: AGENT NETWORK ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[8px] font-mono uppercase tracking-[0.5em] text-[#00f0ff]/25">
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#00f0ff]/45 font-bold">
                 AGENT NETWORK
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[8px] font-mono text-white/15">
+              <div className="text-[9px] font-mono text-white/25">
                 {activeAgents} ACTIVE // {AGENTS.length} TOTAL
               </div>
             </div>
@@ -1008,11 +1054,11 @@ export default function CommandCenter() {
           {/* ═══════ ROW 3: ACTIVE MISSIONS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[8px] font-mono uppercase tracking-[0.5em] text-[#00f0ff]/25">
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#00f0ff]/45 font-bold">
                 ACTIVE MISSIONS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[8px] font-mono text-white/15">
+              <div className="text-[9px] font-mono text-white/25">
                 {activeMissions} ACTIVE // {MISSIONS.length} TOTAL
               </div>
             </div>
@@ -1161,7 +1207,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 4: HEALTH VITALS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[8px] font-mono uppercase tracking-[0.5em] text-[#e879f9]/25">
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#e879f9]/45 font-bold">
                 HEALTH VITALS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(232,121,249,0.12), transparent)" }} />
@@ -1255,7 +1301,7 @@ export default function CommandCenter() {
                 background: "linear-gradient(145deg, rgba(245,158,11,0.04) 0%, rgba(6,2,15,0.98) 100%)",
               }}
             >
-              <div className="absolute top-3 right-4 text-[8px] font-mono text-[#f59e0b]/25 tracking-[0.3em] uppercase">
+              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b]/40 tracking-[0.3em] uppercase font-bold">
                 REVENUE
               </div>
               <div className="space-y-5 mt-1">
@@ -1277,7 +1323,7 @@ export default function CommandCenter() {
               {/* Revenue progress arc */}
               <div className="mt-5 pt-4 border-t border-[#f59e0b]/8">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[8px] font-mono text-white/15">TARGET PROGRESS</span>
+                  <span className="text-[9px] font-mono text-white/25">TARGET PROGRESS</span>
                   <span className="text-[9px] font-mono neon-text-gold">0%</span>
                 </div>
                 <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden xp-bar-segments">
@@ -1344,7 +1390,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 6: QUICK LINKS HUB ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[8px] font-mono uppercase tracking-[0.5em] text-white/15">
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 font-bold">
                 QUICK LINKS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
@@ -1393,7 +1439,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 7: ACTIVITY FEED ═══════ */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-[8px] font-mono uppercase tracking-[0.5em] text-white/15">
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/30 font-bold">
                 ACTIVITY FEED
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
@@ -1428,7 +1474,7 @@ export default function CommandCenter() {
                         {l.text}
                       </div>
                     </div>
-                    <div className="text-[8px] font-mono text-white/15 flex-shrink-0 uppercase">
+                    <div className="text-[9px] font-mono text-white/25 flex-shrink-0 uppercase">
                       {l.time}
                     </div>
                   </div>
@@ -1437,10 +1483,78 @@ export default function CommandCenter() {
             </div>
           </div>
 
+          {/* ═══════ COMMAND INPUT — Send commands/approvals ═══════ */}
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#00f0ff]/40 font-bold">
+                COMMAND LINE
+              </div>
+              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
+              <div className="text-[9px] font-mono text-white/20">
+                Send instructions to Atlas
+              </div>
+            </div>
+
+            <div
+              className="game-panel game-panel-scan relative"
+              style={{
+                background: "linear-gradient(145deg, rgba(0,240,255,0.03) 0%, rgba(3,1,8,0.99) 100%)",
+                border: "1px solid rgba(0,240,255,0.12)",
+              }}
+            >
+              {/* Input row */}
+              <div className="flex items-center gap-3 p-4">
+                <span className="text-[#00f0ff]/60 font-mono text-sm font-bold">&gt;</span>
+                <input
+                  ref={cmdInputRef}
+                  type="text"
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && sendCommand()}
+                  placeholder="Type a command, approval, or instruction..."
+                  className="flex-1 bg-transparent text-white/80 text-sm font-mono outline-none placeholder:text-white/15"
+                />
+                <button
+                  onClick={sendCommand}
+                  className="game-btn px-5 py-2 text-[10px] font-mono uppercase tracking-wider transition-all hover:scale-[1.03]"
+                  style={{
+                    background: commandInput.trim() ? "rgba(0,240,255,0.15)" : "rgba(0,240,255,0.05)",
+                    color: commandInput.trim() ? "#00f0ff" : "rgba(0,240,255,0.3)",
+                    border: `1px solid ${commandInput.trim() ? "rgba(0,240,255,0.3)" : "rgba(0,240,255,0.08)"}`,
+                  }}
+                >
+                  SEND
+                </button>
+              </div>
+
+              {/* Command history */}
+              {commandHistory.length > 0 && (
+                <div className="border-t border-white/[0.04] px-4 py-3 space-y-2 max-h-40 overflow-y-auto">
+                  {commandHistory.map((cmd, i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <span className="text-[9px] font-mono text-white/25 w-16 flex-shrink-0">{cmd.time}</span>
+                      <span className="text-[#00f0ff]/40 font-mono text-xs">&gt;</span>
+                      <span className="text-[11px] font-mono text-white/50 flex-1 truncate">{cmd.text}</span>
+                      <span
+                        className="text-[7px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded"
+                        style={{
+                          color: cmd.status === "done" ? "#00ff88" : "#f59e0b",
+                          background: cmd.status === "done" ? "rgba(0,255,136,0.08)" : "rgba(245,158,11,0.08)",
+                        }}
+                      >
+                        {cmd.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* ═══════ FOOTER ═══════ */}
           <footer className="text-center py-8 border-t border-white/[0.03]">
-            <div className="text-[8px] font-mono text-white/8 tracking-[0.5em] uppercase">
-              COMMAND CENTER v4 // RAMICHE OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
+            <div className="text-[9px] font-mono text-white/10 tracking-[0.4em] uppercase">
+              COMMAND CENTER v5 // RAMICHE OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
             </div>
           </footer>
 
@@ -1454,7 +1568,7 @@ export default function CommandCenter() {
    SUB-COMPONENTS
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── Agent Card ── */
+/* ── Agent Card — animated, with credits + working state ── */
 function AgentCard({
   agent,
   index,
@@ -1468,90 +1582,135 @@ function AgentCard({
 }) {
   const isActive = agent.status === "active";
   const isHovered = hovered === index;
+  const creditPct = Math.round((agent.credits.used / agent.credits.limit) * 100);
 
   return (
     <div
-      className={`game-panel game-panel-scan relative p-4 transition-all duration-300 cursor-pointer ${
-        isHovered ? "scale-[1.02]" : ""
+      className={`game-panel game-panel-scan relative p-5 transition-all duration-300 cursor-pointer ${
+        isHovered ? "scale-[1.03]" : ""
       }`}
       onMouseEnter={() => onHover(index)}
       onMouseLeave={() => onHover(null)}
       style={{
-        background: `linear-gradient(145deg, ${agent.color}${isHovered ? "0a" : "05"} 0%, rgba(3,1,8,0.98) 100%)`,
-        border: `1px solid ${agent.color}${isHovered ? "30" : "12"}`,
+        background: `linear-gradient(145deg, ${agent.color}${isHovered ? "0c" : "06"} 0%, rgba(3,1,8,0.97) 100%)`,
+        border: `1px solid ${agent.color}${isHovered ? "35" : "15"}`,
         boxShadow: isHovered
-          ? `0 0 30px ${agent.color}15, inset 0 0 20px ${agent.color}05`
+          ? `0 0 40px ${agent.color}18, inset 0 0 25px ${agent.color}06`
           : isActive
-            ? `0 0 15px ${agent.color}08`
+            ? `0 0 20px ${agent.color}0a`
             : "none",
       }}
     >
-      <div className="flex items-center gap-3">
-        {/* Agent avatar */}
+      <div className="flex items-start gap-4">
+        {/* Agent avatar with working animation */}
         <div className="relative flex-shrink-0">
           <div
-            className="w-11 h-11 rounded-lg flex items-center justify-center text-lg font-black transition-all duration-300"
+            className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-all duration-300"
             style={{
-              background: `linear-gradient(135deg, ${agent.color}15 0%, ${agent.color}05 100%)`,
-              border: `1px solid ${agent.color}25`,
-              color: agent.color,
-              textShadow: `0 0 15px ${agent.color}50`,
-              boxShadow: isActive ? `0 0 15px ${agent.color}20, inset 0 0 10px ${agent.color}08` : "none",
+              background: `linear-gradient(135deg, ${agent.color}18 0%, ${agent.color}06 100%)`,
+              border: `1px solid ${agent.color}30`,
+              boxShadow: isActive
+                ? `0 0 20px ${agent.color}25, inset 0 0 15px ${agent.color}0a`
+                : "none",
             }}
           >
             {agent.icon}
           </div>
+          {/* Animated working ring for active agents */}
+          {isActive && (
+            <>
+              <div
+                className="absolute inset-[-4px] rounded-xl pointer-events-none"
+                style={{
+                  border: `1px solid ${agent.color}20`,
+                  animation: "agent-work-ring 2.5s ease-out infinite",
+                }}
+              />
+              {/* Orbiting data dot */}
+              <div className="absolute inset-0 pointer-events-none" style={{ animation: "agent-orbit 6s linear infinite" }}>
+                <div className="w-1.5 h-1.5 rounded-full" style={{ background: agent.color, boxShadow: `0 0 6px ${agent.color}` }} />
+              </div>
+            </>
+          )}
           {/* Status indicator */}
           <div
-            className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#030108] ${
+            className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#030108] ${
               isActive ? "animate-pulse" : ""
             }`}
             style={{
-              background: isActive ? "#00ff88" : "rgba(255,255,255,0.1)",
-              boxShadow: isActive ? "0 0 8px rgba(0,255,136,0.6)" : "none",
+              background: isActive ? "#00ff88" : "rgba(255,255,255,0.15)",
+              boxShadow: isActive ? "0 0 10px rgba(0,255,136,0.7)" : "none",
             }}
           />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-white/90">{agent.name}</span>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base font-bold text-white/95">{agent.name}</span>
             <span
-              className="text-[7px] font-mono px-1.5 py-0.5 rounded"
+              className="text-[8px] font-mono px-2 py-0.5 rounded"
               style={{
                 color: agent.color,
-                background: `${agent.color}0a`,
-                border: `1px solid ${agent.color}15`,
+                background: `${agent.color}0c`,
+                border: `1px solid ${agent.color}18`,
               }}
             >
               {agent.model}
             </span>
+            <span
+              className="text-[8px] font-mono uppercase tracking-wider px-2 py-0.5 rounded ml-auto"
+              style={{
+                color: isActive ? "#00ff88" : "rgba(255,255,255,0.25)",
+                background: isActive ? "rgba(0,255,136,0.08)" : "rgba(255,255,255,0.03)",
+                border: `1px solid ${isActive ? "rgba(0,255,136,0.18)" : "rgba(255,255,255,0.05)"}`,
+              }}
+            >
+              {agent.status}
+            </span>
           </div>
-          <div className="text-[10px] font-mono mt-0.5" style={{ color: `${agent.color}50` }}>
+          <div className="text-[11px] font-mono" style={{ color: `${agent.color}60` }}>
             {agent.role}
           </div>
-          {/* Description on hover */}
-          <div
-            className="overflow-hidden transition-all duration-300"
-            style={{
-              maxHeight: isHovered ? "40px" : "0px",
-              opacity: isHovered ? 1 : 0,
-            }}
-          >
-            <div className="text-[9px] text-white/25 font-mono mt-1 leading-relaxed">
-              {agent.desc}
+          {/* Active task with typing animation */}
+          {isActive && agent.activeTask && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[10px] text-white/30 font-mono">Working:</span>
+              <span className="text-[10px] font-mono truncate" style={{ color: `${agent.color}70` }}>
+                {agent.activeTask}
+              </span>
+              <span className="flex gap-0.5 ml-1">
+                <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0s infinite" }} />
+                <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0.2s infinite" }} />
+                <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
+              </span>
             </div>
+          )}
+          {/* Idle message */}
+          {!isActive && (
+            <div className="text-[10px] text-white/15 font-mono mt-1.5 italic">
+              Standing by...
+            </div>
+          )}
+          {/* Credit usage bar */}
+          <div className="mt-3 flex items-center gap-2">
+            <div className="text-[8px] font-mono text-white/20 uppercase tracking-wider w-14">Credits</div>
+            <div className="flex-1 h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${creditPct}%`,
+                  background: creditPct > 80
+                    ? "linear-gradient(90deg, #ef444480, #ef4444)"
+                    : creditPct > 50
+                      ? "linear-gradient(90deg, #f59e0b80, #f59e0b)"
+                      : `linear-gradient(90deg, ${agent.color}60, ${agent.color})`,
+                  boxShadow: `0 0 4px ${creditPct > 80 ? "#ef444440" : `${agent.color}30`}`,
+                }}
+              />
+            </div>
+            <span className="text-[9px] font-mono tabular-nums" style={{ color: creditPct > 80 ? "#ef4444" : `${agent.color}60` }}>
+              {agent.credits.used.toLocaleString()}/{(agent.credits.limit / 1000).toFixed(0)}k
+            </span>
           </div>
-        </div>
-        {/* Status badge */}
-        <div
-          className="text-[7px] font-mono uppercase tracking-wider px-2 py-1 game-panel-sm flex-shrink-0"
-          style={{
-            color: isActive ? "#00ff88" : "rgba(255,255,255,0.2)",
-            background: isActive ? "rgba(0,255,136,0.06)" : "rgba(255,255,255,0.02)",
-            border: `1px solid ${isActive ? "rgba(0,255,136,0.15)" : "rgba(255,255,255,0.04)"}`,
-          }}
-        >
-          {agent.status}
         </div>
       </div>
     </div>
