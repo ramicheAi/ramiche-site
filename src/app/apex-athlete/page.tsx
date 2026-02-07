@@ -267,6 +267,14 @@ export default function ApexAthletePage() {
     const pin = load<string>(K.PIN, "");
     if (!pin) { setCoachPin("1234"); save(K.PIN, "1234"); } else { setCoachPin(pin); }
     let r = load<Athlete[]>(K.ROSTER, []);
+    // Migrate from older roster versions if current is empty
+    if (r.length === 0) {
+      const oldKeys = ["apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
+      for (const ok of oldKeys) {
+        const old = load<Athlete[]>(ok, []);
+        if (old.length > 0) { r = old; save(K.ROSTER, r); break; }
+      }
+    }
     if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
     r = r.map(a => {
       // Ensure new fields exist for legacy data
