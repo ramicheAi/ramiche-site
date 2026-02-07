@@ -529,9 +529,9 @@ export default function ApexAthletePage() {
      RENDER
      ════════════════════════════════════════════════════════════ */
 
-  // ── reusable card component ───────────────────────────────
-  const Card = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-    <div className={`bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_4px_24px_rgba(0,0,0,0.25)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_32px_rgba(107,33,168,0.12)] hover:-translate-y-[1px] transition-all duration-200 ${className}`}>{children}</div>
+  // ── reusable card component — sci-fi game panel ─────────────
+  const Card = ({ children, className = "", glow = false, neon = false }: { children: React.ReactNode; className?: string; glow?: boolean; neon?: boolean }) => (
+    <div className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
   );
 
   // ── floating XP numbers ──────────────────────────────────
@@ -575,21 +575,29 @@ export default function ApexAthletePage() {
   };
 
   // ── loading ──────────────────────────────────────────────
-  // ── ambient background orbs ─────────────────────────────
+  // ── ambient background — sci-fi nebula + star field ─────
   const BgOrbs = () => (
     <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-      <div className="absolute -top-[20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] rounded-full bg-[radial-gradient(ellipse,rgba(107,33,168,0.15)_0%,transparent_70%)]" />
-      <div className="absolute bottom-[-10%] right-[-5%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.06)_0%,transparent_70%)]" />
-      <div className="absolute top-[40%] left-[-10%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(107,33,168,0.05)_0%,transparent_70%)]" />
+      {/* Deep space base */}
+      <div className="absolute inset-0 bg-[#06020f]" />
+      {/* Data grid overlay */}
+      <div className="absolute inset-0 data-grid-bg opacity-30" />
+      {/* Nebula layers */}
+      <div className="nebula-1 absolute -top-[20%] left-[20%] w-[900px] h-[900px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.08)_0%,rgba(107,33,168,0.12)_30%,transparent_60%)]" />
+      <div className="nebula-2 absolute bottom-[-10%] right-[-5%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.1)_0%,rgba(0,240,255,0.04)_40%,transparent_60%)]" />
+      <div className="nebula-3 absolute top-[40%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(232,121,249,0.06)_0%,transparent_55%)]" />
+      <div className="nebula-drift absolute top-[15%] right-[10%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.05)_0%,transparent_55%)]" />
+      {/* Scan line */}
+      <div className="scan-line absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f0ff]/20 to-transparent" />
     </div>
   );
 
   if (!mounted) return (
-    <div className="min-h-screen bg-[#0c0618] flex items-center justify-center relative">
+    <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative">
       <BgOrbs />
       <div className="text-center relative z-10">
         <div className="text-3xl mb-2">🏊</div>
-        <div className="text-white/40 text-sm">Loading...</div>
+        <div className="neon-text-cyan text-sm font-mono tracking-wider opacity-60">INITIALIZING...</div>
       </div>
     </div>
   );
@@ -600,35 +608,39 @@ export default function ApexAthletePage() {
 
   if (!unlocked && view === "coach") {
     return (
-      <div className="min-h-screen bg-[#0c0618] flex items-center justify-center p-6 relative overflow-hidden">
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="mesh-orb-1 absolute top-[20%] left-[30%] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(107,33,168,0.2)_0%,transparent_60%)]" />
-          <div className="mesh-orb-2 absolute bottom-[10%] right-[20%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_60%)]" />
-        </div>
+      <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
+        <BgOrbs />
         <div className="text-center max-w-xs w-full relative z-10">
-          <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(107,33,168,0.5)]">🏊</div>
-          <div className="text-[#a855f7]/40 text-[10px] tracking-[0.5em] uppercase mb-2 font-bold">Swim Training System</div>
-          <h1 className="text-4xl font-black mb-10 tracking-tighter bg-gradient-to-r from-[#c084fc] via-[#e879f9] to-[#f59e0b] bg-clip-text text-transparent animated-gradient-text drop-shadow-[0_0_30px_rgba(168,85,247,0.3)]">Apex Athlete</h1>
+          {/* HUD access terminal */}
+          <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
+            <div className="hud-corner-tl hud-corner-br absolute inset-0 pointer-events-none" />
+            <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]">🏊</div>
+            <div className="neon-text-cyan text-[10px] tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Swim Training System</div>
+            <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
+            <div className="text-[#a855f7]/30 text-[10px] tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
+          </div>
           <div className="flex flex-col gap-4">
-            <input
-              type="password" maxLength={4} value={pinInput}
-              onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
-              onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
-              placeholder="Enter PIN"
-              className={`w-full text-center text-2xl tracking-[0.5em] py-4 rounded-xl bg-white/[0.04] backdrop-blur-xl border text-white placeholder:text-white/15 focus:outline-none transition-all shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] ${pinError ? "border-red-500/50" : "border-white/[0.08] focus:border-[#6b21a8]/40 focus:shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_0_20px_rgba(107,33,168,0.15)]"}`}
-            />
-            {pinError && <p className="text-red-400 text-xs -mt-2">Wrong PIN. Default is 1234.</p>}
+            <div className="relative">
+              <input
+                type="password" maxLength={4} value={pinInput}
+                onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
+                onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
+                placeholder="_ _ _ _"
+                className={`w-full text-center text-2xl tracking-[0.5em] py-4 bg-[#06020f]/80 backdrop-blur-xl border-2 text-[#00f0ff] placeholder:text-[#00f0ff]/15 focus:outline-none transition-all font-mono game-panel-sm ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#00f0ff]/20 focus:border-[#00f0ff]/50 focus:shadow-[0_0_30px_rgba(0,240,255,0.2)]"}`}
+              />
+            </div>
+            {pinError && <p className="text-red-400 text-xs -mt-2 font-mono">ACCESS DENIED. Default: 1234.</p>}
             <button onClick={tryUnlock}
-              className="w-full py-4 rounded-xl bg-gradient-to-r from-[#6b21a8] to-[#7c3aed] text-white font-bold text-sm hover:shadow-[0_0_25px_rgba(107,33,168,0.4)] transition-all active:scale-[0.97] active:shadow-[inset_0_2px_4px_rgba(0,0,0,0.3)] min-h-[52px]">
-              Unlock Coach Mode
+              className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]">
+              Authenticate
             </button>
             <button onClick={() => setView("parent")}
-              className="text-white/25 text-xs hover:text-white/50 transition-colors mt-2 min-h-[44px]">
-              Parent / Read-Only View
+              className="text-[#00f0ff]/20 text-xs hover:text-[#00f0ff]/50 transition-colors mt-2 min-h-[44px] font-mono tracking-wider uppercase">
+              Parent / Read-Only Access
             </button>
             {pinError && (
-              <button onClick={resetPin} className="text-white/15 text-[10px] hover:text-white/30 transition-colors">
-                Reset PIN to 1234
+              <button onClick={resetPin} className="text-white/15 text-[10px] hover:text-white/30 transition-colors font-mono">
+                RESET PIN → 1234
               </button>
             )}
           </div>
@@ -957,7 +969,7 @@ export default function ApexAthletePage() {
   // ── PARENT VIEW ──────────────────────────────────────────
   if (view === "parent") {
     return (
-      <div className="min-h-screen bg-[#0c0618] p-5 sm:p-8 text-white relative">
+      <div className="min-h-screen bg-[#06020f] p-5 sm:p-8 text-white relative">
         <BgOrbs /><XpFloats /><LevelUpOverlay />
         <div className="max-w-7xl mx-auto relative z-10">
           <NavHeader />
@@ -1005,7 +1017,7 @@ export default function ApexAthletePage() {
   // ── AUDIT VIEW ───────────────────────────────────────────
   if (view === "audit") {
     return (
-      <div className="min-h-screen bg-[#0c0618] p-5 sm:p-8 text-white relative">
+      <div className="min-h-screen bg-[#06020f] p-5 sm:p-8 text-white relative">
         <BgOrbs />
         <div className="max-w-7xl mx-auto relative z-10">
           <NavHeader />
@@ -1035,7 +1047,7 @@ export default function ApexAthletePage() {
     const longestStreak = [...roster].sort((a, b) => b.streak - a.streak)[0];
 
     return (
-      <div className="min-h-screen bg-[#0c0618] p-5 sm:p-8 text-white relative">
+      <div className="min-h-screen bg-[#06020f] p-5 sm:p-8 text-white relative">
         <BgOrbs />
         <div className="max-w-7xl mx-auto relative z-10">
           <NavHeader />
@@ -1169,35 +1181,27 @@ export default function ApexAthletePage() {
   const totalXpToday = roster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#0c0618] text-white relative overflow-x-hidden">
-      {/* Full-bleed animated mesh background */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(107,33,168,0.25),transparent_50%)]" />
-        <div className="mesh-orb-1 absolute -top-[20%] left-[20%] w-[900px] h-[900px] rounded-full bg-[radial-gradient(circle,rgba(107,33,168,0.2)_0%,transparent_60%)]" />
-        <div className="mesh-orb-2 absolute bottom-[-10%] right-[-5%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_55%)]" />
-        <div className="mesh-orb-3 absolute top-[40%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.08)_0%,transparent_55%)]" />
-        <div className="mesh-orb-2 absolute top-[15%] right-[5%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.06)_0%,transparent_55%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_40%_at_50%_100%,rgba(107,33,168,0.12),transparent_50%)]" />
-      </div>
+    <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+      <BgOrbs />
       <XpFloats /><LevelUpOverlay />
 
       <div className="relative z-10 w-full">
-        {/* ── HERO HEADER ──────────────────────────────────── */}
+        {/* ── HERO HEADER — HUD STYLE ──────────────────────── */}
         <div className="w-full px-5 sm:px-8 pt-6 pb-4">
           <div className="max-w-[1400px] mx-auto">
             {/* Top bar */}
             <div className="flex items-center justify-between mb-2">
               <div>
-                <div className="text-[10px] tracking-[0.5em] uppercase font-bold text-[#a855f7]/40">Swim Training System</div>
-                <h1 className="text-4xl sm:text-5xl font-black tracking-tighter bg-gradient-to-r from-[#c084fc] via-[#e879f9] to-[#f59e0b] bg-clip-text text-transparent leading-none animated-gradient-text drop-shadow-[0_0_30px_rgba(168,85,247,0.3)]">
+                <div className="text-[10px] tracking-[0.5em] uppercase font-bold neon-text-cyan opacity-40 font-mono">// Swim Training System</div>
+                <h1 className="text-4xl sm:text-5xl font-black tracking-tighter leading-none neon-text-cyan" style={{textShadow: '0 0 40px rgba(0,240,255,0.4), 0 0 80px rgba(168,85,247,0.2)'}}>
                   Apex Athlete
                 </h1>
               </div>
               <div className="flex gap-1.5">
                 {(["coach", "parent", "audit", "analytics"] as const).map(v => (
                   <button key={v} onClick={() => setView(v)}
-                    className={`text-[11px] px-3 py-2 rounded-xl font-medium transition-all min-h-[36px] ${
-                      view === v ? "bg-white/[0.1] text-white shadow-[0_0_16px_rgba(107,33,168,0.2)]" : "text-white/20 hover:text-white/50 hover:bg-white/[0.04]"
+                    className={`game-btn text-[11px] px-3 py-2 font-medium transition-all min-h-[36px] font-mono tracking-wider uppercase ${
+                      view === v ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.2)]" : "text-white/20 hover:text-[#00f0ff]/50 border border-transparent hover:border-[#00f0ff]/10"
                     }`}>
                     {v === "coach" ? "🎯" : v === "parent" ? "👁" : v === "audit" ? "📋" : "📊"} {v.charAt(0).toUpperCase() + v.slice(1)}
                   </button>
@@ -1230,24 +1234,24 @@ export default function ApexAthletePage() {
               )}
             </div>
 
-            {/* Live stats bar */}
-            <div className="flex items-center gap-4 py-4 px-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] mt-4 shadow-[0_4px_30px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.04)]">
+            {/* Live stats bar — HUD data strip */}
+            <div className="game-panel game-panel-border relative flex items-center gap-4 py-4 px-6 bg-[#06020f]/80 backdrop-blur-xl mt-4 scan-sweep">
               <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${present > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-white/10"}`} />
-                <span className="text-emerald-400/80 text-sm font-bold">{present}<span className="text-white/15 font-normal">/{roster.length}</span></span>
-                <span className="text-white/15 text-[10px]">present</span>
+                <div className={`w-2 h-2 rounded-full ${present > 0 ? "bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
+                <span className="neon-text-cyan text-sm font-bold font-mono">{present}<span className="text-white/15 font-normal">/{roster.length}</span></span>
+                <span className="text-[#00f0ff]/30 text-[10px] font-mono uppercase">present</span>
               </div>
-              <div className="w-px h-4 bg-white/[0.06]" />
+              <div className="w-px h-4 bg-[#00f0ff]/10" />
               <div className="flex items-center gap-2">
-                <span className="text-[#f59e0b]/80 text-sm font-bold">{totalXpToday}</span>
-                <span className="text-white/15 text-[10px]">XP today</span>
+                <span className="neon-text-gold text-sm font-bold font-mono">{totalXpToday}</span>
+                <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
               </div>
-              <div className="w-px h-4 bg-white/[0.06]" />
-              <span className="text-white/20 text-xs">{sessionMode === "pool" ? "🏊 Pool" : sessionMode === "weight" ? "🏋️ Weight" : "🏁 Meet"}</span>
+              <div className="w-px h-4 bg-[#00f0ff]/10" />
+              <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? "🏊 POOL" : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
               {culture.weeklyQuote && !editingCulture && (
                 <>
-                  <div className="w-px h-4 bg-white/[0.06]" />
-                  <span className="text-white/10 text-[10px] italic truncate max-w-[200px]">&ldquo;{culture.weeklyQuote}&rdquo;</span>
+                  <div className="w-px h-4 bg-[#00f0ff]/10" />
+                  <span className="text-[#a855f7]/30 text-[10px] italic truncate max-w-[200px] font-mono">&ldquo;{culture.weeklyQuote}&rdquo;</span>
                 </>
               )}
             </div>
@@ -1271,12 +1275,12 @@ export default function ApexAthletePage() {
             {/* Section header with tabs */}
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Leaderboard</h2>
-                <div className="flex gap-1 bg-white/[0.03] rounded-xl p-1 border border-white/[0.04]">
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight neon-text-cyan">Leaderboard</h2>
+                <div className="flex gap-1 bg-[#06020f]/60 p-1 border border-[#00f0ff]/15 game-panel-sm">
                   {(["all", "M", "F"] as const).map(t => (
                     <button key={t} onClick={() => setLeaderTab(t)}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all min-h-[32px] ${
-                        leaderTab === t ? "bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white shadow-[0_0_16px_rgba(107,33,168,0.3)]" : "text-white/25 hover:text-white/50"
+                      className={`game-btn px-4 py-2 text-xs font-bold transition-all min-h-[32px] font-mono tracking-wider ${
+                        leaderTab === t ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.3)]" : "text-white/25 hover:text-[#00f0ff]/50 border border-transparent"
                       }`}>
                       {t === "all" ? "ALL" : t === "M" ? "MALE" : "FEMALE"}
                     </button>
@@ -1324,25 +1328,25 @@ export default function ApexAthletePage() {
                       "shadow-[0_0_30px_rgba(205,127,50,0.15)]",
                     ];
                     const cardBgs = [
-                      "bg-gradient-to-b from-[#f59e0b]/15 via-[#f59e0b]/5 to-[#0c0618]/50 border-[#f59e0b]/20",
-                      "bg-gradient-to-b from-white/[0.06] via-white/[0.02] to-[#0c0618]/50 border-white/[0.1]",
-                      "bg-gradient-to-b from-[#cd7f32]/10 via-[#cd7f32]/3 to-[#0c0618]/50 border-[#cd7f32]/12",
+                      "bg-gradient-to-b from-[#f59e0b]/10 via-[#06020f]/80 to-[#06020f] neon-pulse-gold",
+                      "bg-gradient-to-b from-[#00f0ff]/5 via-[#06020f]/80 to-[#06020f] neon-pulse",
+                      "bg-gradient-to-b from-[#cd7f32]/8 via-[#06020f]/80 to-[#06020f]",
                     ];
                     const heights = ["min-h-[280px] sm:min-h-[320px]", "min-h-[240px] sm:min-h-[270px]", "min-h-[240px] sm:min-h-[270px]"];
                     return (
-                      <div key={a.id} className={`relative rounded-3xl p-4 sm:p-6 text-center border backdrop-blur-2xl ${cardBgs[rank]} ${heights[rank]} flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_60px_rgba(107,33,168,0.2)] group`}>
-                        {rank === 0 && <div className="absolute inset-0 rounded-3xl gold-shimmer pointer-events-none" />}
+                      <div key={a.id} className={`game-panel game-panel-border relative p-4 sm:p-6 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} ${heights[rank]} flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] group`}>
+                        {rank === 0 && <div className="absolute inset-0 gold-shimmer pointer-events-none" />}
                         <div className={`text-3xl sm:text-4xl mb-3 ${rank === 0 ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
-                        <div className={`${avatarSizes[rank]} mx-auto rounded-full flex items-center justify-center font-black text-white mb-3 border-[3px] ${ringColors[rank]} ${glowColors[rank]} transition-all duration-300 group-hover:scale-110`}
-                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)` }}>
+                        <div className={`${avatarSizes[rank]} mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-white mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
+                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": rank === 0 ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
-                        <div className="text-white text-base sm:text-lg font-black truncate w-full">{a.name.split(" ")[0]}</div>
-                        <div className="text-white/25 text-[11px] truncate w-full">{a.name.split(" ").slice(1).join(" ")}</div>
-                        <div className="text-[11px] font-bold mt-3 px-3 py-1 rounded-full inline-flex items-center gap-1.5" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
+                        <div className={`text-base sm:text-lg font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-white"}`}>{a.name.split(" ")[0]}</div>
+                        <div className="text-[#00f0ff]/20 text-[11px] truncate w-full font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
+                        <div className="rank-badge text-[11px] font-bold mt-3 px-4 py-1.5 inline-flex items-center gap-1.5 font-mono" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
                           {lv.icon} {lv.name}
                         </div>
-                        <div className="text-[#f59e0b] text-2xl sm:text-3xl font-black mt-3 tracking-tight drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+                        <div className="neon-text-gold text-2xl sm:text-3xl font-black mt-3 tracking-tight font-mono">
                           {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
@@ -1357,10 +1361,10 @@ export default function ApexAthletePage() {
 
             {/* Full ranked list — all athletes 1-N */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-white/30 text-[11px] uppercase tracking-[0.2em] font-bold">Full Rankings</h3>
-              <span className="text-white/15 text-[10px]">{sorted.length} athletes</span>
+              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Full Rankings</h3>
+              <span className="text-[#00f0ff]/20 text-[10px] font-mono">{sorted.length} athletes</span>
             </div>
-            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/[0.06] rounded-3xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
+            <div className="game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
               {sorted.map((a, i) => {
                 const lv = getLevel(a.xp);
                 const sk = fmtStreak(a.streak);
@@ -1399,10 +1403,10 @@ export default function ApexAthletePage() {
                   const labels = { pool: "Pool", weight: "Weight Room", meet: "Meet Day" };
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
-                      className={`px-6 py-3.5 rounded-2xl text-sm font-bold transition-all duration-200 min-h-[52px] ${
+                      className={`game-btn px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
                         sessionMode === m
-                          ? "bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white shadow-[0_0_40px_rgba(107,33,168,0.5),0_4px_20px_rgba(107,33,168,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] scale-[1.02]"
-                          : "bg-white/[0.03] text-white/30 hover:text-white/60 hover:bg-white/[0.06] hover:shadow-[0_0_25px_rgba(107,33,168,0.15)] hover:scale-[1.01] border border-white/[0.04]"
+                          ? "bg-[#00f0ff]/15 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_40px_rgba(0,240,255,0.3),inset_0_0_20px_rgba(0,240,255,0.05)] scale-[1.02]"
+                          : "bg-[#06020f]/60 text-white/30 hover:text-[#00f0ff]/60 border border-[#00f0ff]/10 hover:border-[#00f0ff]/25 hover:shadow-[0_0_25px_rgba(0,240,255,0.1)] hover:scale-[1.01]"
                       }`}>
                       <span className="mr-1.5">{icons[m]}</span>{labels[m]}
                     </button>
@@ -1410,14 +1414,14 @@ export default function ApexAthletePage() {
                 })}
               </div>
               <div className="flex gap-2 flex-wrap">
-                <button onClick={bulkMarkPresent} className="px-4 py-2.5 rounded-xl bg-emerald-500/10 text-emerald-400/80 text-sm font-medium hover:bg-emerald-500/20 hover:shadow-[0_0_20px_rgba(16,185,129,0.15)] transition-all active:scale-[0.97] min-h-[44px]">
-                  ✅ Bulk Present
+                <button onClick={bulkMarkPresent} className="game-btn px-4 py-2.5 bg-[#00f0ff]/10 text-[#00f0ff]/80 text-sm font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all active:scale-[0.97] min-h-[44px]">
+                  ✅ BULK
                 </button>
-                <button onClick={undoLast} className="px-3 py-2.5 rounded-xl bg-white/[0.03] text-white/30 text-sm hover:bg-white/[0.06] transition-all active:scale-[0.97] min-h-[44px]">↩ Undo</button>
-                <button onClick={resetDay} className="px-3 py-2.5 rounded-xl bg-white/[0.03] text-white/25 text-sm hover:bg-red-500/[0.08] hover:text-red-400/60 transition-all active:scale-[0.97] min-h-[44px]">🔄 Day</button>
-                <button onClick={resetWeek} className="px-3 py-2.5 rounded-xl bg-white/[0.03] text-white/25 text-sm hover:bg-red-500/[0.08] hover:text-red-400/60 transition-all active:scale-[0.97] min-h-[44px]">🔄 Week</button>
-                <button onClick={resetMonth} className="px-3 py-2.5 rounded-xl bg-white/[0.03] text-white/25 text-sm hover:bg-red-500/[0.08] hover:text-red-400/60 transition-all active:scale-[0.97] min-h-[44px]">🏆 Month</button>
-                <button onClick={exportCSV} className="px-3 py-2.5 rounded-xl bg-white/[0.03] text-white/25 text-sm hover:bg-white/[0.06] transition-all active:scale-[0.97] min-h-[44px]">📊 CSV</button>
+                <button onClick={undoLast} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">↩ UNDO</button>
+                <button onClick={resetDay} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]">🔄 DAY</button>
+                <button onClick={resetWeek} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]">🔄 WEEK</button>
+                <button onClick={resetMonth} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#f59e0b]/30 text-sm font-mono border border-[#f59e0b]/10 hover:text-[#f59e0b]/60 hover:border-[#f59e0b]/25 transition-all active:scale-[0.97] min-h-[44px]">🏆 MONTH</button>
+                <button onClick={exportCSV} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">📊 CSV</button>
               </div>
             </div>
 
@@ -1446,7 +1450,7 @@ export default function ApexAthletePage() {
             </div>
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-white/25 text-[11px] uppercase tracking-[0.2em] font-bold mb-4">Roster Check-In</h3>
+            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
             <div className="space-y-2 mb-10">
               {roster.sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
@@ -1457,11 +1461,11 @@ export default function ApexAthletePage() {
                 const dailyUsed = a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0;
 
                 return (
-                  <div key={a.id} className={`relative rounded-2xl overflow-hidden transition-all duration-200 ${isExp ? "ambient-pulse" : ""}`}>
-                    <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl" style={{ background: `linear-gradient(180deg, ${lv.color}${hasCk ? "90" : "25"}, ${lv.color}05)` }} />
-                    <div className={`bg-white/[0.025] backdrop-blur-xl border rounded-2xl transition-all duration-200 ${
-                      isExp ? "border-[#6b21a8]/30 shadow-[0_0_30px_rgba(107,33,168,0.1)]" : hasCk ? "border-[#6b21a8]/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-                    } hover:border-white/[0.1] hover:shadow-[0_4px_24px_rgba(0,0,0,0.2)]`}>
+                  <div key={a.id} className={`relative overflow-hidden transition-all duration-200 game-card ${isExp ? "ambient-pulse" : ""}`}>
+                    <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: `linear-gradient(180deg, ${hasCk ? "#00f0ff" : lv.color}${hasCk ? "80" : "25"}, transparent)`, boxShadow: hasCk ? `0 0 8px ${lv.color}40` : "none" }} />
+                    <div className={`game-panel-sm bg-[#06020f]/70 backdrop-blur-xl border transition-all duration-200 ${
+                      isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
+                    } hover:border-[#00f0ff]/25`}>
                       <div
                         className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-200 rounded-2xl group"
                         onClick={() => setExpandedId(isExp ? null : a.id)}
@@ -1496,13 +1500,13 @@ export default function ApexAthletePage() {
 
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
-              <h3 className="text-white/25 text-[11px] uppercase tracking-[0.2em] font-bold mb-4">Team Challenges</h3>
+              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Team Challenges</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
                   const done = tc.current >= tc.target;
                   return (
-                    <div key={tc.id} className={`bg-white/[0.025] backdrop-blur-xl border rounded-2xl p-5 transition-all ${done ? "border-[#f59e0b]/20 shadow-[0_0_24px_rgba(245,158,11,0.08)]" : "border-white/[0.06]"}`}>
+                    <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-medium text-sm">{tc.name}</span>
                         <span className={`text-sm font-bold ${done ? "text-[#f59e0b]" : "text-white/25"}`}>{tc.current}%<span className="text-white/10">/{tc.target}%</span></span>
