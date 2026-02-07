@@ -360,7 +360,14 @@ export default function ApexAthletePage() {
       const cps = { ...a[cpMap] };
       if (cps[cpId]) {
         cps[cpId] = false; a[cpMap] = cps;
-        addAudit(a.id, a.name, `Unchecked: ${cpId}`, 0);
+        // Revert XP when unchecking
+        const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
+        const awarded = Math.round(cpXP * mult);
+        a.xp = Math.max(0, a.xp - awarded);
+        if (a.dailyXP.date === today()) {
+          a.dailyXP = { ...a.dailyXP, [category]: Math.max(0, a.dailyXP[category] - awarded) };
+        }
+        addAudit(a.id, a.name, `Unchecked: ${cpId}`, -awarded);
         const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
       }
       cps[cpId] = true; a[cpMap] = cps;
@@ -380,7 +387,13 @@ export default function ApexAthletePage() {
       let a = { ...prev[idx], weightChallenges: { ...prev[idx].weightChallenges } };
       if (a.weightChallenges[chId]) {
         a.weightChallenges[chId] = false;
-        addAudit(a.id, a.name, `Unchallenged: ${chId}`, 0);
+        const mult = getWeightStreakMult(a.weightStreak);
+        const reverted = Math.round(chXP * mult);
+        a.xp = Math.max(0, a.xp - reverted);
+        if (a.dailyXP.date === today()) {
+          a.dailyXP = { ...a.dailyXP, weight: Math.max(0, a.dailyXP.weight - reverted) };
+        }
+        addAudit(a.id, a.name, `Unchallenged: ${chId}`, -reverted);
       } else {
         a.weightChallenges[chId] = true;
         const { newAthlete, awarded } = awardXP(a, chXP, "weight");
