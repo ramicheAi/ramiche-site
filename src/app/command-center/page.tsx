@@ -1148,17 +1148,24 @@ export default function CommandCenter() {
                 className="absolute inset-0 w-full h-full pointer-events-none z-0"
               />
 
-              {/* Agent cards positioned in network formation */}
+              {/* Agent cards — full squad */}
               <div className="relative z-10 p-6">
-                {/* Atlas - top center */}
+                {/* Atlas - lead, top center */}
                 <div className="flex justify-center mb-6">
                   <AgentCard agent={AGENTS[0]} index={0} hovered={hoveredAgent} onHover={setHoveredAgent} />
                 </div>
-                {/* Builder, Voice, Scout - bottom row */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                {/* Core team - row 1 */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-5xl mx-auto mb-3">
                   <AgentCard agent={AGENTS[1]} index={1} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                  <AgentCard agent={AGENTS[3]} index={3} hovered={hoveredAgent} onHover={setHoveredAgent} />
                   <AgentCard agent={AGENTS[2]} index={2} hovered={hoveredAgent} onHover={setHoveredAgent} />
+                  <AgentCard agent={AGENTS[3]} index={3} hovered={hoveredAgent} onHover={setHoveredAgent} />
+                  <AgentCard agent={AGENTS[4]} index={4} hovered={hoveredAgent} onHover={setHoveredAgent} />
+                </div>
+                {/* Extended team - row 2 */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
+                  <AgentCard agent={AGENTS[5]} index={5} hovered={hoveredAgent} onHover={setHoveredAgent} />
+                  <AgentCard agent={AGENTS[6]} index={6} hovered={hoveredAgent} onHover={setHoveredAgent} />
+                  <AgentCard agent={AGENTS[7]} index={7} hovered={hoveredAgent} onHover={setHoveredAgent} />
                 </div>
               </div>
             </div>
