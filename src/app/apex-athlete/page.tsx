@@ -598,12 +598,15 @@ export default function ApexAthletePage() {
 
   if (!unlocked && view === "coach") {
     return (
-      <div className="min-h-screen bg-[#0c0618] flex items-center justify-center p-6 relative">
-        <BgOrbs />
+      <div className="min-h-screen bg-[#0c0618] flex items-center justify-center p-6 relative overflow-hidden">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="mesh-orb-1 absolute top-[20%] left-[30%] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(107,33,168,0.2)_0%,transparent_60%)]" />
+          <div className="mesh-orb-2 absolute bottom-[10%] right-[20%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_60%)]" />
+        </div>
         <div className="text-center max-w-xs w-full relative z-10">
-          <div className="text-4xl mb-3">🏊</div>
-          <div className="text-white/20 text-[10px] tracking-[0.3em] uppercase mb-1 font-semibold">Swim Training System</div>
-          <h1 className="text-2xl font-black mb-8 tracking-tight bg-gradient-to-r from-[#a855f7] via-[#f59e0b] to-[#fbbf24] bg-clip-text text-transparent">Apex Athlete</h1>
+          <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(107,33,168,0.5)]">🏊</div>
+          <div className="text-[#a855f7]/40 text-[10px] tracking-[0.5em] uppercase mb-2 font-bold">Swim Training System</div>
+          <h1 className="text-4xl font-black mb-10 tracking-tighter bg-gradient-to-r from-[#c084fc] via-[#e879f9] to-[#f59e0b] bg-clip-text text-transparent animated-gradient-text drop-shadow-[0_0_30px_rgba(168,85,247,0.3)]">Apex Athlete</h1>
           <div className="flex flex-col gap-4">
             <input
               type="password" maxLength={4} value={pinInput}
@@ -1165,12 +1168,14 @@ export default function ApexAthletePage() {
 
   return (
     <div className="min-h-screen bg-[#0c0618] text-white relative overflow-x-hidden">
-      {/* Full-bleed animated background */}
+      {/* Full-bleed animated mesh background */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-        <div className="absolute -top-[30%] left-1/2 -translate-x-1/2 w-[1200px] h-[900px] rounded-full bg-[radial-gradient(ellipse,rgba(107,33,168,0.18)_0%,transparent_65%)]" />
-        <div className="absolute bottom-[-15%] right-[-10%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.08)_0%,transparent_65%)]" />
-        <div className="absolute top-[50%] left-[-15%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(107,33,168,0.06)_0%,transparent_65%)]" />
-        <div className="absolute top-[20%] right-[10%] w-[300px] h-[300px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.04)_0%,transparent_65%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(107,33,168,0.25),transparent_50%)]" />
+        <div className="mesh-orb-1 absolute -top-[20%] left-[20%] w-[900px] h-[900px] rounded-full bg-[radial-gradient(circle,rgba(107,33,168,0.2)_0%,transparent_60%)]" />
+        <div className="mesh-orb-2 absolute bottom-[-10%] right-[-5%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.1)_0%,transparent_55%)]" />
+        <div className="mesh-orb-3 absolute top-[40%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.08)_0%,transparent_55%)]" />
+        <div className="mesh-orb-2 absolute top-[15%] right-[5%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.06)_0%,transparent_55%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_100%_40%_at_50%_100%,rgba(107,33,168,0.12),transparent_50%)]" />
       </div>
       <XpFloats /><LevelUpOverlay />
 
@@ -1181,8 +1186,8 @@ export default function ApexAthletePage() {
             {/* Top bar */}
             <div className="flex items-center justify-between mb-2">
               <div>
-                <div className="text-[10px] tracking-[0.4em] uppercase font-bold text-white/15">Swim Training System</div>
-                <h1 className="text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-[#c084fc] via-[#e879f9] to-[#f59e0b] bg-clip-text text-transparent leading-tight">
+                <div className="text-[10px] tracking-[0.5em] uppercase font-bold text-[#a855f7]/40">Swim Training System</div>
+                <h1 className="text-4xl sm:text-5xl font-black tracking-tighter bg-gradient-to-r from-[#c084fc] via-[#e879f9] to-[#f59e0b] bg-clip-text text-transparent leading-none animated-gradient-text drop-shadow-[0_0_30px_rgba(168,85,247,0.3)]">
                   Apex Athlete
                 </h1>
               </div>
@@ -1224,7 +1229,7 @@ export default function ApexAthletePage() {
             </div>
 
             {/* Live stats bar */}
-            <div className="flex items-center gap-4 py-3 px-5 rounded-2xl bg-white/[0.02] backdrop-blur border border-white/[0.04] mt-3">
+            <div className="flex items-center gap-4 py-4 px-6 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.06] mt-4 shadow-[0_4px_30px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.04)]">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${present > 0 ? "bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]" : "bg-white/10"}`} />
                 <span className="text-emerald-400/80 text-sm font-bold">{present}<span className="text-white/15 font-normal">/{roster.length}</span></span>
@@ -1262,9 +1267,9 @@ export default function ApexAthletePage() {
         <div className="w-full px-5 sm:px-8 py-6">
           <div className="max-w-[1400px] mx-auto">
             {/* Section header with tabs */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
-                <h2 className="text-xl font-black tracking-tight text-white/90">Leaderboard</h2>
+                <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">Leaderboard</h2>
                 <div className="flex gap-1 bg-white/[0.03] rounded-xl p-1 border border-white/[0.04]">
                   {(["all", "M", "F"] as const).map(t => (
                     <button key={t} onClick={() => setLeaderTab(t)}
@@ -1299,61 +1304,72 @@ export default function ApexAthletePage() {
               </div>
             </div>
 
-            {/* PODIUM — Top 3 */}
+            {/* PODIUM — Top 3 — Hero Game UI */}
             {sorted.length >= 3 && (
-              <div className="grid grid-cols-3 gap-4 sm:gap-6 mb-6 max-w-[700px] mx-auto">
-                {[1, 0, 2].map(rank => {
-                  const a = sorted[rank];
-                  const lv = getLevel(a.xp);
-                  const sizes = ["w-16 h-16 sm:w-20 sm:h-20", "w-14 h-14 sm:w-16 sm:h-16", "w-14 h-14 sm:w-16 sm:h-16"];
-                  const glows = [
-                    "shadow-[0_0_40px_rgba(245,158,11,0.2),0_0_80px_rgba(245,158,11,0.08)]",
-                    "shadow-[0_0_30px_rgba(192,192,210,0.1)]",
-                    "shadow-[0_0_25px_rgba(205,127,50,0.1)]",
-                  ];
-                  const ringColors = ["border-[#f59e0b]/60", "border-white/20", "border-[#cd7f32]/40"];
-                  const medals = ["🥇", "🥈", "🥉"];
-                  const bgGradients = [
-                    "bg-gradient-to-b from-[#f59e0b]/12 via-[#f59e0b]/4 to-transparent border-[#f59e0b]/12",
-                    "bg-gradient-to-b from-white/[0.05] via-white/[0.02] to-transparent border-white/[0.08]",
-                    "bg-gradient-to-b from-[#cd7f32]/8 via-[#cd7f32]/3 to-transparent border-[#cd7f32]/10",
-                  ];
-                  return (
-                    <div key={a.id} className={`rounded-3xl p-5 sm:p-6 text-center border backdrop-blur-xl ${bgGradients[rank]} ${rank === 0 ? "-mt-4 pb-8" : "mt-2"} transition-all hover:scale-[1.02]`}>
-                      <div className={`text-2xl sm:text-3xl mb-2 ${rank === 0 ? "podium-pulse text-4xl" : ""}`}>{medals[rank]}</div>
-                      <div className={`${sizes[rank]} mx-auto rounded-full flex items-center justify-center text-base sm:text-lg font-black text-white mb-3 border-[3px] ${ringColors[rank]} ${glows[rank]}`}
-                        style={{ background: `radial-gradient(circle, ${lv.color}25, ${lv.color}08)` }}>
-                        {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              <div className="relative mb-10">
+                {/* Podium glow backdrop */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
+                <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] mx-auto items-end">
+                  {[1, 0, 2].map(rank => {
+                    const a = sorted[rank];
+                    const lv = getLevel(a.xp);
+                    const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
+                    const medals = ["🥇", "🥈", "🥉"];
+                    const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
+                    const glowColors = [
+                      "shadow-[0_0_50px_rgba(245,158,11,0.3),0_0_100px_rgba(245,158,11,0.1)]",
+                      "shadow-[0_0_30px_rgba(192,192,210,0.15)]",
+                      "shadow-[0_0_30px_rgba(205,127,50,0.15)]",
+                    ];
+                    const cardBgs = [
+                      "bg-gradient-to-b from-[#f59e0b]/15 via-[#f59e0b]/5 to-[#0c0618]/50 border-[#f59e0b]/20",
+                      "bg-gradient-to-b from-white/[0.06] via-white/[0.02] to-[#0c0618]/50 border-white/[0.1]",
+                      "bg-gradient-to-b from-[#cd7f32]/10 via-[#cd7f32]/3 to-[#0c0618]/50 border-[#cd7f32]/12",
+                    ];
+                    const heights = ["min-h-[280px] sm:min-h-[320px]", "min-h-[240px] sm:min-h-[270px]", "min-h-[240px] sm:min-h-[270px]"];
+                    return (
+                      <div key={a.id} className={`relative rounded-3xl p-4 sm:p-6 text-center border backdrop-blur-2xl ${cardBgs[rank]} ${heights[rank]} flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] hover:shadow-[0_0_60px_rgba(107,33,168,0.2)] group`}>
+                        {rank === 0 && <div className="absolute inset-0 rounded-3xl gold-shimmer pointer-events-none" />}
+                        <div className={`text-3xl sm:text-4xl mb-3 ${rank === 0 ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
+                        <div className={`${avatarSizes[rank]} mx-auto rounded-full flex items-center justify-center font-black text-white mb-3 border-[3px] ${ringColors[rank]} ${glowColors[rank]} transition-all duration-300 group-hover:scale-110`}
+                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)` }}>
+                          {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <div className="text-white text-base sm:text-lg font-black truncate w-full">{a.name.split(" ")[0]}</div>
+                        <div className="text-white/25 text-[11px] truncate w-full">{a.name.split(" ").slice(1).join(" ")}</div>
+                        <div className="text-[11px] font-bold mt-3 px-3 py-1 rounded-full inline-flex items-center gap-1.5" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
+                          {lv.icon} {lv.name}
+                        </div>
+                        <div className="text-[#f59e0b] text-2xl sm:text-3xl font-black mt-3 tracking-tight drop-shadow-[0_0_10px_rgba(245,158,11,0.3)]">
+                          {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
+                        </div>
+                        {a.streak > 0 && (
+                          <div className="text-white/20 text-[10px] mt-1 font-bold">🔥 {a.streak}d streak</div>
+                        )}
                       </div>
-                      <div className="text-white text-sm font-bold truncate">{a.name.split(" ")[0]}</div>
-                      <div className="text-white/30 text-[10px] truncate">{a.name.split(" ").slice(1).join(" ")}</div>
-                      <div className="text-[10px] font-bold mt-2 px-2 py-0.5 rounded-full inline-block" style={{ color: lv.color, background: `${lv.color}15` }}>
-                        {lv.icon} {lv.name}
-                      </div>
-                      <div className="text-[#f59e0b] text-xl sm:text-2xl font-black mt-2">{a.xp}<span className="text-[10px] text-[#f59e0b]/40 ml-0.5">XP</span></div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
 
             {/* Full ranked list */}
-            <div className="bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden shadow-[0_4px_40px_rgba(0,0,0,0.3)]">
+            <div className="bg-white/[0.02] backdrop-blur-2xl border border-white/[0.06] rounded-3xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
               {sorted.slice(3).map((a, i) => {
                 const lv = getLevel(a.xp);
                 const sk = fmtStreak(a.streak);
                 const rank = i + 4;
                 return (
-                  <div key={a.id} className={`flex items-center gap-4 py-3.5 px-6 transition-all hover:bg-white/[0.03] ${i < sorted.length - 4 ? "border-b border-white/[0.03]" : ""}`}>
-                    <span className="w-7 text-center text-sm font-bold text-white/15">{rank}</span>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold text-white/60 shrink-0"
-                      style={{ background: `${lv.color}12`, border: `1.5px solid ${lv.color}25` }}>
+                  <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${i < sorted.length - 4 ? "border-b border-white/[0.03]" : ""}`}>
+                    <span className="w-8 text-center text-sm font-black text-white/10 group-hover:text-white/25 transition-colors">{rank}</span>
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white/70 shrink-0 transition-all duration-200 group-hover:scale-110"
+                      style={{ background: `radial-gradient(circle, ${lv.color}20, ${lv.color}08)`, border: `2px solid ${lv.color}30`, boxShadow: `0 0 12px ${lv.color}10` }}>
                       {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
-                    <span className="text-white/80 text-sm font-medium flex-1 truncate">{a.name}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md hidden sm:inline-block" style={{ color: lv.color, background: `${lv.color}10` }}>{lv.icon} {lv.name}</span>
-                    {a.streak > 0 && <span className="text-white/15 text-[10px] hidden sm:inline">🔥 {a.streak}d</span>}
-                    <span className="text-[#f59e0b]/80 text-sm font-bold w-16 text-right">{a.xp}</span>
+                    <span className="text-white/80 text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors">{a.name}</span>
+                    <span className="text-[10px] font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
+                    {a.streak > 0 && <span className="text-white/20 text-[10px] hidden sm:inline font-bold">🔥 {a.streak}d</span>}
+                    <span className="text-[#f59e0b] text-sm font-black w-16 text-right drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
                   </div>
                 );
               })}
@@ -1374,10 +1390,10 @@ export default function ApexAthletePage() {
                   const labels = { pool: "Pool", weight: "Weight Room", meet: "Meet Day" };
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
-                      className={`px-5 py-3 rounded-2xl text-sm font-bold transition-all min-h-[48px] ${
+                      className={`px-6 py-3.5 rounded-2xl text-sm font-bold transition-all duration-200 min-h-[52px] ${
                         sessionMode === m
-                          ? "bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white shadow-[0_0_30px_rgba(107,33,168,0.4),inset_0_1px_0_rgba(255,255,255,0.15)]"
-                          : "bg-white/[0.03] text-white/30 hover:text-white/60 hover:bg-white/[0.06] hover:shadow-[0_0_20px_rgba(107,33,168,0.1)]"
+                          ? "bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white shadow-[0_0_40px_rgba(107,33,168,0.5),0_4px_20px_rgba(107,33,168,0.3),inset_0_1px_0_rgba(255,255,255,0.2)] scale-[1.02]"
+                          : "bg-white/[0.03] text-white/30 hover:text-white/60 hover:bg-white/[0.06] hover:shadow-[0_0_25px_rgba(107,33,168,0.15)] hover:scale-[1.01] border border-white/[0.04]"
                       }`}>
                       <span className="mr-1.5">{icons[m]}</span>{labels[m]}
                     </button>
@@ -1438,11 +1454,11 @@ export default function ApexAthletePage() {
                       isExp ? "border-[#6b21a8]/30 shadow-[0_0_30px_rgba(107,33,168,0.1)]" : hasCk ? "border-[#6b21a8]/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "border-white/[0.06] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
                     } hover:border-white/[0.1] hover:shadow-[0_4px_24px_rgba(0,0,0,0.2)]`}>
                       <div
-                        className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.015] transition-all rounded-2xl"
+                        className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-200 rounded-2xl group"
                         onClick={() => setExpandedId(isExp ? null : a.id)}
                       >
-                        <div className="w-12 h-12 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 transition-all"
-                          style={{ background: `radial-gradient(circle, ${lv.color}20, ${lv.color}05)`, border: `2.5px solid ${lv.color}${hasCk ? "80" : "30"}`, boxShadow: hasCk ? `0 0 20px ${lv.color}20` : "none" }}
+                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
+                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `2.5px solid ${lv.color}${hasCk ? "90" : "35"}`, boxShadow: hasCk ? `0 0 25px ${lv.color}25, 0 0 50px ${lv.color}08` : `0 0 10px ${lv.color}10` }}
                         >
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
@@ -1454,12 +1470,12 @@ export default function ApexAthletePage() {
                             {hasCk && <span className="text-emerald-400/60 text-[10px] font-bold">✓ checked in</span>}
                           </div>
                         </div>
-                        <div className="w-28 shrink-0 text-right">
-                          <div className="text-white/80 text-sm font-bold">{a.xp}<span className="text-white/15 text-[10px] ml-0.5">XP</span></div>
-                          <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
+                        <div className="w-32 shrink-0 text-right">
+                          <div className="text-white font-black text-base drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/15 text-[10px] ml-1">XP</span></div>
+                          <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mt-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
-                          {dailyUsed > 0 && <div className="text-[9px] text-[#f59e0b]/50 font-bold mt-1">+{dailyUsed} today</div>}
+                          {dailyUsed > 0 && <div className="text-[10px] text-[#f59e0b]/60 font-bold mt-1.5">+{dailyUsed} today</div>}
                         </div>
                       </div>
                       {isExp && <div className="px-4 sm:px-5 pb-5"><AthleteExpanded athlete={a} /></div>}

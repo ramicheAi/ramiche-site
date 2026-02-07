@@ -99,6 +99,8 @@ export default function Home() {
           <span className={styles.badge}>PRs only</span>
           <span className={styles.badge}>Signal-first</span>
           <a className={styles.badge} href="/studio">Studio</a>
+          <a className={styles.badge} href="/command-center">Command Center v2</a>
+          <a className={styles.badge} href="/apex-athlete">Apex Athlete</a>
         </div>
       </header>
 

@@ -1,3 +1,14 @@
+@import "tailwindcss";
+
+@theme {
+  --color-apex-bg: #0c0618;
+  --color-apex-purple: #6b21a8;
+  --color-apex-gold: #f59e0b;
+  --color-apex-gold-light: #fbbf24;
+  --color-apex-surface: rgba(255, 255, 255, 0.04);
+  --color-apex-border: rgba(255, 255, 255, 0.08);
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -39,4 +50,134 @@ a {
   html {
     color-scheme: dark;
   }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   APEX ATHLETE — REVOLUTIONARY GAME UI
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── animated mesh background ─────────────────────────────── */
+@keyframes meshFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+}
+@keyframes meshFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-50px, 40px) scale(1.15); }
+}
+@keyframes meshFloat3 {
+  0%, 100% { transform: translate(0, 0); opacity: 0.5; }
+  50% { transform: translate(30px, -40px); opacity: 0.8; }
+}
+.mesh-orb-1 { animation: meshFloat1 12s ease-in-out infinite; }
+.mesh-orb-2 { animation: meshFloat2 16s ease-in-out infinite; }
+.mesh-orb-3 { animation: meshFloat3 10s ease-in-out infinite; }
+
+/* ── XP bar shimmer sweep ─────────────────────────────────── */
+@keyframes xpShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.xp-shimmer {
+  background: linear-gradient(90deg,
+    rgba(107,33,168,1) 0%,
+    rgba(168,85,247,1) 15%,
+    rgba(232,121,249,0.9) 30%,
+    rgba(245,158,11,1) 45%,
+    rgba(251,191,36,1) 50%,
+    rgba(245,158,11,1) 55%,
+    rgba(232,121,249,0.9) 70%,
+    rgba(168,85,247,1) 85%,
+    rgba(107,33,168,1) 100%
+  );
+  background-size: 200% 100%;
+  animation: xpShimmer 2s linear infinite;
+  box-shadow: 0 0 12px rgba(168,85,247,0.4), 0 0 30px rgba(107,33,168,0.2);
+}
+
+/* ── level-up celebration ──────────────────────────────────── */
+@keyframes levelUpFlash {
+  0% { opacity: 0; transform: scale(0.5) rotate(-2deg); }
+  20% { opacity: 1; transform: scale(1.12) rotate(1deg); }
+  40% { transform: scale(0.95) rotate(-0.5deg); }
+  60% { transform: scale(1.04) rotate(0.5deg); }
+  80% { transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.level-up-enter { animation: levelUpFlash 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+
+/* ── sparkle particles for level-up ────────────────────────── */
+@keyframes sparkle {
+  0% { opacity: 1; transform: translate(0, 0) scale(1.2); }
+  50% { opacity: 0.8; }
+  100% { opacity: 0; transform: translate(var(--sx, 0px), var(--sy, 0px)) scale(0); }
+}
+.sparkle { animation: sparkle 1s ease-out forwards; }
+
+/* ── card expand ───────────────────────────────────────────── */
+@keyframes expandIn {
+  from { opacity: 0; max-height: 0; transform: translateY(-12px) scale(0.98); }
+  to { opacity: 1; max-height: 3000px; transform: translateY(0) scale(1); }
+}
+.expand-in { animation: expandIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+
+/* ── floating XP ───────────────────────────────────────────── */
+@keyframes xpFloat {
+  0% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0px); }
+  40% { opacity: 1; transform: translateY(-15px) scale(1.2); }
+  100% { opacity: 0; transform: translateY(-50px) scale(1.4); filter: blur(2px); }
+}
+.xp-float {
+  animation: xpFloat 1.2s ease-out forwards;
+  text-shadow: 0 0 15px rgba(245,158,11,0.7), 0 0 30px rgba(245,158,11,0.3);
+}
+
+/* ── check-in flash ────────────────────────────────────────── */
+@keyframes checkFlash {
+  0% { background-color: rgba(107,33,168,0.35); box-shadow: inset 0 0 40px rgba(107,33,168,0.2); }
+  100% { background-color: rgba(107,33,168,0.12); box-shadow: none; }
+}
+.check-flash { animation: checkFlash 0.5s ease-out; }
+
+/* ── podium rank pulse ─────────────────────────────────────── */
+@keyframes podiumPulse {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.08); filter: brightness(1.2); }
+}
+.podium-pulse { animation: podiumPulse 2.5s ease-in-out infinite; }
+
+/* ── ambient glow pulse for active elements ────────────────── */
+@keyframes ambientPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(107,33,168,0.12), 0 8px 32px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 40px rgba(107,33,168,0.25), 0 8px 32px rgba(0,0,0,0.4); }
+}
+.ambient-pulse { animation: ambientPulse 3s ease-in-out infinite; }
+
+/* ── podium gold shimmer ──────────────────────────────────── */
+@keyframes goldShimmer {
+  0% { background-position: -100% 0; }
+  100% { background-position: 200% 0; }
+}
+.gold-shimmer {
+  background: linear-gradient(90deg, rgba(245,158,11,0) 0%, rgba(245,158,11,0.15) 50%, rgba(245,158,11,0) 100%);
+  background-size: 200% 100%;
+  animation: goldShimmer 3s linear infinite;
+}
+
+/* ── hover card lift ──────────────────────────────────────── */
+@keyframes hoverGlow {
+  from { box-shadow: 0 0 0 rgba(107,33,168,0); }
+  to { box-shadow: 0 0 40px rgba(107,33,168,0.15); }
+}
+
+/* ── gradient text animation ──────────────────────────────── */
+@keyframes gradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animated-gradient-text {
+  background-size: 200% 200%;
+  animation: gradientShift 4s ease-in-out infinite;
 }
