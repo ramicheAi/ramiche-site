@@ -1186,56 +1186,97 @@ export default function ApexAthletePage() {
       <XpFloats /><LevelUpOverlay />
 
       <div className="relative z-10 w-full">
-        {/* ── HERO HEADER — HUD STYLE ──────────────────────── */}
-        <div className="w-full px-5 sm:px-8 pt-6 pb-4">
-          <div className="max-w-[1400px] mx-auto">
-            {/* Top bar */}
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <div className="text-[10px] tracking-[0.5em] uppercase font-bold neon-text-cyan opacity-40 font-mono">// Swim Training System</div>
-                <h1 className="text-4xl sm:text-5xl font-black tracking-tighter leading-none neon-text-cyan" style={{textShadow: '0 0 40px rgba(0,240,255,0.4), 0 0 80px rgba(168,85,247,0.2)'}}>
-                  Apex Athlete
-                </h1>
-              </div>
-              <div className="flex gap-1.5">
-                {(["coach", "parent", "audit", "analytics"] as const).map(v => (
-                  <button key={v} onClick={() => setView(v)}
-                    className={`game-btn text-[11px] px-3 py-2 font-medium transition-all min-h-[36px] font-mono tracking-wider uppercase ${
-                      view === v ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.2)]" : "text-white/20 hover:text-[#00f0ff]/50 border border-transparent hover:border-[#00f0ff]/10"
-                    }`}>
-                    {v === "coach" ? "🎯" : v === "parent" ? "👁" : v === "audit" ? "📋" : "📊"} {v.charAt(0).toUpperCase() + v.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </div>
+        {/* ── HERO HEADER — FULL GAME HUD ──────────────────────── */}
+        <div className="w-full relative">
+          {/* Top gradient bar */}
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00f0ff]/60 to-transparent" />
+          <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#00f0ff]/[0.03] to-transparent pointer-events-none" />
 
-            {/* Team name + mission */}
-            <div className="mt-4 mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-1 h-8 rounded-full bg-gradient-to-b from-[#f59e0b] to-[#6b21a8]" />
+          <div className="px-5 sm:px-8 pt-8 pb-2">
+            <div className="max-w-[1400px] mx-auto">
+              {/* Title + Nav in one row */}
+              <div className="flex items-end justify-between mb-6">
                 <div>
-                  <h2 className="text-white/80 font-bold text-sm">{culture.teamName}</h2>
-                  <p className="text-[#f59e0b]/60 text-xs italic">{culture.mission}</p>
+                  <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-1">{'<'} swim.training.system {'/'+'>'}</div>
+                  <h1 className="text-5xl sm:text-6xl font-black tracking-[-0.04em] leading-[0.85]" style={{
+                    background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    backgroundSize: '200% 200%',
+                    animation: 'gradientShift 4s ease-in-out infinite',
+                    filter: 'drop-shadow(0 0 30px rgba(0,240,255,0.3))'
+                  }}>
+                    APEX ATHLETE
+                  </h1>
                 </div>
-                {view === "coach" && (
-                  <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-                    className="ml-auto text-white/15 text-[10px] hover:text-white/40 transition-colors px-2 py-1 rounded-lg border border-transparent hover:border-white/[0.06]">
-                    {editingCulture ? "Save" : "Edit"}
-                  </button>
+                {/* Game HUD nav tabs */}
+                <div className="flex">
+                  {(["coach", "parent", "audit", "analytics"] as const).map((v, i) => {
+                    const icons = { coach: "◆", parent: "◇", audit: "▣", analytics: "◈" };
+                    const active = view === v;
+                    return (
+                      <button key={v} onClick={() => setView(v)}
+                        className={`relative px-5 py-3 text-[10px] font-bold font-mono tracking-[0.25em] uppercase transition-all duration-300 ${
+                          active
+                            ? "text-[#00f0ff] bg-[#00f0ff]/[0.08]"
+                            : "text-white/15 hover:text-[#00f0ff]/60 hover:bg-[#00f0ff]/[0.03]"
+                        } ${i === 0 ? "clip-path-[polygon(0_0,calc(100%-8px)_0,100%_100%,0_100%)]" : i === 3 ? "clip-path-[polygon(0_0,100%_0,100%_100%,8px_100%)]" : ""}`}
+                        style={{
+                          borderTop: active ? '2px solid rgba(0,240,255,0.6)' : '2px solid rgba(0,240,255,0.08)',
+                          borderBottom: active ? 'none' : '1px solid rgba(0,240,255,0.05)',
+                          boxShadow: active ? '0 -4px 20px rgba(0,240,255,0.15), inset 0 1px 15px rgba(0,240,255,0.05)' : 'none'
+                        }}>
+                        <span className={`mr-1.5 ${active ? "text-[#f59e0b]" : ""}`}>{icons[v]}</span>{v}
+                        {active && <div className="absolute bottom-0 left-1/4 right-1/4 h-[1px] bg-[#00f0ff]/40" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Team identity bar */}
+              <div className="game-panel game-panel-border relative bg-[#06020f]/60 backdrop-blur-xl px-6 py-4 mb-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 game-panel-sm bg-gradient-to-br from-[#f59e0b]/20 to-[#6b21a8]/20 border border-[#f59e0b]/30 flex items-center justify-center">
+                    <span className="text-[#f59e0b] text-lg font-black">SA</span>
+                  </div>
+                  <div className="flex-1">
+                    <h2 className="text-white/90 font-bold text-sm tracking-wide">{culture.teamName}</h2>
+                    <p className="text-[#f59e0b]/50 text-[11px] italic font-mono">{culture.mission}</p>
+                  </div>
+                  {view === "coach" && (
+                    <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
+                      className="game-btn px-3 py-1.5 text-[9px] font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
+                      {editingCulture ? "SAVE" : "EDIT"}
+                    </button>
+                  )}
+                </div>
+                {editingCulture && (
+                  <div className="mt-4 space-y-2 border-t border-[#00f0ff]/10 pt-4">
+                    <input value={culture.mission} onChange={e => setCulture({ ...culture, mission: e.target.value })}
+                      className="bg-[#00f0ff]/[0.03] border border-[#00f0ff]/10 game-panel-sm px-4 py-2 text-[#f59e0b]/70 text-xs w-full max-w-md focus:outline-none focus:border-[#00f0ff]/30 font-mono" placeholder="Team mission" />
+                    <input value={culture.weeklyQuote} onChange={e => setCulture({ ...culture, weeklyQuote: e.target.value })}
+                      className="bg-[#00f0ff]/[0.03] border border-[#00f0ff]/10 game-panel-sm px-4 py-2 text-white/30 text-xs italic w-full max-w-md focus:outline-none font-mono" placeholder="Weekly quote" />
+                  </div>
                 )}
               </div>
-              {editingCulture && (
-                <div className="mt-3 ml-6 space-y-2">
-                  <input value={culture.mission} onChange={e => setCulture({ ...culture, mission: e.target.value })}
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-[#f59e0b]/70 text-xs w-full max-w-md focus:outline-none" placeholder="Team mission" />
-                  <input value={culture.weeklyQuote} onChange={e => setCulture({ ...culture, weeklyQuote: e.target.value })}
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-white/30 text-xs italic w-full max-w-md focus:outline-none" placeholder="Weekly quote" />
-                </div>
-              )}
-            </div>
 
-            {/* Live stats bar — HUD data strip */}
-            <div className="game-panel game-panel-border relative flex items-center gap-4 py-4 px-6 bg-[#06020f]/80 backdrop-blur-xl mt-4 scan-sweep">
+              {/* Season goal progress */}
+              <div className="flex items-center gap-4 px-2 mb-2">
+                <span className="text-[#00f0ff]/20 text-[9px] font-mono uppercase tracking-wider shrink-0">{culture.seasonalGoal}</span>
+                <div className="flex-1 h-1 rounded-full bg-white/[0.04] overflow-hidden xp-bar-segments">
+                  <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
+                </div>
+                <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono shrink-0">{culture.goalCurrent}%<span className="text-white/10">/{culture.goalTarget}%</span></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Live HUD data strip — full width bar */}
+          <div className="relative border-y border-[#00f0ff]/10 bg-[#06020f]/90 backdrop-blur-xl">
+            <div className="absolute inset-0 data-grid-bg opacity-30 pointer-events-none" />
+            <div className="px-5 sm:px-8">
+              <div className="max-w-[1400px] mx-auto flex items-center gap-6 py-3 relative z-10 scan-sweep">
               <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${present > 0 ? "bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
                 <span className="neon-text-cyan text-sm font-bold font-mono">{present}<span className="text-white/15 font-normal">/{roster.length}</span></span>
@@ -1254,15 +1295,7 @@ export default function ApexAthletePage() {
                   <span className="text-[#a855f7]/30 text-[10px] italic truncate max-w-[200px] font-mono">&ldquo;{culture.weeklyQuote}&rdquo;</span>
                 </>
               )}
-            </div>
-
-            {/* Season goal progress */}
-            <div className="mt-3 flex items-center gap-3">
-              <span className="text-white/20 text-[10px] shrink-0">{culture.seasonalGoal}</span>
-              <div className="flex-1 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
-                <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
               </div>
-              <span className="text-[#f59e0b]/60 text-[10px] font-bold shrink-0">{culture.goalCurrent}%<span className="text-white/10">/{culture.goalTarget}%</span></span>
             </div>
           </div>
         </div>
