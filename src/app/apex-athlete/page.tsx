@@ -543,6 +543,103 @@ export default function ApexAthletePage() {
   const avgXP = (s: DailySnapshot[]) => s.length ? Math.round(s.reduce((t, x) => t + x.totalXPAwarded, 0) / s.length) : 0;
   const avgAtt = (s: DailySnapshot[]) => s.length ? Math.round(s.reduce((t, x) => t + (x.totalAthletes ? (x.attendance / x.totalAthletes) * 100 : 0), 0) / s.length) : 0;
 
+  // ── ADVANCED ANALYTICS ──────────────────────────────────
+
+  // Attrition Risk Score (0-100, higher = more at risk)
+  const getAttritionRisk = useCallback((athlete: Athlete) => {
+    let risk = 0;
+    // Low attendance = high risk
+    const recentSnaps = snapshots.slice(-14);
+    const daysPresent = recentSnaps.filter(s => s.athleteXPs?.[athlete.id] && s.athleteXPs[athlete.id] > (snapshots.find(x => x.date === recentSnaps[0]?.date)?.athleteXPs?.[athlete.id] || 0)).length;
+    const attendanceRate = recentSnaps.length > 0 ? daysPresent / Math.max(recentSnaps.length, 1) : 0;
+    if (attendanceRate < 0.3) risk += 40;
+    else if (attendanceRate < 0.5) risk += 25;
+    else if (attendanceRate < 0.7) risk += 10;
+    // Broken streak = risk
+    if (athlete.streak === 0 && athlete.totalPractices > 3) risk += 20;
+    // Low XP growth = risk
+    const ago14 = snapshots.slice(-14)[0];
+    const xpGrowth = ago14 ? athlete.xp - (ago14.athleteXPs?.[athlete.id] || 0) : athlete.xp;
+    if (xpGrowth <= 0) risk += 20;
+    else if (xpGrowth < 50) risk += 10;
+    // No quests engaged = disengagement
+    const activeQuests = Object.values(athlete.quests).filter(q => q === "active" || q === "done").length;
+    if (activeQuests === 0 && athlete.totalPractices > 5) risk += 15;
+    // Low teammate interaction
+    const helpCount = auditLog.filter(e => e.athleteId === athlete.id && e.action.includes("Helped")).length;
+    if (helpCount === 0 && athlete.totalPractices > 3) risk += 5;
+    return Math.min(100, risk);
+  }, [snapshots, auditLog]);
+
+  // Culture Score (0-100) — team-wide health metric
+  const cultureScore = useMemo(() => {
+    if (!roster.length) return 0;
+    const today7 = snapshots.slice(-7);
+    // Attendance component (0-30)
+    const avgAttendance = today7.length > 0
+      ? today7.reduce((s, x) => s + (x.totalAthletes ? (x.attendance / x.totalAthletes) : 0), 0) / today7.length
+      : 0;
+    const attScore = Math.round(avgAttendance * 30);
+    // Teammate help frequency (0-25)
+    const helpActions = auditLog.filter(e => e.action.includes("Helped") || e.action.includes("Buddy")).length;
+    const helpScore = Math.min(25, Math.round((helpActions / Math.max(roster.length, 1)) * 25));
+    // Positive attitude nominations (0-20)
+    const positiveActions = auditLog.filter(e => e.action.includes("Positive")).length;
+    const positiveScore = Math.min(20, Math.round((positiveActions / Math.max(roster.length, 1)) * 20));
+    // Quest engagement (0-15)
+    const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests).filter(q => q !== "pending").length, 0);
+    const questScore = Math.min(15, Math.round((questEngagement / (roster.length * QUEST_DEFS.length)) * 15));
+    // Streak health (0-10)
+    const avgStreak = roster.reduce((s, a) => s + a.streak, 0) / roster.length;
+    const streakScore = Math.min(10, Math.round(avgStreak / 3));
+    return Math.min(100, attScore + helpScore + positiveScore + questScore + streakScore);
+  }, [roster, snapshots, auditLog]);
+
+  // Peak Performance Windows — which days earn the most XP per athlete
+  const peakWindows = useMemo(() => {
+    const dayMap: Record<string, number[]> = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    for (const snap of snapshots) {
+      const d = new Date(snap.date);
+      const name = dayNames[d.getDay()];
+      dayMap[name].push(snap.totalXPAwarded);
+    }
+    return Object.entries(dayMap).map(([day, xps]) => ({
+      day,
+      avgXP: xps.length ? Math.round(xps.reduce((a, b) => a + b, 0) / xps.length) : 0,
+      sessions: xps.length,
+    })).sort((a, b) => b.avgXP - a.avgXP);
+  }, [snapshots]);
+
+  // Athletes at risk (sorted by risk descending)
+  const atRiskAthletes = useMemo(() => {
+    return roster
+      .map(a => ({ ...a, risk: getAttritionRisk(a) }))
+      .filter(a => a.risk > 20)
+      .sort((a, b) => b.risk - a.risk);
+  }, [roster, getAttritionRisk]);
+
+  // Engagement trend — is the team trending up or down?
+  const engagementTrend = useMemo(() => {
+    const recent7 = snapshots.slice(-7);
+    const prev7 = snapshots.slice(-14, -7);
+    if (!recent7.length || !prev7.length) return { direction: "neutral" as const, delta: 0 };
+    const recentAvg = recent7.reduce((s, x) => s + x.totalXPAwarded, 0) / recent7.length;
+    const prevAvg = prev7.reduce((s, x) => s + x.totalXPAwarded, 0) / prev7.length;
+    const delta = Math.round(((recentAvg - prevAvg) / Math.max(prevAvg, 1)) * 100);
+    return { direction: delta > 5 ? "up" as const : delta < -5 ? "down" as const : "neutral" as const, delta };
+  }, [snapshots]);
+
+  // Coach efficiency — which checkpoints are most/least awarded
+  const checkpointEfficiency = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const a of roster) {
+      for (const [k, v] of Object.entries(a.checkpoints)) if (v) counts[k] = (counts[k] || 0) + 1;
+    }
+    return [...POOL_CPS].map(cp => ({ ...cp, count: counts[cp.id] || 0, rate: roster.length ? Math.round(((counts[cp.id] || 0) / roster.length) * 100) : 0 }))
+      .sort((a, b) => b.rate - a.rate);
+  }, [roster]);
+
   /* ════════════════════════════════════════════════════════════
      RENDER
      ════════════════════════════════════════════════════════════ */
@@ -1090,9 +1187,16 @@ export default function ApexAthletePage() {
                   </div>
                   {growth && growth.xpGain !== 0 && (
                     <div className={`mt-2 text-[10px] font-medium ${growth.xpGain > 0 ? "text-emerald-400/60" : "text-red-400/60"}`}>
-                      {growth.xpGain > 0 ? "+" : ""}{growth.xpGain} XP vs last month
+                      {growth.xpGain > 0 ? "↑" : "↓"} {Math.abs(growth.xpGain)} XP vs last month
                     </div>
                   )}
+                  <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                    <div className="grid grid-cols-3 gap-2 text-[10px] text-white/25">
+                      <div><span className="text-white/40 font-bold">{a.totalPractices}</span> sessions</div>
+                      <div><span className="text-white/40 font-bold">{Object.values(a.quests).filter(q => q === "done").length}</span> quests</div>
+                      <div><span className="text-white/40 font-bold">{getStreakMult(a.streak)}x</span> multiplier</div>
+                    </div>
+                  </div>
                 </Card>
               );
             })}
@@ -1133,15 +1237,129 @@ export default function ApexAthletePage() {
     const p = periodComparison;
     const top5 = [...roster].sort((a, b) => b.xp - a.xp).slice(0, 5);
     const longestStreak = [...roster].sort((a, b) => b.streak - a.streak)[0];
+    const riskColor = (r: number) => r >= 60 ? "text-red-400" : r >= 40 ? "text-orange-400" : "text-yellow-400";
+    const riskBg = (r: number) => r >= 60 ? "bg-red-500" : r >= 40 ? "bg-orange-500" : "bg-yellow-500";
+    const trendIcon = engagementTrend.direction === "up" ? "📈" : engagementTrend.direction === "down" ? "📉" : "➡️";
+    const trendColor = engagementTrend.direction === "up" ? "text-emerald-400" : engagementTrend.direction === "down" ? "text-red-400" : "text-white/40";
+    const cultureColor = cultureScore >= 70 ? "text-emerald-400" : cultureScore >= 40 ? "text-[#f59e0b]" : "text-red-400";
+    const cultureBg = cultureScore >= 70 ? "bg-emerald-500" : cultureScore >= 40 ? "bg-[#f59e0b]" : "bg-red-500";
 
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="max-w-[1400px] mx-auto relative z-10 px-5 sm:px-8">
+        <div className="max-w-[1400px] mx-auto relative z-10 px-5 sm:px-8 pb-12">
           <GameHUDHeader />
-          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-8">Coach Analytics</h2>
+          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-2">Coach Analytics</h2>
+          <p className="text-[#00f0ff]/30 text-xs font-mono mb-8">Advanced insights · Predictive intelligence · Team health</p>
 
-          {/* Calendar */}
+          {/* ── TEAM HEALTH DASHBOARD ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <Card className="p-5 text-center" neon>
+              <div className={`text-4xl font-black ${cultureColor}`}>{cultureScore}</div>
+              <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">Culture Score</div>
+              <div className="mt-2 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
+                <div className={`h-full rounded-full ${cultureBg} transition-all`} style={{ width: `${cultureScore}%` }} />
+              </div>
+            </Card>
+            <Card className="p-5 text-center" neon>
+              <div className={`text-4xl font-black ${trendColor}`}>{engagementTrend.delta > 0 ? "+" : ""}{engagementTrend.delta}%</div>
+              <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">{trendIcon} Engagement Trend</div>
+              <div className="text-white/15 text-[10px] mt-2">vs last 7 days</div>
+            </Card>
+            <Card className="p-5 text-center" neon>
+              <div className="text-4xl font-black text-red-400">{atRiskAthletes.length}</div>
+              <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">At Risk Athletes</div>
+              <div className="text-white/15 text-[10px] mt-2">need attention</div>
+            </Card>
+            <Card className="p-5 text-center" neon>
+              <div className="text-4xl font-black text-[#f59e0b]">{avgAtt(snapshots.slice(-30))}%</div>
+              <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">30-Day Attendance</div>
+              <div className="text-white/15 text-[10px] mt-2">{avgXP(snapshots.slice(-30))} avg XP/day</div>
+            </Card>
+          </div>
+
+          {/* ── ATTRITION RISK RADAR ── */}
+          {atRiskAthletes.length > 0 && (
+            <Card className="p-6 mb-6" glow>
+              <div className="flex items-center gap-3 mb-5">
+                <span className="text-lg">🚨</span>
+                <h3 className="text-red-400 text-sm font-black uppercase tracking-wider">Attrition Risk Radar</h3>
+                <span className="text-white/15 text-[10px] ml-auto font-mono">{atRiskAthletes.length} athlete{atRiskAthletes.length > 1 ? "s" : ""} flagged</span>
+              </div>
+              <div className="space-y-3">
+                {atRiskAthletes.slice(0, 8).map(a => {
+                  const lv = getLevel(a.xp);
+                  return (
+                    <div key={a.id} className="flex items-center gap-4 py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-red-500/20 transition-all">
+                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `${lv.color}15`, border: `1px solid ${lv.color}30`, color: lv.color }}>
+                        {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm font-medium truncate">{a.name}</div>
+                        <div className="text-white/20 text-[10px]">
+                          Streak: {a.streak}d · {a.totalPractices} sessions · {getLevel(a.xp).name}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className={`text-lg font-black ${riskColor(a.risk)}`}>{a.risk}</div>
+                        <div className="text-white/15 text-[10px]">risk score</div>
+                      </div>
+                      <div className="w-16 h-2 rounded-full bg-white/[0.04] overflow-hidden shrink-0">
+                        <div className={`h-full rounded-full ${riskBg(a.risk)} transition-all`} style={{ width: `${a.risk}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-white/10 text-[10px] mt-4 font-mono">Risk factors: low attendance, broken streaks, low XP growth, no quest engagement, no teammate interaction</p>
+            </Card>
+          )}
+
+          {/* ── PEAK PERFORMANCE WINDOWS ── */}
+          <Card className="p-6 mb-6">
+            <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Peak Performance Windows</h3>
+            <div className="flex items-end gap-3 h-32">
+              {peakWindows.map((pw, i) => {
+                const maxXP = Math.max(...peakWindows.map(p => p.avgXP), 1);
+                const pct = (pw.avgXP / maxXP) * 100;
+                const isTop = i === 0 && pw.avgXP > 0;
+                return (
+                  <div key={pw.day} className="flex-1 flex flex-col items-center gap-2">
+                    <span className={`text-[10px] font-bold font-mono ${isTop ? "text-[#f59e0b]" : "text-white/25"}`}>{pw.avgXP}</span>
+                    <div className={`w-full rounded-t transition-all ${isTop ? "bg-gradient-to-t from-[#f59e0b] to-[#f59e0b]/60" : "bg-[#6b21a8]/60"}`}
+                      style={{ height: `${Math.max(pct, 4)}%` }} />
+                    <span className={`text-[10px] font-bold ${isTop ? "text-[#f59e0b]" : "text-white/30"}`}>{pw.day}</span>
+                  </div>
+                );
+              })}
+            </div>
+            {peakWindows[0]?.avgXP > 0 && (
+              <p className="text-white/15 text-[10px] mt-4 font-mono">Best day: <span className="text-[#f59e0b]">{peakWindows[0].day}</span> — avg {peakWindows[0].avgXP} XP across {peakWindows[0].sessions} sessions</p>
+            )}
+          </Card>
+
+          {/* ── CHECKPOINT EFFICIENCY ── */}
+          <Card className="p-6 mb-6">
+            <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Checkpoint Efficiency</h3>
+            <p className="text-white/15 text-[10px] mb-4 font-mono">Which habits are sticking? Sorted by completion rate across the team.</p>
+            <div className="space-y-2">
+              {checkpointEfficiency.slice(0, 8).map(cp => (
+                <div key={cp.id} className="flex items-center gap-3">
+                  <span className="text-white/40 text-xs w-40 truncate">{cp.name}</span>
+                  <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
+                    <div className="h-full rounded-full bg-[#6b21a8] transition-all" style={{ width: `${cp.rate}%` }} />
+                  </div>
+                  <span className="text-white/30 text-[10px] font-mono w-10 text-right">{cp.rate}%</span>
+                  <span className="text-white/15 text-[10px] font-mono w-8 text-right">{cp.count}</span>
+                </div>
+              ))}
+            </div>
+            {checkpointEfficiency.length > 0 && checkpointEfficiency[checkpointEfficiency.length - 1].rate < 20 && (
+              <p className="text-orange-400/40 text-[10px] mt-4 font-mono">Low adoption: <span className="text-orange-400">{checkpointEfficiency[checkpointEfficiency.length - 1].name}</span> — consider coaching emphasis</p>
+            )}
+          </Card>
+
+          {/* ── ENGAGEMENT CALENDAR ── */}
           <Card className="p-6 mb-6">
             <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">Engagement Calendar</h3>
             <div className="flex flex-wrap gap-1.5">
@@ -1174,7 +1392,7 @@ export default function ApexAthletePage() {
             )}
           </Card>
 
-          {/* Timeline */}
+          {/* ── ATHLETE TIMELINE ── */}
           <Card className="p-6 mb-6">
             <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">Athlete Timeline</h3>
             <select value={timelineAthleteId || ""} onChange={e => setTimelineAthleteId(e.target.value || null)}
@@ -1187,6 +1405,9 @@ export default function ApexAthletePage() {
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-white font-bold">{tlAthlete.name}</span>
                   <span className="text-[#f59e0b] text-sm">{getLevel(tlAthlete.xp).icon} {tlAthlete.xp} XP</span>
+                  <span className={`text-xs font-bold ml-auto ${riskColor(getAttritionRisk(tlAthlete))}`}>
+                    Risk: {getAttritionRisk(tlAthlete)}/100
+                  </span>
                 </div>
                 <div className="flex items-end gap-1.5 h-24">
                   {snapshots.slice(-14).map((s, i) => {
@@ -1204,7 +1425,7 @@ export default function ApexAthletePage() {
             )}
           </Card>
 
-          {/* Period comparison */}
+          {/* ── PERIOD COMPARISON ── */}
           <Card className="p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
               <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold">Period Comparison</h3>
@@ -1227,7 +1448,7 @@ export default function ApexAthletePage() {
             </div>
           </Card>
 
-          {/* Report card */}
+          {/* ── MONTHLY REPORT CARD ── */}
           <Card className="p-6 mb-6">
             <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">Monthly Report Card</h3>
             <div className="grid grid-cols-3 gap-4 text-center mb-6">
@@ -1252,8 +1473,8 @@ export default function ApexAthletePage() {
           </Card>
 
           <button onClick={exportCSV}
-            className="px-5 py-3 rounded-xl bg-white/[0.03] border border-white/[0.06] text-white/40 text-sm font-medium hover:bg-white/[0.06] transition-colors min-h-[44px]">
-            Export CSV
+            className="game-btn px-5 py-3 bg-[#06020f]/60 text-[#00f0ff]/40 text-sm font-mono border border-[#00f0ff]/15 hover:text-[#00f0ff]/70 hover:border-[#00f0ff]/30 transition-all min-h-[44px]">
+            📊 Export Full CSV
           </button>
         </div>
       </div>
