@@ -140,24 +140,33 @@ const LINKS = [
 
 /* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
 const LOG = [
-  { time: "Now", text: "Building multi-roster Apex Athlete expansion", color: "#f59e0b" },
-  { time: "Today", text: "Apex Athlete v1 tested at practice \u2014 working", color: "#00f0ff" },
-  { time: "Today", text: "Sci-fi game UI overhaul deployed", color: "#a855f7" },
-  { time: "Today", text: "Coach analytics: attrition risk, culture score", color: "#f59e0b" },
-  { time: "Yest.", text: "GA phone case art crops + source matching", color: "#00f0ff" },
-  { time: "Yest.", text: "Studio landing page deployed", color: "#a855f7" },
-  { time: "Yest.", text: "SCOWW sponsor packages finalized", color: "#22d3ee" },
-  { time: "2d ago", text: "Parallax label identity started", color: "#e879f9" },
+  { time: "Now", text: "Apex Athlete v1 tested at practice \u2014 all checkpoints working", color: "#f59e0b" },
+  { time: "Now", text: "Multi-roster expansion in progress (240+ athletes)", color: "#f59e0b" },
+  { time: "Today", text: "Command Center holographic overhaul deployed", color: "#a855f7" },
+  { time: "Today", text: "Advanced coach analytics added (attrition risk, culture score)", color: "#00f0ff" },
+  { time: "Today", text: "Streak system fixed \u2014 date-tracked, honest progression", color: "#22d3ee" },
+  { time: "Today", text: "Sandbox permissions permanently resolved", color: "#a855f7" },
+  { time: "Today", text: "GA phone case source art matched to Batch A designs", color: "#00f0ff" },
+  { time: "Today", text: "Studio landing page live", color: "#e879f9" },
 ];
 
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
 const SCHEDULE = [
-  { time: "06:00", event: "Morning swim practice", accent: "#00f0ff" },
-  { time: "08:30", event: "School drop-off", accent: "#f59e0b" },
-  { time: "15:30", event: "Afternoon swim practice", accent: "#00f0ff" },
-  { time: "17:00", event: "Team meeting / review", accent: "#a855f7" },
-  { time: "19:00", event: "Family dinner", accent: "#e879f9" },
-  { time: "21:00", event: "Deep work session", accent: "#22d3ee" },
+  { time: "6:00 AM", event: "Morning swim practice (Saint Andrew's)", accent: "#00f0ff" },
+  { time: "8:15 AM", event: "Atlas Morning Brief", accent: "#a855f7" },
+  { time: "2:00 PM", event: "Deep work / Build session", accent: "#22d3ee" },
+  { time: "3:30 PM", event: "Afternoon swim practice", accent: "#00f0ff" },
+  { time: "5:30 PM", event: "Weight room (Platinum)", accent: "#f59e0b" },
+  { time: "7:00 PM", event: "Family time", accent: "#e879f9" },
+  { time: "9:00 PM", event: "Night build session", accent: "#22d3ee" },
+];
+
+/* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
+const NOTIFICATIONS = [
+  { text: "Apex Athlete tested at practice \u2713", accent: "#00ff88", icon: "\u2713" },
+  { text: "5 Batch A Weavy renders pending", accent: "#f59e0b", icon: "\u26A0" },
+  { text: "Shopify store needs setup", accent: "#e879f9", icon: "\u25C8" },
+  { text: "3 Replit projects to analyze", accent: "#22d3ee", icon: "\u25C7" },
 ];
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
@@ -192,6 +201,7 @@ export default function CommandCenter() {
   const [waterG, setWaterG] = useState(0);
   const [sleepH, setSleepH] = useState(7);
   const [workedOut, setWorkedOut] = useState(false);
+  const [vitalsLoaded, setVitalsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [time, setTime] = useState("");
   const [dateStr, setDateStr] = useState("");
@@ -215,6 +225,29 @@ export default function CommandCenter() {
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
   }, []);
+
+  /* ── load health vitals from localStorage ── */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cc-vitals");
+      if (saved) {
+        const v = JSON.parse(saved);
+        if (typeof v.steps === "number") setSteps(v.steps);
+        if (typeof v.waterG === "number") setWaterG(v.waterG);
+        if (typeof v.sleepH === "number") setSleepH(v.sleepH);
+        if (typeof v.workedOut === "boolean") setWorkedOut(v.workedOut);
+      }
+    } catch { /* silent */ }
+    setVitalsLoaded(true);
+  }, []);
+
+  /* ── persist health vitals to localStorage ── */
+  useEffect(() => {
+    if (!vitalsLoaded) return;
+    try {
+      localStorage.setItem("cc-vitals", JSON.stringify({ steps, waterG, sleepH, workedOut }));
+    } catch { /* silent */ }
+  }, [steps, waterG, sleepH, workedOut, vitalsLoaded]);
 
   /* ── holographic particle canvas ── */
   useEffect(() => {
@@ -666,6 +699,123 @@ export default function CommandCenter() {
 
         <div className="w-full px-4 sm:px-6 lg:px-10">
 
+          {/* ═══════ WHAT'S NEXT — #1 PRIORITY ═══════ */}
+          <div className="mb-6">
+            <div
+              className="game-panel relative p-5 sm:p-6 priority-pulse"
+              style={{
+                background: "linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(6,2,15,0.95) 40%, rgba(168,85,247,0.05) 100%)",
+                border: "2px solid rgba(245,158,11,0.4)",
+              }}
+            >
+              {/* Corner accents */}
+              <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-[#f59e0b]/60" />
+              <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-[#f59e0b]/60" />
+              <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-[#f59e0b]/30" />
+              <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-[#f59e0b]/30" />
+
+              <div className="flex items-center gap-4 sm:gap-5">
+                <div className="flex-shrink-0">
+                  <div
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center text-xl sm:text-2xl font-black"
+                    style={{
+                      background: "linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.05) 100%)",
+                      border: "1px solid rgba(245,158,11,0.3)",
+                      color: "#f59e0b",
+                      textShadow: "0 0 15px rgba(245,158,11,0.5)",
+                    }}
+                  >
+                    #1
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="text-[8px] font-mono uppercase tracking-[0.4em] neon-text-gold">
+                      WHAT&apos;S NEXT
+                    </span>
+                    <span
+                      className="text-[7px] font-mono uppercase px-2 py-0.5 tracking-wider"
+                      style={{
+                        color: "#ef4444",
+                        background: "rgba(239,68,68,0.1)",
+                        border: "1px solid rgba(239,68,68,0.2)",
+                        clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
+                      }}
+                    >
+                      CRITICAL
+                    </span>
+                  </div>
+                  <div className="text-base sm:text-lg font-bold text-white/90 leading-snug">
+                    Expand Apex Athlete to all roster groups (240+ athletes)
+                  </div>
+                  <div className="text-[10px] font-mono text-white/25 mt-1">
+                    Multi-roster expansion &mdash; game engine ready, coach dashboard live
+                  </div>
+                </div>
+                <div className="hidden sm:block flex-shrink-0">
+                  <Link
+                    href="/apex-athlete"
+                    className="game-btn px-5 py-2.5 text-[9px] font-mono uppercase tracking-wider transition-all hover:scale-[1.03]"
+                    style={{
+                      background: "rgba(245,158,11,0.12)",
+                      color: "#f59e0b",
+                      border: "1px solid rgba(245,158,11,0.3)",
+                    }}
+                  >
+                    OPEN APEX &rarr;
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════ NOTIFICATIONS / INBOX ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <div className="w-2 h-2 rounded-full bg-[#f59e0b]"
+                    style={{ boxShadow: "0 0 8px rgba(245,158,11,0.6)" }} />
+                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#f59e0b] notif-ping" />
+                </div>
+                <span className="text-[8px] font-mono uppercase tracking-[0.5em] text-[#f59e0b]/40">
+                  NOTIFICATIONS
+                </span>
+              </div>
+              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(245,158,11,0.12), transparent)" }} />
+              <div className="text-[8px] font-mono text-white/15">
+                {NOTIFICATIONS.length} ITEMS
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {NOTIFICATIONS.map((n, i) => (
+                <div
+                  key={i}
+                  className="game-panel-sm relative p-3.5 flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                  style={{
+                    background: `linear-gradient(145deg, ${n.accent}08 0%, rgba(3,1,8,0.98) 100%)`,
+                    border: `1px solid ${n.accent}15`,
+                  }}
+                >
+                  <div
+                    className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    style={{
+                      background: `${n.accent}12`,
+                      color: n.accent,
+                      border: `1px solid ${n.accent}20`,
+                    }}
+                  >
+                    {n.icon}
+                  </div>
+                  <span className="text-[11px] font-mono text-white/50 group-hover:text-white/70 transition-colors leading-snug">
+                    {n.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* ═══════ ROW 1: SCRIPTURE + WEATHER + CALENDAR ═══════ */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
 
@@ -793,7 +943,7 @@ export default function CommandCenter() {
                     className="flex items-center gap-3 group"
                   >
                     <div
-                      className="text-[10px] font-mono tabular-nums w-[40px] flex-shrink-0 text-right"
+                      className="text-[10px] font-mono tabular-nums w-[56px] flex-shrink-0 text-right"
                       style={{ color: `${s.accent}60` }}
                     >
                       {s.time}

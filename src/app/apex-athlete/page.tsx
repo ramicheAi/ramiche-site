@@ -114,7 +114,7 @@ const CAT_COLORS: Record<string, string> = {
 interface DailyXP { date: string; pool: number; weight: number; meet: number; }
 
 interface Athlete {
-  id: string; name: string; age: number; gender: "M" | "F";
+  id: string; name: string; age: number; gender: "M" | "F"; group: string;
   xp: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
@@ -184,10 +184,10 @@ const INITIAL_ROSTER: { name: string; age: number; gender: "M" | "F" }[] = [
   { name: "Grace Weeks", age: 14, gender: "F" },
 ];
 
-function makeAthlete(r: { name: string; age: number; gender: "M" | "F" }): Athlete {
+function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: string }): Athlete {
   return {
     id: r.name.toLowerCase().replace(/\s+/g, "-"),
-    name: r.name, age: r.age, gender: r.gender,
+    name: r.name, age: r.age, gender: r.gender, group: r.group ?? "Varsity",
     xp: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "",
     totalPractices: 0, weekSessions: 0, weekWeightSessions: 0, weekTarget: 5,
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
