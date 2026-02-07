@@ -1070,12 +1070,12 @@ export default function ApexAthletePage() {
                 <button key={cp.id}
                   onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, sessionMode, e)}
                   disabled={dailyUsed >= DAILY_XP_CAP && !checked}
-                  className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-all min-h-[56px] ${
-                    checked ? "bg-[#6b21a8]/15 check-flash shadow-[inset_0_0_30px_rgba(107,33,168,0.08)]" : dailyUsed >= DAILY_XP_CAP ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.03] cursor-pointer"
+                  className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors duration-200 min-h-[56px] ${
+                    checked ? "bg-[#6b21a8]/15 shadow-[inset_0_0_20px_rgba(107,33,168,0.06)]" : dailyUsed >= DAILY_XP_CAP ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.03] cursor-pointer active:bg-white/[0.05]"
                   }`}
                 >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${
-                    checked ? "border-[#7c3aed] bg-gradient-to-br from-[#7c3aed] to-[#6b21a8] shadow-[0_0_8px_rgba(124,58,237,0.4)]" : "border-white/15"
+                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${
+                    checked ? "border-[#7c3aed] bg-gradient-to-br from-[#7c3aed] to-[#6b21a8] scale-100" : "border-white/15 scale-100"
                   }`}>
                     {checked && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                   </div>
@@ -1726,7 +1726,7 @@ export default function ApexAthletePage() {
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
             <div className="space-y-2 mb-10">
-              {roster.sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+              {[...roster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
                 const sk = fmtStreak(a.streak);
@@ -1741,7 +1741,7 @@ export default function ApexAthletePage() {
                       isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
-                        className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-200 rounded-2xl group"
+                        className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
                         onClick={() => setExpandedId(isExp ? null : a.id)}
                       >
                         <div className="w-14 h-14 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
@@ -1765,7 +1765,11 @@ export default function ApexAthletePage() {
                           {dailyUsed > 0 && <div className="text-[10px] text-[#f59e0b]/60 font-bold mt-1.5">+{dailyUsed} today</div>}
                         </div>
                       </div>
-                      {isExp && <div className="px-4 sm:px-5 pb-5"><AthleteExpanded athlete={a} /></div>}
+                      <div className={`athlete-card-wrapper ${isExp ? "open" : ""}`}>
+                      <div>
+                        {isExp && <div className="px-4 sm:px-5 pb-5 expand-in"><AthleteExpanded athlete={a} /></div>}
+                      </div>
+                    </div>
                     </div>
                   </div>
                 );
