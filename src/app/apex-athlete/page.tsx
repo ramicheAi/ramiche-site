@@ -1203,7 +1203,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs /><XpFloats /><LevelUpOverlay />
-        <div className="max-w-[1400px] mx-auto relative z-10 px-5 sm:px-8">
+        <div className="w-full relative z-10 px-5 sm:px-8">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Read-only — athlete progress & growth</p>
@@ -1257,7 +1257,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="max-w-[1400px] mx-auto relative z-10 px-5 sm:px-8">
+        <div className="w-full relative z-10 px-5 sm:px-8">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-6">Audit Log</h2>
           <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
@@ -1292,7 +1292,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="max-w-[1400px] mx-auto relative z-10 px-5 sm:px-8 pb-12">
+        <div className="w-full relative z-10 px-5 sm:px-8 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-2">Coach Analytics</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-8">Advanced insights · Predictive intelligence · Team health</p>
@@ -1539,7 +1539,7 @@ export default function ApexAthletePage() {
       <XpFloats /><LevelUpOverlay />
 
       <div className="relative z-10 w-full px-5 sm:px-8">
-        <div className="max-w-[1400px] mx-auto">
+        <div className="w-full">
           <GameHUDHeader />
 
         {/* ══════════════════════════════════════════════════════
@@ -1668,7 +1668,7 @@ export default function ApexAthletePage() {
            COACH TOOLS + ROSTER CHECK-IN
            ══════════════════════════════════════════════════════ */}
         <div className="w-full px-5 sm:px-8 py-6">
-          <div className="max-w-[1400px] mx-auto">
+          <div className="w-full">
             {/* Session mode + tools */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div className="flex gap-2">
