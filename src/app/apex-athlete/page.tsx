@@ -1180,7 +1180,7 @@ export default function ApexAthletePage() {
               <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? "🏊 POOL" : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
+            <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
             {culture.weeklyQuote && (
               <>
                 <div className="w-px h-4 bg-[#00f0ff]/10" />
@@ -1337,7 +1337,7 @@ export default function ApexAthletePage() {
         {/* Daily check-in */}
         <div>
           <h4 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">
-            {sessionMode === "pool" ? "Pool Check-In" : sessionMode === "weight" ? "Weight Room" : "Meet Day"}
+            {sessionMode === "pool" ? (currentSport === "diving" ? "Board Check-In" : currentSport === "waterpolo" ? "Pool Check-In" : "Pool Check-In") : sessionMode === "weight" ? (currentSport === "diving" ? "Dryland" : currentSport === "waterpolo" ? "Gym" : "Weight Room") : (currentSport === "waterpolo" ? "Match Day" : "Meet Day")}
           </h4>
           <Card className="divide-y divide-white/[0.04]">
             {cps.map(cp => {
@@ -1976,8 +1976,10 @@ export default function ApexAthletePage() {
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div className="flex gap-2">
                 {(["pool", "weight", "meet"] as const).map(m => {
-                  const icons = { pool: "🏊", weight: "🏋️", meet: "🏁" };
-                  const labels = { pool: "Pool", weight: "Weight Room", meet: "Meet Day" };
+                  const sportIcons = { swimming: { pool: "🏊", weight: "🏋️", meet: "🏁" }, diving: { pool: "🤿", weight: "🏋️", meet: "🏁" }, waterpolo: { pool: "🤽", weight: "🏋️", meet: "🏁" } };
+                  const sportLabels = { swimming: { pool: "Pool", weight: "Weight Room", meet: "Meet Day" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet Day" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match Day" } };
+                  const icons = sportIcons[currentSport as keyof typeof sportIcons] || sportIcons.swimming;
+                  const labels = sportLabels[currentSport as keyof typeof sportLabels] || sportLabels.swimming;
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
                       className={`game-btn px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
