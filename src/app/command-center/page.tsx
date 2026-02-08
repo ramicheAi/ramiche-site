@@ -77,6 +77,46 @@ const AGENTS = [
   },
 ];
 
+/* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
+const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "active" | "idle" | "done" }[]> = {
+  Atlas: [
+    { project: "Apex Athlete", role: "Lead architect + game engine", status: "active" },
+    { project: "Command Center", role: "Design + build", status: "active" },
+    { project: "Galactik Antics", role: "Store pipeline + copy", status: "active" },
+    { project: "Ramiche Studio", role: "Landing page + outreach", status: "idle" },
+  ],
+  TheMAESTRO: [
+    { project: "Music Pipeline", role: "Production direction + sound design", status: "idle" },
+    { project: "Parallax", role: "Artist A&R + creative guidance", status: "idle" },
+  ],
+  SIMONS: [
+    { project: "Replit Projects", role: "Sports Betting Engine analytics", status: "active" },
+    { project: "Revenue Optimization", role: "Pricing models + market analysis", status: "idle" },
+  ],
+  "Dr. Strange": [
+    { project: "Apex Athlete", role: "Attrition prediction + forecasting", status: "idle" },
+    { project: "Business Strategy", role: "Scenario planning + risk analysis", status: "idle" },
+  ],
+  SHURI: [
+    { project: "Apex Athlete", role: "UI/UX + rapid prototyping", status: "active" },
+    { project: "Replit Projects", role: "Social Cross-Poster build", status: "idle" },
+    { project: "Galactik Antics", role: "Browser game MVP", status: "idle" },
+  ],
+  Widow: [
+    { project: "Security Audit", role: "Platform security + API protection", status: "idle" },
+    { project: "Competitive Intel", role: "Market monitoring + threat scan", status: "idle" },
+  ],
+  PROXIMON: [
+    { project: "Apex Athlete", role: "Systems architecture + scaling", status: "active" },
+    { project: "Infrastructure", role: "Firebase + deployment pipeline", status: "idle" },
+  ],
+  Vee: [
+    { project: "Galactik Antics", role: "Brand voice + launch marketing", status: "active" },
+    { project: "Ramiche Studio", role: "Client acquisition + positioning", status: "idle" },
+    { project: "SCOWW", role: "Event marketing + social strategy", status: "idle" },
+  ],
+};
+
 /* ── PROJECTS / MISSIONS ───────────────────────────────────────────────────── */
 const MISSIONS = [
   {
@@ -247,6 +287,7 @@ export default function CommandCenter() {
   const [dateStr, setDateStr] = useState("");
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
   const [hoveredAgent, setHoveredAgent] = useState<number | null>(null);
+  const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<{text: string; time: string; status: "sent"|"done"}[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -1173,6 +1214,15 @@ export default function CommandCenter() {
                       </div>
                       <span className="text-[8px] font-mono text-[#00f0ff]/40">{AGENTS[0].credits.used}/{AGENTS[0].credits.limit} credits</span>
                     </div>
+                    {/* Atlas active projects */}
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {(AGENT_PROJECTS["Atlas"] || []).filter(p => p.status === "active").map(p => (
+                        <span key={p.project} className="text-[8px] font-mono px-2 py-1 rounded-md"
+                          style={{ color: "rgba(0,255,136,0.7)", background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.1)" }}>
+                          ● {p.project}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1232,8 +1282,8 @@ export default function CommandCenter() {
                       <span className="text-[7px] font-mono tabular-nums" style={{ color: `${a.color}35` }}>{creditPct}%</span>
                     </div>
 
-                    {/* Active task — show on hover */}
-                    {a.activeTask && isHov && (
+                    {/* Active task indicator */}
+                    {a.activeTask && (
                       <div className="mt-2 pt-2 border-t" style={{ borderColor: `${a.color}08` }}>
                         <div className="flex items-center gap-1">
                           <span className="flex gap-0.5">
@@ -1243,6 +1293,45 @@ export default function CommandCenter() {
                           </span>
                           <span className="text-[8px] font-mono truncate" style={{ color: `${a.color}40` }}>{a.activeTask}</span>
                         </div>
+                      </div>
+                    )}
+
+                    {/* Projects dropdown toggle */}
+                    {(AGENT_PROJECTS[a.name]?.length ?? 0) > 0 && (
+                      <button
+                        className="w-full mt-2 pt-2 border-t flex items-center justify-between text-[8px] font-mono transition-colors"
+                        style={{ borderColor: `${a.color}08`, color: `${a.color}50` }}
+                        onClick={(e) => { e.stopPropagation(); setExpandedAgent(expandedAgent === a.name ? null : a.name); }}
+                      >
+                        <span>{AGENT_PROJECTS[a.name].length} PROJECT{AGENT_PROJECTS[a.name].length > 1 ? "S" : ""}</span>
+                        <span style={{ transform: expandedAgent === a.name ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</span>
+                      </button>
+                    )}
+
+                    {/* Projects dropdown content */}
+                    {expandedAgent === a.name && AGENT_PROJECTS[a.name] && (
+                      <div className="mt-2 space-y-1.5 overflow-hidden" style={{ animation: "expand-in 0.2s ease-out" }}>
+                        {AGENT_PROJECTS[a.name].map((p) => (
+                          <div
+                            key={p.project}
+                            className="flex items-center gap-2 p-2 rounded-lg transition-colors"
+                            style={{ background: `${a.color}06`, border: `1px solid ${a.color}08` }}
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.status === "active" ? "animate-pulse" : ""}`}
+                              style={{ background: p.status === "active" ? "#00ff88" : p.status === "done" ? a.color : "rgba(255,255,255,0.15)" }} />
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[9px] font-bold truncate" style={{ color: `${a.color}80` }}>{p.project}</div>
+                              <div className="text-[7px] text-white/25 truncate">{p.role}</div>
+                            </div>
+                            <span className="text-[7px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
+                              style={{
+                                color: p.status === "active" ? "#00ff88" : p.status === "done" ? a.color : "rgba(255,255,255,0.3)",
+                                background: p.status === "active" ? "rgba(0,255,136,0.08)" : `${a.color}06`,
+                              }}>
+                              {p.status.toUpperCase()}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
