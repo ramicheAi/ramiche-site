@@ -15,7 +15,7 @@ const AGENTS = [
     name: "Atlas", model: "Opus 4.6", role: "Lead Strategist",
     status: "active" as const, color: "#00f0ff", icon: "🧭",
     desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
-    connections: [1, 2, 3, 4, 5, 6, 7],
+    connections: [1, 2, 3, 4, 5, 6, 7, 8],
     credits: { used: 847, limit: 5000 },
     activeTask: "Multi-roster expansion + Command Center v5",
   },
@@ -75,6 +75,14 @@ const AGENTS = [
     credits: { used: 0, limit: 5000 },
     activeTask: null,
   },
+  {
+    name: "Aetherion", model: "Opus 4.6", role: "Visionary Architect",
+    status: "active" as const, color: "#818cf8", icon: "🌀",
+    desc: "The Architect of Architects — patterns, emergence, meta-systems, blueprinting reality itself",
+    connections: [0, 3, 6],
+    credits: { used: 0, limit: 5000 },
+    activeTask: null,
+  },
 ];
 
 /* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
@@ -114,6 +122,11 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Galactik Antics", role: "Brand voice + launch marketing", status: "active" },
     { project: "Ramiche Studio", role: "Client acquisition + positioning", status: "idle" },
     { project: "SCOWW", role: "Event marketing + social strategy", status: "idle" },
+  ],
+  Aetherion: [
+    { project: "Multi-Agent Architecture", role: "Designing agent collaboration patterns", status: "active" },
+    { project: "Apex Athlete", role: "Scalable system blueprint (multi-team SaaS)", status: "idle" },
+    { project: "Infrastructure", role: "Cross-project integration + emergence analysis", status: "idle" },
   ],
 };
 
