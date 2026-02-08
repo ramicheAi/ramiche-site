@@ -733,12 +733,15 @@ export default function ApexAthletePage() {
 
   // ── coach tools ──────────────────────────────────────────
   const bulkMarkPresent = useCallback(() => {
+    const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
+    const sportCPs = getCPsForSport(gDef.sport);
+    const firstCP = sportCPs[0];
     setRoster(prev => {
       const r = prev.map(a => {
         if (a.group !== selectedGroup) return a; // only affect current group
-        const cp = { ...a.checkpoints, "on-time-ready": true };
-        const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp }, 10, "pool");
-        addAudit(newAthlete.id, newAthlete.name, "Bulk: On Time + Ready", awarded);
+        const cp = { ...a.checkpoints, [firstCP.id]: true };
+        const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp }, firstCP.xp, "pool");
+        addAudit(newAthlete.id, newAthlete.name, `Bulk: ${firstCP.name}`, awarded);
         const streakAlreadyCounted = a.lastStreakDate === today();
         return { ...newAthlete, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
       });
@@ -950,12 +953,13 @@ export default function ApexAthletePage() {
   // Coach efficiency — which checkpoints are most/least awarded
   const checkpointEfficiency = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const a of roster) {
+    const groupRoster = roster.filter(a => a.group === selectedGroup);
+    for (const a of groupRoster) {
       for (const [k, v] of Object.entries(a.checkpoints)) if (v) counts[k] = (counts[k] || 0) + 1;
     }
-    return [...POOL_CPS].map(cp => ({ ...cp, count: counts[cp.id] || 0, rate: roster.length ? Math.round(((counts[cp.id] || 0) / roster.length) * 100) : 0 }))
+    return [...currentCPs].map(cp => ({ ...cp, count: counts[cp.id] || 0, rate: groupRoster.length ? Math.round(((counts[cp.id] || 0) / groupRoster.length) * 100) : 0 }))
       .sort((a, b) => b.rate - a.rate);
-  }, [roster]);
+  }, [roster, selectedGroup, currentCPs]);
 
   /* ════════════════════════════════════════════════════════════
      RENDER
@@ -1252,7 +1256,7 @@ export default function ApexAthletePage() {
     const growth = getPersonalGrowth(athlete);
     const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
     const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
-    const cps = sessionMode === "pool" ? POOL_CPS : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    const cps = sessionMode === "pool" ? currentCPs : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
     const cpMap = sessionMode === "pool" ? athlete.checkpoints : sessionMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
 
     return (
