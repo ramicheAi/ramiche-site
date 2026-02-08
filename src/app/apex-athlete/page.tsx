@@ -780,6 +780,10 @@ export default function ApexAthletePage() {
     saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
+  // ── group switching ─────────────────────────────────────
+  const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); setExpandedId(null); }, []);
+  const currentGroupDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
+
   const addAthleteAction = useCallback(() => {
     if (!newAthleteName.trim() || !newAthleteAge) return;
     const a = makeAthlete({ name: newAthleteName.trim(), age: parseInt(newAthleteAge), gender: newAthleteGender, group: selectedGroup });
@@ -804,9 +808,6 @@ export default function ApexAthletePage() {
     link.click(); URL.revokeObjectURL(url);
   }, [roster]);
 
-  // ── group switching ─────────────────────────────────────
-  const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); setExpandedId(null); }, []);
-  const currentGroupDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
   const currentSport = currentGroupDef.sport;
   const currentCPs = getCPsForSport(currentSport);
   const filteredRoster = useMemo(() => roster.filter(a => a.group === selectedGroup), [roster, selectedGroup]);
