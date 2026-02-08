@@ -146,6 +146,113 @@ interface TeamCulture {
   goalTarget: number; goalCurrent: number; weeklyQuote: string;
 }
 
+// ── SELAH Wellness types ────────────────────────────────────
+interface MentalReadiness {
+  date: string; focus: number; energy: number; confidence: number; motivation: number;
+}
+interface BreathworkSession {
+  date: string; completedAt: number; rounds: number;
+}
+interface JournalEntry {
+  date: string; wentWell: string; challenging: string; improve: string; completedAt: number;
+}
+interface RecoveryLog {
+  date: string; sleepQuality: number; sorenessLevel: number; hydrationGlasses: number;
+}
+interface WellnessData {
+  mentalReadiness: MentalReadiness[];
+  breathworkSessions: BreathworkSession[];
+  journalEntries: JournalEntry[];
+  recoveryLogs: RecoveryLog[];
+}
+
+// ── schedule types ──────────────────────────────────────────
+
+type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
+
+const DAYS_OF_WEEK: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+type SessionType = "pool" | "weight" | "dryland";
+
+interface ScheduleSession {
+  id: string;
+  type: SessionType;
+  label: string;
+  startTime: string; // "HH:MM"
+  endTime: string;   // "HH:MM"
+  location: string;
+  notes: string;
+}
+
+interface DaySchedule {
+  template: string; // template id
+  sessions: ScheduleSession[];
+}
+
+interface GroupSchedule {
+  groupId: string;
+  weekSchedule: Record<DayOfWeek, DaySchedule>;
+}
+
+interface ScheduleTemplate {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+}
+
+const SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
+  { id: "sprint-day", name: "Sprint Day", icon: "\u26A1", color: "#f59e0b", description: "Short-distance speed work, starts & turns" },
+  { id: "endurance-day", name: "Endurance Day", icon: "\uD83C\uDF0A", color: "#60a5fa", description: "Distance sets, threshold training, pacing" },
+  { id: "drill-day", name: "Drill Day", icon: "\uD83D\uDD27", color: "#a855f7", description: "Technique drills, stroke correction, form focus" },
+  { id: "technique-day", name: "Technique Day", icon: "\uD83C\uDFAF", color: "#34d399", description: "Video review, underwater work, refinement" },
+  { id: "meet-day", name: "Meet Day", icon: "\uD83C\uDFC1", color: "#ef4444", description: "Competition day — warm-up, race, cool-down" },
+  { id: "rest-day", name: "Rest Day", icon: "\uD83D\uDCA4", color: "#475569", description: "Recovery — no scheduled sessions" },
+];
+
+function makeDefaultSession(type: SessionType, groupId: string): ScheduleSession {
+  const defaults: Record<SessionType, { label: string; start: string; end: string; location: string }> = {
+    pool: { label: "Pool Practice", start: "15:30", end: "17:30", location: "Main Pool" },
+    weight: { label: "Weight Room", start: "17:30", end: "18:30", location: "Weight Room" },
+    dryland: { label: "Dryland", start: "15:00", end: "15:30", location: "Pool Deck" },
+  };
+  const d = defaults[type];
+  // Platinum gets later weight room time
+  if (type === "weight" && groupId === "platinum") {
+    return { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, label: d.label, startTime: "17:30", endTime: "18:30", location: d.location, notes: "" };
+  }
+  return { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, label: d.label, startTime: d.start, endTime: d.end, location: d.location, notes: "" };
+}
+
+function makeDefaultGroupSchedule(groupId: string): GroupSchedule {
+  const isPlatinum = groupId === "platinum";
+  const emptyDay = (): DaySchedule => ({ template: "rest-day", sessions: [] });
+
+  const poolDay = (template: string): DaySchedule => {
+    const sessions: ScheduleSession[] = [
+      { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type: "pool", label: "Pool Practice", startTime: "15:30", endTime: "17:30", location: "Main Pool", notes: "" },
+    ];
+    if (isPlatinum) {
+      sessions.push({ id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}w`, type: "weight", label: "Weight Room", startTime: "17:30", endTime: "18:30", location: "Weight Room", notes: "" });
+    }
+    return { template, sessions };
+  };
+
+  return {
+    groupId,
+    weekSchedule: {
+      Mon: poolDay("sprint-day"),
+      Tue: poolDay("endurance-day"),
+      Wed: poolDay("drill-day"),
+      Thu: poolDay("technique-day"),
+      Fri: poolDay("sprint-day"),
+      Sat: { template: "meet-day", sessions: [{ id: `s-${Date.now()}-sat`, type: "pool", label: isPlatinum ? "Meet / Optional Practice" : "Optional Practice", startTime: "08:00", endTime: "10:00", location: "Main Pool", notes: "Meets or optional practice" }] },
+      Sun: emptyDay(),
+    },
+  };
+}
+
 // ── initial roster ───────────────────────────────────────────
 
 // ── ROSTER GROUPS ────────────────────────────────────────────
@@ -450,6 +557,8 @@ const K = {
   SNAPSHOTS: "apex-athlete-snapshots-v2",
   CULTURE: "apex-athlete-culture-v2",
   GROUP: "apex-athlete-selected-group",
+  SCHEDULES: "apex-athlete-schedules-v1",
+  WELLNESS: "apex-athlete-wellness-v1",
 };
 
 function load<T>(key: string, fallback: T): T {
@@ -488,7 +597,7 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -507,6 +616,12 @@ export default function ApexAthletePage() {
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
   const floatCounter = useRef(0);
+
+  // ── schedule state ──────────────────────────────────────
+  const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
+  const [scheduleGroup, setScheduleGroup] = useState<GroupId>("platinum");
+  const [editingSession, setEditingSession] = useState<{ day: DayOfWeek; sessionIdx: number } | null>(null);
+  const [scheduleEditMode, setScheduleEditMode] = useState(false);
 
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
@@ -565,6 +680,18 @@ export default function ApexAthletePage() {
     setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
     setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
     setCulture(load<TeamCulture>(K.CULTURE, DEFAULT_CULTURE));
+    // Load schedules
+    let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
+    if (scheds.length === 0) {
+      scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+      save(K.SCHEDULES, scheds);
+    } else {
+      // Ensure all groups have schedules
+      const existingIds = new Set(scheds.map(s => s.groupId));
+      const missing = ROSTER_GROUPS.filter(g => !existingIds.has(g.id)).map(g => makeDefaultGroupSchedule(g.id));
+      if (missing.length > 0) { scheds = [...scheds, ...missing]; save(K.SCHEDULES, scheds); }
+    }
+    setSchedules(scheds);
     setMounted(true);
   }, []);
 
@@ -595,6 +722,7 @@ export default function ApexAthletePage() {
   // ── persist helpers ──────────────────────────────────────
   const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); }, []);
   const saveCulture = useCallback((c: TeamCulture) => { setCulture(c); save(K.CULTURE, c); }, []);
+  const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); save(K.SCHEDULES, s); }, []);
 
   const addAudit = useCallback((athleteId: string, athleteName: string, action: string, xpDelta: number) => {
     const entry: AuditEntry = { timestamp: Date.now(), coach: "Coach", athleteId, athleteName, action, xpDelta };
@@ -1042,7 +1170,7 @@ export default function ApexAthletePage() {
   const tryUnlock = () => { if (pinInput === coachPin) { setUnlocked(true); setPinError(false); } else setPinError(true); };
   const resetPin = () => { setCoachPin("1234"); save(K.PIN, "1234"); setPinInput(""); setPinError(false); };
 
-  if (!unlocked && view === "coach") {
+  if (!unlocked && (view === "coach" || view === "schedule")) {
     return (
       <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
         <BgOrbs />
@@ -1112,9 +1240,9 @@ export default function ApexAthletePage() {
               </h1>
             </div>
             {/* Game HUD nav tabs */}
-            <div className="flex">
-              {(["coach", "parent", "audit", "analytics"] as const).map((v, i) => {
-                const icons = { coach: "◆", parent: "◇", audit: "▣", analytics: "◈" };
+            <div className="flex flex-wrap">
+              {(["coach", "parent", "audit", "analytics", "schedule"] as const).map((v, i) => {
+                const icons: Record<string, string> = { coach: "\u25C6", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5" };
                 const active = view === v;
                 return (
                   <button key={v} onClick={() => setView(v)}
