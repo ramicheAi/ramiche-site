@@ -15,7 +15,7 @@ const AGENTS = [
     name: "Atlas", model: "Opus 4.6", role: "Lead Strategist",
     status: "active" as const, color: "#00f0ff", icon: "🧭",
     desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
-    connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
     credits: { used: 847, limit: 5000 },
     activeTask: "Multi-roster expansion + Command Center v5",
   },
@@ -99,6 +99,14 @@ const AGENTS = [
     credits: { used: 0, limit: 5000 },
     activeTask: null,
   },
+  {
+    name: "SELAH", model: "Opus 4.6", role: "Wellness & Sport Psychology",
+    status: "active" as const, color: "#10b981", icon: "🧘",
+    desc: "Robbins + Dispenza + Maté + Greene + Bashar — therapy, peak performance, mental transformation",
+    connections: [0, 9, 10],
+    credits: { used: 0, limit: 5000 },
+    activeTask: null,
+  },
 ];
 
 /* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
@@ -152,6 +160,11 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Daily Scripture", role: "7 AM verse + prayer prompt via Telegram", status: "active" },
     { project: "Sanctuary", role: "Devotional tracking + reading plans + prayer focus", status: "active" },
     { project: "Life Guidance", role: "Faith-rooted wisdom for decisions", status: "active" },
+  ],
+  SELAH: [
+    { project: "Apex Athlete", role: "Sport psychology + athlete mental performance", status: "active" },
+    { project: "Team Wellness", role: "Coach/athlete wellness support + burnout prevention", status: "active" },
+    { project: "Personal Growth", role: "Ramon's peak performance + mindset coaching", status: "idle" },
   ],
 };
 
