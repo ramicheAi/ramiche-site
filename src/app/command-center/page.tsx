@@ -149,8 +149,9 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Saint Andrew's Aquatics", role: "Training analysis + race strategy", status: "active" },
   ],
   Prophets: [
-    { project: "Daily Scripture", role: "Morning brief verse + spiritual counsel", status: "active" },
-    { project: "Life Guidance", role: "Faith-rooted wisdom for decisions", status: "idle" },
+    { project: "Daily Scripture", role: "7 AM verse + prayer prompt via Telegram", status: "active" },
+    { project: "Sanctuary", role: "Devotional tracking + reading plans + prayer focus", status: "active" },
+    { project: "Life Guidance", role: "Faith-rooted wisdom for decisions", status: "active" },
   ],
 };
 
@@ -270,6 +271,7 @@ const LOG = [
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
 const SCHEDULE = [
   { time: "6:00 AM", event: "Morning swim practice (Saint Andrew's)", accent: "#00f0ff" },
+  { time: "7:00 AM", event: "Daily Scripture & Prayer (Prophets)", accent: "#d4a574" },
   { time: "8:15 AM", event: "Atlas Morning Brief", accent: "#a855f7" },
   { time: "2:00 PM", event: "Deep work / Build session", accent: "#22d3ee" },
   { time: "3:30 PM", event: "Afternoon swim practice", accent: "#00f0ff" },
@@ -284,6 +286,7 @@ const NOTIFICATIONS = [
   { text: "5 Batch A Weavy renders pending", accent: "#f59e0b", icon: "\u26A0" },
   { text: "Shopify store needs setup", accent: "#e879f9", icon: "\u25C8" },
   { text: "3 Replit projects to analyze", accent: "#22d3ee", icon: "\u25C7" },
+  { text: "Prophets: Daily Scripture active at 7 AM", accent: "#d4a574", icon: "\uD83D\uDCDC" },
 ];
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
@@ -303,7 +306,7 @@ interface Weather {
   feelsLike: string;
   forecast: { day: string; high: string; low: string; cond: string }[];
 }
-interface Verse { text: string; ref: string; }
+interface Verse { text: string; ref: string; book?: string; chapter?: number; }
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMPONENT
@@ -327,6 +330,37 @@ export default function CommandCenter() {
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<{text: string; time: string; status: "sent"|"done"}[]>([]);
+  const [readingPlan, setReadingPlan] = useState<{book: string; chapter: number; progress: number}>(() => {
+    try {
+      const saved = localStorage.getItem("cc-reading-plan");
+      return saved ? JSON.parse(saved) : { book: "Proverbs", chapter: 1, progress: 3 };
+    } catch { return { book: "Proverbs", chapter: 1, progress: 3 }; }
+  });
+  const [prayerFocus, setPrayerFocus] = useState<string>(() => {
+    const focuses = ["Discipline & Focus", "God's Vision for My Life", "Financial Wisdom", "Spiritual Growth", "Health & Strength", "Gratitude & Praise", "Family & Relationships"];
+    const dayIndex = new Date().getDay();
+    return focuses[dayIndex];
+  });
+  const [spiritualStreak, setSpiritualStreak] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem("cc-spiritual-streak");
+      if (!saved) return 0;
+      const { count, lastDate } = JSON.parse(saved);
+      const today = new Date().toDateString();
+      const yesterday = new Date(Date.now() - 86400000).toDateString();
+      if (lastDate === today) return count;
+      if (lastDate === yesterday) return count; // hasn't checked in yet today
+      return 0; // streak broken
+    } catch { return 0; }
+  });
+  const [devotionalCheckedIn, setDevotionalCheckedIn] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("cc-spiritual-streak");
+      if (!saved) return false;
+      const { lastDate } = JSON.parse(saved);
+      return lastDate === new Date().toDateString();
+    } catch { return false; }
+  });
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentNetRef = useRef<HTMLCanvasElement>(null);
   const cmdInputRef = useRef<HTMLInputElement>(null);
@@ -605,6 +639,23 @@ export default function CommandCenter() {
     navigator.clipboard.writeText(`"${verse.text}" \u2014 ${verse.ref}`);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const checkInDevotional = () => {
+    const today = new Date().toDateString();
+    const newCount = spiritualStreak + (devotionalCheckedIn ? 0 : 1);
+    setSpiritualStreak(newCount);
+    setDevotionalCheckedIn(true);
+    localStorage.setItem("cc-spiritual-streak", JSON.stringify({ count: newCount, lastDate: today }));
+    // Advance reading plan
+    const nextChapter = readingPlan.chapter + 1;
+    const maxChapters: Record<string, number> = { Proverbs: 31, Psalms: 150, Genesis: 50, Exodus: 40, Isaiah: 66, Matthew: 28, John: 21, Romans: 16, James: 5, Revelation: 22 };
+    const max = maxChapters[readingPlan.book] || 31;
+    const newPlan = nextChapter > max
+      ? { ...readingPlan, chapter: 1, progress: Math.min(readingPlan.progress + 3, 100) }
+      : { ...readingPlan, chapter: nextChapter, progress: Math.min(Math.round((nextChapter / max) * 100), 100) };
+    setReadingPlan(newPlan);
+    localStorage.setItem("cc-reading-plan", JSON.stringify(newPlan));
   };
 
   useEffect(() => {
@@ -1265,8 +1316,8 @@ export default function CommandCenter() {
               </div>
             </div>
 
-            {/* Team agents — responsive grid, 2 on mobile, 3 on tablet, 5 on desktop */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {/* Team agents — horizontal scroll on mobile, grid on desktop */}
+            <div className="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory lg:overflow-visible lg:pb-0" style={{ scrollbarWidth: "none" }}>
               {AGENTS.slice(1).map((a, i) => {
                 const isActive = a.status === "active";
                 const isHov = hoveredAgent === i + 1;
@@ -1276,7 +1327,7 @@ export default function CommandCenter() {
                 return (
                   <div
                     key={a.name}
-                    className="relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer"
+                    className="relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer snap-start min-w-[140px] lg:min-w-0 flex-shrink-0 lg:flex-shrink"
                     style={{
                       background: `linear-gradient(160deg, ${a.color}08 0%, rgba(6,2,15,0.97) 50%, ${a.color}03 100%)`,
                       border: `1px solid ${isHov || isExp ? `${a.color}35` : `${a.color}12`}`,
@@ -1290,10 +1341,10 @@ export default function CommandCenter() {
                     {/* Top glow bar */}
                     <div className="absolute top-0 left-[10%] right-[10%] h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${a.color}${isHov ? "60" : "25"}, transparent)` }} />
 
-                    <div className="p-4">
+                    <div className="p-3">
                       {/* Avatar + status dot */}
-                      <div className="flex justify-center mb-3">
-                        <div className="relative" style={{ width: "56px", height: "56px" }}>
+                      <div className="flex justify-center mb-2">
+                        <div className="relative" style={{ width: "44px", height: "44px" }}>
                           {isActive && (
                             <div className="absolute inset-[-5px] rounded-full" style={{ border: `1.5px solid ${a.color}15`, animation: "agent-orbit 8s linear infinite", borderTopColor: `${a.color}40` }} />
                           )}

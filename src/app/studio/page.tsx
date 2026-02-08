@@ -3,6 +3,7 @@ import Link from "next/link";
 /* ══════════════════════════════════════════════════════════════
    RAMICHE STUDIO — Creative Direction Service
    Dark sci-fi game UI · Tailwind inline classes
+   v2: + social proof, why section, 3D studio, form CTA
    ══════════════════════════════════════════════════════════════ */
 
 const NAV_LINKS = [
@@ -13,19 +14,19 @@ const NAV_LINKS = [
 ];
 
 const SPRINT_DELIVERABLES = [
-  { icon: "\u25C8", text: "Logo direction (2 concepts)" },
-  { icon: "\u25C8", text: "Color system + palette lockfile" },
-  { icon: "\u25C8", text: "Typography selection + hierarchy" },
-  { icon: "\u25C8", text: "5 social media templates" },
-  { icon: "\u25C8", text: "30-day content calendar" },
-  { icon: "\u25C8", text: "Brand voice guide" },
+  { icon: "\u25C8", text: "2 custom creative directions (A/B)" },
+  { icon: "\u25C8", text: "3 campaign-ready assets" },
+  { icon: "\u25C8", text: "Written creative brief" },
+  { icon: "\u25C8", text: "Style guide foundation" },
+  { icon: "\u25C8", text: "Video walkthrough of each concept" },
+  { icon: "\u25C8", text: "Full $400 credit toward any package" },
 ];
 
 const SPRINT_STEPS = [
-  { step: "01", label: "Brief", desc: "You tell us your vision, audience, and goals." },
-  { step: "02", label: "2 Directions", desc: "We deliver two distinct creative directions in 24h." },
-  { step: "03", label: "Pick & Refine", desc: "You choose one. We refine every detail." },
-  { step: "04", label: "Delivered", desc: "Full brand kit delivered within 48 hours." },
+  { step: "01", label: "Inquiry", desc: "Fill out the form. We respond within 12 hours if it's a fit." },
+  { step: "02", label: "Brief", desc: "15-minute qualification call. You share the vision, we diagnose." },
+  { step: "03", label: "2 Directions", desc: "We deliver two distinct creative directions in 48 hours." },
+  { step: "04", label: "Decision", desc: "Pick one and go. Or walk away with a clear brief to take anywhere." },
 ];
 
 const PACKAGES = [
@@ -33,50 +34,76 @@ const PACKAGES = [
     tier: "STARTER",
     price: "$1,500",
     accent: "cyan",
-    description: "Basic brand identity for founders launching fast.",
+    timeline: "1-2 weeks",
+    description: "New brands and single campaigns that need a solid visual foundation fast.",
     features: [
-      "Logo design (1 concept + refinement)",
-      "Core color palette (3-5 colors)",
-      "Primary + secondary typeface selection",
-      "Basic brand guidelines PDF",
-      "Social media profile assets",
-      "1 round of revisions",
+      "Visual direction session (60min)",
+      "Core identity system (logo, colors, type)",
+      "5 campaign assets (social, ads, email)",
+      "Source files included",
+      "2 revision rounds",
     ],
   },
   {
     tier: "PRO",
     price: "$3,000",
     accent: "purple",
-    description: "Full brand system + templates for scaling teams.",
+    timeline: "2-3 weeks",
+    description: "Product launches and repositions. Motion + web + social — the complete kit.",
     popular: true,
     features: [
-      "Logo suite (primary, icon, wordmark)",
-      "Extended color system + usage rules",
-      "Typography hierarchy + web fonts",
-      "10 social media templates",
-      "Pitch deck template",
-      "Brand voice + messaging framework",
-      "60-day content calendar",
-      "3 rounds of revisions",
+      "Everything in Starter",
+      "Motion graphics package (3-5 pieces)",
+      "Website visual system (landing mockup)",
+      "Social media kit (templates + 10 posts)",
+      "Priority turnaround",
+      "3 revision rounds",
     ],
   },
   {
     tier: "ELITE",
     price: "$6,000+",
     accent: "gold",
-    description: "Complete creative direction + ongoing strategy.",
+    timeline: "4-6 weeks",
+    description: "Full rebrand or ongoing partnership. White-glove creative direction.",
     features: [
       "Everything in Pro",
-      "Full brand strategy document",
-      "Competitive landscape analysis",
-      "Website design direction (wireframes)",
-      "Motion graphics / animation guidelines",
-      "Product packaging direction",
-      "90-day content + launch strategy",
-      "Dedicated creative director",
-      "Unlimited revisions for 30 days",
+      "3D animation & video (60-90sec hero piece)",
+      "Ongoing creative direction (30 days)",
+      "Unlimited support during engagement",
+      "Custom scope (CRO, packaging, merch)",
     ],
   },
+];
+
+const WHY_REASONS = [
+  {
+    icon: "\u25C6",
+    title: "Ship in days, not months",
+    desc: "48-hour sprints and 1-2 week packages. You get results before your competitors finish their brief.",
+  },
+  {
+    icon: "\u25C6",
+    title: "AI-augmented, human-directed",
+    desc: "We use AI to move at machine speed — but every creative decision is made by a real director with real taste.",
+  },
+  {
+    icon: "\u25C6",
+    title: "No risk entry",
+    desc: "$400 sprint fee credits toward any package. If you don't see the vision, you walk away with a clear brief.",
+  },
+  {
+    icon: "\u25C6",
+    title: "Built for small brands",
+    desc: "We make $500K-$2M brands look like they belong next to Nike — without Nike budgets.",
+  },
+];
+
+const RESULTS = [
+  { metric: "48h", label: "Average sprint delivery" },
+  { metric: "2x", label: "Engagement lift (avg)" },
+  { metric: "100%", label: "Sprint credit applied" },
+  { metric: "<24h", label: "Response time" },
 ];
 
 const accentMap: Record<string, { border: string; glow: string; text: string; bg: string; pulse: string }> = {
@@ -124,7 +151,6 @@ export default function StudioPage() {
           className="nebula-drift absolute top-[60%] left-[50%] w-[400px] h-[400px] rounded-full opacity-20"
           style={{ background: "radial-gradient(circle, rgba(232,121,249,0.1) 0%, transparent 70%)" }}
         />
-        {/* subtle grid overlay */}
         <div className="data-grid-bg absolute inset-0 opacity-30" />
       </div>
 
@@ -138,7 +164,7 @@ export default function StudioPage() {
         <nav className="w-full border-b border-white/[0.06] bg-[#06020f]/80 backdrop-blur-md">
           <div className="mx-auto max-w-6xl flex items-center justify-between px-4 sm:px-6 py-3">
             <span className="text-xs sm:text-sm tracking-[0.25em] uppercase text-white/30 font-mono">
-              Ramiche // Systems
+              Ramiche // Studio
             </span>
             <div className="flex gap-1 sm:gap-2">
               {NAV_LINKS.map((link) => (
@@ -162,14 +188,13 @@ export default function StudioPage() {
 
         {/* ── hero section ───────────────────────────────────── */}
         <section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 px-4 sm:px-6 text-center">
-          {/* decorative corner brackets */}
           <div className="absolute top-8 left-4 sm:left-12 w-8 h-8 border-t-2 border-l-2 border-[#00f0ff]/30 pointer-events-none" />
           <div className="absolute top-8 right-4 sm:right-12 w-8 h-8 border-t-2 border-r-2 border-[#00f0ff]/30 pointer-events-none" />
 
           <div className="mx-auto max-w-4xl">
             <div className="mb-4 inline-block">
               <span className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-[#00f0ff]/60 font-mono border border-[#00f0ff]/20 px-4 py-1.5 game-btn">
-                Creative Direction Service
+                Creative Direction for Small Brands
               </span>
             </div>
 
@@ -185,9 +210,26 @@ export default function StudioPage() {
               STUDIO
             </h1>
 
-            <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/60 max-w-xl mx-auto leading-relaxed font-light">
-              Creative direction for the bold. Built to ship.
+            <p className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-white/60 max-w-2xl mx-auto leading-relaxed font-light">
+              Your product is premium. Your visuals should match.
+              <br className="hidden sm:block" />
+              We build brand systems that make small brands look like they&apos;ve been running for years.
             </p>
+
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+              <a
+                href="#inquiry"
+                className="game-btn inline-block bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] px-8 py-4 text-sm font-mono tracking-[0.2em] uppercase hover:brightness-125 hover:shadow-[0_0_30px_rgba(0,240,255,0.2)] transition-all"
+              >
+                Start with a Sprint
+              </a>
+              <a
+                href="#packages"
+                className="game-btn inline-block bg-white/[0.03] border border-white/[0.08] text-white/50 px-8 py-4 text-sm font-mono tracking-[0.2em] uppercase hover:text-white/80 hover:bg-white/[0.06] transition-all"
+              >
+                View Packages
+              </a>
+            </div>
 
             {/* decorative XP bar */}
             <div className="mt-10 mx-auto max-w-md">
@@ -198,19 +240,65 @@ export default function StudioPage() {
           </div>
         </section>
 
+        {/* ── results strip ────────────────────────────────────── */}
+        <section className="px-4 sm:px-6 pb-16">
+          <div className="mx-auto max-w-4xl">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {RESULTS.map((r) => (
+                <div key={r.label} className="text-center py-6 px-4 bg-white/[0.02] border border-white/[0.06] game-panel">
+                  <div className="text-2xl sm:text-3xl font-black neon-text-cyan mb-1">{r.metric}</div>
+                  <div className="text-white/40 text-xs font-mono tracking-wider uppercase">{r.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── why ramiche section ──────────────────────────────── */}
+        <section className="px-4 sm:px-6 pb-20">
+          <div className="mx-auto max-w-6xl">
+            <div className="text-center mb-12">
+              <span className="text-xs tracking-[0.3em] uppercase text-white/30 font-mono block mb-3">
+                The Difference
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white/90">
+                Why Ramiche
+              </h2>
+              <div className="mt-4 mx-auto w-16 h-[2px] bg-gradient-to-r from-[#a855f7]/0 via-[#a855f7]/60 to-[#a855f7]/0" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {WHY_REASONS.map((reason) => (
+                <div
+                  key={reason.title}
+                  className="game-panel bg-white/[0.02] border border-white/[0.06] p-6 sm:p-8 transition-all duration-300 hover:border-[#a855f7]/20 hover:translate-y-[-2px] group"
+                >
+                  <div className="flex items-start gap-4">
+                    <span className="text-[#a855f7] text-sm mt-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                      {reason.icon}
+                    </span>
+                    <div>
+                      <h3 className="text-white/90 text-base sm:text-lg font-bold mb-2">{reason.title}</h3>
+                      <p className="text-white/40 text-sm leading-relaxed">{reason.desc}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* ── $400 sprint section ────────────────────────────── */}
         <section className="px-4 sm:px-6 pb-20">
           <div className="mx-auto max-w-6xl">
             <div className="game-panel game-panel-border bg-white/[0.02] border border-[#00f0ff]/20 p-6 sm:p-10 relative overflow-hidden">
-              {/* scan sweep */}
               <div className="scan-sweep absolute inset-0 pointer-events-none" />
 
               <div className="relative z-10">
-                {/* header */}
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
                   <div>
                     <span className="text-xs tracking-[0.3em] uppercase text-[#f59e0b]/70 font-mono block mb-2">
-                      Flagship Offering
+                      Start Here — Zero Risk
                     </span>
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight">
                       <span className="neon-text-gold">$400</span>
@@ -222,14 +310,15 @@ export default function StudioPage() {
                   </div>
                 </div>
 
-                <p className="text-white/50 text-sm sm:text-base max-w-2xl mb-10 leading-relaxed">
-                  A complete brand identity system delivered in 48 hours. Two directions. One winner.
-                  Everything you need to look like you have been running for years -- shipped before the weekend.
+                <p className="text-white/50 text-sm sm:text-base max-w-2xl mb-3 leading-relaxed">
+                  I&apos;ll show you exactly what premium looks like for your brand in 48 hours.
+                  Two directions. You pick one. If you love it, we build it. If not, you have a clear brief to take anywhere.
+                </p>
+                <p className="text-[#f59e0b]/60 text-xs font-mono mb-10">
+                  Full $400 credits toward any package if you move forward within 14 days.
                 </p>
 
-                {/* two-column: deliverables + process */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-                  {/* what you get */}
                   <div>
                     <h3 className="text-xs tracking-[0.3em] uppercase text-[#00f0ff]/70 font-mono mb-5 flex items-center gap-2">
                       <span className="w-6 h-[1px] bg-[#00f0ff]/40" />
@@ -249,7 +338,6 @@ export default function StudioPage() {
                     </div>
                   </div>
 
-                  {/* how it works */}
                   <div>
                     <h3 className="text-xs tracking-[0.3em] uppercase text-[#a855f7]/70 font-mono mb-5 flex items-center gap-2">
                       <span className="w-6 h-[1px] bg-[#a855f7]/40" />
@@ -273,15 +361,27 @@ export default function StudioPage() {
                     </div>
                   </div>
                 </div>
+
+                {/* sprint CTA */}
+                <div className="mt-10 pt-8 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="text-white/30 text-xs font-mono">
+                    Only 4 sprints per month. Limited availability.
+                  </div>
+                  <a
+                    href="#inquiry"
+                    className="game-btn bg-gradient-to-r from-[#f59e0b]/20 to-[#f59e0b]/10 border border-[#f59e0b]/30 text-[#f59e0b] px-8 py-3 text-xs font-mono tracking-[0.2em] uppercase hover:brightness-125 transition-all"
+                  >
+                    Book Your Sprint
+                  </a>
+                </div>
               </div>
             </div>
           </div>
         </section>
 
         {/* ── packages section ───────────────────────────────── */}
-        <section className="px-4 sm:px-6 pb-20">
+        <section id="packages" className="px-4 sm:px-6 pb-20">
           <div className="mx-auto max-w-6xl">
-            {/* section header */}
             <div className="text-center mb-12">
               <span className="text-xs tracking-[0.3em] uppercase text-white/30 font-mono block mb-3">
                 Select Your Tier
@@ -292,7 +392,6 @@ export default function StudioPage() {
               <div className="mt-4 mx-auto w-16 h-[2px] bg-gradient-to-r from-[#00f0ff]/0 via-[#00f0ff]/60 to-[#00f0ff]/0" />
             </div>
 
-            {/* package cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {PACKAGES.map((pkg) => {
                 const a = accentMap[pkg.accent];
@@ -308,7 +407,6 @@ export default function StudioPage() {
                       hover:shadow-[0_8px_40px_rgba(0,240,255,0.1)]
                     `}
                   >
-                    {/* popular badge */}
                     {pkg.popular && (
                       <div className="absolute -top-px left-6 right-6">
                         <div className="bg-gradient-to-r from-[#a855f7] to-[#e879f9] text-white text-[10px] font-mono tracking-[0.2em] uppercase text-center py-1 px-3">
@@ -317,27 +415,26 @@ export default function StudioPage() {
                       </div>
                     )}
 
-                    {/* tier label */}
                     <span className={`text-[10px] tracking-[0.4em] uppercase font-mono ${a.text} opacity-70 ${pkg.popular ? "mt-4" : ""}`}>
                       {pkg.tier}
                     </span>
 
-                    {/* price */}
-                    <div className="mt-3 mb-4">
+                    <div className="mt-3 mb-2">
                       <span className={`text-4xl sm:text-5xl font-black ${a.text}`}>
                         {pkg.price}
                       </span>
                     </div>
 
-                    {/* description */}
+                    <div className="text-white/25 text-xs font-mono mb-4">
+                      {pkg.timeline}
+                    </div>
+
                     <p className="text-white/40 text-sm leading-relaxed mb-6">
                       {pkg.description}
                     </p>
 
-                    {/* divider */}
                     <div className={`w-full h-[1px] ${a.bg} mb-6`} />
 
-                    {/* features */}
                     <ul className="space-y-3 flex-1">
                       {pkg.features.map((feat) => (
                         <li key={feat} className="flex items-start gap-2.5">
@@ -347,9 +444,8 @@ export default function StudioPage() {
                       ))}
                     </ul>
 
-                    {/* CTA button */}
                     <a
-                      href={`mailto:studio@ramiche.com?subject=${encodeURIComponent(pkg.tier + " Package Inquiry")}`}
+                      href="#inquiry"
                       className={`
                         game-btn mt-8 block text-center py-3 px-6
                         ${a.bg} border ${a.border}
@@ -363,14 +459,34 @@ export default function StudioPage() {
                 );
               })}
             </div>
+
+            {/* 3D Print Studio callout */}
+            <div className="mt-8 game-panel bg-white/[0.02] border border-[#14b8a6]/20 p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div>
+                <span className="text-[10px] tracking-[0.4em] uppercase font-mono text-[#14b8a6] opacity-70">
+                  3D Print Studio
+                </span>
+                <h3 className="text-xl sm:text-2xl font-bold text-white/90 mt-2">
+                  Physical products, trophies, collectibles
+                </h3>
+                <p className="text-white/40 text-sm mt-2 max-w-lg">
+                  Action figure design, 3D modeling, prototype to production (Bambu A1), custom trophies, limited edition drops. Project-based pricing from $800.
+                </p>
+              </div>
+              <a
+                href="#inquiry"
+                className="game-btn flex-shrink-0 bg-[#14b8a6]/10 border border-[#14b8a6]/30 text-[#14b8a6] px-6 py-3 text-xs font-mono tracking-[0.2em] uppercase hover:brightness-125 transition-all"
+              >
+                Inquire
+              </a>
+            </div>
           </div>
         </section>
 
-        {/* ── CTA section ────────────────────────────────────── */}
-        <section className="px-4 sm:px-6 pb-20">
+        {/* ── inquiry / CTA section ────────────────────────────── */}
+        <section id="inquiry" className="px-4 sm:px-6 pb-20">
           <div className="mx-auto max-w-4xl">
             <div className="game-panel game-panel-border relative bg-white/[0.02] border border-[#00f0ff]/15 p-8 sm:p-14 text-center overflow-hidden">
-              {/* background glow */}
               <div
                 className="absolute inset-0 pointer-events-none opacity-30"
                 style={{ background: "radial-gradient(ellipse at center, rgba(0,240,255,0.08) 0%, transparent 70%)" }}
@@ -378,7 +494,7 @@ export default function StudioPage() {
 
               <div className="relative z-10">
                 <span className="text-xs tracking-[0.3em] uppercase text-[#00f0ff]/50 font-mono block mb-4">
-                  Ready to Launch?
+                  Serious Inquiries Only
                 </span>
 
                 <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
@@ -394,9 +510,13 @@ export default function StudioPage() {
                   </span>
                 </h2>
 
-                <p className="text-white/40 text-sm sm:text-base max-w-lg mx-auto mb-8 leading-relaxed">
-                  Drop us a line. Tell us what you are building and where you want to go.
-                  We will get back to you within 24 hours.
+                <p className="text-white/40 text-sm sm:text-base max-w-lg mx-auto mb-4 leading-relaxed">
+                  Tell us what you&apos;re building and where you want to go.
+                  We review every submission and respond within 12 hours if it&apos;s a fit.
+                </p>
+
+                <p className="text-white/25 text-xs font-mono mb-8">
+                  If approved, you&apos;ll book a 15-minute qualification call. If that goes well, we move to the Sprint.
                 </p>
 
                 <a
@@ -407,7 +527,23 @@ export default function StudioPage() {
                 </a>
 
                 <div className="mt-6 text-white/20 text-xs font-mono">
-                  Response time: &lt; 24 hours
+                  Response time: &lt; 12 hours
+                </div>
+
+                {/* qualification criteria hint */}
+                <div className="mt-10 pt-6 border-t border-white/[0.04] grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
+                  <div>
+                    <div className="text-white/50 text-xs font-semibold mb-1">Best fit</div>
+                    <div className="text-white/25 text-xs">Brands doing $500K-$2M+ with a product customers love</div>
+                  </div>
+                  <div>
+                    <div className="text-white/50 text-xs font-semibold mb-1">Budget range</div>
+                    <div className="text-white/25 text-xs">$1,000+/mo marketing spend. Sprint starts at $400.</div>
+                  </div>
+                  <div>
+                    <div className="text-white/50 text-xs font-semibold mb-1">Timeline</div>
+                    <div className="text-white/25 text-xs">Ready to move within 1-2 months. Not &quot;exploring for someday.&quot;</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -421,11 +557,13 @@ export default function StudioPage() {
               &copy; 2026 Ramiche Studio
             </span>
             <div className="flex items-center gap-4">
-              <span className="text-white/10 text-xs font-mono">No auto-publish</span>
+              <a href="https://instagram.com/ramiche" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
+                Instagram
+              </a>
               <span className="text-white/10 text-[6px]">{"\u25C6"}</span>
-              <span className="text-white/10 text-xs font-mono">Signal-first</span>
-              <span className="text-white/10 text-[6px]">{"\u25C6"}</span>
-              <span className="text-white/10 text-xs font-mono">Built different</span>
+              <a href="mailto:studio@ramiche.com" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
+                studio@ramiche.com
+              </a>
             </div>
           </div>
         </footer>
