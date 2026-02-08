@@ -148,40 +148,284 @@ interface TeamCulture {
 
 // ── initial roster ───────────────────────────────────────────
 
-const INITIAL_ROSTER: { name: string; age: number; gender: "M" | "F" }[] = [
-  { name: "William Domokos-Murphy", age: 17, gender: "M" },
-  { name: "Enrico Guizardi", age: 15, gender: "M" },
-  { name: "Jorge Aguila", age: 17, gender: "M" },
-  { name: "Jared Berke", age: 17, gender: "M" },
-  { name: "Andrew Bouche", age: 17, gender: "M" },
-  { name: "Conner Brinley", age: 18, gender: "M" },
-  { name: "Bradley DiPaolo", age: 16, gender: "M" },
-  { name: "William Gillis", age: 18, gender: "M" },
-  { name: "William McAndrews", age: 14, gender: "M" },
-  { name: "Matthias Orlandini", age: 16, gender: "M" },
-  { name: "Matthew Prieres", age: 16, gender: "M" },
-  { name: "Luke Reid", age: 14, gender: "M" },
-  { name: "Surfiel Santiago", age: 18, gender: "M" },
-  { name: "Simon Sheinfeld", age: 16, gender: "M" },
-  { name: "Cash Vinas", age: 17, gender: "M" },
-  { name: "Nerea Gutierrez", age: 17, gender: "F" },
-  { name: "Mayah Chouloute", age: 16, gender: "F" },
-  { name: "Sophia Gamboa-Pereira", age: 14, gender: "F" },
-  { name: "Gabia Gelumbickas", age: 17, gender: "F" },
-  { name: "Alejandra Gil-Restrepo", age: 17, gender: "F" },
-  { name: "Christina Gumbinger", age: 18, gender: "F" },
-  { name: "Alera Hurwitz", age: 16, gender: "F" },
-  { name: "Lilly Karas", age: 15, gender: "F" },
-  { name: "Sienna Kourjakian", age: 15, gender: "F" },
-  { name: "Alexandra Lucchese", age: 14, gender: "F" },
-  { name: "Cielo Moya", age: 14, gender: "F" },
-  { name: "Ariana Moya Vargas", age: 17, gender: "F" },
-  { name: "Jette Neubauer", age: 16, gender: "F" },
-  { name: "Christina Paschal", age: 17, gender: "F" },
-  { name: "Erin Reid", age: 16, gender: "F" },
-  { name: "Athena Rilo", age: 15, gender: "F" },
-  { name: "Cecilie von Klaeden", age: 17, gender: "F" },
-  { name: "Grace Weeks", age: 14, gender: "F" },
+// ── ROSTER GROUPS ────────────────────────────────────────────
+const ROSTER_GROUPS = [
+  { id: "platinum", name: "Platinum", sport: "swimming", color: "#c0c0ff", icon: "💎" },
+  { id: "gold", name: "Gold", sport: "swimming", color: "#f59e0b", icon: "🥇" },
+  { id: "silver", name: "Silver", sport: "swimming", color: "#94a3b8", icon: "🥈" },
+  { id: "bronze1", name: "Bronze 1", sport: "swimming", color: "#cd7f32", icon: "🥉" },
+  { id: "bronze2", name: "Bronze 2", sport: "swimming", color: "#cd7f32", icon: "🥉" },
+  { id: "diving", name: "Diving", sport: "diving", color: "#38bdf8", icon: "🤿" },
+  { id: "waterpolo", name: "Water Polo", sport: "waterpolo", color: "#f97316", icon: "🤽" },
+] as const;
+
+type GroupId = typeof ROSTER_GROUPS[number]["id"];
+
+// ── SPORT-SPECIFIC CHECKPOINTS ──────────────────────────────
+const DIVING_CPS = [
+  { id: "d-approach", name: "Approach & Hurdle", xp: 15, desc: "Clean approach and consistent hurdle" },
+  { id: "d-takeoff", name: "Takeoff", xp: 15, desc: "Proper takeoff position and power" },
+  { id: "d-technique", name: "Technique & Form", xp: 20, desc: "Body position, tuck/pike execution" },
+  { id: "d-entry", name: "Entry", xp: 15, desc: "Clean entry with minimal splash" },
+  { id: "d-rip-entry", name: "Rip Entry", xp: 25, desc: "Near-perfect rip entry — barely a splash" },
+  { id: "d-new-dive", name: "New Dive Attempted", xp: 20, desc: "Tried a dive not in comfort zone" },
+  { id: "d-list-complete", name: "Dive List Complete", xp: 25, desc: "Completed full dive list for the day" },
+];
+
+const WATERPOLO_CPS = [
+  { id: "wp-treading", name: "Treading Endurance", xp: 15, desc: "Strong eggbeater throughout practice" },
+  { id: "wp-passing", name: "Passing Accuracy", xp: 15, desc: "Crisp passes, low turnovers" },
+  { id: "wp-shooting", name: "Shooting Drill", xp: 20, desc: "Completed shooting drills with focus" },
+  { id: "wp-defense", name: "Defensive Effort", xp: 15, desc: "Active pressing, body position, steals" },
+  { id: "wp-game-iq", name: "Game IQ", xp: 20, desc: "Smart decisions, reads the play" },
+  { id: "wp-counterattack", name: "Counterattack Hustle", xp: 15, desc: "Sprint transitions, fast break effort" },
+  { id: "wp-6on5", name: "6-on-5 Execution", xp: 20, desc: "Proper movement and shooting in man-up" },
+];
+
+function getCPsForSport(sport: string) {
+  if (sport === "diving") return DIVING_CPS;
+  if (sport === "waterpolo") return WATERPOLO_CPS;
+  return POOL_CPS;
+}
+
+// ── INITIAL ROSTERS BY GROUP ────────────────────────────────
+type RosterEntry = { name: string; age: number; gender: "M" | "F"; group: GroupId };
+
+const INITIAL_ROSTER: RosterEntry[] = [
+  // ── PLATINUM (33) ──
+  { name: "William Domokos-Murphy", age: 17, gender: "M", group: "platinum" },
+  { name: "Enrico Guizardi", age: 15, gender: "M", group: "platinum" },
+  { name: "Jorge Aguila", age: 17, gender: "M", group: "platinum" },
+  { name: "Jared Berke", age: 17, gender: "M", group: "platinum" },
+  { name: "Andrew Bouche", age: 17, gender: "M", group: "platinum" },
+  { name: "Conner Brinley", age: 18, gender: "M", group: "platinum" },
+  { name: "Bradley DiPaolo", age: 16, gender: "M", group: "platinum" },
+  { name: "William Gillis", age: 18, gender: "M", group: "platinum" },
+  { name: "William McAndrews", age: 14, gender: "M", group: "platinum" },
+  { name: "Matthias Orlandini", age: 16, gender: "M", group: "platinum" },
+  { name: "Matthew Prieres", age: 16, gender: "M", group: "platinum" },
+  { name: "Luke Reid", age: 14, gender: "M", group: "platinum" },
+  { name: "Surfiel Santiago", age: 18, gender: "M", group: "platinum" },
+  { name: "Simon Sheinfeld", age: 16, gender: "M", group: "platinum" },
+  { name: "Cash Vinas", age: 17, gender: "M", group: "platinum" },
+  { name: "Nerea Gutierrez", age: 17, gender: "F", group: "platinum" },
+  { name: "Mayah Chouloute", age: 16, gender: "F", group: "platinum" },
+  { name: "Sophia Gamboa-Pereira", age: 14, gender: "F", group: "platinum" },
+  { name: "Gabia Gelumbickas", age: 17, gender: "F", group: "platinum" },
+  { name: "Alejandra Gil-Restrepo", age: 17, gender: "F", group: "platinum" },
+  { name: "Christina Gumbinger", age: 18, gender: "F", group: "platinum" },
+  { name: "Alera Hurwitz", age: 16, gender: "F", group: "platinum" },
+  { name: "Lilly Karas", age: 15, gender: "F", group: "platinum" },
+  { name: "Sienna Kourjakian", age: 15, gender: "F", group: "platinum" },
+  { name: "Alexandra Lucchese", age: 14, gender: "F", group: "platinum" },
+  { name: "Cielo Moya", age: 14, gender: "F", group: "platinum" },
+  { name: "Ariana Moya Vargas", age: 17, gender: "F", group: "platinum" },
+  { name: "Jette Neubauer", age: 16, gender: "F", group: "platinum" },
+  { name: "Christina Paschal", age: 17, gender: "F", group: "platinum" },
+  { name: "Erin Reid", age: 16, gender: "F", group: "platinum" },
+  { name: "Athena Rilo", age: 15, gender: "F", group: "platinum" },
+  { name: "Cecilie von Klaeden", age: 17, gender: "F", group: "platinum" },
+  { name: "Grace Weeks", age: 14, gender: "F", group: "platinum" },
+  // ── GOLD (22) ──
+  { name: "Amelia Baral", age: 13, gender: "F", group: "gold" },
+  { name: "Jackson Baral", age: 12, gender: "M", group: "gold" },
+  { name: "Lorenz Fahnenschmidt", age: 12, gender: "M", group: "gold" },
+  { name: "Daniel Gil-Restrepo", age: 14, gender: "M", group: "gold" },
+  { name: "Benjamin Gober", age: 15, gender: "M", group: "gold" },
+  { name: "Joaquin Gomez-Llendo", age: 13, gender: "M", group: "gold" },
+  { name: "Kayla Jorge", age: 15, gender: "F", group: "gold" },
+  { name: "Sakshi Kaur", age: 12, gender: "F", group: "gold" },
+  { name: "Peter Lehmann", age: 16, gender: "M", group: "gold" },
+  { name: "Brooklyn Lewis", age: 13, gender: "F", group: "gold" },
+  { name: "Maria Monozova", age: 14, gender: "F", group: "gold" },
+  { name: "Ari Nelson", age: 15, gender: "M", group: "gold" },
+  { name: "Aliyana Ordunez", age: 14, gender: "F", group: "gold" },
+  { name: "Mathaus Polli", age: 13, gender: "M", group: "gold" },
+  { name: "Eli Rudikoff", age: 15, gender: "M", group: "gold" },
+  { name: "Daniel Sigda", age: 13, gender: "M", group: "gold" },
+  { name: "Julieta Siok", age: 13, gender: "F", group: "gold" },
+  { name: "Alexandra Thomson", age: 13, gender: "F", group: "gold" },
+  { name: "Ava Umstattd", age: 14, gender: "F", group: "gold" },
+  { name: "Camile Waber", age: 15, gender: "F", group: "gold" },
+  { name: "Tyler Wright", age: 12, gender: "M", group: "gold" },
+  { name: "Oleh Zinerko", age: 13, gender: "M", group: "gold" },
+  // ── SILVER (~48) ──
+  { name: "Henry Andrews", age: 10, gender: "M", group: "silver" },
+  { name: "Maxim Anisimov", age: 12, gender: "M", group: "silver" },
+  { name: "Whitney Avella", age: 10, gender: "F", group: "silver" },
+  { name: "James Averian", age: 11, gender: "M", group: "silver" },
+  { name: "Fletcher Baral", age: 10, gender: "M", group: "silver" },
+  { name: "Mila Bidva", age: 10, gender: "F", group: "silver" },
+  { name: "Alec Chen", age: 13, gender: "M", group: "silver" },
+  { name: "Alessandro Cubas", age: 14, gender: "M", group: "silver" },
+  { name: "Tomas Fabo", age: 11, gender: "M", group: "silver" },
+  { name: "Danny Fang", age: 13, gender: "M", group: "silver" },
+  { name: "Jackson Gallo", age: 13, gender: "M", group: "silver" },
+  { name: "Melana Gnesin", age: 11, gender: "F", group: "silver" },
+  { name: "Jeffrey Hill", age: 10, gender: "M", group: "silver" },
+  { name: "Penn Hofeld", age: 10, gender: "M", group: "silver" },
+  { name: "Marko Ivanovskyy", age: 13, gender: "M", group: "silver" },
+  { name: "Savva Kan", age: 14, gender: "M", group: "silver" },
+  { name: "Nina Kosta", age: 11, gender: "F", group: "silver" },
+  { name: "Sara Kourjakian", age: 10, gender: "F", group: "silver" },
+  { name: "Elanna Krslovic", age: 10, gender: "F", group: "silver" },
+  { name: "Roman Kuleshov", age: 9, gender: "M", group: "silver" },
+  { name: "Mark Kuleshov", age: 11, gender: "M", group: "silver" },
+  { name: "Hlib Kyryliuk", age: 13, gender: "M", group: "silver" },
+  { name: "Konrad Laszczak", age: 12, gender: "M", group: "silver" },
+  { name: "Matthew Lehmann", age: 12, gender: "M", group: "silver" },
+  { name: "Ates Maranezli", age: 12, gender: "M", group: "silver" },
+  { name: "Vincent McAndrews", age: 10, gender: "M", group: "silver" },
+  { name: "Antonio Micalizzi", age: 15, gender: "M", group: "silver" },
+  { name: "Julie Miksik", age: 11, gender: "F", group: "silver" },
+  { name: "Nikolai Morozov", age: 11, gender: "M", group: "silver" },
+  { name: "Stella Nessen", age: 10, gender: "F", group: "silver" },
+  { name: "Samantha Panetta", age: 12, gender: "F", group: "silver" },
+  { name: "Harper Parrott", age: 11, gender: "F", group: "silver" },
+  { name: "Hadya Refaat", age: 12, gender: "F", group: "silver" },
+  { name: "Luke Rodgers", age: 16, gender: "M", group: "silver" },
+  { name: "Eli Rutkovsky", age: 10, gender: "M", group: "silver" },
+  { name: "Caio Samora", age: 12, gender: "M", group: "silver" },
+  { name: "Lucas Siems", age: 15, gender: "M", group: "silver" },
+  { name: "Luigi Silveira", age: 12, gender: "M", group: "silver" },
+  { name: "Lila Sinclair", age: 11, gender: "F", group: "silver" },
+  { name: "Shay Swan", age: 14, gender: "M", group: "silver" },
+  { name: "Tyler Szmiga", age: 14, gender: "M", group: "silver" },
+  { name: "Arnas Thompson", age: 10, gender: "M", group: "silver" },
+  { name: "Morgan Thomson", age: 11, gender: "F", group: "silver" },
+  { name: "Liam Torres", age: 13, gender: "M", group: "silver" },
+  { name: "Liam van Arkel", age: 14, gender: "M", group: "silver" },
+  { name: "Olivia Warner", age: 10, gender: "F", group: "silver" },
+  { name: "Everett Weeks", age: 12, gender: "M", group: "silver" },
+  // ── BRONZE 1 (~38) ──
+  { name: "Arthur Alikhanyan", age: 12, gender: "M", group: "bronze1" },
+  { name: "Robert Bekh", age: 9, gender: "M", group: "bronze1" },
+  { name: "Mark Bekh", age: 6, gender: "M", group: "bronze1" },
+  { name: "Kali Bidva", age: 7, gender: "F", group: "bronze1" },
+  { name: "Alexandra Bohlman", age: 10, gender: "F", group: "bronze1" },
+  { name: "Vivian Cartelli", age: 8, gender: "F", group: "bronze1" },
+  { name: "Emilia Castaneda", age: 9, gender: "F", group: "bronze1" },
+  { name: "Shawn Cohen", age: 11, gender: "M", group: "bronze1" },
+  { name: "Edwin Diaz", age: 11, gender: "M", group: "bronze1" },
+  { name: "Mark Egorov", age: 11, gender: "M", group: "bronze1" },
+  { name: "Fabiano Feu Rosa", age: 6, gender: "M", group: "bronze1" },
+  { name: "Daniel Fralou", age: 7, gender: "M", group: "bronze1" },
+  { name: "Aron Garber", age: 7, gender: "M", group: "bronze1" },
+  { name: "Shane Hogenson", age: 7, gender: "M", group: "bronze1" },
+  { name: "Andrei Kanashin", age: 7, gender: "M", group: "bronze1" },
+  { name: "Vanya Klachko", age: 8, gender: "M", group: "bronze1" },
+  { name: "Yana Klachko", age: 10, gender: "F", group: "bronze1" },
+  { name: "Kaia Kohn", age: 9, gender: "F", group: "bronze1" },
+  { name: "Aimee Laham Boulos", age: 8, gender: "F", group: "bronze1" },
+  { name: "Mateo Libreros", age: 9, gender: "M", group: "bronze1" },
+  { name: "Ivans Loscenkovs", age: 12, gender: "M", group: "bronze1" },
+  { name: "Ella Lurie", age: 8, gender: "F", group: "bronze1" },
+  { name: "Zora Nerette", age: 9, gender: "F", group: "bronze1" },
+  { name: "Nikolay Nichiporenko", age: 11, gender: "M", group: "bronze1" },
+  { name: "Amelia O'Malley Mastropieri", age: 8, gender: "F", group: "bronze1" },
+  { name: "Emerson Panetta", age: 9, gender: "M", group: "bronze1" },
+  { name: "Ariela Pilewski", age: 8, gender: "F", group: "bronze1" },
+  { name: "Anastasia Pylypenko", age: 9, gender: "F", group: "bronze1" },
+  { name: "Isabella Ramirez", age: 7, gender: "F", group: "bronze1" },
+  { name: "Ilgin Sabah", age: 12, gender: "M", group: "bronze1" },
+  { name: "Bahdan Sak", age: 12, gender: "M", group: "bronze1" },
+  { name: "Emma Schechter", age: 9, gender: "F", group: "bronze1" },
+  { name: "Luna Stroud", age: 7, gender: "F", group: "bronze1" },
+  { name: "Talia Weinbaum", age: 7, gender: "F", group: "bronze1" },
+  { name: "Austin Wilson", age: 8, gender: "M", group: "bronze1" },
+  { name: "Olivia Ynigo-Imme", age: 9, gender: "F", group: "bronze1" },
+  { name: "Cameron Ziegenfuss", age: 8, gender: "M", group: "bronze1" },
+  // ── BRONZE 2 (~26) ──
+  { name: "Mohamed AboShanab", age: 10, gender: "M", group: "bronze2" },
+  { name: "Allegra Arrendale", age: 9, gender: "F", group: "bronze2" },
+  { name: "Nathaniel Borodin", age: 12, gender: "M", group: "bronze2" },
+  { name: "Zean Chen", age: 13, gender: "M", group: "bronze2" },
+  { name: "Cora Chodash", age: 10, gender: "F", group: "bronze2" },
+  { name: "Diego Corrales", age: 9, gender: "M", group: "bronze2" },
+  { name: "Alessandra Davis", age: 9, gender: "F", group: "bronze2" },
+  { name: "Jaxson Dehnert", age: 8, gender: "M", group: "bronze2" },
+  { name: "Emma Dorsey", age: 11, gender: "F", group: "bronze2" },
+  { name: "Valentina Esteban", age: 10, gender: "F", group: "bronze2" },
+  { name: "Pablo Galan", age: 12, gender: "M", group: "bronze2" },
+  { name: "Ashton Gaspin", age: 10, gender: "M", group: "bronze2" },
+  { name: "Adrian-Nickolay Georgiev", age: 10, gender: "M", group: "bronze2" },
+  { name: "Miles Heller", age: 12, gender: "M", group: "bronze2" },
+  { name: "Ace Hill", age: 7, gender: "M", group: "bronze2" },
+  { name: "Ela Kasikci", age: 13, gender: "F", group: "bronze2" },
+  { name: "Boban Kirk", age: 10, gender: "M", group: "bronze2" },
+  { name: "Alexa Kish", age: 11, gender: "F", group: "bronze2" },
+  { name: "Alexandra Maskow", age: 12, gender: "F", group: "bronze2" },
+  { name: "Andrew Mateo", age: 11, gender: "M", group: "bronze2" },
+  { name: "Alan Mateo", age: 8, gender: "M", group: "bronze2" },
+  { name: "Borislav Petrov", age: 13, gender: "M", group: "bronze2" },
+  { name: "Callen Previll", age: 12, gender: "M", group: "bronze2" },
+  { name: "Joseph Rams", age: 12, gender: "M", group: "bronze2" },
+  { name: "Noah Rasmussen", age: 10, gender: "M", group: "bronze2" },
+  { name: "Olivia Rekosiewicz", age: 12, gender: "F", group: "bronze2" },
+  // ── DIVING (6) ──
+  { name: "Cecilia Brems", age: 14, gender: "F", group: "diving" },
+  { name: "Millie Cochrane", age: 16, gender: "F", group: "diving" },
+  { name: "Chase Korn", age: 13, gender: "M", group: "diving" },
+  { name: "Sofia Kourjakian", age: 13, gender: "F", group: "diving" },
+  { name: "Harper Mull", age: 15, gender: "F", group: "diving" },
+  { name: "Justin Zeller", age: 9, gender: "M", group: "diving" },
+  // ── WATER POLO (~57) ──
+  { name: "Georgios Androutsopoulos", age: 14, gender: "M", group: "waterpolo" },
+  { name: "James Beatty", age: 16, gender: "M", group: "waterpolo" },
+  { name: "George Beatty", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Elan Beker", age: 15, gender: "M", group: "waterpolo" },
+  { name: "Aiden Breit", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Grace Brinley", age: 16, gender: "F", group: "waterpolo" },
+  { name: "Dimitri Buslayev", age: 11, gender: "M", group: "waterpolo" },
+  { name: "Xavier Dicoi", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Pedro Drumond Galati", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Jack Durocher", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Christopher Durocher", age: 10, gender: "M", group: "waterpolo" },
+  { name: "Aram Egiazarian", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Leo Falkin", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Jordan Friesel", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Edward Gaukroger", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Andrew Glanfield", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Robert Gryekhov", age: 11, gender: "M", group: "waterpolo" },
+  { name: "Leonardo Guglielmino", age: 17, gender: "M", group: "waterpolo" },
+  { name: "Blake Hazard", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Nathanael Hazard", age: 17, gender: "M", group: "waterpolo" },
+  { name: "Tsimafei Ionau", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Noah Kanen", age: 17, gender: "M", group: "waterpolo" },
+  { name: "Jonah Kanen", age: 14, gender: "M", group: "waterpolo" },
+  { name: "David Koksalan", age: 19, gender: "M", group: "waterpolo" },
+  { name: "Quinn Kovacs", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Albert Kozlovskyy", age: 11, gender: "M", group: "waterpolo" },
+  { name: "Sydney Larsen", age: 15, gender: "F", group: "waterpolo" },
+  { name: "Savannah Larsen", age: 12, gender: "F", group: "waterpolo" },
+  { name: "Lucas Mango", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Enzo Morabito", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Robert Mozols", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Stephen Mrachek", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Gustavo Munford", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Leonardo Munford", age: 11, gender: "M", group: "waterpolo" },
+  { name: "Matthew Nichols", age: 11, gender: "M", group: "waterpolo" },
+  { name: "Christian Nichols", age: 17, gender: "M", group: "waterpolo" },
+  { name: "Arsen Pally", age: 18, gender: "M", group: "waterpolo" },
+  { name: "Benjamin Persad", age: 16, gender: "M", group: "waterpolo" },
+  { name: "Brandon Persad", age: 16, gender: "M", group: "waterpolo" },
+  { name: "Alonso Reyes", age: 13, gender: "M", group: "waterpolo" },
+  { name: "Bianca Ritz", age: 15, gender: "F", group: "waterpolo" },
+  { name: "Santiago Rocha", age: 16, gender: "M", group: "waterpolo" },
+  { name: "Trixia Rodriguez", age: 9, gender: "F", group: "waterpolo" },
+  { name: "Arantza Rodriguez", age: 14, gender: "F", group: "waterpolo" },
+  { name: "Damjan Roncevic", age: 17, gender: "M", group: "waterpolo" },
+  { name: "Benjamin Ruytenbeek", age: 14, gender: "M", group: "waterpolo" },
+  { name: "Zachary Ruytenbeek", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Isabella Schubow", age: 17, gender: "F", group: "waterpolo" },
+  { name: "Dylan Shapins", age: 17, gender: "M", group: "waterpolo" },
+  { name: "Lainsley Stegall", age: 17, gender: "F", group: "waterpolo" },
+  { name: "Charles Surla", age: 15, gender: "M", group: "waterpolo" },
+  { name: "Asher Taplinger", age: 11, gender: "M", group: "waterpolo" },
+  { name: "Ayla Taplinger", age: 13, gender: "F", group: "waterpolo" },
+  { name: "David Van Voorhis", age: 12, gender: "M", group: "waterpolo" },
+  { name: "Ithay Yampolsky", age: 15, gender: "M", group: "waterpolo" },
+  { name: "Iddo Yampolsky", age: 11, gender: "M", group: "waterpolo" },
 ];
 
 function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: string }): Athlete {
@@ -199,12 +443,13 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: 
 // ── storage ──────────────────────────────────────────────────
 
 const K = {
-  ROSTER: "apex-athlete-roster-v4",
+  ROSTER: "apex-athlete-roster-v5",
   PIN: "apex-athlete-pin",
   AUDIT: "apex-athlete-audit-v2",
   CHALLENGES: "apex-athlete-challenges-v2",
   SNAPSHOTS: "apex-athlete-snapshots-v2",
-  CULTURE: "apex-athlete-culture-v1",
+  CULTURE: "apex-athlete-culture-v2",
+  GROUP: "apex-athlete-selected-group",
 };
 
 function load<T>(key: string, fallback: T): T {
@@ -223,7 +468,7 @@ const DEFAULT_CHALLENGES: TeamChallenge[] = [
 ];
 
 const DEFAULT_CULTURE: TeamCulture = {
-  teamName: "Saint Andrew's Aquatics — Platinum",
+  teamName: "Saint Andrew's Aquatics",
   mission: "Excellence Through Consistency",
   seasonalGoal: "90% attendance this month",
   goalTarget: 90, goalCurrent: 0,
@@ -256,6 +501,7 @@ export default function ApexAthletePage() {
   const [newAthleteName, setNewAthleteName] = useState("");
   const [newAthleteAge, setNewAthleteAge] = useState("");
   const [newAthleteGender, setNewAthleteGender] = useState<"M" | "F">("M");
+  const [selectedGroup, setSelectedGroup] = useState<GroupId>("platinum");
   const [mounted, setMounted] = useState(false);
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
@@ -266,20 +512,37 @@ export default function ApexAthletePage() {
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
     if (!pin) { setCoachPin("1234"); save(K.PIN, "1234"); } else { setCoachPin(pin); }
+    // Load selected group
+    const savedGroup = load<GroupId>(K.GROUP, "platinum");
+    setSelectedGroup(savedGroup);
     let r = load<Athlete[]>(K.ROSTER, []);
-    // Migrate from older roster versions if current is empty
+    // Migrate from older roster versions — carry forward existing data
     if (r.length === 0) {
-      const oldKeys = ["apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
+      const oldKeys = ["apex-athlete-roster-v4", "apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
       for (const ok of oldKeys) {
         const old = load<Athlete[]>(ok, []);
-        if (old.length > 0) { r = old; save(K.ROSTER, r); break; }
+        if (old.length > 0) {
+          // Old data is Platinum only — tag them and merge with new groups
+          const migrated = old.map(a => ({ ...a, group: a.group || "platinum" }));
+          const newGroups = INITIAL_ROSTER.filter(e => e.group !== "platinum").map(makeAthlete);
+          r = [...migrated, ...newGroups];
+          save(K.ROSTER, r);
+          break;
+        }
       }
     }
     if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
+    // If roster exists but is smaller than full roster, add missing athletes
+    if (r.length > 0 && r.length < INITIAL_ROSTER.length) {
+      const existingIds = new Set(r.map(a => a.id));
+      const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
+      if (missing.length > 0) { r = [...r, ...missing]; save(K.ROSTER, r); }
+    }
     r = r.map(a => {
       // Ensure new fields exist for legacy data
       if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
       if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
+      if (!a.group) a = { ...a, group: "platinum" };
       // Reset daily XP if new day
       if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
       else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
@@ -472,6 +735,7 @@ export default function ApexAthletePage() {
   const bulkMarkPresent = useCallback(() => {
     setRoster(prev => {
       const r = prev.map(a => {
+        if (a.group !== selectedGroup) return a; // only affect current group
         const cp = { ...a.checkpoints, "on-time-ready": true };
         const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp }, 10, "pool");
         addAudit(newAthlete.id, newAthlete.name, "Bulk: On Time + Ready", awarded);
@@ -480,7 +744,7 @@ export default function ApexAthletePage() {
       });
       save(K.ROSTER, r); return r;
     });
-  }, [awardXP, addAudit]);
+  }, [awardXP, addAudit, selectedGroup]);
 
   const undoLast = useCallback(() => {
     setAuditLog(prev => {
@@ -505,24 +769,24 @@ export default function ApexAthletePage() {
   }, []);
 
   const resetDay = useCallback(() => {
-    saveRoster(roster.map(a => ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
-  }, [roster, saveRoster]);
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+  }, [roster, saveRoster, selectedGroup]);
 
   const resetWeek = useCallback(() => {
-    saveRoster(roster.map(a => ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, weekSessions: 0, weekWeightSessions: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
-  }, [roster, saveRoster]);
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, weekSessions: 0, weekWeightSessions: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+  }, [roster, saveRoster, selectedGroup]);
 
   const resetMonth = useCallback(() => {
-    saveRoster(roster.map(a => ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
-  }, [roster, saveRoster]);
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+  }, [roster, saveRoster, selectedGroup]);
 
   const addAthleteAction = useCallback(() => {
     if (!newAthleteName.trim() || !newAthleteAge) return;
-    const a = makeAthlete({ name: newAthleteName.trim(), age: parseInt(newAthleteAge), gender: newAthleteGender });
+    const a = makeAthlete({ name: newAthleteName.trim(), age: parseInt(newAthleteAge), gender: newAthleteGender, group: selectedGroup });
     saveRoster([...roster, a]);
     setNewAthleteName(""); setNewAthleteAge(""); setAddAthleteOpen(false);
-    addAudit(a.id, a.name, "Added to roster", 0);
-  }, [newAthleteName, newAthleteAge, newAthleteGender, roster, saveRoster, addAudit]);
+    addAudit(a.id, a.name, `Added to ${currentGroupDef.name}`, 0);
+  }, [newAthleteName, newAthleteAge, newAthleteGender, roster, saveRoster, addAudit, selectedGroup, currentGroupDef]);
 
   const removeAthlete = useCallback((id: string) => {
     const a = roster.find(x => x.id === id);
@@ -540,14 +804,21 @@ export default function ApexAthletePage() {
     link.click(); URL.revokeObjectURL(url);
   }, [roster]);
 
+  // ── group switching ─────────────────────────────────────
+  const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); setExpandedId(null); }, []);
+  const currentGroupDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
+  const currentSport = currentGroupDef.sport;
+  const currentCPs = getCPsForSport(currentSport);
+  const filteredRoster = useMemo(() => roster.filter(a => a.group === selectedGroup), [roster, selectedGroup]);
+
   // ── computed ─────────────────────────────────────────────
   const sorted = useMemo(() => {
-    const f = leaderTab === "all" ? roster : roster.filter(a => a.gender === leaderTab);
+    const f = leaderTab === "all" ? filteredRoster : filteredRoster.filter(a => a.gender === leaderTab);
     return [...f].sort((a, b) => b.xp - a.xp);
-  }, [roster, leaderTab]);
+  }, [filteredRoster, leaderTab]);
 
-  const mvpMale = useMemo(() => roster.filter(a => a.gender === "M").sort((a, b) => b.xp - a.xp)[0] || null, [roster]);
-  const mvpFemale = useMemo(() => roster.filter(a => a.gender === "F").sort((a, b) => b.xp - a.xp)[0] || null, [roster]);
+  const mvpMale = useMemo(() => filteredRoster.filter(a => a.gender === "M").sort((a, b) => b.xp - a.xp)[0] || null, [filteredRoster]);
+  const mvpFemale = useMemo(() => filteredRoster.filter(a => a.gender === "F").sort((a, b) => b.xp - a.xp)[0] || null, [filteredRoster]);
 
   const mostImproved = useMemo(() => {
     if (snapshots.length < 2) return null;
@@ -811,8 +1082,8 @@ export default function ApexAthletePage() {
 
   // ── shared game HUD header (used by ALL views) ─────────
   const GameHUDHeader = () => {
-    const presentCount = roster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
-    const xpToday = roster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
+    const presentCount = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
+    const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
     return (
       <div className="w-full relative mb-6">
         {/* Top gradient bar */}
@@ -922,7 +1193,7 @@ export default function ApexAthletePage() {
     <Card className="p-6 mb-8">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-white font-bold text-lg">{culture.teamName}</h2>
+          <h2 className="text-white font-bold text-lg">Saint Andrew&apos;s Aquatics — {currentGroupDef.icon} {currentGroupDef.name}</h2>
           {editingCulture ? (
             <input value={culture.mission} onChange={e => setCulture({ ...culture, mission: e.target.value })}
               className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1 text-[#f59e0b] text-sm mt-1 w-full focus:outline-none" />
@@ -1530,8 +1801,8 @@ export default function ApexAthletePage() {
      COACH MAIN VIEW — LEADERBOARD-FIRST LAYOUT
      ════════════════════════════════════════════════════════════ */
 
-  const present = roster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
-  const totalXpToday = roster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
+  const present = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
+  const totalXpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
 
   return (
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
@@ -1541,6 +1812,33 @@ export default function ApexAthletePage() {
       <div className="relative z-10 w-full px-5 sm:px-8">
         <div className="w-full">
           <GameHUDHeader />
+
+        {/* ══════════════════════════════════════════════════════
+           GROUP SELECTOR — SWITCH ROSTER GROUPS
+           ══════════════════════════════════════════════════════ */}
+        <div className="py-4">
+          <div className="flex flex-wrap gap-2 justify-center">
+            {ROSTER_GROUPS.map(g => {
+              const isActive = selectedGroup === g.id;
+              const count = roster.filter(a => a.group === g.id).length;
+              return (
+                <button key={g.id} onClick={() => switchGroup(g.id)}
+                  className={`game-btn px-4 py-3 text-xs sm:text-sm font-bold font-mono tracking-wider transition-all min-h-[44px] ${
+                    isActive
+                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.3)]"
+                      : "bg-[#06020f]/60 text-white/30 border border-white/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20"
+                  }`}>
+                  <span className="mr-1">{g.icon}</span>
+                  <span>{g.name.toUpperCase()}</span>
+                  <span className="ml-2 text-[10px] opacity-60">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="text-center mt-3 text-xs font-mono text-white/20">
+            {currentGroupDef.icon} {currentGroupDef.name} — {currentGroupDef.sport.toUpperCase()} — {filteredRoster.length} athletes
+          </div>
+        </div>
 
         {/* ══════════════════════════════════════════════════════
            LEADERBOARD — THE HERO SECTION
@@ -1726,7 +2024,7 @@ export default function ApexAthletePage() {
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
             <div className="space-y-2 mb-10">
-              {[...roster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+              {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
                 const sk = fmtStreak(a.streak);
@@ -1803,7 +2101,7 @@ export default function ApexAthletePage() {
 
         {/* Privacy footer */}
         <div className="text-center text-white/[0.05] text-[10px] py-10 space-y-1">
-          <p>Apex Athlete — Saint Andrew&apos;s Aquatics — Platinum</p>
+          <p>Apex Athlete — Saint Andrew&apos;s Aquatics</p>
           <p>Coach manages all data. Parental consent required.</p>
         </div>
       </div>
