@@ -15,7 +15,7 @@ const AGENTS = [
     name: "Atlas", model: "Opus 4.6", role: "Lead Strategist",
     status: "active" as const, color: "#00f0ff", icon: "🧭",
     desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
-    connections: [1, 2, 3, 4, 5, 6, 7, 8],
+    connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
     credits: { used: 847, limit: 5000 },
     activeTask: "Multi-roster expansion + Command Center v5",
   },
@@ -83,6 +83,22 @@ const AGENTS = [
     credits: { used: 0, limit: 5000 },
     activeTask: null,
   },
+  {
+    name: "MICHAEL", model: "Opus 4.6", role: "Swim Training AI",
+    status: "active" as const, color: "#06b6d4", icon: "🏊",
+    desc: "Phelps + Kobe + MJ + Bolt — swim mastery, mamba mentality, competitive fire, Jamaican joy",
+    connections: [0, 3],
+    credits: { used: 0, limit: 5000 },
+    activeTask: null,
+  },
+  {
+    name: "Prophets", model: "Opus 4.6", role: "Spiritual Wisdom",
+    status: "active" as const, color: "#d4a574", icon: "📜",
+    desc: "Solomon + Moses + Elijah + Isaiah + David — Scripture-rooted counsel, wisdom, moral clarity",
+    connections: [0],
+    credits: { used: 0, limit: 5000 },
+    activeTask: null,
+  },
 ];
 
 /* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
@@ -127,6 +143,14 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Multi-Agent Architecture", role: "Designing agent collaboration patterns", status: "active" },
     { project: "Apex Athlete", role: "Scalable system blueprint (multi-team SaaS)", status: "idle" },
     { project: "Infrastructure", role: "Cross-project integration + emergence analysis", status: "idle" },
+  ],
+  MICHAEL: [
+    { project: "Apex Athlete", role: "Swim coaching intelligence + athlete motivation", status: "active" },
+    { project: "Saint Andrew's Aquatics", role: "Training analysis + race strategy", status: "active" },
+  ],
+  Prophets: [
+    { project: "Daily Scripture", role: "Morning brief verse + spiritual counsel", status: "active" },
+    { project: "Life Guidance", role: "Faith-rooted wisdom for decisions", status: "idle" },
   ],
 };
 
@@ -1241,108 +1265,87 @@ export default function CommandCenter() {
               </div>
             </div>
 
-            {/* Team agents — clean 4-column grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* Team agents — responsive grid, 2 on mobile, 3 on tablet, 5 on desktop */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {AGENTS.slice(1).map((a, i) => {
                 const isActive = a.status === "active";
-                const creditPct = Math.round((a.credits.used / a.credits.limit) * 100);
                 const isHov = hoveredAgent === i + 1;
+                const isExp = expandedAgent === a.name;
+                const projects = AGENT_PROJECTS[a.name] || [];
+                const activeProjects = projects.filter(p => p.status === "active");
                 return (
                   <div
                     key={a.name}
-                    className="game-panel relative overflow-hidden p-4 transition-all duration-300 cursor-pointer group"
+                    className="relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer"
                     style={{
-                      background: `linear-gradient(145deg, ${a.color}04 0%, rgba(3,1,8,0.98) 100%)`,
-                      border: `1px solid ${isHov ? `${a.color}30` : `${a.color}10`}`,
-                      boxShadow: isHov ? `0 0 20px ${a.color}12, inset 0 0 20px ${a.color}04` : "none",
-                      transform: isHov ? "translateY(-2px)" : "none",
+                      background: `linear-gradient(160deg, ${a.color}08 0%, rgba(6,2,15,0.97) 50%, ${a.color}03 100%)`,
+                      border: `1px solid ${isHov || isExp ? `${a.color}35` : `${a.color}12`}`,
+                      boxShadow: isHov || isExp ? `0 8px 32px ${a.color}10, 0 0 0 1px ${a.color}08` : "none",
+                      transform: isHov ? "translateY(-3px) scale(1.01)" : "none",
                     }}
                     onMouseEnter={() => setHoveredAgent(i + 1)}
                     onMouseLeave={() => setHoveredAgent(null)}
+                    onClick={() => setExpandedAgent(isExp ? null : a.name)}
                   >
-                    {/* Top accent line */}
-                    <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${a.color}${isHov ? "50" : "20"}, transparent)` }} />
+                    {/* Top glow bar */}
+                    <div className="absolute top-0 left-[10%] right-[10%] h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${a.color}${isHov ? "60" : "25"}, transparent)` }} />
 
-                    <div className="flex items-center gap-3 mb-3">
-                      {/* Small avatar */}
-                      <div className="relative flex-shrink-0" style={{ width: "44px", height: "44px" }}>
-                        {isActive && (
-                          <div className="absolute inset-[-4px] rounded-full pointer-events-none" style={{ border: `1px solid ${a.color}18`, animation: "agent-orbit 8s linear infinite", borderTopColor: `${a.color}40` }} />
-                        )}
-                        <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center p-1.5" style={{ background: `radial-gradient(circle at 35% 35%, ${a.color}10 0%, rgba(3,1,8,0.95) 70%)`, border: `1.5px solid ${a.color}${isHov ? "35" : "15"}` }}>
-                          {AGENT_AVATARS[a.name] || <span className="text-xl">{a.icon}</span>}
+                    <div className="p-4">
+                      {/* Avatar + status dot */}
+                      <div className="flex justify-center mb-3">
+                        <div className="relative" style={{ width: "56px", height: "56px" }}>
+                          {isActive && (
+                            <div className="absolute inset-[-5px] rounded-full" style={{ border: `1.5px solid ${a.color}15`, animation: "agent-orbit 8s linear infinite", borderTopColor: `${a.color}40` }} />
+                          )}
+                          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center" style={{ background: `radial-gradient(circle at 30% 30%, ${a.color}15 0%, rgba(3,1,8,0.95) 70%)`, border: `2px solid ${a.color}${isHov ? "40" : "18"}`, transition: "border-color 0.3s" }}>
+                            {AGENT_AVATARS[a.name] || <span className="text-2xl">{a.icon}</span>}
+                          </div>
+                          <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#06020f] ${isActive ? "animate-pulse" : ""}`} style={{ background: isActive ? "#00ff88" : "rgba(255,255,255,0.15)", boxShadow: isActive ? `0 0 8px rgba(0,255,136,0.6)` : "none" }} />
                         </div>
-                        <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#030108] ${isActive ? "animate-pulse" : ""}`} style={{ background: isActive ? "#00ff88" : "rgba(255,255,255,0.15)", boxShadow: isActive ? "0 0 6px rgba(0,255,136,0.5)" : "none" }} />
                       </div>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="text-sm font-bold leading-tight truncate" style={{ color: isHov ? a.color : "rgba(255,255,255,0.85)" }}>{a.name}</div>
-                        <div className="text-[9px] font-mono truncate" style={{ color: `${a.color}40` }}>{a.role}</div>
+                      {/* Name + role */}
+                      <div className="text-center mb-2">
+                        <div className="text-sm font-bold truncate" style={{ color: isHov ? a.color : "rgba(255,255,255,0.9)", transition: "color 0.2s" }}>{a.name}</div>
+                        <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: `${a.color}50` }}>{a.role}</div>
                       </div>
-                    </div>
 
-                    {/* Model + status */}
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{ color: `${a.color}60`, background: `${a.color}08`, border: `1px solid ${a.color}10` }}>{a.model}</span>
-                      <span className="text-[8px] font-mono" style={{ color: isActive ? "rgba(0,255,136,0.6)" : "rgba(255,255,255,0.2)" }}>{isActive ? "ONLINE" : "SLEEP"}</span>
-                    </div>
-
-                    {/* Credit bar */}
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${creditPct}%`, background: a.color, boxShadow: `0 0 4px ${a.color}30` }} />
+                      {/* Model badge */}
+                      <div className="flex justify-center mb-2">
+                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full" style={{ color: `${a.color}55`, background: `${a.color}08`, border: `1px solid ${a.color}10` }}>{a.model}</span>
                       </div>
-                      <span className="text-[7px] font-mono tabular-nums" style={{ color: `${a.color}35` }}>{creditPct}%</span>
-                    </div>
 
-                    {/* Active task indicator */}
-                    {a.activeTask && (
-                      <div className="mt-2 pt-2 border-t" style={{ borderColor: `${a.color}08` }}>
-                        <div className="flex items-center gap-1">
+                      {/* Active project pills */}
+                      {activeProjects.length > 0 && (
+                        <div className="flex flex-wrap justify-center gap-1 mt-1">
+                          {activeProjects.slice(0, 2).map(p => (
+                            <span key={p.project} className="text-[7px] font-mono px-1.5 py-0.5 rounded-full" style={{ color: "#00ff88aa", background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.1)" }}>● {p.project}</span>
+                          ))}
+                          {activeProjects.length > 2 && <span className="text-[7px] font-mono" style={{ color: `${a.color}40` }}>+{activeProjects.length - 2}</span>}
+                        </div>
+                      )}
+
+                      {/* Working indicator */}
+                      {a.activeTask && (
+                        <div className="flex justify-center items-center gap-1 mt-2">
                           <span className="flex gap-0.5">
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0s infinite" }} />
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.2s infinite" }} />
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
                           </span>
-                          <span className="text-[8px] font-mono truncate" style={{ color: `${a.color}40` }}>{a.activeTask}</span>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    {/* Projects dropdown toggle */}
-                    {(AGENT_PROJECTS[a.name]?.length ?? 0) > 0 && (
-                      <button
-                        className="w-full mt-2 pt-2 border-t flex items-center justify-between text-[8px] font-mono transition-colors"
-                        style={{ borderColor: `${a.color}08`, color: `${a.color}50` }}
-                        onClick={(e) => { e.stopPropagation(); setExpandedAgent(expandedAgent === a.name ? null : a.name); }}
-                      >
-                        <span>{AGENT_PROJECTS[a.name].length} PROJECT{AGENT_PROJECTS[a.name].length > 1 ? "S" : ""}</span>
-                        <span style={{ transform: expandedAgent === a.name ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s" }}>▾</span>
-                      </button>
-                    )}
-
-                    {/* Projects dropdown content */}
-                    {expandedAgent === a.name && AGENT_PROJECTS[a.name] && (
-                      <div className="mt-2 space-y-1.5 overflow-hidden" style={{ animation: "expand-in 0.2s ease-out" }}>
-                        {AGENT_PROJECTS[a.name].map((p) => (
-                          <div
-                            key={p.project}
-                            className="flex items-center gap-2 p-2 rounded-lg transition-colors"
-                            style={{ background: `${a.color}06`, border: `1px solid ${a.color}08` }}
-                          >
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.status === "active" ? "animate-pulse" : ""}`}
-                              style={{ background: p.status === "active" ? "#00ff88" : p.status === "done" ? a.color : "rgba(255,255,255,0.15)" }} />
-                            <div className="min-w-0 flex-1">
-                              <div className="text-[9px] font-bold truncate" style={{ color: `${a.color}80` }}>{p.project}</div>
-                              <div className="text-[7px] text-white/25 truncate">{p.role}</div>
-                            </div>
-                            <span className="text-[7px] font-mono px-1.5 py-0.5 rounded flex-shrink-0"
-                              style={{
-                                color: p.status === "active" ? "#00ff88" : p.status === "done" ? a.color : "rgba(255,255,255,0.3)",
-                                background: p.status === "active" ? "rgba(0,255,136,0.08)" : `${a.color}06`,
-                              }}>
-                              {p.status.toUpperCase()}
-                            </span>
+                    {/* Expanded project details */}
+                    {isExp && projects.length > 0 && (
+                      <div className="px-4 pb-4 pt-1 space-y-1.5 border-t" style={{ borderColor: `${a.color}10`, animation: "expand-in 0.2s ease-out" }}>
+                        <div className="text-[8px] font-mono uppercase tracking-wider mb-1" style={{ color: `${a.color}40` }}>PROJECTS</div>
+                        {projects.map(p => (
+                          <div key={p.project} className="flex items-center gap-2 py-1">
+                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.status === "active" ? "animate-pulse" : ""}`} style={{ background: p.status === "active" ? "#00ff88" : p.status === "done" ? a.color : "rgba(255,255,255,0.12)" }} />
+                            <span className="text-[9px] font-medium flex-1 truncate" style={{ color: `${a.color}70` }}>{p.project}</span>
+                            <span className="text-[7px] font-mono" style={{ color: p.status === "active" ? "#00ff88aa" : "rgba(255,255,255,0.2)" }}>{p.status.toUpperCase()}</span>
                           </div>
                         ))}
                       </div>
