@@ -414,12 +414,11 @@ export default function CommandCenter() {
     };
     resize();
 
-    const agentPositions = [
-      { x: 0.5, y: 0.18 },   // Atlas top center
-      { x: 0.17, y: 0.72 },  // Builder bottom left
-      { x: 0.83, y: 0.72 },  // Scout bottom right
-      { x: 0.5, y: 0.85 },   // Voice bottom center
-    ];
+    const agentPositions = AGENTS.map((_, i) => {
+      if (i === 0) return { x: 0.5, y: 0.15 }; // Atlas top center
+      const angle = ((i - 1) / (AGENTS.length - 1)) * Math.PI + Math.PI * 0.15;
+      return { x: 0.5 + Math.cos(angle) * 0.38, y: 0.55 + Math.sin(angle) * 0.3 };
+    });
 
     const draw = () => {
       frameCount++;
@@ -431,8 +430,8 @@ export default function CommandCenter() {
         y: p.y * canvas.height,
       }));
 
-      // Draw connection lines
-      const connections: [number, number][] = [[0, 1], [0, 2], [0, 3], [1, 2]];
+      // Draw connection lines — Atlas connected to all, plus neighbors
+      const connections: [number, number][] = AGENTS.slice(1).map((_, i) => [0, i + 1] as [number, number]);
       connections.forEach(([a, b]) => {
         const pa = positions[a];
         const pb = positions[b];
@@ -1135,39 +1134,125 @@ export default function CommandCenter() {
               </div>
             </div>
 
-            <div
-              className="game-panel game-panel-border relative overflow-hidden"
-              style={{
-                background: "linear-gradient(145deg, rgba(0,240,255,0.02) 0%, rgba(6,2,15,0.98) 50%, rgba(168,85,247,0.02) 100%)",
-                minHeight: "320px",
-              }}
-            >
-              {/* Network visualization canvas */}
-              <canvas
-                ref={agentNetRef}
-                className="absolute inset-0 w-full h-full pointer-events-none z-0"
-              />
+            {/* Lead agent — Atlas hero card */}
+            <div className="mb-4">
+              <div
+                className="game-panel game-panel-border relative overflow-hidden p-6"
+                style={{
+                  background: "linear-gradient(135deg, rgba(0,240,255,0.04) 0%, rgba(6,2,15,0.98) 40%, rgba(168,85,247,0.03) 100%)",
+                }}
+              >
+                {/* Subtle scan sweep */}
+                <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                  <div className="absolute left-0 right-0 h-[1px] opacity-15" style={{ background: "linear-gradient(90deg, transparent, #00f0ff, transparent)", animation: "scanSweep 10s linear infinite" }} />
+                </div>
 
-              {/* Agent cards — full squad */}
-              <div className="relative z-10 p-6">
-                {/* Atlas - lead, top center */}
-                <div className="flex justify-center mb-6">
-                  <AgentCard agent={AGENTS[0]} index={0} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                </div>
-                {/* Core team - row 1 */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-5xl mx-auto mb-3">
-                  <AgentCard agent={AGENTS[1]} index={1} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                  <AgentCard agent={AGENTS[2]} index={2} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                  <AgentCard agent={AGENTS[3]} index={3} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                  <AgentCard agent={AGENTS[4]} index={4} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                </div>
-                {/* Extended team - row 2 */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
-                  <AgentCard agent={AGENTS[5]} index={5} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                  <AgentCard agent={AGENTS[6]} index={6} hovered={hoveredAgent} onHover={setHoveredAgent} />
-                  <AgentCard agent={AGENTS[7]} index={7} hovered={hoveredAgent} onHover={setHoveredAgent} />
+                <div className="relative z-10 flex items-center gap-6">
+                  {/* Atlas avatar — larger */}
+                  <div className="relative flex-shrink-0" style={{ width: "88px", height: "88px" }}>
+                    <div className="absolute inset-[-6px] rounded-full pointer-events-none" style={{ border: "1.5px solid rgba(0,240,255,0.2)", animation: "agent-orbit 8s linear infinite", borderTopColor: "rgba(0,240,255,0.5)" }} />
+                    <div className="absolute inset-[-2px] rounded-full" style={{ border: "2px solid rgba(0,240,255,0.25)", boxShadow: "0 0 20px rgba(0,240,255,0.15), inset 0 0 12px rgba(0,240,255,0.06)" }} />
+                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center p-3" style={{ background: "radial-gradient(circle at 35% 35%, rgba(0,240,255,0.1) 0%, rgba(3,1,8,0.95) 70%)" }}>
+                      {AGENT_AVATARS["Atlas"] || <span className="text-4xl">🧭</span>}
+                    </div>
+                    <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-[#030108] animate-pulse" style={{ background: "#00ff88", boxShadow: "0 0 10px rgba(0,255,136,0.7)" }} />
+                  </div>
+
+                  {/* Atlas info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-xl font-black" style={{ color: "#00f0ff", textShadow: "0 0 20px rgba(0,240,255,0.3)" }}>ATLAS</span>
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded" style={{ color: "#00f0ff", background: "rgba(0,240,255,0.08)", border: "1px solid rgba(0,240,255,0.15)" }}>LEAD</span>
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded" style={{ color: "rgba(0,255,136,0.8)", background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.12)" }}>● ONLINE</span>
+                    </div>
+                    <div className="text-[11px] font-mono text-white/35 mb-2">Opus 4.6 · Lead Strategist · Systems Architect</div>
+                    <div className="text-[10px] font-mono" style={{ color: "rgba(0,240,255,0.45)" }}>→ {AGENTS[0].activeTask || "Monitoring all systems"}</div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="flex-1 max-w-[200px] h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full" style={{ width: `${Math.round((AGENTS[0].credits.used / AGENTS[0].credits.limit) * 100)}%`, background: "linear-gradient(90deg, rgba(0,240,255,0.6), #00f0ff)", boxShadow: "0 0 6px rgba(0,240,255,0.3)" }} />
+                      </div>
+                      <span className="text-[8px] font-mono text-[#00f0ff]/40">{AGENTS[0].credits.used}/{AGENTS[0].credits.limit} credits</span>
+                    </div>
+                  </div>
                 </div>
               </div>
+            </div>
+
+            {/* Team agents — clean 4-column grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {AGENTS.slice(1).map((a, i) => {
+                const isActive = a.status === "active";
+                const creditPct = Math.round((a.credits.used / a.credits.limit) * 100);
+                const isHov = hoveredAgent === i + 1;
+                return (
+                  <div
+                    key={a.name}
+                    className="game-panel relative overflow-hidden p-4 transition-all duration-300 cursor-pointer group"
+                    style={{
+                      background: `linear-gradient(145deg, ${a.color}04 0%, rgba(3,1,8,0.98) 100%)`,
+                      border: `1px solid ${isHov ? `${a.color}30` : `${a.color}10`}`,
+                      boxShadow: isHov ? `0 0 20px ${a.color}12, inset 0 0 20px ${a.color}04` : "none",
+                      transform: isHov ? "translateY(-2px)" : "none",
+                    }}
+                    onMouseEnter={() => setHoveredAgent(i + 1)}
+                    onMouseLeave={() => setHoveredAgent(null)}
+                  >
+                    {/* Top accent line */}
+                    <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `linear-gradient(90deg, transparent, ${a.color}${isHov ? "50" : "20"}, transparent)` }} />
+
+                    <div className="flex items-center gap-3 mb-3">
+                      {/* Small avatar */}
+                      <div className="relative flex-shrink-0" style={{ width: "44px", height: "44px" }}>
+                        {isActive && (
+                          <div className="absolute inset-[-4px] rounded-full pointer-events-none" style={{ border: `1px solid ${a.color}18`, animation: "agent-orbit 8s linear infinite", borderTopColor: `${a.color}40` }} />
+                        )}
+                        <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center p-1.5" style={{ background: `radial-gradient(circle at 35% 35%, ${a.color}10 0%, rgba(3,1,8,0.95) 70%)`, border: `1.5px solid ${a.color}${isHov ? "35" : "15"}` }}>
+                          {AGENT_AVATARS[a.name] || <span className="text-xl">{a.icon}</span>}
+                        </div>
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-[#030108] ${isActive ? "animate-pulse" : ""}`} style={{ background: isActive ? "#00ff88" : "rgba(255,255,255,0.15)", boxShadow: isActive ? "0 0 6px rgba(0,255,136,0.5)" : "none" }} />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-bold leading-tight truncate" style={{ color: isHov ? a.color : "rgba(255,255,255,0.85)" }}>{a.name}</div>
+                        <div className="text-[9px] font-mono truncate" style={{ color: `${a.color}40` }}>{a.role}</div>
+                      </div>
+                    </div>
+
+                    {/* Model + status */}
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{ color: `${a.color}60`, background: `${a.color}08`, border: `1px solid ${a.color}10` }}>{a.model}</span>
+                      <span className="text-[8px] font-mono" style={{ color: isActive ? "rgba(0,255,136,0.6)" : "rgba(255,255,255,0.2)" }}>{isActive ? "ONLINE" : "SLEEP"}</span>
+                    </div>
+
+                    {/* Credit bar */}
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${creditPct}%`, background: a.color, boxShadow: `0 0 4px ${a.color}30` }} />
+                      </div>
+                      <span className="text-[7px] font-mono tabular-nums" style={{ color: `${a.color}35` }}>{creditPct}%</span>
+                    </div>
+
+                    {/* Active task — show on hover */}
+                    {a.activeTask && isHov && (
+                      <div className="mt-2 pt-2 border-t" style={{ borderColor: `${a.color}08` }}>
+                        <div className="flex items-center gap-1">
+                          <span className="flex gap-0.5">
+                            <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0s infinite" }} />
+                            <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.2s infinite" }} />
+                            <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
+                          </span>
+                          <span className="text-[8px] font-mono truncate" style={{ color: `${a.color}40` }}>{a.activeTask}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Network visualization canvas — behind both sections */}
+            <div className="relative h-2 mt-2">
+              <canvas ref={agentNetRef} className="absolute inset-0 w-full h-[200px] -top-[200px] pointer-events-none z-0 opacity-30" />
             </div>
           </div>
 
@@ -1689,6 +1774,94 @@ export default function CommandCenter() {
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Agent Card — animated, with credits + working state ── */
+/* ── SVG Avatar Icons per agent ── */
+const AGENT_AVATARS: Record<string, React.ReactNode> = {
+  Atlas: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-atlas" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#00f0ff"/><stop offset="100%" stopColor="#0088aa"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="28" fill="none" stroke="url(#av-atlas)" strokeWidth="1.5" opacity="0.5"/>
+      <circle cx="32" cy="32" r="20" fill="none" stroke="url(#av-atlas)" strokeWidth="1" opacity="0.3"/>
+      <path d="M32 8 L36 20 H28 Z" fill="#00f0ff" opacity="0.8"/>{/* compass needle */}
+      <path d="M32 56 L28 44 H36 Z" fill="#00f0ff" opacity="0.4"/>
+      <circle cx="32" cy="32" r="4" fill="#00f0ff"/>
+      <line x1="8" y1="32" x2="56" y2="32" stroke="#00f0ff" strokeWidth="0.5" opacity="0.25"/>
+      <line x1="32" y1="8" x2="32" y2="56" stroke="#00f0ff" strokeWidth="0.5" opacity="0.25"/>
+    </svg>
+  ),
+  TheMAESTRO: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-maestro" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f59e0b"/><stop offset="100%" stopColor="#d97706"/></linearGradient></defs>
+      <path d="M20 48 Q20 20 32 12 Q44 20 44 48" fill="none" stroke="url(#av-maestro)" strokeWidth="2" opacity="0.7"/>
+      <circle cx="20" cy="48" r="5" fill="#f59e0b" opacity="0.8"/>
+      <circle cx="44" cy="48" r="5" fill="#f59e0b" opacity="0.8"/>
+      <path d="M28 28 L36 24 L36 36 L28 40 Z" fill="#f59e0b" opacity="0.4"/>
+      <line x1="32" y1="12" x2="32" y2="8" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6"/>
+      <circle cx="32" cy="7" r="2" fill="#f59e0b" opacity="0.5"/>
+    </svg>
+  ),
+  SIMONS: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-simons" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#22d3ee"/><stop offset="100%" stopColor="#06b6d4"/></linearGradient></defs>
+      <polyline points="8,48 16,36 24,42 32,24 40,30 48,16 56,20" fill="none" stroke="url(#av-simons)" strokeWidth="2" strokeLinecap="round"/>
+      <polyline points="8,48 16,36 24,42 32,24 40,30 48,16 56,20 56,52 8,52 8,48" fill="#22d3ee" opacity="0.08"/>
+      {[16,24,32,40,48].map(x => <circle key={x} cx={x} cy={x===16?36:x===24?42:x===32?24:x===40?30:16} r="2.5" fill="#22d3ee" opacity="0.9"/>)}
+      <line x1="8" y1="52" x2="56" y2="52" stroke="#22d3ee" strokeWidth="0.5" opacity="0.3"/>
+    </svg>
+  ),
+  "Dr. Strange": (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-strange" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#a855f7"/><stop offset="100%" stopColor="#7c3aed"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="22" fill="none" stroke="url(#av-strange)" strokeWidth="1.5" opacity="0.5"/>
+      <circle cx="32" cy="32" r="15" fill="none" stroke="#a855f7" strokeWidth="0.8" opacity="0.3" strokeDasharray="4 3"/>
+      <path d="M32 10 L35 28 L32 32 L29 28 Z" fill="#a855f7" opacity="0.6"/>
+      <circle cx="32" cy="32" r="6" fill="none" stroke="#a855f7" strokeWidth="1.5" opacity="0.7"/>
+      <circle cx="32" cy="32" r="2" fill="#a855f7"/>
+      <path d="M22 22 L42 42 M42 22 L22 42" stroke="#a855f7" strokeWidth="0.5" opacity="0.2"/>
+    </svg>
+  ),
+  SHURI: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-shuri" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#34d399"/><stop offset="100%" stopColor="#059669"/></linearGradient></defs>
+      <polygon points="32,8 56,24 56,44 32,56 8,44 8,24" fill="none" stroke="url(#av-shuri)" strokeWidth="1.5" opacity="0.5"/>
+      <polygon points="32,16 48,28 48,40 32,48 16,40 16,28" fill="#34d399" opacity="0.06"/>
+      <path d="M24 32 L30 26 L34 30 L40 24" stroke="#34d399" strokeWidth="2" strokeLinecap="round" fill="none"/>
+      <circle cx="40" cy="24" r="3" fill="#34d399" opacity="0.8"/>
+      <path d="M20 40 L32 44 L44 40" stroke="#34d399" strokeWidth="0.8" opacity="0.3" fill="none"/>
+    </svg>
+  ),
+  Widow: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-widow" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ef4444"/><stop offset="100%" stopColor="#b91c1c"/></linearGradient></defs>
+      <circle cx="32" cy="32" r="10" fill="none" stroke="url(#av-widow)" strokeWidth="2" opacity="0.7"/>
+      {[0,60,120,180,240,300].map(deg => <line key={deg} x1="32" y1="32" x2={32+Math.cos(deg*Math.PI/180)*24} y2={32+Math.sin(deg*Math.PI/180)*24} stroke="#ef4444" strokeWidth="1" opacity="0.3"/>)}
+      <circle cx="32" cy="32" r="3" fill="#ef4444" opacity="0.9"/>
+      <circle cx="32" cy="32" r="20" fill="none" stroke="#ef4444" strokeWidth="0.5" opacity="0.15" strokeDasharray="2 4"/>
+    </svg>
+  ),
+  PROXIMON: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-prox" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f97316"/><stop offset="100%" stopColor="#ea580c"/></linearGradient></defs>
+      <rect x="18" y="18" width="28" height="28" fill="none" stroke="url(#av-prox)" strokeWidth="1.5" opacity="0.5" rx="2"/>
+      <rect x="24" y="24" width="16" height="16" fill="none" stroke="#f97316" strokeWidth="1" opacity="0.4" rx="1"/>
+      <rect x="29" y="29" width="6" height="6" fill="#f97316" opacity="0.7" rx="1"/>
+      <line x1="18" y1="18" x2="8" y2="8" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
+      <line x1="46" y1="18" x2="56" y2="8" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
+      <line x1="18" y1="46" x2="8" y2="56" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
+      <line x1="46" y1="46" x2="56" y2="56" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
+    </svg>
+  ),
+  Vee: (
+    <svg viewBox="0 0 64 64" className="w-full h-full">
+      <defs><linearGradient id="av-vee" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ec4899"/><stop offset="100%" stopColor="#be185d"/></linearGradient></defs>
+      <path d="M16 16 L32 48 L48 16" fill="none" stroke="url(#av-vee)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8"/>
+      <circle cx="16" cy="16" r="4" fill="#ec4899" opacity="0.5"/>
+      <circle cx="48" cy="16" r="4" fill="#ec4899" opacity="0.5"/>
+      <circle cx="32" cy="48" r="4" fill="#ec4899" opacity="0.7"/>
+      <path d="M24 12 L24 8 M40 12 L40 8 M32 52 L32 56" stroke="#ec4899" strokeWidth="1" opacity="0.3"/>
+    </svg>
+  ),
+};
+
 function AgentCard({
   agent,
   index,
@@ -1702,139 +1875,132 @@ function AgentCard({
 }) {
   const isActive = agent.status === "active";
   const isHovered = hovered === index;
+  const isLead = index === 0;
   const creditPct = Math.round((agent.credits.used / agent.credits.limit) * 100);
 
   return (
     <div
-      className={`game-panel game-panel-scan relative p-5 transition-all duration-300 cursor-pointer ${
-        isHovered ? "scale-[1.03]" : ""
+      className={`relative transition-all duration-300 cursor-pointer group ${
+        isHovered ? "scale-[1.05] z-20" : "z-10"
       }`}
       onMouseEnter={() => onHover(index)}
       onMouseLeave={() => onHover(null)}
-      style={{
-        background: `linear-gradient(145deg, ${agent.color}${isHovered ? "0c" : "06"} 0%, rgba(3,1,8,0.97) 100%)`,
-        border: `1px solid ${agent.color}${isHovered ? "35" : "15"}`,
-        boxShadow: isHovered
-          ? `0 0 40px ${agent.color}18, inset 0 0 25px ${agent.color}06`
-          : isActive
-            ? `0 0 20px ${agent.color}0a`
-            : "none",
-      }}
+      style={{ width: isLead ? "140px" : "110px" }}
     >
-      <div className="flex items-start gap-4">
-        {/* Agent avatar with working animation */}
-        <div className="relative flex-shrink-0">
+      {/* Ambient glow behind */}
+      <div
+        className="absolute inset-0 rounded-full blur-2xl transition-opacity duration-500 pointer-events-none"
+        style={{
+          background: `radial-gradient(circle, ${agent.color}${isHovered ? "25" : isActive ? "10" : "04"} 0%, transparent 70%)`,
+          transform: "scale(1.8)",
+        }}
+      />
+
+      {/* Avatar container */}
+      <div className="relative flex flex-col items-center">
+        {/* Hex avatar frame with animated ring */}
+        <div className="relative" style={{ width: isLead ? "80px" : "64px", height: isLead ? "80px" : "64px" }}>
+          {/* Outer rotating ring for active agents */}
+          {isActive && (
+            <div
+              className="absolute inset-[-6px] rounded-full pointer-events-none"
+              style={{
+                border: `1.5px solid ${agent.color}25`,
+                animation: "agent-orbit 8s linear infinite",
+                borderTopColor: `${agent.color}60`,
+              }}
+            />
+          )}
+          {/* Inner glow ring */}
           <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl transition-all duration-300"
+            className="absolute inset-[-2px] rounded-full transition-all duration-300"
             style={{
-              background: `linear-gradient(135deg, ${agent.color}18 0%, ${agent.color}06 100%)`,
-              border: `1px solid ${agent.color}30`,
-              boxShadow: isActive
-                ? `0 0 20px ${agent.color}25, inset 0 0 15px ${agent.color}0a`
-                : "none",
+              border: `2px solid ${agent.color}${isHovered ? "50" : isActive ? "25" : "08"}`,
+              boxShadow: isHovered
+                ? `0 0 25px ${agent.color}30, inset 0 0 15px ${agent.color}10`
+                : isActive
+                  ? `0 0 12px ${agent.color}15`
+                  : "none",
+            }}
+          />
+          {/* Avatar background */}
+          <div
+            className="w-full h-full rounded-full overflow-hidden flex items-center justify-center p-2.5"
+            style={{
+              background: `radial-gradient(circle at 35% 35%, ${agent.color}12 0%, rgba(3,1,8,0.95) 70%)`,
             }}
           >
-            {agent.icon}
+            {AGENT_AVATARS[agent.name] || <span className="text-3xl">{agent.icon}</span>}
           </div>
-          {/* Animated working ring for active agents */}
-          {isActive && (
-            <>
-              <div
-                className="absolute inset-[-4px] rounded-xl pointer-events-none"
-                style={{
-                  border: `1px solid ${agent.color}20`,
-                  animation: "agent-work-ring 2.5s ease-out infinite",
-                }}
-              />
-              {/* Orbiting data dot */}
-              <div className="absolute inset-0 pointer-events-none" style={{ animation: "agent-orbit 6s linear infinite" }}>
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: agent.color, boxShadow: `0 0 6px ${agent.color}` }} />
-              </div>
-            </>
-          )}
-          {/* Status indicator */}
+          {/* Status dot */}
           <div
-            className={`absolute -bottom-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-[#030108] ${
+            className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#030108] ${
               isActive ? "animate-pulse" : ""
             }`}
             style={{
               background: isActive ? "#00ff88" : "rgba(255,255,255,0.15)",
-              boxShadow: isActive ? "0 0 10px rgba(0,255,136,0.7)" : "none",
+              boxShadow: isActive ? "0 0 8px rgba(0,255,136,0.6)" : "none",
             }}
           />
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-base font-bold text-white/95">{agent.name}</span>
-            <span
-              className="text-[8px] font-mono px-2 py-0.5 rounded"
-              style={{
-                color: agent.color,
-                background: `${agent.color}0c`,
-                border: `1px solid ${agent.color}18`,
-              }}
-            >
-              {agent.model}
-            </span>
-            <span
-              className="text-[8px] font-mono uppercase tracking-wider px-2 py-0.5 rounded ml-auto"
-              style={{
-                color: isActive ? "#00ff88" : "rgba(255,255,255,0.25)",
-                background: isActive ? "rgba(0,255,136,0.08)" : "rgba(255,255,255,0.03)",
-                border: `1px solid ${isActive ? "rgba(0,255,136,0.18)" : "rgba(255,255,255,0.05)"}`,
-              }}
-            >
-              {agent.status}
-            </span>
+
+        {/* Name + role below avatar */}
+        <div className="mt-2 text-center">
+          <div
+            className="text-sm font-bold leading-tight transition-colors duration-200"
+            style={{ color: isHovered ? agent.color : "rgba(255,255,255,0.9)" }}
+          >
+            {agent.name}
           </div>
-          <div className="text-[11px] font-mono" style={{ color: `${agent.color}60` }}>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: `${agent.color}50` }}>
             {agent.role}
           </div>
-          {/* Active task with typing animation */}
-          {isActive && agent.activeTask && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[10px] text-white/30 font-mono">Working:</span>
-              <span className="text-[10px] font-mono truncate" style={{ color: `${agent.color}70` }}>
-                {agent.activeTask}
-              </span>
-              <span className="flex gap-0.5 ml-1">
-                <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0s infinite" }} />
-                <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0.2s infinite" }} />
-                <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
-              </span>
-            </div>
-          )}
-          {/* Idle / sleeping state */}
-          {!isActive && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs text-white/20 font-mono italic">Sleeping</span>
-              <span className="flex gap-1">
-                <span className="text-xs" style={{ animation: "zFloat 2s ease-in-out infinite", opacity: 0.3 }}>z</span>
-                <span className="text-sm" style={{ animation: "zFloat 2s ease-in-out 0.4s infinite", opacity: 0.4 }}>z</span>
-                <span className="text-base" style={{ animation: "zFloat 2s ease-in-out 0.8s infinite", opacity: 0.5 }}>Z</span>
-              </span>
-            </div>
-          )}
-          {/* Credit usage bar */}
-          <div className="mt-3 flex items-center gap-2">
-            <div className="text-[10px] font-mono text-white/25 uppercase tracking-wider w-16">Credits</div>
-            <div className="flex-1 h-2 bg-white/[0.04] rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-700"
-                style={{
-                  width: `${creditPct}%`,
-                  background: creditPct > 80
-                    ? "linear-gradient(90deg, #ef444480, #ef4444)"
-                    : creditPct > 50
-                      ? "linear-gradient(90deg, #f59e0b80, #f59e0b)"
-                      : `linear-gradient(90deg, ${agent.color}60, ${agent.color})`,
-                  boxShadow: `0 0 6px ${creditPct > 80 ? "#ef444440" : `${agent.color}30`}`,
-                }}
-              />
-            </div>
-            <span className="text-xs font-mono tabular-nums font-bold" style={{ color: creditPct > 80 ? "#ef4444" : `${agent.color}70` }}>
-              {agent.credits.used.toLocaleString()}/{(agent.credits.limit / 1000).toFixed(0)}k
+        </div>
+
+        {/* Active task indicator */}
+        {isActive && agent.activeTask && (
+          <div className="mt-1 flex items-center gap-1">
+            <span className="flex gap-0.5">
+              <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0s infinite" }} />
+              <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0.2s infinite" }} />
+              <span className="w-1 h-1 rounded-full" style={{ background: agent.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
             </span>
+          </div>
+        )}
+
+        {/* Hover tooltip with details */}
+        <div
+          className={`absolute top-full mt-3 left-1/2 -translate-x-1/2 w-52 p-3 rounded-lg transition-all duration-200 pointer-events-none ${
+            isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+          }`}
+          style={{
+            background: "rgba(3,1,8,0.95)",
+            border: `1px solid ${agent.color}30`,
+            boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 20px ${agent.color}10`,
+            backdropFilter: "blur(16px)",
+            zIndex: 50,
+          }}
+        >
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: agent.color, background: `${agent.color}10`, border: `1px solid ${agent.color}18` }}>
+              {agent.model}
+            </span>
+            <span className="text-[9px] font-mono" style={{ color: isActive ? "#00ff88" : "rgba(255,255,255,0.3)" }}>
+              {isActive ? "● ONLINE" : "○ SLEEP"}
+            </span>
+          </div>
+          <div className="text-[10px] text-white/40 font-mono leading-relaxed mb-2">{agent.desc}</div>
+          {agent.activeTask && (
+            <div className="text-[9px] font-mono truncate" style={{ color: `${agent.color}60` }}>
+              → {agent.activeTask}
+            </div>
+          )}
+          {/* Mini credit bar */}
+          <div className="mt-2 flex items-center gap-1.5">
+            <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
+              <div className="h-full rounded-full" style={{ width: `${creditPct}%`, background: agent.color, boxShadow: `0 0 4px ${agent.color}40` }} />
+            </div>
+            <span className="text-[8px] font-mono" style={{ color: `${agent.color}50` }}>{creditPct}%</span>
           </div>
         </div>
       </div>
