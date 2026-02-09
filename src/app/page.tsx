@@ -36,8 +36,8 @@ export default function Home() {
   const brands = [
     { name: "RAMICHE", role: "Operations HQ" },
     { name: "Galactik Antics", role: "Product line" },
-    { name: "Parallax", role: "Music Label" },
-    { name: "BabaTruNoyz", role: "Audio Division" },
+    { name: "Parallax", role: "Parent Company" },
+    { name: "The Baba Studio", role: "Audio Division" },
     { name: "Saint Andrew\u2019s", role: "Aquatics program" },
   ];
 

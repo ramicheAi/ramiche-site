@@ -274,7 +274,7 @@ const MISSIONS = [
   },
   {
     name: "Parallax", accent: "#e879f9", status: "active" as const,
-    desc: "Music label \u2014 Yauggy, Niko Biswas, Gabe Greyson", priority: "MED",
+    desc: "Parent company \u2014 head of all brands \u2014 Yauggy, Niko Biswas, Gabe Greyson", priority: "MED",
     tasks: [
       { t: "Artist roster page", done: false },
       { t: "Distribution pipeline", done: false },
