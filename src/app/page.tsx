@@ -36,15 +36,15 @@ export default function Home() {
   const brands = [
     { name: "RAMICHE", role: "Operations HQ" },
     { name: "Galactik Antics", role: "Product line" },
-    { name: "Parallax", role: "Design system" },
-    { name: "BabaTruNoyz", role: "Audio division" },
+    { name: "Parallax", role: "Music Label" },
+    { name: "BabaTruNoyz", role: "Audio Division" },
     { name: "Saint Andrew\u2019s", role: "Aquatics program" },
   ];
 
   const stats = [
-    { label: "Active Projects", value: "4", accent: "cyan" as const },
-    { label: "Tasks Shipped", value: "47", accent: "purple" as const },
-    { label: "Agents Online", value: "3", accent: "gold" as const },
+    { label: "Active Projects", value: "7", accent: "cyan" as const },
+    { label: "Tasks Shipped", value: "52", accent: "purple" as const },
+    { label: "Agents Online", value: "17", accent: "gold" as const },
   ];
 
   const accentColors = {
@@ -148,12 +148,12 @@ export default function Home() {
               <span className="text-white/20 text-xs">|</span>
               <span className="text-white/30 text-[10px] tracking-wider uppercase">Systems HQ</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
               {navLinks.map((link) => (
                 <a
                   key={link.href}
                   href={link.href}
-                  className={`game-btn px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all ${
+                  className={`game-btn px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all whitespace-nowrap flex-shrink-0 ${
                     link.active
                       ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30"
                       : "text-white/40 hover:text-white/70 hover:bg-white/5 border border-transparent"
@@ -180,7 +180,7 @@ export default function Home() {
 
         {/* massive animated gradient title */}
         <h1
-          className="animated-gradient-text text-6xl sm:text-8xl md:text-9xl font-black tracking-tight text-center leading-none bg-clip-text text-transparent select-none"
+          className="animated-gradient-text text-5xl sm:text-8xl md:text-9xl font-black tracking-tight text-center leading-none bg-clip-text text-transparent select-none"
           style={{
             backgroundImage: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #f59e0b 70%, #00f0ff 100%)",
             backgroundSize: "200% 200%",
@@ -223,7 +223,7 @@ export default function Home() {
               <a
                 key={portal.href}
                 href={portal.href}
-                className={`game-panel game-panel-border group relative block ${colors.bg} ${colors.bgHover} border ${colors.border} ${colors.borderHover} ${colors.shadow} p-6 sm:p-8 transition-all duration-300 hover:-translate-y-1`}
+                className={`game-panel game-panel-border group relative flex flex-col ${colors.bg} ${colors.bgHover} border ${colors.border} ${colors.borderHover} ${colors.shadow} p-6 sm:p-8 transition-all duration-300 hover:-translate-y-1`}
               >
                 {/* scan sweep on hover */}
                 <div className="scan-sweep absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -285,7 +285,7 @@ export default function Home() {
                   <div className="text-[10px] tracking-widest uppercase text-white/30 mb-2">
                     {stat.label}
                   </div>
-                  <div className={`text-3xl sm:text-4xl font-black ${colors.text} tracking-tight`}>
+                  <div className={`text-3xl sm:text-4xl font-black ${colors.text} tracking-tight tabular-nums`}>
                     {stat.value}
                   </div>
                   {/* decorative corner */}

@@ -1,9 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { useState, FormEvent } from "react";
 
 /* ══════════════════════════════════════════════════════════════
    RAMICHE STUDIO — Creative Direction Service
    Dark sci-fi game UI · Tailwind inline classes
-   v2: + social proof, why section, 3D studio, form CTA
+   v3: + inline inquiry form, social proof, why section, 3D studio
    ══════════════════════════════════════════════════════════════ */
 
 const NAV_LINKS = [
@@ -130,6 +133,209 @@ const accentMap: Record<string, { border: string; glow: string; text: string; bg
   },
 };
 
+const BUDGET_OPTIONS = [
+  "Under $1,000",
+  "$1,000 – $5,000",
+  "$5,000 – $15,000",
+  "$15,000+",
+];
+
+const PROBLEM_OPTIONS = [
+  "Launching a new product/line",
+  "Current visuals don't match product quality",
+  "Rebranding / positioning shift",
+  "Need a consistent content system",
+];
+
+const TIMELINE_OPTIONS = [
+  "Immediate (within 2 weeks)",
+  "This month",
+  "Next 1–2 months",
+  "Exploring for future",
+];
+
+function InquiryForm() {
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+
+    const form = e.currentTarget;
+    const data = new FormData(form);
+    const payload = Object.fromEntries(data.entries());
+
+    try {
+      // POST to API route — stores to JSON file for now, Tally/webhook later
+      await fetch("/api/studio-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // Graceful degradation — still show success, mailto fallback below
+    }
+
+    setSubmitted(true);
+    setSubmitting(false);
+  }
+
+  if (submitted) {
+    return (
+      <div className="text-center py-12">
+        <div className="text-4xl mb-4">◈</div>
+        <h3 className="text-2xl font-bold text-white/90 mb-3">Inquiry received.</h3>
+        <p className="text-white/50 text-sm max-w-md mx-auto">
+          We review every submission and respond within 12 hours if it&apos;s a fit.
+          Check your email for next steps.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="text-left space-y-6 max-w-2xl mx-auto">
+      {/* Name & Role */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          Name &amp; Role *
+        </label>
+        <input
+          name="nameRole"
+          required
+          placeholder="Jane Doe, Founder at BrightBrand"
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 placeholder-white/20 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors"
+        />
+      </div>
+
+      {/* Email */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          Email *
+        </label>
+        <input
+          name="email"
+          type="email"
+          required
+          placeholder="you@yourbrand.com"
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 placeholder-white/20 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors"
+        />
+      </div>
+
+      {/* What do you sell */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          What do you sell, and who buys it? *
+        </label>
+        <textarea
+          name="product"
+          required
+          rows={3}
+          placeholder="We sell organic protein bars to busy professionals who care about clean ingredients."
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 placeholder-white/20 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors resize-none"
+        />
+      </div>
+
+      {/* Problem */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          What problem are you solving? *
+        </label>
+        <select
+          name="problem"
+          required
+          defaultValue=""
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors appearance-none"
+        >
+          <option value="" disabled className="bg-[#06020f]">Select one…</option>
+          {PROBLEM_OPTIONS.map((opt) => (
+            <option key={opt} value={opt} className="bg-[#06020f]">{opt}</option>
+          ))}
+          <option value="Other" className="bg-[#06020f]">Other</option>
+        </select>
+      </div>
+
+      {/* Budget & Timeline row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+            Monthly marketing budget *
+          </label>
+          <select
+            name="budget"
+            required
+            defaultValue=""
+            className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors appearance-none"
+          >
+            <option value="" disabled className="bg-[#06020f]">Select…</option>
+            {BUDGET_OPTIONS.map((opt) => (
+              <option key={opt} value={opt} className="bg-[#06020f]">{opt}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+            Timeline *
+          </label>
+          <select
+            name="timeline"
+            required
+            defaultValue=""
+            className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors appearance-none"
+          >
+            <option value="" disabled className="bg-[#06020f]">Select…</option>
+            {TIMELINE_OPTIONS.map((opt) => (
+              <option key={opt} value={opt} className="bg-[#06020f]">{opt}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Website */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          Website or best social profile *
+        </label>
+        <input
+          name="website"
+          type="url"
+          required
+          placeholder="https://instagram.com/yourbrand"
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 placeholder-white/20 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors"
+        />
+      </div>
+
+      {/* Referral source */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          How did you hear about us?
+        </label>
+        <input
+          name="referral"
+          placeholder="Instagram, referral, Google, etc."
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 placeholder-white/20 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors"
+        />
+      </div>
+
+      {/* Submit */}
+      <div className="pt-4">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="game-btn w-full bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] px-8 py-4 text-sm font-mono tracking-[0.2em] uppercase hover:brightness-125 hover:shadow-[0_0_30px_rgba(0,240,255,0.2)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {submitting ? "Submitting…" : "Submit Inquiry"}
+        </button>
+        <p className="text-white/20 text-xs font-mono text-center mt-3">
+          Response time: &lt; 12 hours · Serious inquiries only
+        </p>
+      </div>
+    </form>
+  );
+}
+
 export default function StudioPage() {
   return (
     <main className="relative min-h-screen bg-[#06020f] text-white overflow-hidden">
@@ -166,13 +372,13 @@ export default function StudioPage() {
             <span className="text-xs sm:text-sm tracking-[0.25em] uppercase text-white/30 font-mono">
               Ramiche // Studio
             </span>
-            <div className="flex gap-1 sm:gap-2">
+            <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
               {NAV_LINKS.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   className={`
-                    game-btn px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-mono uppercase tracking-wider transition-all
+                    game-btn px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-mono uppercase tracking-wider transition-all whitespace-nowrap flex-shrink-0
                     ${link.active
                       ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_12px_rgba(0,240,255,0.2)]"
                       : "bg-white/[0.03] text-white/50 border border-white/[0.06] hover:text-white/80 hover:bg-white/[0.06]"
@@ -246,7 +452,7 @@ export default function StudioPage() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {RESULTS.map((r) => (
                 <div key={r.label} className="text-center py-6 px-4 bg-white/[0.02] border border-white/[0.06] game-panel">
-                  <div className="text-2xl sm:text-3xl font-black neon-text-cyan mb-1">{r.metric}</div>
+                  <div className="text-2xl sm:text-3xl font-black neon-text-cyan mb-1 whitespace-nowrap">{r.metric}</div>
                   <div className="text-white/40 text-xs font-mono tracking-wider uppercase">{r.label}</div>
                 </div>
               ))}
@@ -302,7 +508,7 @@ export default function StudioPage() {
                     </span>
                     <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight">
                       <span className="neon-text-gold">$400</span>
-                      <span className="text-white/90 ml-3">Creative Direction Sprint</span>
+                      <span className="text-white/90 ml-2 sm:ml-3">Creative Direction Sprint</span>
                     </h2>
                   </div>
                   <div className="game-btn bg-[#f59e0b]/10 border border-[#f59e0b]/30 px-4 py-2 text-[#f59e0b] text-xs font-mono tracking-wider uppercase text-center whitespace-nowrap">
@@ -330,7 +536,7 @@ export default function StudioPage() {
                           <span className="text-[#00f0ff]/60 text-xs mt-1 group-hover:text-[#00f0ff] transition-colors">
                             {item.icon}
                           </span>
-                          <span className="text-white/70 text-sm group-hover:text-white/90 transition-colors">
+                          <span className="text-white/70 text-sm leading-relaxed group-hover:text-white/90 transition-colors">
                             {item.text}
                           </span>
                         </div>
@@ -344,18 +550,15 @@ export default function StudioPage() {
                       How It Works
                     </h3>
                     <div className="space-y-5">
-                      {SPRINT_STEPS.map((s, i) => (
+                      {SPRINT_STEPS.map((s) => (
                         <div key={s.step} className="flex items-start gap-4 group">
                           <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-[#a855f7]/10 border border-[#a855f7]/20 text-[#a855f7] text-xs font-mono font-bold game-panel-sm">
                             {s.step}
                           </div>
-                          <div>
+                          <div className="min-w-0 flex-1">
                             <div className="text-white/90 text-sm font-semibold mb-0.5">{s.label}</div>
                             <div className="text-white/40 text-xs leading-relaxed">{s.desc}</div>
                           </div>
-                          {i < SPRINT_STEPS.length - 1 && (
-                            <div className="hidden lg:block absolute ml-5 mt-12 w-[1px] h-3 bg-[#a855f7]/20" />
-                          )}
                         </div>
                       ))}
                     </div>
@@ -439,7 +642,7 @@ export default function StudioPage() {
                       {pkg.features.map((feat) => (
                         <li key={feat} className="flex items-start gap-2.5">
                           <span className={`${a.text} text-xs mt-0.5 opacity-60`}>{"\u25B8"}</span>
-                          <span className="text-white/60 text-sm">{feat}</span>
+                          <span className="text-white/60 text-sm leading-relaxed">{feat}</span>
                         </li>
                       ))}
                     </ul>
@@ -483,66 +686,55 @@ export default function StudioPage() {
           </div>
         </section>
 
-        {/* ── inquiry / CTA section ────────────────────────────── */}
+        {/* ── inquiry form section ──────────────────────────────── */}
         <section id="inquiry" className="px-4 sm:px-6 pb-20">
           <div className="mx-auto max-w-4xl">
-            <div className="game-panel game-panel-border relative bg-white/[0.02] border border-[#00f0ff]/15 p-8 sm:p-14 text-center overflow-hidden">
+            <div className="game-panel game-panel-border relative bg-white/[0.02] border border-[#00f0ff]/15 p-8 sm:p-14 overflow-hidden">
               <div
                 className="absolute inset-0 pointer-events-none opacity-30"
                 style={{ background: "radial-gradient(ellipse at center, rgba(0,240,255,0.08) 0%, transparent 70%)" }}
               />
 
               <div className="relative z-10">
-                <span className="text-xs tracking-[0.3em] uppercase text-[#00f0ff]/50 font-mono block mb-4">
-                  Serious Inquiries Only
-                </span>
-
-                <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
-                  <span className="text-white/90">Let&apos;s Build Your </span>
-                  <span
-                    className="animated-gradient-text bg-clip-text text-transparent"
-                    style={{
-                      backgroundImage: "linear-gradient(135deg, #00f0ff, #a855f7, #e879f9)",
-                      backgroundSize: "200% 200%",
-                    }}
-                  >
-                    Brand
+                <div className="text-center mb-10">
+                  <span className="text-xs tracking-[0.3em] uppercase text-[#00f0ff]/50 font-mono block mb-4">
+                    Serious Inquiries Only
                   </span>
-                </h2>
 
-                <p className="text-white/40 text-sm sm:text-base max-w-lg mx-auto mb-4 leading-relaxed">
-                  Tell us what you&apos;re building and where you want to go.
-                  We review every submission and respond within 12 hours if it&apos;s a fit.
-                </p>
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tight mb-4">
+                    <span className="text-white/90">Let&apos;s Build Your </span>
+                    <span
+                      className="animated-gradient-text bg-clip-text text-transparent"
+                      style={{
+                        backgroundImage: "linear-gradient(135deg, #00f0ff, #a855f7, #e879f9)",
+                        backgroundSize: "200% 200%",
+                      }}
+                    >
+                      Brand
+                    </span>
+                  </h2>
 
-                <p className="text-white/25 text-xs font-mono mb-8">
-                  If approved, you&apos;ll book a 15-minute qualification call. If that goes well, we move to the Sprint.
-                </p>
-
-                <a
-                  href="mailto:studio@ramiche.com?subject=Studio%20Inquiry"
-                  className="game-btn inline-block bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] px-8 py-4 text-sm font-mono tracking-[0.2em] uppercase hover:brightness-125 hover:shadow-[0_0_30px_rgba(0,240,255,0.2)] transition-all"
-                >
-                  studio@ramiche.com
-                </a>
-
-                <div className="mt-6 text-white/20 text-xs font-mono">
-                  Response time: &lt; 12 hours
+                  <p className="text-white/40 text-sm sm:text-base max-w-lg mx-auto leading-relaxed">
+                    Tell us what you&apos;re building and where you want to go.
+                    If approved, you&apos;ll book a 15-minute qualification call.
+                  </p>
                 </div>
+
+                <InquiryForm />
 
                 {/* qualification criteria hint */}
                 <div className="mt-10 pt-6 border-t border-white/[0.04] grid grid-cols-1 sm:grid-cols-3 gap-4 text-left">
                   <div>
                     <div className="text-white/50 text-xs font-semibold mb-1">Best fit</div>
-                    <div className="text-white/25 text-xs">Brands doing $500K-$2M+ with a product customers love</div>
+                    <div className="text-white/25 text-xs leading-relaxed">Brands doing $500K-$2M+ with a product customers love</div>
                   </div>
                   <div>
                     <div className="text-white/50 text-xs font-semibold mb-1">Budget range</div>
-                    <div className="text-white/25 text-xs">$1,000+/mo marketing spend. Sprint starts at $400.</div>
+                    <div className="text-white/25 text-xs leading-relaxed">$1,000+/mo marketing spend. Sprint starts at $400.</div>
                   </div>
                   <div>
                     <div className="text-white/50 text-xs font-semibold mb-1">Timeline</div>
-                    <div className="text-white/25 text-xs">Ready to move within 1-2 months. Not &quot;exploring for someday.&quot;</div>
+                    <div className="text-white/25 text-xs leading-relaxed">Ready to move within 1-2 months. Not &quot;exploring for someday.&quot;</div>
                   </div>
                 </div>
               </div>

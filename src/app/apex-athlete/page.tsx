@@ -1289,7 +1289,7 @@ export default function ApexAthletePage() {
             <div className="flex-1 h-1 rounded-full bg-white/[0.04] overflow-hidden xp-bar-segments">
               <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
             </div>
-            <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono shrink-0">{culture.goalCurrent}%<span className="text-white/10">/{culture.goalTarget}%</span></span>
+            <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono tabular-nums whitespace-nowrap shrink-0">{culture.goalCurrent}%<span className="text-white/10">/{culture.goalTarget}%</span></span>
           </div>
         </div>
 
@@ -1299,12 +1299,12 @@ export default function ApexAthletePage() {
           <div className="flex items-center gap-6 py-3 relative z-10 scan-sweep px-2">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
-              <span className="neon-text-cyan text-sm font-bold font-mono">{presentCount}<span className="text-white/15 font-normal">/{roster.length}</span></span>
+              <span className="neon-text-cyan text-sm font-bold font-mono tabular-nums whitespace-nowrap">{presentCount}<span className="text-white/15 font-normal">/{roster.length}</span></span>
               <span className="text-[#00f0ff]/30 text-[10px] font-mono uppercase">present</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
             <div className="flex items-center gap-2">
-              <span className="neon-text-gold text-sm font-bold font-mono">{xpToday}</span>
+              <span className="neon-text-gold text-sm font-bold font-mono tabular-nums whitespace-nowrap">{xpToday}</span>
               <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
@@ -1429,7 +1429,7 @@ export default function ApexAthletePage() {
             { label: "Multiplier", val: sk.mult },
           ].map(s => (
             <Card key={s.label} className="py-4 px-3 text-center">
-              <div className="text-white font-black text-lg">{s.val}</div>
+              <div className="text-white font-black text-lg tabular-nums whitespace-nowrap">{s.val}</div>
               <div className="text-white/20 text-[10px] uppercase tracking-wider font-medium mt-0.5">{s.label}</div>
             </Card>
           ))}
@@ -1441,7 +1441,7 @@ export default function ApexAthletePage() {
           <div className="flex-1 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
             <div className={`h-full rounded-full transition-all ${dailyUsed >= DAILY_XP_CAP ? "bg-red-500" : "bg-[#6b21a8]"}`} style={{ width: `${(dailyUsed / DAILY_XP_CAP) * 100}%` }} />
           </div>
-          <span className={`text-xs font-bold ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-white/30"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
+          <span className={`text-xs font-bold tabular-nums whitespace-nowrap ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-white/30"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
         </div>
 
         {/* Streaks */}
@@ -1574,19 +1574,19 @@ export default function ApexAthletePage() {
             <h4 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">You vs Last Month</h4>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className={`text-2xl font-black ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-white/20"}`}>
+                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-white/20"}`}>
                   {growth.xpGain > 0 ? "+" : ""}{growth.xpGain}
                 </div>
                 <div className="text-white/20 text-[10px] uppercase mt-1">XP Gained</div>
               </div>
               <div>
-                <div className={`text-2xl font-black ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-white/20"}`}>
+                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-white/20"}`}>
                   {growth.streakDelta > 0 ? "+" : ""}{growth.streakDelta}d
                 </div>
                 <div className="text-white/20 text-[10px] uppercase mt-1">Streak</div>
               </div>
               <div>
-                <div className="text-2xl font-black text-white">{athlete.totalPractices}</div>
+                <div className="text-2xl font-black tabular-nums whitespace-nowrap text-white">{athlete.totalPractices}</div>
                 <div className="text-white/20 text-[10px] uppercase mt-1">Total Sessions</div>
               </div>
             </div>
@@ -1704,24 +1704,24 @@ export default function ApexAthletePage() {
           {/* ── TEAM HEALTH DASHBOARD ── */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
             <Card className="p-5 text-center" neon>
-              <div className={`text-4xl font-black ${cultureColor}`}>{cultureScore}</div>
+              <div className={`text-4xl font-black tabular-nums whitespace-nowrap ${cultureColor}`}>{cultureScore}</div>
               <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">Culture Score</div>
               <div className="mt-2 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                 <div className={`h-full rounded-full ${cultureBg} transition-all`} style={{ width: `${cultureScore}%` }} />
               </div>
             </Card>
             <Card className="p-5 text-center" neon>
-              <div className={`text-4xl font-black ${trendColor}`}>{engagementTrend.delta > 0 ? "+" : ""}{engagementTrend.delta}%</div>
+              <div className={`text-4xl font-black tabular-nums whitespace-nowrap ${trendColor}`}>{engagementTrend.delta > 0 ? "+" : ""}{engagementTrend.delta}%</div>
               <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">{trendIcon} Engagement Trend</div>
               <div className="text-white/15 text-[10px] mt-2">vs last 7 days</div>
             </Card>
             <Card className="p-5 text-center" neon>
-              <div className="text-4xl font-black text-red-400">{atRiskAthletes.length}</div>
+              <div className="text-4xl font-black tabular-nums whitespace-nowrap text-red-400">{atRiskAthletes.length}</div>
               <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">At Risk Athletes</div>
               <div className="text-white/15 text-[10px] mt-2">need attention</div>
             </Card>
             <Card className="p-5 text-center" neon>
-              <div className="text-4xl font-black text-[#f59e0b]">{avgAtt(snapshots.slice(-30))}%</div>
+              <div className="text-4xl font-black tabular-nums whitespace-nowrap text-[#f59e0b]">{avgAtt(snapshots.slice(-30))}%</div>
               <div className="text-white/20 text-[10px] uppercase mt-1 tracking-wider">30-Day Attendance</div>
               <div className="text-white/15 text-[10px] mt-2">{avgXP(snapshots.slice(-30))} avg XP/day</div>
             </Card>
@@ -1750,7 +1750,7 @@ export default function ApexAthletePage() {
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className={`text-lg font-black ${riskColor(a.risk)}`}>{a.risk}</div>
+                        <div className={`text-lg font-black tabular-nums whitespace-nowrap ${riskColor(a.risk)}`}>{a.risk}</div>
                         <div className="text-white/15 text-[10px]">risk score</div>
                       </div>
                       <div className="w-16 h-2 rounded-full bg-white/[0.04] overflow-hidden shrink-0">
@@ -1888,9 +1888,9 @@ export default function ApexAthletePage() {
                 <Card key={col.label} className="p-4">
                   <div className="text-white/25 text-[10px] uppercase tracking-wider font-medium mb-3">{col.label}</div>
                   <div className="space-y-2 text-sm">
-                    <div className="flex justify-between"><span className="text-white/35">Avg XP/day</span><span className="text-white font-bold">{avgXP(col.data)}</span></div>
-                    <div className="flex justify-between"><span className="text-white/35">Avg Attendance</span><span className="text-white font-bold">{avgAtt(col.data)}%</span></div>
-                    <div className="flex justify-between"><span className="text-white/35">Days tracked</span><span className="text-white font-bold">{col.data.length}</span></div>
+                    <div className="flex justify-between"><span className="text-white/35">Avg XP/day</span><span className="text-white font-bold tabular-nums">{avgXP(col.data)}</span></div>
+                    <div className="flex justify-between"><span className="text-white/35">Avg Attendance</span><span className="text-white font-bold tabular-nums">{avgAtt(col.data)}%</span></div>
+                    <div className="flex justify-between"><span className="text-white/35">Days tracked</span><span className="text-white font-bold tabular-nums">{col.data.length}</span></div>
                   </div>
                 </Card>
               ))}
@@ -1901,16 +1901,16 @@ export default function ApexAthletePage() {
           <Card className="p-6 mb-6">
             <h3 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">Monthly Report Card</h3>
             <div className="grid grid-cols-3 gap-4 text-center mb-6">
-              <div><div className="text-3xl font-black text-[#f59e0b]">{avgAtt(snapshots.slice(-30))}%</div><div className="text-white/20 text-[10px] uppercase mt-1">Attendance</div></div>
-              <div><div className="text-3xl font-black text-[#a855f7]">{avgXP(snapshots.slice(-30))}</div><div className="text-white/20 text-[10px] uppercase mt-1">Avg XP/Day</div></div>
-              <div><div className="text-3xl font-black text-white">{longestStreak?.streak || 0}d</div><div className="text-white/20 text-[10px] uppercase mt-1">Longest Streak</div></div>
+              <div><div className="text-3xl font-black tabular-nums whitespace-nowrap text-[#f59e0b]">{avgAtt(snapshots.slice(-30))}%</div><div className="text-white/20 text-[10px] uppercase mt-1">Attendance</div></div>
+              <div><div className="text-3xl font-black tabular-nums whitespace-nowrap text-[#a855f7]">{avgXP(snapshots.slice(-30))}</div><div className="text-white/20 text-[10px] uppercase mt-1">Avg XP/Day</div></div>
+              <div><div className="text-3xl font-black tabular-nums whitespace-nowrap text-white">{longestStreak?.streak || 0}d</div><div className="text-white/20 text-[10px] uppercase mt-1">Longest Streak</div></div>
             </div>
             <div className="mb-4">
               <div className="text-white/25 text-[10px] uppercase tracking-wider mb-2">Top 5</div>
               {top5.map((a, i) => (
-                <div key={a.id} className="flex items-center justify-between py-2 text-sm">
-                  <span className="text-white/40"><span className="text-[#f59e0b] font-bold mr-2">{i + 1}.</span>{a.name}</span>
-                  <span className="text-[#f59e0b] font-bold">{a.xp} XP</span>
+                <div key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="text-white/40 truncate min-w-0"><span className="text-[#f59e0b] font-bold mr-2">{i + 1}.</span>{a.name}</span>
+                  <span className="text-[#f59e0b] font-bold tabular-nums whitespace-nowrap shrink-0">{a.xp} XP</span>
                 </div>
               ))}
             </div>
@@ -2051,7 +2051,7 @@ export default function ApexAthletePage() {
                         <div className="rank-badge text-[11px] font-bold mt-3 px-4 py-1.5 inline-flex items-center gap-1.5 font-mono" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
                           {lv.icon} {lv.name}
                         </div>
-                        <div className="neon-text-gold text-2xl sm:text-3xl font-black mt-3 tracking-tight font-mono">
+                        <div className="neon-text-gold text-2xl sm:text-3xl font-black mt-3 tracking-tight font-mono tabular-nums whitespace-nowrap">
                           {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
@@ -2077,7 +2077,7 @@ export default function ApexAthletePage() {
                 const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
                 return (
                   <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${rank <= 3 ? "bg-white/[0.02]" : ""} ${i < sorted.length - 1 ? "border-b border-white/[0.03]" : ""}`}>
-                    <span className={`w-8 text-center text-sm font-black transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-white/10 group-hover:text-white/25"}`}>
+                    <span className={`w-8 text-center text-sm font-black shrink-0 transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-white/10 group-hover:text-white/25"}`}>
                       {medalEmoji || rank}
                     </span>
                     <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white/70 shrink-0 transition-all duration-200 group-hover:scale-110"
@@ -2087,7 +2087,7 @@ export default function ApexAthletePage() {
                     <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
                     <span className="text-[10px] font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
                     {a.streak > 0 && <span className="text-white/20 text-[10px] hidden sm:inline font-bold">🔥 {a.streak}d</span>}
-                    <span className="text-[#f59e0b] text-sm font-black w-16 text-right drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
+                    <span className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
                   </div>
                 );
               })}
@@ -2191,7 +2191,7 @@ export default function ApexAthletePage() {
                           </div>
                         </div>
                         <div className="w-32 shrink-0 text-right">
-                          <div className="text-white font-black text-base drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/15 text-[10px] ml-1">XP</span></div>
+                          <div className="text-white font-black text-base tabular-nums whitespace-nowrap drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/15 text-[10px] ml-1">XP</span></div>
                           <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mt-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
@@ -2220,7 +2220,7 @@ export default function ApexAthletePage() {
                     <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-medium text-sm">{tc.name}</span>
-                        <span className={`text-sm font-bold ${done ? "text-[#f59e0b]" : "text-white/25"}`}>{tc.current}%<span className="text-white/10">/{tc.target}%</span></span>
+                        <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${done ? "text-[#f59e0b]" : "text-white/25"}`}>{tc.current}%<span className="text-white/10">/{tc.target}%</span></span>
                       </div>
                       <p className="text-white/15 text-[11px] mb-3">{tc.description} · <span className="text-[#f59e0b]/60">+{tc.reward} XP</span></p>
                       <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
