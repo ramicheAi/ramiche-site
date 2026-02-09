@@ -15,97 +15,137 @@ const AGENTS = [
     name: "Atlas", model: "Opus 4.6", role: "Lead Strategist",
     status: "active" as const, color: "#00f0ff", icon: "🧭",
     desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
-    connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+    connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     credits: { used: 847, limit: 5000 },
-    activeTask: "Multi-roster expansion + Command Center v5",
+    activeTask: "Coordinating Apex v2 build + Command Center update",
   },
   {
-    name: "TheMAESTRO", model: "Opus 4.6", role: "Music Production AI",
-    status: "active" as const, color: "#f59e0b", icon: "🎵",
+    name: "TheMAESTRO", model: "DeepSeek V3.2", role: "Music Production AI",
+    status: "idle" as const, color: "#f59e0b", icon: "🎵",
     desc: "Ye + Quincy + Babyface — influence-based creative direction, sound design",
     connections: [0, 7],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Awaiting: Track inventory (F1)",
   },
   {
     name: "SIMONS", model: "DeepSeek V3.2", role: "Algorithmic Analysis",
-    status: "active" as const, color: "#22d3ee", icon: "📊",
+    status: "idle" as const, color: "#22d3ee", icon: "📊",
     desc: "Jim Simons — pattern recognition, statistical arbitrage, data crunching",
     connections: [0, 4],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Awaiting: SEO/competitor analysis (E1)",
   },
   {
-    name: "Dr. Strange", model: "Opus 4.6", role: "Forecasting & Decisions",
-    status: "active" as const, color: "#a855f7", icon: "🔮",
+    name: "Dr. Strange", model: "DeepSeek V3.2", role: "Forecasting & Decisions",
+    status: "idle" as const, color: "#a855f7", icon: "🔮",
     desc: "Scenario analysis, probable outcomes, strategic foresight, risk assessment",
     connections: [0, 2, 6],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Awaiting: Kickstarter landscape (E3)",
   },
   {
-    name: "SHURI", model: "Sonnet 4", role: "Creative Coding",
+    name: "SHURI", model: "DeepSeek V3.2", role: "Creative Coding",
     status: "active" as const, color: "#34d399", icon: "⚡",
     desc: "Prototyping, design systems, tech innovation, rapid builds",
     connections: [0, 7],
-    credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    credits: { used: 420, limit: 5000 },
+    activeTask: "Building three-portal UI (Coach/Athlete/Parent) for Apex Athlete",
   },
   {
     name: "Widow", model: "Haiku 3.5", role: "Cybersecurity & Intel",
-    status: "active" as const, color: "#ef4444", icon: "🕷",
+    status: "idle" as const, color: "#ef4444", icon: "🕷",
     desc: "Threat monitoring, risk analysis, data intelligence, security audits",
     connections: [0, 2],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Awaiting: API key audit (G1) + COPPA check (G2)",
   },
   {
-    name: "PROXIMON", model: "Opus 4.6", role: "Systems Architect",
+    name: "PROXIMON", model: "Gemini 3.0 Pro", role: "Systems Architect",
     status: "active" as const, color: "#f97316", icon: "🏗",
     desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
     connections: [0, 3, 4],
-    credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    credits: { used: 312, limit: 5000 },
+    activeTask: "Firebase v2 backend architecture for Apex Athlete",
   },
   {
-    name: "Vee", model: "Opus 4.6", role: "Brand & Marketing",
-    status: "active" as const, color: "#ec4899", icon: "📣",
+    name: "Vee", model: "Kimi K2.5", role: "Brand & Marketing",
+    status: "idle" as const, color: "#ec4899", icon: "📣",
     desc: "Gary Vee + Seth Godin + Hormozi + Blakely + Virgil — makes brands impossible to ignore",
     connections: [0, 1, 6],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Done: GA pre-launch content. Awaiting: Calendar review (B1)",
   },
   {
-    name: "Aetherion", model: "Opus 4.6", role: "Visionary Architect",
-    status: "active" as const, color: "#818cf8", icon: "🌀",
+    name: "Aetherion", model: "Gemini 3.0 Pro", role: "Visionary Architect",
+    status: "idle" as const, color: "#818cf8", icon: "🌀",
     desc: "The Architect of Architects — patterns, emergence, meta-systems, blueprinting reality itself",
     connections: [0, 3, 6],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Done: 5 blueprints + Phase 1 matrix + SHARED_CONTEXT",
   },
   {
-    name: "MICHAEL", model: "Opus 4.6", role: "Swim Training AI",
+    name: "MICHAEL", model: "GLM 4.6", role: "Swim Training AI",
     status: "active" as const, color: "#06b6d4", icon: "🏊",
     desc: "Phelps + Kobe + MJ + Bolt — swim mastery, mamba mentality, competitive fire, Jamaican joy",
     connections: [0, 3],
-    credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    credits: { used: 185, limit: 5000 },
+    activeTask: "Practice schedule builder spec for Apex Athlete",
   },
   {
-    name: "Prophets", model: "Opus 4.6", role: "Spiritual Wisdom",
-    status: "active" as const, color: "#d4a574", icon: "📜",
+    name: "Prophets", model: "Kimi K2.5", role: "Spiritual Wisdom",
+    status: "idle" as const, color: "#d4a574", icon: "📜",
     desc: "Solomon + Moses + Elijah + Isaiah + David — Scripture-rooted counsel, wisdom, moral clarity",
     connections: [0],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Awaiting: Daily Scripture cron activation",
   },
   {
-    name: "SELAH", model: "Opus 4.6", role: "Wellness & Sport Psychology",
-    status: "active" as const, color: "#10b981", icon: "🧘",
+    name: "SELAH", model: "DeepSeek V3.2", role: "Wellness & Sport Psychology",
+    status: "idle" as const, color: "#10b981", icon: "🧘",
     desc: "Robbins + Dispenza + Maté + Greene + Bashar — therapy, peak performance, mental transformation",
     connections: [0, 9, 10],
     credits: { used: 0, limit: 5000 },
-    activeTask: null,
+    activeTask: "Done: Meditation library + athlete check-in. Awaiting: cron activation",
+  },
+  {
+    name: "MERCURY", model: "Gemini 3.0 Pro", role: "Sales & Revenue Ops",
+    status: "idle" as const, color: "#fbbf24", icon: "💰",
+    desc: "Razor-sharp dealmaker — reads people and numbers simultaneously. Architects wins.",
+    connections: [0, 7],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "Awaiting: Outbound sales pipeline setup",
+  },
+  {
+    name: "ECHO", model: "Kimi K2.5", role: "Community & Social",
+    status: "idle" as const, color: "#38bdf8", icon: "🌊",
+    desc: "The heartbeat of the community — turns strangers into superfans with genuine warmth",
+    connections: [0, 7],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "Awaiting: Discord + social listening setup",
+  },
+  {
+    name: "HAVEN", model: "DeepSeek V3.2", role: "Customer Success",
+    status: "idle" as const, color: "#4ade80", icon: "🛡",
+    desc: "Infinitely patient with a detective's eye — treats every ticket like a puzzle worth solving",
+    connections: [0],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "Awaiting: Support system + onboarding flows",
+  },
+  {
+    name: "INK", model: "DeepSeek V3.2", role: "Content Creator",
+    status: "idle" as const, color: "#c084fc", icon: "✒",
+    desc: "Prolific voice-chameleon — technical blog at dawn, viral tweet at noon, cinematic script by sunset",
+    connections: [0, 7],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "Awaiting: Content calendar + platform copy",
+  },
+  {
+    name: "NOVA", model: "DeepSeek V3.2", role: "3D Fabrication",
+    status: "idle" as const, color: "#14b8a6", icon: "🔧",
+    desc: "Brilliant fabrication expert — runway model energy with patents. Bambu Lab A1 specialist.",
+    connections: [0, 4],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "Awaiting: Bambu Lab production pipeline",
   },
 ];
 
@@ -166,6 +206,26 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Team Wellness", role: "Coach/athlete wellness support + burnout prevention", status: "active" },
     { project: "Personal Growth", role: "Ramon's peak performance + mindset coaching", status: "idle" },
   ],
+  MERCURY: [
+    { project: "Ramiche Studio", role: "Client acquisition + deals", status: "idle" },
+    { project: "Revenue Ops", role: "Pipeline + pricing strategy", status: "idle" },
+  ],
+  ECHO: [
+    { project: "Community", role: "Discord + social engagement", status: "idle" },
+    { project: "Galactik Antics", role: "Fan community + ambassador program", status: "idle" },
+  ],
+  HAVEN: [
+    { project: "Customer Support", role: "Ticket system + onboarding", status: "idle" },
+    { project: "Apex Athlete", role: "Coach/parent support flows", status: "idle" },
+  ],
+  INK: [
+    { project: "Content Pipeline", role: "Blog + social copy + scripts", status: "idle" },
+    { project: "Galactik Antics", role: "Product descriptions + launch copy", status: "idle" },
+  ],
+  NOVA: [
+    { project: "3D Print Studio", role: "Production pipeline + quoting", status: "idle" },
+    { project: "Galactik Antics", role: "Physical merch prototyping", status: "idle" },
+  ],
 };
 
 /* ── PROJECTS / MISSIONS ───────────────────────────────────────────────────── */
@@ -174,29 +234,36 @@ const MISSIONS = [
     name: "Galactik Antics", accent: "#00f0ff", status: "active" as const,
     desc: "AI art merch \u2192 Shopify store", priority: "HIGH",
     tasks: [
-      { t: "Art crops finalized", done: true },
-      { t: "Weavy production renders", done: true },
-      { t: "Save outputs to finals folder", done: false },
-      { t: "Upload to Printful + variants", done: false },
-      { t: "Product copy + pricing", done: false },
+      { t: "Batch A art matched to 5 designs", done: true },
+      { t: "Source files copied to iPhone case folders", done: true },
+      { t: "Pre-launch content (4 briefs, 7-day calendar)", done: true },
+      { t: "Product lineup confirmed (13 cases, 5 posters, 5 tees)", done: true },
+      { t: "Weavy renders for 5 Batch A designs", done: false },
+      { t: "Shopify store setup + Printful connect", done: false },
+      { t: "Upload products + variants + pricing", done: false },
+      { t: "Collector tier system (5 tiers, Shopify Flows)", done: false },
     ],
     link: { label: "Printful", href: "https://www.printful.com/dashboard" },
   },
   {
     name: "Apex Athlete", accent: "#f59e0b", status: "active" as const,
-    desc: "Gamified swim training \u2014 LIVE BETA", priority: "CRITICAL",
+    desc: "Gamified swim training \u2014 LIVE BETA \u2014 tested Feb 7", priority: "CRITICAL",
     tasks: [
       { t: "Game engine + check-ins", done: true },
       { t: "Coach dashboard + leaderboard", done: true },
-      { t: "Advanced analytics", done: true },
-      { t: "Multi-roster expansion (240+)", done: false },
-      { t: "Firebase backend + deploy", done: false },
+      { t: "Advanced analytics (attrition, culture, peak perf)", done: true },
+      { t: "Multi-roster expansion (240+ athletes, 7 groups)", done: true },
+      { t: "Sport-specific checkpoints (Diving + Water Polo)", done: true },
+      { t: "Three-portal architecture (Coach/Athlete/Parent)", done: false },
+      { t: "Practice schedule builder", done: false },
+      { t: "Firebase backend (v2)", done: false },
+      { t: "Monthly MVP per gender per group", done: false },
     ],
     link: { label: "Open App", href: "/apex-athlete" },
   },
   {
     name: "Ramiche Studio", accent: "#a855f7", status: "active" as const,
-    desc: "Creative Direction Sprint $400", priority: "HIGH",
+    desc: "Creative Services \u2014 48h Sprint $300-500", priority: "HIGH",
     tasks: [
       { t: "Landing page live", done: true },
       { t: "Portfolio + case studies", done: false },
@@ -271,14 +338,20 @@ const LINKS = [
 
 /* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
 const LOG = [
-  { time: "Now", text: "Apex Athlete v1 tested at practice \u2014 all checkpoints working", color: "#f59e0b" },
-  { time: "Now", text: "Multi-roster expansion in progress (240+ athletes)", color: "#f59e0b" },
-  { time: "Today", text: "Command Center holographic overhaul deployed", color: "#a855f7" },
-  { time: "Today", text: "Advanced coach analytics added (attrition risk, culture score)", color: "#00f0ff" },
-  { time: "Today", text: "Streak system fixed \u2014 date-tracked, honest progression", color: "#22d3ee" },
-  { time: "Today", text: "Sandbox permissions permanently resolved", color: "#a855f7" },
-  { time: "Today", text: "GA phone case source art matched to Batch A designs", color: "#00f0ff" },
-  { time: "Today", text: "Studio landing page live", color: "#e879f9" },
+  { time: "Now", text: "SHURI: Building three-portal UI (Coach/Athlete/Parent)", color: "#34d399" },
+  { time: "Now", text: "PROXIMON: Designing Firebase v2 backend architecture", color: "#f97316" },
+  { time: "Now", text: "MICHAEL: Writing practice schedule builder spec", color: "#06b6d4" },
+  { time: "Now", text: "Atlas: Command Center update + team coordination", color: "#00f0ff" },
+  { time: "Feb 9", text: "RAMICHE HQ group chat activated \u2014 17 agents wired", color: "#a855f7" },
+  { time: "Feb 9", text: "5 new agents online: Mercury, Echo, Haven, Ink, Nova", color: "#fbbf24" },
+  { time: "Feb 9", text: "Model tiers locked \u2014 Ramon's hard rule applied to all agents", color: "#00f0ff" },
+  { time: "Feb 9", text: "Watchdog cron active (5-min cycle) \u2014 outage protection live", color: "#ef4444" },
+  { time: "Feb 9", text: "Gateway restart completed \u2014 full squad operational", color: "#22d3ee" },
+  { time: "Feb 8", text: "Apex Athlete v1 tested live \u2014 all checkpoints working", color: "#f59e0b" },
+  { time: "Feb 8", text: "Multi-roster: 240+ athletes across 7 groups deployed", color: "#f59e0b" },
+  { time: "Feb 8", text: "Aetherion: 5 blueprints + Phase 1 matrix + SHARED_CONTEXT", color: "#818cf8" },
+  { time: "Feb 8", text: "Vee: GA pre-launch content (4 briefs, 7-day calendar)", color: "#ec4899" },
+  { time: "Feb 8", text: "Squad expanded: 12 \u2192 17 agents (5 new roles provisioned)", color: "#a855f7" },
 ];
 
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
@@ -295,11 +368,12 @@ const SCHEDULE = [
 
 /* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
 const NOTIFICATIONS = [
-  { text: "Apex Athlete tested at practice \u2713", accent: "#00ff88", icon: "\u2713" },
-  { text: "5 Batch A Weavy renders pending", accent: "#f59e0b", icon: "\u26A0" },
-  { text: "Shopify store needs setup", accent: "#e879f9", icon: "\u25C8" },
-  { text: "3 Replit projects to analyze", accent: "#22d3ee", icon: "\u25C7" },
-  { text: "Prophets: Daily Scripture active at 7 AM", accent: "#d4a574", icon: "\uD83D\uDCDC" },
+  { text: "Apex Athlete three-portal build in progress (SHURI + PROXIMON + MICHAEL)", accent: "#f59e0b", icon: "\u25C8" },
+  { text: "RAMICHE HQ live \u2014 17 agents connected in group chat", accent: "#a855f7", icon: "\u25C8" },
+  { text: "Model tiers locked per Ramon\u2019s directive \u2014 hard rule", accent: "#00f0ff", icon: "\u25C8" },
+  { text: "5 Batch A Weavy renders still pending", accent: "#f59e0b", icon: "\u26A0" },
+  { text: "Shopify store needs setup (login required)", accent: "#e879f9", icon: "\u26A0" },
+  { text: "Watchdog active \u2014 monitoring for stuck sessions every 5 min", accent: "#22d3ee", icon: "\u25C7" },
 ];
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
@@ -889,7 +963,7 @@ export default function CommandCenter() {
         <header className="w-full px-4 sm:px-6 lg:px-10 pt-4 pb-2">
 
           {/* Nav bar */}
-          <nav className="flex items-center justify-between mb-4">
+          <nav className="flex items-center justify-between mb-4 overflow-visible">
             <div className="flex items-center gap-1">
               {NAV.map((n) => (
                 <Link
@@ -1046,10 +1120,10 @@ export default function CommandCenter() {
                     </span>
                   </div>
                   <div className="text-base sm:text-lg font-bold text-white/90 leading-snug">
-                    Expand Apex Athlete to all roster groups (240+ athletes)
+                    Three-portal architecture (Coach / Athlete / Parent) for Apex Athlete
                   </div>
                   <div className="text-[10px] font-mono text-white/25 mt-1">
-                    Multi-roster expansion &mdash; game engine ready, coach dashboard live
+                    Next milestone — game engine v2 with Firebase backend
                   </div>
                 </div>
                 <div className="hidden sm:block flex-shrink-0">
@@ -1088,7 +1162,7 @@ export default function CommandCenter() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {NOTIFICATIONS.map((n, i) => (
                 <div
                   key={i}
@@ -1108,7 +1182,7 @@ export default function CommandCenter() {
                   >
                     {n.icon}
                   </div>
-                  <span className="text-sm font-mono text-white/65 group-hover:text-white/85 transition-colors leading-snug">
+                  <span className="text-sm font-mono text-white/65 group-hover:text-white/85 transition-colors leading-snug min-w-0">
                     {n.text}
                   </span>
                 </div>
@@ -1179,7 +1253,7 @@ export default function CommandCenter() {
                     {/* 3D weather scene */}
                     <WeatherScene condition={weather.condition} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-6xl sm:text-7xl font-black neon-text-cyan leading-none">
+                      <div className="text-5xl sm:text-6xl font-black neon-text-cyan leading-none">
                         {weather.tempF}<span className="text-4xl align-top">&deg;</span>
                       </div>
                       <div className="text-sm font-mono text-[#00f0ff]/50 mt-1.5">
@@ -1210,7 +1284,7 @@ export default function CommandCenter() {
                           {d.high}&deg;
                           <span className="text-white/30 text-sm">/{d.low}&deg;</span>
                         </div>
-                        <div className="text-[10px] text-white/25 font-mono mt-0.5 truncate">{d.cond}</div>
+                        <div className="text-[10px] text-white/25 font-mono mt-0.5 leading-snug">{d.cond}</div>
                       </div>
                     ))}
                   </div>
@@ -1255,7 +1329,7 @@ export default function CommandCenter() {
                         boxShadow: `0 0 6px ${s.accent}50`,
                       }}
                     />
-                    <div className="text-sm text-white/65 font-mono group-hover:text-white/80 transition-colors truncate">
+                    <div className="text-sm text-white/65 font-mono group-hover:text-white/80 transition-colors">
                       {s.event}
                     </div>
                   </div>
@@ -1330,7 +1404,7 @@ export default function CommandCenter() {
             </div>
 
             {/* Team agents — horizontal scroll on mobile, grid on desktop */}
-            <div className="flex lg:grid lg:grid-cols-5 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory lg:overflow-visible lg:pb-0" style={{ scrollbarWidth: "none" }}>
+            <div className="flex lg:grid lg:grid-cols-4 xl:grid-cols-6 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory lg:overflow-visible lg:pb-0" style={{ scrollbarWidth: "none" }}>
               {AGENTS.slice(1).map((a, i) => {
                 const isActive = a.status === "active";
                 const isHov = hoveredAgent === i + 1;
@@ -1340,7 +1414,7 @@ export default function CommandCenter() {
                 return (
                   <div
                     key={a.name}
-                    className="relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer snap-start min-w-[140px] lg:min-w-0 flex-shrink-0 lg:flex-shrink"
+                    className="relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer snap-start min-w-[160px] lg:min-w-0 flex-shrink-0 lg:flex-shrink"
                     style={{
                       background: `linear-gradient(160deg, ${a.color}08 0%, rgba(6,2,15,0.97) 50%, ${a.color}03 100%)`,
                       border: `1px solid ${isHov || isExp ? `${a.color}35` : `${a.color}12`}`,
@@ -1370,8 +1444,8 @@ export default function CommandCenter() {
 
                       {/* Name + role */}
                       <div className="text-center mb-2">
-                        <div className="text-sm font-bold truncate" style={{ color: isHov ? a.color : "rgba(255,255,255,0.9)", transition: "color 0.2s" }}>{a.name}</div>
-                        <div className="text-[10px] font-mono mt-0.5 truncate" style={{ color: `${a.color}50` }}>{a.role}</div>
+                        <div className="text-sm font-bold leading-snug" style={{ color: isHov ? a.color : "rgba(255,255,255,0.9)", transition: "color 0.2s" }}>{a.name}</div>
+                        <div className="text-[10px] font-mono mt-0.5 leading-snug" style={{ color: `${a.color}50` }}>{a.role}</div>
                       </div>
 
                       {/* Model badge */}
@@ -1482,7 +1556,7 @@ export default function CommandCenter() {
                           />
                           <div>
                             <h3 className="text-base font-bold text-white/90 leading-tight">{m.name}</h3>
-                            <p className="text-xs text-white/35 font-mono mt-0.5">{m.desc}</p>
+                            <p className="text-xs text-white/35 font-mono mt-0.5 leading-snug">{m.desc}</p>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -1743,7 +1817,7 @@ export default function CommandCenter() {
                         {o.tag}
                       </span>
                       <span
-                        className="text-sm font-black font-mono"
+                        className="text-sm font-black font-mono whitespace-nowrap"
                         style={{ color: o.accent, textShadow: `0 0 10px ${o.accent}25` }}
                       >
                         {o.rev}
@@ -1777,11 +1851,11 @@ export default function CommandCenter() {
                   href={l.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="game-card game-panel-sm relative p-4 flex flex-col items-center justify-center gap-2 group transition-all"
+                  className="game-card game-panel-sm relative p-4 flex flex-col items-center justify-center gap-2 group transition-all overflow-hidden"
                   style={{
                     background: `linear-gradient(145deg, ${l.accent}04 0%, rgba(3,1,8,0.99) 100%)`,
                     border: `1px solid ${l.accent}08`,
-                    minHeight: "80px",
+                    minHeight: "88px",
                   }}
                 >
                   <div
@@ -1844,7 +1918,7 @@ export default function CommandCenter() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white/55 leading-snug group-hover:text-white/75 transition-colors truncate">
+                      <div className="text-sm text-white/55 leading-snug group-hover:text-white/75 transition-colors line-clamp-2">
                         {l.text}
                       </div>
                     </div>
@@ -1885,7 +1959,7 @@ export default function CommandCenter() {
                   value={commandInput}
                   onChange={(e) => setCommandInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && sendCommand()}
-                  placeholder="Type a command, approval, or instruction..."
+                  placeholder="Type a command..."
                   className="flex-1 bg-transparent text-white/80 text-sm font-mono outline-none placeholder:text-white/15"
                 />
                 <button
@@ -1928,7 +2002,7 @@ export default function CommandCenter() {
           {/* ═══════ FOOTER ═══════ */}
           <footer className="text-center py-8 border-t border-white/[0.03]">
             <div className="text-[9px] font-mono text-white/10 tracking-[0.4em] uppercase">
-              COMMAND CENTER v5 // RAMICHE OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
+              COMMAND CENTER v6 // RAMICHE OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
             </div>
           </footer>
 
