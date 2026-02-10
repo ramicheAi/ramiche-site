@@ -1367,7 +1367,7 @@ export default function CommandCenter() {
             </div>
           </div>
 
-          {/* ═══════ ROW 2: AGENT NETWORK — ISOMETRIC COSMIC WORKSPACE ═══════ */}
+          {/* ═══════ ROW 2: AGENT NETWORK — ISOMETRIC SPACE STATION ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/45 font-bold">
@@ -1379,75 +1379,128 @@ export default function CommandCenter() {
               </div>
             </div>
 
-            {/* Isometric cosmic workspace — agents at stations on a space-station floor */}
+            {/* Isometric Space Station — full-body 3D character figures at workstations */}
             <div
               className="relative rounded-2xl overflow-hidden"
               style={{
-                background: "linear-gradient(180deg, #0d0b18 0%, #110e1f 40%, #0a0816 100%)",
+                background: "linear-gradient(180deg, #060410 0%, #0a0816 30%, #0d0b1a 60%, #080614 100%)",
                 border: "1px solid rgba(0,240,255,0.08)",
-                padding: "32px 16px 24px",
+                padding: "32px 12px 28px",
               }}
             >
-              {/* Subtle isometric grid floor */}
-              <div className="absolute inset-0 pointer-events-none opacity-[0.04]" style={{
+              {/* Isometric diamond grid floor */}
+              <div className="absolute inset-0 pointer-events-none" style={{
+                opacity: 0.03,
                 backgroundImage: `
-                  linear-gradient(30deg, rgba(0,240,255,0.5) 1px, transparent 1px),
-                  linear-gradient(150deg, rgba(0,240,255,0.5) 1px, transparent 1px)
+                  linear-gradient(30deg, rgba(0,240,255,0.7) 1px, transparent 1px),
+                  linear-gradient(150deg, rgba(0,240,255,0.7) 1px, transparent 1px),
+                  linear-gradient(-30deg, rgba(168,85,247,0.3) 1px, transparent 1px),
+                  linear-gradient(-150deg, rgba(168,85,247,0.3) 1px, transparent 1px)
                 `,
-                backgroundSize: "60px 35px",
+                backgroundSize: "56px 32px, 56px 32px, 56px 32px, 56px 32px",
+                transform: "perspective(800px) rotateX(30deg) scaleY(1.4)",
+                transformOrigin: "center 80%",
               }} />
-              {/* Ambient nebula glow */}
+              {/* Ambient nebula glows */}
               <div className="absolute inset-0 pointer-events-none" style={{
                 background: `
-                  radial-gradient(ellipse 50% 40% at 50% 20%, rgba(168,85,247,0.04) 0%, transparent 100%),
-                  radial-gradient(ellipse 40% 50% at 20% 60%, rgba(0,240,255,0.03) 0%, transparent 100%),
-                  radial-gradient(ellipse 40% 50% at 80% 60%, rgba(249,115,22,0.03) 0%, transparent 100%)
+                  radial-gradient(ellipse 60% 30% at 50% 15%, rgba(0,240,255,0.04) 0%, transparent 100%),
+                  radial-gradient(ellipse 25% 35% at 15% 65%, rgba(168,85,247,0.03) 0%, transparent 100%),
+                  radial-gradient(ellipse 25% 35% at 85% 60%, rgba(249,115,22,0.03) 0%, transparent 100%),
+                  radial-gradient(ellipse 35% 25% at 50% 85%, rgba(236,72,153,0.02) 0%, transparent 100%)
                 `,
               }} />
+              {/* Floating cosmic particles */}
+              {[...Array(18)].map((_, pi) => (
+                <div key={`star${pi}`} className="absolute rounded-full pointer-events-none" style={{
+                  width: `${1 + (pi % 3) * 0.8}px`,
+                  height: `${1 + (pi % 3) * 0.8}px`,
+                  background: ["#00f0ff", "#a855f7", "#f59e0b", "#ec4899", "#34d399", "#fbbf24", "#ef4444", "#38bdf8", "#818cf8"][pi % 9],
+                  opacity: 0.1 + (pi % 5) * 0.04,
+                  left: `${3 + (pi * 5.3) % 94}%`,
+                  top: `${4 + (pi * 7.7) % 92}%`,
+                  animation: `agent-float ${3 + pi * 0.4}s ease-in-out ${pi * 0.25}s infinite`,
+                }} />
+              ))}
 
-              {/* ──── ATLAS — Command Hub (center-top, larger) ──── */}
-              <div className="relative z-20 flex justify-center mb-8">
-                <div className="flex flex-col items-center">
-                  {/* Holographic platform */}
-                  <div className="absolute bottom-[-16px] left-1/2 -translate-x-1/2" style={{
-                    width: "160px", height: "40px",
-                    background: "radial-gradient(ellipse, rgba(0,240,255,0.15) 0%, rgba(0,240,255,0.03) 60%, transparent 100%)",
-                    borderRadius: "50%",
-                    boxShadow: "0 0 50px rgba(0,240,255,0.1)",
-                  }} />
-                  <div className="relative" style={{ width: "110px", height: "110px" }}>
-                    {/* Orbit ring */}
-                    <div className="absolute inset-[-12px] rounded-full" style={{
-                      border: "2px dashed rgba(0,240,255,0.15)",
-                      animation: "agent-orbit-smooth 10s linear infinite",
-                    }} />
-                    <div className="w-full h-full rounded-2xl overflow-hidden border-2" style={{
-                      borderColor: "rgba(0,240,255,0.3)",
-                      boxShadow: "0 0 50px rgba(0,240,255,0.15), 0 12px 40px rgba(0,0,0,0.6)",
-                      animation: "agent-bob 3s ease-in-out infinite",
-                    }}>
-                      <img src="/agents/atlas.png" alt="Atlas" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-[#110e1f] animate-pulse"
-                      style={{ background: "#00ff88", boxShadow: "0 0 14px rgba(0,255,136,0.8)" }} />
-                  </div>
+              {/* ──── ATLAS — Central Commander (larger, elevated) ──── */}
+              <div className="relative z-20 flex justify-center mb-6">
+                <div className="flex flex-col items-center cursor-pointer"
+                  style={{ animation: "agent-float 5s ease-in-out infinite" }}
+                  onClick={() => setExpandedAgent(expandedAgent === "Atlas" ? null : "Atlas")}
+                >
                   {/* Speech bubble */}
-                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                  <div className="mb-3 whitespace-nowrap px-4 py-1.5 rounded-2xl text-[10px] sm:text-[11px] font-bold relative"
                     style={{
-                      background: "rgba(0,240,255,0.12)",
-                      border: "1px solid rgba(0,240,255,0.25)",
+                      background: "rgba(0,240,255,0.06)",
+                      border: "1px solid rgba(0,240,255,0.15)",
                       color: "#00f0ff",
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                      animation: "agent-bob 4s ease-in-out infinite",
+                      boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
                     }}>
                     Coordinating all systems...
-                    <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45"
-                      style={{ background: "rgba(0,240,255,0.12)", borderRight: "1px solid rgba(0,240,255,0.25)", borderBottom: "1px solid rgba(0,240,255,0.25)" }} />
+                    <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 rotate-45"
+                      style={{ background: "rgba(0,240,255,0.06)", borderRight: "1px solid rgba(0,240,255,0.15)", borderBottom: "1px solid rgba(0,240,255,0.15)" }} />
                   </div>
+
+                  {/* Full-body character figure */}
+                  <div className="relative" style={{ width: "140px" }}>
+                    {/* Spinning orbit ring */}
+                    <div className="absolute pointer-events-none" style={{
+                      top: "10%", left: "-12%", right: "-12%", bottom: "15%",
+                      borderRadius: "50%",
+                      border: "1.5px solid rgba(0,240,255,0.04)",
+                      borderTopColor: "rgba(0,240,255,0.2)",
+                      animation: "agent-orbit-smooth 10s linear infinite",
+                    }} />
+                    {/* Character image — full body, rounded bottom for figurine look */}
+                    <div className="mx-auto relative" style={{ width: "110px", height: "130px" }}>
+                      <div className="w-full h-full overflow-hidden" style={{
+                        borderRadius: "22px 22px 40px 40px",
+                        border: "3px solid rgba(0,240,255,0.25)",
+                        boxShadow: "0 0 40px rgba(0,240,255,0.12), 0 12px 40px rgba(0,0,0,0.7), inset 0 -20px 40px rgba(0,0,0,0.3)",
+                        background: "linear-gradient(180deg, rgba(0,240,255,0.04), rgba(0,0,0,0.2))",
+                      }}>
+                        <img src="/agents/atlas.png" alt="Atlas" className="w-full h-full object-cover object-top" />
+                      </div>
+                      {/* 3D highlight gleam */}
+                      <div className="absolute top-2 left-4 w-10 h-4 rounded-full pointer-events-none" style={{
+                        background: "linear-gradient(180deg, rgba(255,255,255,0.12), transparent)",
+                        filter: "blur(3px)",
+                      }} />
+                      {/* Active pulse ring */}
+                      <div className="absolute -inset-2 rounded-[30px] pointer-events-none" style={{
+                        border: "1px solid rgba(0,240,255,0.06)",
+                        animation: "agent-work-ring 3s ease-out infinite",
+                      }} />
+                      {/* Status LED */}
+                      <div className="absolute bottom-2 right-1 w-5 h-5 rounded-full border-[2.5px] border-[#080614] animate-pulse"
+                        style={{ background: "#00ff88", boxShadow: "0 0 14px rgba(0,255,136,0.7)" }} />
+                    </div>
+                    {/* 3D Platform — elliptical with depth */}
+                    <div className="mx-auto -mt-3 relative" style={{ width: "120px", height: "24px" }}>
+                      <div className="absolute inset-0" style={{
+                        background: "linear-gradient(180deg, rgba(0,240,255,0.14), rgba(0,240,255,0.04))",
+                        borderRadius: "50%",
+                        boxShadow: "0 0 35px rgba(0,240,255,0.08), inset 0 1px 0 rgba(255,255,255,0.05)",
+                      }} />
+                      <div className="absolute left-0 right-0 bottom-[-6px]" style={{
+                        height: "8px",
+                        background: "linear-gradient(180deg, rgba(0,240,255,0.08), rgba(0,240,255,0.01))",
+                        borderRadius: "0 0 50% 50% / 0 0 100% 100%",
+                      }} />
+                      <div className="absolute left-[8%] right-[8%] bottom-[-14px]" style={{
+                        height: "10px",
+                        background: "radial-gradient(ellipse, rgba(0,0,0,0.4) 0%, transparent 70%)",
+                        borderRadius: "50%",
+                        filter: "blur(5px)",
+                      }} />
+                    </div>
+                  </div>
+
                   <div className="mt-3 text-center">
-                    <div className="text-sm font-black" style={{ color: "#00f0ff", textShadow: "0 0 20px rgba(0,240,255,0.5)" }}>ATLAS</div>
-                    <div className="text-[9px] font-mono text-white/35">LEAD STRATEGIST · Opus 4.6</div>
-                    <div className="flex justify-center gap-0.5 mt-1">
+                    <div className="text-sm font-black tracking-wide" style={{ color: "#00f0ff", textShadow: "0 0 24px rgba(0,240,255,0.5)" }}>ATLAS</div>
+                    <div className="text-[9px] font-mono text-white/35 mt-0.5">LEAD STRATEGIST · Opus 4.6</div>
+                    <div className="flex justify-center gap-0.5 mt-1.5">
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0s infinite" }} />
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0.2s infinite" }} />
                       <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0.4s infinite" }} />
@@ -1456,12 +1509,12 @@ export default function CommandCenter() {
                 </div>
               </div>
 
-              {/* ──── Agent Grid — each agent at their own workstation ──── */}
-              <div className="relative z-10 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-2 gap-y-6 px-2 sm:px-4">
+              {/* ──── Agent Grid — full-body 3D figurines at workstations ──── */}
+              <div className="relative z-10 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 gap-y-4 px-2 sm:px-4">
                 {AGENTS.slice(1).map((a, i) => {
                   const isActive = a.status === "active" || a.status === "done";
                   const isHov = hoveredAgent === i + 1;
-                  const bobDelay = (i * 0.3).toFixed(2);
+                  const floatDelay = (i * 0.4).toFixed(2);
 
                   const actionTexts: Record<string, string> = {
                     SHURI: "Building UI...",
@@ -1487,90 +1540,121 @@ export default function CommandCenter() {
                   return (
                     <div
                       key={a.name}
-                      className="relative flex flex-col items-center cursor-pointer group transition-all duration-300"
+                      className="relative flex flex-col items-center cursor-pointer group"
                       style={{
-                        transform: isHov ? "scale(1.1) translateY(-6px)" : "scale(1)",
+                        transition: "transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                        transform: isHov ? "scale(1.08) translateY(-8px)" : "scale(1)",
+                        animation: `agent-float 4s ease-in-out ${floatDelay}s infinite`,
                       }}
                       onMouseEnter={() => setHoveredAgent(i + 1)}
                       onMouseLeave={() => setHoveredAgent(null)}
                       onClick={() => setExpandedAgent(expandedAgent === a.name ? null : a.name)}
                     >
-                      {/* Workstation platform glow */}
-                      <div className="absolute bottom-[22px] left-1/2 -translate-x-1/2" style={{
-                        width: "72px", height: "18px",
-                        background: `radial-gradient(ellipse, ${a.color}${isActive ? "25" : "10"} 0%, transparent 80%)`,
-                        borderRadius: "50%",
-                        boxShadow: `0 0 20px ${a.color}${isActive ? "12" : "06"}`,
-                      }} />
-
-                      {/* Character container */}
-                      <div className="relative" style={{ width: "68px", height: "68px" }}>
-                        {/* Active glow ring */}
-                        {a.status === "active" && (
-                          <div className="absolute inset-[-7px] rounded-2xl" style={{
-                            border: `2px solid ${a.color}20`,
-                            animation: "agent-orbit-smooth 6s linear infinite",
-                            borderTopColor: `${a.color}55`,
-                            borderRightColor: `${a.color}35`,
-                          }} />
-                        )}
-                        {/* Done checkmark ring */}
-                        {a.status === "done" && (
-                          <div className="absolute inset-[-5px] rounded-2xl" style={{
-                            border: `1.5px solid ${a.color}15`,
-                          }} />
-                        )}
-                        {/* Hover glow */}
-                        <div className="absolute inset-[-8px] rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                          style={{ background: `radial-gradient(circle, ${a.color}20 0%, transparent 70%)` }} />
-                        {/* Character image */}
-                        <div className="w-full h-full rounded-2xl overflow-hidden border-2 transition-all duration-300"
-                          style={{
-                            borderColor: isHov ? `${a.color}60` : a.status === "active" ? `${a.color}30` : a.status === "done" ? `${a.color}20` : "rgba(255,255,255,0.06)",
-                            boxShadow: isHov
-                              ? `0 0 30px ${a.color}25, 0 8px 24px rgba(0,0,0,0.5)`
-                              : `0 4px 16px rgba(0,0,0,0.4)`,
-                            animation: `agent-bob 3s ease-in-out ${bobDelay}s infinite`,
-                            filter: a.status === "idle" ? "brightness(0.7) saturate(0.6)" : "none",
-                          }}>
-                          <img src={AGENT_IMG[a.name] || ""} alt={a.name} className="w-full h-full object-cover" />
-                        </div>
-                        {/* Status indicator */}
-                        <div className={`absolute bottom-[-2px] right-[-2px] w-4 h-4 rounded-full border-2 border-[#110e1f] ${a.status === "active" ? "animate-pulse" : ""}`}
-                          style={{
-                            background: a.status === "active" ? "#00ff88" : a.status === "done" ? a.color : "rgba(255,255,255,0.12)",
-                            boxShadow: a.status === "active" ? "0 0 10px rgba(0,255,136,0.7)" : a.status === "done" ? `0 0 8px ${a.color}40` : "none",
-                          }} />
-                      </div>
-
-                      {/* Speech bubble — active/done agents show their action */}
+                      {/* Speech bubble — only for active/done */}
                       {isActive && (
-                        <div className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-0.5 rounded-lg text-[7px] sm:text-[8px] font-bold pointer-events-none"
+                        <div className="mb-1.5 whitespace-nowrap px-2.5 py-0.5 rounded-xl text-[7px] sm:text-[8px] font-bold pointer-events-none relative"
                           style={{
-                            background: `${a.color}15`,
-                            border: `1px solid ${a.color}25`,
+                            background: `${a.color}0d`,
+                            border: `1px solid ${a.color}1a`,
                             color: a.color,
-                            boxShadow: `0 4px 12px rgba(0,0,0,0.3)`,
-                            animation: `agent-bob 4s ease-in-out ${bobDelay}s infinite`,
-                            opacity: isHov ? 1 : 0.65,
+                            boxShadow: `0 3px 12px rgba(0,0,0,0.35)`,
+                            opacity: isHov ? 1 : 0.6,
                             transition: "opacity 0.3s",
                           }}>
                           {actionTexts[a.name] || "Working..."}
-                          <div className="absolute bottom-[-3px] left-1/2 -translate-x-1/2 w-1.5 h-1.5 rotate-45"
-                            style={{ background: `${a.color}15`, borderRight: `1px solid ${a.color}25`, borderBottom: `1px solid ${a.color}25` }} />
+                          <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 rotate-45"
+                            style={{ background: `${a.color}0d`, borderRight: `1px solid ${a.color}1a`, borderBottom: `1px solid ${a.color}1a` }} />
                         </div>
                       )}
 
+                      {/* Full-body 3D character figure */}
+                      <div className="relative" style={{ width: "90px" }}>
+                        {/* Active orbit ring */}
+                        {a.status === "active" && (
+                          <div className="absolute pointer-events-none" style={{
+                            top: "5%", left: "-8%", right: "-8%", bottom: "12%",
+                            borderRadius: "50%",
+                            border: `1.5px solid transparent`,
+                            borderTopColor: `${a.color}30`,
+                            borderRightColor: `${a.color}12`,
+                            animation: "agent-orbit-smooth 6s linear infinite",
+                          }} />
+                        )}
+
+                        {/* Character body — full figure, figurine-shaped crop */}
+                        <div className="mx-auto relative" style={{ width: "72px", height: "88px" }}>
+                          <div className="w-full h-full overflow-hidden transition-all duration-300" style={{
+                            borderRadius: "16px 16px 28px 28px",
+                            border: `2.5px solid ${isHov ? `${a.color}60` : a.status === "active" ? `${a.color}35` : a.status === "done" ? `${a.color}25` : "rgba(255,255,255,0.06)"}`,
+                            boxShadow: isHov
+                              ? `0 0 24px ${a.color}20, 0 10px 30px rgba(0,0,0,0.6), inset 0 -12px 24px rgba(0,0,0,0.3)`
+                              : `0 6px 20px rgba(0,0,0,0.5), inset 0 -10px 20px rgba(0,0,0,0.25)`,
+                            filter: a.status === "idle" ? "brightness(0.5) saturate(0.35)" : "none",
+                            background: `linear-gradient(180deg, ${a.color}06, rgba(0,0,0,0.2))`,
+                          }}>
+                            <img src={AGENT_IMG[a.name] || ""} alt={a.name} className="w-full h-full object-cover object-top" />
+                          </div>
+                          {/* 3D highlight gleam */}
+                          <div className="absolute top-1.5 left-2 w-6 h-3 rounded-full pointer-events-none" style={{
+                            background: "linear-gradient(180deg, rgba(255,255,255,0.1), transparent)",
+                            filter: "blur(2px)",
+                          }} />
+                          {/* Active pulse ring */}
+                          {a.status === "active" && (
+                            <div className="absolute -inset-1.5 pointer-events-none" style={{
+                              borderRadius: "20px 20px 32px 32px",
+                              border: `1px solid ${a.color}08`,
+                              animation: "agent-work-ring 2.5s ease-out infinite",
+                            }} />
+                          )}
+                          {/* Status LED */}
+                          <div className={`absolute bottom-1 right-0.5 w-4 h-4 rounded-full border-2 border-[#080614] ${a.status === "active" ? "animate-pulse" : ""}`}
+                            style={{
+                              background: a.status === "active" ? "#00ff88" : a.status === "done" ? a.color : "rgba(255,255,255,0.1)",
+                              boxShadow: a.status === "active" ? "0 0 10px rgba(0,255,136,0.6)" : a.status === "done" ? `0 0 8px ${a.color}30` : "none",
+                            }} />
+                          {/* Tool/role emoji badge */}
+                          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
+                            style={{
+                              background: "rgba(3,1,8,0.9)",
+                              border: `1.5px solid ${a.color}30`,
+                              boxShadow: `0 2px 8px rgba(0,0,0,0.5)`,
+                              fontSize: "12px",
+                            }}>
+                            {a.icon}
+                          </div>
+                        </div>
+
+                        {/* 3D Platform — elliptical base with depth shadow */}
+                        <div className="mx-auto -mt-2 relative" style={{ width: "76px", height: "16px" }}>
+                          <div className="absolute inset-0" style={{
+                            background: `linear-gradient(180deg, ${a.color}${isActive ? "12" : "08"}, ${a.color}${isActive ? "05" : "02"})`,
+                            borderRadius: "50%",
+                            boxShadow: isActive ? `0 0 20px ${a.color}0a` : "none",
+                          }} />
+                          <div className="absolute left-0 right-0 bottom-[-4px]" style={{
+                            height: "5px",
+                            background: `linear-gradient(180deg, ${a.color}06, ${a.color}01)`,
+                            borderRadius: "0 0 50% 50% / 0 0 100% 100%",
+                          }} />
+                          <div className="absolute left-[12%] right-[12%] bottom-[-10px]" style={{
+                            height: "7px",
+                            background: `radial-gradient(ellipse, rgba(0,0,0,${isActive ? "0.35" : "0.15"}) 0%, transparent 70%)`,
+                            borderRadius: "50%",
+                            filter: "blur(4px)",
+                          }} />
+                        </div>
+                      </div>
+
                       {/* Name + role + status */}
-                      <div className="mt-2 text-center max-w-[84px]">
+                      <div className="mt-1 text-center max-w-[90px]">
                         <div className="text-[10px] font-bold leading-tight truncate transition-colors"
                           style={{ color: isHov ? a.color : "rgba(255,255,255,0.85)" }}>
                           {a.name}
                         </div>
-                        <div className="text-[7px] font-mono truncate" style={{ color: `${a.color}50` }}>
+                        <div className="text-[7px] font-mono truncate mt-0.5" style={{ color: `${a.color}50` }}>
                           {a.role}
                         </div>
-                        {/* Working dots for active agents */}
                         {a.status === "active" && (
                           <div className="flex justify-center gap-0.5 mt-0.5">
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0s infinite" }} />
@@ -1578,7 +1662,6 @@ export default function CommandCenter() {
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
                           </div>
                         )}
-                        {/* Status badge */}
                         <div className="mt-0.5 text-[6px] font-mono tracking-wider uppercase"
                           style={{
                             color: a.status === "active" ? "#00ff88" : a.status === "done" ? `${a.color}90` : "rgba(255,255,255,0.2)",
@@ -1587,12 +1670,12 @@ export default function CommandCenter() {
                         </div>
                       </div>
 
-                      {/* Hover tooltip with full details */}
+                      {/* Hover tooltip */}
                       <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 w-52 p-3 rounded-xl transition-all duration-200 pointer-events-none ${isHov ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
                         style={{
-                          background: "rgba(3,1,8,0.96)",
+                          background: "rgba(3,1,8,0.97)",
                           border: `1px solid ${a.color}30`,
-                          boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 24px ${a.color}10`,
+                          boxShadow: `0 8px 32px rgba(0,0,0,0.7), 0 0 24px ${a.color}10`,
                           backdropFilter: "blur(16px)",
                           zIndex: 60,
                         }}>
@@ -1612,8 +1695,8 @@ export default function CommandCenter() {
                 })}
               </div>
 
-              {/* ──── Workflow phase indicators — bottom bar ──── */}
-              <div className="relative z-10 mt-6 flex justify-center gap-3 flex-wrap px-4">
+              {/* ──── Workflow phases — bottom bar ──── */}
+              <div className="relative z-10 mt-8 flex justify-center gap-2 sm:gap-3 flex-wrap px-4">
                 {[
                   { label: "DETECT", color: "#ef4444" },
                   { label: "PLAN", color: "#f59e0b" },
@@ -1621,17 +1704,18 @@ export default function CommandCenter() {
                   { label: "SHIP", color: "#00f0ff" },
                   { label: "MONITOR", color: "#a855f7" },
                   { label: "ITERATE", color: "#ec4899" },
-                ].map((stage) => (
+                ].map((stage, si) => (
                   <div
                     key={stage.label}
-                    className="font-mono font-black text-[8px] sm:text-[9px] tracking-[0.2em] px-2.5 py-1 rounded-md"
+                    className="font-mono font-black text-[8px] sm:text-[9px] tracking-[0.2em] px-2.5 py-1 rounded-md flex items-center gap-1.5"
                     style={{
                       color: stage.color,
-                      background: `linear-gradient(135deg, ${stage.color}12, ${stage.color}06)`,
-                      border: `1px solid ${stage.color}20`,
-                      textShadow: `0 0 8px ${stage.color}40`,
+                      background: `linear-gradient(135deg, ${stage.color}10, ${stage.color}05)`,
+                      border: `1px solid ${stage.color}18`,
+                      textShadow: `0 0 8px ${stage.color}30`,
                     }}
                   >
+                    {si > 0 && <span style={{ color: `${stage.color}40` }}>→</span>}
                     {stage.label}
                   </div>
                 ))}
