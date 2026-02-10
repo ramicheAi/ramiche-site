@@ -147,6 +147,22 @@ const AGENTS = [
     credits: { used: 0, limit: 5000 },
     activeTask: "Awaiting: Bambu Lab production pipeline",
   },
+  {
+    name: "KIYOSAKI", model: "DeepSeek V3.2", role: "Financial Intelligence",
+    status: "active" as const, color: "#fcd34d", icon: "💎",
+    desc: "ORACLE — 8 financial minds (Buffett/Dalio/Soros/Livermore/Ramsey/Kiyosaki/Taleb/Wood). Wealth architecture.",
+    connections: [0, 2, 3],
+    credits: { used: 290, limit: 5000 },
+    activeTask: "Delivered: Apex financial model ($2.94M–$14.7M ARR projections)",
+  },
+  {
+    name: "TRIAGE", model: "Sonnet 4.5", role: "System Doctor",
+    status: "idle" as const, color: "#f472b6", icon: "🩺",
+    desc: "Best SWE-bench score in the squad (77.2). Debugging, failure tracing, health checks, diagnostics.",
+    connections: [0, 4],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "Available on demand — system diagnostics + debugging",
+  },
 ];
 
 /* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
@@ -226,6 +242,14 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "3D Print Studio", role: "Production pipeline + quoting", status: "idle" },
     { project: "Galactik Antics", role: "Physical merch prototyping", status: "idle" },
   ],
+  KIYOSAKI: [
+    { project: "Apex Athlete", role: "Financial model + pricing strategy", status: "done" },
+    { project: "Wealth Architecture", role: "Investment analysis + cashflow optimization", status: "idle" },
+  ],
+  TRIAGE: [
+    { project: "System Health", role: "Debugging + diagnostics + failure tracing", status: "idle" },
+    { project: "Apex Athlete", role: "Code review + performance audit", status: "idle" },
+  ],
 };
 
 /* ── PROJECTS / MISSIONS ───────────────────────────────────────────────────── */
@@ -239,7 +263,7 @@ const MISSIONS = [
       { t: "Pre-launch content (4 briefs, 7-day calendar)", done: true },
       { t: "Product lineup confirmed (13 cases, 5 posters, 5 tees)", done: true },
       { t: "Weavy renders for 5 Batch A designs", done: false },
-      { t: "Shopify store setup + Printful connect", done: false },
+      { t: "Shopify store created \u2014 API token needed for product upload", done: false },
       { t: "Upload products + variants + pricing", done: false },
       { t: "Collector tier system (5 tiers, Shopify Flows)", done: false },
     ],
@@ -338,12 +362,16 @@ const LINKS = [
 
 /* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
 const LOG = [
-  { time: "Now", text: "SHURI: Building three-portal UI (Coach/Athlete/Parent)", color: "#34d399" },
-  { time: "Now", text: "PROXIMON: Designing Firebase v2 backend architecture", color: "#f97316" },
-  { time: "Now", text: "MICHAEL: Writing practice schedule builder spec", color: "#06b6d4" },
-  { time: "Now", text: "Atlas: Command Center update + team coordination", color: "#00f0ff" },
-  { time: "Feb 9", text: "RAMICHE HQ group chat activated \u2014 17 agents wired", color: "#a855f7" },
-  { time: "Feb 9", text: "5 new agents online: Mercury, Echo, Haven, Ink, Nova", color: "#fbbf24" },
+  { time: "Now", text: "Atlas: Full HQ update \u2014 all dashboards refreshed Feb 10", color: "#00f0ff" },
+  { time: "Now", text: "Shopify store created \u2014 GALAKTIK ANTICS (API setup pending)", color: "#96bf48" },
+  { time: "Feb 10", text: "KIYOSAKI + TRIAGE agents added to squad (19 total)", color: "#fcd34d" },
+  { time: "Feb 10", text: "KIYOSAKI: Apex financial model delivered ($2.94M\u2013$14.7M ARR)", color: "#fcd34d" },
+  { time: "Feb 10", text: "INK: 5-piece launch content package completed", color: "#c084fc" },
+  { time: "Feb 10", text: "ramichehq@gmail.com + @ramichehq (X) accounts created", color: "#00f0ff" },
+  { time: "Feb 10", text: "SCOWW.com TLS fixed \u2014 DNS corrected", color: "#22d3ee" },
+  { time: "Feb 10", text: "Financial Dashboard added to Command Center", color: "#fcd34d" },
+  { time: "Feb 9", text: "RAMICHE HQ group chat activated \u2014 19 agents wired", color: "#a855f7" },
+  { time: "Feb 9", text: "7 new agents: Mercury, Echo, Haven, Ink, Nova, Kiyosaki, Triage", color: "#fbbf24" },
   { time: "Feb 9", text: "Model tiers locked \u2014 Ramon's hard rule applied to all agents", color: "#00f0ff" },
   { time: "Feb 9", text: "Watchdog cron active (5-min cycle) \u2014 outage protection live", color: "#ef4444" },
   { time: "Feb 9", text: "Gateway restart completed \u2014 full squad operational", color: "#22d3ee" },
@@ -351,7 +379,7 @@ const LOG = [
   { time: "Feb 8", text: "Multi-roster: 240+ athletes across 7 groups deployed", color: "#f59e0b" },
   { time: "Feb 8", text: "Aetherion: 5 blueprints + Phase 1 matrix + SHARED_CONTEXT", color: "#818cf8" },
   { time: "Feb 8", text: "Vee: GA pre-launch content (4 briefs, 7-day calendar)", color: "#ec4899" },
-  { time: "Feb 8", text: "Squad expanded: 12 \u2192 17 agents (5 new roles provisioned)", color: "#a855f7" },
+  { time: "Feb 8", text: "Squad expanded: 12 \u2192 19 agents (7 new roles provisioned)", color: "#a855f7" },
 ];
 
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
@@ -368,12 +396,12 @@ const SCHEDULE = [
 
 /* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
 const NOTIFICATIONS = [
-  { text: "Apex Athlete three-portal build in progress (SHURI + PROXIMON + MICHAEL)", accent: "#f59e0b", icon: "\u25C8" },
-  { text: "RAMICHE HQ live \u2014 17 agents connected in group chat", accent: "#a855f7", icon: "\u25C8" },
-  { text: "Model tiers locked per Ramon\u2019s directive \u2014 hard rule", accent: "#00f0ff", icon: "\u25C8" },
+  { text: "Shopify store live \u2014 GALAKTIK ANTICS \u2014 API token needed to load products", accent: "#96bf48", icon: "\u26A0" },
+  { text: "KIYOSAKI delivered Apex financial model ($2.94M\u2013$14.7M ARR)", accent: "#fcd34d", icon: "\u25C8" },
+  { text: "19 agents operational in RAMICHE HQ", accent: "#a855f7", icon: "\u25C8" },
+  { text: "Apex three-portal build in progress (SHURI + PROXIMON)", accent: "#f59e0b", icon: "\u25C8" },
   { text: "5 Batch A Weavy renders still pending", accent: "#f59e0b", icon: "\u26A0" },
-  { text: "Shopify store needs setup (login required)", accent: "#e879f9", icon: "\u26A0" },
-  { text: "Watchdog active \u2014 monitoring for stuck sessions every 5 min", accent: "#22d3ee", icon: "\u25C7" },
+  { text: "TheMAESTRO blocked \u2014 needs release timeline from Ramon", accent: "#f59e0b", icon: "\u26A0" },
 ];
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
@@ -381,6 +409,7 @@ const NAV = [
   { label: "HQ", href: "/", icon: "\u25C8" },
   { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
   { label: "APEX", href: "/apex-athlete", icon: "\u2726" },
+  { label: "FINANCE", href: "/financial", icon: "\u25C9" },
   { label: "STUDIO", href: "/studio", icon: "\u2662" },
 ];
 
