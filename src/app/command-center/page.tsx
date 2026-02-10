@@ -1367,7 +1367,7 @@ export default function CommandCenter() {
             </div>
           </div>
 
-          {/* ═══════ ROW 2: AGENT NETWORK ═══════ */}
+          {/* ═══════ ROW 2: AGENT NETWORK — ISOMETRIC CARTOON WORKSPACE ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/45 font-bold">
@@ -1379,152 +1379,336 @@ export default function CommandCenter() {
               </div>
             </div>
 
-            {/* Lead agent — Atlas hero card */}
-            <div className="mb-4">
-              <div
-                className="game-panel game-panel-border relative overflow-hidden p-6"
-                style={{
-                  background: "linear-gradient(135deg, rgba(0,240,255,0.04) 0%, rgba(6,2,15,0.98) 40%, rgba(168,85,247,0.03) 100%)",
-                }}
-              >
-                {/* Subtle scan sweep */}
-                <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                  <div className="absolute left-0 right-0 h-[1px] opacity-15" style={{ background: "linear-gradient(90deg, transparent, #00f0ff, transparent)", animation: "scanSweep 10s linear infinite" }} />
+            {/* Isometric cartoon workspace — inspired by the reference illustration */}
+            <div
+              className="relative rounded-2xl overflow-hidden"
+              style={{
+                background: "linear-gradient(180deg, #1a1528 0%, #140f22 50%, #0e0a1e 100%)",
+                border: "1px solid rgba(0,240,255,0.08)",
+                minHeight: "700px",
+                perspective: "1200px",
+              }}
+            >
+              {/* Isometric diamond floor */}
+              <div className="absolute inset-0 pointer-events-none" style={{
+                background: `
+                  linear-gradient(180deg, transparent 0%, rgba(168,140,248,0.03) 50%, transparent 100%)
+                `,
+              }} />
+              {/* Isometric grid lines */}
+              <div className="absolute inset-0 pointer-events-none opacity-[0.06]" style={{
+                backgroundImage: `
+                  linear-gradient(30deg, rgba(0,240,255,0.4) 1px, transparent 1px),
+                  linear-gradient(150deg, rgba(0,240,255,0.4) 1px, transparent 1px),
+                  linear-gradient(-30deg, rgba(168,85,247,0.2) 1px, transparent 1px),
+                  linear-gradient(-150deg, rgba(168,85,247,0.2) 1px, transparent 1px)
+                `,
+                backgroundSize: "48px 28px, 48px 28px, 48px 28px, 48px 28px",
+              }} />
+
+              {/* SVG conveyor belt pathway — diamond circuit with animated packets */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none z-[1]" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+                <defs>
+                  <linearGradient id="conveyorGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#ef4444" stopOpacity="0.4" />
+                    <stop offset="25%" stopColor="#f59e0b" stopOpacity="0.4" />
+                    <stop offset="50%" stopColor="#34d399" stopOpacity="0.4" />
+                    <stop offset="75%" stopColor="#00f0ff" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#a855f7" stopOpacity="0.4" />
+                  </linearGradient>
+                  <filter id="conveyorBlur">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="4" />
+                  </filter>
+                </defs>
+                {/* Outer glow */}
+                <path
+                  d="M500,80 L880,300 L500,520 L120,300 Z"
+                  fill="none" stroke="url(#conveyorGlow)" strokeWidth="6" filter="url(#conveyorBlur)" opacity="0.5"
+                />
+                {/* Inner conveyor track */}
+                <path
+                  d="M500,80 L880,300 L500,520 L120,300 Z"
+                  fill="none" stroke="url(#conveyorGlow)" strokeWidth="2" strokeDasharray="12 6" opacity="0.6"
+                />
+                {/* Second inner track */}
+                <path
+                  d="M500,110 L840,300 L500,490 L160,300 Z"
+                  fill="none" stroke="url(#conveyorGlow)" strokeWidth="1" opacity="0.2"
+                />
+                {/* Animated data packets traveling the diamond path */}
+                {[
+                  { color: "#00f0ff", r: 5, dur: "10s", begin: "0s" },
+                  { color: "#a855f7", r: 4, dur: "10s", begin: "-3.3s" },
+                  { color: "#f59e0b", r: 4, dur: "10s", begin: "-6.6s" },
+                  { color: "#34d399", r: 3, dur: "12s", begin: "-2s" },
+                  { color: "#ef4444", r: 3, dur: "12s", begin: "-7s" },
+                  { color: "#ec4899", r: 3, dur: "14s", begin: "-4s" },
+                ].map((pkt, pi) => (
+                  <g key={pi}>
+                    <circle r={pkt.r} fill={pkt.color} opacity="0.8">
+                      <animateMotion dur={pkt.dur} repeatCount="indefinite" begin={pkt.begin}
+                        path="M500,80 L880,300 L500,520 L120,300 Z" />
+                    </circle>
+                    <circle r={pkt.r * 3} fill={pkt.color} opacity="0.15">
+                      <animateMotion dur={pkt.dur} repeatCount="indefinite" begin={pkt.begin}
+                        path="M500,80 L880,300 L500,520 L120,300 Z" />
+                    </circle>
+                  </g>
+                ))}
+                {/* Portal gates at each corner of the diamond */}
+                {[
+                  { x: 500, y: 80 },
+                  { x: 880, y: 300 },
+                  { x: 500, y: 520 },
+                  { x: 120, y: 300 },
+                ].map((gate, gi) => (
+                  <g key={gi}>
+                    <rect x={gate.x - 18} y={gate.y - 24} width="36" height="48" rx="6" fill="none"
+                      stroke={["#ef4444", "#34d399", "#a855f7", "#f59e0b"][gi]} strokeWidth="2" opacity="0.4" />
+                    <rect x={gate.x - 14} y={gate.y - 20} width="28" height="40" rx="4" fill="none"
+                      stroke={["#ef4444", "#34d399", "#a855f7", "#f59e0b"][gi]} strokeWidth="1" opacity="0.2" />
+                    <circle cx={gate.x} cy={gate.y - 18} r="3"
+                      fill={["#ef4444", "#34d399", "#a855f7", "#f59e0b"][gi]} opacity="0.6">
+                      <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite" begin={`${gi * 0.5}s`} />
+                    </circle>
+                  </g>
+                ))}
+              </svg>
+
+              {/* Workflow stage labels — positioned at diamond corners */}
+              {[
+                { label: "DETECT", x: "46%", y: "3%", color: "#ef4444", desc: "Signal Found!" },
+                { label: "BUILD", x: "82%", y: "35%", color: "#34d399", desc: "Ka-chunk!" },
+                { label: "MONITOR", x: "46%", y: "72%", color: "#a855f7", desc: "Ding Ding!" },
+                { label: "PLAN", x: "4%", y: "35%", color: "#f59e0b", desc: "Propose" },
+                { label: "SHIP", x: "68%", y: "8%", color: "#00f0ff", desc: "Deploy" },
+                { label: "REPEAT", x: "22%", y: "8%", color: "#ec4899", desc: "Iterate" },
+              ].map((stage) => (
+                <div
+                  key={stage.label}
+                  className="absolute z-20 font-mono font-black text-[10px] sm:text-[11px] tracking-[0.2em] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg"
+                  style={{
+                    left: stage.x,
+                    top: stage.y,
+                    color: stage.color,
+                    background: `linear-gradient(135deg, ${stage.color}18, ${stage.color}08)`,
+                    border: `1.5px solid ${stage.color}30`,
+                    boxShadow: `0 0 20px ${stage.color}15, 0 4px 12px rgba(0,0,0,0.3)`,
+                    textShadow: `0 0 10px ${stage.color}50`,
+                  }}
+                >
+                  {stage.label}
                 </div>
+              ))}
 
-                <div className="relative z-10 flex items-center gap-6">
-                  {/* Atlas avatar — larger */}
-                  <div className="relative flex-shrink-0" style={{ width: "88px", height: "88px" }}>
-                    <div className="absolute inset-[-6px] rounded-full pointer-events-none" style={{ border: "1.5px solid rgba(0,240,255,0.2)", animation: "agent-orbit 8s linear infinite", borderTopColor: "rgba(0,240,255,0.5)" }} />
-                    <div className="absolute inset-[-2px] rounded-full" style={{ border: "2px solid rgba(0,240,255,0.25)", boxShadow: "0 0 20px rgba(0,240,255,0.15), inset 0 0 12px rgba(0,240,255,0.06)" }} />
-                    <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center p-3" style={{ background: "radial-gradient(circle at 35% 35%, rgba(0,240,255,0.1) 0%, rgba(3,1,8,0.95) 70%)" }}>
-                      {AGENT_AVATARS["Atlas"] || <span className="text-4xl">🧭</span>}
+              {/* ──── ATLAS — Center Hub on raised platform ──── */}
+              <div className="absolute z-20" style={{ left: "50%", top: "42%", transform: "translate(-50%, -50%)" }}>
+                <div className="flex flex-col items-center">
+                  {/* Isometric platform base */}
+                  <div className="absolute bottom-[-20px] left-1/2 -translate-x-1/2" style={{
+                    width: "140px", height: "35px",
+                    background: "linear-gradient(180deg, rgba(0,240,255,0.12) 0%, rgba(0,240,255,0.04) 100%)",
+                    borderRadius: "50%",
+                    boxShadow: "0 0 40px rgba(0,240,255,0.15)",
+                  }} />
+                  {/* Character with frame */}
+                  <div className="relative" style={{ width: "100px", height: "100px" }}>
+                    {/* Rotating orbit ring */}
+                    <div className="absolute inset-[-10px] rounded-full" style={{
+                      border: "2px dashed rgba(0,240,255,0.2)",
+                      animation: "agent-orbit-smooth 8s linear infinite",
+                    }} />
+                    {/* Character image */}
+                    <div className="w-full h-full rounded-2xl overflow-hidden border-2 relative"
+                      style={{
+                        borderColor: "rgba(0,240,255,0.35)",
+                        boxShadow: "0 0 40px rgba(0,240,255,0.2), 0 10px 30px rgba(0,0,0,0.5)",
+                        animation: "agent-bob 3s ease-in-out infinite",
+                      }}>
+                      <img src="/agents/atlas.png" alt="Atlas" className="w-full h-full object-cover" />
                     </div>
-                    <div className="absolute bottom-1 right-1 w-4 h-4 rounded-full border-2 border-[#030108] animate-pulse" style={{ background: "#00ff88", boxShadow: "0 0 10px rgba(0,255,136,0.7)" }} />
+                    {/* Online indicator */}
+                    <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full border-2 border-[#140f22] animate-pulse"
+                      style={{ background: "#00ff88", boxShadow: "0 0 14px rgba(0,255,136,0.8)" }} />
                   </div>
-
-                  {/* Atlas info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <span className="text-xl font-black" style={{ color: "#00f0ff", textShadow: "0 0 20px rgba(0,240,255,0.3)" }}>ATLAS</span>
-                      <span className="text-[9px] font-mono px-2 py-0.5 rounded" style={{ color: "#00f0ff", background: "rgba(0,240,255,0.08)", border: "1px solid rgba(0,240,255,0.15)" }}>LEAD</span>
-                      <span className="text-[9px] font-mono px-2 py-0.5 rounded" style={{ color: "rgba(0,255,136,0.8)", background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.12)" }}>● ONLINE</span>
-                    </div>
-                    <div className="text-[11px] font-mono text-white/35 mb-2">Opus 4.6 · Lead Strategist · Systems Architect</div>
-                    <div className="text-[10px] font-mono" style={{ color: "rgba(0,240,255,0.45)" }}>→ {AGENTS[0].activeTask || "Monitoring all systems"}</div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <div className="flex-1 max-w-[200px] h-1 bg-white/[0.04] rounded-full overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${Math.round((AGENTS[0].credits.used / AGENTS[0].credits.limit) * 100)}%`, background: "linear-gradient(90deg, rgba(0,240,255,0.6), #00f0ff)", boxShadow: "0 0 6px rgba(0,240,255,0.3)" }} />
-                      </div>
-                      <span className="text-[8px] font-mono text-[#00f0ff]/40">{AGENTS[0].credits.used}/{AGENTS[0].credits.limit} credits</span>
-                    </div>
-                    {/* Atlas active projects */}
-                    <div className="flex flex-wrap gap-1.5 mt-3">
-                      {(AGENT_PROJECTS["Atlas"] || []).filter(p => p.status === "active").map(p => (
-                        <span key={p.project} className="text-[8px] font-mono px-2 py-1 rounded-md"
-                          style={{ color: "rgba(0,255,136,0.7)", background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.1)" }}>
-                          ● {p.project}
-                        </span>
-                      ))}
+                  {/* Speech bubble */}
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-1.5 rounded-xl text-[10px] font-bold"
+                    style={{
+                      background: "rgba(0,240,255,0.15)",
+                      border: "1px solid rgba(0,240,255,0.3)",
+                      color: "#00f0ff",
+                      boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+                      animation: "agent-bob 4s ease-in-out infinite",
+                    }}>
+                    Coordinating...
+                    <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 rotate-45"
+                      style={{ background: "rgba(0,240,255,0.15)", borderRight: "1px solid rgba(0,240,255,0.3)", borderBottom: "1px solid rgba(0,240,255,0.3)" }} />
+                  </div>
+                  <div className="mt-3 text-center">
+                    <div className="text-sm font-black" style={{ color: "#00f0ff", textShadow: "0 0 20px rgba(0,240,255,0.5)" }}>ATLAS</div>
+                    <div className="text-[9px] font-mono text-white/35">LEAD · Opus 4.6</div>
+                    <div className="flex justify-center gap-0.5 mt-1">
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0s infinite" }} />
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0.2s infinite" }} />
+                      <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0.4s infinite" }} />
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Team agents — horizontal scroll on mobile, grid on desktop */}
-            <div className="flex lg:grid lg:grid-cols-4 xl:grid-cols-6 gap-3 overflow-x-auto pb-2 snap-x snap-mandatory lg:overflow-visible lg:pb-0" style={{ scrollbarWidth: "none" }}>
+              {/* ──── Other agents — positioned around isometric diamond ──── */}
               {AGENTS.slice(1).map((a, i) => {
-                const isActive = a.status === "active";
+                const total = AGENTS.length - 1;
+                /* Arrange agents along the diamond path with varied positions */
+                const angle = (i / total) * Math.PI * 2 - Math.PI / 2;
+                /* Use diamond-shaped radii (wider horizontal, narrower vertical) */
+                const radiusX = 36;
+                const radiusY = 30;
+                const cx = 50 + Math.cos(angle) * radiusX;
+                const cy = 44 + Math.sin(angle) * radiusY;
+                const isActive = a.status === "active" || a.status === "done";
                 const isHov = hoveredAgent === i + 1;
-                const isExp = expandedAgent === a.name;
-                const projects = AGENT_PROJECTS[a.name] || [];
-                const activeProjects = projects.filter(p => p.status === "active");
+                const bobDelay = (i * 0.35).toFixed(2);
+
+                /* Action text for speech bubbles */
+                const actionTexts: Record<string, string> = {
+                  SHURI: "Building UI...",
+                  PROXIMON: "Architecting!",
+                  Widow: "Scanning...",
+                  Vee: "Marketing!",
+                  MICHAEL: "Training!",
+                  KIYOSAKI: "Calculating...",
+                  INK: "Writing...",
+                  TheMAESTRO: "Composing...",
+                  SIMONS: "Analyzing...",
+                  "Dr. Strange": "Forecasting...",
+                  Aetherion: "Designing...",
+                  SELAH: "Meditating...",
+                  MERCURY: "Closing deals!",
+                  ECHO: "Engaging!",
+                  HAVEN: "Supporting!",
+                  NOVA: "Fabricating!",
+                  Prophets: "Praying...",
+                  TRIAGE: "Diagnosing...",
+                };
+
                 return (
                   <div
                     key={a.name}
-                    className="relative overflow-hidden rounded-2xl transition-all duration-300 cursor-pointer snap-start min-w-[160px] lg:min-w-0 flex-shrink-0 lg:flex-shrink"
+                    className="absolute z-10 transition-all duration-300 cursor-pointer group"
                     style={{
-                      background: `linear-gradient(160deg, ${a.color}08 0%, rgba(6,2,15,0.97) 50%, ${a.color}03 100%)`,
-                      border: `1px solid ${isHov || isExp ? `${a.color}35` : `${a.color}12`}`,
-                      boxShadow: isHov || isExp ? `0 8px 32px ${a.color}10, 0 0 0 1px ${a.color}08` : "none",
-                      transform: isHov ? "translateY(-3px) scale(1.01)" : "none",
+                      left: `${cx}%`,
+                      top: `${cy}%`,
+                      transform: `translate(-50%, -50%) ${isHov ? "scale(1.18) translateY(-8px)" : "scale(1)"}`,
                     }}
                     onMouseEnter={() => setHoveredAgent(i + 1)}
                     onMouseLeave={() => setHoveredAgent(null)}
-                    onClick={() => setExpandedAgent(isExp ? null : a.name)}
+                    onClick={() => setExpandedAgent(expandedAgent === a.name ? null : a.name)}
                   >
-                    {/* Top glow bar */}
-                    <div className="absolute top-0 left-[10%] right-[10%] h-[2px] rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${a.color}${isHov ? "60" : "25"}, transparent)` }} />
+                    <div className="flex flex-col items-center">
+                      {/* Isometric pedestal base */}
+                      <div className="absolute bottom-[10px] left-1/2 -translate-x-1/2 transition-all group-hover:opacity-60"
+                        style={{
+                          width: "56px", height: "14px",
+                          background: `radial-gradient(ellipse, ${a.color}30 0%, ${a.color}08 50%, transparent 80%)`,
+                          borderRadius: "50%",
+                          boxShadow: `0 0 20px ${a.color}15`,
+                        }} />
 
-                    <div className="p-3">
-                      {/* Avatar + status dot */}
-                      <div className="flex justify-center mb-2">
-                        <div className="relative" style={{ width: "44px", height: "44px" }}>
-                          {isActive && (
-                            <div className="absolute inset-[-5px] rounded-full" style={{ border: `1.5px solid ${a.color}15`, animation: "agent-orbit 8s linear infinite", borderTopColor: `${a.color}40` }} />
-                          )}
-                          <div className="w-full h-full rounded-full overflow-hidden flex items-center justify-center" style={{ background: `radial-gradient(circle at 30% 30%, ${a.color}15 0%, rgba(3,1,8,0.95) 70%)`, border: `2px solid ${a.color}${isHov ? "40" : "18"}`, transition: "border-color 0.3s" }}>
-                            {AGENT_AVATARS[a.name] || <span className="text-2xl">{a.icon}</span>}
-                          </div>
-                          <div className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#06020f] ${isActive ? "animate-pulse" : ""}`} style={{ background: isActive ? "#00ff88" : "rgba(255,255,255,0.15)", boxShadow: isActive ? `0 0 8px rgba(0,255,136,0.6)` : "none" }} />
+                      {/* Character container */}
+                      <div className="relative" style={{ width: "64px", height: "64px" }}>
+                        {/* Active glow ring */}
+                        {a.status === "active" && (
+                          <div className="absolute inset-[-6px] rounded-xl" style={{
+                            border: `2px solid ${a.color}25`,
+                            animation: "agent-orbit-smooth 6s linear infinite",
+                            borderTopColor: `${a.color}60`,
+                            borderRightColor: `${a.color}40`,
+                          }} />
+                        )}
+                        {/* Hover glow */}
+                        <div className="absolute inset-[-6px] rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                          style={{ background: `radial-gradient(circle, ${a.color}25 0%, transparent 70%)` }} />
+                        {/* Character image */}
+                        <div className="w-full h-full rounded-xl overflow-hidden border-2 transition-all duration-300"
+                          style={{
+                            borderColor: isHov ? `${a.color}60` : `${a.color}25`,
+                            boxShadow: isHov
+                              ? `0 0 30px ${a.color}30, 0 8px 24px rgba(0,0,0,0.5)`
+                              : `0 4px 16px rgba(0,0,0,0.4)`,
+                            animation: `agent-bob 3s ease-in-out ${bobDelay}s infinite`,
+                          }}>
+                          <img src={AGENT_IMG[a.name] || ""} alt={a.name} className="w-full h-full object-cover" />
                         </div>
+                        {/* Status indicator */}
+                        <div className={`absolute bottom-[-2px] right-[-2px] w-4 h-4 rounded-full border-2 border-[#140f22] ${a.status === "active" ? "animate-pulse" : ""}`}
+                          style={{
+                            background: a.status === "active" ? "#00ff88" : a.status === "done" ? a.color : "rgba(255,255,255,0.15)",
+                            boxShadow: a.status === "active" ? "0 0 10px rgba(0,255,136,0.7)" : a.status === "done" ? `0 0 8px ${a.color}50` : "none",
+                          }} />
                       </div>
 
-                      {/* Name + role */}
-                      <div className="text-center mb-2">
-                        <div className="text-sm font-bold leading-snug" style={{ color: isHov ? a.color : "rgba(255,255,255,0.9)", transition: "color 0.2s" }}>{a.name}</div>
-                        <div className="text-[10px] font-mono mt-0.5 leading-snug" style={{ color: `${a.color}50` }}>{a.role}</div>
-                      </div>
-
-                      {/* Model badge */}
-                      <div className="flex justify-center mb-2">
-                        <span className="text-[9px] font-mono px-2 py-0.5 rounded-full" style={{ color: `${a.color}55`, background: `${a.color}08`, border: `1px solid ${a.color}10` }}>{a.model}</span>
-                      </div>
-
-                      {/* Active project pills */}
-                      {activeProjects.length > 0 && (
-                        <div className="flex flex-wrap justify-center gap-1 mt-1">
-                          {activeProjects.slice(0, 2).map(p => (
-                            <span key={p.project} className="text-[7px] font-mono px-1.5 py-0.5 rounded-full" style={{ color: "#00ff88aa", background: "rgba(0,255,136,0.06)", border: "1px solid rgba(0,255,136,0.1)" }}>● {p.project}</span>
-                          ))}
-                          {activeProjects.length > 2 && <span className="text-[7px] font-mono" style={{ color: `${a.color}40` }}>+{activeProjects.length - 2}</span>}
+                      {/* Speech bubble — shows on active/done agents */}
+                      {isActive && (
+                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 whitespace-nowrap px-2 py-1 rounded-lg text-[8px] font-bold pointer-events-none"
+                          style={{
+                            background: `${a.color}18`,
+                            border: `1px solid ${a.color}30`,
+                            color: a.color,
+                            boxShadow: `0 4px 12px rgba(0,0,0,0.3)`,
+                            animation: `agent-bob 4s ease-in-out ${bobDelay}s infinite`,
+                            opacity: isHov ? 1 : 0.7,
+                            transition: "opacity 0.3s",
+                          }}>
+                          {actionTexts[a.name] || "Working..."}
+                          <div className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-2 h-2 rotate-45"
+                            style={{ background: `${a.color}18`, borderRight: `1px solid ${a.color}30`, borderBottom: `1px solid ${a.color}30` }} />
                         </div>
                       )}
 
-                      {/* Working indicator */}
-                      {a.activeTask && (
-                        <div className="flex justify-center items-center gap-1 mt-2">
-                          <span className="flex gap-0.5">
+                      {/* Name + role label */}
+                      <div className="mt-2 text-center max-w-[80px]">
+                        <div className="text-[10px] font-bold leading-tight truncate transition-colors"
+                          style={{ color: isHov ? a.color : "rgba(255,255,255,0.85)" }}>
+                          {a.name}
+                        </div>
+                        <div className="text-[7px] font-mono truncate" style={{ color: `${a.color}50` }}>
+                          {a.role}
+                        </div>
+                        {/* Working animation dots */}
+                        {a.status === "active" && (
+                          <div className="flex justify-center gap-0.5 mt-0.5">
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0s infinite" }} />
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.2s infinite" }} />
                             <span className="w-1 h-1 rounded-full" style={{ background: a.color, animation: "agent-typing 1.2s 0.4s infinite" }} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Hover tooltip with full details */}
+                      <div className={`absolute top-full mt-2 left-1/2 -translate-x-1/2 w-52 p-3 rounded-xl transition-all duration-200 pointer-events-none ${isHov ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}
+                        style={{
+                          background: "rgba(3,1,8,0.96)",
+                          border: `1px solid ${a.color}30`,
+                          boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 24px ${a.color}10`,
+                          backdropFilter: "blur(16px)",
+                          zIndex: 60,
+                        }}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: a.color, background: `${a.color}10`, border: `1px solid ${a.color}18` }}>{a.model}</span>
+                          <span className="text-[9px] font-mono" style={{ color: a.status === "active" ? "#00ff88" : a.status === "done" ? a.color : "rgba(255,255,255,0.3)" }}>
+                            {a.status === "active" ? "● ACTIVE" : a.status === "done" ? "✓ DONE" : "○ IDLE"}
                           </span>
                         </div>
-                      )}
-                    </div>
-
-                    {/* Expanded project details */}
-                    {isExp && projects.length > 0 && (
-                      <div className="px-4 pb-4 pt-1 space-y-1.5 border-t" style={{ borderColor: `${a.color}10`, animation: "expand-in 0.2s ease-out" }}>
-                        <div className="text-[8px] font-mono uppercase tracking-wider mb-1" style={{ color: `${a.color}40` }}>PROJECTS</div>
-                        {projects.map(p => (
-                          <div key={p.project} className="flex items-center gap-2 py-1">
-                            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${p.status === "active" ? "animate-pulse" : ""}`} style={{ background: p.status === "active" ? "#00ff88" : p.status === "done" ? a.color : "rgba(255,255,255,0.12)" }} />
-                            <span className="text-[9px] font-medium flex-1 truncate" style={{ color: `${a.color}70` }}>{p.project}</span>
-                            <span className="text-[7px] font-mono" style={{ color: p.status === "active" ? "#00ff88aa" : "rgba(255,255,255,0.2)" }}>{p.status.toUpperCase()}</span>
-                          </div>
-                        ))}
+                        <div className="text-[10px] text-white/40 font-mono leading-relaxed mb-2">{a.desc}</div>
+                        {a.activeTask && (
+                          <div className="text-[9px] font-mono truncate" style={{ color: `${a.color}60` }}>→ {a.activeTask}</div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}
-            </div>
-
-            {/* Network visualization canvas — behind both sections */}
-            <div className="relative h-2 mt-2">
-              <canvas ref={agentNetRef} className="absolute inset-0 w-full h-[200px] -top-[200px] pointer-events-none z-0 opacity-30" />
             </div>
           </div>
 
@@ -2046,93 +2230,34 @@ export default function CommandCenter() {
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Agent Card — animated, with credits + working state ── */
-/* ── SVG Avatar Icons per agent ── */
-const AGENT_AVATARS: Record<string, React.ReactNode> = {
-  Atlas: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-atlas" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#00f0ff"/><stop offset="100%" stopColor="#0088aa"/></linearGradient></defs>
-      <circle cx="32" cy="32" r="28" fill="none" stroke="url(#av-atlas)" strokeWidth="1.5" opacity="0.5"/>
-      <circle cx="32" cy="32" r="20" fill="none" stroke="url(#av-atlas)" strokeWidth="1" opacity="0.3"/>
-      <path d="M32 8 L36 20 H28 Z" fill="#00f0ff" opacity="0.8"/>{/* compass needle */}
-      <path d="M32 56 L28 44 H36 Z" fill="#00f0ff" opacity="0.4"/>
-      <circle cx="32" cy="32" r="4" fill="#00f0ff"/>
-      <line x1="8" y1="32" x2="56" y2="32" stroke="#00f0ff" strokeWidth="0.5" opacity="0.25"/>
-      <line x1="32" y1="8" x2="32" y2="56" stroke="#00f0ff" strokeWidth="0.5" opacity="0.25"/>
-    </svg>
-  ),
-  TheMAESTRO: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-maestro" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f59e0b"/><stop offset="100%" stopColor="#d97706"/></linearGradient></defs>
-      <path d="M20 48 Q20 20 32 12 Q44 20 44 48" fill="none" stroke="url(#av-maestro)" strokeWidth="2" opacity="0.7"/>
-      <circle cx="20" cy="48" r="5" fill="#f59e0b" opacity="0.8"/>
-      <circle cx="44" cy="48" r="5" fill="#f59e0b" opacity="0.8"/>
-      <path d="M28 28 L36 24 L36 36 L28 40 Z" fill="#f59e0b" opacity="0.4"/>
-      <line x1="32" y1="12" x2="32" y2="8" stroke="#f59e0b" strokeWidth="1.5" opacity="0.6"/>
-      <circle cx="32" cy="7" r="2" fill="#f59e0b" opacity="0.5"/>
-    </svg>
-  ),
-  SIMONS: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-simons" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stopColor="#22d3ee"/><stop offset="100%" stopColor="#06b6d4"/></linearGradient></defs>
-      <polyline points="8,48 16,36 24,42 32,24 40,30 48,16 56,20" fill="none" stroke="url(#av-simons)" strokeWidth="2" strokeLinecap="round"/>
-      <polyline points="8,48 16,36 24,42 32,24 40,30 48,16 56,20 56,52 8,52 8,48" fill="#22d3ee" opacity="0.08"/>
-      {[16,24,32,40,48].map(x => <circle key={x} cx={x} cy={x===16?36:x===24?42:x===32?24:x===40?30:16} r="2.5" fill="#22d3ee" opacity="0.9"/>)}
-      <line x1="8" y1="52" x2="56" y2="52" stroke="#22d3ee" strokeWidth="0.5" opacity="0.3"/>
-    </svg>
-  ),
-  "Dr. Strange": (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-strange" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#a855f7"/><stop offset="100%" stopColor="#7c3aed"/></linearGradient></defs>
-      <circle cx="32" cy="32" r="22" fill="none" stroke="url(#av-strange)" strokeWidth="1.5" opacity="0.5"/>
-      <circle cx="32" cy="32" r="15" fill="none" stroke="#a855f7" strokeWidth="0.8" opacity="0.3" strokeDasharray="4 3"/>
-      <path d="M32 10 L35 28 L32 32 L29 28 Z" fill="#a855f7" opacity="0.6"/>
-      <circle cx="32" cy="32" r="6" fill="none" stroke="#a855f7" strokeWidth="1.5" opacity="0.7"/>
-      <circle cx="32" cy="32" r="2" fill="#a855f7"/>
-      <path d="M22 22 L42 42 M42 22 L22 42" stroke="#a855f7" strokeWidth="0.5" opacity="0.2"/>
-    </svg>
-  ),
-  SHURI: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-shuri" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#34d399"/><stop offset="100%" stopColor="#059669"/></linearGradient></defs>
-      <polygon points="32,8 56,24 56,44 32,56 8,44 8,24" fill="none" stroke="url(#av-shuri)" strokeWidth="1.5" opacity="0.5"/>
-      <polygon points="32,16 48,28 48,40 32,48 16,40 16,28" fill="#34d399" opacity="0.06"/>
-      <path d="M24 32 L30 26 L34 30 L40 24" stroke="#34d399" strokeWidth="2" strokeLinecap="round" fill="none"/>
-      <circle cx="40" cy="24" r="3" fill="#34d399" opacity="0.8"/>
-      <path d="M20 40 L32 44 L44 40" stroke="#34d399" strokeWidth="0.8" opacity="0.3" fill="none"/>
-    </svg>
-  ),
-  Widow: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-widow" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ef4444"/><stop offset="100%" stopColor="#b91c1c"/></linearGradient></defs>
-      <circle cx="32" cy="32" r="10" fill="none" stroke="url(#av-widow)" strokeWidth="2" opacity="0.7"/>
-      {[0,60,120,180,240,300].map(deg => <line key={deg} x1="32" y1="32" x2={32+Math.cos(deg*Math.PI/180)*24} y2={32+Math.sin(deg*Math.PI/180)*24} stroke="#ef4444" strokeWidth="1" opacity="0.3"/>)}
-      <circle cx="32" cy="32" r="3" fill="#ef4444" opacity="0.9"/>
-      <circle cx="32" cy="32" r="20" fill="none" stroke="#ef4444" strokeWidth="0.5" opacity="0.15" strokeDasharray="2 4"/>
-    </svg>
-  ),
-  PROXIMON: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-prox" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#f97316"/><stop offset="100%" stopColor="#ea580c"/></linearGradient></defs>
-      <rect x="18" y="18" width="28" height="28" fill="none" stroke="url(#av-prox)" strokeWidth="1.5" opacity="0.5" rx="2"/>
-      <rect x="24" y="24" width="16" height="16" fill="none" stroke="#f97316" strokeWidth="1" opacity="0.4" rx="1"/>
-      <rect x="29" y="29" width="6" height="6" fill="#f97316" opacity="0.7" rx="1"/>
-      <line x1="18" y1="18" x2="8" y2="8" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
-      <line x1="46" y1="18" x2="56" y2="8" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
-      <line x1="18" y1="46" x2="8" y2="56" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
-      <line x1="46" y1="46" x2="56" y2="56" stroke="#f97316" strokeWidth="0.8" opacity="0.25"/>
-    </svg>
-  ),
-  Vee: (
-    <svg viewBox="0 0 64 64" className="w-full h-full">
-      <defs><linearGradient id="av-vee" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#ec4899"/><stop offset="100%" stopColor="#be185d"/></linearGradient></defs>
-      <path d="M16 16 L32 48 L48 16" fill="none" stroke="url(#av-vee)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8"/>
-      <circle cx="16" cy="16" r="4" fill="#ec4899" opacity="0.5"/>
-      <circle cx="48" cy="16" r="4" fill="#ec4899" opacity="0.5"/>
-      <circle cx="32" cy="48" r="4" fill="#ec4899" opacity="0.7"/>
-      <path d="M24 12 L24 8 M40 12 L40 8 M32 52 L32 56" stroke="#ec4899" strokeWidth="1" opacity="0.3"/>
-    </svg>
-  ),
+/* ── GA Character Avatars per agent ── */
+const AGENT_IMG: Record<string, string> = {
+  Atlas: "/agents/atlas.png",
+  TheMAESTRO: "/agents/themaestro.png",
+  SIMONS: "/agents/simons.png",
+  "Dr. Strange": "/agents/drstrange.png",
+  SHURI: "/agents/shuri.png",
+  Widow: "/agents/widow.png",
+  PROXIMON: "/agents/proximon.png",
+  Vee: "/agents/vee.png",
+  Aetherion: "/agents/aetherion.png",
+  MICHAEL: "/agents/michael.png",
+  Prophets: "/agents/prophets.png",
+  SELAH: "/agents/selah.png",
+  MERCURY: "/agents/mercury.png",
+  ECHO: "/agents/echo.png",
+  HAVEN: "/agents/haven.png",
+  INK: "/agents/ink.png",
+  NOVA: "/agents/nova.png",
+  KIYOSAKI: "/agents/kiyosaki.png",
+  TRIAGE: "/agents/triage.png",
 };
+const AGENT_AVATARS: Record<string, React.ReactNode> = Object.fromEntries(
+  Object.entries(AGENT_IMG).map(([name, src]) => [
+    name,
+    <img key={name} src={src} alt={name} className="w-full h-full object-cover rounded-full" style={{ imageRendering: "auto" }} />,
+  ])
+);
 
 function AgentCard({
   agent,
