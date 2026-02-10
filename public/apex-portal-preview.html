@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apex Athlete Portal Preview</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #06020f;
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .title {
+            font-size: 3rem;
+            font-weight: 900;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-size: 200% 200%;
+            animation: gradient 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 30px rgba(0,240,255,0.3));
+        }
+        
+        @keyframes gradient {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        
+        .subtitle {
+            color: #00f0ff;
+            opacity: 0.5;
+            font-size: 0.875rem;
+            letter-spacing: 0.5em;
+            text-transform: uppercase;
+            margin-bottom: 2rem;
+        }
+        
+        .portal-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .portal-card {
+            background: rgba(6, 2, 15, 0.7);
+            border: 1px solid rgba(0, 240, 255, 0.15);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+        
+        .portal-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 60px rgba(0, 240, 255, 0.1), inset 0 0 30px rgba(0, 240, 255, 0.03);
+        }
+        
+        .portal-card.coach {
+            border-color: rgba(0, 240, 255, 0.3);
+        }
+        
+        .portal-card.athlete {
+            border-color: rgba(168, 85, 247, 0.3);
+        }
+        
+        .portal-card.parent {
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+        
+        .portal-icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .portal-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .portal-description {
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        
+        .portal-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+        
+        .coach .portal-badge {
+            background: rgba(0, 240, 255, 0.1);
+            color: rgba(0, 240, 255, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+        }
+        
+        .athlete .portal-badge {
+            background: rgba(168, 85, 247, 0.1);
+            color: rgba(168, 85, 247, 0.8);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+        }
+        
+        .parent .portal-badge {
+            background: rgba(245, 158, 11, 0.1);
+            color: rgba(245, 158, 11, 0.8);
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+        
+        .features-list {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .feature-item::before {
+            content: "✓";
+            color: #00f0ff;
+            margin-right: 0.5rem;
+            font-weight: bold;
+        }
+        
+        .status {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: rgba(0, 240, 255, 0.05);
+            border-radius: 0.75rem;
+            border: 1px solid rgba(0, 240, 255, 0.1);
+        }
+        
+        .status-title {
+            color: #00f0ff;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .status-description {
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            color: rgba(255, 255, 255, 0.2);
+            font-size: 0.75rem;
+        }
+        
+        .build-tag {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(0, 240, 255, 0.1);
+            color: #00f0ff;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">APEX ATHLETE</h1>
+            <div class="subtitle">THREE-PORTAL ARCHITECTURE</div>
+            <p style="color: rgba(255,255,255,0.5); max-width: 600px; margin: 0 auto 2rem;">Cyberpunk game UI · React + Next.js · Three distinct portals for Coach, Athlete, and Parent experiences</p>
+        </div>
+        
+        <div class="portal-grid">
+            <!-- Coach Portal -->
+            <div class="portal-card coach">
+                <div class="portal-badge">PIN Required</div>
+                <div class="portal-icon">🏋️</div>
+                <h2 class="portal-title">Coach Portal</h2>
+                <p class="portal-description">
+                    Full access — check-ins, roster management, analytics, schedule builder, XP awarding
+                </p>
+                <div class="features-list">
+                    <div class="feature-item">Real-time XP tracking</div>
+                    <div class="feature-item">Bulk check-in tools</div>
+                    <div class="feature-item">Advanced analytics</div>
+                    <div class="feature-item">Schedule builder</div>
+                    <div class="feature-item">Team culture dashboard</div>
+                </div>
+            </div>
+            
+            <!-- Athlete Portal -->
+            <div class="portal-card athlete">
+                <div class="portal-badge">Personal Dashboard</div>
+                <div class="portal-icon">🏊</div>
+                <h2 class="portal-title">Athlete Portal</h2>
+                <p class="portal-description">
+                    Your personal XP dashboard, attribute radar chart, training journal, and quest submissions
+                </p>
+                <div class="features-list">
+                    <div class="feature-item">XP & level progression</div>
+                    <div class="feature-item">Attribute radar chart</div>
+                    <div class="feature-item">Training journal</div>
+                    <div class="feature-item">Quest submission system</div>
+                    <div class="feature-item">Race Strategy AI integration</div>
+                </div>
+            </div>
+            
+            <!-- Parent Portal -->
+            <div class="portal-card parent">
+                <div class="portal-badge">Read Only · COPPA Safe</div>
+                <div class="portal-icon">👨‍👩‍👧</div>
+                <h2 class="portal-title">Parent Portal</h2>
+                <p class="portal-description">
+                    Watch your swimmer grow — trends, milestones, achievements without raw daily data
+                </p>
+                <div class="features-list">
+                    <div class="feature-item">Growth trend visualizations</div>
+                    <div class="feature-item">Milestone tracking</div>
+                    <div class="feature-item">Achievement display</div>
+                    <div class="feature-item">Team culture overview</div>
+                    <div class="feature-item">COPPA compliant</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status">
+            <div class="status-title">Build Status</div>
+            <div class="status-description">
+                ✅ Portal architecture complete<br>
+                ✅ Shared components extracted<br>
+                ✅ Cyberpunk UI preserved<br>
+                🔄 Race Strategy AI integration pending<br>
+                🔄 Firebase backend integration<br>
+                ⏳ Live preview deployment
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Apex Athlete — Saint Andrew's Aquatics</p>
+            <p>Three-portal system · COPPA compliant · Gamified swim training</p>
+            <div class="build-tag">Built by SHURI · React + Next.js · Cyberpunk UI</div>
+        </div>
+    </div>
+    
+    <script>
+        // Add some interactive glow effects
+        document.querySelectorAll('.portal-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                const color = this.classList.contains('coach') ? '#00f0ff' : 
+                             this.classList.contains('athlete') ? '#a855f7' : '#f59e0b';
+                this.style.boxShadow = `0 0 40px ${color}20, inset 0 0 20px ${color}10`;
+            });
+            
+            card.addEventListener('mouseleave', function() {
+                this.style.boxShadow = '';
+            });
+        });
+    </script>
+</body>
+</html>

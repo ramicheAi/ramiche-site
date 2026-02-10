@@ -34,9 +34,9 @@ export default function Home() {
 
   useEffect(() => { setMounted(true); fetchStatus(); }, [fetchStatus]);
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 10 seconds for near real-time updates
   useEffect(() => {
-    const id = setInterval(fetchStatus, 30000);
+    const id = setInterval(fetchStatus, 10000);
     return () => clearInterval(id);
   }, [fetchStatus]);
 
@@ -205,7 +205,7 @@ export default function Home() {
           <div className="flex items-center gap-3 mb-6">
             <div className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">System Telemetry</h2>
-            <span className="text-[10px] text-[#00ff88]/50 ml-auto tracking-wider">LIVE — 30s refresh</span>
+            <span className="text-[10px] text-[#00ff88]/50 ml-auto tracking-wider">LIVE — 10s refresh</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {stats.map((stat) => {
@@ -415,7 +415,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-white/5 text-center">
-            <p className="text-[10px] text-white/15 tracking-widest uppercase">&copy; 2026 Ramiche Operations &middot; Auto-refreshes every 30s</p>
+            <p className="text-[10px] text-white/15 tracking-widest uppercase">&copy; 2026 Ramiche Operations &middot; Auto-refreshes every 10s</p>
           </div>
         </div>
       </footer>

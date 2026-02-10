@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // --- HELPER FUNCTIONS ---
+
+    // Check if the user is a coach for this specific team
+    function isCoach(teamId) {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/teams/$(teamId)/roles/$(request.auth.uid)).data.role == 'coach';
+    }
+
+    // Check if the user is authenticated and is the "owner" of the document
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    // Check if the user is a member of the team (either coach or athlete)
+    function isTeamMember(teamId) {
+      return request.auth != null && 
+             (exists(/databases/$(database)/documents/teams/$(teamId)/athletes/$(request.auth.uid)) ||
+              isCoach(teamId));
+    }
+
+    // --- TEAMS (ROOT ISOLATION) ---
+
+    match /teams/{teamId} {
+      // Only system admins or team owners can read/write the team root config
+      allow read: if isTeamMember(teamId);
+      allow write: if false; // Configured via Admin SDK only
+
+      // --- ATHLETES ---
+      // Public profile data within the team context
+      match /athletes/{athleteId} {
+        allow read: if isTeamMember(teamId);
+        
+        // Coaches can edit any athlete profile
+        // Athletes can ONLY update their 'loadout' (skin/avatar preferences)
+        allow update: if isCoach(teamId) || 
+                      (isOwner(athleteId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['loadout', 'settings']));
+        
+        allow create, delete: if isCoach(teamId);
+      }
+
+      // --- GROUPS ---
+      match /groups/{groupId} {
+        allow read: if isTeamMember(teamId);
+        allow write: if isCoach(teamId);
+      }
+
+      // --- WORKOUTS ---
+      match /workouts/{workoutId} {
+        allow read: if isTeamMember(teamId);
+        allow write: if isCoach(teamId);
+      }
+
+      // --- ATTENDANCE ---
+      match /attendance/{docId} {
+        allow read: if isCoach(teamId);
+        // Athletes can only read their own attendance (requires complex query or denormalization - strict for now)
+        allow write: if isCoach(teamId);
+      }
+
+      // --- ACTIVITY LOG (GAMIFICATION) ---
+      // The single source of truth for XP/Coins
+      match /activity_log/{logId} {
+        allow read: if isCoach(teamId) || (isOwner(resource.data.athleteId));
+        
+        // Clients can create logs (e.g., "I finished a workout"), but a Cloud Function must validate/aggregate them
+        // Critical: The 'verified' flag must be false on creation.
+        allow create: if isTeamMember(teamId) 
+                      && request.resource.data.verified == false
+                      && request.resource.data.athleteId == request.auth.uid;
+                      
+        allow update, delete: if false; // Immutable log
+      }
+      
+      // --- LEADERBOARDS ---
+      // Computed aggregates
+      match /leaderboards/{boardId} {
+        allow read: if isTeamMember(teamId);
+        allow write: if false; // Written by Cloud Functions only
+      }
+    }
+    
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

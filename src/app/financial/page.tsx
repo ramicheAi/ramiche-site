@@ -71,22 +71,22 @@ const BRANDS = [
 /* ── KEY METRICS ───────────────────────────────────────────────────────────── */
 const METRICS = [
   { label: "Active Agents", value: "19", sub: "Full squad operational", color: "#00f0ff" },
-  { label: "Athletes (Beta)", value: "240+", sub: "Saint Andrew's Aquatics", color: "#f59e0b" },
+  { label: "Athletes (Beta)", value: "240+", sub: "Saint Andrew's Aquatics — 7 groups", color: "#f59e0b" },
   { label: "GA Products", value: "23", sub: "13 cases + 5 posters + 5 tees", color: "#00f0ff" },
-  { label: "Apex ARR Target", value: "$5.88M", sub: "Y1 base case projection", color: "#a855f7" },
+  { label: "Apex ARR Target", value: "$5.88M", sub: "Y1 base · LTV:CAC 39:1", color: "#a855f7" },
 ];
 
 /* ── INVESTMENT READINESS ──────────────────────────────────────────────────── */
 const READINESS = [
   { item: "Live beta with real users (240+ athletes)", done: true },
   { item: "Successful live test (Feb 7)", done: true },
-  { item: "Financial model with 3 scenarios", done: true },
-  { item: "19-agent AI operations team", done: true },
+  { item: "Financial model with 3 scenarios + unit economics", done: true },
+  { item: "19-agent AI operations team (model tiers locked)", done: true },
   { item: "Multi-brand portfolio (4 active brands)", done: true },
-  { item: "Firebase backend (v2)", done: false },
+  { item: "Shopify store created (GALAKTIK ANTICS)", done: true },
+  { item: "Firebase backend (v2) — spec ready, deploy pending", done: false },
   { item: "App Store deployment (v3)", done: false },
   { item: "Revenue / paying customers", done: false },
-  { item: "Pitch deck finalized", done: false },
 ];
 
 export default function FinancialDashboard() {

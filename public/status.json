@@ -1,0 +1,65 @@
+{
+  "lastUpdated": "2026-02-10T18:57:00Z",
+  "stats": {
+    "activeProjects": 8,
+    "tasksShipped": 72,
+    "agentsOnline": 19,
+    "athletesBeta": "240+"
+  },
+  "agents": [
+    { "name": "Atlas", "model": "Opus 4.6", "role": "Lead Strategist", "status": "active", "task": "Full dashboard update + real-time deploy", "color": "#00f0ff" },
+    { "name": "SHURI", "model": "DeepSeek V3.2", "role": "Creative Coding", "status": "active", "task": "Three-portal UI build (Coach/Athlete/Parent) — modular extraction in progress", "color": "#34d399" },
+    { "name": "PROXIMON", "model": "Gemini 3.0 Pro", "role": "Systems Architect", "status": "active", "task": "Firebase v2 architecture + GA pricing matrix — specs delivered", "color": "#f97316" },
+    { "name": "MICHAEL", "model": "GLM 4.6", "role": "Swim Training AI", "status": "done", "task": "Practice schedule builder spec — 7 group templates DELIVERED", "color": "#06b6d4" },
+    { "name": "KIYOSAKI", "model": "DeepSeek V3.2", "role": "Financial Intelligence", "status": "done", "task": "Apex financial model delivered — $2.94M–$14.7M ARR, LTV:CAC 39:1", "color": "#fcd34d" },
+    { "name": "INK", "model": "DeepSeek V3.2", "role": "Content Creator", "status": "done", "task": "5-piece Apex launch content package DELIVERED", "color": "#c084fc" },
+    { "name": "Vee", "model": "Kimi K2.5", "role": "Brand & Marketing", "status": "done", "task": "GA pre-launch content + Shopify copy + Studio outreach — all DELIVERED", "color": "#ec4899" },
+    { "name": "ECHO", "model": "Kimi K2.5", "role": "Community & Social", "status": "done", "task": "Discord server architecture + community strategy DELIVERED", "color": "#38bdf8" },
+    { "name": "Aetherion", "model": "Gemini 3.0 Pro", "role": "Visionary Architect", "status": "done", "task": "5 blueprints + Phase 1 matrix + SHARED_CONTEXT — advisory mode", "color": "#818cf8" },
+    { "name": "SELAH", "model": "DeepSeek V3.2", "role": "Wellness & Sport Psychology", "status": "done", "task": "Meditation library + journaling system + athlete check-in (22 XP ops)", "color": "#10b981" },
+    { "name": "Widow", "model": "Haiku 3.5", "role": "Cybersecurity & Intel", "status": "idle", "task": "Queued: API audit (G1) + COPPA compliance check (G2)", "color": "#ef4444" },
+    { "name": "TheMAESTRO", "model": "DeepSeek V3.2", "role": "Music Production", "status": "blocked", "task": "BLOCKED: Needs release timeline from Ramon for music pipeline", "color": "#f59e0b" },
+    { "name": "SIMONS", "model": "DeepSeek V3.2", "role": "Algorithmic Analysis", "status": "idle", "task": "Queued: SEO/competitor analysis + pricing validation (E1)", "color": "#22d3ee" },
+    { "name": "Dr. Strange", "model": "DeepSeek V3.2", "role": "Forecasting & Decisions", "status": "idle", "task": "Queued: Kickstarter landscape analysis (E3)", "color": "#a855f7" },
+    { "name": "MERCURY", "model": "Gemini 3.0 Pro", "role": "Sales & Revenue Ops", "status": "idle", "task": "Queued: Studio pricing calculator + 5 outreach targets", "color": "#fbbf24" },
+    { "name": "HAVEN", "model": "DeepSeek V3.2", "role": "Customer Success", "status": "idle", "task": "Queued: Apex onboarding flows + coach welcome emails", "color": "#4ade80" },
+    { "name": "NOVA", "model": "DeepSeek V3.2", "role": "3D Fabrication", "status": "idle", "task": "Research: Bambu Lab A1 inventory + AI product rendering pipeline", "color": "#14b8a6" },
+    { "name": "Prophets", "model": "Kimi K2.5", "role": "Spiritual Wisdom", "status": "idle", "task": "Available: Daily Scripture cron + morale check-ins", "color": "#d4a574" },
+    { "name": "TRIAGE", "model": "Sonnet 4.5", "role": "System Doctor", "status": "standby", "task": "On-demand: diagnostics, debugging, health checks (SWE-bench 77.2%)", "color": "#f472b6" }
+  ],
+  "projects": [
+    { "name": "Apex Athlete", "status": "active", "priority": "CRITICAL", "progress": 68, "accent": "#f59e0b", "blockers": ["Three-portal UI refactor (SHURI — in progress)", "Firebase v2 deploy (PROXIMON spec ready)"] },
+    { "name": "Galactik Antics", "status": "active", "priority": "HIGH", "progress": 48, "accent": "#00f0ff", "blockers": ["Shopify API token needed (store created)", "Weavy product renders pending"] },
+    { "name": "Ramiche Studio", "status": "active", "priority": "HIGH", "progress": 35, "accent": "#a855f7", "blockers": ["Portfolio + case studies needed", "Stripe integration"] },
+    { "name": "SCOWW", "status": "active", "priority": "HIGH", "progress": 55, "accent": "#22d3ee", "blockers": ["Event logistics finalization", "Registration page"] },
+    { "name": "The Baba Studio", "status": "blocked", "priority": "MED", "progress": 15, "accent": "#e879f9", "blockers": ["Needs release timeline from Ramon"] },
+    { "name": "Parallax", "status": "active", "priority": "MED", "progress": 12, "accent": "#e879f9", "blockers": ["Artist roster page", "Distribution pipeline"] },
+    { "name": "Replit Projects", "status": "active", "priority": "MED", "progress": 5, "accent": "#22d3ee", "blockers": ["Social Cross-Poster analysis", "Sports Betting Engine review"] },
+    { "name": "Yummyz", "status": "early", "priority": "LOW", "progress": 5, "accent": "#4ade80", "blockers": ["Bambu Lab A1 shopping list (NOVA researching)"] }
+  ],
+  "recentActivity": [
+    { "time": "1:57 PM", "text": "Atlas: Full dashboard refresh — all pages updated + real-time deploy", "color": "#00f0ff" },
+    { "time": "1:04 PM", "text": "Ramon: 'Let's make it happen' — full build push authorized", "color": "#a855f7" },
+    { "time": "12:01 PM", "text": "Shopify store GALAKTIK ANTICS created — API setup pending", "color": "#96bf48" },
+    { "time": "11:30 AM", "text": "Atlas: Full HQ status report delivered to Ramon", "color": "#00f0ff" },
+    { "time": "Feb 10 AM", "text": "KIYOSAKI: Financial model delivered — $2.94M–$14.7M ARR projections", "color": "#fcd34d" },
+    { "time": "Feb 10 AM", "text": "INK: 5-piece launch content package completed", "color": "#c084fc" },
+    { "time": "Feb 10", "text": "SHURI: Portal extraction started — modular architecture build", "color": "#34d399" },
+    { "time": "Feb 10", "text": "PROXIMON: Firebase v2 spec + deploy guide + GA pricing delivered", "color": "#f97316" },
+    { "time": "Feb 9", "text": "Model tiers LOCKED — Ramon's hard rule applied to all 19 agents", "color": "#00f0ff" },
+    { "time": "Feb 8", "text": "Apex Athlete v1 first live test — ALL checkpoints working", "color": "#f59e0b" }
+  ],
+  "blockers": [
+    { "title": "Shopify API Token", "desc": "Store created — need API credentials to load 23 products", "severity": "high" },
+    { "title": "GA Art for Weavy", "desc": "Which Batch A designs render first? Phone cases queued", "severity": "medium" },
+    { "title": "Baba Studio Timeline", "desc": "TheMAESTRO needs release dates to build music pipeline", "severity": "medium" }
+  ],
+  "financial": {
+    "apexARR": "$5.88M",
+    "apexTarget": "Y1 Base",
+    "gaProducts": 23,
+    "studioRevenue": "$300-500 per sprint",
+    "investmentReadiness": "5/9",
+    "unitEconomics": { "cac": "$15", "ltv": "$588", "ltvCacRatio": "39:1" }
+  }
+}
