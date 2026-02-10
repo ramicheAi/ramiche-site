@@ -597,7 +597,20 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy">("coach");
+
+  // ── Race Strategy state ───────────────────────────────────
+  const [stratAthleteId, setStratAthleteId] = useState<string>("");
+  const [stratEvent, setStratEvent] = useState("100");
+  const [stratStroke, setStratStroke] = useState("Freestyle");
+  const [stratCurrentTime, setStratCurrentTime] = useState("");
+  const [stratGoalTime, setStratGoalTime] = useState("");
+  const [stratPlan, setStratPlan] = useState<null | {
+    splits: { segment: string; time: string; pace: string; focus: string }[];
+    tips: string[];
+    xpReward: number;
+    improvement: string;
+  }>(null);
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -1241,8 +1254,8 @@ export default function ApexAthletePage() {
             </div>
             {/* Game HUD nav tabs */}
             <div className="flex flex-wrap">
-              {(["coach", "parent", "audit", "analytics", "schedule"] as const).map((v, i) => {
-                const icons: Record<string, string> = { coach: "\u25C6", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5" };
+              {(["coach", "parent", "audit", "analytics", "schedule", "strategy"] as const).map((v, i) => {
+                const icons: Record<string, string> = { coach: "\u25C6", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5", strategy: "\uD83C\uDFAF" };
                 const active = view === v;
                 return (
                   <button key={v} onClick={() => setView(v)}
@@ -1601,6 +1614,210 @@ export default function ApexAthletePage() {
       </div>
     );
   };
+
+  // ── RACE STRATEGY VIEW ─────────────────────────────────
+  if (view === "strategy") {
+    const EVENTS = ["50", "100", "200", "400", "500", "800", "1000", "1500", "1650"];
+    const STROKES = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"];
+
+    const parseTime = (t: string): number | null => {
+      const parts = t.replace(/[^0-9:.]/g, "").split(/[:.]/).map(Number);
+      if (parts.length === 2) return parts[0] * 60 + parts[1]; // M:SS
+      if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 100; // M:SS.hh
+      if (parts.length === 1 && parts[0] > 0) return parts[0]; // just seconds
+      return null;
+    };
+
+    const fmtTime = (secs: number): string => {
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return m > 0 ? `${m}:${s.toFixed(2).padStart(5, "0")}` : `${s.toFixed(2)}`;
+    };
+
+    const generateStrategy = () => {
+      const current = parseTime(stratCurrentTime);
+      const goal = parseTime(stratGoalTime);
+      if (!current || !goal || goal >= current) {
+        setStratPlan(null);
+        return;
+      }
+
+      const dist = parseInt(stratEvent);
+      const splitCount = dist <= 100 ? 2 : dist <= 200 ? 4 : dist <= 400 ? 4 : Math.min(8, Math.ceil(dist / 100));
+      const segLen = dist / splitCount;
+      const improvement = ((current - goal) / current * 100).toFixed(1);
+      const timeDrop = current - goal;
+      const splits: { segment: string; time: string; pace: string; focus: string }[] = [];
+
+      const pacePatterns: Record<string, number[]> = {
+        "50": [0.48, 0.52],
+        "100": [0.48, 0.52],
+        "200": [0.24, 0.25, 0.25, 0.26],
+        "400": [0.24, 0.25, 0.26, 0.25],
+        "500": [0.19, 0.20, 0.21, 0.20, 0.20],
+      };
+      const pattern = pacePatterns[stratEvent] || Array(splitCount).fill(1 / splitCount);
+
+      const focuses = [
+        "Explosive start — fast off the block, tight streamline",
+        "Build speed — long strokes, high elbow catch",
+        "Hold pace — breathing pattern locked, core engaged",
+        "Maintain rhythm — efficient turns, minimize drag",
+        "Negative split — push through, strong kick",
+        "Final push — all-out effort, head down, race the wall",
+        "Strong finish — accelerate into the wall, no glide",
+        "Close it out — empty the tank, touch strong",
+      ];
+
+      for (let i = 0; i < splitCount; i++) {
+        const splitTime = goal * pattern[i % pattern.length];
+        splits.push({
+          segment: `${Math.round(segLen * i)}m – ${Math.round(segLen * (i + 1))}m`,
+          time: fmtTime(splitTime),
+          pace: `${(splitTime / segLen * 100).toFixed(1)}s/100m`,
+          focus: focuses[i % focuses.length],
+        });
+      }
+
+      const tips = [
+        `Drop ${timeDrop.toFixed(2)}s from your ${stratEvent}m ${stratStroke} — that's ${improvement}% faster`,
+        dist >= 200 ? "Negative split strategy: go out controlled, finish strong" : "Fast start, maintain through the back half",
+        stratStroke === "Freestyle" ? "Focus on stroke rate consistency — count strokes per length" :
+          stratStroke === "Butterfly" ? "Two strong kicks per stroke — especially off the walls" :
+          stratStroke === "Backstroke" ? "Tight backstroke flags count — nail the turns" :
+          stratStroke === "Breaststroke" ? "Maximize underwater pullout distance off each wall" :
+          "Transition speed between strokes — especially fly-to-back",
+        "Underwater breakouts are free speed — hold streamline past the flags",
+        "Visualize the race: see yourself hitting each split, finishing strong",
+      ];
+
+      setStratPlan({ splits, tips, xpReward: 150, improvement });
+    };
+
+    const stratAthlete = roster.find(a => a.id === stratAthleteId);
+
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs /><XpFloats /><LevelUpOverlay />
+        <div className="w-full relative z-10 px-5 sm:px-8">
+          <GameHUDHeader />
+
+          <Card className="p-6 mb-6" glow>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="text-2xl">🎯</span>
+              <div>
+                <h2 className="text-xl font-black tracking-tight neon-text-cyan">Race Strategy AI</h2>
+                <p className="text-white/25 text-xs">Personal goal-focused race planning</p>
+              </div>
+              <span className="ml-auto text-[#f59e0b] text-sm font-bold">+150 XP</span>
+            </div>
+
+            {/* Athlete selector */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="text-white/30 text-[10px] uppercase tracking-wider font-bold block mb-2">Athlete</label>
+                <select value={stratAthleteId} onChange={e => setStratAthleteId(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px]">
+                  <option value="">Select athlete...</option>
+                  {filteredRoster.map(a => <option key={a.id} value={a.id}>{a.name} — {getLevel(a.xp).name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-white/30 text-[10px] uppercase tracking-wider font-bold block mb-2">Stroke</label>
+                <select value={stratStroke} onChange={e => setStratStroke(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px]">
+                  {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              <div>
+                <label className="text-white/30 text-[10px] uppercase tracking-wider font-bold block mb-2">Event (meters)</label>
+                <select value={stratEvent} onChange={e => setStratEvent(e.target.value)}
+                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px]">
+                  {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-white/30 text-[10px] uppercase tracking-wider font-bold block mb-2">Current Best (M:SS.hh)</label>
+                <input type="text" value={stratCurrentTime} onChange={e => setStratCurrentTime(e.target.value)}
+                  placeholder="1:05.30" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/15" />
+              </div>
+              <div>
+                <label className="text-white/30 text-[10px] uppercase tracking-wider font-bold block mb-2">Goal Time (M:SS.hh)</label>
+                <input type="text" value={stratGoalTime} onChange={e => setStratGoalTime(e.target.value)}
+                  placeholder="1:02.00" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/15" />
+              </div>
+            </div>
+
+            <button onClick={generateStrategy}
+              className="game-btn w-full py-4 bg-gradient-to-r from-[#6b21a8] to-[#00f0ff]/30 text-white font-bold text-sm tracking-wider uppercase border border-[#00f0ff]/20 hover:border-[#00f0ff]/40 hover:shadow-[0_0_30px_rgba(0,240,255,0.15)] transition-all min-h-[48px]">
+              GENERATE RACE STRATEGY
+            </button>
+          </Card>
+
+          {/* Strategy output */}
+          {stratPlan && (
+            <>
+              <Card className="p-6 mb-6" glow>
+                <div className="flex items-center gap-3 mb-5">
+                  <span className="text-lg">🗺️</span>
+                  <h3 className="text-[#00f0ff] text-sm font-black uppercase tracking-wider">Race Map</h3>
+                  {stratAthlete && <span className="ml-auto text-white/30 text-xs">{stratAthlete.name} · {stratEvent}m {stratStroke}</span>}
+                </div>
+
+                <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-[#00f0ff]/10 border border-emerald-500/20">
+                  <div className="text-emerald-400 text-sm font-bold">Target Improvement: {stratPlan.improvement}%</div>
+                  <div className="text-white/40 text-xs mt-1">{stratCurrentTime} → {stratGoalTime} — You&apos;ve got this!</div>
+                </div>
+
+                {/* Split table */}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-4 gap-3 text-[10px] uppercase tracking-wider text-white/25 font-bold px-3 mb-1">
+                    <span>Segment</span><span>Split</span><span>Pace</span><span>Focus</span>
+                  </div>
+                  {stratPlan.splits.map((sp, i) => (
+                    <div key={i} className="grid grid-cols-4 gap-3 items-center py-3 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-[#00f0ff]/15 transition-all text-sm">
+                      <span className="text-[#00f0ff] font-mono font-bold text-xs">{sp.segment}</span>
+                      <span className="text-white font-bold tabular-nums">{sp.time}</span>
+                      <span className="text-white/40 font-mono text-xs">{sp.pace}</span>
+                      <span className="text-white/50 text-xs">{sp.focus}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-6 mb-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-lg">💡</span>
+                  <h3 className="text-[#f59e0b] text-sm font-black uppercase tracking-wider">Race Tips</h3>
+                </div>
+                <div className="space-y-3">
+                  {stratPlan.tips.map((tip, i) => (
+                    <div key={i} className="flex items-start gap-3 py-2">
+                      <span className="text-[#f59e0b] text-xs font-bold mt-0.5 shrink-0">{i + 1}.</span>
+                      <span className="text-white/60 text-sm">{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="p-4 mb-6 text-center">
+                <span className="text-[#f59e0b] text-xl font-black">+{stratPlan.xpReward} XP</span>
+                <p className="text-white/25 text-xs mt-1">Awarded when you complete a race using this strategy</p>
+              </Card>
+            </>
+          )}
+
+          <div className="text-center text-white/[0.05] text-[10px] py-10 space-y-1">
+            <p>Apex Athlete — Race Strategy AI</p>
+            <p>Personal growth, not competition. Every rep counts.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ── PARENT VIEW ──────────────────────────────────────────
   if (view === "parent") {
