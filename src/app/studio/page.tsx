@@ -109,6 +109,38 @@ const RESULTS = [
   { metric: "<24h", label: "Response time" },
 ];
 
+const PORTFOLIO_ITEMS = [
+  {
+    title: "Galactik Antics",
+    category: "Brand System + Product Line",
+    description: "AI-powered art brand — visual identity, product photography system, and e-commerce launch for phone cases, framed posters, and apparel.",
+    tags: ["Identity", "Product", "E-Commerce"],
+    accent: "cyan",
+  },
+  {
+    title: "Apex Athlete",
+    category: "SaaS Product Design",
+    description: "Gamified swim training platform — futuristic game UI, coach/athlete/parent portals, and brand identity for 240+ youth athletes.",
+    tags: ["UI/UX", "Brand", "SaaS"],
+    accent: "purple",
+  },
+  {
+    title: "The Baba Studio",
+    category: "Audio Division Rebrand",
+    description: "Music label identity — from naming to visual system. Dark, premium, built for artist portfolios and release campaigns.",
+    tags: ["Identity", "Naming", "Music"],
+    accent: "gold",
+  },
+];
+
+const TESTIMONIALS = [
+  {
+    quote: "The 48-hour sprint showed us exactly what our brand could be. We went from scattered to systematic overnight.",
+    name: "Coming Soon",
+    role: "First Sprint Client",
+  },
+];
+
 const accentMap: Record<string, { border: string; glow: string; text: string; bg: string; pulse: string }> = {
   cyan: {
     border: "border-[#00f0ff]/30",
@@ -491,6 +523,72 @@ export default function StudioPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* ── portfolio / the work section ──────────────────── */}
+        <section id="work" className="px-4 sm:px-6 pb-20">
+          <div className="mx-auto max-w-6xl">
+            <div className="text-center mb-12">
+              <span className="text-xs tracking-[0.3em] uppercase text-white/30 font-mono block mb-3">
+                Selected Work
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white/90">
+                The Work
+              </h2>
+              <div className="mt-4 mx-auto w-16 h-[2px] bg-gradient-to-r from-[#00f0ff]/0 via-[#00f0ff]/60 to-[#00f0ff]/0" />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {PORTFOLIO_ITEMS.map((item) => {
+                const a = accentMap[item.accent];
+                return (
+                  <div
+                    key={item.title}
+                    className={`game-panel game-panel-border bg-white/[0.02] border ${a.border} p-6 sm:p-8 flex flex-col transition-all duration-300 hover:translate-y-[-4px] hover:${a.glow} group`}
+                  >
+                    {/* placeholder image area */}
+                    <div className={`w-full aspect-[4/3] mb-6 rounded-sm bg-white/[0.03] border border-white/[0.06] flex items-center justify-center overflow-hidden`}>
+                      <div className="text-center">
+                        <div className={`text-3xl ${a.text} opacity-40 mb-2`}>{"\u25C8"}</div>
+                        <div className="text-white/20 text-xs font-mono tracking-wider">Case Study Soon</div>
+                      </div>
+                    </div>
+
+                    <span className={`text-[10px] tracking-[0.4em] uppercase font-mono ${a.text} opacity-60 mb-2`}>
+                      {item.category}
+                    </span>
+                    <h3 className="text-xl font-bold text-white/90 mb-3">{item.title}</h3>
+                    <p className="text-white/40 text-sm leading-relaxed mb-4 flex-1">
+                      {item.description}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {item.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          className={`text-[10px] font-mono tracking-wider uppercase ${a.bg} ${a.text} px-2 py-1 opacity-70`}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* testimonial placeholder */}
+            {TESTIMONIALS.length > 0 && (
+              <div className="mt-12 game-panel bg-white/[0.02] border border-white/[0.06] p-8 sm:p-12 text-center">
+                <div className="text-2xl text-white/10 mb-4">{"\u201C"}</div>
+                <blockquote className="text-white/50 text-base sm:text-lg italic leading-relaxed max-w-2xl mx-auto mb-6">
+                  {TESTIMONIALS[0].quote}
+                </blockquote>
+                <div className="text-white/30 text-xs font-mono tracking-wider uppercase">
+                  {TESTIMONIALS[0].name} — {TESTIMONIALS[0].role}
+                </div>
+              </div>
+            )}
           </div>
         </section>
 
