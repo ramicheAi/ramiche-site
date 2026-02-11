@@ -11,12 +11,12 @@ import Link from "next/link";
 
 // ── game engine (mirrors coach) ─────────────────────────────
 const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
-  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
-  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
-  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
-  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
-  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
+  { name: "Rookie", xp: 0, icon: "◆", color: "#94a3b8" },
+  { name: "Contender", xp: 300, icon: "◆", color: "#a78bfa" },
+  { name: "Warrior", xp: 600, icon: "◆", color: "#60a5fa" },
+  { name: "Elite", xp: 1000, icon: "◆", color: "#f59e0b" },
+  { name: "Captain", xp: 1500, icon: "◆", color: "#f97316" },
+  { name: "Legend", xp: 2500, icon: "◆", color: "#ef4444" },
 ] as const;
 
 function getLevel(xp: number) {
@@ -145,8 +145,15 @@ const ATTRIBUTES = [
 function calcAttributes(a: Athlete) {
   const attended = a.totalPractices || 1;
   const attendance = Math.min(100, Math.round((attended / Math.max(attended, a.weekTarget * 4)) * 100));
-  const cpDone = Object.values(a.checkpoints).filter(Boolean).length;
-  const effort = Math.min(100, Math.round((cpDone / 13) * 100));
+  // Effort = weighted combination of: total checkpoints completed across all sessions,
+  // bonus reps earned, weight room extra sets, and streak consistency
+  const totalCpDone = Object.values(a.checkpoints).filter(Boolean).length;
+  const weightCpDone = Object.values(a.weightCheckpoints || {}).filter(Boolean).length;
+  const meetCpDone = Object.values(a.meetCheckpoints || {}).filter(Boolean).length;
+  const hasBonusRep = a.checkpoints["bonus-rep"] ? 1 : 0;
+  const hasExtraSets = (a.weightCheckpoints || {})["w-extra-sets"] ? 1 : 0;
+  const effortScore = totalCpDone + weightCpDone + meetCpDone + (hasBonusRep * 5) + (hasExtraSets * 5) + Math.min(a.streak, 14);
+  const effort = Math.min(100, Math.round((effortScore / 35) * 100));
   const improvement = Math.min(100, Math.round((a.xp / 2500) * 100));
   const consistency = Math.min(100, Math.round((a.streak / 30) * 100));
   const questsDone = Object.values(a.quests).filter(v => v === "done").length;
@@ -494,10 +501,16 @@ export default function AthletePortal() {
   // Reset auto-fill flag when event/stroke changes
   useEffect(() => { setRpAutoFilled(false); }, [rpEvent, rpStroke]);
 
-  // Leaderboard (top 10)
-  const leaderboard = useMemo(() => {
-    if (!athlete) return [];
-    return roster.filter(a => a.group === athlete.group).sort((a, b) => b.xp - a.xp).slice(0, 10);
+  // Leaderboard (top 10, gender-based, with athlete rank)
+  const { leaderboard, athleteRank, athleteInTop10 } = useMemo(() => {
+    if (!athlete) return { leaderboard: [] as Athlete[], athleteRank: 0, athleteInTop10: true };
+    const genderFiltered = roster
+      .filter(a => a.gender === athlete.gender && a.group === athlete.group)
+      .sort((a, b) => b.xp - a.xp);
+    const rank = genderFiltered.findIndex(a => a.id === athlete.id) + 1;
+    const top10 = genderFiltered.slice(0, 10);
+    const inTop10 = top10.some(a => a.id === athlete.id);
+    return { leaderboard: top10, athleteRank: rank, athleteInTop10: inTop10 };
   }, [athlete, roster]);
 
   // Unread feedback count
@@ -1115,7 +1128,7 @@ export default function AthletePortal() {
         {/* ══════════════ LEADERBOARD TAB ══════════════ */}
         {tab === "leaderboard" && (
           <div className="space-y-2">
-            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">{athlete.group.toUpperCase()} — TOP 10</h3>
+            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TOP 10 — {athlete.gender === "F" ? "GIRLS" : "BOYS"}</h3>
             {leaderboard.map((a, i) => {
               const lv = getLevel(a.xp);
               const isMe = a.id === athlete.id;
@@ -1126,7 +1139,7 @@ export default function AthletePortal() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className={`text-sm font-semibold truncate block ${isMe ? "text-white" : "text-white/60"}`}>
-                      {a.name} {isMe && <span className="text-[#a855f7] text-[10px]">YOU</span>}
+                      {a.name} {isMe && <span className="text-[#a855f7] text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25">YOU</span>}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1137,6 +1150,29 @@ export default function AthletePortal() {
                 </div>
               );
             })}
+            {!athleteInTop10 && athlete && (() => {
+              const lv = getLevel(athlete.xp);
+              return (
+                <>
+                  <div className="text-center text-white/15 text-xs font-mono py-1">...</div>
+                  <div className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-[#a855f7]/10 border-[#a855f7]/20">
+                    <div className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-black bg-white/5 text-white/20">
+                      {athleteRank}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-semibold truncate block text-white">
+                        {athlete.name} <span className="text-[#a855f7] text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25">YOU</span>
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
+                      <span className="text-white/40 text-xs font-mono">{athlete.xp} XP</span>
+                      {athlete.streak >= 3 && <span className="text-[10px] text-[#ef4444]">{athlete.streak}d</span>}
+                    </div>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         )}
 

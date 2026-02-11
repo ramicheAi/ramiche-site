@@ -1539,16 +1539,20 @@ export default function ApexAthletePage() {
               </div>
               <div className="flex items-center gap-2">
                 {(["pool", "weight", "meet"] as const).map(m => {
-                  const mIcons = { pool: "🏊", weight: "🏋️", meet: "🏁" };
                   const mLabels = { pool: "Pool", weight: "Weight", meet: "Meet" };
+                  const ModeIcon = ({ mode }: { mode: string }) => {
+                    if (mode === "pool") return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>;
+                    if (mode === "weight") return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
+                    return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
+                  };
                   return (
                     <button key={m} onClick={() => { setAutoSession(false); setSessionMode(m); }}
-                      className={`px-3 py-2 text-[10px] font-bold font-mono tracking-wider uppercase rounded-lg border transition-all ${
+                      className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold font-mono tracking-wider uppercase rounded-lg border transition-all ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/10 text-[#00f0ff] border-[#00f0ff]/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]"
                           : "text-white/20 border-white/[0.06] hover:text-white/40 hover:border-white/10"
                       }`}>
-                      {mIcons[m]} {mLabels[m]}
+                      <ModeIcon mode={m} /> {mLabels[m]}
                     </button>
                   );
                 })}
@@ -1582,7 +1586,14 @@ export default function ApexAthletePage() {
               <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionTime === "am" ? "☀️" : "🌙"} {sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"} <span className="text-[#a855f7]/30">{sessionTime.toUpperCase()}</span></span>
+            <span className="text-[#00f0ff]/40 text-xs font-mono flex items-center gap-1.5">
+              {sessionTime === "am"
+                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#fbbf24]/60"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                : <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#818cf8]/60"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+              }
+              {sessionMode === "pool" ? "POOL" : sessionMode === "weight" ? "WEIGHT" : "MEET"}
+              <span className="text-[#a855f7]/30">{sessionTime.toUpperCase()}</span>
+            </span>
             {culture.weeklyQuote && (
               <>
                 <div className="w-px h-4 bg-[#00f0ff]/10" />
@@ -1649,6 +1660,7 @@ export default function ApexAthletePage() {
 
   // ── expanded athlete detail ─────────────────────────────
   const AthleteExpanded = ({ athlete }: { athlete: Athlete }) => {
+    const [localMode, setLocalMode] = useState<"pool" | "weight" | "meet">(sessionMode);
     const lv = getLevel(athlete.xp);
     const prog = getLevelProgress(athlete.xp);
     const nxt = getNextLevel(athlete.xp);
@@ -1658,8 +1670,8 @@ export default function ApexAthletePage() {
     const growth = getPersonalGrowth(athlete);
     const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
     const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
-    const cps = sessionMode === "pool" ? currentCPs : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
-    const cpMap = sessionMode === "pool" ? athlete.checkpoints : sessionMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
+    const cps = localMode === "pool" ? currentCPs : localMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    const cpMap = localMode === "pool" ? athlete.checkpoints : localMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
 
     return (
       <div className="expand-in mt-5 space-y-6" onClick={e => e.stopPropagation()}>
@@ -1736,17 +1748,36 @@ export default function ApexAthletePage() {
           </Card>
         </div>
 
+        {/* Sticky mini session-mode toggle */}
+        <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-[#0a0518]/95 backdrop-blur-sm">
+          <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1 border border-white/[0.06]">
+            {([
+              { mode: "pool" as const, label: "Pool", color: "#60a5fa", activeColor: "bg-[#60a5fa]/20 text-[#60a5fa] border-[#60a5fa]/30" },
+              { mode: "weight" as const, label: "Weight", color: "#f59e0b", activeColor: "bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/30" },
+              { mode: "meet" as const, label: "Meet", color: "#34d399", activeColor: "bg-[#34d399]/20 text-[#34d399] border-[#34d399]/30" },
+            ]).map(opt => (
+              <button key={opt.mode}
+                onClick={(e) => { e.stopPropagation(); setLocalMode(opt.mode); }}
+                className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold tracking-wide border transition-all ${
+                  localMode === opt.mode ? opt.activeColor : "text-white/25 border-transparent hover:bg-white/[0.04]"
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Daily check-in */}
         <div>
           <h4 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">
-            {sessionMode === "pool" ? (currentSport === "diving" ? "Board Check-In" : currentSport === "waterpolo" ? "Pool Check-In" : "Pool Check-In") : sessionMode === "weight" ? (currentSport === "diving" ? "Dryland" : currentSport === "waterpolo" ? "Gym" : "Weight Room") : (currentSport === "waterpolo" ? "Match Day" : "Meet Day")}
+            {localMode === "pool" ? (currentSport === "diving" ? "Board Check-In" : currentSport === "waterpolo" ? "Pool Check-In" : "Pool Check-In") : localMode === "weight" ? (currentSport === "diving" ? "Dryland" : currentSport === "waterpolo" ? "Gym" : "Weight Room") : (currentSport === "waterpolo" ? "Match Day" : "Meet Day")}
           </h4>
           <Card className="divide-y divide-white/[0.04]">
             {cps.map(cp => {
               const checked = cpMap[cp.id];
               return (
                 <button key={cp.id}
-                  onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, sessionMode, e)}
+                  onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, localMode, e)}
                   disabled={dailyUsed >= DAILY_XP_CAP && !checked}
                   className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors duration-200 min-h-[56px] ${
                     checked ? "bg-[#6b21a8]/15 shadow-[inset_0_0_20px_rgba(107,33,168,0.06)]" : dailyUsed >= DAILY_XP_CAP ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.03] cursor-pointer active:bg-white/[0.05]"
@@ -2159,7 +2190,7 @@ export default function ApexAthletePage() {
           </div>
 
           {/* Week schedule grid */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
             {DAYS_OF_WEEK.map(day => {
               const dayData = groupSched?.weekSchedule[day];
               const template = SCHEDULE_TEMPLATES.find(t => t.id === dayData?.template);
@@ -2216,7 +2247,7 @@ export default function ApexAthletePage() {
                                 updated[gi].weekSchedule[day].sessions[si].startTime = e.target.value;
                                 saveSchedules(updated);
                               }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-[#00f0ff]/30" />
+                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00f0ff]/30" />
                             <input type="time" value={session.endTime}
                               onChange={e => {
                                 if (!groupSched) return;
@@ -2226,7 +2257,7 @@ export default function ApexAthletePage() {
                                 updated[gi].weekSchedule[day].sessions[si].endTime = e.target.value;
                                 saveSchedules(updated);
                               }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-[#00f0ff]/30" />
+                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00f0ff]/30" />
                             <input type="text" placeholder="Notes" value={session.notes}
                               onChange={e => {
                                 if (!groupSched) return;
@@ -2236,7 +2267,7 @@ export default function ApexAthletePage() {
                                 updated[gi].weekSchedule[day].sessions[si].notes = e.target.value;
                                 saveSchedules(updated);
                               }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white placeholder:text-white/10 focus:outline-none focus:border-[#00f0ff]/30" />
+                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/10 focus:outline-none focus:border-[#00f0ff]/30" />
                           </div>
                         )}
                       </div>
@@ -2261,7 +2292,7 @@ export default function ApexAthletePage() {
                             if (dayData?.template === "rest-day") updated[gi].weekSchedule[day].template = "sprint-day";
                             saveSchedules(updated);
                           }}
-                            className={`flex-1 py-1.5 rounded-lg text-[8px] font-bold border transition-all ${
+                            className={`flex-1 py-3 rounded-lg text-xs font-bold border transition-all ${
                               type === "pool" ? "text-[#60a5fa]/40 border-[#60a5fa]/10 hover:bg-[#60a5fa]/10"
                                 : type === "weight" ? "text-[#f59e0b]/40 border-[#f59e0b]/10 hover:bg-[#f59e0b]/10"
                                 : "text-[#34d399]/40 border-[#34d399]/10 hover:bg-[#34d399]/10"
@@ -2876,7 +2907,7 @@ export default function ApexAthletePage() {
                           : "bg-gradient-to-r from-[#6366f1]/20 to-[#818cf8]/10 text-[#818cf8] shadow-[inset_0_0_20px_rgba(129,140,248,0.15)]"
                         : "bg-[#06020f]/60 text-white/20 hover:text-white/40"
                     }`}>
-                    {t === "am" ? "☀ AM PRACTICE" : "☽ PM PRACTICE"}
+                    <span className="inline-flex items-center gap-1.5">{t === "am" ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> AM PRACTICE</> : <><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg> PM PRACTICE</>}</span>
                   </button>
                 ))}
               </div>
@@ -2888,31 +2919,34 @@ export default function ApexAthletePage() {
               <div className="flex gap-2 flex-wrap items-center">
                 {/* Session type */}
                 {(["pool", "weight", "meet"] as const).map(m => {
-                  const sportIcons = { swimming: { pool: "🏊", weight: "🏋️", meet: "🏁" }, diving: { pool: "🤿", weight: "🏋️", meet: "🏁" }, waterpolo: { pool: "🤽", weight: "🏋️", meet: "🏁" } };
                   const sportLabels = { swimming: { pool: "Pool", weight: "Weight Room", meet: "Meet Day" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet Day" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match Day" } };
-                  const icons = sportIcons[currentSport as keyof typeof sportIcons] || sportIcons.swimming;
                   const labels = sportLabels[currentSport as keyof typeof sportLabels] || sportLabels.swimming;
+                  const ModeSvg = () => {
+                    if (m === "pool") return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>;
+                    if (m === "weight") return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
+                    return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
+                  };
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
-                      className={`game-btn px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
+                      className={`game-btn flex items-center gap-2 px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/15 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_40px_rgba(0,240,255,0.3),inset_0_0_20px_rgba(0,240,255,0.05)] scale-[1.02]"
                           : "bg-[#06020f]/60 text-white/30 hover:text-[#00f0ff]/60 border border-[#00f0ff]/10 hover:border-[#00f0ff]/25 hover:shadow-[0_0_25px_rgba(0,240,255,0.1)] hover:scale-[1.01]"
                       }`}>
-                      <span className="mr-1.5">{icons[m]}</span>{labels[m]}
+                      <ModeSvg />{labels[m]}
                     </button>
                   );
                 })}
               </div>
               <div className="flex gap-2 flex-wrap">
                 <button onClick={bulkMarkPresent} className="game-btn px-4 py-2.5 bg-[#00f0ff]/10 text-[#00f0ff]/80 text-sm font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all active:scale-[0.97] min-h-[44px]">
-                  ✅ BULK
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>BULK
                 </button>
-                <button onClick={undoLast} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">↩ UNDO</button>
-                <button onClick={resetDay} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]">🔄 DAY</button>
-                <button onClick={resetWeek} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]">🔄 WEEK</button>
-                <button onClick={resetMonth} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#f59e0b]/30 text-sm font-mono border border-[#f59e0b]/10 hover:text-[#f59e0b]/60 hover:border-[#f59e0b]/25 transition-all active:scale-[0.97] min-h-[44px]">🏆 MONTH</button>
-                <button onClick={exportCSV} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">📊 CSV</button>
+                <button onClick={undoLast} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> UNDO</button>
+                <button onClick={resetDay} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> DAY</button>
+                <button onClick={resetWeek} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> WEEK</button>
+                <button onClick={resetMonth} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#f59e0b]/30 text-sm font-mono border border-[#f59e0b]/10 hover:text-[#f59e0b]/60 hover:border-[#f59e0b]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6"/><circle cx="12" cy="12" r="10"/></svg> MONTH</button>
+                <button onClick={exportCSV} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV</button>
               </div>
             </div>
 
