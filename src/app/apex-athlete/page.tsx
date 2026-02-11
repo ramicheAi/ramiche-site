@@ -123,6 +123,21 @@ interface Athlete {
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: DailyXP;
+  // v6 fields — athlete + parent linking
+  usaSwimmingId?: string;
+  parentCode?: string; // 6-char code parents use to access their child's portal
+  parentEmail?: string;
+  sport?: "swimming" | "diving" | "waterpolo";
+}
+
+// ── Coach Access types ────────────────────────────────────────
+interface CoachAccess {
+  id: string;
+  name: string;
+  pin: string;
+  role: "head" | "assistant" | "guest";
+  groups: string[]; // which groups this coach can access
+  createdAt: number;
 }
 
 interface AuditEntry {
@@ -544,7 +559,18 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: 
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
     weightChallenges: {}, quests: {},
     dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 },
+    usaSwimmingId: "",
+    parentCode: generateParentCode(),
+    parentEmail: "",
+    sport: "swimming",
   };
+}
+
+function generateParentCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I confusion
+  let code = "";
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
 }
 
 // ── storage ──────────────────────────────────────────────────
@@ -634,6 +660,11 @@ export default function ApexAthletePage() {
   const [newAthleteName, setNewAthleteName] = useState("");
   const [newAthleteAge, setNewAthleteAge] = useState("");
   const [newAthleteGender, setNewAthleteGender] = useState<"M" | "F">("M");
+  const [newAthleteUSAId, setNewAthleteUSAId] = useState("");
+  const [newAthleteParentEmail, setNewAthleteParentEmail] = useState("");
+  const [editingAthleteProfile, setEditingAthleteProfile] = useState<string | null>(null);
+  const [coachInviteOpen, setCoachInviteOpen] = useState(false);
+  const [coaches, setCoaches] = useState<CoachAccess[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<GroupId>("platinum");
   const [mounted, setMounted] = useState(false);
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
@@ -716,6 +747,9 @@ export default function ApexAthletePage() {
         const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
         if (diffDays > 1) a = { ...a, weightStreak: 0 };
       }
+      // Migrate: ensure parent code + sport fields exist
+      if (!a.parentCode) a = { ...a, parentCode: generateParentCode() };
+      if (!a.sport) a = { ...a, sport: "swimming" as const };
       return a;
     });
     save(K.ROSTER, r);
@@ -736,6 +770,7 @@ export default function ApexAthletePage() {
       if (missing.length > 0) { scheds = [...scheds, ...missing]; save(K.SCHEDULES, scheds); }
     }
     setSchedules(scheds);
+    setCoaches(load<CoachAccess[]>(K.COACHES, []));
     setMounted(true);
   }, []);
 
@@ -1015,10 +1050,25 @@ export default function ApexAthletePage() {
   const addAthleteAction = useCallback(() => {
     if (!newAthleteName.trim() || !newAthleteAge) return;
     const a = makeAthlete({ name: newAthleteName.trim(), age: parseInt(newAthleteAge), gender: newAthleteGender, group: selectedGroup });
+    if (newAthleteUSAId.trim()) a.usaSwimmingId = newAthleteUSAId.trim();
+    if (newAthleteParentEmail.trim()) a.parentEmail = newAthleteParentEmail.trim();
     saveRoster([...roster, a]);
-    setNewAthleteName(""); setNewAthleteAge(""); setAddAthleteOpen(false);
+    setNewAthleteName(""); setNewAthleteAge(""); setNewAthleteUSAId(""); setNewAthleteParentEmail(""); setAddAthleteOpen(false);
     addAudit(a.id, a.name, `Added to ${currentGroupDef.name}`, 0);
-  }, [newAthleteName, newAthleteAge, newAthleteGender, roster, saveRoster, addAudit, selectedGroup, currentGroupDef]);
+  }, [newAthleteName, newAthleteAge, newAthleteGender, newAthleteUSAId, newAthleteParentEmail, roster, saveRoster, addAudit, selectedGroup, currentGroupDef]);
+
+  const updateAthleteProfile = useCallback((athleteId: string, updates: Partial<Pick<Athlete, "usaSwimmingId" | "parentEmail" | "parentCode">>) => {
+    setRoster(prev => {
+      const next = prev.map(a => a.id === athleteId ? { ...a, ...updates } : a);
+      save(K.ROSTER, next);
+      return next;
+    });
+  }, []);
+
+  const addCoachAccess = useCallback((name: string, pin: string, role: "head" | "assistant" | "guest", groups: string[]) => {
+    const c: CoachAccess = { id: `coach-${Date.now()}`, name, pin, role, groups, createdAt: Date.now() };
+    setCoaches(prev => { const next = [...prev, c]; save(K.COACHES, next); return next; });
+  }, []);
 
   const removeAthlete = useCallback((id: string) => {
     const a = roster.find(x => x.id === id);
@@ -1263,29 +1313,17 @@ export default function ApexAthletePage() {
     </div>
   );
 
-  // ── Multi-coach profiles ─────────────────────────────────
-  const [coaches, setCoaches] = useState<CoachProfile[]>([]);
+  // ── Multi-coach management UI ───────────────────────────
   const [manageCoaches, setManageCoaches] = useState(false);
   const [newCoachName, setNewCoachName] = useState("");
   const [newCoachPin, setNewCoachPin] = useState("");
-  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
+  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant" | "guest">("assistant");
 
-  useEffect(() => {
-    const saved = load<CoachProfile[]>(K.COACHES, []);
-    if (saved.length === 0) {
-      const defaultCoach: CoachProfile = { name: "Head Coach", pin: coachPin || "1234", groups: ["all"], role: "head" };
-      setCoaches([defaultCoach]);
-      save(K.COACHES, [defaultCoach]);
-    } else {
-      setCoaches(saved);
-    }
-  }, [coachPin]);
-
-  const saveCoaches = useCallback((c: CoachProfile[]) => { setCoaches(c); save(K.COACHES, c); }, []);
+  const saveCoaches = useCallback((c: CoachAccess[]) => { setCoaches(c); save(K.COACHES, c); }, []);
 
   const addCoach = useCallback(() => {
     if (!newCoachName.trim() || !newCoachPin.trim() || newCoachPin.length < 4) return;
-    const c: CoachProfile = { name: newCoachName.trim(), pin: newCoachPin, groups: ["all"], role: newCoachRole };
+    const c: CoachAccess = { id: `coach-${Date.now()}`, name: newCoachName.trim(), pin: newCoachPin, groups: ["all"], role: newCoachRole, createdAt: Date.now() };
     saveCoaches([...coaches, c]);
     setNewCoachName(""); setNewCoachPin(""); setNewCoachRole("assistant");
   }, [newCoachName, newCoachPin, newCoachRole, coaches, saveCoaches]);
@@ -2828,7 +2866,7 @@ export default function ApexAthletePage() {
                     className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/30 min-h-[38px]" />
                   <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
                     className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/30 min-h-[38px]" />
-                  <select value={newCoachRole} onChange={e => setNewCoachRole(e.target.value as "head" | "assistant")}
+                  <select value={newCoachRole} onChange={e => setNewCoachRole(e.target.value as "head" | "assistant" | "guest")}
                     className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs focus:outline-none min-h-[38px]">
                     <option value="assistant">Assistant</option>
                     <option value="head">Head Coach</option>
@@ -2863,19 +2901,27 @@ export default function ApexAthletePage() {
                 {addAthleteOpen ? "Cancel" : "+ Add Athlete"}
               </button>
               {addAthleteOpen && (
-                <div className="flex gap-3 mt-3 items-center flex-wrap">
-                  <input value={newAthleteName} onChange={e => setNewAthleteName(e.target.value)} placeholder="Name"
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" />
-                  <input value={newAthleteAge} onChange={e => setNewAthleteAge(e.target.value.replace(/\D/g, ""))} placeholder="Age"
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-20 focus:outline-none min-h-[44px]" />
-                  <select value={newAthleteGender} onChange={e => setNewAthleteGender(e.target.value as "M" | "F")}
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none min-h-[44px]">
-                    <option value="M">M</option><option value="F">F</option>
-                  </select>
-                  <button onClick={addAthleteAction}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white text-sm font-bold min-h-[44px] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)] transition-all">
-                    Add
-                  </button>
+                <div className="mt-3 space-y-3">
+                  <div className="flex gap-3 items-center flex-wrap">
+                    <input value={newAthleteName} onChange={e => setNewAthleteName(e.target.value)} placeholder="Full Name"
+                      className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" />
+                    <input value={newAthleteAge} onChange={e => setNewAthleteAge(e.target.value.replace(/\D/g, ""))} placeholder="Age"
+                      className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-20 focus:outline-none min-h-[44px]" />
+                    <select value={newAthleteGender} onChange={e => setNewAthleteGender(e.target.value as "M" | "F")}
+                      className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none min-h-[44px]">
+                      <option value="M">M</option><option value="F">F</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-3 items-center flex-wrap">
+                    <input value={newAthleteUSAId} onChange={e => setNewAthleteUSAId(e.target.value)} placeholder="USA Swimming ID (optional)"
+                      className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" />
+                    <input value={newAthleteParentEmail} onChange={e => setNewAthleteParentEmail(e.target.value)} placeholder="Parent Email (optional)"
+                      className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" />
+                    <button onClick={addAthleteAction}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white text-sm font-bold min-h-[44px] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)] transition-all">
+                      Add
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
