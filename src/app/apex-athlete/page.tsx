@@ -675,6 +675,24 @@ export default function ApexAthletePage() {
   const [feedbackType, setFeedbackType] = useState<"praise" | "tip" | "goal">("praise");
   const [feedbackMsg, setFeedbackMsg] = useState("");
 
+  // ── Multi-coach management state (must be before any early returns) ──
+  const [manageCoaches, setManageCoaches] = useState(false);
+  const [newCoachName, setNewCoachName] = useState("");
+  const [newCoachPin, setNewCoachPin] = useState("");
+  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant" | "guest">("assistant");
+
+  const saveCoaches = useCallback((c: CoachAccess[]) => { setCoaches(c); save(K.COACHES, c); }, []);
+  const addCoach = useCallback(() => {
+    if (!newCoachName.trim() || !newCoachPin.trim() || newCoachPin.length < 4) return;
+    const c: CoachAccess = { id: `coach-${Date.now()}`, name: newCoachName.trim(), pin: newCoachPin, groups: ["all"], role: newCoachRole, createdAt: Date.now() };
+    saveCoaches([...coaches, c]);
+    setNewCoachName(""); setNewCoachPin(""); setNewCoachRole("assistant");
+  }, [newCoachName, newCoachPin, newCoachRole, coaches, saveCoaches]);
+  const removeCoach = useCallback((idx: number) => {
+    if (coaches[idx]?.role === "head" && coaches.filter(c => c.role === "head").length <= 1) return;
+    saveCoaches(coaches.filter((_, i) => i !== idx));
+  }, [coaches, saveCoaches]);
+
   const sendFeedback = (athleteId: string) => {
     if (!feedbackMsg.trim()) return;
     const fbKey = `apex-athlete-feedback-${athleteId}`;
@@ -1312,26 +1330,6 @@ export default function ApexAthletePage() {
       </div>
     </div>
   );
-
-  // ── Multi-coach management UI ───────────────────────────
-  const [manageCoaches, setManageCoaches] = useState(false);
-  const [newCoachName, setNewCoachName] = useState("");
-  const [newCoachPin, setNewCoachPin] = useState("");
-  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant" | "guest">("assistant");
-
-  const saveCoaches = useCallback((c: CoachAccess[]) => { setCoaches(c); save(K.COACHES, c); }, []);
-
-  const addCoach = useCallback(() => {
-    if (!newCoachName.trim() || !newCoachPin.trim() || newCoachPin.length < 4) return;
-    const c: CoachAccess = { id: `coach-${Date.now()}`, name: newCoachName.trim(), pin: newCoachPin, groups: ["all"], role: newCoachRole, createdAt: Date.now() };
-    saveCoaches([...coaches, c]);
-    setNewCoachName(""); setNewCoachPin(""); setNewCoachRole("assistant");
-  }, [newCoachName, newCoachPin, newCoachRole, coaches, saveCoaches]);
-
-  const removeCoach = useCallback((idx: number) => {
-    if (coaches[idx]?.role === "head" && coaches.filter(c => c.role === "head").length <= 1) return;
-    saveCoaches(coaches.filter((_, i) => i !== idx));
-  }, [coaches, saveCoaches]);
 
   // ── PIN gate ─────────────────────────────────────────────
   const tryUnlock = () => {
