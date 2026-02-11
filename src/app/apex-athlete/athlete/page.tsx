@@ -245,7 +245,7 @@ function fmtTime(secs: number): string {
 }
 
 // ── Main component ──────────────────────────────────────────
-type TabKey = "dashboard" | "times" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard";
+type TabKey = "dashboard" | "times" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness";
 
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
@@ -262,6 +262,12 @@ export default function AthletePortal() {
   const [tab, setTab] = useState<TabKey>("dashboard");
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [journalDraft, setJournalDraft] = useState<JournalEntry>({ date: "", wentWell: "", workOn: "", goals: "", mood: 3 });
+  // Wellness state
+  const [wellnessCheckin, setWellnessCheckin] = useState<{energy:number;sleep:number;mood:number;nutrition:number;confidence:number}>({energy:3,sleep:3,mood:3,nutrition:3,confidence:3});
+  const [breathPhase, setBreathPhase] = useState<"idle"|"inhale"|"hold"|"exhale">("idle");
+  const [breathCount, setBreathCount] = useState(0);
+  const [breathTimer, setBreathTimer] = useState(0);
+  const [activeMeditation, setActiveMeditation] = useState<string|null>(null);
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
   // Auto-detect AM/PM from schedule (same logic as coach portal)
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
@@ -642,6 +648,7 @@ export default function AthletePortal() {
     { key: "journal", label: "Log", icon: (a) => <JournalIcon active={a} /> },
     { key: "feedback", label: "Coach", icon: (a) => <MessageIcon active={a} />, badge: unreadCount },
     { key: "leaderboard", label: "Board", icon: (a) => <BoardIcon active={a} /> },
+    { key: "wellness", label: "Mind", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#a855f7":"currentColor"} strokeWidth="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> },
   ];
 
   // ── Main dashboard ────────────────────────────────────────
@@ -1130,6 +1137,164 @@ export default function AthletePortal() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* ══════════════ WELLNESS TAB ══════════════ */}
+        {tab === "wellness" && (
+          <div className="space-y-4">
+            {/* Pre/Post Check-In */}
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10">
+              <h3 className="text-emerald-400/70 text-xs font-mono tracking-wider mb-3">PRE-PRACTICE CHECK-IN</h3>
+              <div className="space-y-3">
+                {[
+                  { key: "energy" as const, label: "ENERGY", emoji: ["😴","😐","🙂","💪","🔥"] },
+                  { key: "sleep" as const, label: "SLEEP", emoji: ["😵","😴","😊","😌","🌟"] },
+                  { key: "mood" as const, label: "MOOD", emoji: ["😞","😐","🙂","😄","🤩"] },
+                  { key: "nutrition" as const, label: "NUTRITION", emoji: ["🚫","😬","🍎","💚","🏆"] },
+                  { key: "confidence" as const, label: "CONFIDENCE", emoji: ["😰","😟","😊","😤","🫡"] },
+                ].map(metric => (
+                  <div key={metric.key}>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-white/40 text-[10px] font-mono tracking-wider">{metric.label}</span>
+                      <span className="text-lg">{metric.emoji[wellnessCheckin[metric.key] - 1]}</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {[1,2,3,4,5].map(v => (
+                        <button key={v} onClick={() => setWellnessCheckin(prev => ({...prev, [metric.key]: v}))}
+                          className={`flex-1 h-8 rounded-lg text-xs font-bold transition-all ${
+                            wellnessCheckin[metric.key] >= v
+                              ? "bg-emerald-500/30 text-emerald-300 border border-emerald-500/30"
+                              : "bg-white/5 text-white/20 border border-white/5"
+                          }`}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {(() => {
+                  const avg = Object.values(wellnessCheckin).reduce((a,b) => a+b, 0) / 5;
+                  const readiness = Math.round(avg * 20);
+                  return (
+                    <div className="mt-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-center">
+                      <span className="text-white/40 text-[10px] font-mono tracking-wider">READINESS SCORE</span>
+                      <div className={`text-3xl font-black mt-1 ${readiness >= 80 ? "text-emerald-400" : readiness >= 60 ? "text-amber-400" : "text-red-400"}`}>
+                        {readiness}%
+                      </div>
+                      <span className="text-white/25 text-[10px]">
+                        {readiness >= 80 ? "LOCKED IN — go all out today" : readiness >= 60 ? "SOLID — focus on technique" : "LOW BATTERY — listen to your body"}
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Breathwork Timer */}
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-cyan-500/10">
+              <h3 className="text-cyan-400/70 text-xs font-mono tracking-wider mb-3">BOX BREATHING</h3>
+              <p className="text-white/25 text-[10px] mb-3">4 seconds in · 4 hold · 4 out · 4 hold. Calms your nervous system before races.</p>
+              <div className="flex flex-col items-center">
+                <div className={`w-28 h-28 rounded-full flex items-center justify-center border-2 transition-all duration-1000 ${
+                  breathPhase === "idle" ? "border-white/10" :
+                  breathPhase === "inhale" ? "border-cyan-400 scale-110 bg-cyan-500/10" :
+                  breathPhase === "hold" ? "border-amber-400 bg-amber-500/5" :
+                  "border-indigo-400 scale-90 bg-indigo-500/10"
+                }`}>
+                  <div className="text-center">
+                    <div className="text-2xl font-black text-white">{breathPhase === "idle" ? "—" : breathTimer}</div>
+                    <div className={`text-[10px] font-mono tracking-wider mt-1 ${
+                      breathPhase === "idle" ? "text-white/30" :
+                      breathPhase === "inhale" ? "text-cyan-400" :
+                      breathPhase === "hold" ? "text-amber-400" :
+                      "text-indigo-400"
+                    }`}>
+                      {breathPhase === "idle" ? "TAP TO START" : breathPhase.toUpperCase()}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 mt-3">
+                  {breathPhase === "idle" ? (
+                    <button onClick={() => {
+                      setBreathPhase("inhale");
+                      setBreathTimer(4);
+                      setBreathCount(0);
+                      let phase: "inhale"|"hold"|"exhale" = "inhale";
+                      let holdNum = 0;
+                      let t = 4;
+                      const iv = setInterval(() => {
+                        t--;
+                        if (t <= 0) {
+                          if (phase === "inhale") { phase = "hold"; holdNum = 1; t = 4; }
+                          else if (phase === "hold" && holdNum === 1) { phase = "exhale"; t = 4; }
+                          else if (phase === "exhale") { phase = "hold"; holdNum = 2; t = 4; }
+                          else { phase = "inhale"; holdNum = 0; t = 4; setBreathCount(c => c + 1); }
+                          setBreathPhase(phase === "hold" ? "hold" : phase);
+                        }
+                        setBreathTimer(t);
+                      }, 1000);
+                      (window as unknown as Record<string,unknown>).__breathIv = iv;
+                    }}
+                      className="px-6 py-2.5 bg-cyan-500/20 text-cyan-300 rounded-xl text-xs font-bold border border-cyan-500/30 active:scale-95">
+                      START BREATHING
+                    </button>
+                  ) : (
+                    <button onClick={() => {
+                      clearInterval((window as unknown as Record<string,unknown>).__breathIv as number);
+                      setBreathPhase("idle");
+                    }}
+                      className="px-6 py-2.5 bg-red-500/20 text-red-300 rounded-xl text-xs font-bold border border-red-500/30 active:scale-95">
+                      STOP
+                    </button>
+                  )}
+                </div>
+                {breathCount > 0 && <span className="text-white/20 text-[10px] mt-2">{breathCount} cycles completed</span>}
+              </div>
+            </div>
+
+            {/* Meditation Library */}
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-violet-500/10">
+              <h3 className="text-violet-400/70 text-xs font-mono tracking-wider mb-3">GUIDED MEDITATIONS</h3>
+              <div className="space-y-2">
+                {[
+                  { id: "pre-race", title: "Pre-Race Focus", duration: "3 min", desc: "Clear your mind. Visualize your race. Lock in.", icon: "🎯", steps: ["Close your eyes. Take 3 deep breaths.", "Picture the pool. Feel the blocks under your feet.", "Visualize your start — explosive, clean, powerful.", "See each stroke — smooth, strong, confident.", "You are ready. You trained for this. Trust yourself.", "Open your eyes. You got this."] },
+                  { id: "post-race", title: "Post-Race Reset", duration: "3 min", desc: "Process the race. Let go. Move forward.", icon: "🌊", steps: ["Close your eyes. Breathe slowly.", "Replay the race — no judgment, just observation.", "Notice what went well. Acknowledge it.", "Notice what didn't. Accept it.", "Inhale — I gave my best today.", "Exhale — I release what I can't control.", "Open your eyes. Every race teaches you something."] },
+                  { id: "anxiety", title: "Anxiety Reframe", duration: "2 min", desc: "Turn nervous energy into fuel.", icon: "⚡", steps: ["Name the feeling. It's not fear — it's excitement.", "Your body is preparing to perform.", "Butterflies mean you CARE.", "Channel this energy into focus.", "You've been here before. You know what to do.", "Breathe. Trust. Compete."] },
+                  { id: "confidence", title: "Confidence Builder", duration: "3 min", desc: "Remember who you are.", icon: "🔥", steps: ["Think of your best race ever. FEEL that moment.", "You ARE that athlete. That strength is always in you.", "Think of a hard practice you crushed. You're tough.", "Think of a time you came back from a setback. You're resilient.", "Say it: I am strong. I am prepared. I am dangerous.", "Carry this into the water."] },
+                  { id: "sleep", title: "Sleep Wind-Down", duration: "5 min", desc: "Shut it down. Rest hard. Recover harder.", icon: "🌙", steps: ["Lie down. Close your eyes.", "Starting at your toes — release all tension.", "Move up: calves... quads... core... relax everything.", "Your arms are heavy. Your shoulders drop.", "Your face softens. Jaw unclenches.", "You did the work today. Tomorrow you'll be stronger.", "Drift off. Your body is healing. Trust the process."] },
+                  { id: "team", title: "Pre-Meet Team Talk", duration: "2 min", desc: "We rise together.", icon: "🤝", steps: ["Look around. This is your team.", "Every one of you put in the work to get here.", "We swim for each other today.", "When it gets hard, remember — your team is watching.", "We leave nothing in the tank.", "Hands in. Let's go."] },
+                ].map(med => (
+                  <div key={med.id}>
+                    <button onClick={() => setActiveMeditation(activeMeditation === med.id ? null : med.id)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all ${
+                        activeMeditation === med.id ? "bg-violet-500/10 border-violet-500/20" : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                      }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{med.icon}</span>
+                          <div>
+                            <span className="text-white/80 text-sm font-semibold block">{med.title}</span>
+                            <span className="text-white/25 text-[10px]">{med.desc}</span>
+                          </div>
+                        </div>
+                        <span className="text-white/20 text-[10px] font-mono">{med.duration}</span>
+                      </div>
+                    </button>
+                    {activeMeditation === med.id && (
+                      <div className="mt-2 ml-4 space-y-2 animate-[fadeIn_0.3s_ease-out]">
+                        {med.steps.map((step, i) => (
+                          <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-violet-500/5">
+                            <span className="text-violet-400/40 text-xs font-mono w-4 shrink-0">{i + 1}</span>
+                            <span className="text-white/50 text-sm leading-relaxed">{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

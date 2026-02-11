@@ -793,6 +793,60 @@ export default function ParentPortal() {
           </div>
         </div>
 
+        {/* Meet Day Guide */}
+        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-cyan-500/10">
+          <h3 className="text-cyan-400/70 text-xs font-mono tracking-wider mb-3">MEET DAY GUIDE FOR PARENTS</h3>
+          <div className="space-y-3">
+            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
+              <span className="text-emerald-400 text-xs font-bold block mb-1">BEFORE THE RACE</span>
+              <ul className="text-white/40 text-sm space-y-1">
+                <li>• &quot;Have fun out there&quot; — keep it simple</li>
+                <li>• Avoid talking about times or expectations</li>
+                <li>• Make sure they&apos;ve eaten and hydrated</li>
+                <li>• Trust their coach&apos;s race plan</li>
+              </ul>
+            </div>
+            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
+              <span className="text-amber-400 text-xs font-bold block mb-1">AFTER THE RACE</span>
+              <ul className="text-white/40 text-sm space-y-1">
+                <li>• &quot;I love watching you swim&quot; — always works</li>
+                <li>• Ask how they FELT, not what their time was</li>
+                <li>• Let the coach handle technique talk</li>
+                <li>• Win or lose — celebrate the effort</li>
+              </ul>
+            </div>
+            <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
+              <span className="text-red-400/70 text-xs font-bold block mb-1">AVOID</span>
+              <ul className="text-white/30 text-sm space-y-1">
+                <li>• Coaching from the stands</li>
+                <li>• Comparing to other swimmers</li>
+                <li>• Discussing times in the car ride home</li>
+                <li>• Negative body language during races</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        {/* Conversation Starters */}
+        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-violet-500/10">
+          <h3 className="text-violet-400/70 text-xs font-mono tracking-wider mb-3">CONVERSATION STARTERS</h3>
+          <p className="text-white/20 text-[10px] mb-3">Great questions to ask your swimmer this week:</p>
+          <div className="space-y-2">
+            {[
+              { q: "What was the best part of practice today?", why: "Opens positive reflection" },
+              { q: "Did you help a teammate with anything this week?", why: "Reinforces leadership" },
+              { q: "What's one thing you're working on improving?", why: "Shows you care about growth, not just results" },
+              { q: "Are you getting enough sleep before practice?", why: "Recovery matters — shows support" },
+              { q: "What do you like most about being on the team?", why: "Keeps the fun in focus" },
+            ].map((item, i) => (
+              <div key={i} className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/10">
+                <span className="text-white/60 text-sm block">&quot;{item.q}&quot;</span>
+                <span className="text-violet-400/40 text-[10px]">{item.why}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* COPPA Footer — SVG shield */}
         <div className="mt-8 p-3 rounded-lg bg-[#0a0518]/40 border border-[#00f0ff]/5 flex items-center gap-2">
           <SvgShieldLock size={16} color="#00f0ff" />

@@ -2818,6 +2818,43 @@ export default function ApexAthletePage() {
           </div>
         </div>
 
+        {/* ═══════ TEAM CHALLENGES ═══════ */}
+        {view === "coach" && (
+          <div className="w-full px-5 sm:px-8 py-4">
+            <h3 className="text-[#f59e0b]/50 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">// Team Challenges</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { id: "attendance-war", name: "Attendance War", desc: "Which group has the highest attendance % this week?", metric: "GROUP ATTENDANCE", icon: "⚔️", color: "#ef4444" },
+                { id: "xp-race", name: "XP Race", desc: "First group to collectively earn 5,000 XP wins", metric: "COLLECTIVE XP", icon: "🏁", color: "#f59e0b" },
+                { id: "streak-city", name: "Streak City", desc: "Group with the most athletes on 7+ day streaks", metric: "ACTIVE STREAKS", icon: "🔥", color: "#f97316" },
+                { id: "quest-masters", name: "Quest Masters", desc: "Group that completes the most side quests this week", metric: "QUESTS DONE", icon: "⭐", color: "#a855f7" },
+              ].map(challenge => {
+                const groupAthletes = roster.filter(a => a.group === selectedGroup);
+                const val = challenge.id === "attendance-war"
+                  ? `${groupAthletes.length > 0 ? Math.round((groupAthletes.filter(a => a.weekSessions > 0).length / groupAthletes.length) * 100) : 0}%`
+                  : challenge.id === "xp-race"
+                  ? `${groupAthletes.reduce((s, a) => s + a.xp, 0).toLocaleString()} XP`
+                  : challenge.id === "streak-city"
+                  ? `${groupAthletes.filter(a => a.streak >= 7).length} athletes`
+                  : `${groupAthletes.reduce((s, a) => s + Object.values(a.quests).filter(q => q === "done").length, 0)} done`;
+                return (
+                  <div key={challenge.id} className="p-4 rounded-xl bg-[#06020f]/80 border border-white/5 hover:border-white/10 transition-all">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{challenge.icon}</span>
+                      <span className="text-white/80 text-sm font-bold">{challenge.name}</span>
+                    </div>
+                    <p className="text-white/25 text-[10px] mb-3">{challenge.desc}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[9px] font-mono tracking-wider" style={{ color: `${challenge.color}80` }}>{challenge.metric}</span>
+                      <span className="text-lg font-black" style={{ color: challenge.color }}>{val}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ══════════════════════════════════════════════════════
            COACH TOOLS + ROSTER CHECK-IN
            ══════════════════════════════════════════════════════ */}
