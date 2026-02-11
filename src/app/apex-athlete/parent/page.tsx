@@ -100,6 +100,9 @@ function getGrowthTrend(a: Athlete, snapshots: DailySnapshot[]) {
 
 export default function ParentPortal() {
   const [mounted, setMounted] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
@@ -107,6 +110,12 @@ export default function ParentPortal() {
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  const handlePin = () => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("apex-athlete-pin") || "1234" : "1234";
+    if (pinInput === stored) { setUnlocked(true); setPinError(false); }
+    else { setPinError(true); setTimeout(() => setPinError(false), 1500); }
+  };
 
   useEffect(() => {
     if (!mounted) return;
@@ -136,6 +145,40 @@ export default function ParentPortal() {
     </div>
   );
 
+  // ── PIN screen ───────────────────────────────────────────
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
+        </div>
+        <div className="relative z-10 w-full max-w-xs text-center">
+          <svg className="w-16 h-16 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
+            <circle cx="32" cy="32" r="26" stroke="#f59e0b" strokeWidth="2" fill="rgba(245,158,11,0.06)"/>
+            <circle cx="32" cy="26" r="8" stroke="#f59e0b" strokeWidth="1.8" fill="rgba(245,158,11,0.1)"/>
+            <path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" fill="rgba(245,158,11,0.05)"/>
+            <path d="M44 18l4-4M20 18l-4-4" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+          <h1 className="text-2xl font-black text-white mb-2">Parent Portal</h1>
+          <p className="text-white/30 text-sm mb-6">Enter PIN to view your swimmer&apos;s growth</p>
+          <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+            onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={e => e.key === "Enter" && handlePin()}
+            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/15 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50"}`}
+            placeholder="····" autoFocus />
+          <button onClick={handlePin}
+            className="w-full mt-4 py-3 rounded-xl bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b] font-bold hover:bg-[#f59e0b]/30 transition-all">
+            Unlock
+          </button>
+          {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
+          <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors block mt-6">
+            ← Back to Portal Selector
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ── Name lookup ───────────────────────────────────────────
   if (!athlete) {
     return (
@@ -145,7 +188,11 @@ export default function ParentPortal() {
         </div>
         <div className="relative z-10 w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="text-5xl mb-4">👨‍👩‍👧</div>
+            <svg className="w-14 h-14 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="32" r="26" stroke="#f59e0b" strokeWidth="2" fill="rgba(245,158,11,0.06)"/>
+              <circle cx="32" cy="26" r="8" stroke="#f59e0b" strokeWidth="1.8" fill="rgba(245,158,11,0.1)"/>
+              <path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" fill="rgba(245,158,11,0.05)"/>
+            </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Parent Portal</h1>
             <p className="text-white/30 text-sm">Find your swimmer to see their growth</p>
           </div>

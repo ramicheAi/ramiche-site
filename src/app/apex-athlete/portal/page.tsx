@@ -28,7 +28,7 @@ const PORTALS = [
     href: "/apex-athlete/athlete",
     accent: "#a855f7",
     glow: "rgba(168,85,247,0.3)",
-    badge: "Name Login",
+    badge: "PIN Required",
     badgeColor: "#a855f7",
   },
   {
@@ -39,7 +39,7 @@ const PORTALS = [
     href: "/apex-athlete/parent",
     accent: "#f59e0b",
     glow: "rgba(245,158,11,0.3)",
-    badge: "Read Only",
+    badge: "PIN Required",
     badgeColor: "#f59e0b",
   },
 ] as const;
@@ -84,7 +84,7 @@ export default function PortalSelector() {
             Choose Your <span className="bg-gradient-to-r from-[#00f0ff] via-[#a855f7] to-[#f59e0b] bg-clip-text text-transparent">Portal</span>
           </h1>
           <p className="text-white/20 text-sm sm:text-base max-w-md mx-auto">
-            Saint Andrew&apos;s Aquatics — Gamified Training System
+            Athlete Relations Manager — Gamified Training System
           </p>
         </div>
 
@@ -163,10 +163,11 @@ export default function PortalSelector() {
           })}
         </div>
 
-        {/* Footer */}
-        <div className="text-center mt-12 sm:mt-16 text-white/[0.06] text-[10px] space-y-1">
-          <p>Apex Athlete — Saint Andrew&apos;s Aquatics</p>
-          <p>Coach manages all data · Parental consent required · COPPA compliant</p>
+        {/* Mission Statement */}
+        <div className="text-center mt-12 sm:mt-16 space-y-2">
+          <p className="text-white/10 text-xs italic">&ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;</p>
+          <p className="text-white/[0.06] text-[10px]">Every rep counts. Every streak matters. Every athlete has a story.</p>
+          <p className="text-white/[0.04] text-[9px] mt-2">Coach manages all data · Parental consent required · COPPA compliant</p>
         </div>
       </div>
     </div>

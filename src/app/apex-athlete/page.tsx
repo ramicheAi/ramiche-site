@@ -10,10 +10,10 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 // ── game engine ──────────────────────────────────────────────
 
 const LEVELS = [
-  { name: "Sprinter", xp: 0, icon: "⚡", color: "#94a3b8" },
-  { name: "Pacer", xp: 300, icon: "🏃", color: "#a78bfa" },
-  { name: "Miler", xp: 600, icon: "🌊", color: "#60a5fa" },
-  { name: "Finisher", xp: 1000, icon: "🔥", color: "#f59e0b" },
+  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
+  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
+  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
+  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
   { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
   { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
 ] as const;
@@ -549,9 +549,17 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: 
 
 // ── storage ──────────────────────────────────────────────────
 
+interface CoachProfile {
+  name: string;
+  pin: string;
+  groups: string[]; // which groups this coach can access ("all" or specific group ids)
+  role: "head" | "assistant";
+}
+
 const K = {
   ROSTER: "apex-athlete-roster-v5",
   PIN: "apex-athlete-pin",
+  COACHES: "apex-athlete-coaches-v1",
   AUDIT: "apex-athlete-audit-v2",
   CHALLENGES: "apex-athlete-challenges-v2",
   SNAPSHOTS: "apex-athlete-snapshots-v2",
@@ -578,7 +586,7 @@ const DEFAULT_CHALLENGES: TeamChallenge[] = [
 
 const DEFAULT_CULTURE: TeamCulture = {
   teamName: "Saint Andrew's Aquatics",
-  mission: "Excellence Through Consistency",
+  mission: "Unlocking the greatness already inside every athlete — through the power of play.",
   seasonalGoal: "90% attendance this month",
   goalTarget: 90, goalCurrent: 0,
   weeklyQuote: "Champions do extra. — Unknown",
@@ -596,8 +604,10 @@ export default function ApexAthletePage() {
   const [unlocked, setUnlocked] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
+  const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy">("coach");
+  const [activeCoach, setActiveCoach] = useState<string>("Coach");
 
   // ── Race Strategy state ───────────────────────────────────
   const [stratAthleteId, setStratAthleteId] = useState<string>("");
@@ -738,9 +748,10 @@ export default function ApexAthletePage() {
   const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); save(K.SCHEDULES, s); }, []);
 
   const addAudit = useCallback((athleteId: string, athleteName: string, action: string, xpDelta: number) => {
-    const entry: AuditEntry = { timestamp: Date.now(), coach: "Coach", athleteId, athleteName, action, xpDelta };
+    const sessionLabel = `[${sessionTime.toUpperCase()}]`;
+    const entry: AuditEntry = { timestamp: Date.now(), coach: activeCoach, athleteId, athleteName, action: `${sessionLabel} ${action}`, xpDelta };
     setAuditLog(prev => { const n = [entry, ...prev].slice(0, 2000); save(K.AUDIT, n); return n; });
-  }, []);
+  }, [activeCoach, sessionTime]);
 
   const checkLevelUp = useCallback((oldXP: number, newXP: number, name: string) => {
     const oldLv = getLevel(oldXP);
@@ -1179,8 +1190,45 @@ export default function ApexAthletePage() {
     </div>
   );
 
+  // ── Multi-coach profiles ─────────────────────────────────
+  const [coaches, setCoaches] = useState<CoachProfile[]>([]);
+  const [manageCoaches, setManageCoaches] = useState(false);
+  const [newCoachName, setNewCoachName] = useState("");
+  const [newCoachPin, setNewCoachPin] = useState("");
+  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
+
+  useEffect(() => {
+    const saved = load<CoachProfile[]>(K.COACHES, []);
+    if (saved.length === 0) {
+      const defaultCoach: CoachProfile = { name: "Head Coach", pin: coachPin || "1234", groups: ["all"], role: "head" };
+      setCoaches([defaultCoach]);
+      save(K.COACHES, [defaultCoach]);
+    } else {
+      setCoaches(saved);
+    }
+  }, [coachPin]);
+
+  const saveCoaches = useCallback((c: CoachProfile[]) => { setCoaches(c); save(K.COACHES, c); }, []);
+
+  const addCoach = useCallback(() => {
+    if (!newCoachName.trim() || !newCoachPin.trim() || newCoachPin.length < 4) return;
+    const c: CoachProfile = { name: newCoachName.trim(), pin: newCoachPin, groups: ["all"], role: newCoachRole };
+    saveCoaches([...coaches, c]);
+    setNewCoachName(""); setNewCoachPin(""); setNewCoachRole("assistant");
+  }, [newCoachName, newCoachPin, newCoachRole, coaches, saveCoaches]);
+
+  const removeCoach = useCallback((idx: number) => {
+    if (coaches[idx]?.role === "head" && coaches.filter(c => c.role === "head").length <= 1) return;
+    saveCoaches(coaches.filter((_, i) => i !== idx));
+  }, [coaches, saveCoaches]);
+
   // ── PIN gate ─────────────────────────────────────────────
-  const tryUnlock = () => { if (pinInput === coachPin) { setUnlocked(true); setPinError(false); } else setPinError(true); };
+  const tryUnlock = () => {
+    const match = coaches.find(c => c.pin === pinInput);
+    if (match) { setUnlocked(true); setPinError(false); setActiveCoach(match.name); }
+    else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); }
+    else setPinError(true);
+  };
   const resetPin = () => { setCoachPin("1234"); save(K.PIN, "1234"); setPinInput(""); setPinError(false); };
 
   if (!unlocked && (view === "coach" || view === "schedule")) {
@@ -1321,7 +1369,7 @@ export default function ApexAthletePage() {
               <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
+            <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionTime === "am" ? "☀️" : "🌙"} {sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"} <span className="text-[#a855f7]/30">{sessionTime.toUpperCase()}</span></span>
             {culture.weeklyQuote && (
               <>
                 <div className="w-px h-4 bg-[#00f0ff]/10" />
@@ -2281,13 +2329,13 @@ export default function ApexAthletePage() {
               </div>
             )}
 
-            {/* Full ranked list — all athletes 1-N */}
+            {/* Top 10 ranked list */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Full Rankings</h3>
-              <span className="text-[#00f0ff]/20 text-[10px] font-mono">{sorted.length} athletes</span>
+              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Top 10 Rankings</h3>
+              <span className="text-[#00f0ff]/20 text-[10px] font-mono">{Math.min(10, sorted.length)} of {sorted.length}</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
-              {sorted.map((a, i) => {
+              {sorted.slice(0, 10).map((a, i) => {
                 const lv = getLevel(a.xp);
                 const sk = fmtStreak(a.streak);
                 const rank = i + 1;
@@ -2317,9 +2365,23 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="w-full px-5 sm:px-8 py-6">
           <div className="w-full">
-            {/* Session mode + tools */}
+            {/* Session mode + AM/PM + tools */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap items-center">
+                {/* AM/PM Toggle */}
+                <div className="flex rounded-xl overflow-hidden border border-[#a855f7]/20 mr-1">
+                  {(["am", "pm"] as const).map(t => (
+                    <button key={t} onClick={() => setSessionTime(t)}
+                      className={`px-4 py-3.5 text-xs font-bold font-mono tracking-wider uppercase min-h-[52px] transition-all ${
+                        sessionTime === t
+                          ? "bg-[#a855f7]/20 text-[#e879f9] shadow-[inset_0_0_15px_rgba(168,85,247,0.15)]"
+                          : "bg-[#06020f]/60 text-white/20 hover:text-[#a855f7]/60"
+                      }`}>
+                      {t === "am" ? "☀️ AM" : "🌙 PM"}
+                    </button>
+                  ))}
+                </div>
+                {/* Session type */}
                 {(["pool", "weight", "meet"] as const).map(m => {
                   const sportIcons = { swimming: { pool: "🏊", weight: "🏋️", meet: "🏁" }, diving: { pool: "🤿", weight: "🏋️", meet: "🏁" }, waterpolo: { pool: "🤽", weight: "🏋️", meet: "🏁" } };
                   const sportLabels = { swimming: { pool: "Pool", weight: "Weight Room", meet: "Meet Day" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet Day" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match Day" } };
@@ -2348,6 +2410,73 @@ export default function ApexAthletePage() {
                 <button onClick={exportCSV} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">📊 CSV</button>
               </div>
             </div>
+
+            {/* Active session info bar */}
+            <div className="flex items-center gap-3 mb-4 text-[10px] font-mono tracking-wider text-white/25">
+              <span className="text-[#00f0ff]/40">COACH: <span className="text-[#00f0ff]/70">{activeCoach}</span></span>
+              <span className="text-white/10">|</span>
+              <span className="text-[#a855f7]/40">SESSION: <span className="text-[#e879f9]/70">{sessionTime.toUpperCase()} {sessionMode === "pool" ? "POOL" : sessionMode === "weight" ? "WEIGHT" : "MEET"}</span></span>
+              <span className="text-white/10">|</span>
+              <button onClick={() => setManageCoaches(!manageCoaches)}
+                className="text-white/20 hover:text-[#00f0ff]/60 transition-colors">
+                {manageCoaches ? "CLOSE" : "👥 MANAGE COACHES"}
+              </button>
+            </div>
+
+            {/* Coach management panel */}
+            {manageCoaches && (
+              <div className="game-card mb-6 p-5">
+                <h4 className="text-[#00f0ff]/40 text-[10px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Coach Profiles</h4>
+                <div className="space-y-2 mb-4">
+                  {coaches.map((c, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
+                          {c.role === "head" ? "👑" : "🏊"} {c.name}
+                        </span>
+                        <span className="text-[10px] text-white/15 font-mono">PIN: {c.pin}</span>
+                        <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
+                          {c.role.toUpperCase()}
+                        </span>
+                      </div>
+                      {!(c.role === "head" && coaches.filter(x => x.role === "head").length <= 1) && (
+                        <button onClick={() => removeCoach(i)} className="text-red-400/30 hover:text-red-400/80 text-xs transition-colors">✕</button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2 items-center flex-wrap">
+                  <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
+                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/30 min-h-[38px]" />
+                  <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
+                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/30 min-h-[38px]" />
+                  <select value={newCoachRole} onChange={e => setNewCoachRole(e.target.value as "head" | "assistant")}
+                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs focus:outline-none min-h-[38px]">
+                    <option value="assistant">Assistant</option>
+                    <option value="head">Head Coach</option>
+                  </select>
+                  <button onClick={addCoach}
+                    className="px-4 py-2 rounded-lg bg-[#00f0ff]/10 text-[#00f0ff]/80 text-xs font-bold border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all min-h-[38px]">
+                    + Add Coach
+                  </button>
+                </div>
+                <div className="mt-4 pt-3 border-t border-white/[0.04]">
+                  <h5 className="text-[#a855f7]/40 text-[9px] uppercase tracking-[0.2em] font-bold mb-2 font-mono">// Quick Invite</h5>
+                  <p className="text-white/15 text-[10px] mb-2 font-mono">Share this link with colleagues — they can access Apex with their own PIN:</p>
+                  <div className="flex gap-2 items-center">
+                    <code className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-[#00f0ff]/60 text-[10px] font-mono truncate">
+                      {typeof window !== "undefined" ? `${window.location.origin}/apex-athlete/portal` : "/apex-athlete/portal"}
+                    </code>
+                    <button
+                      onClick={() => { if (typeof navigator !== "undefined") navigator.clipboard.writeText(`${window.location.origin}/apex-athlete/portal`); }}
+                      className="px-3 py-2 rounded-lg bg-[#a855f7]/10 text-[#a855f7]/60 text-[10px] font-bold border border-[#a855f7]/20 hover:bg-[#a855f7]/20 transition-all min-h-[34px] shrink-0">
+                      📋 Copy
+                    </button>
+                  </div>
+                  <p className="text-white/10 text-[9px] mt-2 font-mono">Each coach logs in with their own PIN. All check-ins are tracked separately in the audit log.</p>
+                </div>
+              </div>
+            )}
 
             {/* Add athlete */}
             <div className="mb-6">
@@ -2451,10 +2580,11 @@ export default function ApexAthletePage() {
           </div>
         </div>
 
-        {/* Privacy footer */}
-        <div className="text-center text-white/[0.05] text-[10px] py-10 space-y-1">
-          <p>Apex Athlete — Saint Andrew&apos;s Aquatics</p>
-          <p>Coach manages all data. Parental consent required.</p>
+        {/* Mission + Privacy footer */}
+        <div className="text-center text-white/[0.06] text-[10px] py-10 space-y-2">
+          <p className="text-white/10 text-xs italic">&ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;</p>
+          <p className="text-white/[0.04]">Every rep counts. Every streak matters. Every athlete has a story.</p>
+          <p className="text-white/[0.03] mt-1">Coach manages all data · Parental consent required · COPPA compliant</p>
         </div>
       </div>
     </div>

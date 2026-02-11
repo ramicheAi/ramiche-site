@@ -175,6 +175,9 @@ function RadarChart({ values }: { values: Record<string, number> }) {
 // ── Main component ──────────────────────────────────────────
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
   const [nameInput, setNameInput] = useState("");
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
@@ -184,6 +187,12 @@ export default function AthletePortal() {
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
+
+  const handlePin = () => {
+    const stored = typeof window !== "undefined" ? localStorage.getItem("apex-athlete-pin") || "1234" : "1234";
+    if (pinInput === stored) { setUnlocked(true); setPinError(false); }
+    else { setPinError(true); setTimeout(() => setPinError(false), 1500); }
+  };
 
   useEffect(() => {
     if (!mounted) return;
@@ -241,6 +250,39 @@ export default function AthletePortal() {
     </div>
   );
 
+  // ── PIN screen ───────────────────────────────────────────
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
+        </div>
+        <div className="relative z-10 w-full max-w-xs text-center">
+          <svg className="w-16 h-16 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
+            <rect x="12" y="28" width="40" height="28" rx="4" stroke="#a855f7" strokeWidth="2.5" fill="rgba(168,85,247,0.08)"/>
+            <path d="M24 28V20a8 8 0 1116 0v8" stroke="#a855f7" strokeWidth="2.5" strokeLinecap="round"/>
+            <circle cx="32" cy="42" r="3" fill="#a855f7"/>
+          </svg>
+          <h1 className="text-2xl font-black text-white mb-2">Athlete Portal</h1>
+          <p className="text-white/30 text-sm mb-6">Enter PIN to access your dashboard</p>
+          <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+            onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+            onKeyDown={e => e.key === "Enter" && handlePin()}
+            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/15 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
+            placeholder="····" autoFocus />
+          <button onClick={handlePin}
+            className="w-full mt-4 py-3 rounded-xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold hover:bg-[#a855f7]/30 transition-all">
+            Unlock
+          </button>
+          {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
+          <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors block mt-6">
+            ← Back to Portal Selector
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ── Name login screen ─────────────────────────────────────
   if (!athlete) {
     return (
@@ -250,7 +292,11 @@ export default function AthletePortal() {
         </div>
         <div className="relative z-10 w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="text-5xl mb-4">🏊</div>
+            <svg className="w-14 h-14 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
+              <circle cx="32" cy="20" r="10" stroke="#a855f7" strokeWidth="2" fill="rgba(168,85,247,0.1)"/>
+              <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" fill="rgba(168,85,247,0.05)"/>
+              <path d="M28 34l4 6 4-6" stroke="#e879f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Athlete Portal</h1>
             <p className="text-white/30 text-sm">Type your name to see your dashboard</p>
           </div>
@@ -352,7 +398,7 @@ export default function AthletePortal() {
           {(["dashboard", "quests", "journal", "leaderboard"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === t ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"}`}>
-              {t === "dashboard" ? "📊 Stats" : t === "quests" ? "🎯 Quests" : t === "journal" ? "📝 Journal" : "🏆 Board"}
+              {t === "dashboard" ? "⬡ Stats" : t === "quests" ? "◈ Quests" : t === "journal" ? "◉ Journal" : "△ Board"}
             </button>
           ))}
         </div>
