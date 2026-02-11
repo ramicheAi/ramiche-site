@@ -9,13 +9,213 @@ import Link from "next/link";
    COPPA-safe: coach manages all data, parents see trends only
    ══════════════════════════════════════════════════════════════ */
 
+/* ── Inline SVG Icon Components ──────────────────────────────── */
+const SvgSeedling = ({ size = 20, color = "#94a3b8" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 22V10" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    <path d="M8 14c-3-1-5-4-5-7 4 0 7 2 8 5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill={`${color}22`}/>
+    <path d="M16 10c3-1 5-4 5-7-4 0-7 2-8 5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill={`${color}22`}/>
+  </svg>
+);
+
+const SvgBolt = ({ size = 20, color = "#a78bfa" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13 2L4.5 13.5H12L11 22L19.5 10.5H12L13 2Z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill={`${color}30`}/>
+  </svg>
+);
+
+const SvgFlame = ({ size = 20, color = "#60a5fa" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 22c4-2 7-6 7-10 0-3-2-5-3-7-1 2-2 3-3 3 0-3-1-6-4-8-1 3-2 5-3 6-1 1-2 1-3 0 0 4 1 7 2 9-1 0-2-1-3-2 0 4 4 9 10 9z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill={`${color}25`}/>
+  </svg>
+);
+
+const SvgDiamond = ({ size = 20, color = "#f59e0b" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 3h12l4 7-10 12L2 10l4-7z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill={`${color}20`}/>
+    <path d="M2 10h20" stroke={color} strokeWidth="1.2"/>
+    <path d="M12 22L8.5 10 10 3M12 22l3.5-12L14 3" stroke={color} strokeWidth="1" opacity="0.5"/>
+  </svg>
+);
+
+const SvgStar = ({ size = 20, color = "#f97316" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill={`${color}30`}/>
+  </svg>
+);
+
+const SvgCrown = ({ size = 20, color = "#ef4444" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 20h20L20 8l-4 4-4-6-4 6-4-4 2 12z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill={`${color}25`}/>
+    <circle cx="12" cy="6" r="1.5" fill={color}/>
+    <circle cx="4" cy="8" r="1" fill={color} opacity="0.6"/>
+    <circle cx="20" cy="8" r="1" fill={color} opacity="0.6"/>
+  </svg>
+);
+
+const SvgMuscle = ({ size = 20, color = "#60a5fa" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M7 13c-1-2 0-5 2-6s4 0 5 2c1-2 3-3 5-2s2 4 1 6l-6 7-7-7z" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill={`${color}20`}/>
+    <path d="M9 11l2 2 4-4" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SvgTarget = ({ size = 20, color = "#34d399" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" fill={`${color}10`}/>
+    <circle cx="12" cy="12" r="5.5" stroke={color} strokeWidth="1.5" fill={`${color}15`}/>
+    <circle cx="12" cy="12" r="2" fill={color}/>
+  </svg>
+);
+
+const SvgDumbbell = ({ size = 20, color = "#f97316" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="9" width="3" height="6" rx="1" stroke={color} strokeWidth="1.5" fill={`${color}20`}/>
+    <rect x="19" y="9" width="3" height="6" rx="1" stroke={color} strokeWidth="1.5" fill={`${color}20`}/>
+    <rect x="5" y="7" width="3" height="10" rx="1" stroke={color} strokeWidth="1.5" fill={`${color}15`}/>
+    <rect x="16" y="7" width="3" height="10" rx="1" stroke={color} strokeWidth="1.5" fill={`${color}15`}/>
+    <line x1="8" y1="12" x2="16" y2="12" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgSparkle = ({ size = 20, color = "#a855f7" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" fill={`${color}25`}/>
+    <path d="M19 2l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5L19 2z" fill={color} opacity="0.6"/>
+    <path d="M5 18l.5 2 2 .5-2 .5-.5 2-.5-2-2-.5 2-.5L5 18z" fill={color} opacity="0.4"/>
+  </svg>
+);
+
+const SvgTrophy = ({ size = 20, color = "#ef4444" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8 2h8v9a4 4 0 01-8 0V2z" stroke={color} strokeWidth="1.8" fill={`${color}20`}/>
+    <path d="M8 5H5a2 2 0 00-2 2v1a3 3 0 003 3h2" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M16 5h3a2 2 0 012 2v1a3 3 0 01-3 3h-2" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+    <line x1="12" y1="15" x2="12" y2="19" stroke={color} strokeWidth="1.8"/>
+    <path d="M8 22h8M10 19h4" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgShieldLock = ({ size = 18, color = "#00f0ff" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2l8 4v5c0 5.5-3.8 10-8 11.5C7.8 21 4 16.5 4 11V6l8-4z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill={`${color}10`}/>
+    <rect x="9" y="11" width="6" height="5" rx="1" stroke={color} strokeWidth="1.5" fill={`${color}15`}/>
+    <path d="M10 11v-2a2 2 0 014 0v2" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgPadlock = ({ size = 16, color = "#475569" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="5" y="11" width="14" height="10" rx="2" stroke={color} strokeWidth="2" fill={`${color}15`}/>
+    <path d="M8 11V7a4 4 0 018 0v4" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+    <circle cx="12" cy="16" r="1.5" fill={color}/>
+  </svg>
+);
+
+/* ── Level icon lookup by name ──────────────────────────────── */
+const LEVEL_ICON_MAP: Record<string, (props: { size?: number; color?: string }) => React.ReactElement> = {
+  Rookie: SvgSeedling,
+  Contender: SvgBolt,
+  Warrior: SvgFlame,
+  Elite: SvgDiamond,
+  Captain: SvgStar,
+  Legend: SvgCrown,
+};
+
+const BADGE_ICON_MAP: Record<string, (props: { size?: number; color?: string }) => React.ReactElement> = {
+  "First Steps": SvgSeedling,
+  "On Fire": SvgFlame,
+  "Contender": SvgBolt,
+  "Iron Will": SvgMuscle,
+  "Consistent": SvgTarget,
+  "Gym Rat": SvgDumbbell,
+  "Elite": SvgDiamond,
+  "Quest Hero": SvgSparkle,
+  "Legend": SvgCrown,
+  "Mythic Streak": SvgTrophy,
+};
+
+function LevelIcon({ name, size = 20, color }: { name: string; size?: number; color?: string }) {
+  const Comp = LEVEL_ICON_MAP[name];
+  if (!Comp) return null;
+  return <Comp size={size} color={color} />;
+}
+
+function BadgeIcon({ label, size = 20, color }: { label: string; size?: number; color?: string }) {
+  const Comp = BADGE_ICON_MAP[label];
+  if (!Comp) return null;
+  return <Comp size={size} color={color} />;
+}
+
+/* ── Keyframe styles (injected once) ─────────────────────────── */
+const STYLE_TAG = (
+  <style>{`
+    @keyframes aa-glow-pulse {
+      0%, 100% { opacity: 1; filter: brightness(1); }
+      50% { opacity: 0.85; filter: brightness(1.25); }
+    }
+    @keyframes aa-welcome-in {
+      0% { opacity: 0; transform: scale(0.8) translateY(20px); }
+      40% { opacity: 1; transform: scale(1.05) translateY(-4px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes aa-welcome-out {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.1) translateY(-30px); }
+    }
+    @keyframes aa-gold-glow {
+      0%, 100% { box-shadow: 0 0 30px rgba(245,158,11,0.15), 0 0 60px rgba(245,158,11,0.08); }
+      50% { box-shadow: 0 0 50px rgba(245,158,11,0.3), 0 0 100px rgba(245,158,11,0.15); }
+    }
+    @keyframes aa-orbit {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes aa-ring-fill {
+      from { stroke-dashoffset: var(--ring-circumference); }
+      to { stroke-dashoffset: var(--ring-offset); }
+    }
+    @keyframes aa-badge-pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+    @keyframes aa-subtle-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+    }
+    @keyframes aa-gradient-shift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    @keyframes aa-value-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.75; }
+    }
+    .aa-earned-glow {
+      animation: aa-glow-pulse 2.5s ease-in-out infinite;
+    }
+    .aa-badge-pop {
+      animation: aa-badge-pop 0.5s ease-out;
+    }
+    .aa-value-pulse {
+      animation: aa-value-pulse 2.5s ease-in-out infinite;
+    }
+    .aa-gradient-bg {
+      background-size: 200% 200%;
+      animation: aa-gradient-shift 6s ease infinite;
+    }
+  `}</style>
+);
+
 const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
-  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
-  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
-  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
-  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
-  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
+  { name: "Rookie", xp: 0, icon: "seedling", color: "#94a3b8" },
+  { name: "Contender", xp: 300, icon: "bolt", color: "#a78bfa" },
+  { name: "Warrior", xp: 600, icon: "flame", color: "#60a5fa" },
+  { name: "Elite", xp: 1000, icon: "diamond", color: "#f59e0b" },
+  { name: "Captain", xp: 1500, icon: "star", color: "#f97316" },
+  { name: "Legend", xp: 2500, icon: "crown", color: "#ef4444" },
 ] as const;
 
 function getLevel(xp: number) {
@@ -74,16 +274,16 @@ function load<T>(key: string, fallback: T): T {
 // Achievement badges
 function getAchievements(a: Athlete) {
   const badges: { icon: string; label: string; desc: string; earned: boolean; color: string }[] = [
-    { icon: "🌱", label: "First Steps", desc: "Completed first practice", earned: a.totalPractices >= 1, color: "#94a3b8" },
-    { icon: "🔥", label: "On Fire", desc: "3-day streak", earned: a.streak >= 3, color: "#f59e0b" },
-    { icon: "⚡", label: "Contender", desc: "Reached Contender level", earned: a.xp >= 300, color: "#a78bfa" },
-    { icon: "💪", label: "Iron Will", desc: "10+ practices completed", earned: a.totalPractices >= 10, color: "#60a5fa" },
-    { icon: "🎯", label: "Consistent", desc: "7-day streak", earned: a.streak >= 7, color: "#34d399" },
-    { icon: "🏋️", label: "Gym Rat", desc: "3+ weight room sessions", earned: a.weightStreak >= 3, color: "#f97316" },
-    { icon: "💎", label: "Elite", desc: "Reached Elite level", earned: a.xp >= 1000, color: "#f59e0b" },
-    { icon: "🌟", label: "Quest Hero", desc: "Completed a side quest", earned: Object.values(a.quests || {}).includes("done"), color: "#a855f7" },
-    { icon: "👑", label: "Legend", desc: "Reached Legend level", earned: a.xp >= 2500, color: "#ef4444" },
-    { icon: "🏆", label: "Mythic Streak", desc: "60-day streak", earned: a.streak >= 60, color: "#ef4444" },
+    { icon: "seedling", label: "First Steps", desc: "Completed first practice", earned: a.totalPractices >= 1, color: "#94a3b8" },
+    { icon: "flame", label: "On Fire", desc: "3-day streak", earned: a.streak >= 3, color: "#f59e0b" },
+    { icon: "bolt", label: "Contender", desc: "Reached Contender level", earned: a.xp >= 300, color: "#a78bfa" },
+    { icon: "muscle", label: "Iron Will", desc: "10+ practices completed", earned: a.totalPractices >= 10, color: "#60a5fa" },
+    { icon: "target", label: "Consistent", desc: "7-day streak", earned: a.streak >= 7, color: "#34d399" },
+    { icon: "dumbbell", label: "Gym Rat", desc: "3+ weight room sessions", earned: a.weightStreak >= 3, color: "#f97316" },
+    { icon: "diamond", label: "Elite", desc: "Reached Elite level", earned: a.xp >= 1000, color: "#f59e0b" },
+    { icon: "sparkle", label: "Quest Hero", desc: "Completed a side quest", earned: Object.values(a.quests || {}).includes("done"), color: "#a855f7" },
+    { icon: "crown", label: "Legend", desc: "Reached Legend level", earned: a.xp >= 2500, color: "#ef4444" },
+    { icon: "trophy", label: "Mythic Streak", desc: "60-day streak", earned: a.streak >= 60, color: "#ef4444" },
   ];
   return badges;
 }
@@ -98,6 +298,124 @@ function getGrowthTrend(a: Athlete, snapshots: DailySnapshot[]) {
   return { weekXP, avgDaily, totalDays: recentSnaps.length };
 }
 
+// Get last 7 days XP data for mini bar chart
+function getLast7DaysXP(athleteId: string, snapshots: DailySnapshot[]) {
+  const now = new Date();
+  const days: { date: string; xp: number; label: string }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateStr = d.toISOString().slice(0, 10);
+    const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2);
+    const snap = snapshots.find(s => s.date === dateStr);
+    days.push({ date: dateStr, xp: snap?.athleteXPs?.[athleteId] || 0, label: dayLabel });
+  }
+  return days;
+}
+
+/* ── Welcome Overlay Component ───────────────────────────────── */
+function WelcomeOverlay({ name, levelName, levelColor }: { name: string; levelName: string; levelColor: string }) {
+  const [phase, setPhase] = useState<"in" | "out" | "gone">("in");
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setPhase("out"), 1600);
+    const t2 = setTimeout(() => setPhase("gone"), 2100);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  if (phase === "gone") return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+      style={{ backgroundColor: "rgba(6,2,15,0.85)" }}>
+      <div style={{
+        animation: phase === "in" ? "aa-welcome-in 0.6s ease-out forwards" : "aa-welcome-out 0.5s ease-in forwards",
+      }}>
+        <div className="text-center" style={{ animation: "aa-gold-glow 1.5s ease-in-out infinite" }}>
+          <div className="flex justify-center mb-4">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: `${levelColor}15`, border: `2px solid ${levelColor}50` }}>
+              <LevelIcon name={levelName} size={40} color={levelColor} />
+            </div>
+          </div>
+          <div className="text-[#f59e0b]/60 text-xs font-mono tracking-[0.4em] mb-2">WELCOME</div>
+          <div className="text-3xl sm:text-4xl font-black text-white mb-2">{name}</div>
+          <div className="flex items-center justify-center gap-2">
+            <LevelIcon name={levelName} size={16} color={levelColor} />
+            <span className="text-sm font-bold" style={{ color: levelColor }}>{levelName}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Animated Ring Progress ──────────────────────────────────── */
+function RingProgress({ percent, color, nextColor, size = 140, strokeWidth = 8 }: {
+  percent: number; color: string; nextColor: string; size?: number; strokeWidth?: number;
+}) {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percent / 100) * circumference;
+
+  return (
+    <svg width={size} height={size} className="block mx-auto" style={{ transform: "rotate(-90deg)" }}>
+      {/* Background track */}
+      <circle cx={size / 2} cy={size / 2} r={radius}
+        stroke="rgba(255,255,255,0.05)" strokeWidth={strokeWidth} fill="none" />
+      {/* Animated progress */}
+      <circle cx={size / 2} cy={size / 2} r={radius}
+        stroke={`url(#ring-grad-${color.replace('#', '')})`}
+        strokeWidth={strokeWidth} fill="none"
+        strokeLinecap="round"
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        style={{
+          transition: "stroke-dashoffset 1.5s ease-out",
+          filter: `drop-shadow(0 0 6px ${color}60)`,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ["--ring-circumference" as any]: circumference,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ["--ring-offset" as any]: offset,
+          animation: "aa-ring-fill 1.5s ease-out forwards",
+        }}
+      />
+      <defs>
+        <linearGradient id={`ring-grad-${color.replace('#', '')}`} x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor={color} />
+          <stop offset="100%" stopColor={nextColor} />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
+
+/* ── Mini Bar Chart ──────────────────────────────────────────── */
+function MiniBarChart({ data }: { data: { date: string; xp: number; label: string }[] }) {
+  const maxXP = Math.max(...data.map(d => d.xp), 1);
+
+  return (
+    <div className="flex items-end gap-1.5 h-16 mt-3 mb-1">
+      {data.map((d, i) => {
+        const h = Math.max(4, (d.xp / maxXP) * 100);
+        return (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full rounded-sm relative overflow-hidden" style={{ height: `${h}%`, minHeight: "3px" }}>
+              <div className="absolute inset-0 rounded-sm transition-all duration-500"
+                style={{
+                  background: d.xp > 0
+                    ? `linear-gradient(to top, #34d39980, #34d399)`
+                    : "rgba(255,255,255,0.05)",
+                  boxShadow: d.xp > 0 ? "0 0 8px rgba(52,211,153,0.3)" : "none",
+                }} />
+            </div>
+            <span className="text-[8px] text-white/20 font-mono">{d.label}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ParentPortal() {
   const [mounted, setMounted] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -108,6 +426,7 @@ export default function ParentPortal() {
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -129,7 +448,13 @@ export default function ParentPortal() {
     setSearchResults(roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8));
   }, [nameInput, roster]);
 
-  const selectAthlete = (a: Athlete) => { setAthlete(a); setNameInput(""); setSearchResults([]); };
+  const selectAthlete = (a: Athlete) => {
+    setAthlete(a);
+    setNameInput("");
+    setSearchResults([]);
+    setShowWelcome(true);
+    setTimeout(() => setShowWelcome(false), 2200);
+  };
 
   const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
   const nextLevel = athlete ? getNextLevel(athlete.xp) : LEVELS[1];
@@ -138,6 +463,7 @@ export default function ParentPortal() {
   const achievements = useMemo(() => athlete ? getAchievements(athlete) : [], [athlete]);
   const growth = useMemo(() => athlete ? getGrowthTrend(athlete, snapshots) : null, [athlete, snapshots]);
   const earnedCount = achievements.filter(a => a.earned).length;
+  const last7Days = useMemo(() => athlete ? getLast7DaysXP(athlete.id, snapshots) : [], [athlete, snapshots]);
 
   if (!mounted) return (
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center">
@@ -149,6 +475,7 @@ export default function ParentPortal() {
   if (!unlocked) {
     return (
       <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+        {STYLE_TAG}
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
@@ -183,6 +510,7 @@ export default function ParentPortal() {
   if (!athlete) {
     return (
       <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+        {STYLE_TAG}
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
@@ -211,7 +539,10 @@ export default function ParentPortal() {
                     <button key={a.id} onClick={() => selectAthlete(a)}
                       className="w-full px-5 py-3 text-left hover:bg-[#f59e0b]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
                       <span className="text-white font-semibold">{a.name}</span>
-                      <span className="text-xs" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
+                      <span className="text-xs flex items-center gap-1.5" style={{ color: lv.color }}>
+                        <LevelIcon name={lv.name} size={14} color={lv.color} />
+                        {lv.name}
+                      </span>
                     </button>
                   );
                 })}
@@ -222,7 +553,7 @@ export default function ParentPortal() {
           {/* COPPA notice */}
           <div className="mt-6 p-4 rounded-xl bg-[#0a0518]/60 border border-[#00f0ff]/10">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-lg">🔒</span>
+              <SvgShieldLock size={18} color="#00f0ff" />
               <span className="text-white/50 text-xs font-bold">COPPA Safe</span>
             </div>
             <p className="text-white/20 text-[10px]">This portal shows growth trends and achievements only. All athlete data is managed by the coach. No personal information is collected.</p>
@@ -241,6 +572,8 @@ export default function ParentPortal() {
   // ── Parent Dashboard (read-only) ─────────────────────────
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
+      {STYLE_TAG}
+      {showWelcome && <WelcomeOverlay name={athlete.name} levelName={level.name} levelColor={level.color} />}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
       </div>
@@ -252,7 +585,10 @@ export default function ParentPortal() {
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
-              <span style={{ color: level.color }} className="text-sm font-bold">{level.icon} {level.name}</span>
+              <span style={{ color: level.color }} className="text-sm font-bold flex items-center gap-1.5">
+                <LevelIcon name={level.name} size={14} color={level.color} />
+                {level.name}
+              </span>
               <span className="text-white/15 text-xs">·</span>
               <span className="text-white/30 text-xs">{athlete.group.toUpperCase()}</span>
             </div>
@@ -260,37 +596,62 @@ export default function ParentPortal() {
           <div className="w-14" />
         </div>
 
-        {/* Level Progress — big, encouraging */}
-        <div className="mb-6 p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 text-center">
-          <div className="text-4xl mb-2">{level.icon}</div>
-          <div className="text-2xl font-black text-white mb-1">{level.name}</div>
-          {nextLevel ? (
-            <p className="text-white/30 text-xs mb-3">
-              {progress.remaining} XP until <span style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name}</span>
-            </p>
-          ) : (
-            <p className="text-[#ef4444] text-xs font-bold mb-3">Maximum Level Reached!</p>
-          )}
-          <div className="h-3 bg-white/5 rounded-full overflow-hidden max-w-xs mx-auto">
-            <div className="h-full rounded-full transition-all duration-700"
-              style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
+        {/* Level Progress — animated ring */}
+        <div className="mb-6 p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 text-center relative overflow-hidden">
+          {/* Subtle orbit decoration */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.06 }}>
+            <div className="w-48 h-48 rounded-full border border-current" style={{ color: level.color, animation: "aa-orbit 20s linear infinite" }}>
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 rounded-full" style={{ backgroundColor: level.color }} />
+            </div>
           </div>
-          <div className="text-white/20 text-[10px] mt-2 font-mono">{athlete.xp} XP TOTAL</div>
+
+          <div className="relative">
+            {/* Ring progress with centered icon */}
+            <div className="relative inline-block mb-3">
+              <RingProgress percent={progress.percent} color={level.color} nextColor={nextLevel?.color || level.color} size={140} strokeWidth={8} />
+              {/* Centered icon inside ring */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ transform: "rotate(0deg)" }}>
+                <LevelIcon name={level.name} size={36} color={level.color} />
+                <div className="text-[10px] font-mono mt-1" style={{ color: `${level.color}80` }}>{progress.percent}%</div>
+              </div>
+            </div>
+
+            <div className="text-2xl font-black text-white mb-1">{level.name}</div>
+            {nextLevel ? (
+              <p className="text-white/30 text-xs mb-2">
+                {progress.remaining} XP until <span className="inline-flex items-center gap-1" style={{ color: nextLevel.color }}>
+                  <LevelIcon name={nextLevel.name} size={12} color={nextLevel.color} />
+                  {nextLevel.name}
+                </span>
+              </p>
+            ) : (
+              <p className="text-[#ef4444] text-xs font-bold mb-2">Maximum Level Reached!</p>
+            )}
+            {/* Keep the bar too for a secondary indicator */}
+            <div className="h-2 bg-white/5 rounded-full overflow-hidden max-w-xs mx-auto">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
+            </div>
+            <div className="text-white/20 text-[10px] mt-2 font-mono">{athlete.xp} XP TOTAL</div>
+          </div>
         </div>
 
-        {/* Highlights Row */}
+        {/* Highlights Row — pulse on non-zero */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
+          <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
+            style={athlete.streak > 0 ? { borderColor: `${streak.color}25` } : {}}>
             <div className="text-3xl font-black text-white">{athlete.streak}</div>
             <div className="text-[10px] font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/20 text-[10px]">day streak</div>
           </div>
-          <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
+          <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
+            style={athlete.totalPractices > 0 ? { borderColor: "rgba(96,165,250,0.15)", animationDelay: "0.3s" } : {}}>
             <div className="text-3xl font-black text-white">{athlete.totalPractices}</div>
             <div className="text-white/30 text-[10px] font-mono tracking-wider">PRACTICES</div>
             <div className="text-white/20 text-[10px]">total</div>
           </div>
-          <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
+          <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
+            style={earnedCount > 0 ? { borderColor: "rgba(245,158,11,0.15)", animationDelay: "0.6s" } : {}}>
             <div className="text-3xl font-black text-white">{earnedCount}</div>
             <div className="text-[#f59e0b]/60 text-[10px] font-mono tracking-wider">BADGES</div>
             <div className="text-white/20 text-[10px]">earned</div>
@@ -311,8 +672,15 @@ export default function ParentPortal() {
                 <div className="text-white/25 text-[10px]">sessions this week</div>
               </div>
             </div>
+            {/* Mini bar chart — last 7 days */}
+            {last7Days.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/5">
+                <div className="text-white/20 text-[9px] font-mono tracking-wider mb-1">DAILY XP (LAST 7 DAYS)</div>
+                <MiniBarChart data={last7Days} />
+              </div>
+            )}
             {growth.avgDaily > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/5 text-center">
+              <div className="mt-2 pt-3 border-t border-white/5 text-center">
                 <span className="text-white/20 text-xs">Averaging </span>
                 <span className="text-emerald-400 text-sm font-bold">{growth.avgDaily} XP/day</span>
               </div>
@@ -325,19 +693,34 @@ export default function ParentPortal() {
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-4">ACHIEVEMENTS</h3>
           <div className="grid grid-cols-5 gap-3">
             {achievements.map((badge, i) => (
-              <div key={i} className={`text-center transition-all ${badge.earned ? "" : "opacity-20 grayscale"}`}>
-                <div className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center text-lg mb-1 ${badge.earned ? "bg-white/10" : "bg-white/5"}`}
-                  style={badge.earned ? { boxShadow: `0 0 12px ${badge.color}40` } : {}}>
-                  {badge.icon}
+              <div key={i} className={`text-center transition-all ${badge.earned ? "aa-badge-pop" : "opacity-25"}`}
+                style={badge.earned ? { animationDelay: `${i * 0.05}s` } : {}}>
+                <div className={`w-11 h-11 mx-auto rounded-full flex items-center justify-center mb-1 ${badge.earned ? "aa-earned-glow" : ""}`}
+                  style={badge.earned ? {
+                    backgroundColor: `${badge.color}18`,
+                    boxShadow: `0 0 14px ${badge.color}40, 0 0 4px ${badge.color}20`,
+                    border: `1.5px solid ${badge.color}50`,
+                  } : {
+                    backgroundColor: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.05)",
+                  }}>
+                  {badge.earned ? (
+                    <BadgeIcon label={badge.label} size={18} color={badge.color} />
+                  ) : (
+                    <SvgPadlock size={14} color="#475569" />
+                  )}
                 </div>
-                <div className="text-[9px] text-white/40 leading-tight">{badge.label}</div>
+                <div className="text-[9px] leading-tight" style={{ color: badge.earned ? `${badge.color}99` : "rgba(255,255,255,0.2)" }}>
+                  {badge.label}
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Encouragement Section */}
-        <div className="p-4 rounded-xl bg-gradient-to-br from-[#f59e0b]/5 to-[#a855f7]/5 border border-[#f59e0b]/10">
+        {/* Encouragement Section — animated gradient */}
+        <div className="p-4 rounded-xl border border-[#f59e0b]/10 aa-gradient-bg"
+          style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">HIGHLIGHTS</h3>
           <div className="space-y-2">
             {athlete.streak >= 7 && (
@@ -361,9 +744,9 @@ export default function ParentPortal() {
           </div>
         </div>
 
-        {/* COPPA Footer */}
+        {/* COPPA Footer — SVG shield */}
         <div className="mt-8 p-3 rounded-lg bg-[#0a0518]/40 border border-[#00f0ff]/5 flex items-center gap-2">
-          <span className="text-sm">🔒</span>
+          <SvgShieldLock size={16} color="#00f0ff" />
           <p className="text-white/15 text-[10px]">
             Parent Portal is read-only. Growth trends and achievements only — no raw checkpoint data, no personal information.
             All data is managed by the coaching staff.

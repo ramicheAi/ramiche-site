@@ -259,7 +259,7 @@ export default function AthletePortal() {
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [journalDraft, setJournalDraft] = useState<JournalEntry>({ date: "", wentWell: "", workOn: "", goals: "", mood: 3 });
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
-  const [sessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
+  const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
 
   // Times state
   const [times, setTimes] = useState<TimeEntry[]>([]);
@@ -553,12 +553,15 @@ export default function AthletePortal() {
               <span className="text-white/30 text-xs">{athlete.group.toUpperCase()}</span>
             </div>
           </div>
-          {/* AM/PM Badge */}
-          <div className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wider ${
-            sessionTime === "am" ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/20"
-          }`}>
+          {/* AM/PM Toggle */}
+          <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
+              sessionTime === "am"
+                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+            }`}>
             {sessionTime === "am" ? "☀ AM" : "☽ PM"}
-          </div>
+          </button>
         </div>
 
         {/* XP Bar */}
