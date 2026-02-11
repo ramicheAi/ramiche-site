@@ -605,6 +605,7 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
+  const [autoSession, setAutoSession] = useState(true); // auto-detect from schedule
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy">("coach");
   const [activeCoach, setActiveCoach] = useState<string>("Coach");
@@ -639,6 +640,26 @@ export default function ApexAthletePage() {
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
   const floatCounter = useRef(0);
+  const [feedbackAthleteId, setFeedbackAthleteId] = useState<string | null>(null);
+  const [feedbackType, setFeedbackType] = useState<"praise" | "tip" | "goal">("praise");
+  const [feedbackMsg, setFeedbackMsg] = useState("");
+
+  const sendFeedback = (athleteId: string) => {
+    if (!feedbackMsg.trim()) return;
+    const fbKey = `apex-athlete-feedback-${athleteId}`;
+    const existing = (() => { try { return JSON.parse(localStorage.getItem(fbKey) || "[]"); } catch { return []; } })();
+    const entry = {
+      id: `fb-${Date.now()}`,
+      date: today(),
+      from: activeCoach || "Coach",
+      type: feedbackType,
+      message: feedbackMsg.trim(),
+      read: false,
+    };
+    localStorage.setItem(fbKey, JSON.stringify([entry, ...existing]));
+    setFeedbackMsg("");
+    setFeedbackAthleteId(null);
+  };
 
   // ── schedule state ──────────────────────────────────────
   const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
@@ -717,6 +738,58 @@ export default function ApexAthletePage() {
     setSchedules(scheds);
     setMounted(true);
   }, []);
+
+  // ── auto-detect AM/PM + session mode from schedule ─────
+  useEffect(() => {
+    if (!mounted || !autoSession || schedules.length === 0) return;
+    const detect = () => {
+      const now = new Date();
+      const dayMap: Record<number, DayOfWeek> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
+      const dayKey = dayMap[now.getDay()];
+      const groupSched = schedules.find(s => s.groupId === selectedGroup);
+      if (!groupSched) return;
+      const daySched = groupSched.weekSchedule[dayKey];
+      if (!daySched || daySched.sessions.length === 0) return;
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      // Find the closest session (current or upcoming within 30 min)
+      let best: ScheduleSession | null = null;
+      let bestDist = Infinity;
+      for (const sess of daySched.sessions) {
+        const [sh, sm] = sess.startTime.split(":").map(Number);
+        const [eh, em] = sess.endTime.split(":").map(Number);
+        const startMins = sh * 60 + sm;
+        const endMins = eh * 60 + em;
+        // Currently in session or within 30 min before start
+        if (nowMins >= startMins - 30 && nowMins <= endMins) {
+          const dist = Math.abs(nowMins - startMins);
+          if (dist < bestDist) { best = sess; bestDist = dist; }
+        }
+      }
+      // If no active session, pick the next upcoming one
+      if (!best) {
+        for (const sess of daySched.sessions) {
+          const [sh, sm] = sess.startTime.split(":").map(Number);
+          const startMins = sh * 60 + sm;
+          if (startMins > nowMins) {
+            const dist = startMins - nowMins;
+            if (dist < bestDist) { best = sess; bestDist = dist; }
+          }
+        }
+      }
+      if (best) {
+        const [sh] = best.startTime.split(":").map(Number);
+        setSessionTime(sh < 12 ? "am" : "pm");
+        if (best.type === "pool" || best.type === "dryland") setSessionMode("pool");
+        else if (best.type === "weight") setSessionMode("weight");
+      } else {
+        // No sessions today or all passed — default by time
+        setSessionTime(now.getHours() < 12 ? "am" : "pm");
+      }
+    };
+    detect();
+    const iv = setInterval(detect, 60000); // re-check every minute
+    return () => clearInterval(iv);
+  }, [mounted, autoSession, schedules, selectedGroup]);
 
   // ── auto-snapshot ────────────────────────────────────────
   useEffect(() => {
@@ -1302,12 +1375,19 @@ export default function ApexAthletePage() {
             </div>
             {/* Game HUD nav tabs */}
             <div className="flex flex-wrap">
-              {(["coach", "parent", "audit", "analytics", "schedule", "strategy"] as const).map((v, i) => {
-                const icons: Record<string, string> = { coach: "\u25C6", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5", strategy: "\uD83C\uDFAF" };
+              {(["coach", "parent", "audit", "analytics", "schedule", "strategy"] as const).map((v) => {
+                const navIcons: Record<string, React.ReactNode> = {
+                  coach: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
+                  parent: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0114 0v2"/><path d="M19 8v6M22 11h-6"/></svg>,
+                  audit: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>,
+                  analytics: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
+                  schedule: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
+                  strategy: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+                };
                 const active = view === v;
                 return (
                   <button key={v} onClick={() => setView(v)}
-                    className={`relative px-4 sm:px-5 py-3 text-[10px] font-bold font-mono tracking-[0.25em] uppercase transition-all duration-300 ${
+                    className={`relative px-4 sm:px-5 py-3 text-[10px] font-bold font-mono tracking-[0.25em] uppercase transition-all duration-300 flex items-center gap-1.5 ${
                       active
                         ? "text-[#00f0ff] bg-[#00f0ff]/[0.08]"
                         : "text-white/15 hover:text-[#00f0ff]/60 hover:bg-[#00f0ff]/[0.03]"
@@ -1317,7 +1397,7 @@ export default function ApexAthletePage() {
                       borderBottom: active ? 'none' : '1px solid rgba(0,240,255,0.05)',
                       boxShadow: active ? '0 -4px 20px rgba(0,240,255,0.15), inset 0 1px 15px rgba(0,240,255,0.05)' : 'none'
                     }}>
-                    <span className={`mr-1.5 ${active ? "text-[#f59e0b]" : ""}`}>{icons[v]}</span>{v}
+                    <span className={active ? "text-[#f59e0b]" : ""}>{navIcons[v]}</span>{v}
                     {active && <div className="absolute bottom-0 left-1/4 right-1/4 h-[1px] bg-[#00f0ff]/40" />}
                   </button>
                 );
@@ -1343,6 +1423,49 @@ export default function ApexAthletePage() {
               )}
             </div>
           </div>
+
+          {/* ── AM/PM + Session Mode — auto-detects from schedule ── */}
+          {view === "coach" && (
+            <div className="game-panel game-panel-border relative bg-[#06020f]/80 backdrop-blur-xl px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule. Tap to override." : "Manual mode. Tap to auto-detect."}
+                  className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
+                  {autoSession ? "⚡ AUTO" : "✋ MANUAL"}
+                </button>
+                <div className="flex rounded-lg overflow-hidden border border-[#a855f7]/25">
+                  {(["am", "pm"] as const).map(t => (
+                    <button key={t} onClick={() => { setAutoSession(false); setSessionTime(t); }}
+                      className={`px-4 py-2 text-xs font-bold font-mono tracking-wider uppercase transition-all ${
+                        sessionTime === t
+                          ? t === "am"
+                            ? "bg-gradient-to-r from-[#f59e0b]/25 to-[#fbbf24]/15 text-[#fbbf24] shadow-[inset_0_0_15px_rgba(251,191,36,0.15)]"
+                            : "bg-gradient-to-r from-[#6366f1]/25 to-[#818cf8]/15 text-[#818cf8] shadow-[inset_0_0_15px_rgba(129,140,248,0.15)]"
+                          : "bg-[#06020f]/60 text-white/20 hover:text-white/40"
+                      }`}>
+                      {t === "am" ? "☀ AM" : "☽ PM"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {(["pool", "weight", "meet"] as const).map(m => {
+                  const mIcons = { pool: "🏊", weight: "🏋️", meet: "🏁" };
+                  const mLabels = { pool: "Pool", weight: "Weight", meet: "Meet" };
+                  return (
+                    <button key={m} onClick={() => { setAutoSession(false); setSessionMode(m); }}
+                      className={`px-3 py-2 text-[10px] font-bold font-mono tracking-wider uppercase rounded-lg border transition-all ${
+                        sessionMode === m
+                          ? "bg-[#00f0ff]/10 text-[#00f0ff] border-[#00f0ff]/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]"
+                          : "text-white/20 border-white/[0.06] hover:text-white/40 hover:border-white/10"
+                      }`}>
+                      {mIcons[m]} {mLabels[m]}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-white/10 text-[9px] font-mono">{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+            </div>
+          )}
 
           {/* Season goal progress */}
           <div className="flex items-center gap-4 px-2 mb-2">
@@ -1629,6 +1752,51 @@ export default function ApexAthletePage() {
           </div>
         )}
 
+        {/* Send Feedback to Athlete */}
+        <Card className="p-5">
+          <h4 className="text-[#f59e0b] text-[11px] uppercase tracking-[0.15em] font-bold mb-3 flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            Send Feedback
+          </h4>
+          {feedbackAthleteId === athlete.id ? (
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                {(["praise", "tip", "goal"] as const).map(ft => (
+                  <button key={ft} onClick={() => setFeedbackType(ft)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all ${
+                      feedbackType === ft
+                        ? ft === "praise" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                          : ft === "tip" ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                          : "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30"
+                        : "bg-white/5 text-white/25 border border-white/10"
+                    }`}>
+                    {ft === "praise" ? "★ Praise" : ft === "tip" ? "→ Tip" : "◎ Goal"}
+                  </button>
+                ))}
+              </div>
+              <textarea value={feedbackMsg} onChange={e => setFeedbackMsg(e.target.value)}
+                placeholder={feedbackType === "praise" ? "Great job today..." : feedbackType === "tip" ? "Try focusing on..." : "Your next goal is..."}
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#f59e0b]/30 resize-none"
+                rows={2} />
+              <div className="flex gap-2">
+                <button onClick={() => sendFeedback(athlete.id)} disabled={!feedbackMsg.trim()}
+                  className="flex-1 py-2 rounded-lg bg-[#f59e0b]/15 border border-[#f59e0b]/25 text-[#f59e0b] text-sm font-bold disabled:opacity-30 hover:bg-[#f59e0b]/25 transition-all">
+                  Send to {athlete.name.split(" ")[0]}
+                </button>
+                <button onClick={() => setFeedbackAthleteId(null)}
+                  className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/30 text-sm hover:text-white/50 transition-all">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button onClick={() => setFeedbackAthleteId(athlete.id)}
+              className="w-full py-3 rounded-xl bg-[#f59e0b]/10 border border-[#f59e0b]/15 text-[#f59e0b]/70 text-sm font-bold hover:bg-[#f59e0b]/15 hover:text-[#f59e0b] transition-all">
+              Send Feedback to {athlete.name.split(" ")[0]}
+            </button>
+          )}
+        </Card>
+
         {/* Personal growth */}
         {growth && (
           <Card className="p-6">
@@ -1861,6 +2029,206 @@ export default function ApexAthletePage() {
           <div className="text-center text-white/[0.05] text-[10px] py-10 space-y-1">
             <p>Apex Athlete — Race Strategy AI</p>
             <p>Personal growth, not competition. Every rep counts.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── SCHEDULE VIEW ─────────────────────────────────────────
+  if (view === "schedule") {
+    const groupSched = schedules.find(s => s.groupId === scheduleGroup);
+    const groupInfo = ROSTER_GROUPS.find(g => g.id === scheduleGroup);
+
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs /><XpFloats /><LevelUpOverlay />
+        <div className="w-full relative z-10 px-4 sm:px-6">
+          <GameHUDHeader />
+
+          {/* Group selector */}
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div className="flex gap-2 flex-wrap">
+              {ROSTER_GROUPS.map(g => (
+                <button key={g.id} onClick={() => setScheduleGroup(g.id as GroupId)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider uppercase transition-all ${
+                    scheduleGroup === g.id
+                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                      : "bg-[#06020f]/60 text-white/20 border border-white/5 hover:text-white/40"
+                  }`}>
+                  {g.name}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setScheduleEditMode(!scheduleEditMode)}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all ${
+                scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30" : "bg-white/5 text-white/25 border border-white/10"
+              }`}>
+              {scheduleEditMode ? "✓ Done Editing" : "✎ Edit Schedule"}
+            </button>
+          </div>
+
+          {/* Week schedule grid */}
+          <div className="grid grid-cols-7 gap-2">
+            {DAYS_OF_WEEK.map(day => {
+              const dayData = groupSched?.weekSchedule[day];
+              const template = SCHEDULE_TEMPLATES.find(t => t.id === dayData?.template);
+              const isToday = new Date().toLocaleDateString("en-US", { weekday: "short" }) === day;
+
+              return (
+                <div key={day} className={`rounded-2xl border p-3 transition-all ${
+                  isToday ? "border-[#00f0ff]/30 bg-[#00f0ff]/5 shadow-[0_0_20px_rgba(0,240,255,0.1)]"
+                    : "border-white/5 bg-[#0a0518]/50"
+                }`}>
+                  {/* Day header */}
+                  <div className="text-center mb-3">
+                    <div className={`text-[10px] font-mono tracking-wider font-bold ${isToday ? "text-[#00f0ff]" : "text-white/30"}`}>{day.toUpperCase()}</div>
+                    {template && (
+                      <div className="mt-1">
+                        <span className="text-[10px]" style={{ color: template.color }}>{template.icon}</span>
+                        <span className="text-[9px] text-white/20 block mt-0.5">{template.name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Sessions */}
+                  <div className="space-y-2">
+                    {dayData?.sessions.map((session, si) => (
+                      <div key={session.id} className={`p-2.5 rounded-xl border transition-all ${
+                        session.type === "pool" ? "bg-[#60a5fa]/5 border-[#60a5fa]/15"
+                          : session.type === "weight" ? "bg-[#f59e0b]/5 border-[#f59e0b]/15"
+                          : "bg-[#34d399]/5 border-[#34d399]/15"
+                      }`}>
+                        <div className={`text-[10px] font-bold ${
+                          session.type === "pool" ? "text-[#60a5fa]" : session.type === "weight" ? "text-[#f59e0b]" : "text-[#34d399]"
+                        }`}>{session.label}</div>
+                        <div className="text-white/25 text-[9px] font-mono mt-0.5">
+                          {session.startTime} – {session.endTime}
+                        </div>
+                        {/* AM/PM indicator */}
+                        <div className={`text-[8px] font-mono font-bold mt-1 px-1.5 py-0.5 rounded inline-block ${
+                          parseInt(session.startTime.split(":")[0]) < 12
+                            ? "bg-amber-500/15 text-amber-400"
+                            : "bg-indigo-500/15 text-indigo-400"
+                        }`}>
+                          {parseInt(session.startTime.split(":")[0]) < 12 ? "☀ AM" : "☽ PM"}
+                        </div>
+                        <div className="text-white/15 text-[8px] mt-0.5">{session.location}</div>
+
+                        {scheduleEditMode && (
+                          <div className="mt-2 space-y-1.5">
+                            <input type="time" value={session.startTime}
+                              onChange={e => {
+                                if (!groupSched) return;
+                                const updated = [...schedules];
+                                const gi = updated.findIndex(s => s.groupId === scheduleGroup);
+                                if (gi < 0) return;
+                                updated[gi].weekSchedule[day].sessions[si].startTime = e.target.value;
+                                saveSchedules(updated);
+                              }}
+                              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-[#00f0ff]/30" />
+                            <input type="time" value={session.endTime}
+                              onChange={e => {
+                                if (!groupSched) return;
+                                const updated = [...schedules];
+                                const gi = updated.findIndex(s => s.groupId === scheduleGroup);
+                                if (gi < 0) return;
+                                updated[gi].weekSchedule[day].sessions[si].endTime = e.target.value;
+                                saveSchedules(updated);
+                              }}
+                              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white focus:outline-none focus:border-[#00f0ff]/30" />
+                            <input type="text" placeholder="Notes" value={session.notes}
+                              onChange={e => {
+                                if (!groupSched) return;
+                                const updated = [...schedules];
+                                const gi = updated.findIndex(s => s.groupId === scheduleGroup);
+                                if (gi < 0) return;
+                                updated[gi].weekSchedule[day].sessions[si].notes = e.target.value;
+                                saveSchedules(updated);
+                              }}
+                              className="w-full bg-white/5 border border-white/10 rounded px-2 py-1 text-[10px] text-white placeholder:text-white/10 focus:outline-none focus:border-[#00f0ff]/30" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {dayData?.sessions.length === 0 && (
+                      <div className="text-center py-4">
+                        <span className="text-white/10 text-xs">Rest</span>
+                      </div>
+                    )}
+
+                    {/* Add session in edit mode */}
+                    {scheduleEditMode && (
+                      <div className="flex gap-1 mt-2">
+                        {(["pool", "weight", "dryland"] as const).map(type => (
+                          <button key={type} onClick={() => {
+                            if (!groupSched) return;
+                            const updated = [...schedules];
+                            const gi = updated.findIndex(s => s.groupId === scheduleGroup);
+                            if (gi < 0) return;
+                            updated[gi].weekSchedule[day].sessions.push(makeDefaultSession(type, scheduleGroup));
+                            if (dayData?.template === "rest-day") updated[gi].weekSchedule[day].template = "sprint-day";
+                            saveSchedules(updated);
+                          }}
+                            className={`flex-1 py-1.5 rounded-lg text-[8px] font-bold border transition-all ${
+                              type === "pool" ? "text-[#60a5fa]/40 border-[#60a5fa]/10 hover:bg-[#60a5fa]/10"
+                                : type === "weight" ? "text-[#f59e0b]/40 border-[#f59e0b]/10 hover:bg-[#f59e0b]/10"
+                                : "text-[#34d399]/40 border-[#34d399]/10 hover:bg-[#34d399]/10"
+                            }`}>
+                            +{type === "pool" ? "🏊" : type === "weight" ? "🏋️" : "🤸"}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Template selector in edit mode */}
+                  {scheduleEditMode && (
+                    <select value={dayData?.template || "rest-day"}
+                      onChange={e => {
+                        if (!groupSched) return;
+                        const updated = [...schedules];
+                        const gi = updated.findIndex(s => s.groupId === scheduleGroup);
+                        if (gi < 0) return;
+                        updated[gi].weekSchedule[day].template = e.target.value;
+                        saveSchedules(updated);
+                      }}
+                      className="w-full mt-2 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white focus:outline-none focus:border-[#00f0ff]/30">
+                      {SCHEDULE_TEMPLATES.map(t => (
+                        <option key={t.id} value={t.id}>{t.icon} {t.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Legend */}
+          <div className="mt-6 flex flex-wrap gap-3 justify-center">
+            {SCHEDULE_TEMPLATES.filter(t => t.id !== "rest-day").map(t => (
+              <div key={t.id} className="flex items-center gap-1.5">
+                <span style={{ color: t.color }}>{t.icon}</span>
+                <span className="text-white/25 text-[10px]">{t.name}</span>
+              </div>
+            ))}
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#60a5fa]" />
+              <span className="text-white/25 text-[10px]">Pool</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+              <span className="text-white/25 text-[10px]">Weight</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#34d399]" />
+              <span className="text-white/25 text-[10px]">Dryland</span>
+            </div>
+          </div>
+
+          <div className="text-center mt-8 text-white/[0.06] text-[10px]">
+            <p>{groupInfo?.name || "Group"} · {groupSched ? Object.values(groupSched.weekSchedule).reduce((c, d) => c + d.sessions.length, 0) : 0} sessions/week</p>
           </div>
         </div>
       </div>
@@ -2365,22 +2733,32 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="w-full px-5 sm:px-8 py-6">
           <div className="w-full">
-            {/* Session mode + AM/PM + tools */}
+            {/* AM/PM Session Selector — auto-detects from schedule */}
+            <div className="mb-4 p-3 rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/15 flex items-center justify-between flex-wrap gap-2">
+              <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule" : "Manual mode"}
+                className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
+                {autoSession ? "⚡ AUTO" : "✋ MANUAL"}
+              </button>
+              <div className="flex rounded-xl overflow-hidden border border-[#a855f7]/25">
+                {(["am", "pm"] as const).map(t => (
+                  <button key={t} onClick={() => { setAutoSession(false); setSessionTime(t); }}
+                    className={`px-6 py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all ${
+                      sessionTime === t
+                        ? t === "am"
+                          ? "bg-gradient-to-r from-[#f59e0b]/20 to-[#fbbf24]/10 text-[#fbbf24] shadow-[inset_0_0_20px_rgba(251,191,36,0.15)] border-r border-[#a855f7]/25"
+                          : "bg-gradient-to-r from-[#6366f1]/20 to-[#818cf8]/10 text-[#818cf8] shadow-[inset_0_0_20px_rgba(129,140,248,0.15)]"
+                        : "bg-[#06020f]/60 text-white/20 hover:text-white/40"
+                    }`}>
+                    {t === "am" ? "☀ AM PRACTICE" : "☽ PM PRACTICE"}
+                  </button>
+                ))}
+              </div>
+              <div className="text-white/15 text-[10px] font-mono">{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
+            </div>
+
+            {/* Session mode + tools */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div className="flex gap-2 flex-wrap items-center">
-                {/* AM/PM Toggle */}
-                <div className="flex rounded-xl overflow-hidden border border-[#a855f7]/20 mr-1">
-                  {(["am", "pm"] as const).map(t => (
-                    <button key={t} onClick={() => setSessionTime(t)}
-                      className={`px-4 py-3.5 text-xs font-bold font-mono tracking-wider uppercase min-h-[52px] transition-all ${
-                        sessionTime === t
-                          ? "bg-[#a855f7]/20 text-[#e879f9] shadow-[inset_0_0_15px_rgba(168,85,247,0.15)]"
-                          : "bg-[#06020f]/60 text-white/20 hover:text-[#a855f7]/60"
-                      }`}>
-                      {t === "am" ? "☀️ AM" : "🌙 PM"}
-                    </button>
-                  ))}
-                </div>
                 {/* Session type */}
                 {(["pool", "weight", "meet"] as const).map(m => {
                   const sportIcons = { swimming: { pool: "🏊", weight: "🏋️", meet: "🏁" }, diving: { pool: "🤿", weight: "🏋️", meet: "🏁" }, waterpolo: { pool: "🤽", weight: "🏋️", meet: "🏁" } };

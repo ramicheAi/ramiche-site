@@ -259,18 +259,39 @@ export default function AthletePortal() {
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [journalDraft, setJournalDraft] = useState<JournalEntry>({ date: "", wentWell: "", workOn: "", goals: "", mood: 3 });
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
-  const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
+  // Auto-detect AM/PM from schedule (same logic as coach portal)
+  const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
+    if (typeof window === "undefined") return "pm";
+    try {
+      const schedules = JSON.parse(localStorage.getItem("apex-athlete-schedules-v1") || "[]");
+      const now = new Date();
+      const dayMap: Record<number, string> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
+      const dayKey = dayMap[now.getDay()];
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      for (const gs of schedules) {
+        const day = gs.weekSchedule?.[dayKey];
+        if (!day?.sessions?.length) continue;
+        for (const sess of day.sessions) {
+          const [sh, sm] = sess.startTime.split(":").map(Number);
+          const [eh, em] = sess.endTime.split(":").map(Number);
+          if (nowMins >= sh * 60 + sm - 30 && nowMins <= eh * 60 + em) return sh < 12 ? "am" as const : "pm" as const;
+        }
+      }
+    } catch {}
+    return new Date().getHours() < 12 ? "am" as const : "pm" as const;
+  });
 
   // Times state
   const [times, setTimes] = useState<TimeEntry[]>([]);
   const [newTime, setNewTime] = useState({ event: "100", stroke: "Freestyle", time: "", meet: false, notes: "" });
 
-  // Race prep state
+  // Race prep state — auto-fills current time from PR when event/stroke changes
   const [racePlans, setRacePlans] = useState<RacePlan[]>([]);
   const [rpEvent, setRpEvent] = useState("100");
   const [rpStroke, setRpStroke] = useState("Freestyle");
   const [rpCurrent, setRpCurrent] = useState("");
   const [rpGoal, setRpGoal] = useState("");
+  const [rpAutoFilled, setRpAutoFilled] = useState(false);
   const [rpResult, setRpResult] = useState<RacePlan | null>(null);
 
   // Feedback state
@@ -424,6 +445,15 @@ export default function AthletePortal() {
       save(`${K.RACE_PLANS}-${athlete.id}`, updated);
     }
   };
+
+  // Auto-fill race prep "current time" from PR when event/stroke changes
+  useEffect(() => {
+    if (!athlete || times.length === 0) return;
+    const pr = times.filter(t => t.event === rpEvent && t.stroke === rpStroke).sort((a, b) => a.seconds - b.seconds)[0];
+    if (pr && !rpAutoFilled) { setRpCurrent(pr.time); setRpAutoFilled(true); }
+  }, [rpEvent, rpStroke, times, athlete, rpAutoFilled]);
+  // Reset auto-fill flag when event/stroke changes
+  useEffect(() => { setRpAutoFilled(false); }, [rpEvent, rpStroke]);
 
   // Leaderboard (top 10)
   const leaderboard = useMemo(() => {
