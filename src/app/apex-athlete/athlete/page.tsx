@@ -300,7 +300,11 @@ export default function AthletePortal() {
   useEffect(() => { setMounted(true); }, []);
 
   const handlePin = () => {
-    const stored = typeof window !== "undefined" ? localStorage.getItem("apex-athlete-pin") || "1234" : "1234";
+    let stored = "1234";
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem("apex-athlete-pin");
+      if (raw) { try { stored = JSON.parse(raw); } catch { stored = raw; } }
+    }
     if (pinInput === stored) { setUnlocked(true); setPinError(false); }
     else { setPinError(true); setTimeout(() => setPinError(false), 1500); }
   };
