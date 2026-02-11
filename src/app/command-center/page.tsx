@@ -1461,7 +1461,7 @@ export default function CommandCenter() {
                         animation: "platform-glow 4s ease-in-out infinite",
                       }} />
                       {/* Character */}
-                      <img src="/agents/atlas.png" alt="Atlas"
+                      <img src="/agents/atlas-3d.png" alt="Atlas"
                         className="relative z-10 w-full h-full object-contain"
                         style={{ filter: "drop-shadow(0 0 12px rgba(0,240,255,0.2)) drop-shadow(0 8px 24px rgba(0,0,0,0.7))" }}
                       />
@@ -2266,30 +2266,30 @@ export default function CommandCenter() {
 /* ── Agent Card — animated, with credits + working state ── */
 /* ── GA Character Avatars per agent ── */
 const AGENT_IMG: Record<string, string> = {
-  Atlas: "/agents/atlas.png",
-  TheMAESTRO: "/agents/themaestro.png",
-  SIMONS: "/agents/simons.png",
-  "Dr. Strange": "/agents/drstrange.png",
-  SHURI: "/agents/shuri.png",
-  Widow: "/agents/widow.png",
-  PROXIMON: "/agents/proximon.png",
-  Vee: "/agents/vee.png",
-  Aetherion: "/agents/aetherion.png",
-  MICHAEL: "/agents/michael.png",
-  Prophets: "/agents/prophets.png",
-  SELAH: "/agents/selah.png",
-  MERCURY: "/agents/mercury.png",
-  ECHO: "/agents/echo.png",
-  HAVEN: "/agents/haven.png",
-  INK: "/agents/ink.png",
-  NOVA: "/agents/nova.png",
-  KIYOSAKI: "/agents/kiyosaki.png",
-  TRIAGE: "/agents/triage.png",
+  Atlas: "/agents/atlas-3d.png",
+  TheMAESTRO: "/agents/themaestro-3d.png",
+  SIMONS: "/agents/simons-3d.png",
+  "Dr. Strange": "/agents/drstrange-3d.png",
+  SHURI: "/agents/shuri-3d.png",
+  Widow: "/agents/widow-3d.png",
+  PROXIMON: "/agents/proximon-3d.png",
+  Vee: "/agents/vee-3d.png",
+  Aetherion: "/agents/aetherion-3d.png",
+  MICHAEL: "/agents/michael-3d.png",
+  Prophets: "/agents/prophets-3d.png",
+  SELAH: "/agents/selah-3d.png",
+  MERCURY: "/agents/mercury-3d.png",
+  ECHO: "/agents/echo-3d.png",
+  HAVEN: "/agents/haven-3d.png",
+  INK: "/agents/ink-3d.png",
+  NOVA: "/agents/nova-3d.png",
+  KIYOSAKI: "/agents/kiyosaki-3d.png",
+  TRIAGE: "/agents/triage-3d.png",
 };
 const AGENT_AVATARS: Record<string, React.ReactNode> = Object.fromEntries(
   Object.entries(AGENT_IMG).map(([name, src]) => [
     name,
-    <img key={name} src={src} alt={name} className="w-full h-full object-cover rounded-full" style={{ imageRendering: "auto" }} />,
+    <img key={name} src={src} alt={name} className="w-full h-full object-contain" style={{ imageRendering: "auto" }} />,
   ])
 );
 
