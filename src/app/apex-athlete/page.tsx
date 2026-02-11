@@ -1,10 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  syncSave,
+  syncSaveRoster,
+  syncSaveConfig,
+  syncSaveSchedule,
+  syncSaveAudit,
+  syncSaveSnapshot,
+  syncSaveFeedback,
+  syncListenRoster,
+  syncListenConfig,
+  syncPushAllToFirebase,
+  firebaseConnected,
+} from "@/lib/apex-sync";
 
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
-   Clean UI · React + Tailwind · localStorage
+   APEX ATHLETE — Saint Andrew's Aquatics
+   Clean UI · React + Tailwind · localStorage + Firebase
    ══════════════════════════════════════════════════════════════ */
 
 // ── game engine ──────────────────────────────────────────────
@@ -603,7 +616,21 @@ function load<T>(key: string, fallback: T): T {
     try { return JSON.parse(v); } catch { return v as unknown as T; }
   } catch { return fallback; }
 }
-function save(key: string, val: unknown) { localStorage.setItem(key, JSON.stringify(val)); }
+function save(key: string, val: unknown) {
+  localStorage.setItem(key, JSON.stringify(val));
+  // Firebase sync mapping
+  const fbMap: Record<string, string> = {
+    [K.PIN]: "config/pin",
+    [K.COACHES]: "config/coaches",
+    [K.CULTURE]: "config/culture",
+    [K.CHALLENGES]: "config/challenges",
+    [K.GROUP]: "config/selected-group",
+    [K.WELLNESS]: "config/wellness",
+  };
+  if (fbMap[key]) {
+    syncSave(key, val, fbMap[key]);
+  }
+}
 
 const DEFAULT_CHALLENGES: TeamChallenge[] = [
   { id: "tc-attendance", name: "Full House", description: "90% team attendance this week", target: 90, current: 0, reward: 50 },
@@ -705,7 +732,9 @@ export default function ApexAthletePage() {
       message: feedbackMsg.trim(),
       read: false,
     };
-    localStorage.setItem(fbKey, JSON.stringify([entry, ...existing]));
+    const updated = [entry, ...existing];
+    localStorage.setItem(fbKey, JSON.stringify(updated));
+    syncSaveFeedback(fbKey, athleteId, updated);
     setFeedbackMsg("");
     setFeedbackAthleteId(null);
   };
@@ -861,7 +890,12 @@ export default function ApexAthletePage() {
         athleteXPs: Object.fromEntries(roster.map(a => [a.id, a.xp])),
         athleteStreaks: Object.fromEntries(roster.map(a => [a.id, a.streak])),
       };
-      setSnapshots(prev => { const n = [...prev.filter(x => x.date !== d), s]; save(K.SNAPSHOTS, n); return n; });
+      setSnapshots(prev => {
+        const n = [...prev.filter(x => x.date !== d), s];
+        save(K.SNAPSHOTS, n);
+        syncSaveSnapshot(d, s as unknown as Record<string, unknown>);
+        return n;
+      });
     };
     snap();
     const iv = setInterval(snap, 30000);
@@ -869,14 +903,29 @@ export default function ApexAthletePage() {
   }, [mounted, roster, teamChallenges]);
 
   // ── persist helpers ──────────────────────────────────────
-  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); }, []);
-  const saveCulture = useCallback((c: TeamCulture) => { setCulture(c); save(K.CULTURE, c); }, []);
-  const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); save(K.SCHEDULES, s); }, []);
+  const saveRoster = useCallback((r: Athlete[]) => {
+    setRoster(r); save(K.ROSTER, r);
+    syncSaveRoster(K.ROSTER, selectedGroup, r);
+  }, [selectedGroup]);
+  const saveCulture = useCallback((c: TeamCulture) => {
+    setCulture(c); save(K.CULTURE, c);
+    syncSaveConfig(K.CULTURE, "culture", c as unknown as Record<string, unknown>);
+  }, []);
+  const saveSchedules = useCallback((s: GroupSchedule[]) => {
+    setSchedules(s); save(K.SCHEDULES, s);
+    const current = s.find(sc => sc.groupId === selectedGroup);
+    if (current) syncSaveSchedule(K.SCHEDULES, selectedGroup, current);
+  }, [selectedGroup]);
 
   const addAudit = useCallback((athleteId: string, athleteName: string, action: string, xpDelta: number) => {
     const sessionLabel = `[${sessionTime.toUpperCase()}]`;
     const entry: AuditEntry = { timestamp: Date.now(), coach: activeCoach, athleteId, athleteName, action: `${sessionLabel} ${action}`, xpDelta };
-    setAuditLog(prev => { const n = [entry, ...prev].slice(0, 2000); save(K.AUDIT, n); return n; });
+    setAuditLog(prev => {
+      const n = [entry, ...prev].slice(0, 2000);
+      save(K.AUDIT, n);
+      syncSaveAudit(K.AUDIT, today(), n.filter(e => new Date(e.timestamp).toISOString().slice(0, 10) === today()));
+      return n;
+    });
   }, [activeCoach, sessionTime]);
 
   const checkLevelUp = useCallback((oldXP: number, newXP: number, name: string) => {
@@ -1408,6 +1457,11 @@ export default function ApexAthletePage() {
               }}>
                 APEX ATHLETE
               </h1>
+              {firebaseConnected && (
+                <span className="ml-3 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  CLOUD SYNC
+                </span>
+              )}
             </div>
             {/* Game HUD nav tabs */}
             <div className="flex flex-wrap">
