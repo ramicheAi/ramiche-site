@@ -4,9 +4,9 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — Athlete Portal
-   Personal dashboard: XP, level, streaks, quests, journal
-   Reads from same localStorage as coach portal (read-only + journal writes)
+   APEX ATHLETE — Athlete Portal (Enhanced)
+   Personal dashboard: XP, level, streaks, quests, journal,
+   Times/PRs, Race Prep, Coach Feedback, AM/PM indicator
    ══════════════════════════════════════════════════════════════ */
 
 // ── game engine (mirrors coach) ─────────────────────────────
@@ -50,6 +50,9 @@ function fmtStreak(s: number) {
 const K = {
   ROSTER: "apex-athlete-roster-v5",
   JOURNAL: "apex-athlete-journal",
+  TIMES: "apex-athlete-times",
+  FEEDBACK: "apex-athlete-feedback",
+  RACE_PLANS: "apex-athlete-race-plans",
 };
 
 interface Athlete {
@@ -69,7 +72,40 @@ interface JournalEntry {
   wentWell: string;
   workOn: string;
   goals: string;
-  mood: number; // 1-5
+  mood: number;
+}
+
+interface TimeEntry {
+  id: string;
+  date: string;
+  event: string; // e.g. "100"
+  stroke: string; // e.g. "Freestyle"
+  time: string; // M:SS.hh
+  seconds: number;
+  session: "am" | "pm";
+  meet: boolean; // meet time vs practice time
+  notes: string;
+}
+
+interface FeedbackEntry {
+  id: string;
+  date: string;
+  from: string; // coach name
+  type: "praise" | "tip" | "goal";
+  message: string;
+  read: boolean;
+}
+
+interface RacePlan {
+  id: string;
+  date: string;
+  event: string;
+  stroke: string;
+  currentTime: string;
+  goalTime: string;
+  splits: { segment: string; time: string; pace: string; focus: string }[];
+  tips: string[];
+  improvement: string;
 }
 
 function load<T>(key: string, fallback: T): T {
@@ -99,11 +135,11 @@ const CAT_COLORS: Record<string, string> = {
 };
 
 const ATTRIBUTES = [
-  { key: "attendance", label: "Attendance", icon: "📅", color: "#60a5fa" },
-  { key: "effort", label: "Effort", icon: "💪", color: "#f59e0b" },
-  { key: "improvement", label: "Improvement", icon: "📈", color: "#34d399" },
-  { key: "consistency", label: "Consistency", icon: "🎯", color: "#a855f7" },
-  { key: "leadership", label: "Leadership", icon: "🌟", color: "#f97316" },
+  { key: "attendance", label: "Attendance", color: "#60a5fa" },
+  { key: "effort", label: "Effort", color: "#f59e0b" },
+  { key: "improvement", label: "Improvement", color: "#34d399" },
+  { key: "consistency", label: "Consistency", color: "#a855f7" },
+  { key: "leadership", label: "Leadership", color: "#f97316" },
 ];
 
 function calcAttributes(a: Athlete) {
@@ -116,6 +152,29 @@ function calcAttributes(a: Athlete) {
   const questsDone = Object.values(a.quests).filter(v => v === "done").length;
   const leadership = Math.min(100, Math.round((questsDone / 5) * 100));
   return { attendance, effort, improvement, consistency, leadership };
+}
+
+// ── SVG Tab Icons ───────────────────────────────────────────
+function StatsIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#a855f7" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>);
+}
+function QuestsIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#a855f7" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>);
+}
+function TimerIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#00f0ff" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2"/><path d="M10 2h4"/></svg>);
+}
+function TargetIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#ef4444" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>);
+}
+function JournalIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#a855f7" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>);
+}
+function MessageIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#f59e0b" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>);
+}
+function BoardIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#a855f7" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>);
 }
 
 // ── Radar chart (pure SVG) ──────────────────────────────────
@@ -139,24 +198,20 @@ function RadarChart({ values }: { values: Record<string, number> }) {
 
   return (
     <svg viewBox="0 0 200 200" className="w-full max-w-[260px] mx-auto">
-      {/* grid */}
       {gridLevels.map(level => (
         <polygon key={level} points={points(r * level).map(p => p.join(",")).join(" ")}
           fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
       ))}
-      {/* axes */}
       {attrs.map((_, i) => {
         const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
         return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(angle)} y2={cy + r * Math.sin(angle)}
           stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />;
       })}
-      {/* data */}
       <polygon points={dataPoints.map(p => p.join(",")).join(" ")}
         fill="rgba(168,85,247,0.15)" stroke="#a855f7" strokeWidth="1.5" />
       {dataPoints.map((p, i) => (
         <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={attrs[i].color} />
       ))}
-      {/* labels */}
       {attrs.map((a, i) => {
         const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
         const lx = cx + (r + 18) * Math.cos(angle);
@@ -164,7 +219,7 @@ function RadarChart({ values }: { values: Record<string, number> }) {
         return (
           <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
             fill="rgba(255,255,255,0.4)" fontSize="7" fontWeight="600">
-            {a.icon} {values[a.key] || 0}
+            {values[a.key] || 0}
           </text>
         );
       })}
@@ -172,7 +227,26 @@ function RadarChart({ values }: { values: Record<string, number> }) {
   );
 }
 
+// ── Race strategy helpers ───────────────────────────────────
+const EVENTS = ["50", "100", "200", "400", "500", "800", "1000", "1500", "1650"];
+const STROKES = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"];
+
+function parseTime(t: string): number | null {
+  const parts = t.replace(/[^0-9:.]/g, "").split(/[:.]/).map(Number);
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 60 + parts[1] + parts[2] / 100;
+  if (parts.length === 1 && parts[0] > 0) return parts[0];
+  return null;
+}
+function fmtTime(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}:${s.toFixed(2).padStart(5, "0")}` : `${s.toFixed(2)}`;
+}
+
 // ── Main component ──────────────────────────────────────────
+type TabKey = "dashboard" | "times" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard";
+
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -181,10 +255,26 @@ export default function AthletePortal() {
   const [nameInput, setNameInput] = useState("");
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
-  const [tab, setTab] = useState<"dashboard" | "quests" | "journal" | "leaderboard">("dashboard");
+  const [tab, setTab] = useState<TabKey>("dashboard");
   const [journal, setJournal] = useState<JournalEntry[]>([]);
   const [journalDraft, setJournalDraft] = useState<JournalEntry>({ date: "", wentWell: "", workOn: "", goals: "", mood: 3 });
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
+  const [sessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
+
+  // Times state
+  const [times, setTimes] = useState<TimeEntry[]>([]);
+  const [newTime, setNewTime] = useState({ event: "100", stroke: "Freestyle", time: "", meet: false, notes: "" });
+
+  // Race prep state
+  const [racePlans, setRacePlans] = useState<RacePlan[]>([]);
+  const [rpEvent, setRpEvent] = useState("100");
+  const [rpStroke, setRpStroke] = useState("Freestyle");
+  const [rpCurrent, setRpCurrent] = useState("");
+  const [rpGoal, setRpGoal] = useState("");
+  const [rpResult, setRpResult] = useState<RacePlan | null>(null);
+
+  // Feedback state
+  const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -196,10 +286,7 @@ export default function AthletePortal() {
 
   useEffect(() => {
     if (!mounted) return;
-    const r = load<Athlete[]>(K.ROSTER, []);
-    setRoster(r);
-    const j = load<JournalEntry[]>(K.JOURNAL, []);
-    setJournal(j);
+    setRoster(load<Athlete[]>(K.ROSTER, []));
   }, [mounted]);
 
   // Name search
@@ -213,8 +300,10 @@ export default function AthletePortal() {
     setAthlete(a);
     setNameInput("");
     setSearchResults([]);
-    const j = load<JournalEntry[]>(`${K.JOURNAL}-${a.id}`, []);
-    setJournal(j);
+    setJournal(load<JournalEntry[]>(`${K.JOURNAL}-${a.id}`, []));
+    setTimes(load<TimeEntry[]>(`${K.TIMES}-${a.id}`, []));
+    setFeedback(load<FeedbackEntry[]>(`${K.FEEDBACK}-${a.id}`, []));
+    setRacePlans(load<RacePlan[]>(`${K.RACE_PLANS}-${a.id}`, []));
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
@@ -223,7 +312,6 @@ export default function AthletePortal() {
   const progress = athlete ? getLevelProgress(athlete.xp) : { percent: 0, remaining: 300 };
   const streak = athlete ? fmtStreak(athlete.streak) : fmtStreak(0);
   const streakMult = athlete ? getStreakMult(athlete.streak) : 1;
-
   const todayStr = new Date().toISOString().slice(0, 10);
 
   const saveJournalEntry = () => {
@@ -235,14 +323,116 @@ export default function AthletePortal() {
     setJournalDraft({ date: "", wentWell: "", workOn: "", goals: "", mood: 3 });
   };
 
-  // Leaderboard (top 10 by XP in same group)
+  // Save a new time entry
+  const saveTime = () => {
+    if (!athlete || !newTime.time) return;
+    const seconds = parseTime(newTime.time);
+    if (!seconds) return;
+    const entry: TimeEntry = {
+      id: `t-${Date.now()}`,
+      date: todayStr,
+      event: newTime.event,
+      stroke: newTime.stroke,
+      time: newTime.time,
+      seconds,
+      session: sessionTime,
+      meet: newTime.meet,
+      notes: newTime.notes,
+    };
+    const updated = [entry, ...times];
+    setTimes(updated);
+    save(`${K.TIMES}-${athlete.id}`, updated);
+    setNewTime({ event: "100", stroke: "Freestyle", time: "", meet: false, notes: "" });
+  };
+
+  // Get personal records (best time per event+stroke combo)
+  const personalRecords = useMemo(() => {
+    const prMap = new Map<string, TimeEntry>();
+    times.forEach(t => {
+      const key = `${t.event}-${t.stroke}`;
+      const existing = prMap.get(key);
+      if (!existing || t.seconds < existing.seconds) prMap.set(key, t);
+    });
+    return Array.from(prMap.values()).sort((a, b) => {
+      const eventDiff = parseInt(a.event) - parseInt(b.event);
+      return eventDiff !== 0 ? eventDiff : a.stroke.localeCompare(b.stroke);
+    });
+  }, [times]);
+
+  // Generate race strategy
+  const generateRacePrep = () => {
+    const current = parseTime(rpCurrent);
+    const goal = parseTime(rpGoal);
+    if (!current || !goal || goal >= current) return;
+
+    const dist = parseInt(rpEvent);
+    const splitCount = dist <= 100 ? 2 : dist <= 200 ? 4 : dist <= 400 ? 4 : Math.min(8, Math.ceil(dist / 100));
+    const segLen = dist / splitCount;
+    const improvement = ((current - goal) / current * 100).toFixed(1);
+    const timeDrop = current - goal;
+
+    const pacePatterns: Record<string, number[]> = {
+      "50": [0.48, 0.52], "100": [0.48, 0.52],
+      "200": [0.24, 0.25, 0.25, 0.26], "400": [0.24, 0.25, 0.26, 0.25],
+    };
+    const pattern = pacePatterns[rpEvent] || Array(splitCount).fill(1 / splitCount);
+    const focuses = [
+      "Explosive start — fast off the block, tight streamline",
+      "Build speed — long strokes, high elbow catch",
+      "Hold pace — breathing pattern locked, core engaged",
+      "Maintain rhythm — efficient turns, minimize drag",
+      "Negative split — push through, strong kick",
+      "Final push — all-out effort, head down, race the wall",
+      "Strong finish — accelerate into the wall, no glide",
+      "Close it out — empty the tank, touch strong",
+    ];
+
+    const splits: { segment: string; time: string; pace: string; focus: string }[] = [];
+    for (let i = 0; i < splitCount; i++) {
+      const splitTime = goal * pattern[i % pattern.length];
+      splits.push({
+        segment: `${Math.round(segLen * i)}m – ${Math.round(segLen * (i + 1))}m`,
+        time: fmtTime(splitTime),
+        pace: `${(splitTime / segLen * 100).toFixed(1)}s/100m`,
+        focus: focuses[i % focuses.length],
+      });
+    }
+
+    const tips = [
+      `Drop ${timeDrop.toFixed(2)}s from your ${rpEvent}m ${rpStroke} — that's ${improvement}% faster`,
+      dist >= 200 ? "Negative split strategy: go out controlled, finish strong" : "Fast start, maintain through the back half",
+      rpStroke === "Freestyle" ? "Focus on stroke rate consistency — count strokes per length" :
+        rpStroke === "Butterfly" ? "Two strong kicks per stroke — especially off the walls" :
+        rpStroke === "Backstroke" ? "Tight backstroke flags count — nail the turns" :
+        rpStroke === "Breaststroke" ? "Maximize underwater pullout distance off each wall" :
+        "Transition speed between strokes — especially fly-to-back",
+      "Underwater breakouts are free speed — hold streamline past the flags",
+      "Visualize the race: see yourself hitting each split, finishing strong",
+    ];
+
+    const plan: RacePlan = {
+      id: `rp-${Date.now()}`, date: todayStr,
+      event: rpEvent, stroke: rpStroke,
+      currentTime: rpCurrent, goalTime: rpGoal,
+      splits, tips, improvement,
+    };
+
+    setRpResult(plan);
+    if (athlete) {
+      const updated = [plan, ...racePlans.slice(0, 9)];
+      setRacePlans(updated);
+      save(`${K.RACE_PLANS}-${athlete.id}`, updated);
+    }
+  };
+
+  // Leaderboard (top 10)
   const leaderboard = useMemo(() => {
     if (!athlete) return [];
-    return roster
-      .filter(a => a.group === athlete.group)
-      .sort((a, b) => b.xp - a.xp)
-      .slice(0, 10);
+    return roster.filter(a => a.group === athlete.group).sort((a, b) => b.xp - a.xp).slice(0, 10);
   }, [athlete, roster]);
+
+  // Unread feedback count
+  const unreadCount = feedback.filter(f => !f.read).length;
 
   if (!mounted) return (
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center">
@@ -295,18 +485,15 @@ export default function AthletePortal() {
             <svg className="w-14 h-14 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
               <circle cx="32" cy="20" r="10" stroke="#a855f7" strokeWidth="2" fill="rgba(168,85,247,0.1)"/>
               <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" fill="rgba(168,85,247,0.05)"/>
-              <path d="M28 34l4 6 4-6" stroke="#e879f9" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Athlete Portal</h1>
             <p className="text-white/30 text-sm">Type your name to see your dashboard</p>
           </div>
           <div className="relative">
-            <input
-              type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
+            <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
               placeholder="Start typing your name..."
               className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all"
-              autoFocus
-            />
+              autoFocus />
             {searchResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50">
                 {searchResults.map(a => {
@@ -329,14 +516,23 @@ export default function AthletePortal() {
             )}
           </div>
           <div className="text-center mt-8">
-            <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors">
-              ← Back to Portal Selector
-            </Link>
+            <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors">← Back</Link>
           </div>
         </div>
       </div>
     );
   }
+
+  // ── Tab definitions ─────────────────────────────────────
+  const TABS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; badge?: number }[] = [
+    { key: "dashboard", label: "Stats", icon: (a) => <StatsIcon active={a} /> },
+    { key: "times", label: "Times", icon: (a) => <TimerIcon active={a} /> },
+    { key: "raceprep", label: "Race", icon: (a) => <TargetIcon active={a} /> },
+    { key: "quests", label: "Quests", icon: (a) => <QuestsIcon active={a} /> },
+    { key: "journal", label: "Log", icon: (a) => <JournalIcon active={a} /> },
+    { key: "feedback", label: "Coach", icon: (a) => <MessageIcon active={a} />, badge: unreadCount },
+    { key: "leaderboard", label: "Board", icon: (a) => <BoardIcon active={a} /> },
+  ];
 
   // ── Main dashboard ────────────────────────────────────────
   return (
@@ -346,8 +542,8 @@ export default function AthletePortal() {
       </div>
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Header + AM/PM indicator */}
+        <div className="flex items-center justify-between mb-4">
           <button onClick={() => setAthlete(null)} className="text-white/30 hover:text-white/60 text-sm transition-colors">← Switch</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
@@ -357,63 +553,74 @@ export default function AthletePortal() {
               <span className="text-white/30 text-xs">{athlete.group.toUpperCase()}</span>
             </div>
           </div>
-          <div className="w-14" />
+          {/* AM/PM Badge */}
+          <div className={`px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono tracking-wider ${
+            sessionTime === "am" ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/20"
+          }`}>
+            {sessionTime === "am" ? "☀ AM" : "☽ PM"}
+          </div>
         </div>
 
         {/* XP Bar */}
-        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
-          <div className="flex items-center justify-between mb-2">
+        <div className="mb-4 p-3 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
+          <div className="flex items-center justify-between mb-1.5">
             <span className="text-white/40 text-xs font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
               <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
-              <span className="text-[#ef4444] text-xs font-bold">MAX LEVEL 👑</span>
+              <span className="text-[#ef4444] text-xs font-bold">MAX LEVEL</span>
             )}
           </div>
-          <div className="h-3 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
           </div>
         </div>
 
-        {/* Streak + Stats Row */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="p-3 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-2xl font-black text-white">{athlete.streak}</div>
-            <div className="text-[10px] font-mono tracking-wider" style={{ color: streak.color }}>{streak.label} 🔥</div>
-            <div className="text-white/20 text-[10px] mt-0.5">{streak.mult} multiplier</div>
+        {/* Quick Stats Row */}
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
+            <div className="text-xl font-black text-white">{athlete.streak}</div>
+            <div className="text-[9px] font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
+            <div className="text-white/15 text-[9px]">{streak.mult}</div>
           </div>
-          <div className="p-3 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-2xl font-black text-white">{athlete.totalPractices}</div>
-            <div className="text-white/30 text-[10px] font-mono tracking-wider">PRACTICES</div>
+          <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
+            <div className="text-xl font-black text-white">{athlete.totalPractices}</div>
+            <div className="text-white/25 text-[9px] font-mono tracking-wider">PRACTICES</div>
           </div>
-          <div className="p-3 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-2xl font-black text-white">{athlete.weekSessions}/{athlete.weekTarget}</div>
-            <div className="text-white/30 text-[10px] font-mono tracking-wider">THIS WEEK</div>
+          <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
+            <div className="text-xl font-black text-white">{athlete.weekSessions}/{athlete.weekTarget}</div>
+            <div className="text-white/25 text-[9px] font-mono tracking-wider">THIS WEEK</div>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-1 mb-6 bg-[#0a0518]/50 p-1 rounded-xl border border-white/5">
-          {(["dashboard", "quests", "journal", "leaderboard"] as const).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${tab === t ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"}`}>
-              {t === "dashboard" ? "⬡ Stats" : t === "quests" ? "◈ Quests" : t === "journal" ? "◉ Journal" : "△ Board"}
+        {/* Tab Navigation — scrollable on mobile */}
+        <div className="flex gap-0.5 mb-5 bg-[#0a0518]/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
+          {TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-2 text-[10px] font-bold rounded-lg transition-all relative ${
+                tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"
+              }`}>
+              {t.icon(tab === t.key)}
+              <span>{t.label}</span>
+              {t.badge && t.badge > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full text-white text-[8px] font-black flex items-center justify-center">
+                  {t.badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
-        {/* ── Dashboard Tab ─────────────────────────────── */}
+        {/* ══════════════ DASHBOARD TAB ══════════════ */}
         {tab === "dashboard" && attrs && (
-          <div className="space-y-5">
-            {/* Attribute Radar */}
+          <div className="space-y-4">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3 text-center">ATTRIBUTE RADAR</h3>
               <RadarChart values={attrs} />
               <div className="grid grid-cols-5 gap-1 mt-3">
                 {ATTRIBUTES.map(a => (
                   <div key={a.key} className="text-center">
-                    <div className="text-xs">{a.icon}</div>
                     <div className="text-[10px] text-white/30">{a.label}</div>
                     <div className="text-xs font-bold" style={{ color: a.color }}>{attrs[a.key as keyof typeof attrs]}</div>
                   </div>
@@ -421,7 +628,6 @@ export default function AthletePortal() {
               </div>
             </div>
 
-            {/* Today's XP Breakdown */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TODAY&apos;S XP</h3>
               <div className="grid grid-cols-3 gap-3">
@@ -444,7 +650,6 @@ export default function AthletePortal() {
               </div>
             </div>
 
-            {/* Weight Room */}
             {athlete.weightStreak > 0 && (
               <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
                 <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">WEIGHT ROOM STREAK</h3>
@@ -457,7 +662,195 @@ export default function AthletePortal() {
           </div>
         )}
 
-        {/* ── Quests Tab ──────────────────────────────── */}
+        {/* ══════════════ TIMES / PR TAB ══════════════ */}
+        {tab === "times" && (
+          <div className="space-y-4">
+            {/* Log new time */}
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
+              <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
+                <TimerIcon active={true} /> LOG A TIME
+              </h3>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <select value={newTime.event} onChange={e => setNewTime(p => ({ ...p, event: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30">
+                  {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
+                </select>
+                <select value={newTime.stroke} onChange={e => setNewTime(p => ({ ...p, stroke: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30">
+                  {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <input type="text" placeholder="Time (M:SS.hh)" value={newTime.time}
+                  onChange={e => setNewTime(p => ({ ...p, time: e.target.value }))}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/30" />
+                <button onClick={() => setNewTime(p => ({ ...p, meet: !p.meet }))}
+                  className={`rounded-lg px-3 py-2.5 text-sm font-bold border transition-all ${
+                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/30 border-white/10"
+                  }`}>
+                  {newTime.meet ? "MEET TIME" : "PRACTICE"}
+                </button>
+              </div>
+              <input type="text" placeholder="Notes (optional)" value={newTime.notes}
+                onChange={e => setNewTime(p => ({ ...p, notes: e.target.value }))}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
+              <button onClick={saveTime} disabled={!newTime.time}
+                className="w-full py-2.5 rounded-lg bg-[#00f0ff]/15 border border-[#00f0ff]/25 text-[#00f0ff] text-sm font-bold disabled:opacity-30 hover:bg-[#00f0ff]/25 transition-all">
+                Save Time
+              </button>
+            </div>
+
+            {/* Personal Records */}
+            {personalRecords.length > 0 && (
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
+                <h3 className="text-[#f59e0b] text-xs font-mono tracking-wider mb-3">PERSONAL RECORDS</h3>
+                <div className="space-y-2">
+                  {personalRecords.map(pr => (
+                    <div key={`${pr.event}-${pr.stroke}`} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+                      <div>
+                        <span className="text-white text-sm font-bold">{pr.event}m {pr.stroke}</span>
+                        {pr.meet && <span className="ml-2 text-[8px] px-1.5 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[#00f0ff] font-mono font-bold">{pr.time}</span>
+                        <span className="text-white/20 text-[10px] block">{pr.date}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recent times */}
+            {times.length > 0 && (
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
+                <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">RECENT TIMES</h3>
+                <div className="space-y-1.5">
+                  {times.slice(0, 10).map(t => {
+                    const isPR = personalRecords.some(pr => pr.id === t.id);
+                    return (
+                      <div key={t.id} className={`flex items-center justify-between p-2 rounded-lg ${isPR ? "bg-[#f59e0b]/5 border border-[#f59e0b]/15" : "bg-white/[0.01]"}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white/60 text-xs">{t.event}m {t.stroke}</span>
+                          {isPR && <span className="text-[7px] px-1 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] font-black">PR</span>}
+                          {t.meet && <span className="text-[7px] px-1 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
+                          <span className="text-white/15 text-[9px]">{t.session.toUpperCase()}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-white font-mono text-sm">{t.time}</span>
+                          <span className="text-white/15 text-[9px]">{t.date}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {times.length === 0 && (
+              <div className="text-center py-10 text-white/15 text-sm">
+                No times logged yet. Add your first time above.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════ RACE PREP TAB ══════════════ */}
+        {tab === "raceprep" && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ef4444]/10">
+              <h3 className="text-[#ef4444] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
+                <TargetIcon active={true} /> RACE STRATEGY BUILDER
+              </h3>
+              <p className="text-white/20 text-[10px] mb-4">Plan your race. Visualize every split. Race with confidence.</p>
+
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <select value={rpEvent} onChange={e => setRpEvent(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
+                  {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
+                </select>
+                <select value={rpStroke} onChange={e => setRpStroke(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
+                  {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div>
+                  <label className="text-white/25 text-[9px] font-mono block mb-1">CURRENT BEST</label>
+                  <input type="text" placeholder="1:05.30" value={rpCurrent}
+                    onChange={e => setRpCurrent(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#ef4444]/30" />
+                </div>
+                <div>
+                  <label className="text-white/25 text-[9px] font-mono block mb-1">GOAL TIME</label>
+                  <input type="text" placeholder="1:02.00" value={rpGoal}
+                    onChange={e => setRpGoal(e.target.value)}
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#ef4444]/30" />
+                </div>
+              </div>
+              <button onClick={generateRacePrep} disabled={!rpCurrent || !rpGoal}
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-[#ef4444]/20 to-[#f59e0b]/20 border border-[#ef4444]/25 text-white text-sm font-bold disabled:opacity-30 hover:border-[#ef4444]/40 transition-all">
+                GENERATE RACE PLAN
+              </button>
+            </div>
+
+            {/* Race plan result */}
+            {rpResult && (
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider">RACE MAP — {rpResult.event}m {rpResult.stroke}</h3>
+                  <span className="text-emerald-400 text-xs font-bold">-{rpResult.improvement}%</span>
+                </div>
+                <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15 mb-4">
+                  <div className="text-emerald-400 text-sm font-bold">{rpResult.currentTime} → {rpResult.goalTime}</div>
+                  <div className="text-white/30 text-[10px]">You&apos;ve got this. Visualize every split.</div>
+                </div>
+
+                <div className="space-y-1.5 mb-4">
+                  {rpResult.splits.map((sp, i) => (
+                    <div key={i} className="grid grid-cols-4 gap-2 items-center py-2 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-xs">
+                      <span className="text-[#00f0ff] font-mono font-bold">{sp.segment}</span>
+                      <span className="text-white font-bold">{sp.time}</span>
+                      <span className="text-white/30 font-mono">{sp.pace}</span>
+                      <span className="text-white/40 text-[10px]">{sp.focus}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <h4 className="text-[#f59e0b] text-[10px] font-mono tracking-wider mb-2">RACE TIPS</h4>
+                <div className="space-y-2">
+                  {rpResult.tips.map((tip, i) => (
+                    <div key={i} className="flex items-start gap-2 text-xs">
+                      <span className="text-[#f59e0b] font-bold shrink-0">{i + 1}.</span>
+                      <span className="text-white/50">{tip}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Past race plans */}
+            {racePlans.length > 0 && !rpResult && (
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
+                <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">SAVED RACE PLANS</h3>
+                <div className="space-y-2">
+                  {racePlans.slice(0, 5).map(rp => (
+                    <button key={rp.id} onClick={() => setRpResult(rp)}
+                      className="w-full p-3 rounded-lg bg-white/[0.02] border border-white/5 text-left hover:border-[#ef4444]/20 transition-all">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white text-sm font-bold">{rp.event}m {rp.stroke}</span>
+                        <span className="text-white/20 text-[10px]">{rp.date}</span>
+                      </div>
+                      <div className="text-white/30 text-xs mt-1">{rp.currentTime} → {rp.goalTime} ({rp.improvement}% drop)</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════ QUESTS TAB ══════════════ */}
         {tab === "quests" && (
           <div className="space-y-3">
             <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">SIDE QUESTS</h3>
@@ -476,7 +869,7 @@ export default function AthletePortal() {
                     <div className="text-right shrink-0">
                       <div className="text-[#f59e0b] text-sm font-bold">+{q.xp}</div>
                       <div className={`text-[10px] font-mono ${status === "done" ? "text-emerald-400" : status === "active" ? "text-[#a855f7]" : "text-white/20"}`}>
-                        {status === "done" ? "✅ DONE" : status === "active" ? "⏳ ACTIVE" : "LOCKED"}
+                        {status === "done" ? "COMPLETE" : status === "active" ? "ACTIVE" : "LOCKED"}
                       </div>
                     </div>
                   </div>
@@ -487,17 +880,17 @@ export default function AthletePortal() {
           </div>
         )}
 
-        {/* ── Journal Tab ─────────────────────────────── */}
+        {/* ══════════════ JOURNAL TAB ══════════════ */}
         {tab === "journal" && (
           <div className="space-y-4">
-            {/* New entry form */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TODAY&apos;S REFLECTION</h3>
-              {/* Mood */}
               <div className="flex items-center gap-1 mb-4 justify-center">
                 {[1, 2, 3, 4, 5].map(m => (
                   <button key={m} onClick={() => setJournalDraft(d => ({ ...d, mood: m }))}
-                    className={`text-2xl transition-all ${journalDraft.mood >= m ? "opacity-100 scale-110" : "opacity-20"}`}>
+                    className={`w-10 h-10 rounded-lg border text-lg transition-all ${
+                      journalDraft.mood === m ? "border-[#a855f7]/40 bg-[#a855f7]/10 scale-110" : "border-white/5 opacity-30"
+                    }`}>
                     {m <= 2 ? "😤" : m === 3 ? "😐" : m === 4 ? "😊" : "🔥"}
                   </button>
                 ))}
@@ -529,7 +922,6 @@ export default function AthletePortal() {
               </div>
             </div>
 
-            {/* Past entries */}
             {journal.length > 0 && (
               <div className="space-y-2">
                 <h3 className="text-white/30 text-xs font-mono">PAST ENTRIES</h3>
@@ -549,10 +941,61 @@ export default function AthletePortal() {
           </div>
         )}
 
-        {/* ── Leaderboard Tab ─────────────────────────── */}
+        {/* ══════════════ COACH FEEDBACK TAB ══════════════ */}
+        {tab === "feedback" && (
+          <div className="space-y-4">
+            <h3 className="text-[#f59e0b] text-xs font-mono tracking-wider mb-2 flex items-center gap-2">
+              <MessageIcon active={true} /> COACH FEEDBACK
+            </h3>
+
+            {feedback.length === 0 ? (
+              <div className="text-center py-10">
+                <svg className="w-12 h-12 mx-auto mb-3 opacity-10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <p className="text-white/20 text-sm">No feedback yet</p>
+                <p className="text-white/10 text-[10px] mt-1">Your coach will send feedback after practices and meets</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {feedback.map(f => {
+                  const typeColors = {
+                    praise: { bg: "bg-emerald-500/5", border: "border-emerald-500/15", label: "PRAISE", labelColor: "text-emerald-400", icon: "★" },
+                    tip: { bg: "bg-[#00f0ff]/5", border: "border-[#00f0ff]/15", label: "TIP", labelColor: "text-[#00f0ff]", icon: "→" },
+                    goal: { bg: "bg-[#f59e0b]/5", border: "border-[#f59e0b]/15", label: "GOAL", labelColor: "text-[#f59e0b]", icon: "◎" },
+                  };
+                  const style = typeColors[f.type];
+                  return (
+                    <div key={f.id} className={`p-3.5 rounded-xl ${style.bg} border ${style.border} ${!f.read ? "ring-1 ring-[#a855f7]/20" : ""}`}
+                      onClick={() => {
+                        if (!f.read && athlete) {
+                          const updated = feedback.map(fb => fb.id === f.id ? { ...fb, read: true } : fb);
+                          setFeedback(updated);
+                          save(`${K.FEEDBACK}-${athlete.id}`, updated);
+                        }
+                      }}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs ${style.labelColor}`}>{style.icon}</span>
+                          <span className={`text-[9px] font-mono font-bold tracking-wider ${style.labelColor}`}>{style.label}</span>
+                          {!f.read && <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7] animate-pulse" />}
+                        </div>
+                        <span className="text-white/15 text-[9px]">{f.date}</span>
+                      </div>
+                      <p className="text-white/60 text-sm">{f.message}</p>
+                      <p className="text-white/20 text-[9px] mt-1.5">— {f.from}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════ LEADERBOARD TAB ══════════════ */}
         {tab === "leaderboard" && (
           <div className="space-y-2">
-            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">{athlete.group.toUpperCase()} LEADERBOARD</h3>
+            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">{athlete.group.toUpperCase()} — TOP 10</h3>
             {leaderboard.map((a, i) => {
               const lv = getLevel(a.xp);
               const isMe = a.id === athlete.id;
@@ -569,7 +1012,7 @@ export default function AthletePortal() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
                     <span className="text-white/40 text-xs font-mono">{a.xp} XP</span>
-                    {a.streak >= 3 && <span className="text-[10px]">🔥{a.streak}</span>}
+                    {a.streak >= 3 && <span className="text-[10px] text-[#ef4444]">{a.streak}d</span>}
                   </div>
                 </div>
               );
@@ -583,6 +1026,12 @@ export default function AthletePortal() {
           <p>Every rep counts · Every streak matters · Keep leveling up</p>
         </div>
       </div>
+
+      {/* CSS for no-scrollbar */}
+      <style jsx>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
     </div>
   );
 }
