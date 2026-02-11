@@ -7,7 +7,24 @@ const nextConfig: NextConfig = {
       static: 0,
     },
   },
-  // cache bust: v3
+  headers: async () => [
+    {
+      source: "/apex-athlete/:path*",
+      headers: [
+        { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
+      ],
+    },
+    {
+      source: "/apex-athlete",
+      headers: [
+        { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
+      ],
+    },
+  ],
 };
 
 export default nextConfig;
