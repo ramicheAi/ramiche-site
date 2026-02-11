@@ -1,10 +1,10 @@
 // ── Game Constants ──────────────────────────────────────────────────
 
 export const LEVELS = [
-  { name: "Sprinter", xp: 0, icon: "⚡", color: "#94a3b8" },
-  { name: "Pacer", xp: 300, icon: "🏃", color: "#a78bfa" },
-  { name: "Miler", xp: 600, icon: "🌊", color: "#60a5fa" },
-  { name: "Finisher", xp: 1000, icon: "🔥", color: "#f59e0b" },
+  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
+  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
+  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
+  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
   { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
   { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
 ] as const;
@@ -114,7 +114,7 @@ export const DEFAULT_CHALLENGES = [
 
 export const DEFAULT_CULTURE = {
   teamName: "Saint Andrew's Aquatics",
-  mission: "Excellence Through Consistency",
+  mission: "Unlocking the greatness already inside every athlete — through the power of play.",
   seasonalGoal: "90% attendance this month",
   goalTarget: 90,
   goalCurrent: 0,
@@ -126,6 +126,7 @@ export const DEFAULT_CULTURE = {
 export const K = {
   ROSTER: "apex-athlete-roster-v5",
   PIN: "apex-athlete-pin",
+  COACHES: "apex-athlete-coaches-v1",
   AUDIT: "apex-athlete-audit-v2",
   CHALLENGES: "apex-athlete-challenges-v2",
   SNAPSHOTS: "apex-athlete-snapshots-v2",

@@ -252,7 +252,11 @@ export default function AthletePortal() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  // Onboarding: athlete registers once with name + ID, then locked to their profile
+  const [onboardStep, setOnboardStep] = useState<"name" | "confirm">("name");
   const [nameInput, setNameInput] = useState("");
+  const [idInput, setIdInput] = useState(""); // USA Swimming ID or team-assigned number
+  const [onboardError, setOnboardError] = useState("");
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [tab, setTab] = useState<TabKey>("dashboard");
@@ -312,17 +316,27 @@ export default function AthletePortal() {
 
   useEffect(() => {
     if (!mounted) return;
-    setRoster(load<Athlete[]>(K.ROSTER, []));
+    const r = load<Athlete[]>(K.ROSTER, []);
+    setRoster(r);
+    // Check for saved profile lock — if athlete already onboarded, auto-load their profile
+    const saved = localStorage.getItem("apex-athlete-profile-lock");
+    if (saved) {
+      try {
+        const lock = JSON.parse(saved) as { athleteId: string; name: string };
+        const found = r.find(a => a.id === lock.athleteId);
+        if (found) loadAthleteData(found);
+      } catch {}
+    }
   }, [mounted]);
 
-  // Name search
+  // Name search — only used during onboarding, matches name + shows for confirmation
   useEffect(() => {
     if (nameInput.length < 2) { setSearchResults([]); return; }
     const q = nameInput.toLowerCase();
     setSearchResults(roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8));
   }, [nameInput, roster]);
 
-  const selectAthlete = (a: Athlete) => {
+  const loadAthleteData = (a: Athlete) => {
     setAthlete(a);
     setNameInput("");
     setSearchResults([]);
@@ -330,6 +344,20 @@ export default function AthletePortal() {
     setTimes(load<TimeEntry[]>(`${K.TIMES}-${a.id}`, []));
     setFeedback(load<FeedbackEntry[]>(`${K.FEEDBACK}-${a.id}`, []));
     setRacePlans(load<RacePlan[]>(`${K.RACE_PLANS}-${a.id}`, []));
+  };
+
+  const completeOnboarding = (a: Athlete) => {
+    // Save profile lock — this device is now locked to this athlete
+    localStorage.setItem("apex-athlete-profile-lock", JSON.stringify({ athleteId: a.id, name: a.name }));
+    loadAthleteData(a);
+  };
+
+  const logout = () => {
+    localStorage.removeItem("apex-athlete-profile-lock");
+    setAthlete(null);
+    setOnboardStep("name");
+    setNameInput("");
+    setIdInput("");
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
@@ -508,7 +536,7 @@ export default function AthletePortal() {
     );
   }
 
-  // ── Name login screen ─────────────────────────────────────
+  // ── Onboarding: athlete registers once, then locked to their profile ──
   if (!athlete) {
     return (
       <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
@@ -521,37 +549,84 @@ export default function AthletePortal() {
               <circle cx="32" cy="20" r="10" stroke="#a855f7" strokeWidth="2" fill="rgba(168,85,247,0.1)"/>
               <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" fill="rgba(168,85,247,0.05)"/>
             </svg>
-            <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Athlete Portal</h1>
-            <p className="text-white/30 text-sm">Type your name to see your dashboard</p>
+            <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Welcome, Athlete</h1>
+            <p className="text-white/30 text-sm">{onboardStep === "name" ? "Find your profile to get started" : "Confirm your identity"}</p>
           </div>
-          <div className="relative">
-            <input type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
-              placeholder="Start typing your name..."
-              className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all"
-              autoFocus />
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50">
-                {searchResults.map(a => {
-                  const lv = getLevel(a.xp);
-                  return (
-                    <button key={a.id} onClick={() => selectAthlete(a)}
-                      className="w-full px-5 py-3 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
-                      <div>
-                        <span className="text-white font-semibold">{a.name}</span>
-                        <span className="text-white/20 text-xs ml-2">{a.group.toUpperCase()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
-                        <span className="text-white/20 text-xs">{a.xp} XP</span>
-                      </div>
-                    </button>
-                  );
-                })}
+
+          {onboardStep === "name" && (
+            <div>
+              <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">Your Name</label>
+              <div className="relative">
+                <input type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setOnboardError(""); }}
+                  placeholder="Start typing your name..."
+                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all"
+                  autoFocus />
+                {searchResults.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50">
+                    {searchResults.map(a => {
+                      const lv = getLevel(a.xp);
+                      return (
+                        <button key={a.id} onClick={() => { setNameInput(a.name); setSearchResults([]); setOnboardStep("confirm"); }}
+                          className="w-full px-5 py-3 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
+                          <div>
+                            <span className="text-white font-semibold">{a.name}</span>
+                            <span className="text-white/20 text-xs ml-2">{a.group.toUpperCase()}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+              {onboardError && <p className="text-red-400 text-xs mt-3">{onboardError}</p>}
+              <p className="text-white/15 text-xs mt-4 text-center">Select your name from the list. If you don&apos;t see yourself, ask your coach to add you.</p>
+            </div>
+          )}
+
+          {onboardStep === "confirm" && (
+            <div>
+              {(() => {
+                const match = roster.find(a => a.name === nameInput);
+                if (!match) return <p className="text-red-400 text-sm">Athlete not found. Go back and try again.</p>;
+                const lv = getLevel(match.xp);
+                return (
+                  <div className="space-y-4">
+                    <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-5 text-center">
+                      <p className="text-white font-bold text-xl mb-1">{match.name}</p>
+                      <p className="text-white/30 text-sm mb-3">{match.group.toUpperCase()} · Age {match.age}</p>
+                      <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp} XP</span>
+                    </div>
+                    <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">Athlete ID / USA Swimming #</label>
+                    <input type="text" value={idInput} onChange={e => { setIdInput(e.target.value); setOnboardError(""); }}
+                      placeholder="Enter your athlete ID..."
+                      className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-wider"
+                      autoFocus />
+                    {onboardError && <p className="text-red-400 text-xs mt-2">{onboardError}</p>}
+                    <button onClick={() => {
+                      if (!idInput.trim()) { setOnboardError("Enter your athlete ID to verify your identity"); return; }
+                      // For now, accept any non-empty ID (coach will assign real IDs later via Firebase)
+                      // Save the ID with the profile lock for future verification
+                      localStorage.setItem("apex-athlete-profile-lock", JSON.stringify({ athleteId: match.id, name: match.name, swimId: idInput.trim() }));
+                      completeOnboarding(match);
+                    }}
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white font-bold text-lg hover:brightness-110 transition-all">
+                      Confirm &amp; Enter
+                    </button>
+                    <button onClick={() => { setOnboardStep("name"); setNameInput(""); setIdInput(""); }}
+                      className="w-full py-2 text-white/30 text-sm hover:text-white/50 transition-colors">
+                      ← That&apos;s not me
+                    </button>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
           <div className="text-center mt-8">
-            <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors">← Back</Link>
+            <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors">← Back to Portal Selector</Link>
           </div>
         </div>
       </div>
@@ -579,7 +654,7 @@ export default function AthletePortal() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={() => setAthlete(null)} className="text-white/30 hover:text-white/60 text-sm transition-colors">← Switch</button>
+          <button onClick={logout} className="text-white/30 hover:text-white/60 text-sm transition-colors">Sign Out</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">

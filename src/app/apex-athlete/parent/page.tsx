@@ -421,12 +421,18 @@ export default function ParentPortal() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
+  // Onboarding: parent links to child via athlete ID, then locked
+  const [onboardStep, setOnboardStep] = useState<"search" | "verify">("search");
   const [nameInput, setNameInput] = useState("");
+  const [idInput, setIdInput] = useState("");
+  const [onboardError, setOnboardError] = useState("");
+  const [linkedChildren, setLinkedChildren] = useState<string[]>([]); // athlete IDs
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -443,8 +449,26 @@ export default function ParentPortal() {
 
   useEffect(() => {
     if (!mounted) return;
-    setRoster(load<Athlete[]>(K.ROSTER, []));
+    const r = load<Athlete[]>(K.ROSTER, []);
+    setRoster(r);
     setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
+    // Check for saved parent-child links
+    const saved = localStorage.getItem("apex-parent-links");
+    if (saved) {
+      try {
+        const links = JSON.parse(saved) as string[];
+        setLinkedChildren(links);
+        // Auto-load first linked child
+        if (links.length > 0) {
+          const found = r.find(a => a.id === links[0]);
+          if (found) {
+            setAthlete(found);
+            setShowWelcome(true);
+            setTimeout(() => setShowWelcome(false), 2200);
+          }
+        }
+      } catch {}
+    }
   }, [mounted]);
 
   useEffect(() => {
@@ -453,12 +477,32 @@ export default function ParentPortal() {
     setSearchResults(roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8));
   }, [nameInput, roster]);
 
-  const selectAthlete = (a: Athlete) => {
+  const linkChild = (a: Athlete) => {
+    const updated = [...new Set([...linkedChildren, a.id])];
+    setLinkedChildren(updated);
+    localStorage.setItem("apex-parent-links", JSON.stringify(updated));
     setAthlete(a);
     setNameInput("");
     setSearchResults([]);
+    setPendingAthlete(null);
+    setOnboardStep("search");
+    setIdInput("");
     setShowWelcome(true);
     setTimeout(() => setShowWelcome(false), 2200);
+  };
+
+  const switchChild = (id: string) => {
+    const found = roster.find(a => a.id === id);
+    if (found) setAthlete(found);
+  };
+
+  const parentLogout = () => {
+    localStorage.removeItem("apex-parent-links");
+    setLinkedChildren([]);
+    setAthlete(null);
+    setOnboardStep("search");
+    setNameInput("");
+    setIdInput("");
   };
 
   const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
@@ -541,7 +585,7 @@ export default function ParentPortal() {
                 {searchResults.map(a => {
                   const lv = getLevel(a.xp);
                   return (
-                    <button key={a.id} onClick={() => selectAthlete(a)}
+                    <button key={a.id} onClick={() => setAthlete(a)}
                       className="w-full px-5 py-3 text-left hover:bg-[#f59e0b]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
                       <span className="text-white font-semibold">{a.name}</span>
                       <span className="text-xs flex items-center gap-1.5" style={{ color: lv.color }}>
