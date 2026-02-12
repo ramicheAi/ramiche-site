@@ -426,6 +426,7 @@ export default function AthletePortal() {
   const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
 
   const [isCoach, setIsCoach] = useState(false);
+  const [coachGroup, setCoachGroup] = useState<string>("");
   useEffect(() => {
     setMounted(true);
     // Auto-unlock for coaches who already authenticated in the coach portal
@@ -433,11 +434,13 @@ export default function AthletePortal() {
       if (sessionStorage.getItem("apex-coach-auth")) {
         setUnlocked(true);
         setIsCoach(true);
+        setCoachGroup(localStorage.getItem("apex-coach-group") || "");
       } else {
         const ls = localStorage.getItem("apex-coach-auth");
         if (ls && Date.now() - parseInt(ls) < 3600000) {
           setUnlocked(true);
           setIsCoach(true);
+          setCoachGroup(localStorage.getItem("apex-coach-group") || "");
         }
       }
     } catch {}
@@ -730,11 +733,23 @@ export default function AthletePortal() {
             <h1 className="text-2xl font-black text-white">Select Athlete</h1>
             <p className="text-white/40 text-sm mt-1">Browse any athlete&apos;s portal</p>
           </div>
+          {/* Group filter for coaches */}
+          <div className="flex flex-wrap justify-center gap-1.5 mb-3">
+            {["all", "platinum", "gold", "silver", "bronze1", "bronze2", "diving", "waterpolo"].map(g => (
+              <button key={g} onClick={() => setCoachGroup(g === "all" ? "" : g)}
+                className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all"
+                style={{
+                  background: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f720' : 'transparent',
+                  border: `1px solid ${(g === "all" ? !coachGroup : coachGroup === g) ? '#a855f760' : 'rgba(255,255,255,0.08)'}`,
+                  color: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f7' : 'rgba(255,255,255,0.3)',
+                }}>{g === "all" ? "All" : g.replace("bronze", "Brz ").replace("waterpolo", "WP").replace("platinum", "Plat").replace("gold", "Gold").replace("silver", "Silver").replace("diving", "Diving")}</button>
+            ))}
+          </div>
           <input type="text" placeholder="Search by name..." value={nameInput}
             onChange={e => setNameInput(e.target.value)}
             className="w-full px-4 py-3 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 mb-3" autoFocus />
           <div className="max-h-[50vh] overflow-y-auto space-y-2">
-            {(nameInput.length >= 2 ? searchResults : roster.slice(0, 20)).map(a => {
+            {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 30)).map(a => {
               const lv = getLevel(a.xp || 0);
               return (
                 <button key={a.id} onClick={() => loadAthleteData(a)}

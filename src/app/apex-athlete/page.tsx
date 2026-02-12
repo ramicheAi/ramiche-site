@@ -1552,6 +1552,7 @@ export default function ApexAthletePage() {
             { label: "Parent", href: "/apex-athlete/parent", active: false, color: "#f59e0b" },
           ].map(p => (
             <a key={p.label} href={p.href}
+              onClick={() => { try { localStorage.setItem("apex-coach-group", selectedGroup); } catch {} }}
               className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
               style={{
                 background: p.active ? `${p.color}20` : 'transparent',
