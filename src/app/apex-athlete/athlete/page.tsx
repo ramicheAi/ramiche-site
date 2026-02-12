@@ -65,6 +65,9 @@ interface Athlete {
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: { date: string; pool: number; weight: number; meet: number };
+  usaSwimmingId?: string;
+  parentCode?: string;
+  parentEmail?: string;
 }
 
 interface JournalEntry {
@@ -362,11 +365,12 @@ export default function AthletePortal() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
-  // Onboarding: athlete registers once with name + ID, then locked to their profile
-  const [onboardStep, setOnboardStep] = useState<"name" | "confirm">("name");
+  // Onboarding: athlete registers once with name + USA Swimming ID, then locked to their profile
+  const [onboardStep, setOnboardStep] = useState<"name" | "swimid" | "confirm">("name");
   const [nameInput, setNameInput] = useState("");
-  const [idInput, setIdInput] = useState(""); // USA Swimming ID or team-assigned number
+  const [idInput, setIdInput] = useState(""); // USA Swimming ID (format: XXXX-XXXXXX or similar)
   const [onboardError, setOnboardError] = useState("");
+  const [selectedOnboardAthlete, setSelectedOnboardAthlete] = useState<Athlete | null>(null);
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [tab, setTab] = useState<TabKey>("dashboard");
@@ -467,15 +471,23 @@ export default function AthletePortal() {
     setCompletedMeditations(load<{meditationId: string; completedAt: number}[]>(`apex-athlete-meditations-${a.id}`, []));
   };
 
-  const completeOnboarding = (a: Athlete) => {
+  const completeOnboarding = (a: Athlete, swimId: string) => {
     // Save profile lock — this device is now locked to this athlete
-    localStorage.setItem("apex-athlete-profile-lock", JSON.stringify({ athleteId: a.id, name: a.name }));
+    localStorage.setItem("apex-athlete-profile-lock", JSON.stringify({ athleteId: a.id, name: a.name, usaSwimmingId: swimId }));
+    // Also save the USA Swimming ID to the athlete record in the shared roster
+    if (swimId) {
+      const currentRoster = load<Athlete[]>(K.ROSTER, []);
+      const updatedRoster = currentRoster.map(r => r.id === a.id ? { ...r, usaSwimmingId: swimId } : r);
+      save(K.ROSTER, updatedRoster);
+      setRoster(updatedRoster);
+    }
     loadAthleteData(a);
   };
 
   const logout = () => {
     localStorage.removeItem("apex-athlete-profile-lock");
     setAthlete(null);
+    setSelectedOnboardAthlete(null);
     setOnboardStep("name");
     setNameInput("");
     setIdInput("");
@@ -685,6 +697,32 @@ export default function AthletePortal() {
 
   // ── Onboarding: athlete registers once, then locked to their profile ──
   if (!athlete) {
+    // USA Swimming ID format validation: XXXX-XXXXXX or at least 6 alphanumeric chars
+    const isValidSwimId = (id: string) => {
+      const trimmed = id.trim();
+      if (trimmed.length < 4) return false;
+      // Accept XXXX-XXXXXX format, or plain alphanumeric 6+ chars
+      return /^[A-Za-z0-9]{4,}-[A-Za-z0-9]{4,}$/.test(trimmed) || /^[A-Za-z0-9]{6,}$/.test(trimmed);
+    };
+
+    // Format helper for display
+    const formatSwimIdHint = (id: string) => {
+      const trimmed = id.trim().toUpperCase();
+      if (trimmed.length === 0) return "";
+      // Auto-insert hyphen after 4 chars if not already present
+      if (trimmed.length > 4 && !trimmed.includes("-")) {
+        return trimmed.slice(0, 4) + "-" + trimmed.slice(4);
+      }
+      return trimmed;
+    };
+
+    const stepLabels = [
+      { step: "name", label: "1. SELECT NAME", desc: "Find your profile" },
+      { step: "swimid", label: "2. USA SWIMMING ID", desc: "Verify your identity" },
+      { step: "confirm", label: "3. CONFIRM", desc: "Lock your portal" },
+    ];
+    const currentStepIdx = stepLabels.findIndex(s => s.step === onboardStep);
+
     return (
       <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
         <div className="fixed inset-0 pointer-events-none">
@@ -697,24 +735,50 @@ export default function AthletePortal() {
               <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" fill="rgba(168,85,247,0.05)"/>
             </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Welcome, Athlete</h1>
-            <p className="text-white/30 text-sm">{onboardStep === "name" ? "Find your profile to get started" : "Confirm your identity"}</p>
+            <p className="text-white/30 text-sm">{stepLabels[currentStepIdx]?.desc || "Get started"}</p>
           </div>
 
+          {/* Step progress indicator */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            {stepLabels.map((s, i) => (
+              <div key={s.step} className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
+                  i < currentStepIdx ? "bg-[#a855f7]/20 border-[#a855f7]/40 text-[#a855f7]"
+                    : i === currentStepIdx ? "bg-[#a855f7] border-[#a855f7] text-white"
+                    : "bg-white/5 border-white/10 text-white/20"
+                }`}>
+                  {i < currentStepIdx ? (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                  ) : (i + 1)}
+                </div>
+                {i < stepLabels.length - 1 && (
+                  <div className={`w-8 h-0.5 rounded ${i < currentStepIdx ? "bg-[#a855f7]/40" : "bg-white/10"}`} />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Step 1: Select name from roster */}
           {onboardStep === "name" && (
             <div>
               <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">Your Name</label>
               <div className="relative">
                 <input type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setOnboardError(""); }}
                   placeholder="Start typing your name..."
-                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all"
+                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]"
                   autoFocus />
                 {searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50 shadow-xl shadow-black/50">
                     {searchResults.map(a => {
                       const lv = getLevel(a.xp);
                       return (
-                        <button key={a.id} onClick={() => { setNameInput(a.name); setSearchResults([]); setOnboardStep("confirm"); }}
-                          className="w-full px-5 py-3 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
+                        <button key={a.id} onClick={() => {
+                          setNameInput(a.name);
+                          setSelectedOnboardAthlete(a);
+                          setSearchResults([]);
+                          setOnboardStep("swimid");
+                        }}
+                          className="w-full px-5 py-4 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0 min-h-[48px]">
                           <div>
                             <span className="text-white font-semibold">{a.name}</span>
                             <span className="text-white/20 text-xs ml-2">{a.group.toUpperCase()}</span>
@@ -729,44 +793,121 @@ export default function AthletePortal() {
                 )}
               </div>
               {onboardError && <p className="text-red-400 text-xs mt-3">{onboardError}</p>}
-              <p className="text-white/15 text-xs mt-4 text-center">Select your name from the list. If you don&apos;t see yourself, ask your coach to add you.</p>
+              <p className="text-white/15 text-xs mt-4 text-center">Select your name from the roster. If you don&apos;t see yourself, ask your coach to add you.</p>
             </div>
           )}
 
-          {onboardStep === "confirm" && (
-            <div>
+          {/* Step 2: USA Swimming ID */}
+          {onboardStep === "swimid" && selectedOnboardAthlete && (
+            <div className="space-y-4">
+              <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#a855f7]/10 border border-[#a855f7]/20 flex items-center justify-center text-xs font-bold text-[#a855f7]">
+                  {selectedOnboardAthlete.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold truncate">{selectedOnboardAthlete.name}</p>
+                  <p className="text-white/30 text-xs">{selectedOnboardAthlete.group.toUpperCase()} · Age {selectedOnboardAthlete.age}</p>
+                </div>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </div>
+
+              <div>
+                <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">USA Swimming ID</label>
+                <div className="relative">
+                  <input type="text" value={idInput}
+                    onChange={e => { setIdInput(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase()); setOnboardError(""); }}
+                    placeholder="XXXX-XXXXXX"
+                    maxLength={15}
+                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/15 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]"
+                    autoFocus />
+                  {/* Format hint */}
+                  {idInput.length > 0 && (
+                    <div className="absolute -bottom-6 left-0 right-0 text-center">
+                      <span className={`text-[10px] font-mono ${isValidSwimId(idInput) ? "text-emerald-400/60" : "text-white/20"}`}>
+                        {formatSwimIdHint(idInput)}
+                        {isValidSwimId(idInput) && (
+                          <span className="ml-1">
+                            <svg className="inline w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="pt-2 mt-2 p-3 rounded-xl bg-[#0a0518]/60 border border-[#00f0ff]/10">
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                  <p className="text-white/30 text-[11px]">Your USA Swimming ID links your portal to your parent&apos;s account. Format: <span className="text-white/50 font-mono">XXXX-XXXXXX</span>. Find it on your USA Swimming registration or ask your coach.</p>
+                </div>
+              </div>
+
+              {onboardError && <p className="text-red-400 text-xs mt-2">{onboardError}</p>}
+
+              <button onClick={() => {
+                if (!idInput.trim()) { setOnboardError("Enter your USA Swimming ID to continue"); return; }
+                if (!isValidSwimId(idInput)) { setOnboardError("ID must be at least 6 characters (format: XXXX-XXXXXX)"); return; }
+                // Validate: if athlete already has a usaSwimmingId set by coach, it must match
+                if (selectedOnboardAthlete.usaSwimmingId && selectedOnboardAthlete.usaSwimmingId.toUpperCase() !== idInput.trim().toUpperCase()) {
+                  setOnboardError("USA Swimming ID does not match the ID on file. Check with your coach.");
+                  return;
+                }
+                setOnboardStep("confirm");
+              }}
+                className="w-full py-4 rounded-xl bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white font-bold text-lg hover:brightness-110 transition-all min-h-[52px] disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={!idInput.trim()}>
+                Verify &amp; Continue
+              </button>
+              <button onClick={() => { setOnboardStep("name"); setNameInput(""); setIdInput(""); setSelectedOnboardAthlete(null); setOnboardError(""); }}
+                className="w-full py-2 text-white/30 text-sm hover:text-white/50 transition-colors">
+                ← That&apos;s not me
+              </button>
+            </div>
+          )}
+
+          {/* Step 3: Final confirmation */}
+          {onboardStep === "confirm" && selectedOnboardAthlete && (
+            <div className="space-y-4">
               {(() => {
-                const match = roster.find(a => a.name === nameInput);
-                if (!match) return <p className="text-red-400 text-sm">Athlete not found. Go back and try again.</p>;
+                const match = selectedOnboardAthlete;
                 const lv = getLevel(match.xp);
                 return (
-                  <div className="space-y-4">
-                    <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-5 text-center">
+                  <>
+                    <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-6 text-center">
+                      <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-[#a855f7]/10 border-2 border-[#a855f7]/25 flex items-center justify-center text-lg font-bold text-[#a855f7]">
+                        {match.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                      </div>
                       <p className="text-white font-bold text-xl mb-1">{match.name}</p>
-                      <p className="text-white/30 text-sm mb-3">{match.group.toUpperCase()} · Age {match.age}</p>
+                      <p className="text-white/30 text-sm mb-2">{match.group.toUpperCase()} · Age {match.age}</p>
                       <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp} XP</span>
+                      <div className="mt-3 pt-3 border-t border-white/5">
+                        <div className="flex items-center justify-center gap-2">
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
+                          <span className="text-[#22d3ee] font-mono text-sm tracking-wider">{formatSwimIdHint(idInput)}</span>
+                        </div>
+                        <p className="text-white/20 text-[10px] mt-1">USA Swimming ID</p>
+                      </div>
                     </div>
-                    <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">Athlete ID / USA Swimming #</label>
-                    <input type="text" value={idInput} onChange={e => { setIdInput(e.target.value); setOnboardError(""); }}
-                      placeholder="Enter your athlete ID..."
-                      className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-wider"
-                      autoFocus />
-                    {onboardError && <p className="text-red-400 text-xs mt-2">{onboardError}</p>}
+
+                    <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        <p className="text-white/40 text-[11px]">This will lock this device to your profile. Only your data will be visible. To switch athletes, you&apos;ll need to log out first.</p>
+                      </div>
+                    </div>
+
                     <button onClick={() => {
-                      if (!idInput.trim()) { setOnboardError("Enter your athlete ID to verify your identity"); return; }
-                      // For now, accept any non-empty ID (coach will assign real IDs later via Firebase)
-                      // Save the ID with the profile lock for future verification
-                      localStorage.setItem("apex-athlete-profile-lock", JSON.stringify({ athleteId: match.id, name: match.name, swimId: idInput.trim() }));
-                      completeOnboarding(match);
+                      completeOnboarding(match, idInput.trim().toUpperCase());
                     }}
-                      className="w-full py-4 rounded-xl bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white font-bold text-lg hover:brightness-110 transition-all">
-                      Confirm &amp; Enter
+                      className="w-full py-4 rounded-xl bg-gradient-to-r from-[#a855f7] to-[#7c3aed] text-white font-bold text-lg hover:brightness-110 transition-all min-h-[52px]">
+                      Lock Profile &amp; Enter Portal
                     </button>
-                    <button onClick={() => { setOnboardStep("name"); setNameInput(""); setIdInput(""); }}
+                    <button onClick={() => { setOnboardStep("swimid"); setOnboardError(""); }}
                       className="w-full py-2 text-white/30 text-sm hover:text-white/50 transition-colors">
-                      ← That&apos;s not me
+                      ← Go back
                     </button>
-                  </div>
+                  </>
                 );
               })()}
             </div>

@@ -253,6 +253,9 @@ interface Athlete {
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: { date: string; pool: number; weight: number; meet: number };
+  usaSwimmingId?: string;
+  parentCode?: string;
+  parentEmail?: string;
 }
 
 interface DailySnapshot {
@@ -421,8 +424,8 @@ export default function ParentPortal() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
-  // Onboarding: parent links to child via athlete ID, then locked
-  const [onboardStep, setOnboardStep] = useState<"search" | "verify">("search");
+  // Onboarding: parent links to child via USA Swimming ID, then locked
+  const [onboardStep, setOnboardStep] = useState<"swimid" | "confirm" | "addmore">("swimid");
   const [nameInput, setNameInput] = useState("");
   const [idInput, setIdInput] = useState("");
   const [onboardError, setOnboardError] = useState("");
@@ -433,6 +436,7 @@ export default function ParentPortal() {
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
   const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
+  const [addingAnother, setAddingAnother] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -485,10 +489,30 @@ export default function ParentPortal() {
     setNameInput("");
     setSearchResults([]);
     setPendingAthlete(null);
-    setOnboardStep("search");
+    setOnboardStep("swimid");
     setIdInput("");
     setShowWelcome(true);
     setTimeout(() => setShowWelcome(false), 2200);
+  };
+
+  // Find athlete by USA Swimming ID — searches roster for matching usaSwimmingId
+  const findAthleteBySwimId = (swimId: string): Athlete | null => {
+    const normalized = swimId.trim().toUpperCase();
+    if (!normalized) return null;
+    // First try exact match on usaSwimmingId field
+    const exactMatch = roster.find(a => a.usaSwimmingId?.toUpperCase() === normalized);
+    if (exactMatch) return exactMatch;
+    // Also check profile locks stored in localStorage (athlete may have self-registered their ID)
+    for (const a of roster) {
+      try {
+        const lockStr = localStorage.getItem("apex-athlete-profile-lock");
+        if (lockStr) {
+          const lock = JSON.parse(lockStr);
+          if (lock.usaSwimmingId?.toUpperCase() === normalized && lock.athleteId === a.id) return a;
+        }
+      } catch { /* ignore */ }
+    }
+    return null;
   };
 
   const switchChild = (id: string) => {
@@ -500,9 +524,11 @@ export default function ParentPortal() {
     localStorage.removeItem("apex-parent-links");
     setLinkedChildren([]);
     setAthlete(null);
-    setOnboardStep("search");
+    setOnboardStep("swimid");
     setNameInput("");
     setIdInput("");
+    setAddingAnother(false);
+    setPendingAthlete(null);
   };
 
   const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
