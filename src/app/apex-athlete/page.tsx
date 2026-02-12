@@ -3529,7 +3529,7 @@ export default function ApexAthletePage() {
 
             {/* Coach management panel */}
             {manageCoaches && activeCoachGroups.includes("all") && (
-              <div className="mb-6 p-5 relative z-10 rounded-2xl bg-[#06020f]/60 border border-[#00f0ff]/10">
+              <div className="mb-6 p-5 relative z-30 rounded-2xl bg-[#0a0518]/95 border border-[#00f0ff]/10" style={{ isolation: "isolate" }}>
                 <h4 className="text-[#00f0ff]/40 text-[10px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Coach Profiles</h4>
                 <div className="space-y-2 mb-4">
                   {coaches.map((c, i) => (
@@ -3563,12 +3563,12 @@ export default function ApexAthletePage() {
                   <div className="flex gap-2 items-center flex-wrap">
                     <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
                       type="text" autoComplete="off" autoCorrect="off" autoCapitalize="words" inputMode="text"
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px]" style={{ colorScheme: "dark", WebkitAppearance: "none" }} />
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px] relative z-10" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px" }} />
                     <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
                       type="tel" autoComplete="off" inputMode="numeric" pattern="[0-9]*"
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px]" style={{ colorScheme: "dark", WebkitAppearance: "none" }} />
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px] relative z-10" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px" }} />
                     <select value={newCoachRole} onChange={e => { const role = e.target.value as "head" | "assistant" | "guest"; setNewCoachRole(role); if (role === "head") setNewCoachGroups(["all"]); }}
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none min-h-[44px]" style={{ colorScheme: "dark" }}>
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none min-h-[44px] relative z-10" style={{ colorScheme: "dark", fontSize: "16px" }}>
                       <option value="assistant" style={{ background: "#1a1025", color: "white" }}>Assistant</option>
                       <option value="head" style={{ background: "#1a1025", color: "white" }}>Head Coach</option>
                     </select>
@@ -3581,7 +3581,7 @@ export default function ApexAthletePage() {
                           const sel = newCoachGroups.includes(g.id);
                           return (
                             <button key={g.id} type="button" onClick={() => setNewCoachGroups(prev => sel ? prev.filter(x => x !== g.id) : [...prev.filter(x => x !== "all"), g.id])}
-                              className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-all min-h-[36px] ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.02] text-white/25 hover:text-white/40"}`}>
+                              className={`px-3 py-2 rounded-lg text-[11px] font-mono font-bold border transition-all min-h-[44px] relative z-10 ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.02] text-white/25 hover:text-white/40"}`}>
                               {g.icon} {g.name.toUpperCase()}
                             </button>
                           );
