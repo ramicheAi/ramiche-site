@@ -696,7 +696,7 @@ const K = {
   SNAPSHOTS: "apex-athlete-snapshots-v2",
   CULTURE: "apex-athlete-culture-v2",
   GROUP: "apex-athlete-selected-group",
-  SCHEDULES: "apex-athlete-schedules-v1",
+  SCHEDULES: "apex-athlete-schedules-v2",
   WELLNESS: "apex-athlete-wellness-v1",
 };
 
