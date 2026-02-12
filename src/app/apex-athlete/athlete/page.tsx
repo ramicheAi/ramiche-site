@@ -425,7 +425,17 @@ export default function AthletePortal() {
   // Feedback state
   const [feedback, setFeedback] = useState<FeedbackEntry[]>([]);
 
-  useEffect(() => { setMounted(true); }, []);
+  const [isCoach, setIsCoach] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    // Auto-unlock for coaches who already authenticated in the coach portal
+    try {
+      if (sessionStorage.getItem("apex-coach-auth")) {
+        setUnlocked(true);
+        setIsCoach(true);
+      }
+    } catch {}
+  }, []);
 
   const handlePin = () => {
     if (pinInput === "1234") { setUnlocked(true); setPinError(false); return; }
@@ -690,6 +700,49 @@ export default function AthletePortal() {
           <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors block mt-6">
             ← Back to Portal Selector
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Coach mode: browse any athlete without onboarding lock ──
+  if (!athlete && isCoach) {
+    return (
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
+        </div>
+        <div className="relative z-10 w-full max-w-md">
+          {/* Portal switcher */}
+          <div className="flex justify-center gap-2 mb-6">
+            <Link href="/apex-athlete" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#00f0ff]/30 text-[#00f0ff]/60 hover:bg-[#00f0ff]/10 transition-all">Coach</Link>
+            <span className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#a855f7] bg-[#a855f7]/20 text-[#a855f7]">Athlete</span>
+            <Link href="/apex-athlete/parent" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#f59e0b]/30 text-[#f59e0b]/60 hover:bg-[#f59e0b]/10 transition-all">Parent</Link>
+          </div>
+          <div className="text-center mb-6">
+            <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>
+            <h1 className="text-2xl font-black text-white">Select Athlete</h1>
+            <p className="text-white/40 text-sm mt-1">Browse any athlete&apos;s portal</p>
+          </div>
+          <input type="text" placeholder="Search by name..." value={nameInput}
+            onChange={e => setNameInput(e.target.value)}
+            className="w-full px-4 py-3 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 mb-3" autoFocus />
+          <div className="max-h-[50vh] overflow-y-auto space-y-2">
+            {(nameInput.length >= 2 ? searchResults : roster.slice(0, 20)).map(a => {
+              const lv = getLevel(a.xp || 0);
+              return (
+                <button key={a.id} onClick={() => loadAthleteData(a)}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-[#0a0518]/80 border border-white/5 hover:border-[#a855f7]/30 transition-all flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{background:`${lv.color}20`,color:lv.color}}>{a.name[0]}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-semibold text-sm truncate">{a.name}</div>
+                    <div className="text-white/30 text-xs">{lv.name} · {a.xp || 0} XP</div>
+                  </div>
+                  <div className="text-white/20 text-xs">{a.group}</div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -976,7 +1029,7 @@ export default function AthletePortal() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={logout} className="text-white/30 hover:text-white/60 text-sm transition-colors">Sign Out</button>
+          <button onClick={logout} className="text-white/30 hover:text-white/60 text-sm transition-colors">{isCoach ? "← Switch" : "Sign Out"}</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">

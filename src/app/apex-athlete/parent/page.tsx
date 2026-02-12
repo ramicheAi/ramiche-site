@@ -438,7 +438,16 @@ export default function ParentPortal() {
   const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
   const [addingAnother, setAddingAnother] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  const [isCoach, setIsCoach] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+    try {
+      if (sessionStorage.getItem("apex-coach-auth")) {
+        setUnlocked(true);
+        setIsCoach(true);
+      }
+    } catch {}
+  }, []);
 
   const handlePin = () => {
     if (pinInput === "1234") { setUnlocked(true); setPinError(false); return; }
@@ -590,14 +599,22 @@ export default function ParentPortal() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
         <div className="relative z-10 w-full max-w-md">
+          {isCoach && (
+            <div className="flex justify-center gap-2 mb-6">
+              <a href="/apex-athlete" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#00f0ff]/30 text-[#00f0ff]/60 hover:bg-[#00f0ff]/10 transition-all">Coach</a>
+              <a href="/apex-athlete/athlete" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#a855f7]/30 text-[#a855f7]/60 hover:bg-[#a855f7]/10 transition-all">Athlete</a>
+              <span className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#f59e0b] bg-[#f59e0b]/20 text-[#f59e0b]">Parent</span>
+            </div>
+          )}
           <div className="text-center mb-8">
+            {isCoach && <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>}
             <svg className="w-14 h-14 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
               <circle cx="32" cy="32" r="26" stroke="#f59e0b" strokeWidth="2" fill="rgba(245,158,11,0.06)"/>
               <circle cx="32" cy="26" r="8" stroke="#f59e0b" strokeWidth="1.8" fill="rgba(245,158,11,0.1)"/>
               <path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" fill="rgba(245,158,11,0.05)"/>
             </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Parent Portal</h1>
-            <p className="text-white/30 text-sm">Find your swimmer to see their growth</p>
+            <p className="text-white/30 text-sm">{isCoach ? "Browse any athlete\u2019s parent view" : "Find your swimmer to see their growth"}</p>
           </div>
           <div className="relative">
             <input

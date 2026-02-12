@@ -1489,8 +1489,8 @@ export default function ApexAthletePage() {
   // ── PIN gate ─────────────────────────────────────────────
   const tryUnlock = () => {
     const match = coaches.find(c => c.pin === pinInput);
-    if (match) { setUnlocked(true); setPinError(false); setActiveCoach(match.name); }
-    else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); }
+    if (match) { setUnlocked(true); setPinError(false); setActiveCoach(match.name); try { sessionStorage.setItem("apex-coach-auth", "1"); } catch {} }
+    else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); try { sessionStorage.setItem("apex-coach-auth", "1"); } catch {} }
     else setPinError(true);
   };
   const resetPin = () => { setCoachPin("1234"); save(K.PIN, "1234"); setPinInput(""); setPinError(false); };
