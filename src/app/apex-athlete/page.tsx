@@ -3529,7 +3529,7 @@ export default function ApexAthletePage() {
 
             {/* Coach management panel */}
             {manageCoaches && activeCoachGroups.includes("all") && (
-              <div className="mb-6 p-5 relative z-30 rounded-2xl bg-[#0a0518]/95 border border-[#00f0ff]/10" style={{ isolation: "isolate", touchAction: "auto", WebkitUserSelect: "auto", userSelect: "auto" }}>
+              <div className="mb-6 p-5 relative z-50 rounded-2xl bg-[#0a0518] border border-[#00f0ff]/10" style={{ isolation: "isolate", touchAction: "manipulation", WebkitUserSelect: "text", userSelect: "text", transform: "translateZ(0)" }} onClick={e => e.stopPropagation()}>
                 <h4 className="text-[#00f0ff]/40 text-[10px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Coach Profiles</h4>
                 <div className="space-y-2 mb-4">
                   {coaches.map((c, i) => (
@@ -3559,16 +3559,19 @@ export default function ApexAthletePage() {
                     </div>
                   ))}
                 </div>
-                <div className="space-y-3">
-                  <div className="flex gap-2 items-center flex-wrap">
+                <div className="space-y-3" style={{ position: "relative", zIndex: 60 }}>
+                  <div className="flex gap-2 items-center flex-wrap" style={{ position: "relative", zIndex: 60 }}>
                     <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
                       type="text" autoComplete="off" autoCorrect="off" autoCapitalize="words" inputMode="text"
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px] relative z-40" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px", pointerEvents: "auto", touchAction: "manipulation" }} />
+                      onTouchStart={e => e.stopPropagation()}
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/30 min-h-[48px] relative" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px", pointerEvents: "auto", touchAction: "manipulation", zIndex: 60, WebkitTapHighlightColor: "rgba(0,240,255,0.1)" }} />
                     <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
                       type="tel" autoComplete="off" inputMode="numeric" pattern="[0-9]*"
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px] relative z-40" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px", pointerEvents: "auto", touchAction: "manipulation" }} />
+                      onTouchStart={e => e.stopPropagation()}
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/30 min-h-[48px] relative" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px", pointerEvents: "auto", touchAction: "manipulation", zIndex: 60, WebkitTapHighlightColor: "rgba(0,240,255,0.1)" }} />
                     <select value={newCoachRole} onChange={e => { const role = e.target.value as "head" | "assistant" | "guest"; setNewCoachRole(role); if (role === "head") setNewCoachGroups(["all"]); }}
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none min-h-[44px] relative z-40" style={{ colorScheme: "dark", fontSize: "16px", WebkitAppearance: "menulist", pointerEvents: "auto", touchAction: "manipulation" }}>
+                      onTouchStart={e => e.stopPropagation()}
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none min-h-[48px] relative" style={{ colorScheme: "dark", fontSize: "16px", WebkitAppearance: "menulist", pointerEvents: "auto", touchAction: "manipulation", zIndex: 60, WebkitTapHighlightColor: "rgba(0,240,255,0.1)" }}>
                       <option value="assistant" style={{ background: "#1a1025", color: "white" }}>Assistant</option>
                       <option value="head" style={{ background: "#1a1025", color: "white" }}>Head Coach</option>
                     </select>
