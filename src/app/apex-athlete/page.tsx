@@ -1353,7 +1353,7 @@ export default function ApexAthletePage() {
               style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.05}s` } as React.CSSProperties} />
           ))}
           <div className="relative bg-[#0c0618]/95 border border-[#f59e0b]/25 rounded-2xl p-10 shadow-[0_0_60px_rgba(245,158,11,0.15),0_0_120px_rgba(107,33,168,0.1)]">
-            <div className="text-5xl mb-3">⚡</div>
+            <div className="text-5xl mb-3"><svg width="48" height="48" viewBox="0 0 24 24" fill="#f59e0b" style={{filter:'drop-shadow(0 0 12px rgba(245,158,11,0.6))'}}><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg></div>
             <div className="text-[#f59e0b] text-xs tracking-[0.3em] uppercase font-bold mb-2">Level Up!</div>
             <div className="text-white text-2xl font-black mb-1">{levelUpName}</div>
             <div className="bg-gradient-to-r from-[#a855f7] to-[#f59e0b] bg-clip-text text-transparent text-lg font-bold">{levelUpLevel}</div>
@@ -1385,7 +1385,7 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative">
       <BgOrbs />
       <div className="text-center relative z-10">
-        <div className="text-3xl mb-2">🏊</div>
+        <div className="text-3xl mb-2"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" style={{filter:'drop-shadow(0 0 8px rgba(0,240,255,0.5))'}}><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><path d="M2 16c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="7" r="3"/><path d="M9 10l-2 6h2l1-3 2 3 2-3 1 3h2l-2-6"/></svg></div>
         <div className="neon-text-cyan text-sm font-mono tracking-wider opacity-60">INITIALIZING...</div>
       </div>
     </div>
@@ -1408,7 +1408,7 @@ export default function ApexAthletePage() {
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
             <div className="hud-corner-tl hud-corner-br absolute inset-0 pointer-events-none" />
-            <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]">🏊</div>
+            <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" style={{filter:'drop-shadow(0 0 20px rgba(0,240,255,0.5))'}}><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><path d="M2 16c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="7" r="3"/><path d="M9 10l-2 6h2l1-3 2 3 2-3 1 3h2l-2-6"/></svg></div>
             <div className="neon-text-cyan text-[10px] tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Swim Training System</div>
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
             <div className="text-[#a855f7]/30 text-[10px] tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
@@ -1530,8 +1530,8 @@ export default function ApexAthletePage() {
             <div className="game-panel game-panel-border relative bg-[#06020f]/80 backdrop-blur-xl px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-2">
                 <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule. Tap to override." : "Manual mode. Tap to auto-detect."}
-                  className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
-                  {autoSession ? "⚡ AUTO" : "✋ MANUAL"}
+                  className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all inline-flex items-center gap-1 ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
+                  {autoSession ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg> AUTO</> : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 11V6a2 2 0 00-2-2h-1a2 2 0 00-2 2M9 11V4a2 2 0 00-2-2H6a2 2 0 00-2 2v7m5 0V3a2 2 0 00-2-2H6m9 13v-3a2 2 0 00-2-2H6a2 2 0 00-2 2v6a6 6 0 006 6h1a6 6 0 006-6v-1"/></svg> MANUAL</>}
                 </button>
                 <div className="flex rounded-lg overflow-hidden border border-[#a855f7]/25">
                   {(["am", "pm"] as const).map(t => (
@@ -2095,7 +2095,7 @@ export default function ApexAthletePage() {
 
           <Card className="p-6 mb-6" glow>
             <div className="flex items-center gap-3 mb-6">
-              <span className="text-2xl">🎯</span>
+              <span className="text-2xl"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2" style={{filter:'drop-shadow(0 0 8px rgba(0,240,255,0.4))'}}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
               <div>
                 <h2 className="text-xl font-black tracking-tight neon-text-cyan">Race Strategy AI</h2>
                 <p className="text-white/25 text-xs">Personal goal-focused race planning</p>
@@ -2153,7 +2153,7 @@ export default function ApexAthletePage() {
             <>
               <Card className="p-6 mb-6" glow>
                 <div className="flex items-center gap-3 mb-5">
-                  <span className="text-lg">🗺️</span>
+                  <span className="text-lg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2" style={{filter:'drop-shadow(0 0 6px rgba(0,240,255,0.3))'}}><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
                   <h3 className="text-[#00f0ff] text-sm font-black uppercase tracking-wider">Race Map</h3>
                   {stratAthlete && <span className="ml-auto text-white/30 text-xs">{stratAthlete.name} · {stratEvent}m {stratStroke}</span>}
                 </div>
@@ -2181,7 +2181,7 @@ export default function ApexAthletePage() {
 
               <Card className="p-6 mb-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <span className="text-lg">💡</span>
+                  <span className="text-lg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" style={{filter:'drop-shadow(0 0 6px rgba(245,158,11,0.3))'}}><path d="M9 18h6M10 22h4M12 2a7 7 0 014 12.7V17H8v-2.3A7 7 0 0112 2z"/></svg></span>
                   <h3 className="text-[#f59e0b] text-sm font-black uppercase tracking-wider">Race Tips</h3>
                 </div>
                 <div className="space-y-3">
@@ -2512,7 +2512,7 @@ export default function ApexAthletePage() {
     const longestStreak = [...roster].sort((a, b) => b.streak - a.streak)[0];
     const riskColor = (r: number) => r >= 60 ? "text-red-400" : r >= 40 ? "text-orange-400" : "text-yellow-400";
     const riskBg = (r: number) => r >= 60 ? "bg-red-500" : r >= 40 ? "bg-orange-500" : "bg-yellow-500";
-    const trendIcon = engagementTrend.direction === "up" ? "📈" : engagementTrend.direction === "down" ? "📉" : "➡️";
+    const trendIcon = engagementTrend.direction === "up" ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg> : engagementTrend.direction === "down" ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 18l-9.5-9.5-5 5L1 6"/><path d="M17 18h6v-6"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M15 8l4 4-4 4"/></svg>;
     const trendColor = engagementTrend.direction === "up" ? "text-emerald-400" : engagementTrend.direction === "down" ? "text-red-400" : "text-white/40";
     const cultureColor = cultureScore >= 70 ? "text-emerald-400" : cultureScore >= 40 ? "text-[#f59e0b]" : "text-red-400";
     const cultureBg = cultureScore >= 70 ? "bg-emerald-500" : cultureScore >= 40 ? "bg-[#f59e0b]" : "bg-red-500";
@@ -2555,7 +2555,7 @@ export default function ApexAthletePage() {
           {atRiskAthletes.length > 0 && (
             <Card className="p-6 mb-6" glow>
               <div className="flex items-center gap-3 mb-5">
-                <span className="text-lg">🚨</span>
+                <span className="text-lg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{filter:'drop-shadow(0 0 6px rgba(239,68,68,0.4))'}}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                 <h3 className="text-red-400 text-sm font-black uppercase tracking-wider">Attrition Risk Radar</h3>
                 <span className="text-white/15 text-[10px] ml-auto font-mono">{atRiskAthletes.length} athlete{atRiskAthletes.length > 1 ? "s" : ""} flagged</span>
               </div>
@@ -2747,7 +2747,7 @@ export default function ApexAthletePage() {
 
           <button onClick={exportCSV}
             className="game-btn px-5 py-3 bg-[#06020f]/60 text-[#00f0ff]/40 text-sm font-mono border border-[#00f0ff]/15 hover:text-[#00f0ff]/70 hover:border-[#00f0ff]/30 transition-all min-h-[44px]">
-            📊 Export Full CSV
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1.5 -mt-0.5"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Export Full CSV
           </button>
         </div>
       </div>
@@ -2849,7 +2849,7 @@ export default function ApexAthletePage() {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp);
                     const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
-                    const medals = ["🥇", "🥈", "🥉"];
+                    const medals = [<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
                     const glowColors = [
                       "shadow-[0_0_50px_rgba(245,158,11,0.3),0_0_100px_rgba(245,158,11,0.1)]",
@@ -2879,7 +2879,7 @@ export default function ApexAthletePage() {
                           {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
-                          <div className="text-white/20 text-[10px] mt-1 font-bold">🔥 {a.streak}d streak</div>
+                          <div className="text-white/20 text-[10px] mt-1 font-bold inline-flex items-center gap-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d streak</div>
                         )}
                       </div>
                     );
@@ -2898,7 +2898,7 @@ export default function ApexAthletePage() {
                 const lv = getLevel(a.xp);
                 const sk = fmtStreak(a.streak);
                 const rank = i + 1;
-                const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
+                const medalEmoji = rank === 1 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : rank === 2 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : rank === 3 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : null;
                 return (
                   <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${rank <= 3 ? "bg-white/[0.02]" : ""} ${i < sorted.length - 1 ? "border-b border-white/[0.03]" : ""}`}>
                     <span className={`w-8 text-center text-sm font-black shrink-0 transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-white/10 group-hover:text-white/25"}`}>
@@ -2910,7 +2910,7 @@ export default function ApexAthletePage() {
                     </div>
                     <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
                     <span className="text-[10px] font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
-                    {a.streak > 0 && <span className="text-white/20 text-[10px] hidden sm:inline font-bold">🔥 {a.streak}d</span>}
+                    {a.streak > 0 && <span className="text-white/20 text-[10px] hidden sm:inline-flex items-center gap-0.5 font-bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d</span>}
                     <span className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
                   </div>
                 );
@@ -2925,10 +2925,10 @@ export default function ApexAthletePage() {
             <h3 className="text-[#f59e0b]/50 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">// Team Challenges</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {[
-                { id: "attendance-war", name: "Attendance War", desc: "Which group has the highest attendance % this week?", metric: "GROUP ATTENDANCE", icon: "⚔️", color: "#ef4444" },
-                { id: "xp-race", name: "XP Race", desc: "First group to collectively earn 5,000 XP wins", metric: "COLLECTIVE XP", icon: "🏁", color: "#f59e0b" },
-                { id: "streak-city", name: "Streak City", desc: "Group with the most athletes on 7+ day streaks", metric: "ACTIVE STREAKS", icon: "🔥", color: "#f97316" },
-                { id: "quest-masters", name: "Quest Masters", desc: "Group that completes the most side quests this week", metric: "QUESTS DONE", icon: "⭐", color: "#a855f7" },
+                { id: "attendance-war", name: "Attendance War", desc: "Which group has the highest attendance % this week?", metric: "GROUP ATTENDANCE", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 7l4-4 4 4-4 4M3 11l4 4"/></svg>, color: "#ef4444" },
+                { id: "xp-race", name: "XP Race", desc: "First group to collectively earn 5,000 XP wins", metric: "COLLECTIVE XP", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>, color: "#f59e0b" },
+                { id: "streak-city", name: "Streak City", desc: "Group with the most athletes on 7+ day streaks", metric: "ACTIVE STREAKS", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg>, color: "#f97316" },
+                { id: "quest-masters", name: "Quest Masters", desc: "Group that completes the most side quests this week", metric: "QUESTS DONE", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>, color: "#a855f7" },
               ].map(challenge => {
                 const groupAthletes = roster.filter(a => a.group === selectedGroup);
                 const val = challenge.id === "attendance-war"
@@ -2964,8 +2964,8 @@ export default function ApexAthletePage() {
             {/* AM/PM Session Selector — auto-detects from schedule */}
             <div className="mb-4 p-4 rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/15 flex items-center justify-between flex-wrap gap-3">
               <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule" : "Manual mode"}
-                className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
-                {autoSession ? "⚡ AUTO" : "✋ MANUAL"}
+                className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all inline-flex items-center gap-1 ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
+                {autoSession ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg> AUTO</> : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 11V6a2 2 0 00-2-2h-1a2 2 0 00-2 2M9 11V4a2 2 0 00-2-2H6a2 2 0 00-2 2v7m5 0V3a2 2 0 00-2-2H6m9 13v-3a2 2 0 00-2-2H6a2 2 0 00-2 2v6a6 6 0 006 6h1a6 6 0 006-6v-1"/></svg> MANUAL</>}
               </button>
               <div className="flex rounded-xl overflow-hidden border border-[#a855f7]/25">
                 {(["am", "pm"] as const).map(t => (
@@ -3028,7 +3028,7 @@ export default function ApexAthletePage() {
               <span className="text-white/10">|</span>
               <button onClick={() => setManageCoaches(!manageCoaches)}
                 className="text-white/20 hover:text-[#00f0ff]/60 transition-colors">
-                {manageCoaches ? "CLOSE" : "👥 MANAGE COACHES"}
+                {manageCoaches ? "CLOSE" : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block mr-1 -mt-0.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>MANAGE COACHES</>}
               </button>
             </div>
 
@@ -3041,7 +3041,7 @@ export default function ApexAthletePage() {
                     <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
                       <div className="flex items-center gap-3">
                         <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
-                          {c.role === "head" ? "👑" : "🏊"} {c.name}
+                          {c.role === "head" ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" className="inline-block -mt-0.5"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><rect x="2" y="20" width="20" height="2" rx="1"/></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" className="inline-block -mt-0.5"><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="9" r="3"/></svg>} {c.name}
                         </span>
                         <span className="text-[10px] text-white/15 font-mono">PIN: {c.pin}</span>
                         <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
@@ -3079,7 +3079,7 @@ export default function ApexAthletePage() {
                     <button
                       onClick={() => { if (typeof navigator !== "undefined") navigator.clipboard.writeText(`${window.location.origin}/apex-athlete/portal`); }}
                       className="px-3 py-2 rounded-lg bg-[#a855f7]/10 text-[#a855f7]/60 text-[10px] font-bold border border-[#a855f7]/20 hover:bg-[#a855f7]/20 transition-all min-h-[34px] shrink-0">
-                      📋 Copy
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1 -mt-0.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy
                     </button>
                   </div>
                   <p className="text-white/10 text-[9px] mt-2 font-mono">Each coach logs in with their own PIN. All check-ins are tracked separately in the audit log.</p>
@@ -3149,7 +3149,7 @@ export default function ApexAthletePage() {
                           <div className="text-white text-sm font-semibold truncate">{a.name}</div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
-                            {a.streak > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70">🔥 {a.streak}d · {sk.mult}</span>}
+                            {a.streak > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d · {sk.mult}</span>}
                             {hasCk && <span className="text-emerald-400/60 text-[10px] font-bold">✓ checked in</span>}
                           </div>
                         </div>
