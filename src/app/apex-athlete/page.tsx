@@ -772,6 +772,7 @@ export default function ApexAthletePage() {
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy">("coach");
   const [activeCoach, setActiveCoach] = useState<string>("Coach");
+  const [activeCoachGroups, setActiveCoachGroups] = useState<string[]>(["all"]);
 
   // ── Race Strategy state ───────────────────────────────────
   const [stratAthleteId, setStratAthleteId] = useState<string>("");
@@ -817,6 +818,7 @@ export default function ApexAthletePage() {
   const [newCoachName, setNewCoachName] = useState("");
   const [newCoachPin, setNewCoachPin] = useState("");
   const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant" | "guest">("assistant");
+  const [newCoachGroups, setNewCoachGroups] = useState<string[]>(["all"]);
 
   // ── Sync status state ──
   const [syncBusy, setSyncBusy] = useState(false);
@@ -830,10 +832,12 @@ export default function ApexAthletePage() {
   const saveCoaches = useCallback((c: CoachAccess[]) => { setCoaches(c); save(K.COACHES, c); }, []);
   const addCoach = useCallback(() => {
     if (!newCoachName.trim() || !newCoachPin.trim() || newCoachPin.length < 4) return;
-    const c: CoachAccess = { id: `coach-${Date.now()}`, name: newCoachName.trim(), pin: newCoachPin, groups: ["all"], role: newCoachRole, createdAt: Date.now() };
+    const groups = newCoachRole === "head" ? ["all"] : newCoachGroups.filter(x => x !== "all");
+    if (newCoachRole === "assistant" && groups.length === 0) return;
+    const c: CoachAccess = { id: `coach-${Date.now()}`, name: newCoachName.trim(), pin: newCoachPin, groups, role: newCoachRole, createdAt: Date.now() };
     saveCoaches([...coaches, c]);
-    setNewCoachName(""); setNewCoachPin(""); setNewCoachRole("assistant");
-  }, [newCoachName, newCoachPin, newCoachRole, coaches, saveCoaches]);
+    setNewCoachName(""); setNewCoachPin(""); setNewCoachRole("assistant"); setNewCoachGroups([]);
+  }, [newCoachName, newCoachPin, newCoachRole, newCoachGroups, coaches, saveCoaches]);
   const removeCoach = useCallback((idx: number) => {
     if (coaches[idx]?.role === "head" && coaches.filter(c => c.role === "head").length <= 1) return;
     saveCoaches(coaches.filter((_, i) => i !== idx));
@@ -1121,7 +1125,7 @@ export default function ApexAthletePage() {
           a.dailyXP = { ...a.dailyXP, [category]: Math.max(0, a.dailyXP[category] - awarded) };
         }
         addAudit(a.id, a.name, `Unchecked: ${cpId}`, -awarded);
-        const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+        const r = [...prev]; r[idx] = a; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
       }
       cps[cpId] = true; a[cpMap] = cps;
       const { newAthlete, awarded } = awardXP(a, cpXP, category);
@@ -1129,15 +1133,25 @@ export default function ApexAthletePage() {
       // Increment streak once per day on Practice Complete (pool) or Showed Up (weight)
       if (category === "pool" && cpId === "practice-complete" && final.lastStreakDate !== today()) {
         final = { ...final, streak: final.streak + 1, lastStreakDate: today(), totalPractices: final.totalPractices + 1, weekSessions: final.weekSessions + 1 };
+        // Fire streak milestone notifications
+        if (final.streak === 7) addNotification("STREAK_WARNING", "7-Day Streak!", `${final.name} just hit a 7-day streak! Silver tier unlocked.`, "coach");
+        if (final.streak === 30) addNotification("STREAK_WARNING", "30-Day Streak!", `${final.name} hit a legendary 30-day streak! 2.0x multiplier active.`, "coach");
+        if (final.streak === 90) addNotification("STREAK_WARNING", "90-Day Streak!", `${final.name} achieved a mythic 90-day streak!`, "coach");
       }
       if (category === "weight" && cpId === "showed-up" && final.lastWeightStreakDate !== today()) {
         final = { ...final, weightStreak: final.weightStreak + 1, lastWeightStreakDate: today(), weekWeightSessions: final.weekWeightSessions + 1 };
       }
+      // Check for level-up and fire notification
+      const oldLv = getLevel(a.xp);
+      const newLv = getLevel(final.xp);
+      if (newLv.name !== oldLv.name) {
+        addNotification("LEVEL_UP", "Level Up!", `${final.name} just reached ${newLv.name.toUpperCase()} level!`, "coach");
+      }
       addAudit(final.id, final.name, `Checked: ${cpId}`, awarded);
       if (e) spawnXpFloat(awarded, e);
-      const r = [...prev]; r[idx] = final; save(K.ROSTER, r); return r;
+      const r = [...prev]; r[idx] = final; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
     });
-  }, [awardXP, addAudit, spawnXpFloat]);
+  }, [awardXP, addAudit, spawnXpFloat, selectedGroup]);
 
   // ── weight challenge toggle ──────────────────────────────
   const toggleWeightChallenge = useCallback((athleteId: string, chId: string, chXP: number, e?: React.MouseEvent) => {
@@ -1161,9 +1175,9 @@ export default function ApexAthletePage() {
         addAudit(a.id, a.name, `Challenge: ${chId}`, awarded);
         if (e) spawnXpFloat(awarded, e);
       }
-      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
     });
-  }, [awardXP, addAudit, spawnXpFloat]);
+  }, [awardXP, addAudit, spawnXpFloat, selectedGroup]);
 
   // ── quest cycle ──────────────────────────────────────────
   const cycleQuest = useCallback((athleteId: string, qId: string, qXP: number, e?: React.MouseEvent) => {
@@ -1180,11 +1194,14 @@ export default function ApexAthletePage() {
         a = { ...res.newAthlete, quests: a.quests };
         awarded = res.awarded;
         if (e) spawnXpFloat(awarded, e);
+        // Quest completion notification
+        const questDef = QUEST_DEFS.find(q => q.id === qId);
+        addNotification("QUEST_APPROVED", "Quest Complete!", `${a.name} completed "${questDef?.name || qId}" (+${awarded} XP)`, "coach");
       }
       addAudit(a.id, a.name, `Quest ${qId}: ${next}`, awarded);
-      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
     });
-  }, [awardXP, addAudit, spawnXpFloat]);
+  }, [awardXP, addAudit, spawnXpFloat, selectedGroup]);
 
   const denyQuest = useCallback((athleteId: string, qId: string) => {
     setRoster(prev => {
@@ -1193,9 +1210,9 @@ export default function ApexAthletePage() {
       const a = { ...prev[idx], quests: { ...prev[idx].quests } };
       a.quests[qId] = "pending";
       addAudit(a.id, a.name, `Quest denied: ${qId}`, 0);
-      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
     });
-  }, [addAudit]);
+  }, [addAudit, selectedGroup]);
 
   // ── combo detection ──────────────────────────────────────
   const checkCombos = useCallback((athlete: Athlete) => {
@@ -1222,7 +1239,7 @@ export default function ApexAthletePage() {
         const streakAlreadyCounted = a.lastStreakDate === today();
         return { ...newAthlete, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
       });
-      save(K.ROSTER, r); return r;
+      save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
     });
   }, [awardXP, addAudit, selectedGroup]);
 
@@ -1241,12 +1258,12 @@ export default function ApexAthletePage() {
           if (a.dailyXP.date === today()) {
             a.dailyXP = { ...a.dailyXP, pool: Math.max(0, a.dailyXP.pool - last.xpDelta) };
           }
-          const r = [...rPrev]; r[idx] = a; save(K.ROSTER, r); return r;
+          const r = [...rPrev]; r[idx] = a; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
         });
       }
       const n = prev.slice(1); save(K.AUDIT, n); return n;
     });
-  }, []);
+  }, [selectedGroup]);
 
   const resetDay = useCallback(() => {
     saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
@@ -1262,6 +1279,8 @@ export default function ApexAthletePage() {
 
   // ── group switching ─────────────────────────────────────
   const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); setExpandedId(null); }, []);
+  const coachCanAccessGroup = useCallback((groupId: string) => activeCoachGroups.includes("all") || activeCoachGroups.includes(groupId), [activeCoachGroups]);
+  const accessibleGroups = useMemo(() => ROSTER_GROUPS.filter(g => coachCanAccessGroup(g.id)), [coachCanAccessGroup]);
   const currentGroupDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
 
   const addAthleteAction = useCallback(() => {
@@ -1278,9 +1297,10 @@ export default function ApexAthletePage() {
     setRoster(prev => {
       const next = prev.map(a => a.id === athleteId ? { ...a, ...updates } : a);
       save(K.ROSTER, next);
+      syncSaveRoster(K.ROSTER, selectedGroup, next);
       return next;
     });
-  }, []);
+  }, [selectedGroup]);
 
   const addCoachAccess = useCallback((name: string, pin: string, role: "head" | "assistant" | "guest", groups: string[]) => {
     const c: CoachAccess = { id: `coach-${Date.now()}`, name, pin, role, groups, createdAt: Date.now() };
@@ -1669,8 +1689,16 @@ export default function ApexAthletePage() {
   // ── PIN gate ─────────────────────────────────────────────
   const tryUnlock = () => {
     const match = coaches.find(c => c.pin === pinInput);
-    if (match) { setUnlocked(true); setPinError(false); setActiveCoach(match.name); try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {} }
-    else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {} }
+    if (match) {
+      setUnlocked(true); setPinError(false); setActiveCoach(match.name); setActiveCoachGroups(match.groups);
+      // Auto-select first allowed group if current selection is not allowed
+      if (!match.groups.includes("all") && !match.groups.includes(selectedGroup)) {
+        const firstAllowed = match.groups[0] as GroupId;
+        if (firstAllowed) switchGroup(firstAllowed);
+      }
+      try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {}
+    }
+    else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); setActiveCoachGroups(["all"]); try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {} }
     else setPinError(true);
   };
   const resetPin = () => { setCoachPin("1234"); save(K.PIN, "1234"); setPinInput(""); setPinError(false); };
@@ -3242,7 +3270,7 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="py-4">
           <div className="flex flex-wrap gap-2 justify-center">
-            {ROSTER_GROUPS.map(g => {
+            {accessibleGroups.map(g => {
               const isActive = selectedGroup === g.id;
               const count = roster.filter(a => a.group === g.id).length;
               return (
@@ -3493,46 +3521,76 @@ export default function ApexAthletePage() {
               <span className="text-white/10">|</span>
               <span className="text-[#a855f7]/40">SESSION: <span className="text-[#e879f9]/70">{sessionTime.toUpperCase()} {sessionMode === "pool" ? "POOL" : sessionMode === "weight" ? "WEIGHT" : "MEET"}</span></span>
               <span className="text-white/10">|</span>
-              <button onClick={() => setManageCoaches(!manageCoaches)}
+              {activeCoachGroups.includes("all") && <button onClick={() => setManageCoaches(!manageCoaches)}
                 className="text-white/20 hover:text-[#00f0ff]/60 transition-colors">
                 {manageCoaches ? "CLOSE" : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block mr-1 -mt-0.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>MANAGE COACHES</>}
-              </button>
+              </button>}
             </div>
 
             {/* Coach management panel */}
-            {manageCoaches && (
-              <div className="game-card mb-6 p-5">
+            {manageCoaches && activeCoachGroups.includes("all") && (
+              <div className="mb-6 p-5 relative z-10 rounded-2xl bg-[#06020f]/60 border border-[#00f0ff]/10">
                 <h4 className="text-[#00f0ff]/40 text-[10px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Coach Profiles</h4>
                 <div className="space-y-2 mb-4">
                   {coaches.map((c, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
-                          {c.role === "head" ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" className="inline-block -mt-0.5"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><rect x="2" y="20" width="20" height="2" rx="1"/></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" className="inline-block -mt-0.5"><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="9" r="3"/></svg>} {c.name}
-                        </span>
-                        <span className="text-[10px] text-white/15 font-mono">PIN: {c.pin}</span>
-                        <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
-                          {c.role.toUpperCase()}
-                        </span>
+                    <div key={i} className="py-2.5 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
+                            {c.role === "head" ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" className="inline-block -mt-0.5"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><rect x="2" y="20" width="20" height="2" rx="1"/></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" className="inline-block -mt-0.5"><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="9" r="3"/></svg>} {c.name}
+                          </span>
+                          <span className="text-[10px] text-white/15 font-mono">PIN: {c.pin}</span>
+                          <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
+                            {c.role.toUpperCase()}
+                          </span>
+                        </div>
+                        {!(c.role === "head" && coaches.filter(x => x.role === "head").length <= 1) && (
+                          <button onClick={() => removeCoach(i)} className="text-red-400/30 hover:text-red-400/80 text-xs transition-colors ml-2">✕</button>
+                        )}
                       </div>
-                      {!(c.role === "head" && coaches.filter(x => x.role === "head").length <= 1) && (
-                        <button onClick={() => removeCoach(i)} className="text-red-400/30 hover:text-red-400/80 text-xs transition-colors">✕</button>
-                      )}
+                      <div className="flex gap-1 flex-wrap mt-1.5">
+                        {c.groups.includes("all") ? (
+                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#f59e0b]/10 text-[#f59e0b]/50 font-mono">ALL GROUPS</span>
+                        ) : c.groups.map(gId => {
+                          const gDef = ROSTER_GROUPS.find(g => g.id === gId);
+                          return gDef ? <span key={gId} className="text-[8px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30 font-mono">{gDef.icon} {gDef.name}</span> : null;
+                        })}
+                      </div>
                     </div>
                   ))}
                 </div>
-                <div className="flex gap-2 items-center flex-wrap">
-                  <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/30 min-h-[38px]" />
-                  <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/30 min-h-[38px]" />
-                  <select value={newCoachRole} onChange={e => setNewCoachRole(e.target.value as "head" | "assistant" | "guest")}
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-white text-xs focus:outline-none min-h-[38px]">
-                    <option value="assistant">Assistant</option>
-                    <option value="head">Head Coach</option>
-                  </select>
-                  <button onClick={addCoach}
-                    className="px-4 py-2 rounded-lg bg-[#00f0ff]/10 text-[#00f0ff]/80 text-xs font-bold border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all min-h-[38px]">
+                <div className="space-y-3">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
+                      type="text" autoComplete="off" autoCorrect="off" autoCapitalize="words" inputMode="text"
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px]" style={{ colorScheme: "dark", WebkitAppearance: "none" }} />
+                    <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
+                      type="tel" autoComplete="off" inputMode="numeric" pattern="[0-9]*"
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/40 min-h-[44px]" style={{ colorScheme: "dark", WebkitAppearance: "none" }} />
+                    <select value={newCoachRole} onChange={e => { const role = e.target.value as "head" | "assistant" | "guest"; setNewCoachRole(role); if (role === "head") setNewCoachGroups(["all"]); }}
+                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none min-h-[44px]" style={{ colorScheme: "dark" }}>
+                      <option value="assistant" style={{ background: "#1a1025", color: "white" }}>Assistant</option>
+                      <option value="head" style={{ background: "#1a1025", color: "white" }}>Head Coach</option>
+                    </select>
+                  </div>
+                  {newCoachRole === "assistant" && (
+                    <div>
+                      <p className="text-white/25 text-[10px] font-mono mb-2">ASSIGN GROUPS:</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {ROSTER_GROUPS.map(g => {
+                          const sel = newCoachGroups.includes(g.id);
+                          return (
+                            <button key={g.id} type="button" onClick={() => setNewCoachGroups(prev => sel ? prev.filter(x => x !== g.id) : [...prev.filter(x => x !== "all"), g.id])}
+                              className={`px-3 py-1.5 rounded-lg text-[10px] font-mono font-bold border transition-all min-h-[36px] ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.02] text-white/25 hover:text-white/40"}`}>
+                              {g.icon} {g.name.toUpperCase()}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <button onClick={addCoach} disabled={!newCoachName.trim() || newCoachPin.length < 4 || (newCoachRole === "assistant" && newCoachGroups.filter(x => x !== "all").length === 0)}
+                    className="px-5 py-2.5 rounded-lg bg-[#00f0ff]/10 text-[#00f0ff]/80 text-xs font-bold border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all min-h-[44px] disabled:opacity-30 disabled:cursor-not-allowed">
                     + Add Coach
                   </button>
                 </div>
