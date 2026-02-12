@@ -134,6 +134,109 @@ const CAT_COLORS: Record<string, string> = {
   MINDSET: "bg-pink-500/20 text-pink-400 border-pink-500/30",
 };
 
+// ── Selah guided meditation scripts ─────────────────────────
+interface MeditationScript {
+  id: string;
+  title: string;
+  duration: string;
+  durationMin: number;
+  category: "pre-practice" | "pre-race" | "post-practice" | "recovery" | "sleep" | "team";
+  fullText: string;
+}
+
+const SELAH_MEDITATIONS: MeditationScript[] = [
+  {
+    id: "pre-practice-focus",
+    title: "Pre-Practice Focus",
+    duration: "3 min",
+    durationMin: 3,
+    category: "pre-practice",
+    fullText: `Close your eyes. Take three deep breaths — in through your nose, out through your mouth.\n\nFeel the tension in your shoulders. Let it go. Feel your jaw. Unclench it.\n\nNow picture the pool. See the lane lines. Feel the water before you touch it.\n\nVisualize your warm-up — smooth, easy strokes. Your body waking up, finding its rhythm.\n\nNow see your main set. Visualize your strokes — smooth, powerful, effortless. Each one better than the last.\n\nYou are not here by accident. You chose this. Every early morning, every hard set — it led you here.\n\nToday, you will be present. Not thinking about yesterday, not worrying about tomorrow. Just this practice. Just this moment.\n\nTake one more deep breath. Open your eyes.\n\nYou are prepared. You are focused. You are ready.`,
+  },
+  {
+    id: "pre-race-visualization",
+    title: "Pre-Race Visualization",
+    duration: "5 min",
+    durationMin: 5,
+    category: "pre-race",
+    fullText: `Find a quiet spot. Sit or lie down. Close your eyes.\n\nTake five slow breaths. With each exhale, let go of one worry.\n\nNow see yourself on the blocks. Feel the rough surface under your feet. Your toes curled over the edge.\n\nFeel the energy of the crowd. The buzz of the natatorium. The smell of chlorine. This is your arena.\n\nHear the announcer call your event. Your heat. Your lane.\n\nStep up. Adjust your goggles. Shake out your arms.\n\n"Swimmers, take your mark..."\n\nYou drop into position. Everything goes silent.\n\nBEEP.\n\nVisualize your dive — streamlined, explosive. You hit the water like a knife. Your breakout is long and powerful.\n\nSee each stroke. Feel the catch. The pull. The rotation. Everything is connected.\n\nSee each turn. Your flip is tight. Your push-off is a rocket.\n\nYou are racing your best time. Not the swimmer next to you — YOUR best.\n\nThe final wall is coming. You dig deep. Your legs are screaming but you do not slow down.\n\nYou touch the wall. You look up at the board.\n\nFeel the finish. The relief. The pride.\n\nYou did it.\n\nOpen your eyes. That race lives inside you. Go make it real.`,
+  },
+  {
+    id: "post-practice-recovery",
+    title: "Post-Practice Recovery",
+    duration: "3 min",
+    durationMin: 3,
+    category: "post-practice",
+    fullText: `You showed up today. That matters.\n\nBefore you rush off — pause. Just for a moment.\n\nTake three slow breaths. Feel your heart rate coming down.\n\nThink about what went well today. Even one small thing. A good turn. A strong finish. Showing up when you didn't feel like it.\n\nAcknowledge it. You earned that.\n\nNow think about what didn't go perfectly. Don't judge it. Don't replay it with frustration.\n\nIt's data, not failure. It's information. What can you learn? What will you try differently tomorrow?\n\nFeel your muscles releasing. Your shoulders dropping. Your body is already starting to recover.\n\nYou put in the work. Now let your body do its job.\n\nDrink water. Eat well tonight. Sleep like recovery is part of training — because it is.\n\nTomorrow you'll be stronger because of today. Trust the process.\n\nWell done.`,
+  },
+  {
+    id: "anxiety-reframe",
+    title: "Anxiety Reframe",
+    duration: "4 min",
+    durationMin: 4,
+    category: "recovery",
+    fullText: `Let's talk about that feeling in your stomach. The one that shows up before big races. Before time trials. Before moments that matter.\n\nMost people call it anxiety. But let's reframe it.\n\nThe butterflies in your stomach aren't fear — they're fuel.\n\nYour heart is beating faster because your body is preparing for performance. Adrenaline is flooding your system. Your muscles are priming. Your senses are sharpening.\n\nThis is your body's way of saying: "I'm ready for something big."\n\nPressure is a privilege. It means you're in a position to do something meaningful.\n\nChampions feel this too. Every single one of them. The difference? They've learned to use it.\n\nSo breathe in courage. Hold it. Feel it expand in your chest.\n\nBreathe out doubt. Let it dissolve.\n\nBreathe in: "I am ready."\nBreathe out: "I release what I can't control."\n\nBreathe in: "I've trained for this."\nBreathe out: "I trust my preparation."\n\nBreathe in: "This energy is my advantage."\nBreathe out: "I let go of fear."\n\nYou are not nervous. You are activated.\n\nNow go use that energy.`,
+  },
+  {
+    id: "confidence-builder",
+    title: "Confidence Builder",
+    duration: "3 min",
+    durationMin: 3,
+    category: "recovery",
+    fullText: `Close your eyes. Stand tall — even if you're sitting.\n\nYou have put in the work. Let's remember that.\n\nEvery practice. Every rep. Every early morning when your alarm went off and you chose to show up.\n\nThink about your hardest practice this season. You survived it. You pushed through it. That strength is inside you right now.\n\nThink about your best race. Remember how that felt — the power, the speed, the confidence. That athlete is still you.\n\nNobody can take your work away. Not a bad practice. Not a tough race. Not doubt.\n\nIt's all inside you. Banked. Stored. Ready to use.\n\nSay this silently to yourself:\n\n"I have earned this moment."\n"I am strong."\n"I am prepared."\n"I trust my training."\n\nWhatever happens next — in the pool, in the race, in practice — you go in knowing one thing:\n\nYou've done the work. And that makes you dangerous.\n\nOpen your eyes. Carry this with you.`,
+  },
+  {
+    id: "box-breathing-guided",
+    title: "Box Breathing",
+    duration: "5 min",
+    durationMin: 5,
+    category: "recovery",
+    fullText: `Box breathing is used by Navy SEALs, elite athletes, and first responders to calm the nervous system under pressure.\n\nHere's how it works:\n\nBreathe in for 4 counts.\nHold for 4 counts.\nBreathe out for 4 counts.\nHold for 4 counts.\n\nLet's begin.\n\n— Round 1 —\nBreathe IN... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\nBreathe OUT... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\n\n— Round 2 —\nBreathe IN... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\nBreathe OUT... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\n\n— Round 3 —\nBreathe IN... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\nBreathe OUT... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\n\n— Round 4 —\nBreathe IN... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\nBreathe OUT... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\n\n— Round 5 —\nBreathe IN... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\nBreathe OUT... 1... 2... 3... 4...\nHOLD... 1... 2... 3... 4...\n\nNotice how your heart rate has slowed. Your mind is clearer. Your body is calmer.\n\nUse this anytime — before a race, before sleep, or whenever the pressure feels too heavy.\n\nYou are in control.`,
+  },
+  {
+    id: "sleep-wind-down",
+    title: "Sleep Wind-Down",
+    duration: "7 min",
+    durationMin: 7,
+    category: "sleep",
+    fullText: `The day is done. Whatever happened today — the good, the frustrating, the hard — let it rest.\n\nYou're lying down. Your body is heavy. That's okay. Let it be heavy.\n\nTake a long, slow breath in... and a long, slow breath out.\n\nWe're going to scan your body and release every bit of tension.\n\nStart at your toes. Curl them tight... and release. Feel them relax.\n\nMove to your feet and ankles. They carried you through practice today. Let them rest.\n\nYour calves. Your shins. Let them sink into the bed.\n\nYour quads. Your hamstrings. These muscles worked hard today. They deserve this.\n\nYour hips. Your lower back. Release.\n\nYour stomach. Unclench. Let it soften.\n\nYour chest. Feel it rise and fall. Slowly. Gently.\n\nYour shoulders — where you carry so much. Let them drop. All the way down.\n\nYour arms. Your hands. Your fingers. Heavy. Still.\n\nYour neck. Your jaw — unclench it. Let your tongue rest from the roof of your mouth.\n\nYour eyes. Your forehead. Smooth. Relaxed.\n\nYour whole body is resting now.\n\nTomorrow is a new page. New chances. New reps. New opportunities to grow.\n\nBut tonight? Tonight, rest is your superpower.\n\nYou don't need to solve anything right now. You don't need to plan. You just need to sleep.\n\nYour body is recovering. Your muscles are rebuilding. Your mind is processing everything you learned today.\n\nSleep is training. And you're doing it right now.\n\nGoodnight, champion.`,
+  },
+  {
+    id: "pre-meet-team-talk",
+    title: "Pre-Meet Team Talk",
+    duration: "3 min",
+    durationMin: 3,
+    category: "team",
+    fullText: `Look around you — this is your team.\n\nThese are the people who wake up early with you. Who push through hard sets with you. Who know what it costs to be here.\n\nEvery one of you has put in the work. The early mornings. The sore muscles. The days you didn't want to show up — but did anyway.\n\nToday is not about being perfect. It's about being present.\n\nToday we swim as one.\n\nWhen you're behind the blocks, know that your team is behind you.\n\nWhen you're in the water, swim with everything you have — not just for you, but for the person in the next lane wearing your cap.\n\nSupport each other. Cheer loud. Be the loudest team on this deck.\n\nRace fearless. Not reckless — fearless. There's a difference.\n\nFearless means you trust your training. You race YOUR race. You don't hold back.\n\nWhatever happens today — whatever times go up on that board — we leave this meet better than we came.\n\nBetter swimmers. Better teammates. Better people.\n\nThis is our meet. Let's go take it.\n\nHands in. Team on three. 1... 2... 3... TEAM!`,
+  },
+  {
+    id: "post-loss-processing",
+    title: "Post-Loss Processing",
+    duration: "5 min",
+    durationMin: 5,
+    category: "recovery",
+    fullText: `The time on the board isn't what you wanted.\n\nThat's okay. Sit with that for a moment. Don't push it away.\n\nFeel what you feel. Disappointment is valid. Frustration is valid. Even anger — it means you care deeply about this.\n\nBut this isn't your story's ending. It's one chapter. One data point. One race in a career full of races.\n\nEvery great champion has races they wish they could redo.\n\nMichael Phelps had bad races. Katie Ledecky has had bad races. Caeleb Dressel has had bad races.\n\nWhat made them great wasn't that they never failed. It's what they did next.\n\nSo let's process this — not avoid it.\n\nFirst: What happened? Not emotionally — technically. Where did the race go off plan? Was it the start? The turns? The back half? Pacing?\n\nBe specific. This is how you learn.\n\nSecond: What was outside your control? Bad sleep? A cold? Tough scheduling? Acknowledge it and let it go.\n\nThird: What will you change? Not "try harder" — that's not a plan. What specific thing will you work on in the next two weeks?\n\nWrite it down. Say it out loud. Tell your coach.\n\nNow take three deep breaths.\n\nBreathe in: "This race does not define me."\nBreathe out: "I am more than one swim."\n\nBreathe in: "I will learn from this."\nBreathe out: "I will come back stronger."\n\nBreathe in: "I am still that athlete."\nBreathe out: "And I'm not done."\n\nYou're going to be okay. Better than okay.\n\nThis is where champions are forged — not in the wins, but in the comebacks.`,
+  },
+];
+
+const MED_CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string; label: string }> = {
+  "pre-practice": { bg: "bg-emerald-500/15", text: "text-emerald-400", border: "border-emerald-500/20", label: "PRE-PRACTICE" },
+  "pre-race": { bg: "bg-red-500/15", text: "text-red-400", border: "border-red-500/20", label: "PRE-RACE" },
+  "post-practice": { bg: "bg-blue-500/15", text: "text-blue-400", border: "border-blue-500/20", label: "POST-PRACTICE" },
+  "recovery": { bg: "bg-amber-500/15", text: "text-amber-400", border: "border-amber-500/20", label: "RECOVERY" },
+  "sleep": { bg: "bg-indigo-500/15", text: "text-indigo-400", border: "border-indigo-500/20", label: "SLEEP" },
+  "team": { bg: "bg-pink-500/15", text: "text-pink-400", border: "border-pink-500/20", label: "TEAM" },
+};
+
+const MED_CATEGORY_ICONS: Record<string, string> = {
+  "pre-practice": "\u{1F3CA}",
+  "pre-race": "\u{1F3AF}",
+  "post-practice": "\u{1F30A}",
+  "recovery": "\u{26A1}",
+  "sleep": "\u{1F319}",
+  "team": "\u{1F91D}",
+};
+
 const ATTRIBUTES = [
   { key: "attendance", label: "Attendance", color: "#60a5fa" },
   { key: "effort", label: "Effort", color: "#f59e0b" },
@@ -275,6 +378,8 @@ export default function AthletePortal() {
   const [breathCount, setBreathCount] = useState(0);
   const [breathTimer, setBreathTimer] = useState(0);
   const [activeMeditation, setActiveMeditation] = useState<string|null>(null);
+  const [meditationModal, setMeditationModal] = useState<string|null>(null);
+  const [completedMeditations, setCompletedMeditations] = useState<{meditationId: string; completedAt: number}[]>([]);
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
   const [celebration, setCelebration] = useState<{ level: string; color: string } | null>(null);
   const prevLevelRef = { current: "" };
@@ -359,6 +464,7 @@ export default function AthletePortal() {
     setTimes(load<TimeEntry[]>(`${K.TIMES}-${a.id}`, []));
     setFeedback(load<FeedbackEntry[]>(`${K.FEEDBACK}-${a.id}`, []));
     setRacePlans(load<RacePlan[]>(`${K.RACE_PLANS}-${a.id}`, []));
+    setCompletedMeditations(load<{meditationId: string; completedAt: number}[]>(`apex-athlete-meditations-${a.id}`, []));
   };
 
   const completeOnboarding = (a: Athlete) => {

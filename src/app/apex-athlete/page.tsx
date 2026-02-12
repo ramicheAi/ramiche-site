@@ -23,12 +23,12 @@ import {
 // ── game engine ──────────────────────────────────────────────
 
 const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
-  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
-  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
-  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
-  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
-  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
+  { name: "Rookie", xp: 0, icon: "◆", color: "#94a3b8" },
+  { name: "Contender", xp: 300, icon: "◇", color: "#a78bfa" },
+  { name: "Warrior", xp: 600, icon: "◈", color: "#60a5fa" },
+  { name: "Elite", xp: 1000, icon: "⬡", color: "#f59e0b" },
+  { name: "Captain", xp: 1500, icon: "⬢", color: "#f97316" },
+  { name: "Legend", xp: 2500, icon: "✦", color: "#ef4444" },
 ] as const;
 
 function getLevel(xp: number) {
@@ -231,12 +231,12 @@ interface ScheduleTemplate {
 }
 
 const SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
-  { id: "sprint-day", name: "Sprint Day", icon: "\u26A1", color: "#f59e0b", description: "Short-distance speed work, starts & turns" },
-  { id: "endurance-day", name: "Endurance Day", icon: "\uD83C\uDF0A", color: "#60a5fa", description: "Distance sets, threshold training, pacing" },
-  { id: "drill-day", name: "Drill Day", icon: "\uD83D\uDD27", color: "#a855f7", description: "Technique drills, stroke correction, form focus" },
-  { id: "technique-day", name: "Technique Day", icon: "\uD83C\uDFAF", color: "#34d399", description: "Video review, underwater work, refinement" },
-  { id: "meet-day", name: "Meet Day", icon: "\uD83C\uDFC1", color: "#ef4444", description: "Competition day — warm-up, race, cool-down" },
-  { id: "rest-day", name: "Rest Day", icon: "\uD83D\uDCA4", color: "#475569", description: "Recovery — no scheduled sessions" },
+  { id: "sprint-day", name: "Sprint Day", icon: "⚡", color: "#f59e0b", description: "Short-distance speed work, starts & turns" },
+  { id: "endurance-day", name: "Endurance Day", icon: "≈", color: "#60a5fa", description: "Distance sets, threshold training, pacing" },
+  { id: "drill-day", name: "Drill Day", icon: "⚙", color: "#a855f7", description: "Technique drills, stroke correction, form focus" },
+  { id: "technique-day", name: "Technique Day", icon: "◎", color: "#34d399", description: "Video review, underwater work, refinement" },
+  { id: "meet-day", name: "Meet Day", icon: "▶", color: "#ef4444", description: "Competition day — warm-up, race, cool-down" },
+  { id: "rest-day", name: "Rest Day", icon: "·", color: "#475569", description: "Recovery — no scheduled sessions" },
 ];
 
 function makeDefaultSession(type: SessionType, groupId: string): ScheduleSession {
@@ -285,13 +285,13 @@ function makeDefaultGroupSchedule(groupId: string): GroupSchedule {
 
 // ── ROSTER GROUPS ────────────────────────────────────────────
 const ROSTER_GROUPS = [
-  { id: "platinum", name: "Platinum", sport: "swimming", color: "#c0c0ff", icon: "💎" },
-  { id: "gold", name: "Gold", sport: "swimming", color: "#f59e0b", icon: "🥇" },
-  { id: "silver", name: "Silver", sport: "swimming", color: "#94a3b8", icon: "🥈" },
-  { id: "bronze1", name: "Bronze 1", sport: "swimming", color: "#cd7f32", icon: "🥉" },
-  { id: "bronze2", name: "Bronze 2", sport: "swimming", color: "#cd7f32", icon: "🥉" },
-  { id: "diving", name: "Diving", sport: "diving", color: "#38bdf8", icon: "🤿" },
-  { id: "waterpolo", name: "Water Polo", sport: "waterpolo", color: "#f97316", icon: "🤽" },
+  { id: "platinum", name: "Platinum", sport: "swimming", color: "#c0c0ff", icon: "◆" },
+  { id: "gold", name: "Gold", sport: "swimming", color: "#f59e0b", icon: "●" },
+  { id: "silver", name: "Silver", sport: "swimming", color: "#94a3b8", icon: "○" },
+  { id: "bronze1", name: "Bronze 1", sport: "swimming", color: "#cd7f32", icon: "◆" },
+  { id: "bronze2", name: "Bronze 2", sport: "swimming", color: "#cd7f32", icon: "◆" },
+  { id: "diving", name: "Diving", sport: "diving", color: "#38bdf8", icon: "▽" },
+  { id: "waterpolo", name: "Water Polo", sport: "waterpolo", color: "#f97316", icon: "◇" },
 ] as const;
 
 type GroupId = typeof ROSTER_GROUPS[number]["id"];
@@ -1046,6 +1046,17 @@ export default function ApexAthletePage() {
       const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
     });
   }, [awardXP, addAudit, spawnXpFloat]);
+
+  const denyQuest = useCallback((athleteId: string, qId: string) => {
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === athleteId);
+      if (idx < 0) return prev;
+      const a = { ...prev[idx], quests: { ...prev[idx].quests } };
+      a.quests[qId] = "pending";
+      addAudit(a.id, a.name, `Quest denied: ${qId}`, 0);
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+    });
+  }, [addAudit]);
 
   // ── combo detection ──────────────────────────────────────
   const checkCombos = useCallback((athlete: Athlete) => {
@@ -1829,16 +1840,16 @@ export default function ApexAthletePage() {
           </div>
         )}
 
-        {/* Side quests */}
+        {/* Side quests — Coach Approval Workflow */}
         <div>
           <h4 className="text-white/30 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Side Quests</h4>
           <Card className="divide-y divide-white/[0.04]">
             {QUEST_DEFS.map(q => {
               const st = athlete.quests[q.id] || "pending";
               return (
-                <button key={q.id} onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
+                <div key={q.id}
                   className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[56px] ${
-                    st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "hover:bg-white/[0.02]"
+                    st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
                   }`}
                 >
                   <span className={`text-[9px] font-bold px-2 py-1 rounded-md shrink-0 uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/40"}`}>
@@ -1847,16 +1858,59 @@ export default function ApexAthletePage() {
                   <div className="flex-1 min-w-0">
                     <div className="text-white text-sm font-medium">{q.name}</div>
                     <div className="text-white/20 text-[11px]">{q.desc}</div>
+                    {/* Athlete quest state indicator */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                        st === "done" ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
+                          : st === "active" ? "bg-[#a855f7] shadow-[0_0_6px_rgba(168,85,247,0.5)]"
+                          : "bg-white/10"
+                      }`} />
+                      <span className={`text-[9px] font-mono tracking-wider uppercase ${
+                        st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/15"
+                      }`}>
+                        {st === "done" ? `${athlete.name.split(" ")[0]} completed` : st === "active" ? `${athlete.name.split(" ")[0]} submitted` : "Not assigned"}
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span className={`text-[10px] font-bold ${
-                      st === "done" ? "text-emerald-400" : st === "active" ? "text-[#a855f7]" : "text-white/15"
-                    }`}>
-                      {st === "done" ? "DONE" : st === "active" ? "ACTIVE" : "START"}
-                    </span>
-                    <div className="text-white/20 text-[10px]">+{q.xp} xp</div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {st === "pending" && (
+                      <button
+                        onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/25 hover:bg-[#a855f7]/25 hover:border-[#a855f7]/40 transition-all"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                        ASSIGN
+                      </button>
+                    )}
+                    {st === "active" && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 hover:border-emerald-500/40 hover:shadow-[0_0_12px_rgba(52,211,153,0.2)] transition-all"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M2 8.5l4 4L14 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          APPROVE
+                        </button>
+                        <button
+                          onClick={() => denyQuest(athlete.id, q.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25 hover:border-red-500/40 hover:shadow-[0_0_12px_rgba(239,68,68,0.2)] transition-all"
+                        >
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
+                          DENY
+                        </button>
+                      </div>
+                    )}
+                    {st === "done" && (
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M2 8.5l4 4L14 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          COMPLETED
+                        </span>
+                        <span className="text-emerald-400/60 text-[10px] font-bold font-mono">+{q.xp} xp</span>
+                      </div>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </Card>
@@ -2190,7 +2244,7 @@ export default function ApexAthletePage() {
           </div>
 
           {/* Week schedule grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             {DAYS_OF_WEEK.map(day => {
               const dayData = groupSched?.weekSchedule[day];
               const template = SCHEDULE_TEMPLATES.find(t => t.id === dayData?.template);
@@ -2215,14 +2269,30 @@ export default function ApexAthletePage() {
                   {/* Sessions */}
                   <div className="space-y-2">
                     {dayData?.sessions.map((session, si) => (
-                      <div key={session.id} className={`p-2.5 rounded-xl border transition-all ${
+                      <div key={session.id} className={`p-3.5 rounded-xl border transition-all ${
                         session.type === "pool" ? "bg-[#60a5fa]/5 border-[#60a5fa]/15"
                           : session.type === "weight" ? "bg-[#f59e0b]/5 border-[#f59e0b]/15"
                           : "bg-[#34d399]/5 border-[#34d399]/15"
                       }`}>
-                        <div className={`text-[10px] font-bold ${
-                          session.type === "pool" ? "text-[#60a5fa]" : session.type === "weight" ? "text-[#f59e0b]" : "text-[#34d399]"
-                        }`}>{session.label}</div>
+                        <div className="flex items-center justify-between">
+                          <div className={`text-[10px] font-bold ${
+                            session.type === "pool" ? "text-[#60a5fa]" : session.type === "weight" ? "text-[#f59e0b]" : "text-[#34d399]"
+                          }`}>{session.label}</div>
+                          {scheduleEditMode && (
+                            <button onClick={() => {
+                              if (!groupSched) return;
+                              const updated = [...schedules];
+                              const gi = updated.findIndex(s => s.groupId === scheduleGroup);
+                              if (gi < 0) return;
+                              updated[gi].weekSchedule[day].sessions = updated[gi].weekSchedule[day].sessions.filter((_, idx) => idx !== si);
+                              saveSchedules(updated);
+                            }}
+                              className="w-6 h-6 flex items-center justify-center rounded-full text-red-400/40 hover:text-red-400 hover:bg-red-400/10 transition-all text-xs font-bold"
+                              title="Remove session">
+                              ✕
+                            </button>
+                          )}
+                        </div>
                         <div className="text-white/25 text-[9px] font-mono mt-0.5">
                           {session.startTime} – {session.endTime}
                         </div>
@@ -2247,7 +2317,7 @@ export default function ApexAthletePage() {
                                 updated[gi].weekSchedule[day].sessions[si].startTime = e.target.value;
                                 saveSchedules(updated);
                               }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00f0ff]/30" />
+                              className="w-full bg-white/5 border border-white/10 rounded px-4 py-3 text-base text-white focus:outline-none focus:border-[#00f0ff]/30" />
                             <input type="time" value={session.endTime}
                               onChange={e => {
                                 if (!groupSched) return;
@@ -2257,7 +2327,7 @@ export default function ApexAthletePage() {
                                 updated[gi].weekSchedule[day].sessions[si].endTime = e.target.value;
                                 saveSchedules(updated);
                               }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00f0ff]/30" />
+                              className="w-full bg-white/5 border border-white/10 rounded px-4 py-3 text-base text-white focus:outline-none focus:border-[#00f0ff]/30" />
                             <input type="text" placeholder="Notes" value={session.notes}
                               onChange={e => {
                                 if (!groupSched) return;
@@ -2267,7 +2337,7 @@ export default function ApexAthletePage() {
                                 updated[gi].weekSchedule[day].sessions[si].notes = e.target.value;
                                 saveSchedules(updated);
                               }}
-                              className="w-full bg-white/5 border border-white/10 rounded px-3 py-2 text-sm text-white placeholder:text-white/10 focus:outline-none focus:border-[#00f0ff]/30" />
+                              className="w-full bg-white/5 border border-white/10 rounded px-4 py-3 text-base text-white placeholder:text-white/10 focus:outline-none focus:border-[#00f0ff]/30" />
                           </div>
                         )}
                       </div>
@@ -2297,7 +2367,7 @@ export default function ApexAthletePage() {
                                 : type === "weight" ? "text-[#f59e0b]/40 border-[#f59e0b]/10 hover:bg-[#f59e0b]/10"
                                 : "text-[#34d399]/40 border-[#34d399]/10 hover:bg-[#34d399]/10"
                             }`}>
-                            +{type === "pool" ? "🏊" : type === "weight" ? "🏋️" : "🤸"}
+                            {type === "pool" ? "+Pool" : type === "weight" ? "+Weights" : "+Dryland"}
                           </button>
                         ))}
                       </div>
@@ -2892,7 +2962,7 @@ export default function ApexAthletePage() {
         <div className="w-full px-5 sm:px-8 py-6">
           <div className="w-full">
             {/* AM/PM Session Selector — auto-detects from schedule */}
-            <div className="mb-4 p-3 rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/15 flex items-center justify-between flex-wrap gap-2">
+            <div className="mb-4 p-4 rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/15 flex items-center justify-between flex-wrap gap-3">
               <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule" : "Manual mode"}
                 className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
                 {autoSession ? "⚡ AUTO" : "✋ MANUAL"}
