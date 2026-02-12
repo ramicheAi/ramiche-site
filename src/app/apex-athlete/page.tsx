@@ -17,6 +17,7 @@ import {
   syncPushAllToFirebase,
   firebaseConnected,
 } from "@/lib/apex-sync";
+import { ApexNotificationBell, addNotification } from "@/components/apex-notifications";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics
@@ -196,6 +197,23 @@ interface WellnessData {
   journalEntries: JournalEntry[];
   recoveryLogs: RecoveryLog[];
 }
+
+// ── notification types ──────────────────────────────────────
+type NotificationPriority = "critical" | "high" | "medium" | "low";
+type NotificationType = "streak-warning" | "level-up" | "attendance" | "quest-completion";
+
+interface AppNotification {
+  id: string;
+  type: NotificationType;
+  priority: NotificationPriority;
+  title: string;
+  message: string;
+  athleteId?: string;
+  group?: string;
+  timestamp: number;
+}
+
+const PRIORITY_ORDER: Record<NotificationPriority, number> = { critical: 0, high: 1, medium: 2, low: 3 };
 
 // ── schedule types ──────────────────────────────────────────
 
@@ -800,6 +818,15 @@ export default function ApexAthletePage() {
   const [newCoachPin, setNewCoachPin] = useState("");
   const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant" | "guest">("assistant");
 
+  // ── Sync status state ──
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
+  const [lastSyncResult, setLastSyncResult] = useState<{ synced: number; errors: number } | null>(null);
+
+  // ── Invite link state ──
+  const [inviteCoachName, setInviteCoachName] = useState<string | null>(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+
   const saveCoaches = useCallback((c: CoachAccess[]) => { setCoaches(c); save(K.COACHES, c); }, []);
   const addCoach = useCallback(() => {
     if (!newCoachName.trim() || !newCoachPin.trim() || newCoachPin.length < 4) return;
@@ -830,6 +857,10 @@ export default function ApexAthletePage() {
     setFeedbackMsg("");
     setFeedbackAthleteId(null);
   };
+
+  // ── notification state ──────────────────────────────────
+  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
+  const [dismissedNotifs, setDismissedNotifs] = useState<Set<string>>(new Set());
 
   // ── schedule state ──────────────────────────────────────
   const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
@@ -913,7 +944,20 @@ export default function ApexAthletePage() {
     }
     setSchedules(scheds);
     setCoaches(load<CoachAccess[]>(K.COACHES, []));
+    // Read ?invite= param for auto-fill on PIN screen
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const invite = params.get("invite");
+      if (invite) setInviteCoachName(decodeURIComponent(invite));
+    }
     setMounted(true);
+    // Auto-sync localStorage → Firestore on first load
+    if (firebaseConnected) {
+      syncPushAllToFirebase().then(({ synced, errors }) => {
+        if (synced > 0) console.log(`[Sync] Auto-pushed ${synced} items to Firestore`);
+        if (errors > 0) console.warn(`[Sync] ${errors} sync errors`);
+      });
+    }
   }, []);
 
   // ── auto-detect AM/PM + session mode from schedule ─────
@@ -1288,6 +1332,142 @@ export default function ApexAthletePage() {
     return { xpGain: athlete.xp - (old.athleteXPs?.[athlete.id] || 0), streakDelta: athlete.streak - (old.athleteStreaks?.[athlete.id] || 0) };
   }, [snapshots]);
 
+  // ── notification generation (auto from roster data) ─────
+  const notifications = useMemo((): AppNotification[] => {
+    if (!mounted || roster.length === 0) return [];
+    const notifs: AppNotification[] = [];
+    const now = Date.now();
+    const todayStr = today();
+
+    // --- Streak warnings: athletes with streak > 0 but no check-in today ---
+    for (const a of roster) {
+      if (a.streak > 0 && a.lastStreakDate && a.lastStreakDate !== todayStr) {
+        const last = new Date(a.lastStreakDate);
+        const diffDays = Math.floor((new Date(todayStr).getTime() - last.getTime()) / 86400000);
+        if (diffDays >= 1) {
+          const groupDef = ROSTER_GROUPS.find(g => g.id === a.group);
+          notifs.push({
+            id: `streak-warn-${a.id}`,
+            type: "streak-warning",
+            priority: diffDays >= 2 ? "critical" : "high",
+            title: "Streak at Risk",
+            message: `${a.name}'s ${a.streak}-day streak is about to break -- ${diffDays} day${diffDays > 1 ? "s" : ""} since last check-in`,
+            athleteId: a.id,
+            group: groupDef?.name || a.group,
+            timestamp: now - diffDays * 1000,
+          });
+        }
+      }
+    }
+
+    // --- Level-up celebrations: athletes near or just crossed a level threshold ---
+    for (const a of roster) {
+      const currentLv = getLevel(a.xp);
+      const nextLv = getNextLevel(a.xp);
+      // Check if they recently leveled (XP is within 50 of threshold)
+      if (currentLv.xp > 0 && a.xp - currentLv.xp < 50 && a.xp >= currentLv.xp) {
+        const groupDef = ROSTER_GROUPS.find(g => g.id === a.group);
+        notifs.push({
+          id: `level-up-${a.id}-${currentLv.name}`,
+          type: "level-up",
+          priority: "medium",
+          title: "Level Up!",
+          message: `${a.name} just hit ${currentLv.name.toUpperCase()} level!`,
+          athleteId: a.id,
+          group: groupDef?.name || a.group,
+          timestamp: now - 100,
+        });
+      }
+      // Warn if close to next level (within 30 XP)
+      if (nextLv && nextLv.xp - a.xp <= 30 && nextLv.xp - a.xp > 0) {
+        const groupDef = ROSTER_GROUPS.find(g => g.id === a.group);
+        notifs.push({
+          id: `level-near-${a.id}-${nextLv.name}`,
+          type: "level-up",
+          priority: "low",
+          title: "Almost There",
+          message: `${a.name} is ${nextLv.xp - a.xp} XP away from ${nextLv.name.toUpperCase()}`,
+          athleteId: a.id,
+          group: groupDef?.name || a.group,
+          timestamp: now - 200,
+        });
+      }
+    }
+
+    // --- Attendance alerts per group ---
+    for (const g of ROSTER_GROUPS) {
+      const groupAthletes = roster.filter(a => a.group === g.id);
+      if (groupAthletes.length === 0) continue;
+      const checkedIn = groupAthletes.filter(a =>
+        Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)
+      ).length;
+      const rate = Math.round((checkedIn / groupAthletes.length) * 100);
+      // Only flag groups with at least some athletes expected
+      if (rate < 70 && groupAthletes.length >= 3) {
+        notifs.push({
+          id: `attendance-${g.id}-${todayStr}`,
+          type: "attendance",
+          priority: rate < 40 ? "critical" : "high",
+          title: "Low Attendance",
+          message: `${g.name} attendance at ${rate}% today (${checkedIn}/${groupAthletes.length})`,
+          group: g.name,
+          timestamp: now - 300,
+        });
+      }
+    }
+
+    // --- Quest completions ---
+    for (const g of ROSTER_GROUPS) {
+      const groupAthletes = roster.filter(a => a.group === g.id);
+      for (const q of QUEST_DEFS) {
+        const completed = groupAthletes.filter(a => a.quests[q.id] === "done").length;
+        if (completed >= 2) {
+          notifs.push({
+            id: `quest-${q.id}-${g.id}`,
+            type: "quest-completion",
+            priority: "low",
+            title: "Quest Completed",
+            message: `${completed} athletes in ${g.name} completed '${q.name}'`,
+            group: g.name,
+            timestamp: now - 400,
+          });
+        }
+      }
+    }
+
+    return notifs;
+  }, [mounted, roster]);
+
+  const activeNotifications = useMemo(() =>
+    notifications
+      .filter(n => !dismissedNotifs.has(n.id))
+      .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || b.timestamp - a.timestamp),
+    [notifications, dismissedNotifs]
+  );
+
+  const dismissNotification = useCallback((id: string) => {
+    setDismissedNotifs(prev => new Set([...prev, id]));
+  }, []);
+
+  // ── bridge: sync computed notifications into shared localStorage system ──
+  const prevNotifIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!mounted) return;
+    const notifTypeMap: Record<string, "STREAK_WARNING" | "LEVEL_UP" | "QUEST_APPROVED" | "ATTRITION_RISK" | "MVP_ALERT"> = {
+      "streak-warning": "STREAK_WARNING",
+      "level-up": "LEVEL_UP",
+      "attendance": "ATTRITION_RISK",
+      "quest-completion": "QUEST_APPROVED",
+    };
+    for (const n of activeNotifications) {
+      if (!prevNotifIdsRef.current.has(n.id)) {
+        const mappedType = notifTypeMap[n.type] || "STREAK_WARNING";
+        addNotification(mappedType, n.title, n.message, "coach");
+      }
+    }
+    prevNotifIdsRef.current = new Set(activeNotifications.map(n => n.id));
+  }, [activeNotifications, mounted]);
+
   // ── seasonal goal auto-track ─────────────────────────────
   useEffect(() => {
     if (!mounted || !roster.length) return;
@@ -1508,6 +1688,13 @@ export default function ApexAthletePage() {
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
             <div className="text-[#a855f7]/30 text-[10px] tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
+          {inviteCoachName && (
+            <div className="game-panel bg-[#a855f7]/[0.06] border border-[#a855f7]/20 px-4 py-3 mb-4 text-center">
+              <div className="text-[9px] text-[#a855f7]/40 font-mono tracking-wider uppercase mb-1">Invited by</div>
+              <div className="text-[#a855f7] font-bold text-sm">{inviteCoachName}</div>
+              <div className="text-white/20 text-[10px] font-mono mt-1">Enter your PIN to access the coach portal</div>
+            </div>
+          )}
           <div className="flex flex-col gap-4">
             <div className="relative">
               <input
@@ -1582,13 +1769,48 @@ export default function ApexAthletePage() {
               }}>
                 APEX ATHLETE
               </h1>
+              {/* Sync Status Badge */}
+              <span className={`ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded border ${
+                firebaseConnected
+                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                  : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+              }`}>
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${firebaseConnected ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" : "bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.6)]"}`} />
+                {firebaseConnected ? "CLOUD SYNC" : "OFFLINE"}
+              </span>
               {firebaseConnected && (
-                <span className="ml-3 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  CLOUD SYNC
+                <button
+                  onClick={async () => {
+                    if (syncBusy) return;
+                    setSyncBusy(true);
+                    try {
+                      const result = await syncPushAllToFirebase();
+                      setLastSyncResult(result);
+                      setLastSyncTime(Date.now());
+                    } catch { setLastSyncResult({ synced: 0, errors: 1 }); }
+                    setSyncBusy(false);
+                  }}
+                  disabled={syncBusy}
+                  className="ml-1.5 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded bg-[#00f0ff]/10 text-[#00f0ff]/60 border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:text-[#00f0ff]/80 transition-all disabled:opacity-40"
+                >
+                  {syncBusy ? "SYNCING..." : "SYNC NOW"}
+                </button>
+              )}
+              {lastSyncTime && (
+                <span className="ml-1.5 text-[8px] font-mono text-white/20" title={new Date(lastSyncTime).toLocaleString()}>
+                  {lastSyncResult && lastSyncResult.errors > 0
+                    ? `${lastSyncResult.synced} ok / ${lastSyncResult.errors} err`
+                    : `${lastSyncResult?.synced || 0} synced`}
+                  {" "}@ {new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
             </div>
-            {/* Game HUD nav tabs */}
+            {/* Notification bell + Game HUD nav tabs */}
+            <div className="flex items-end gap-3">
+              {/* Notification bell (shared component) */}
+              <div className="mb-0">
+                <ApexNotificationBell portal="coach" accentColor="#00f0ff" />
+              </div>
             <div className="flex flex-wrap">
               {(["coach", "parent", "audit", "analytics", "schedule", "strategy"] as const).map((v) => {
                 const navIcons: Record<string, React.ReactNode> = {
@@ -1618,6 +1840,7 @@ export default function ApexAthletePage() {
                 );
               })}
             </div>
+          </div>
           </div>
 
           {/* Team identity bar */}

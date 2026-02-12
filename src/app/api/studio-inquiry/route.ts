@@ -27,15 +27,24 @@ export async function POST(req: Request) {
     // Classify the lead
     const isDisqualified = body.budget === "Under $1,000";
     const isImmediate = body.timeline === "Immediate (within 2 weeks)" || body.timeline === "This month";
+    const needsDiscovery = body.studioExperience === "Yes — but didn't get results";
+    const isFullPackage = (body.budget === "$5,000 – $15,000" || body.budget === "$15,000+") && !isDisqualified;
+
     const tag = isDisqualified
       ? "disqualified"
-      : isImmediate
-        ? "sprint-ready"
-        : "nurture";
+      : isFullPackage
+        ? "full-package"
+        : isImmediate
+          ? "sprint-ready"
+          : "nurture";
+
+    const tags = [tag];
+    if (needsDiscovery) tags.push("needs-discovery");
 
     const inquiry = {
       ...body,
       tag,
+      tags,
       submittedAt: new Date().toISOString(),
     };
 

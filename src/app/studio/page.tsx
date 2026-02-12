@@ -186,6 +186,28 @@ const TIMELINE_OPTIONS = [
   "Exploring for future",
 ];
 
+const STUDIO_EXPERIENCE_OPTIONS = [
+  "Yes — positive experience",
+  "Yes — but didn't get results",
+  "No — this would be my first time",
+];
+
+const BEST_FIT = [
+  { text: "Brands doing $500K–$2M+ in revenue with a product customers already love" },
+  { text: "Founders who know their visuals don't match their product quality" },
+  { text: "Teams without an internal creative director who need fast clarity" },
+  { text: "Ready to invest in growth — not bootstrapping from zero" },
+  { text: "Decision-maker is in the room (no 6-person approval chains)" },
+];
+
+const NOT_FOR = [
+  { text: "Pre-revenue ideas that haven't been validated yet" },
+  { text: "Monthly marketing budget under $1,000" },
+  { text: "Looking for cheap logo work or one-off Canva fixes" },
+  { text: "\"Exploring for someday\" — we work with brands ready to move" },
+  { text: "Need a full-time creative team (we're a studio, not an agency)" },
+];
+
 function InquiryForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -323,6 +345,36 @@ function InquiryForm() {
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Studio experience */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          Worked with a creative studio before? *
+        </label>
+        <select
+          name="studioExperience"
+          required
+          defaultValue=""
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors appearance-none"
+        >
+          <option value="" disabled className="bg-[#06020f]">Select&hellip;</option>
+          {STUDIO_EXPERIENCE_OPTIONS.map((opt) => (
+            <option key={opt} value={opt} className="bg-[#06020f]">{opt}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Decision approvers */}
+      <div>
+        <label className="block text-xs tracking-[0.2em] uppercase text-white/40 font-mono mb-2">
+          Who else needs to approve this decision?
+        </label>
+        <input
+          name="decisionApprovers"
+          placeholder="Just me / Need to run by co-founder / Board approval"
+          className="w-full bg-white/[0.04] border border-white/[0.08] text-white/90 placeholder-white/20 px-4 py-3 text-sm font-mono focus:border-[#00f0ff]/40 focus:outline-none transition-colors"
+        />
       </div>
 
       {/* Website */}
@@ -522,6 +574,45 @@ export default function StudioPage() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── who this is for / not for ─────────────────────── */}
+        <section className="px-4 sm:px-6 pb-20">
+          <div className="mx-auto max-w-6xl">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Best Fit */}
+              <div className="game-panel bg-white/[0.02] border border-[#00f0ff]/20 p-6 sm:p-8">
+                <h3 className="text-xs tracking-[0.3em] uppercase text-[#00f0ff]/70 font-mono mb-5 flex items-center gap-2">
+                  <span className="w-6 h-[1px] bg-[#00f0ff]/40" />
+                  Best Fit
+                </h3>
+                <div className="space-y-3">
+                  {BEST_FIT.map((item) => (
+                    <div key={item.text} className="flex items-start gap-3">
+                      <span className="text-[#00f0ff]/60 text-xs mt-1">{"\u25B8"}</span>
+                      <span className="text-white/60 text-sm leading-relaxed">{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Not For */}
+              <div className="game-panel bg-white/[0.02] border border-white/[0.08] p-6 sm:p-8">
+                <h3 className="text-xs tracking-[0.3em] uppercase text-white/40 font-mono mb-5 flex items-center gap-2">
+                  <span className="w-6 h-[1px] bg-white/20" />
+                  Not the Right Fit
+                </h3>
+                <div className="space-y-3">
+                  {NOT_FOR.map((item) => (
+                    <div key={item.text} className="flex items-start gap-3">
+                      <span className="text-white/25 text-xs mt-1">{"\u25B8"}</span>
+                      <span className="text-white/35 text-sm leading-relaxed">{item.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>
