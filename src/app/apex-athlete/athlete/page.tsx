@@ -276,6 +276,8 @@ export default function AthletePortal() {
   const [breathTimer, setBreathTimer] = useState(0);
   const [activeMeditation, setActiveMeditation] = useState<string|null>(null);
   const [searchResults, setSearchResults] = useState<Athlete[]>([]);
+  const [celebration, setCelebration] = useState<{ level: string; color: string } | null>(null);
+  const prevLevelRef = { current: "" };
   // Auto-detect AM/PM from schedule (same logic as coach portal)
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
     if (typeof window === "undefined") return "pm";
@@ -524,6 +526,18 @@ export default function AthletePortal() {
     }
   }, [tab]);
 
+  // Level-up celebration detection
+  useEffect(() => {
+    if (!athlete) return;
+    const curLevel = getLevel(athlete.xp).name;
+    if (prevLevelRef.current && prevLevelRef.current !== curLevel) {
+      const lv = getLevel(athlete.xp);
+      setCelebration({ level: lv.name, color: lv.color });
+      setTimeout(() => setCelebration(null), 4000);
+    }
+    prevLevelRef.current = curLevel;
+  }, [athlete?.xp]);
+
   if (!mounted) return (
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center">
       <div className="w-8 h-8 border-2 border-[#a855f7]/30 border-t-[#a855f7] rounded-full animate-spin" />
@@ -678,6 +692,21 @@ export default function AthletePortal() {
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
       </div>
+
+      {/* Level-Up Celebration Overlay */}
+      {celebration && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: "aa-welcome-in 0.5s ease-out, aa-welcome-out 0.5s ease-in 3.5s forwards" }}>
+          <div className="absolute inset-0" style={{ background: `radial-gradient(circle, ${celebration.color}30, transparent 70%)` }} />
+          <div className="relative text-center" style={{ animation: "aa-subtle-pulse 1.5s ease-in-out infinite" }}>
+            <svg className="w-20 h-20 mx-auto mb-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke={celebration.color} strokeWidth="1.5" fill={`${celebration.color}40`}/>
+            </svg>
+            <div className="text-5xl font-black text-white mb-2" style={{ textShadow: `0 0 40px ${celebration.color}80, 0 0 80px ${celebration.color}40` }}>LEVEL UP!</div>
+            <div className="text-2xl font-bold" style={{ color: celebration.color }}>{celebration.level}</div>
+            <div className="text-white/30 text-sm mt-2">Keep pushing — greatness is earned</div>
+          </div>
+        </div>
+      )}
 
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
