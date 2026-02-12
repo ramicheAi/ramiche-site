@@ -445,6 +445,12 @@ export default function ParentPortal() {
       if (sessionStorage.getItem("apex-coach-auth")) {
         setUnlocked(true);
         setIsCoach(true);
+      } else {
+        const ls = localStorage.getItem("apex-coach-auth");
+        if (ls && Date.now() - parseInt(ls) < 3600000) {
+          setUnlocked(true);
+          setIsCoach(true);
+        }
       }
     } catch {}
   }, []);
