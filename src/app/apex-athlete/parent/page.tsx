@@ -647,6 +647,24 @@ export default function ParentPortal() {
   // ── Parent Dashboard (read-only) ─────────────────────────
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
+      {/* Portal switcher */}
+      <div className="relative z-20 flex items-center justify-center gap-2 py-2">
+        {[
+          { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
+          { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
+          { label: "Parent", href: "/apex-athlete/parent", active: true, color: "#f59e0b" },
+        ].map(p => (
+          <a key={p.label} href={p.href}
+            className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
+            style={{
+              background: (p as any).active ? `${p.color}20` : 'transparent',
+              border: `1px solid ${(p as any).active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
+              color: (p as any).active ? p.color : 'rgba(255,255,255,0.3)',
+            }}>
+            {p.label}
+          </a>
+        ))}
+      </div>
       {STYLE_TAG}
       {showWelcome && <WelcomeOverlay name={athlete.name} levelName={level.name} levelColor={level.color} />}
       <div className="fixed inset-0 pointer-events-none">

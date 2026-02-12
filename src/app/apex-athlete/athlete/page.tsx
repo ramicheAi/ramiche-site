@@ -936,6 +936,24 @@ export default function AthletePortal() {
   // ── Main dashboard ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
+      {/* Portal switcher */}
+      <div className="relative z-20 flex items-center justify-center gap-2 py-2">
+        {[
+          { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
+          { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
+          { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
+        ].map(p => (
+          <a key={p.label} href={p.href}
+            className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
+            style={{
+              background: (p as any).active ? `${p.color}20` : 'transparent',
+              border: `1px solid ${(p as any).active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
+              color: (p as any).active ? p.color : 'rgba(255,255,255,0.3)',
+            }}>
+            {p.label}
+          </a>
+        ))}
+      </div>
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
       </div>

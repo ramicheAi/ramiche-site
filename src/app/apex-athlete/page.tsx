@@ -1544,6 +1544,24 @@ export default function ApexAthletePage() {
     const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
     return (
       <div className="w-full relative mb-6">
+        {/* Portal switcher bar */}
+        <div className="flex items-center justify-center gap-2 py-2 mb-2">
+          {[
+            { label: "Coach", href: "/apex-athlete", active: true, color: "#00f0ff" },
+            { label: "Athlete", href: "/apex-athlete/athlete", active: false, color: "#a855f7" },
+            { label: "Parent", href: "/apex-athlete/parent", active: false, color: "#f59e0b" },
+          ].map(p => (
+            <a key={p.label} href={p.href}
+              className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
+              style={{
+                background: p.active ? `${p.color}20` : 'transparent',
+                border: `1px solid ${p.active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
+                color: p.active ? p.color : 'rgba(255,255,255,0.3)',
+              }}>
+              {p.label}
+            </a>
+          ))}
+        </div>
         {/* Top gradient bar */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00f0ff]/60 to-transparent" />
         <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#00f0ff]/[0.03] to-transparent pointer-events-none" />
