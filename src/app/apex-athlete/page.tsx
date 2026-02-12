@@ -2239,7 +2239,7 @@ export default function ApexAthletePage() {
               className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all ${
                 scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30" : "bg-white/5 text-white/25 border border-white/10"
               }`}>
-              {scheduleEditMode ? "✓ Done Editing" : "✎ Edit Schedule"}
+              {scheduleEditMode ? "✓ Done Editing" : "✎ Tap to Edit Schedule"}
             </button>
           </div>
 
@@ -2343,14 +2343,17 @@ export default function ApexAthletePage() {
                       </div>
                     ))}
 
-                    {dayData?.sessions.length === 0 && (
-                      <div className="text-center py-4">
-                        <span className="text-white/10 text-xs">Rest</span>
+                    {dayData?.sessions.length === 0 && !scheduleEditMode && (
+                      <div className="text-center py-3">
+                        <button onClick={() => setScheduleEditMode(true)}
+                          className="text-white/15 text-xs hover:text-white/30 transition-all px-3 py-2 rounded-lg border border-dashed border-white/10 hover:border-white/20">
+                          + Add Practice
+                        </button>
                       </div>
                     )}
 
-                    {/* Add session in edit mode */}
-                    {scheduleEditMode && (
+                    {/* Add session buttons - always visible in edit mode, or when day is empty */}
+                    {(scheduleEditMode || dayData?.sessions.length === 0) && (
                       <div className="flex gap-1 mt-2">
                         {(["pool", "weight", "dryland"] as const).map(type => (
                           <button key={type} onClick={() => {
