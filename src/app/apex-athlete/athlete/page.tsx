@@ -501,20 +501,28 @@ export default function AthletePortal() {
   // Reset auto-fill flag when event/stroke changes
   useEffect(() => { setRpAutoFilled(false); }, [rpEvent, rpStroke]);
 
-  // Leaderboard (top 10, gender-based, with athlete rank)
-  const { leaderboard, athleteRank, athleteInTop10 } = useMemo(() => {
-    if (!athlete) return { leaderboard: [] as Athlete[], athleteRank: 0, athleteInTop10: true };
+  // Full leaderboard (gender-based, auto-scroll to athlete position)
+  const { leaderboard, athleteRank } = useMemo(() => {
+    if (!athlete) return { leaderboard: [] as Athlete[], athleteRank: 0 };
     const genderFiltered = roster
       .filter(a => a.gender === athlete.gender && a.group === athlete.group)
       .sort((a, b) => b.xp - a.xp);
     const rank = genderFiltered.findIndex(a => a.id === athlete.id) + 1;
-    const top10 = genderFiltered.slice(0, 10);
-    const inTop10 = top10.some(a => a.id === athlete.id);
-    return { leaderboard: top10, athleteRank: rank, athleteInTop10: inTop10 };
+    return { leaderboard: genderFiltered, athleteRank: rank };
   }, [athlete, roster]);
 
   // Unread feedback count
   const unreadCount = feedback.filter(f => !f.read).length;
+
+  // Auto-scroll to athlete's position on leaderboard tab
+  useEffect(() => {
+    if (tab === "leaderboard") {
+      setTimeout(() => {
+        const el = document.getElementById("my-rank");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 150);
+    }
+  }, [tab]);
 
   if (!mounted) return (
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center">
@@ -792,6 +800,55 @@ export default function AthletePortal() {
                 </div>
               </div>
             )}
+
+            {/* Attendance Calendar — last 28 days heatmap */}
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
+              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">ATTENDANCE — LAST 28 DAYS</h3>
+              <div className="grid grid-cols-7 gap-1.5">
+                {["S","M","T","W","T","F","S"].map((d,i) => (
+                  <div key={i} className="text-center text-white/15 text-[8px] font-mono">{d}</div>
+                ))}
+                {(() => {
+                  const days = [];
+                  const today = new Date();
+                  // Start from 27 days ago, align to start of week (Sunday)
+                  const start = new Date(today);
+                  start.setDate(start.getDate() - 27);
+                  // Pad to start of week
+                  const padStart = start.getDay();
+                  for (let i = 0; i < padStart; i++) days.push(null);
+                  for (let i = 0; i < 28; i++) {
+                    const d = new Date(start);
+                    d.setDate(d.getDate() + i);
+                    const dateStr = d.toISOString().slice(0, 10);
+                    // Check if athlete practiced on this day (check journal or daily XP)
+                    const hadPractice = journal.some(j => j.date === dateStr) ||
+                      (athlete.dailyXP?.date === dateStr && (athlete.dailyXP.pool + athlete.dailyXP.weight + athlete.dailyXP.meet) > 0) ||
+                      times.some(t => t.date === dateStr);
+                    const isToday = dateStr === todayStr;
+                    days.push({ date: dateStr, active: hadPractice, isToday, day: d.getDate() });
+                  }
+                  return days.map((d, i) => {
+                    if (!d) return <div key={`pad-${i}`} />;
+                    return (
+                      <div key={d.date} className={`aspect-square rounded-md flex items-center justify-center text-[9px] font-mono transition-all ${
+                        d.isToday ? "ring-1 ring-[#a855f7]/40" : ""
+                      } ${
+                        d.active
+                          ? "bg-[#a855f7]/30 text-[#a855f7] border border-[#a855f7]/20"
+                          : "bg-white/[0.02] text-white/10 border border-white/[0.03]"
+                      }`}>
+                        {d.day}
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <div className="flex items-center justify-center gap-4 mt-3 text-[9px] font-mono">
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#a855f7]/30 border border-[#a855f7]/20" /> Active</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white/[0.02] border border-white/[0.03]" /> <span className="text-white/15">Rest</span></span>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1128,18 +1185,27 @@ export default function AthletePortal() {
         {/* ══════════════ LEADERBOARD TAB ══════════════ */}
         {tab === "leaderboard" && (
           <div className="space-y-2">
-            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TOP 10 — {athlete.gender === "F" ? "GIRLS" : "BOYS"}</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-white/50 text-xs font-mono tracking-wider">{athlete.gender === "F" ? "GIRLS" : "BOYS"} LEADERBOARD</h3>
+              <span className="text-white/20 text-[10px] font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
+            </div>
             {leaderboard.map((a, i) => {
               const lv = getLevel(a.xp);
               const isMe = a.id === athlete.id;
+              const rank = i + 1;
               return (
-                <div key={a.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${isMe ? "bg-[#a855f7]/10 border-[#a855f7]/20" : "bg-[#0a0518]/50 border-white/5"}`}>
-                  <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${i === 0 ? "bg-[#f59e0b]/20 text-[#f59e0b]" : i === 1 ? "bg-white/10 text-white/50" : i === 2 ? "bg-[#cd7f32]/20 text-[#cd7f32]" : "bg-white/5 text-white/20"}`}>
-                    {i + 1}
+                <div key={a.id} id={isMe ? "my-rank" : undefined}
+                  className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                    isMe ? "bg-[#a855f7]/15 border-[#a855f7]/30 shadow-[0_0_20px_rgba(168,85,247,0.15)] ring-1 ring-[#a855f7]/20" : "bg-[#0a0518]/50 border-white/5"
+                  }`}>
+                  <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${
+                    rank === 1 ? "bg-[#f59e0b]/20 text-[#f59e0b]" : rank === 2 ? "bg-white/10 text-white/50" : rank === 3 ? "bg-[#cd7f32]/20 text-[#cd7f32]" : "bg-white/5 text-white/20"
+                  }`}>
+                    {rank}
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className={`text-sm font-semibold truncate block ${isMe ? "text-white" : "text-white/60"}`}>
-                      {a.name} {isMe && <span className="text-[#a855f7] text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25">YOU</span>}
+                      {a.name} {isMe && <span className="text-[#a855f7] text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25 animate-pulse">YOU</span>}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -1150,29 +1216,6 @@ export default function AthletePortal() {
                 </div>
               );
             })}
-            {!athleteInTop10 && athlete && (() => {
-              const lv = getLevel(athlete.xp);
-              return (
-                <>
-                  <div className="text-center text-white/15 text-xs font-mono py-1">...</div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl border transition-all bg-[#a855f7]/10 border-[#a855f7]/20">
-                    <div className="w-7 h-7 flex items-center justify-center rounded-full text-xs font-black bg-white/5 text-white/20">
-                      {athleteRank}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <span className="text-sm font-semibold truncate block text-white">
-                        {athlete.name} <span className="text-[#a855f7] text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25">YOU</span>
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
-                      <span className="text-white/40 text-xs font-mono">{athlete.xp} XP</span>
-                      {athlete.streak >= 3 && <span className="text-[10px] text-[#ef4444]">{athlete.streak}d</span>}
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
           </div>
         )}
 
