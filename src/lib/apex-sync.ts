@@ -155,6 +155,26 @@ export function syncSaveSchedule(key: string, groupId: string, schedule: unknown
   }
 }
 
+export async function syncLoadSchedule(key: string, groupId: string): Promise<unknown | null> {
+  const local = lsGet<unknown>(key);
+  if (local) {
+    if (hasConfig) {
+      fbGetSchedule(groupId).then((remote) => {
+        if (!remote) fbSaveSchedule(groupId, local).catch(() => {});
+      });
+    }
+    return local;
+  }
+  if (hasConfig) {
+    const remote = await fbGetSchedule(groupId);
+    if (remote?.schedule) {
+      lsSet(key, remote.schedule);
+      return remote.schedule;
+    }
+  }
+  return null;
+}
+
 // ── Audit + Snapshot sync ──────────────────────────────────────────
 
 export function syncSaveAudit(key: string, date: string, entries: unknown[]): void {
@@ -177,6 +197,26 @@ export function syncSaveFeedback(key: string, athleteId: string, feedback: unkno
   if (hasConfig) {
     fbSaveFeedback(athleteId, feedback).catch(() => {});
   }
+}
+
+export async function syncLoadFeedback(key: string, athleteId: string): Promise<unknown[] | null> {
+  const local = lsGet<unknown[]>(key);
+  if (local) {
+    if (hasConfig) {
+      fbGet<{ feedback: unknown[] }>(`feedback/${athleteId}`).then((remote) => {
+        if (!remote) fbSaveFeedback(athleteId, local).catch(() => {});
+      });
+    }
+    return local;
+  }
+  if (hasConfig) {
+    const remote = await fbGet<{ feedback: unknown[] }>(`feedback/${athleteId}`);
+    if (remote?.feedback) {
+      lsSet(key, remote.feedback);
+      return remote.feedback;
+    }
+  }
+  return null;
 }
 
 // ── Real-time listeners ────────────────────────────────────────────

@@ -9,6 +9,9 @@ import {
   syncSaveAudit,
   syncSaveSnapshot,
   syncSaveFeedback,
+  syncLoad,
+  syncLoadRoster,
+  syncLoadConfig,
   syncListenRoster,
   syncListenConfig,
   syncPushAllToFirebase,
@@ -744,6 +747,9 @@ export default function ApexAthletePage() {
   const [scheduleGroup, setScheduleGroup] = useState<GroupId>("platinum");
   const [editingSession, setEditingSession] = useState<{ day: DayOfWeek; sessionIdx: number } | null>(null);
   const [scheduleEditMode, setScheduleEditMode] = useState(false);
+  const [calendarView, setCalendarView] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
+  const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
 
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
@@ -2235,16 +2241,34 @@ export default function ApexAthletePage() {
                 </button>
               ))}
             </div>
-            <button onClick={() => setScheduleEditMode(!scheduleEditMode)}
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all ${
-                scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30" : "bg-white/5 text-white/25 border border-white/10"
-              }`}>
-              {scheduleEditMode ? "✓ Done Editing" : "✎ Tap to Edit Schedule"}
-            </button>
+            <div className="flex gap-2">
+              <div className="flex rounded-xl overflow-hidden border border-white/10">
+                <button onClick={() => setCalendarView(false)}
+                  className={`px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all ${
+                    !calendarView ? "bg-[#00f0ff]/15 text-[#00f0ff]" : "bg-transparent text-white/20 hover:text-white/40"
+                  }`}>
+                  Weekly
+                </button>
+                <button onClick={() => setCalendarView(true)}
+                  className={`px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all ${
+                    calendarView ? "bg-[#a855f7]/15 text-[#a855f7]" : "bg-transparent text-white/20 hover:text-white/40"
+                  }`}>
+                  Season Calendar
+                </button>
+              </div>
+              {!calendarView && (
+                <button onClick={() => setScheduleEditMode(!scheduleEditMode)}
+                  className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all ${
+                    scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30" : "bg-white/5 text-white/25 border border-white/10"
+                  }`}>
+                  {scheduleEditMode ? "✓ Done Editing" : "✎ Tap to Edit Schedule"}
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Week schedule grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {!calendarView && <><div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
             {DAYS_OF_WEEK.map(day => {
               const dayData = groupSched?.weekSchedule[day];
               const template = SCHEDULE_TEMPLATES.find(t => t.id === dayData?.template);
@@ -2424,6 +2448,123 @@ export default function ApexAthletePage() {
           <div className="text-center mt-8 text-white/[0.06] text-[10px]">
             <p>{groupInfo?.name || "Group"} · {groupSched ? Object.values(groupSched.weekSchedule).reduce((c, d) => c + d.sessions.length, 0) : 0} sessions/week</p>
           </div>
+          </>}
+
+          {/* Season Calendar View */}
+          {calendarView && (() => {
+            const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+            const DAY_LABELS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+            const DAY_MAP: Record<number, DayOfWeek> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
+
+            const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+            const firstDayOfWeek = new Date(calendarYear, calendarMonth, 1).getDay();
+            const todayStr = new Date().toISOString().slice(0, 10);
+
+            const prevMonth = () => {
+              if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); }
+              else setCalendarMonth(calendarMonth - 1);
+            };
+            const nextMonth = () => {
+              if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1); }
+              else setCalendarMonth(calendarMonth + 1);
+            };
+
+            // Build array of cells: leading blanks + days
+            const cells: (number | null)[] = [];
+            for (let i = 0; i < firstDayOfWeek; i++) cells.push(null);
+            for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+            return (
+              <div>
+                {/* Month navigation */}
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <button onClick={prevMonth} className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/40 hover:text-[#00f0ff] hover:border-[#00f0ff]/30 flex items-center justify-center transition-all text-lg font-bold">&lsaquo;</button>
+                  <div className="text-center min-w-[180px]">
+                    <div className="text-sm font-black tracking-wider text-white/80">{MONTH_NAMES[calendarMonth]} {calendarYear}</div>
+                    <div className="text-[9px] font-mono text-white/20 mt-0.5">{groupInfo?.name || "Group"} season schedule</div>
+                  </div>
+                  <button onClick={nextMonth} className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/40 hover:text-[#00f0ff] hover:border-[#00f0ff]/30 flex items-center justify-center transition-all text-lg font-bold">&rsaquo;</button>
+                </div>
+
+                {/* Day-of-week header */}
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {DAY_LABELS.map(d => (
+                    <div key={d} className="text-center text-[9px] font-mono font-bold text-white/20 tracking-wider py-1">{d}</div>
+                  ))}
+                </div>
+
+                {/* Calendar grid */}
+                <div className="grid grid-cols-7 gap-1">
+                  {cells.map((day, i) => {
+                    if (day === null) return <div key={`blank-${i}`} className="aspect-square" />;
+
+                    const date = new Date(calendarYear, calendarMonth, day);
+                    const dow = date.getDay();
+                    const dayKey = DAY_MAP[dow];
+                    const daySessions = groupSched?.weekSchedule[dayKey]?.sessions || [];
+                    const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                    const isToday = dateStr === todayStr;
+                    const hasPool = daySessions.some(s => s.type === "pool");
+                    const hasWeight = daySessions.some(s => s.type === "weight");
+                    const hasDryland = daySessions.some(s => s.type === "dryland");
+                    const sessionCount = daySessions.length;
+                    const template = SCHEDULE_TEMPLATES.find(t => t.id === (groupSched?.weekSchedule[dayKey]?.template || "rest-day"));
+                    const isRest = template?.id === "rest-day" || sessionCount === 0;
+                    const isPast = dateStr < todayStr;
+
+                    return (
+                      <div key={day} className={`aspect-square rounded-lg border flex flex-col items-center justify-center gap-0.5 transition-all cursor-default ${
+                        isToday
+                          ? "border-[#00f0ff]/50 bg-[#00f0ff]/10 shadow-[0_0_12px_rgba(0,240,255,0.15)]"
+                          : isRest
+                            ? "border-white/[0.03] bg-[#0a0518]/30"
+                            : "border-white/[0.06] bg-[#0a0518]/60 hover:bg-[#0a0518]/80"
+                      } ${isPast && !isToday ? "opacity-40" : ""}`}>
+                        <span className={`text-[10px] font-mono font-bold leading-none ${
+                          isToday ? "text-[#00f0ff]" : isRest ? "text-white/15" : "text-white/50"
+                        }`}>{day}</span>
+                        {!isRest && (
+                          <div className="flex gap-[3px] mt-0.5">
+                            {hasPool && <span className="w-[5px] h-[5px] rounded-full bg-[#60a5fa]" />}
+                            {hasWeight && <span className="w-[5px] h-[5px] rounded-full bg-[#f59e0b]" />}
+                            {hasDryland && <span className="w-[5px] h-[5px] rounded-full bg-[#34d399]" />}
+                          </div>
+                        )}
+                        {template && !isRest && (
+                          <span className="text-[7px] leading-none" style={{ color: template.color }}>{template.icon}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Calendar legend */}
+                <div className="mt-5 flex flex-wrap gap-3 justify-center">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#60a5fa]" />
+                    <span className="text-white/25 text-[10px]">Pool</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+                    <span className="text-white/25 text-[10px]">Weight</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#34d399]" />
+                    <span className="text-white/25 text-[10px]">Dryland</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded border border-[#00f0ff]/50 bg-[#00f0ff]/10" />
+                    <span className="text-white/25 text-[10px]">Today</span>
+                  </div>
+                </div>
+
+                {/* Session summary for the month */}
+                <div className="mt-4 text-center text-white/[0.06] text-[10px]">
+                  <p>{groupInfo?.name || "Group"} · {MONTH_NAMES[calendarMonth]} {calendarYear}</p>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     );
