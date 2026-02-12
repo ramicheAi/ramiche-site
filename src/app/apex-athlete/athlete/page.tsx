@@ -344,6 +344,104 @@ function RadarChart({ values }: { values: Record<string, number> }) {
 const EVENTS = ["50", "100", "200", "400", "500", "800", "1000", "1500", "1650"];
 const STROKES = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"];
 
+// ── USA Swimming qualifying standards (SCY — Short Course Yards) ──
+// Source: USA Swimming 2024-2025 motivational time standards
+// Formats: { event: { stroke: { standard: "M:SS.hh" } } }
+type StandardLevel = "AAAA" | "AAA" | "AA" | "A" | "BB" | "B";
+interface StandardTimes { [stroke: string]: { [level in StandardLevel]?: string } }
+const USA_STANDARDS_BOYS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { AAAA: "20.49", AAA: "21.79", AA: "23.19", A: "25.69", BB: "28.69", B: "32.59" }, Backstroke: { AAAA: "23.39", AAA: "24.89", AA: "26.49", A: "29.29", BB: "32.79", B: "37.19" }, Breaststroke: { AAAA: "25.99", AAA: "27.59", AA: "29.39", A: "32.59", BB: "36.39", B: "41.29" }, Butterfly: { AAAA: "22.59", AAA: "23.99", AA: "25.49", A: "28.29", BB: "31.59", B: "35.89" } },
+  "100": { Freestyle: { AAAA: "44.69", AAA: "47.49", AA: "50.49", A: "55.99", BB: "1:02.59", B: "1:11.09" }, Backstroke: { AAAA: "50.39", AAA: "53.49", AA: "56.89", A: "1:03.09", BB: "1:10.49", B: "1:19.99" }, Breaststroke: { AAAA: "56.19", AAA: "59.69", AA: "1:03.49", A: "1:10.39", BB: "1:18.69", B: "1:29.39" }, Butterfly: { AAAA: "49.29", AAA: "52.39", AA: "55.69", A: "1:01.79", BB: "1:09.09", B: "1:18.39" }, IM: { AAAA: "52.89", AAA: "56.19", AA: "59.79", A: "1:06.29", BB: "1:14.09", B: "1:24.09" } },
+  "200": { Freestyle: { AAAA: "1:38.59", AAA: "1:44.59", AA: "1:51.09", A: "2:03.29", BB: "2:17.79", B: "2:35.79" }, Backstroke: { AAAA: "1:48.89", AAA: "1:55.39", AA: "2:02.39", A: "2:15.79", BB: "2:31.59", B: "2:51.49" }, Breaststroke: { AAAA: "2:01.09", AAA: "2:08.39", AA: "2:16.29", A: "2:31.19", BB: "2:49.09", B: "3:11.39" }, Butterfly: { AAAA: "1:48.29", AAA: "1:54.79", AA: "2:01.69", A: "2:15.09", BB: "2:30.79", B: "2:50.59" }, IM: { AAAA: "1:50.69", AAA: "1:57.29", AA: "2:04.39", A: "2:17.99", BB: "2:33.89", B: "2:53.89" } },
+  "500": { Freestyle: { AAAA: "4:29.49", AAA: "4:46.09", AA: "5:04.09", A: "5:37.69", BB: "6:17.09", B: "7:07.89" } },
+  "1000": { Freestyle: { AAAA: "9:23.89", AAA: "9:58.69", AA: "10:36.29", A: "11:46.39", BB: "13:09.29", B: "14:55.29" } },
+  "1650": { Freestyle: { AAAA: "15:29.79", AAA: "16:27.29", AA: "17:29.49", A: "19:25.29", BB: "21:41.79", B: "24:36.49" } },
+};
+const USA_STANDARDS_GIRLS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { AAAA: "22.59", AAA: "23.99", AA: "25.49", A: "28.29", BB: "31.59", B: "35.89" }, Backstroke: { AAAA: "25.49", AAA: "27.09", AA: "28.79", A: "31.89", BB: "35.69", B: "40.49" }, Breaststroke: { AAAA: "28.39", AAA: "30.19", AA: "32.09", A: "35.59", BB: "39.79", B: "45.09" }, Butterfly: { AAAA: "24.59", AAA: "26.09", AA: "27.79", A: "30.79", BB: "34.39", B: "39.09" } },
+  "100": { Freestyle: { AAAA: "49.19", AAA: "52.29", AA: "55.59", A: "1:01.59", BB: "1:08.89", B: "1:18.19" }, Backstroke: { AAAA: "54.99", AAA: "58.39", AA: "1:02.09", A: "1:08.89", BB: "1:16.99", B: "1:27.39" }, Breaststroke: { AAAA: "1:01.99", AAA: "1:05.89", AA: "1:10.09", A: "1:17.69", BB: "1:26.79", B: "1:38.09" }, Butterfly: { AAAA: "53.99", AAA: "57.39", AA: "1:00.99", A: "1:07.69", BB: "1:15.59", B: "1:25.79" }, IM: { AAAA: "57.79", AAA: "1:01.39", AA: "1:05.29", A: "1:12.39", BB: "1:20.89", B: "1:31.79" } },
+  "200": { Freestyle: { AAAA: "1:47.89", AAA: "1:54.39", AA: "2:01.39", A: "2:14.69", BB: "2:30.49", B: "2:50.19" }, Backstroke: { AAAA: "1:58.39", AAA: "2:05.39", AA: "2:12.89", A: "2:27.39", BB: "2:44.49", B: "3:06.09" }, Breaststroke: { AAAA: "2:13.49", AAA: "2:21.59", AA: "2:30.19", A: "2:46.69", BB: "3:06.39", B: "3:31.29" }, Butterfly: { AAAA: "1:58.69", AAA: "2:05.79", AA: "2:13.39", A: "2:27.99", BB: "2:45.09", B: "3:06.89" }, IM: { AAAA: "2:01.49", AAA: "2:08.69", AA: "2:16.39", A: "2:31.29", BB: "2:48.79", B: "3:11.09" } },
+  "500": { Freestyle: { AAAA: "4:55.49", AAA: "5:13.69", AA: "5:33.29", A: "6:10.19", BB: "6:53.39", B: "7:49.09" } },
+  "1000": { Freestyle: { AAAA: "10:15.89", AAA: "10:54.09", AA: "11:35.29", A: "12:51.99", BB: "14:22.39", B: "16:18.49" } },
+  "1650": { Freestyle: { AAAA: "16:55.79", AAA: "17:59.69", AA: "19:08.39", A: "21:14.39", BB: "23:43.29", B: "26:54.39" } },
+};
+
+const STANDARD_COLORS: Record<StandardLevel, string> = {
+  AAAA: "#ef4444", AAA: "#f59e0b", AA: "#a855f7", A: "#60a5fa", BB: "#22c55e", B: "#94a3b8",
+};
+
+function getStandardForAthlete(gender: "M"|"F", event: string, stroke: string): { [level in StandardLevel]?: string } | null {
+  const table = gender === "M" ? USA_STANDARDS_BOYS : USA_STANDARDS_GIRLS;
+  return table[event]?.[stroke] || null;
+}
+
+function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, timeSecs: number): StandardLevel | null {
+  const stds = getStandardForAthlete(gender, event, stroke);
+  if (!stds) return null;
+  const levels: StandardLevel[] = ["AAAA", "AAA", "AA", "A", "BB", "B"];
+  for (const lv of levels) {
+    const cutStr = stds[lv];
+    if (cutStr) {
+      const cutSecs = parseTime(cutStr);
+      if (cutSecs !== null && timeSecs <= cutSecs) return lv;
+    }
+  }
+  return null;
+}
+
+function getNextCut(gender: "M"|"F", event: string, stroke: string, timeSecs: number): { level: StandardLevel; time: string; secs: number; gap: number } | null {
+  const stds = getStandardForAthlete(gender, event, stroke);
+  if (!stds) return null;
+  const levels: StandardLevel[] = ["B", "BB", "A", "AA", "AAA", "AAAA"];
+  for (const lv of levels) {
+    const cutStr = stds[lv];
+    if (cutStr) {
+      const cutSecs = parseTime(cutStr);
+      if (cutSecs !== null && timeSecs > cutSecs) {
+        return { level: lv, time: cutStr, secs: cutSecs, gap: timeSecs - cutSecs };
+      }
+    }
+  }
+  return null;
+}
+
+function pacePerSplit(totalSecs: number, distance: number, splitDist: number = 50): string {
+  const numSplits = distance / splitDist;
+  const splitSecs = totalSecs / numSplits;
+  return fmtTime(splitSecs);
+}
+
+function generateDailyGoals(currentSecs: number, goalSecs: number, event: string, stroke: string): string[] {
+  const gap = currentSecs - goalSecs;
+  const dist = parseInt(event);
+  const goals: string[] = [];
+  if (gap > 0) {
+    const paceGoal = pacePerSplit(goalSecs, dist);
+    goals.push(`Hold ${paceGoal} per 50 on your main set today`);
+    if (dist >= 200) {
+      goals.push(`Negative split your last ${dist >= 400 ? "200" : "100"} — finish faster than you start`);
+    }
+    if (gap > 3) {
+      goals.push(`Focus on 1 technique cue today: ${stroke === "Freestyle" ? "high elbow catch" : stroke === "Backstroke" ? "hip rotation" : stroke === "Breaststroke" ? "narrow kick" : stroke === "Butterfly" ? "early breath timing" : "clean transitions"}`);
+    }
+    if (gap > 1 && gap <= 3) {
+      goals.push("You're close — race-pace the last 25 of every rep");
+    }
+    goals.push(`Underwater: 3+ dolphin kicks off every wall`);
+    goals.push("Streamline tight — thumbs locked, squeeze ears");
+    if (dist <= 100) {
+      goals.push("Explosive start: react to the beep, don't anticipate");
+    }
+    if (dist >= 400) {
+      goals.push("Breathing pattern: every 3 strokes for the first half");
+    }
+  } else {
+    goals.push("You've already hit this standard — set a new target!");
+    goals.push("Focus on race execution: splits, turns, underwaters");
+  }
+  return goals.slice(0, 5);
+}
+
 function parseTime(t: string): number | null {
   const parts = t.replace(/[^0-9:.]/g, "").split(/[:.]/).map(Number);
   if (parts.length === 2) return parts[0] * 60 + parts[1];
@@ -358,7 +456,7 @@ function fmtTime(secs: number): string {
 }
 
 // ── Main component ──────────────────────────────────────────
-type TabKey = "dashboard" | "times" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness";
+type TabKey = "dashboard" | "times" | "goals" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness";
 
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
@@ -419,6 +517,10 @@ export default function AthletePortal() {
   const [rpStroke, setRpStroke] = useState("Freestyle");
   const [rpCurrent, setRpCurrent] = useState("");
   const [rpGoal, setRpGoal] = useState("");
+  // Goals state
+  const [goalEvent, setGoalEvent] = useState("100");
+  const [goalStroke, setGoalStroke] = useState("Freestyle");
+  const [savedGoals, setSavedGoals] = useState<{ event: string; stroke: string; targetLevel: StandardLevel; targetTime: string }[]>([]);
   const [rpAutoFilled, setRpAutoFilled] = useState(false);
   const [rpResult, setRpResult] = useState<RacePlan | null>(null);
 
@@ -488,6 +590,7 @@ export default function AthletePortal() {
     setFeedback(load<FeedbackEntry[]>(`${K.FEEDBACK}-${a.id}`, []));
     setRacePlans(load<RacePlan[]>(`${K.RACE_PLANS}-${a.id}`, []));
     setCompletedMeditations(load<{meditationId: string; completedAt: number}[]>(`apex-athlete-meditations-${a.id}`, []));
+    setSavedGoals(load<{ event: string; stroke: string; targetLevel: StandardLevel; targetTime: string }[]>(`apex-athlete-goals-${a.id}`, []));
   };
 
   const completeOnboarding = (a: Athlete, swimId: string) => {
@@ -999,6 +1102,7 @@ export default function AthletePortal() {
   const TABS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; badge?: number }[] = [
     { key: "dashboard", label: "Stats", icon: (a) => <StatsIcon active={a} /> },
     { key: "times", label: "Times", icon: (a) => <TimerIcon active={a} /> },
+    { key: "goals", label: "Goals", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#22c55e":"currentColor"} strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill={a?"#22c55e":"currentColor"}/></svg> },
     { key: "raceprep", label: "Race", icon: (a) => <TargetIcon active={a} /> },
     { key: "quests", label: "Quests", icon: (a) => <QuestsIcon active={a} /> },
     { key: "journal", label: "Log", icon: (a) => <JournalIcon active={a} /> },
@@ -1308,6 +1412,206 @@ export default function AthletePortal() {
             {times.length === 0 && (
               <div className="text-center py-10 text-white/15 text-sm">
                 No times logged yet. Add your first time above.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ══════════════ GOALS TAB ══════════════ */}
+        {tab === "goals" && athlete && (
+          <div className="space-y-4">
+            {/* Event/Stroke selector */}
+            <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#22c55e]/10">
+              <h3 className="text-[#22c55e] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#22c55e"/></svg>
+                SET YOUR TARGET
+              </h3>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <select value={goalEvent} onChange={e => setGoalEvent(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
+                  {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
+                </select>
+                <select value={goalStroke} onChange={e => setGoalStroke(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
+                  {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+
+              {/* Current PR for selected event */}
+              {(() => {
+                const pr = personalRecords.find(p => p.event === goalEvent && p.stroke === goalStroke);
+                const stds = getStandardForAthlete(athlete.gender, goalEvent, goalStroke);
+                const prSecs = pr ? parseTime(pr.time) : null;
+                const currentLevel = prSecs ? getAthleteCutLevel(athlete.gender, goalEvent, goalStroke, prSecs) : null;
+                const nextCut = prSecs ? getNextCut(athlete.gender, goalEvent, goalStroke, prSecs) : null;
+
+                return (
+                  <div className="space-y-3">
+                    {/* Your PR */}
+                    <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/30 text-[10px] font-mono">YOUR BEST</span>
+                        {pr ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[#00f0ff] font-mono font-bold text-lg">{pr.time}</span>
+                            {currentLevel && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[currentLevel]}15`, color: STANDARD_COLORS[currentLevel], border: `1px solid ${STANDARD_COLORS[currentLevel]}30` }}>
+                                {currentLevel}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-white/15 text-sm">No PR logged</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* USA Swimming Standards grid */}
+                    {stds && (
+                      <div>
+                        <h4 className="text-white/30 text-[10px] font-mono tracking-wider mb-2">USA SWIMMING STANDARDS ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          {(["B", "BB", "A", "AA", "AAA", "AAAA"] as StandardLevel[]).map(lv => {
+                            const cutTime = stds[lv];
+                            if (!cutTime) return null;
+                            const cutSecs = parseTime(cutTime);
+                            const achieved = prSecs && cutSecs ? prSecs <= cutSecs : false;
+                            const isNext = nextCut?.level === lv;
+                            return (
+                              <button key={lv} onClick={() => {
+                                if (cutTime && athlete) {
+                                  const newGoal = { event: goalEvent, stroke: goalStroke, targetLevel: lv, targetTime: cutTime };
+                                  const updated = [...savedGoals.filter(g => !(g.event === goalEvent && g.stroke === goalStroke)), newGoal];
+                                  setSavedGoals(updated);
+                                  save(`apex-athlete-goals-${athlete.id}`, updated);
+                                }
+                              }}
+                                className={`p-2.5 rounded-lg border text-center transition-all ${
+                                  achieved ? "bg-emerald-500/10 border-emerald-500/20" :
+                                  isNext ? "bg-white/5 border-2" : "bg-white/[0.02] border-white/5"
+                                }`}
+                                style={isNext ? { borderColor: STANDARD_COLORS[lv] + "60" } : {}}>
+                                <div className="text-[10px] font-black" style={{ color: STANDARD_COLORS[lv] }}>{lv}</div>
+                                <div className={`font-mono text-sm ${achieved ? "text-emerald-400 line-through" : "text-white"}`}>{cutTime}</div>
+                                {achieved && <div className="text-emerald-400 text-[8px]">ACHIEVED</div>}
+                                {isNext && <div className="text-[8px] font-bold" style={{ color: STANDARD_COLORS[lv] }}>NEXT</div>}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-white/10 text-[9px] text-center mt-2">Tap a standard to set it as your goal</p>
+                      </div>
+                    )}
+
+                    {/* Active Goal + Gap Analysis */}
+                    {(() => {
+                      const activeGoal = savedGoals.find(g => g.event === goalEvent && g.stroke === goalStroke);
+                      if (!activeGoal || !prSecs) return null;
+                      const targetSecs = parseTime(activeGoal.targetTime);
+                      if (!targetSecs) return null;
+                      const gap = prSecs - targetSecs;
+                      const dist = parseInt(goalEvent);
+                      const currentPace = pacePerSplit(prSecs, dist);
+                      const targetPace = pacePerSplit(targetSecs, dist);
+                      const dailyGoals = generateDailyGoals(prSecs, targetSecs, goalEvent, goalStroke);
+                      const progressPct = gap > 0 ? Math.max(0, Math.min(100, ((1 - gap / prSecs) * 100))) : 100;
+
+                      return (
+                        <div className="space-y-3">
+                          {/* Gap analysis */}
+                          <div className="p-4 rounded-xl border" style={{ borderColor: STANDARD_COLORS[activeGoal.targetLevel] + "20", background: STANDARD_COLORS[activeGoal.targetLevel] + "05" }}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>
+                                TARGET: {activeGoal.targetLevel} CUT
+                              </span>
+                              <span className="text-white/30 text-[10px]">{goalEvent}m {goalStroke}</span>
+                            </div>
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="text-center">
+                                <div className="text-white/30 text-[9px]">NOW</div>
+                                <div className="text-[#00f0ff] font-mono font-bold">{pr?.time}</div>
+                              </div>
+                              <div className="flex-1">
+                                <svg viewBox="0 0 100 8" className="w-full h-2"><rect x="0" y="2" width="100" height="4" rx="2" fill="rgba(255,255,255,0.05)"/><rect x="0" y="2" width={progressPct} height="4" rx="2" fill={STANDARD_COLORS[activeGoal.targetLevel]}/></svg>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-[9px]" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>GOAL</div>
+                                <div className="font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>{activeGoal.targetTime}</div>
+                              </div>
+                            </div>
+                            {gap > 0 ? (
+                              <div className="text-center text-white/40 text-xs">
+                                <span className="text-white font-bold">{fmtTime(gap)}</span> to drop
+                              </div>
+                            ) : (
+                              <div className="text-center text-emerald-400 text-xs font-bold">
+                                GOAL ACHIEVED! Set a new target.
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Pace breakdown */}
+                          <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                            <h4 className="text-white/30 text-[10px] font-mono mb-2">PACE PER 50</h4>
+                            <div className="flex items-center justify-between">
+                              <div><span className="text-white/20 text-[9px]">Current</span><div className="text-white font-mono">{currentPace}</div></div>
+                              <svg width="20" height="10" viewBox="0 0 20 10"><path d="M2 5h14M12 1l4 4-4 4" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none"/></svg>
+                              <div className="text-right"><span className="text-[9px]" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>Target</span><div className="font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>{targetPace}</div></div>
+                            </div>
+                          </div>
+
+                          {/* Daily micro-goals */}
+                          <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
+                            <h4 className="text-[#f59e0b] text-[10px] font-mono tracking-wider mb-3">TODAY&apos;S FOCUS</h4>
+                            <div className="space-y-2">
+                              {dailyGoals.map((goal, i) => (
+                                <div key={i} className="flex items-start gap-2.5 p-2 rounded-lg bg-white/[0.02]">
+                                  <span className="text-[#f59e0b] text-xs font-bold shrink-0 mt-0.5">{i + 1}</span>
+                                  <span className="text-white/50 text-xs leading-relaxed">{goal}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {!stds && (
+                      <div className="text-center py-6 text-white/15 text-sm">
+                        No USA Swimming standards available for {goalEvent}m {goalStroke}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* All saved goals */}
+            {savedGoals.length > 0 && (
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
+                <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">YOUR ACTIVE GOALS</h3>
+                <div className="space-y-2">
+                  {savedGoals.map((g, i) => {
+                    const pr = personalRecords.find(p => p.event === g.event && p.stroke === g.stroke);
+                    const prSecs = pr ? parseTime(pr.time) : null;
+                    const targetSecs = parseTime(g.targetTime);
+                    const achieved = prSecs && targetSecs ? prSecs <= targetSecs : false;
+                    return (
+                      <button key={i} onClick={() => { setGoalEvent(g.event); setGoalStroke(g.stroke); }}
+                        className={`w-full p-3 rounded-lg border text-left transition-all ${achieved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/[0.02] border-white/5 hover:border-white/10"}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-white text-sm font-bold">{g.event}m {g.stroke}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[g.targetLevel]}15`, color: STANDARD_COLORS[g.targetLevel] }}>
+                            {achieved ? "ACHIEVED" : g.targetLevel}
+                          </span>
+                        </div>
+                        <div className="text-white/30 text-xs mt-1">
+                          {pr ? `${pr.time} → ${g.targetTime}` : `Target: ${g.targetTime}`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
