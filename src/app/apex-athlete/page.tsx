@@ -242,6 +242,14 @@ const SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
   { id: "rest-day", name: "Rest Day", icon: "·", color: "#475569", description: "Recovery — no scheduled sessions" },
 ];
 
+// Convert 24h "HH:MM" to 12h "h:MM AM/PM"
+function fmt12(time: string): string {
+  const [h, m] = time.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${m.toString().padStart(2, "0")} ${period}`;
+}
+
 function makeDefaultSession(type: SessionType, groupId: string): ScheduleSession {
   const defaults: Record<SessionType, { label: string; start: string; end: string; location: string }> = {
     pool: { label: "Pool Practice", start: "15:30", end: "17:30", location: "Main Pool" },
@@ -2317,16 +2325,8 @@ export default function ApexAthletePage() {
                             </button>
                           )}
                         </div>
-                        <div className="text-white/25 text-[9px] font-mono mt-0.5">
-                          {session.startTime} – {session.endTime}
-                        </div>
-                        {/* AM/PM indicator */}
-                        <div className={`text-[8px] font-mono font-bold mt-1 px-1.5 py-0.5 rounded inline-block ${
-                          parseInt(session.startTime.split(":")[0]) < 12
-                            ? "bg-amber-500/15 text-amber-400"
-                            : "bg-indigo-500/15 text-indigo-400"
-                        }`}>
-                          {parseInt(session.startTime.split(":")[0]) < 12 ? "☀ AM" : "☽ PM"}
+                        <div className="text-white/35 text-[10px] font-mono mt-0.5">
+                          {fmt12(session.startTime)} – {fmt12(session.endTime)}
                         </div>
                         <div className="text-white/15 text-[8px] mt-0.5">{session.location}</div>
 
