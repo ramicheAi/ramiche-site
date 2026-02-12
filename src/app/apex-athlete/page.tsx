@@ -264,31 +264,82 @@ function makeDefaultSession(type: SessionType, groupId: string): ScheduleSession
   return { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, label: d.label, startTime: d.start, endTime: d.end, location: d.location, notes: "" };
 }
 
+// ── REAL SCHEDULES (from GoMotion, week of Jan 25-31 2026) ──
+function _s(type: SessionType, label: string, start: string, end: string, location = "Main Pool", notes = ""): ScheduleSession {
+  return { id: `s-${Math.random().toString(36).slice(2, 8)}`, type, label, startTime: start, endTime: end, location, notes };
+}
+const _rest = (): DaySchedule => ({ template: "rest-day", sessions: [] });
+
+const REAL_SCHEDULES: Record<string, GroupSchedule> = {
+  platinum: { groupId: "platinum", weekSchedule: {
+    Sun: { template: "endurance-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:30"), _s("pool", "Platinum PM", "15:30", "17:00")] },
+    Mon: { template: "sprint-day", sessions: [_s("pool", "Platinum PM", "15:30", "17:00")] },
+    Tue: { template: "endurance-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:30"), _s("pool", "Platinum PM", "15:30", "17:00")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Platinum PM", "15:30", "17:00")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Platinum PM", "15:30", "17:00")] },
+    Fri: { template: "sprint-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:30"), _s("pool", "Platinum PM", "15:30", "17:00")] },
+    Sat: { template: "meet-day", sessions: [_s("pool", "Gold + Platinum Saturday", "07:00", "08:50")] },
+  }},
+  gold: { groupId: "gold", weekSchedule: {
+    Sun: { template: "endurance-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
+    Mon: { template: "sprint-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
+    Tue: { template: "endurance-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
+    Fri: { template: "sprint-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
+    Sat: { template: "meet-day", sessions: [_s("pool", "Gold + Platinum Saturday", "07:00", "08:50")] },
+  }},
+  silver: { groupId: "silver", weekSchedule: {
+    Sun: { template: "endurance-day", sessions: [_s("pool", "Silver", "18:00", "19:00")] },
+    Mon: { template: "sprint-day", sessions: [_s("pool", "Silver", "18:00", "19:00")] },
+    Tue: { template: "endurance-day", sessions: [_s("pool", "Silver", "18:00", "19:00")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Silver", "18:00", "19:00")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Silver", "18:00", "19:00")] },
+    Fri: { template: "sprint-day", sessions: [_s("pool", "Silver", "18:00", "19:00")] },
+    Sat: { template: "meet-day", sessions: [_s("pool", "Silver Saturday", "08:50", "10:00")] },
+  }},
+  bronze1: { groupId: "bronze1", weekSchedule: {
+    Sun: { template: "endurance-day", sessions: [_s("pool", "Bronze 1", "17:00", "17:30")] },
+    Mon: { template: "sprint-day", sessions: [_s("pool", "Bronze 1", "15:30", "17:00")] },
+    Tue: { template: "endurance-day", sessions: [_s("pool", "Bronze 1", "17:00", "17:30")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Bronze 1", "15:30", "17:00")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Bronze 1", "17:00", "17:30")] },
+    Fri: { template: "sprint-day", sessions: [_s("pool", "Bronze 1", "17:00", "17:30")] },
+    Sat: { template: "meet-day", sessions: [_s("pool", "Bronze 1", "17:00", "17:30")] },
+  }},
+  bronze2: { groupId: "bronze2", weekSchedule: {
+    Sun: _rest(),
+    Mon: { template: "sprint-day", sessions: [_s("pool", "Bronze 2", "17:00", "17:30")] },
+    Tue: { template: "endurance-day", sessions: [_s("pool", "Bronze 2", "17:00", "17:30")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Bronze 2", "17:00", "17:30")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Bronze 2", "17:00", "17:30")] },
+    Fri: { template: "sprint-day", sessions: [_s("pool", "Bronze 2", "17:30", "18:00")] },
+    Sat: { template: "meet-day", sessions: [_s("pool", "Bronze 2", "17:30", "18:00")] },
+  }},
+  diving: { groupId: "diving", weekSchedule: {
+    Sun: { template: "drill-day", sessions: [_s("pool", "Diving", "15:30", "17:00")] },
+    Mon: _rest(),
+    Tue: _rest(),
+    Wed: { template: "drill-day", sessions: [_s("pool", "Diving", "15:30", "17:00")] },
+    Thu: _rest(),
+    Fri: _rest(),
+    Sat: _rest(),
+  }},
+  waterpolo: { groupId: "waterpolo", weekSchedule: {
+    Sun: _rest(),
+    Mon: { template: "sprint-day", sessions: [_s("pool", "Water Polo", "18:00", "19:00")] },
+    Tue: { template: "endurance-day", sessions: [_s("pool", "Water Polo", "18:00", "19:00")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Water Polo", "18:00", "19:00")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Water Polo", "18:00", "19:00")] },
+    Fri: _rest(),
+    Sat: _rest(),
+  }},
+};
+
 function makeDefaultGroupSchedule(groupId: string): GroupSchedule {
-  const isPlatinum = groupId === "platinum";
-  const emptyDay = (): DaySchedule => ({ template: "rest-day", sessions: [] });
-
-  const poolDay = (template: string): DaySchedule => {
-    const sessions: ScheduleSession[] = [
-      { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type: "pool", label: "Pool Practice", startTime: "15:30", endTime: "17:30", location: "Main Pool", notes: "" },
-    ];
-    if (isPlatinum) {
-      sessions.push({ id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}w`, type: "weight", label: "Weight Room", startTime: "17:30", endTime: "18:30", location: "Weight Room", notes: "" });
-    }
-    return { template, sessions };
-  };
-
-  return {
+  return REAL_SCHEDULES[groupId] ?? {
     groupId,
-    weekSchedule: {
-      Mon: poolDay("sprint-day"),
-      Tue: poolDay("endurance-day"),
-      Wed: poolDay("drill-day"),
-      Thu: poolDay("technique-day"),
-      Fri: poolDay("sprint-day"),
-      Sat: { template: "meet-day", sessions: [{ id: `s-${Date.now()}-sat`, type: "pool", label: isPlatinum ? "Meet / Optional Practice" : "Optional Practice", startTime: "08:00", endTime: "10:00", location: "Main Pool", notes: "Meets or optional practice" }] },
-      Sun: emptyDay(),
-    },
+    weekSchedule: { Mon: _rest(), Tue: _rest(), Wed: _rest(), Thu: _rest(), Fri: _rest(), Sat: _rest(), Sun: _rest() },
   };
 }
 
