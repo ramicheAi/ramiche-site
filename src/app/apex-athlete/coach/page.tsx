@@ -123,6 +123,10 @@ interface Athlete {
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: DailyXP;
+  birthday?: string;
+  usaSwimmingId?: string;
+  parentName?: string;
+  parentPhone?: string;
 }
 
 interface AuditEntry {

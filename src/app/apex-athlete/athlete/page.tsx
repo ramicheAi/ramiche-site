@@ -66,6 +66,7 @@ interface Athlete {
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: { date: string; pool: number; weight: number; meet: number };
   usaSwimmingId?: string;
+  birthday?: string;
   parentCode?: string;
   parentEmail?: string;
 }
@@ -1231,6 +1232,15 @@ export default function AthletePortal() {
               <span style={{ color: level.color }} className="text-sm font-bold">{level.icon} {level.name}</span>
               <span className="text-white/15 text-xs">·</span>
               <span className="text-white/30 text-xs">{athlete.group.toUpperCase()}</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 mt-1">
+              <span className="text-white/20 text-[10px] font-mono">Age {athlete.age}</span>
+              {athlete.usaSwimmingId && (
+                <>
+                  <span className="text-white/10 text-[10px]">·</span>
+                  <span className="text-[#00f0ff]/40 text-[10px] font-mono">USA-S {athlete.usaSwimmingId}</span>
+                </>
+              )}
             </div>
           </div>
           {/* AM/PM Toggle */}
