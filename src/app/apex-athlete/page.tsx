@@ -693,12 +693,17 @@ const INITIAL_ROSTER: RosterEntry[] = [
 ];
 
 // Practice sessions per week by roster group (from real schedules)
-const WEEK_TARGETS: Record<string, number> = {
-  platinum: 8, gold: 6, silver: 6, bronze1: 6, bronze2: 4, diving: 4, waterpolo: 4,
+// Platinum: 9 pool + 3 weight room = 12 total
+const WEEK_TARGETS: Record<string, { pool: number; weight: number }> = {
+  platinum: { pool: 9, weight: 3 }, gold: { pool: 6, weight: 2 }, silver: { pool: 6, weight: 2 },
+  bronze1: { pool: 5, weight: 1 }, bronze2: { pool: 4, weight: 0 }, diving: { pool: 5, weight: 1 }, waterpolo: { pool: 5, weight: 1 },
 };
+const WEEK_TARGETS_TOTAL: Record<string, number> = Object.fromEntries(
+  Object.entries(WEEK_TARGETS).map(([k, v]) => [k, v.pool + v.weight])
+);
 function getWeekTarget(group: string): number {
   const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
-  return WEEK_TARGETS[key] ?? 5;
+  return WEEK_TARGETS_TOTAL[key] ?? 5;
 }
 
 function makeAthlete(r: RosterEntry & { group?: string }): Athlete {

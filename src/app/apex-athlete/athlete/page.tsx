@@ -72,12 +72,21 @@ interface Athlete {
 }
 
 // Practice sessions per week by roster group (from real schedules)
-const WEEK_TARGETS: Record<string, number> = {
-  platinum: 8, gold: 6, silver: 6, bronze1: 6, bronze2: 4, diving: 4, waterpolo: 4,
+// Platinum: 9 pool + 3 weight room = 12 total
+const WEEK_TARGETS: Record<string, { pool: number; weight: number }> = {
+  platinum: { pool: 9, weight: 3 }, gold: { pool: 6, weight: 2 }, silver: { pool: 6, weight: 2 },
+  bronze1: { pool: 5, weight: 1 }, bronze2: { pool: 4, weight: 0 }, diving: { pool: 5, weight: 1 }, waterpolo: { pool: 5, weight: 1 },
 };
+const WEEK_TARGETS_TOTAL: Record<string, number> = Object.fromEntries(
+  Object.entries(WEEK_TARGETS).map(([k, v]) => [k, v.pool + v.weight])
+);
 function getWeekTarget(group: string): number {
   const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
-  return WEEK_TARGETS[key] ?? 5;
+  return WEEK_TARGETS_TOTAL[key] ?? 5;
+}
+function getGroupTargets(group: string): { pool: number; weight: number } {
+  const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
+  return WEEK_TARGETS[key] ?? { pool: 5, weight: 0 };
 }
 
 interface JournalEntry {
@@ -380,7 +389,7 @@ const UNIT_LABEL: Record<CourseType, string> = { SCY: "y", SCM: "m", LCM: "m" };
 
 // ── USA Swimming motivational time standards ──
 // Source: USA Swimming 2024-2028 motivational time standards + 2026 championship qualifying times
-type StandardLevel = "OT" | "JR_NATL" | "FUTURES" | "SECTIONALS" | "AAAA" | "AAA" | "AA" | "A" | "BB" | "B";
+type StandardLevel = "WR" | "US_OPEN" | "OT" | "JR_NATL" | "FUTURES" | "SECTIONALS" | "AAAA" | "AAA" | "AA" | "A" | "BB" | "B";
 interface StandardTimes { [stroke: string]: { [level in StandardLevel]?: string } }
 
 // ── SCY (Short Course Yards — 25yd pool) ──
@@ -445,47 +454,48 @@ const STANDARDS_TABLE: Record<CourseType, { M: { [event: string]: StandardTimes 
 };
 
 const STANDARD_COLORS: Record<StandardLevel, string> = {
-  OT: "#ffd700", JR_NATL: "#ff6b35", FUTURES: "#ef4444", SECTIONALS: "#f472b6",
+  WR: "#ff0000", US_OPEN: "#e11d48", OT: "#ffd700", JR_NATL: "#ff6b35", FUTURES: "#ef4444", SECTIONALS: "#f472b6",
   AAAA: "#ef4444", AAA: "#f59e0b", AA: "#a855f7", A: "#60a5fa", BB: "#22c55e", B: "#94a3b8",
 };
 const STANDARD_LABELS: Record<StandardLevel, string> = {
-  OT: "Olympic Trials", JR_NATL: "Jr. Nationals", FUTURES: "Futures", SECTIONALS: "Sectionals",
+  WR: "World Record", US_OPEN: "US Open", OT: "Olympic Trials", JR_NATL: "Jr. Nationals", FUTURES: "Futures", SECTIONALS: "Sectionals",
   AAAA: "AAAA", AAA: "AAA", AA: "AA", A: "A", BB: "BB", B: "B",
 };
 
 // ── Championship Qualifying Times (SCY) — USA Swimming 2025-2026 ──
+// US_OPEN = US Open / National Championship qualifying; WR = World Record reference times
 const CHAMP_SCY_BOYS: { [event: string]: StandardTimes } = {
-  "50":  { Freestyle: { OT: "19.19", JR_NATL: "20.09", FUTURES: "20.79", SECTIONALS: "21.49" }, Backstroke: { JR_NATL: "23.09", FUTURES: "23.89" }, Breaststroke: { JR_NATL: "25.19", FUTURES: "26.09" }, Butterfly: { JR_NATL: "22.09", FUTURES: "22.89" } },
-  "100": { Freestyle: { OT: "42.09", JR_NATL: "43.59", FUTURES: "45.09", SECTIONALS: "46.49" }, Backstroke: { OT: "46.09", JR_NATL: "48.09", FUTURES: "49.69", SECTIONALS: "51.29" }, Breaststroke: { OT: "52.09", JR_NATL: "54.09", FUTURES: "55.69", SECTIONALS: "57.39" }, Butterfly: { OT: "45.59", JR_NATL: "47.29", FUTURES: "48.89", SECTIONALS: "50.49" }, IM: { JR_NATL: "49.79", FUTURES: "51.49" } },
-  "200": { Freestyle: { OT: "1:32.09", JR_NATL: "1:35.69", FUTURES: "1:38.09", SECTIONALS: "1:40.49" }, Backstroke: { OT: "1:40.09", JR_NATL: "1:43.89", FUTURES: "1:46.49", SECTIONALS: "1:49.09" }, Breaststroke: { OT: "1:52.09", JR_NATL: "1:56.29", FUTURES: "1:59.09", SECTIONALS: "2:01.89" }, Butterfly: { OT: "1:41.09", JR_NATL: "1:44.69", FUTURES: "1:47.29", SECTIONALS: "1:49.89" }, IM: { OT: "1:42.09", JR_NATL: "1:45.79", FUTURES: "1:48.49", SECTIONALS: "1:51.09" } },
-  "500": { Freestyle: { OT: "4:11.09", JR_NATL: "4:18.69", FUTURES: "4:24.09", SECTIONALS: "4:29.49" } },
-  "1000": { Freestyle: { JR_NATL: "9:05.69", FUTURES: "9:18.09" } },
-  "1650": { Freestyle: { OT: "14:32.09", JR_NATL: "14:59.49", FUTURES: "15:19.09", SECTIONALS: "15:39.09" } },
+  "50":  { Freestyle: { WR: "17.63", US_OPEN: "18.59", OT: "19.19", JR_NATL: "20.09", FUTURES: "20.79", SECTIONALS: "21.49" }, Backstroke: { WR: "21.80", US_OPEN: "22.49", JR_NATL: "23.09", FUTURES: "23.89" }, Breaststroke: { WR: "24.95", US_OPEN: "24.59", JR_NATL: "25.19", FUTURES: "26.09" }, Butterfly: { WR: "21.32", US_OPEN: "21.49", JR_NATL: "22.09", FUTURES: "22.89" } },
+  "100": { Freestyle: { WR: "39.90", US_OPEN: "41.09", OT: "42.09", JR_NATL: "43.59", FUTURES: "45.09", SECTIONALS: "46.49" }, Backstroke: { WR: "43.49", US_OPEN: "45.09", OT: "46.09", JR_NATL: "48.09", FUTURES: "49.69", SECTIONALS: "51.29" }, Breaststroke: { WR: "49.53", US_OPEN: "51.09", OT: "52.09", JR_NATL: "54.09", FUTURES: "55.69", SECTIONALS: "57.39" }, Butterfly: { WR: "42.80", US_OPEN: "44.59", OT: "45.59", JR_NATL: "47.29", FUTURES: "48.89", SECTIONALS: "50.49" }, IM: { WR: "46.40", US_OPEN: "48.79", JR_NATL: "49.79", FUTURES: "51.49" } },
+  "200": { Freestyle: { WR: "1:28.81", US_OPEN: "1:30.59", OT: "1:32.09", JR_NATL: "1:35.69", FUTURES: "1:38.09", SECTIONALS: "1:40.49" }, Backstroke: { WR: "1:35.41", US_OPEN: "1:38.09", OT: "1:40.09", JR_NATL: "1:43.89", FUTURES: "1:46.49", SECTIONALS: "1:49.09" }, Breaststroke: { WR: "1:47.55", US_OPEN: "1:50.09", OT: "1:52.09", JR_NATL: "1:56.29", FUTURES: "1:59.09", SECTIONALS: "2:01.89" }, Butterfly: { WR: "1:37.12", US_OPEN: "1:39.59", OT: "1:41.09", JR_NATL: "1:44.69", FUTURES: "1:47.29", SECTIONALS: "1:49.89" }, IM: { WR: "1:37.83", US_OPEN: "1:40.09", OT: "1:42.09", JR_NATL: "1:45.79", FUTURES: "1:48.49", SECTIONALS: "1:51.09" } },
+  "500": { Freestyle: { WR: "4:02.12", US_OPEN: "4:07.09", OT: "4:11.09", JR_NATL: "4:18.69", FUTURES: "4:24.09", SECTIONALS: "4:29.49" } },
+  "1000": { Freestyle: { US_OPEN: "8:48.09", JR_NATL: "9:05.69", FUTURES: "9:18.09" } },
+  "1650": { Freestyle: { WR: "14:08.85", US_OPEN: "14:19.09", OT: "14:32.09", JR_NATL: "14:59.49", FUTURES: "15:19.09", SECTIONALS: "15:39.09" } },
 };
 const CHAMP_SCY_GIRLS: { [event: string]: StandardTimes } = {
-  "50":  { Freestyle: { OT: "21.69", JR_NATL: "22.59", FUTURES: "23.29", SECTIONALS: "23.99" }, Backstroke: { JR_NATL: "25.19", FUTURES: "25.99" }, Breaststroke: { JR_NATL: "27.89", FUTURES: "28.79" }, Butterfly: { JR_NATL: "24.09", FUTURES: "24.89" } },
-  "100": { Freestyle: { OT: "47.09", JR_NATL: "48.89", FUTURES: "50.29", SECTIONALS: "51.69" }, Backstroke: { OT: "51.69", JR_NATL: "53.69", FUTURES: "55.19", SECTIONALS: "56.69" }, Breaststroke: { OT: "58.09", JR_NATL: "1:00.29", FUTURES: "1:01.89", SECTIONALS: "1:03.49" }, Butterfly: { OT: "50.69", JR_NATL: "52.69", FUTURES: "54.19", SECTIONALS: "55.69" }, IM: { JR_NATL: "55.29", FUTURES: "56.89" } },
-  "200": { Freestyle: { OT: "1:42.09", JR_NATL: "1:45.89", FUTURES: "1:48.49", SECTIONALS: "1:51.09" }, Backstroke: { OT: "1:51.09", JR_NATL: "1:55.09", FUTURES: "1:57.89", SECTIONALS: "2:00.69" }, Breaststroke: { OT: "2:05.09", JR_NATL: "2:09.59", FUTURES: "2:12.69", SECTIONALS: "2:15.79" }, Butterfly: { OT: "1:51.69", JR_NATL: "1:55.69", FUTURES: "1:58.49", SECTIONALS: "2:01.29" }, IM: { OT: "1:53.09", JR_NATL: "1:57.09", FUTURES: "2:00.09", SECTIONALS: "2:03.09" } },
-  "500": { Freestyle: { OT: "4:34.09", JR_NATL: "4:42.29", FUTURES: "4:48.49", SECTIONALS: "4:54.69" } },
-  "1000": { Freestyle: { JR_NATL: "9:52.09", FUTURES: "10:06.09" } },
-  "1650": { Freestyle: { OT: "15:52.09", JR_NATL: "16:22.69", FUTURES: "16:44.09", SECTIONALS: "17:05.09" } },
+  "50":  { Freestyle: { WR: "20.37", US_OPEN: "21.09", OT: "21.69", JR_NATL: "22.59", FUTURES: "23.29", SECTIONALS: "23.99" }, Backstroke: { WR: "23.46", US_OPEN: "24.49", JR_NATL: "25.19", FUTURES: "25.99" }, Breaststroke: { WR: "26.56", US_OPEN: "27.19", JR_NATL: "27.89", FUTURES: "28.79" }, Butterfly: { WR: "21.92", US_OPEN: "23.49", JR_NATL: "24.09", FUTURES: "24.89" } },
+  "100": { Freestyle: { WR: "44.39", US_OPEN: "45.99", OT: "47.09", JR_NATL: "48.89", FUTURES: "50.29", SECTIONALS: "51.69" }, Backstroke: { WR: "48.34", US_OPEN: "50.49", OT: "51.69", JR_NATL: "53.69", FUTURES: "55.19", SECTIONALS: "56.69" }, Breaststroke: { WR: "55.73", US_OPEN: "57.09", OT: "58.09", JR_NATL: "1:00.29", FUTURES: "1:01.89", SECTIONALS: "1:03.49" }, Butterfly: { WR: "47.42", US_OPEN: "49.49", OT: "50.69", JR_NATL: "52.69", FUTURES: "54.19", SECTIONALS: "55.69" }, IM: { WR: "51.51", US_OPEN: "54.09", JR_NATL: "55.29", FUTURES: "56.89" } },
+  "200": { Freestyle: { WR: "1:38.39", US_OPEN: "1:40.09", OT: "1:42.09", JR_NATL: "1:45.89", FUTURES: "1:48.49", SECTIONALS: "1:51.09" }, Backstroke: { WR: "1:45.37", US_OPEN: "1:48.59", OT: "1:51.09", JR_NATL: "1:55.09", FUTURES: "1:57.89", SECTIONALS: "2:00.69" }, Breaststroke: { WR: "2:00.93", US_OPEN: "2:03.09", OT: "2:05.09", JR_NATL: "2:09.59", FUTURES: "2:12.69", SECTIONALS: "2:15.79" }, Butterfly: { WR: "1:47.59", US_OPEN: "1:49.69", OT: "1:51.69", JR_NATL: "1:55.69", FUTURES: "1:58.49", SECTIONALS: "2:01.29" }, IM: { WR: "1:49.51", US_OPEN: "1:51.09", OT: "1:53.09", JR_NATL: "1:57.09", FUTURES: "2:00.09", SECTIONALS: "2:03.09" } },
+  "500": { Freestyle: { WR: "4:21.49", US_OPEN: "4:28.09", OT: "4:34.09", JR_NATL: "4:42.29", FUTURES: "4:48.49", SECTIONALS: "4:54.69" } },
+  "1000": { Freestyle: { US_OPEN: "9:38.09", JR_NATL: "9:52.09", FUTURES: "10:06.09" } },
+  "1650": { Freestyle: { WR: "15:18.59", US_OPEN: "15:38.09", OT: "15:52.09", JR_NATL: "16:22.69", FUTURES: "16:44.09", SECTIONALS: "17:05.09" } },
 };
 // ── Championship Qualifying Times (LCM) ──
 const CHAMP_LCM_BOYS: { [event: string]: StandardTimes } = {
-  "50":  { Freestyle: { OT: "22.09", JR_NATL: "22.89", FUTURES: "23.49" }, Backstroke: { JR_NATL: "26.19" }, Breaststroke: { JR_NATL: "28.49" }, Butterfly: { JR_NATL: "24.59" } },
-  "100": { Freestyle: { OT: "48.49", JR_NATL: "49.79", FUTURES: "50.99", SECTIONALS: "52.09" }, Backstroke: { OT: "53.59", JR_NATL: "55.19", FUTURES: "56.49" }, Breaststroke: { OT: "59.69", JR_NATL: "1:01.59", FUTURES: "1:02.99" }, Butterfly: { OT: "51.59", JR_NATL: "53.29", FUTURES: "54.49" } },
-  "200": { Freestyle: { OT: "1:46.09", JR_NATL: "1:49.09", FUTURES: "1:51.49", SECTIONALS: "1:53.89" }, Backstroke: { OT: "1:56.09", JR_NATL: "1:59.69", FUTURES: "2:02.29" }, Breaststroke: { OT: "2:09.09", JR_NATL: "2:13.09", FUTURES: "2:15.89" }, Butterfly: { OT: "1:54.09", JR_NATL: "1:57.49", FUTURES: "2:00.09" }, IM: { OT: "1:57.09", JR_NATL: "2:00.69", FUTURES: "2:03.29" } },
-  "400": { Freestyle: { OT: "3:46.09", JR_NATL: "3:52.09", FUTURES: "3:56.49" }, IM: { OT: "4:11.09", JR_NATL: "4:17.89", FUTURES: "4:22.49" } },
-  "800": { Freestyle: { OT: "7:52.09", JR_NATL: "8:05.09", FUTURES: "8:14.09" } },
-  "1500": { Freestyle: { OT: "15:00.09", JR_NATL: "15:22.09", FUTURES: "15:38.09" } },
+  "50":  { Freestyle: { WR: "20.91", US_OPEN: "21.49", OT: "22.09", JR_NATL: "22.89", FUTURES: "23.49" }, Backstroke: { WR: "23.71", US_OPEN: "25.49", JR_NATL: "26.19" }, Breaststroke: { WR: "25.95", US_OPEN: "27.49", JR_NATL: "28.49" }, Butterfly: { WR: "22.27", US_OPEN: "23.79", JR_NATL: "24.59" } },
+  "100": { Freestyle: { WR: "46.40", US_OPEN: "47.49", OT: "48.49", JR_NATL: "49.79", FUTURES: "50.99", SECTIONALS: "52.09" }, Backstroke: { WR: "51.60", US_OPEN: "52.49", OT: "53.59", JR_NATL: "55.19", FUTURES: "56.49" }, Breaststroke: { WR: "56.88", US_OPEN: "58.49", OT: "59.69", JR_NATL: "1:01.59", FUTURES: "1:02.99" }, Butterfly: { WR: "49.45", US_OPEN: "50.49", OT: "51.59", JR_NATL: "53.29", FUTURES: "54.49" } },
+  "200": { Freestyle: { WR: "1:42.00", US_OPEN: "1:44.09", OT: "1:46.09", JR_NATL: "1:49.09", FUTURES: "1:51.49", SECTIONALS: "1:53.89" }, Backstroke: { WR: "1:51.92", US_OPEN: "1:53.59", OT: "1:56.09", JR_NATL: "1:59.69", FUTURES: "2:02.29" }, Breaststroke: { WR: "2:05.48", US_OPEN: "2:07.09", OT: "2:09.09", JR_NATL: "2:13.09", FUTURES: "2:15.89" }, Butterfly: { WR: "1:50.34", US_OPEN: "1:52.09", OT: "1:54.09", JR_NATL: "1:57.49", FUTURES: "2:00.09" }, IM: { WR: "1:54.00", US_OPEN: "1:55.09", OT: "1:57.09", JR_NATL: "2:00.69", FUTURES: "2:03.29" } },
+  "400": { Freestyle: { WR: "3:40.07", US_OPEN: "3:43.09", OT: "3:46.09", JR_NATL: "3:52.09", FUTURES: "3:56.49" }, IM: { WR: "4:02.50", US_OPEN: "4:07.09", OT: "4:11.09", JR_NATL: "4:17.89", FUTURES: "4:22.49" } },
+  "800": { Freestyle: { WR: "7:32.12", US_OPEN: "7:42.09", OT: "7:52.09", JR_NATL: "8:05.09", FUTURES: "8:14.09" } },
+  "1500": { Freestyle: { WR: "14:31.02", US_OPEN: "14:45.09", OT: "15:00.09", JR_NATL: "15:22.09", FUTURES: "15:38.09" } },
 };
 const CHAMP_LCM_GIRLS: { [event: string]: StandardTimes } = {
-  "50":  { Freestyle: { OT: "24.69", JR_NATL: "25.49", FUTURES: "26.09" }, Backstroke: { JR_NATL: "29.09" }, Breaststroke: { JR_NATL: "31.89" }, Butterfly: { JR_NATL: "27.19" } },
-  "100": { Freestyle: { OT: "53.69", JR_NATL: "55.29", FUTURES: "56.49", SECTIONALS: "57.69" }, Backstroke: { OT: "59.69", JR_NATL: "1:01.49", FUTURES: "1:02.89" }, Breaststroke: { OT: "1:06.09", JR_NATL: "1:08.29", FUTURES: "1:09.79" }, Butterfly: { OT: "57.69", JR_NATL: "59.49", FUTURES: "1:00.89" } },
-  "200": { Freestyle: { OT: "1:56.09", JR_NATL: "1:59.39", FUTURES: "2:01.89", SECTIONALS: "2:04.39" }, Backstroke: { OT: "2:07.09", JR_NATL: "2:10.89", FUTURES: "2:13.59" }, Breaststroke: { OT: "2:22.09", JR_NATL: "2:26.49", FUTURES: "2:29.49" }, Butterfly: { OT: "2:07.09", JR_NATL: "2:10.89", FUTURES: "2:13.59" }, IM: { OT: "2:09.09", JR_NATL: "2:13.09", FUTURES: "2:16.09" } },
-  "400": { Freestyle: { OT: "4:05.09", JR_NATL: "4:11.49", FUTURES: "4:16.09" }, IM: { OT: "4:35.09", JR_NATL: "4:42.49", FUTURES: "4:47.49" } },
-  "800": { Freestyle: { OT: "8:26.09", JR_NATL: "8:40.09", FUTURES: "8:50.09" } },
-  "1500": { Freestyle: { OT: "16:10.09", JR_NATL: "16:34.09", FUTURES: "16:50.09" } },
+  "50":  { Freestyle: { WR: "23.41", US_OPEN: "23.99", OT: "24.69", JR_NATL: "25.49", FUTURES: "26.09" }, Backstroke: { WR: "26.98", US_OPEN: "28.49", JR_NATL: "29.09" }, Breaststroke: { WR: "29.30", US_OPEN: "30.99", JR_NATL: "31.89" }, Butterfly: { WR: "24.38", US_OPEN: "26.49", JR_NATL: "27.19" } },
+  "100": { Freestyle: { WR: "51.71", US_OPEN: "52.49", OT: "53.69", JR_NATL: "55.29", FUTURES: "56.49", SECTIONALS: "57.69" }, Backstroke: { WR: "57.33", US_OPEN: "58.49", OT: "59.69", JR_NATL: "1:01.49", FUTURES: "1:02.89" }, Breaststroke: { WR: "1:04.13", US_OPEN: "1:05.09", OT: "1:06.09", JR_NATL: "1:08.29", FUTURES: "1:09.79" }, Butterfly: { WR: "55.48", US_OPEN: "56.49", OT: "57.69", JR_NATL: "59.49", FUTURES: "1:00.89" } },
+  "200": { Freestyle: { WR: "1:52.23", US_OPEN: "1:53.59", OT: "1:56.09", JR_NATL: "1:59.39", FUTURES: "2:01.89", SECTIONALS: "2:04.39" }, Backstroke: { WR: "2:03.35", US_OPEN: "2:04.59", OT: "2:07.09", JR_NATL: "2:10.89", FUTURES: "2:13.59" }, Breaststroke: { WR: "2:17.55", US_OPEN: "2:19.59", OT: "2:22.09", JR_NATL: "2:26.49", FUTURES: "2:29.49" }, Butterfly: { WR: "2:01.81", US_OPEN: "2:04.09", OT: "2:07.09", JR_NATL: "2:10.89", FUTURES: "2:13.59" }, IM: { WR: "2:06.12", US_OPEN: "2:07.09", OT: "2:09.09", JR_NATL: "2:13.09", FUTURES: "2:16.09" } },
+  "400": { Freestyle: { WR: "3:55.38", US_OPEN: "3:59.09", OT: "4:05.09", JR_NATL: "4:11.49", FUTURES: "4:16.09" }, IM: { WR: "4:24.06", US_OPEN: "4:29.09", OT: "4:35.09", JR_NATL: "4:42.49", FUTURES: "4:47.49" } },
+  "800": { Freestyle: { WR: "8:04.79", US_OPEN: "8:15.09", OT: "8:26.09", JR_NATL: "8:40.09", FUTURES: "8:50.09" } },
+  "1500": { Freestyle: { WR: "15:20.48", US_OPEN: "15:45.09", OT: "16:10.09", JR_NATL: "16:34.09", FUTURES: "16:50.09" } },
 };
 // ── Florida Gold Coast LSC Senior Champs (SCY) ──
 const FGC_SCY_BOYS: { [event: string]: { [stroke: string]: string } } = {
@@ -528,7 +538,7 @@ function getStandardForAthlete(gender: "M"|"F", event: string, stroke: string, c
 function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, timeSecs: number, course: CourseType = "SCY"): StandardLevel | null {
   const stds = getStandardForAthlete(gender, event, stroke, course);
   if (!stds) return null;
-  const levels: StandardLevel[] = ["OT", "JR_NATL", "FUTURES", "SECTIONALS", "AAAA", "AAA", "AA", "A", "BB", "B"];
+  const levels: StandardLevel[] = ["WR", "US_OPEN", "OT", "JR_NATL", "FUTURES", "SECTIONALS", "AAAA", "AAA", "AA", "A", "BB", "B"];
   for (const lv of levels) {
     const cutStr = stds[lv];
     if (cutStr) {
@@ -542,7 +552,7 @@ function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, time
 function getNextCut(gender: "M"|"F", event: string, stroke: string, timeSecs: number, course: CourseType = "SCY"): { level: StandardLevel; time: string; secs: number; gap: number } | null {
   const stds = getStandardForAthlete(gender, event, stroke, course);
   if (!stds) return null;
-  const levels: StandardLevel[] = ["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"];
+  const levels: StandardLevel[] = ["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT", "US_OPEN", "WR"];
   for (const lv of levels) {
     const cutStr = stds[lv];
     if (cutStr) {
@@ -1364,8 +1374,11 @@ export default function AthletePortal() {
             <div className="text-white/60 text-sm font-mono tracking-wider">PRACTICES</div>
           </div>
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-xl font-black text-white">{athlete.weekSessions}/{getWeekTarget(athlete.group)}</div>
-            <div className="text-white/60 text-sm font-mono tracking-wider">THIS WEEK</div>
+            <div className="text-xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
+            <div className="text-white/50 text-[10px] font-mono tracking-wider">
+              {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
+            </div>
+            <div className="text-white/60 text-xs font-mono tracking-wider">THIS WEEK</div>
           </div>
         </div>
 
@@ -1609,7 +1622,7 @@ export default function AthletePortal() {
                   <h4 className="text-white/80 text-sm font-bold mb-2">Championship Qualifying Times</h4>
                   <p className="text-white/50 text-xs mb-3">These are the times needed to qualify for national-level meets</p>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {(["OT", "JR_NATL", "FUTURES", "SECTIONALS"] as StandardLevel[]).map(lv => (
+                    {(["WR", "US_OPEN", "OT", "JR_NATL", "FUTURES", "SECTIONALS"] as StandardLevel[]).map(lv => (
                       <span key={lv} className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: STANDARD_COLORS[lv] + "15", color: STANDARD_COLORS[lv], border: `1px solid ${STANDARD_COLORS[lv]}30` }}>
                         {STANDARD_LABELS[lv]}
                       </span>
@@ -1636,10 +1649,10 @@ export default function AthletePortal() {
                           <thead>
                             <tr className="border-b border-white/10">
                               <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
-                              {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => {
+                              {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT", "US_OPEN", "WR"] as StandardLevel[]).map(lv => {
                                 const hasCol = events.some(ev => getAllStandards(g, ev, stroke, goalCourse)[lv]);
                                 if (!hasCol) return null;
-                                return <th key={lv} className="text-center py-2 px-1 font-bold" style={{ color: STANDARD_COLORS[lv] }}>{lv === "JR_NATL" ? "JrNat" : lv === "SECTIONALS" ? "Sect" : lv === "FUTURES" ? "Fut" : lv}</th>;
+                                return <th key={lv} className="text-center py-2 px-1 font-bold" style={{ color: STANDARD_COLORS[lv] }}>{lv === "JR_NATL" ? "JrNat" : lv === "SECTIONALS" ? "Sect" : lv === "FUTURES" ? "Fut" : lv === "US_OPEN" ? "USO" : lv === "WR" ? "WR" : lv}</th>;
                               })}
                             </tr>
                           </thead>
@@ -1652,7 +1665,7 @@ export default function AthletePortal() {
                               return (
                                 <tr key={ev} className="border-b border-white/5 hover:bg-white/[0.02]">
                                   <td className="py-2 pr-2 text-white font-bold">{ev}{UNIT_LABEL[goalCourse]}</td>
-                                  {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => {
+                                  {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT", "US_OPEN", "WR"] as StandardLevel[]).map(lv => {
                                     const hasCol = events.some(e2 => getAllStandards(g, e2, stroke, goalCourse)[lv]);
                                     if (!hasCol) return null;
                                     const cutTime = stds[lv];
@@ -1816,7 +1829,7 @@ export default function AthletePortal() {
                       <div>
                         <h4 className="text-white/60 text-sm font-mono tracking-wider mb-2">USA SWIMMING {goalCourse} ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => {
+                          {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT", "US_OPEN", "WR"] as StandardLevel[]).map(lv => {
                             const cutTime = stds[lv];
                             if (!cutTime) return null;
                             const cutSecs = parseTime(cutTime);
