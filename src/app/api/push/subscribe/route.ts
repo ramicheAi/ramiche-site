@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFirestore } from "firebase-admin/firestore";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
 
-// Initialize Firebase Admin if not already
-if (!getApps().length) {
-  const cred = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (cred) {
-    initializeApp({ credential: cert(JSON.parse(cred)) });
-  } else {
-    initializeApp({ projectId: "apex-athlete-73755" });
-  }
-}
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const { subscription, userId, group } = await req.json();
     if (!subscription?.endpoint) {
       return NextResponse.json({ error: "Invalid subscription" }, { status: 400 });
+    }
+
+    const { getApps, initializeApp, cert } = await import("firebase-admin/app");
+    const { getFirestore } = await import("firebase-admin/firestore");
+
+    if (!getApps().length) {
+      const cred = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      if (cred) {
+        initializeApp({ credential: cert(JSON.parse(cred)) });
+      } else {
+        initializeApp({ projectId: "apex-athlete-73755" });
+      }
     }
 
     const db = getFirestore();

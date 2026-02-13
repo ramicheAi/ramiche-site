@@ -1,30 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getFirestore } from "firebase-admin/firestore";
-import { initializeApp, getApps, cert } from "firebase-admin/app";
-import webpush from "web-push";
 
-// Initialize Firebase Admin if not already
-if (!getApps().length) {
-  const cred = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-  if (cred) {
-    initializeApp({ credential: cert(JSON.parse(cred)) });
-  } else {
-    initializeApp({ projectId: "apex-athlete-73755" });
-  }
-}
-
-const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
-
-if (VAPID_PUBLIC && VAPID_PRIVATE) {
-  webpush.setVapidDetails("mailto:ramichehq@gmail.com", VAPID_PUBLIC, VAPID_PRIVATE);
-}
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const { title, body, group, tag, url } = await req.json();
     if (!title || !body) {
       return NextResponse.json({ error: "title and body required" }, { status: 400 });
+    }
+
+    const VAPID_PUBLIC = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
+    const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
+    if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+      return NextResponse.json({ error: "VAPID keys not configured" }, { status: 500 });
+    }
+
+    // Lazy-load to avoid build-time execution
+    const webpush = (await import("web-push")).default;
+    webpush.setVapidDetails("mailto:ramichehq@gmail.com", VAPID_PUBLIC, VAPID_PRIVATE);
+
+    const { getApps, initializeApp, cert } = await import("firebase-admin/app");
+    const { getFirestore } = await import("firebase-admin/firestore");
+
+    if (!getApps().length) {
+      const cred = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+      if (cred) {
+        initializeApp({ credential: cert(JSON.parse(cred)) });
+      } else {
+        initializeApp({ projectId: "apex-athlete-73755" });
+      }
     }
 
     const db = getFirestore();
@@ -56,7 +60,6 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    // Clean up expired subscriptions
     await Promise.allSettled(cleanupIds.map((id) => db.collection("push_subscriptions").doc(id).delete()));
 
     return NextResponse.json({ ok: true, sent, failed, cleaned: cleanupIds.length });
