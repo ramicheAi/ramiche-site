@@ -454,7 +454,7 @@ function WelcomeOverlay({ name, levelName, levelColor }: { name: string; levelNa
               <LevelIcon name={levelName} size={40} color={levelColor} />
             </div>
           </div>
-          <div className="text-[#f59e0b]/60 text-xs font-mono tracking-[0.4em] mb-2">WELCOME</div>
+          <div className="text-[#f59e0b]/80 text-xs font-mono tracking-[0.4em] mb-2">WELCOME</div>
           <div className="text-3xl sm:text-4xl font-black text-white mb-2">{name}</div>
           <div className="flex items-center justify-center gap-2">
             <LevelIcon name={levelName} size={16} color={levelColor} />
@@ -525,7 +525,7 @@ function MiniBarChart({ data }: { data: { date: string; xp: number; label: strin
                   boxShadow: d.xp > 0 ? "0 0 8px rgba(52,211,153,0.3)" : "none",
                 }} />
             </div>
-            <span className="text-[8px] text-white/20 font-mono">{d.label}</span>
+            <span className="text-sm text-white/50 font-mono">{d.label}</span>
           </div>
         );
       })}
@@ -801,18 +801,18 @@ export default function ParentPortal() {
             <path d="M44 18l4-4M20 18l-4-4" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
           <h1 className="text-2xl font-black text-white mb-2">Parent Portal</h1>
-          <p className="text-white/30 text-sm mb-6">Enter PIN to view your swimmer&apos;s growth</p>
+          <p className="text-white/60 text-sm mb-6">Enter PIN to view your swimmer&apos;s growth</p>
           <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
             onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
             onKeyDown={e => e.key === "Enter" && handlePin()}
-            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/15 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50"}`}
+            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50"}`}
             placeholder="····" autoFocus />
           <button onClick={handlePin}
-            className="w-full mt-4 py-3 rounded-xl bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b] font-bold hover:bg-[#f59e0b]/30 transition-all">
+            className="w-full mt-4 py-3 rounded-xl bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b] font-bold hover:bg-[#f59e0b]/30 transition-all min-h-[44px]">
             Unlock
           </button>
           {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-          <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors block mt-6">
+          <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6 min-h-[44px] flex items-center justify-center">
             ← Back to Portal Selector
           </Link>
         </div>
@@ -831,26 +831,26 @@ export default function ParentPortal() {
         <div className="relative z-10 w-full max-w-md">
           {isCoach && (
             <div className="flex justify-center gap-2 mb-6">
-              <a href="/apex-athlete" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#00f0ff]/30 text-[#00f0ff]/60 hover:bg-[#00f0ff]/10 transition-all">Coach</a>
-              <a href="/apex-athlete/athlete" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#a855f7]/30 text-[#a855f7]/60 hover:bg-[#a855f7]/10 transition-all">Athlete</a>
-              <span className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#f59e0b] bg-[#f59e0b]/20 text-[#f59e0b]">Parent</span>
+              <a href="/apex-athlete" className="px-3 py-2.5 rounded-full text-sm font-bold border border-[#00f0ff]/30 text-[#00f0ff]/80 hover:bg-[#00f0ff]/10 transition-all min-h-[44px] flex items-center">Coach</a>
+              <a href="/apex-athlete/athlete" className="px-3 py-2.5 rounded-full text-sm font-bold border border-[#a855f7]/30 text-[#a855f7]/80 hover:bg-[#a855f7]/10 transition-all min-h-[44px] flex items-center">Athlete</a>
+              <span className="px-3 py-2.5 rounded-full text-sm font-bold border border-[#f59e0b] bg-[#f59e0b]/20 text-[#f59e0b] min-h-[44px] flex items-center">Parent</span>
             </div>
           )}
           <div className="text-center mb-8">
-            {isCoach && <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>}
+            {isCoach && <div className="inline-block px-3 py-2.5 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-sm font-bold mb-3">COACH VIEW</div>}
             <svg className="w-14 h-14 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
               <circle cx="32" cy="32" r="26" stroke="#f59e0b" strokeWidth="2" fill="rgba(245,158,11,0.06)"/>
               <circle cx="32" cy="26" r="8" stroke="#f59e0b" strokeWidth="1.8" fill="rgba(245,158,11,0.1)"/>
               <path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" fill="rgba(245,158,11,0.05)"/>
             </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Parent Portal</h1>
-            <p className="text-white/30 text-sm">{isCoach ? "Browse any athlete\u2019s parent view" : "Find your swimmer to see their growth"}</p>
+            <p className="text-white/60 text-sm">{isCoach ? "Browse any athlete\u2019s parent view" : "Find your swimmer to see their growth"}</p>
           </div>
           <div className="relative">
             <input
               type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
               placeholder="Type your swimmer's name..."
-              className="w-full px-5 py-4 bg-[#0a0518] border border-[#f59e0b]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#f59e0b]/50 transition-all"
+              className="w-full px-5 py-4 bg-[#0a0518] border border-[#f59e0b]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#f59e0b]/50 transition-all"
               autoFocus
             />
             {searchResults.length > 0 && (
@@ -878,11 +878,11 @@ export default function ParentPortal() {
               <SvgShieldLock size={18} color="#00f0ff" />
               <span className="text-white/50 text-xs font-bold">COPPA Safe</span>
             </div>
-            <p className="text-white/20 text-[10px]">This portal shows growth trends and achievements only. All athlete data is managed by the coach. No personal information is collected.</p>
+            <p className="text-white/50 text-sm">This portal shows growth trends and achievements only. All athlete data is managed by the coach. No personal information is collected.</p>
           </div>
 
           <div className="text-center mt-6">
-            <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors">
+            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/40 transition-colors">
               ← Back to Portal Selector
             </Link>
           </div>
@@ -902,7 +902,7 @@ export default function ParentPortal() {
           { label: "Parent", href: "/apex-athlete/parent", active: true, color: "#f59e0b" },
         ].map(p => (
           <a key={p.label} href={p.href}
-            className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
+            className="px-4 py-2.5 text-sm font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all min-h-[44px] flex items-center"
             style={{
               background: (p as any).active ? `${p.color}20` : 'transparent',
               border: `1px solid ${(p as any).active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
@@ -921,7 +921,7 @@ export default function ParentPortal() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <button onClick={() => setAthlete(null)} className="text-white/30 hover:text-white/60 text-sm transition-colors">← Switch</button>
+          <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors">← Switch</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
@@ -929,8 +929,8 @@ export default function ParentPortal() {
                 <LevelIcon name={level.name} size={14} color={level.color} />
                 {level.name}
               </span>
-              <span className="text-white/15 text-xs">·</span>
-              <span className="text-white/30 text-xs">{athlete.group.toUpperCase()}</span>
+              <span className="text-white/50 text-xs">·</span>
+              <span className="text-white/60 text-xs">{athlete.group.toUpperCase()}</span>
             </div>
           </div>
           <div className="w-14" />
@@ -952,13 +952,13 @@ export default function ParentPortal() {
               {/* Centered icon inside ring */}
               <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ transform: "rotate(0deg)" }}>
                 <LevelIcon name={level.name} size={36} color={level.color} />
-                <div className="text-[10px] font-mono mt-1" style={{ color: `${level.color}80` }}>{progress.percent}%</div>
+                <div className="text-sm font-mono mt-1" style={{ color: `${level.color}80` }}>{progress.percent}%</div>
               </div>
             </div>
 
             <div className="text-2xl font-black text-white mb-1">{level.name}</div>
             {nextLevel ? (
-              <p className="text-white/30 text-xs mb-2">
+              <p className="text-white/60 text-xs mb-2">
                 {progress.remaining} XP until <span className="inline-flex items-center gap-1" style={{ color: nextLevel.color }}>
                   <LevelIcon name={nextLevel.name} size={12} color={nextLevel.color} />
                   {nextLevel.name}
@@ -972,7 +972,7 @@ export default function ParentPortal() {
               <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
             </div>
-            <div className="text-white/20 text-[10px] mt-2 font-mono">{athlete.xp} XP TOTAL</div>
+            <div className="text-white/50 text-sm mt-2 font-mono">{athlete.xp} XP TOTAL</div>
           </div>
         </div>
 
@@ -981,20 +981,20 @@ export default function ParentPortal() {
           <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
             style={athlete.streak > 0 ? { borderColor: `${streak.color}25` } : {}}>
             <div className="text-3xl font-black text-white">{athlete.streak}</div>
-            <div className="text-[10px] font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
-            <div className="text-white/20 text-[10px]">day streak</div>
+            <div className="text-sm font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
+            <div className="text-white/50 text-sm">day streak</div>
           </div>
           <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
             style={athlete.totalPractices > 0 ? { borderColor: "rgba(96,165,250,0.15)", animationDelay: "0.3s" } : {}}>
             <div className="text-3xl font-black text-white">{athlete.totalPractices}</div>
-            <div className="text-white/30 text-[10px] font-mono tracking-wider">PRACTICES</div>
-            <div className="text-white/20 text-[10px]">total</div>
+            <div className="text-white/60 text-sm font-mono tracking-wider">PRACTICES</div>
+            <div className="text-white/50 text-sm">total</div>
           </div>
           <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
             style={earnedCount > 0 ? { borderColor: "rgba(245,158,11,0.15)", animationDelay: "0.6s" } : {}}>
             <div className="text-3xl font-black text-white">{earnedCount}</div>
-            <div className="text-[#f59e0b]/60 text-[10px] font-mono tracking-wider">BADGES</div>
-            <div className="text-white/20 text-[10px]">earned</div>
+            <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider">BADGES</div>
+            <div className="text-white/50 text-sm">earned</div>
           </div>
         </div>
 
@@ -1005,23 +1005,23 @@ export default function ParentPortal() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-xl font-bold text-emerald-400">{growth.weekXP}</div>
-                <div className="text-white/25 text-[10px]">XP earned this week</div>
+                <div className="text-white/60 text-sm">XP earned this week</div>
               </div>
               <div>
                 <div className="text-xl font-bold text-[#60a5fa]">{athlete.weekSessions}/{athlete.weekTarget}</div>
-                <div className="text-white/25 text-[10px]">sessions this week</div>
+                <div className="text-white/60 text-sm">sessions this week</div>
               </div>
             </div>
             {/* Mini bar chart — last 7 days */}
             {last7Days.length > 0 && (
               <div className="mt-3 pt-3 border-t border-white/5">
-                <div className="text-white/20 text-[9px] font-mono tracking-wider mb-1">DAILY XP (LAST 7 DAYS)</div>
+                <div className="text-white/50 text-sm font-mono tracking-wider mb-1">DAILY XP (LAST 7 DAYS)</div>
                 <MiniBarChart data={last7Days} />
               </div>
             )}
             {growth.avgDaily > 0 && (
               <div className="mt-2 pt-3 border-t border-white/5 text-center">
-                <span className="text-white/20 text-xs">Averaging </span>
+                <span className="text-white/50 text-xs">Averaging </span>
                 <span className="text-emerald-400 text-sm font-bold">{growth.avgDaily} XP/day</span>
               </div>
             )}
@@ -1050,7 +1050,7 @@ export default function ParentPortal() {
                     <SvgPadlock size={14} color="#475569" />
                   )}
                 </div>
-                <div className="text-[9px] leading-tight" style={{ color: badge.earned ? `${badge.color}99` : "rgba(255,255,255,0.2)" }}>
+                <div className="text-sm leading-tight" style={{ color: badge.earned ? `${badge.color}99` : "rgba(255,255,255,0.2)" }}>
                   {badge.label}
                 </div>
               </div>
@@ -1093,9 +1093,9 @@ export default function ParentPortal() {
           <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
             <div className="flex items-center gap-2 mb-4">
               <SvgCalendar size={18} color="#f59e0b" />
-              <h3 className="text-[#f59e0b]/70 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
+              <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
             </div>
-            <p className="text-white/25 text-xs mb-4">Let your coach know if your swimmer can make it. A quick tap is all it takes!</p>
+            <p className="text-white/60 text-xs mb-4">Let your coach know if your swimmer can make it. A quick tap is all it takes!</p>
             <div className="space-y-3">
               {upcomingMeets.map(meet => {
                 const existingRsvp = getRsvpStatus(meet.id);
@@ -1116,19 +1116,19 @@ export default function ParentPortal() {
                       <div className="flex-1 min-w-0">
                         <div className="text-white font-bold text-sm truncate">{meet.name}</div>
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
-                          <span className="flex items-center gap-1 text-white/30 text-xs">
+                          <span className="flex items-center gap-1 text-white/60 text-xs">
                             <SvgClock size={12} color="#94a3b8" />
                             {meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                           </span>
                           {meet.location && (
-                            <span className="flex items-center gap-1 text-white/30 text-xs">
+                            <span className="flex items-center gap-1 text-white/60 text-xs">
                               <SvgMapPin size={12} color="#94a3b8" />
                               {meet.location}
                             </span>
                           )}
                         </div>
                       </div>
-                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${daysUntil <= 3 ? "bg-red-500/15 text-red-400" : "bg-[#f59e0b]/10 text-[#f59e0b]/70"}`}>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-sm font-bold ${daysUntil <= 3 ? "bg-red-500/15 text-red-400" : "bg-[#f59e0b]/10 text-[#f59e0b]/90"}`}>
                         {daysUntil === 0 ? "TODAY" : daysUntil === 1 ? "TOMORROW" : `${daysUntil}d`}
                       </span>
                     </div>
@@ -1137,7 +1137,7 @@ export default function ParentPortal() {
                     {athleteEntries.length > 0 && (
                       <div className="mb-3 flex flex-wrap gap-1.5">
                         {athleteEntries.map((entry, i) => (
-                          <span key={i} className="px-2 py-0.5 rounded-full bg-[#60a5fa]/10 border border-[#60a5fa]/15 text-[#60a5fa]/80 text-[10px] font-mono">
+                          <span key={i} className="px-2 py-0.5 rounded-full bg-[#60a5fa]/10 border border-[#60a5fa]/15 text-[#60a5fa]/90 text-sm font-mono">
                             {entry.event}{entry.seedTime ? ` · ${entry.seedTime}` : ""}
                           </span>
                         ))}
@@ -1146,14 +1146,14 @@ export default function ParentPortal() {
 
                     {/* RSVP deadline notice */}
                     {meet.rsvpDeadline && !deadlinePassed && (
-                      <p className="text-white/20 text-[10px] mb-2">
+                      <p className="text-white/50 text-sm mb-2">
                         RSVP by {new Date(meet.rsvpDeadline + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                       </p>
                     )}
 
                     {/* RSVP buttons */}
                     {deadlinePassed ? (
-                      <div className="text-white/20 text-xs italic">RSVP deadline has passed</div>
+                      <div className="text-white/50 text-xs italic">RSVP deadline has passed</div>
                     ) : existingRsvp ? (
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
@@ -1162,12 +1162,12 @@ export default function ParentPortal() {
                           ) : (
                             <SvgXCircle size={16} color="#ef4444" />
                           )}
-                          <span className={`text-xs font-bold ${existingRsvp.status === "committed" ? "text-emerald-400/80" : "text-red-400/70"}`}>
+                          <span className={`text-xs font-bold ${existingRsvp.status === "committed" ? "text-emerald-400/90" : "text-red-400/90"}`}>
                             {existingRsvp.status === "committed" ? "We'll be there!" : "Can't make it"}
                           </span>
                         </div>
                         <button onClick={() => handleRsvp(meet.id, existingRsvp.status === "committed" ? "declined" : "committed")}
-                          className="text-white/20 text-[10px] hover:text-white/40 transition-colors underline decoration-dotted"
+                          className="text-white/50 text-sm hover:text-white/40 transition-colors underline decoration-dotted"
                           style={{ minHeight: "44px", display: "flex", alignItems: "center" }}>
                           Change
                         </button>
@@ -1200,16 +1200,16 @@ export default function ParentPortal() {
           <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#60a5fa]/10">
             <div className="flex items-center gap-2 mb-4">
               <SvgSwimWave size={18} color="#60a5fa" />
-              <h3 className="text-[#60a5fa]/70 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
+              <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
             </div>
-            <p className="text-white/25 text-xs mb-4">Here&apos;s what {athlete.name.split(" ")[0]} is signed up for. Seed times help set race pace expectations.</p>
+            <p className="text-white/60 text-xs mb-4">Here&apos;s what {athlete.name.split(" ")[0]} is signed up for. Seed times help set race pace expectations.</p>
             <div className="space-y-3">
               {meetsWithEntries.map(meet => {
                 const entries = meet.entries?.filter(e => e.athleteId === athlete.id) || [];
                 return (
                   <div key={meet.id} className="p-3 rounded-lg bg-[#60a5fa]/[0.03] border border-[#60a5fa]/10">
                     <div className="text-white/60 text-xs font-bold mb-2">{meet.name}</div>
-                    <div className="text-white/20 text-[10px] mb-2">
+                    <div className="text-white/50 text-sm mb-2">
                       {new Date(meet.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                       {meet.location ? ` · ${meet.location}` : ""}
                     </div>
@@ -1220,7 +1220,7 @@ export default function ParentPortal() {
                           {entry.seedTime ? (
                             <span className="text-[#60a5fa] text-sm font-mono font-bold">{entry.seedTime}</span>
                           ) : (
-                            <span className="text-white/15 text-xs italic">No seed time</span>
+                            <span className="text-white/50 text-xs italic">No seed time</span>
                           )}
                         </div>
                       ))}
@@ -1236,9 +1236,9 @@ export default function ParentPortal() {
         <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f97316]/10">
           <div className="flex items-center gap-2 mb-3">
             <SvgClipboardX size={18} color="#f97316" />
-            <h3 className="text-[#f97316]/70 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
+            <h3 className="text-[#f97316]/90 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
           </div>
-          <p className="text-white/25 text-xs mb-4">
+          <p className="text-white/60 text-xs mb-4">
             Need to let us know your swimmer will miss practice? No worries — just fill this out and the coaching staff will be in the loop.
           </p>
 
@@ -1252,16 +1252,16 @@ export default function ParentPortal() {
           <div className="space-y-3">
             {/* Parent name */}
             <div>
-              <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">YOUR NAME</label>
+              <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">YOUR NAME</label>
               <input type="text" value={parentNameInput} onChange={e => setParentNameInput(e.target.value)}
                 placeholder="e.g., Sarah Johnson"
-                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#f97316]/40 transition-all"
+                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#f97316]/40 transition-all"
                 style={{ minHeight: "44px" }} />
             </div>
 
             {/* Reason dropdown */}
             <div>
-              <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">REASON</label>
+              <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">REASON</label>
               <select value={absenceReason} onChange={e => setAbsenceReason(e.target.value)}
                 className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all appearance-none cursor-pointer"
                 style={{ minHeight: "44px", backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
@@ -1276,13 +1276,13 @@ export default function ParentPortal() {
             {/* Date(s) */}
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">START DATE</label>
+                <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">START DATE</label>
                 <input type="date" value={absenceDateStart} onChange={e => setAbsenceDateStart(e.target.value)}
                   className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
               <div>
-                <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">END DATE <span className="text-white/15">(optional)</span></label>
+                <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">END DATE <span className="text-white/50">(optional)</span></label>
                 <input type="date" value={absenceDateEnd} onChange={e => setAbsenceDateEnd(e.target.value)}
                   min={absenceDateStart || undefined}
                   className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all [color-scheme:dark]"
@@ -1292,11 +1292,11 @@ export default function ParentPortal() {
 
             {/* Optional note */}
             <div>
-              <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">NOTE <span className="text-white/15">(optional)</span></label>
+              <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">NOTE <span className="text-white/50">(optional)</span></label>
               <textarea value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
                 placeholder="Any details the coach should know..."
                 rows={2}
-                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#f97316]/40 transition-all resize-none" />
+                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#f97316]/40 transition-all resize-none" />
             </div>
 
             {/* Submit */}
@@ -1318,21 +1318,21 @@ export default function ParentPortal() {
           {/* Recent absence reports */}
           {myAbsences.length > 0 && (
             <div className="mt-4 pt-4 border-t border-white/5">
-              <div className="text-white/20 text-[10px] font-mono tracking-wider mb-3">RECENT REPORTS</div>
+              <div className="text-white/50 text-sm font-mono tracking-wider mb-3">RECENT REPORTS</div>
               <div className="space-y-2">
                 {myAbsences.slice(0, 5).map(report => (
                   <div key={report.id} className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-white/50 text-xs font-semibold">{report.reason}</div>
-                      <div className="text-white/20 text-[10px] mt-0.5">
+                      <div className="text-white/50 text-sm mt-0.5">
                         {report.dates.length === 1
                           ? new Date(report.dates[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
                           : `${new Date(report.dates[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} — ${new Date(report.dates[report.dates.length - 1] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
                         }
-                        {report.note && <span className="text-white/15"> · {report.note}</span>}
+                        {report.note && <span className="text-white/50"> · {report.note}</span>}
                       </div>
                     </div>
-                    <div className="text-white/15 text-[10px] shrink-0">
+                    <div className="text-white/50 text-sm shrink-0">
                       {new Date(report.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                     </div>
                   </div>
@@ -1346,9 +1346,9 @@ export default function ParentPortal() {
         <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
           <div className="flex items-center gap-2 mb-3">
             <SvgMegaphone size={18} color="#a855f7" />
-            <h3 className="text-[#a855f7]/70 text-xs font-mono tracking-wider">COACH UPDATES</h3>
+            <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
             {allBroadcasts.length > 0 && (
-              <span className="ml-auto px-2 py-0.5 rounded-full bg-[#a855f7]/10 text-[#a855f7]/60 text-[10px] font-bold">
+              <span className="ml-auto px-2 py-0.5 rounded-full bg-[#a855f7]/10 text-[#a855f7]/80 text-sm font-bold">
                 {allBroadcasts.length}
               </span>
             )}
@@ -1356,8 +1356,8 @@ export default function ParentPortal() {
           {allBroadcasts.length === 0 ? (
             <div className="py-6 text-center">
               <SvgBell size={28} color="#a855f7" />
-              <p className="text-white/20 text-sm mt-3">No messages yet</p>
-              <p className="text-white/10 text-xs mt-1">When your coach sends updates, they&apos;ll show up here.</p>
+              <p className="text-white/50 text-sm mt-3">No messages yet</p>
+              <p className="text-white/40 text-xs mt-1">When your coach sends updates, they&apos;ll show up here.</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(168,85,247,0.2) transparent" }}>
@@ -1382,15 +1382,15 @@ export default function ParentPortal() {
                       <div className="flex-1 min-w-0">
                         <p className="text-white/60 text-sm leading-relaxed">{b.message}</p>
                         <div className="flex items-center gap-2 mt-1.5">
-                          <span className="text-white/20 text-[10px]">{b.from || "Coach"}</span>
+                          <span className="text-white/50 text-sm">{b.from || "Coach"}</span>
                           {b.group && (
                             <>
-                              <span className="text-white/10">·</span>
-                              <span className="text-[#a855f7]/40 text-[10px]">{b.group}</span>
+                              <span className="text-white/40">·</span>
+                              <span className="text-[#a855f7]/90 text-sm">{b.group}</span>
                             </>
                           )}
-                          <span className="text-white/10">·</span>
-                          <span className="text-white/15 text-[10px]">{timeAgo}</span>
+                          <span className="text-white/40">·</span>
+                          <span className="text-white/50 text-sm">{timeAgo}</span>
                         </div>
                       </div>
                     </div>
@@ -1403,7 +1403,7 @@ export default function ParentPortal() {
 
         {/* Meet Day Guide */}
         <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-cyan-500/10">
-          <h3 className="text-cyan-400/70 text-xs font-mono tracking-wider mb-3">MEET DAY GUIDE FOR PARENTS</h3>
+          <h3 className="text-cyan-400/90 text-xs font-mono tracking-wider mb-3">MEET DAY GUIDE FOR PARENTS</h3>
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
               <span className="text-emerald-400 text-xs font-bold block mb-1">BEFORE THE RACE</span>
@@ -1424,8 +1424,8 @@ export default function ParentPortal() {
               </ul>
             </div>
             <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
-              <span className="text-red-400/70 text-xs font-bold block mb-1">AVOID</span>
-              <ul className="text-white/30 text-sm space-y-1">
+              <span className="text-red-400/90 text-xs font-bold block mb-1">AVOID</span>
+              <ul className="text-white/60 text-sm space-y-1">
                 <li>• Coaching from the stands</li>
                 <li>• Comparing to other swimmers</li>
                 <li>• Discussing times in the car ride home</li>
@@ -1437,8 +1437,8 @@ export default function ParentPortal() {
 
         {/* Conversation Starters */}
         <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-violet-500/10">
-          <h3 className="text-violet-400/70 text-xs font-mono tracking-wider mb-3">CONVERSATION STARTERS</h3>
-          <p className="text-white/20 text-[10px] mb-3">Great questions to ask your swimmer this week:</p>
+          <h3 className="text-violet-400/90 text-xs font-mono tracking-wider mb-3">CONVERSATION STARTERS</h3>
+          <p className="text-white/50 text-sm mb-3">Great questions to ask your swimmer this week:</p>
           <div className="space-y-2">
             {[
               { q: "What was the best part of practice today?", why: "Opens positive reflection" },
@@ -1449,7 +1449,7 @@ export default function ParentPortal() {
             ].map((item, i) => (
               <div key={i} className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/10">
                 <span className="text-white/60 text-sm block">&quot;{item.q}&quot;</span>
-                <span className="text-violet-400/40 text-[10px]">{item.why}</span>
+                <span className="text-violet-400/70 text-sm">{item.why}</span>
               </div>
             ))}
           </div>
@@ -1458,14 +1458,14 @@ export default function ParentPortal() {
         {/* COPPA Footer — SVG shield */}
         <div className="mt-8 p-3 rounded-lg bg-[#0a0518]/40 border border-[#00f0ff]/5 flex items-center gap-2">
           <SvgShieldLock size={16} color="#00f0ff" />
-          <p className="text-white/15 text-[10px]">
+          <p className="text-white/50 text-sm">
             Parent Portal is read-only. Growth trends and achievements only — no raw checkpoint data, no personal information.
             All data is managed by the coaching staff.
           </p>
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-white/[0.06] text-[10px] space-y-1">
+        <div className="text-center mt-8 text-white/40 text-sm space-y-1">
           <p>Apex Athlete — Parent Portal</p>
           <p>Enough to feel invested, not enough to backseat coach</p>
         </div>

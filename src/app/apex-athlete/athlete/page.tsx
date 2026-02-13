@@ -868,18 +868,18 @@ export default function AthletePortal() {
             <circle cx="32" cy="42" r="3" fill="#a855f7"/>
           </svg>
           <h1 className="text-2xl font-black text-white mb-2">Athlete Portal</h1>
-          <p className="text-white/30 text-sm mb-6">Enter PIN to access your dashboard</p>
+          <p className="text-white/60 text-sm mb-6">Enter PIN to access your dashboard</p>
           <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
             onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
             onKeyDown={e => e.key === "Enter" && handlePin()}
-            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/15 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
+            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
             placeholder="····" autoFocus />
           <button onClick={handlePin}
             className="w-full mt-4 py-3 rounded-xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold hover:bg-[#a855f7]/30 transition-all">
             Unlock
           </button>
           {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-          <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors block mt-6">
+          <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/40 transition-colors block mt-6">
             ← Back to Portal Selector
           </Link>
         </div>
@@ -897,9 +897,9 @@ export default function AthletePortal() {
         <div className="relative z-10 w-full max-w-md">
           {/* Portal switcher */}
           <div className="flex justify-center gap-2 mb-6">
-            <Link href="/apex-athlete" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#00f0ff]/30 text-[#00f0ff]/60 hover:bg-[#00f0ff]/10 transition-all">Coach</Link>
+            <Link href="/apex-athlete" className="px-3 py-2.5 rounded-full text-xs font-bold border border-[#00f0ff]/30 text-[#00f0ff]/80 hover:bg-[#00f0ff]/10 transition-all min-h-[44px]">Coach</Link>
             <span className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#a855f7] bg-[#a855f7]/20 text-[#a855f7]">Athlete</span>
-            <Link href="/apex-athlete/parent" className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#f59e0b]/30 text-[#f59e0b]/60 hover:bg-[#f59e0b]/10 transition-all">Parent</Link>
+            <Link href="/apex-athlete/parent" className="px-3 py-2.5 rounded-full text-xs font-bold border border-[#f59e0b]/30 text-[#f59e0b]/80 hover:bg-[#f59e0b]/10 transition-all min-h-[44px]">Parent</Link>
           </div>
           <div className="text-center mb-6">
             <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>
@@ -910,17 +910,17 @@ export default function AthletePortal() {
           <div className="flex flex-wrap justify-center gap-1.5 mb-3">
             {["all", "platinum", "gold", "silver", "bronze1", "bronze2", "diving", "waterpolo"].map(g => (
               <button key={g} onClick={() => setCoachGroup(g === "all" ? "" : g)}
-                className="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all"
+                className="px-3 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px]"
                 style={{
                   background: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f720' : 'transparent',
                   border: `1px solid ${(g === "all" ? !coachGroup : coachGroup === g) ? '#a855f760' : 'rgba(255,255,255,0.08)'}`,
-                  color: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f7' : 'rgba(255,255,255,0.3)',
+                  color: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f7' : 'rgba(255,255,255,0.5)',
                 }}>{g === "all" ? "All" : g.replace("bronze", "Brz ").replace("waterpolo", "WP").replace("platinum", "Plat").replace("gold", "Gold").replace("silver", "Silver").replace("diving", "Diving")}</button>
             ))}
           </div>
           <input type="text" placeholder="Search by name..." value={nameInput}
             onChange={e => setNameInput(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 mb-3" autoFocus />
+            className="w-full px-4 py-3 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-3" autoFocus />
           <div className="max-h-[50vh] overflow-y-auto space-y-2">
             {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 30)).map(a => {
               const lv = getLevel(a.xp || 0);
@@ -930,9 +930,9 @@ export default function AthletePortal() {
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{background:`${lv.color}20`,color:lv.color}}>{a.name[0]}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-semibold text-sm truncate">{a.name}</div>
-                    <div className="text-white/30 text-xs">{lv.name} · {a.xp || 0} XP</div>
+                    <div className="text-white/60 text-xs">{lv.name} · {a.xp || 0} XP</div>
                   </div>
-                  <div className="text-white/20 text-xs">{a.group}</div>
+                  <div className="text-white/50 text-xs">{a.group}</div>
                 </button>
               );
             })}
@@ -982,7 +982,7 @@ export default function AthletePortal() {
               <path d="M16 52c0-8.837 7.163-16 16-16s16 7.163 16 16" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" fill="rgba(168,85,247,0.05)"/>
             </svg>
             <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">Welcome, Athlete</h1>
-            <p className="text-white/30 text-sm">{stepLabels[currentStepIdx]?.desc || "Get started"}</p>
+            <p className="text-white/60 text-sm">{stepLabels[currentStepIdx]?.desc || "Get started"}</p>
           </div>
 
           {/* Step progress indicator */}
@@ -992,7 +992,7 @@ export default function AthletePortal() {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
                   i < currentStepIdx ? "bg-[#a855f7]/20 border-[#a855f7]/40 text-[#a855f7]"
                     : i === currentStepIdx ? "bg-[#a855f7] border-[#a855f7] text-white"
-                    : "bg-white/5 border-white/10 text-white/20"
+                    : "bg-white/5 border-white/10 text-white/50"
                 }`}>
                   {i < currentStepIdx ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
@@ -1012,7 +1012,7 @@ export default function AthletePortal() {
               <div className="relative">
                 <input type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setOnboardError(""); }}
                   placeholder="Start typing your name..."
-                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]"
                   autoFocus />
                 {searchResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50 shadow-xl shadow-black/50">
@@ -1028,7 +1028,7 @@ export default function AthletePortal() {
                           className="w-full px-5 py-4 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0 min-h-[48px]">
                           <div>
                             <span className="text-white font-semibold">{a.name}</span>
-                            <span className="text-white/20 text-xs ml-2">{a.group.toUpperCase()}</span>
+                            <span className="text-white/50 text-xs ml-2">{a.group.toUpperCase()}</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
@@ -1040,7 +1040,7 @@ export default function AthletePortal() {
                 )}
               </div>
               {onboardError && <p className="text-red-400 text-xs mt-3">{onboardError}</p>}
-              <p className="text-white/15 text-xs mt-4 text-center">Select your name from the roster. If you don&apos;t see yourself, ask your coach to add you.</p>
+              <p className="text-white/50 text-xs mt-4 text-center">Select your name from the roster. If you don&apos;t see yourself, ask your coach to add you.</p>
             </div>
           )}
 
@@ -1053,7 +1053,7 @@ export default function AthletePortal() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white font-bold truncate">{selectedOnboardAthlete.name}</p>
-                  <p className="text-white/30 text-xs">{selectedOnboardAthlete.group.toUpperCase()} · Age {selectedOnboardAthlete.age}</p>
+                  <p className="text-white/60 text-xs">{selectedOnboardAthlete.group.toUpperCase()} · Age {selectedOnboardAthlete.age}</p>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
               </div>
@@ -1065,12 +1065,12 @@ export default function AthletePortal() {
                     onChange={e => { setIdInput(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase()); setOnboardError(""); }}
                     placeholder="XXXX-XXXXXX"
                     maxLength={15}
-                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/15 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]"
+                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]"
                     autoFocus />
                   {/* Format hint */}
                   {idInput.length > 0 && (
                     <div className="absolute -bottom-6 left-0 right-0 text-center">
-                      <span className={`text-[10px] font-mono ${isValidSwimId(idInput) ? "text-emerald-400/60" : "text-white/20"}`}>
+                      <span className={`text-sm font-mono ${isValidSwimId(idInput) ? "text-emerald-400/80" : "text-white/50"}`}>
                         {formatSwimIdHint(idInput)}
                         {isValidSwimId(idInput) && (
                           <span className="ml-1">
@@ -1086,7 +1086,7 @@ export default function AthletePortal() {
               <div className="pt-2 mt-2 p-3 rounded-xl bg-[#0a0518]/60 border border-[#00f0ff]/10">
                 <div className="flex items-start gap-2">
                   <svg className="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-                  <p className="text-white/30 text-[11px]">Your USA Swimming ID links your portal to your parent&apos;s account. Format: <span className="text-white/50 font-mono">XXXX-XXXXXX</span>. Find it on your USA Swimming registration or ask your coach.</p>
+                  <p className="text-white/60 text-sm">Your USA Swimming ID links your portal to your parent&apos;s account. Format: <span className="text-white/50 font-mono">XXXX-XXXXXX</span>. Find it on your USA Swimming registration or ask your coach.</p>
                 </div>
               </div>
 
@@ -1107,7 +1107,7 @@ export default function AthletePortal() {
                 Verify &amp; Continue
               </button>
               <button onClick={() => { setOnboardStep("name"); setNameInput(""); setIdInput(""); setSelectedOnboardAthlete(null); setOnboardError(""); }}
-                className="w-full py-2 text-white/30 text-sm hover:text-white/50 transition-colors">
+                className="w-full py-2 text-white/60 text-sm hover:text-white/50 transition-colors">
                 ← That&apos;s not me
               </button>
             </div>
@@ -1126,21 +1126,21 @@ export default function AthletePortal() {
                         {match.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
                       <p className="text-white font-bold text-xl mb-1">{match.name}</p>
-                      <p className="text-white/30 text-sm mb-2">{match.group.toUpperCase()} · Age {match.age}</p>
+                      <p className="text-white/60 text-sm mb-2">{match.group.toUpperCase()} · Age {match.age}</p>
                       <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp} XP</span>
                       <div className="mt-3 pt-3 border-t border-white/5">
                         <div className="flex items-center justify-center gap-2">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
                           <span className="text-[#22d3ee] font-mono text-sm tracking-wider">{formatSwimIdHint(idInput)}</span>
                         </div>
-                        <p className="text-white/20 text-[10px] mt-1">USA Swimming ID</p>
+                        <p className="text-white/50 text-sm mt-1">USA Swimming ID</p>
                       </div>
                     </div>
 
                     <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
                       <div className="flex items-start gap-2">
                         <svg className="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                        <p className="text-white/40 text-[11px]">This will lock this device to your profile. Only your data will be visible. To switch athletes, you&apos;ll need to log out first.</p>
+                        <p className="text-white/40 text-sm">This will lock this device to your profile. Only your data will be visible. To switch athletes, you&apos;ll need to log out first.</p>
                       </div>
                     </div>
 
@@ -1151,7 +1151,7 @@ export default function AthletePortal() {
                       Lock Profile &amp; Enter Portal
                     </button>
                     <button onClick={() => { setOnboardStep("swimid"); setOnboardError(""); }}
-                      className="w-full py-2 text-white/30 text-sm hover:text-white/50 transition-colors">
+                      className="w-full py-2 text-white/60 text-sm hover:text-white/50 transition-colors">
                       ← Go back
                     </button>
                   </>
@@ -1161,7 +1161,7 @@ export default function AthletePortal() {
           )}
 
           <div className="text-center mt-8">
-            <Link href="/apex-athlete/portal" className="text-white/20 text-sm hover:text-white/40 transition-colors">← Back to Portal Selector</Link>
+            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/40 transition-colors">← Back to Portal Selector</Link>
           </div>
         </div>
       </div>
@@ -1193,11 +1193,11 @@ export default function AthletePortal() {
           { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
         ].map(p => (
           <a key={p.label} href={p.href}
-            className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
+            className="px-4 py-2.5 text-xs font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all min-h-[44px]"
             style={{
               background: (p as any).active ? `${p.color}20` : 'transparent',
               border: `1px solid ${(p as any).active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
-              color: (p as any).active ? p.color : 'rgba(255,255,255,0.3)',
+              color: (p as any).active ? p.color : 'rgba(255,255,255,0.5)',
             }}>
             {p.label}
           </a>
@@ -1217,7 +1217,7 @@ export default function AthletePortal() {
             </svg>
             <div className="text-5xl font-black text-white mb-2" style={{ textShadow: `0 0 40px ${celebration.color}80, 0 0 80px ${celebration.color}40` }}>LEVEL UP!</div>
             <div className="text-2xl font-bold" style={{ color: celebration.color }}>{celebration.level}</div>
-            <div className="text-white/30 text-sm mt-2">Keep pushing — greatness is earned</div>
+            <div className="text-white/60 text-sm mt-2">Keep pushing — greatness is earned</div>
           </div>
         </div>
       )}
@@ -1225,27 +1225,27 @@ export default function AthletePortal() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={logout} className="text-white/30 hover:text-white/60 text-sm transition-colors">{isCoach ? "← Switch" : "Sign Out"}</button>
+          <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors">{isCoach ? "← Switch" : "Sign Out"}</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
               <span style={{ color: level.color }} className="text-sm font-bold">{level.icon} {level.name}</span>
-              <span className="text-white/15 text-xs">·</span>
-              <span className="text-white/30 text-xs">{athlete.group.toUpperCase()}</span>
+              <span className="text-white/50 text-xs">·</span>
+              <span className="text-white/60 text-xs">{athlete.group.toUpperCase()}</span>
             </div>
             <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-white/20 text-[10px] font-mono">Age {athlete.age}</span>
+              <span className="text-white/50 text-sm font-mono">Age {athlete.age}</span>
               {athlete.usaSwimmingId && (
                 <>
-                  <span className="text-white/10 text-[10px]">·</span>
-                  <span className="text-[#00f0ff]/40 text-[10px] font-mono">USA-S {athlete.usaSwimmingId}</span>
+                  <span className="text-white/40 text-sm">·</span>
+                  <span className="text-[#00f0ff]/90 text-sm font-mono">USA-S {athlete.usaSwimmingId}</span>
                 </>
               )}
             </div>
           </div>
           {/* AM/PM Toggle */}
           <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
+            className={`px-3 py-1.5 rounded-lg text-sm font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
               sessionTime === "am"
                 ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
                 : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
@@ -1274,16 +1274,16 @@ export default function AthletePortal() {
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
             <div className="text-xl font-black text-white">{athlete.streak}</div>
-            <div className="text-[9px] font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
-            <div className="text-white/15 text-[9px]">{streak.mult}</div>
+            <div className="text-sm font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
+            <div className="text-white/50 text-sm">{streak.mult}</div>
           </div>
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
             <div className="text-xl font-black text-white">{athlete.totalPractices}</div>
-            <div className="text-white/25 text-[9px] font-mono tracking-wider">PRACTICES</div>
+            <div className="text-white/60 text-sm font-mono tracking-wider">PRACTICES</div>
           </div>
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
             <div className="text-xl font-black text-white">{athlete.weekSessions}/{athlete.weekTarget}</div>
-            <div className="text-white/25 text-[9px] font-mono tracking-wider">THIS WEEK</div>
+            <div className="text-white/60 text-sm font-mono tracking-wider">THIS WEEK</div>
           </div>
         </div>
 
@@ -1293,8 +1293,8 @@ export default function AthletePortal() {
             <div key={ri} className="grid grid-cols-5 gap-0.5">
               {row.map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`flex flex-col items-center gap-0.5 py-2 text-[9px] font-bold rounded-lg transition-all relative ${
-                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"
+                  className={`flex flex-col items-center gap-0.5 py-2 text-xs font-bold rounded-lg transition-all relative ${
+                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/50 hover:text-white/70"
                   }`}>
                   {t.icon(tab === t.key)}
                   <span>{t.label}</span>
@@ -1318,7 +1318,7 @@ export default function AthletePortal() {
               <div className="grid grid-cols-5 gap-1 mt-3">
                 {ATTRIBUTES.map(a => (
                   <div key={a.key} className="text-center">
-                    <div className="text-[10px] text-white/30">{a.label}</div>
+                    <div className="text-sm text-white/60">{a.label}</div>
                     <div className="text-xs font-bold" style={{ color: a.color }}>{attrs[a.key as keyof typeof attrs]}</div>
                   </div>
                 ))}
@@ -1330,19 +1330,19 @@ export default function AthletePortal() {
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
                   <div className="text-lg font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
-                  <div className="text-[10px] text-white/30">Pool</div>
+                  <div className="text-sm text-white/60">Pool</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-[#f59e0b]">{athlete.dailyXP?.weight || 0}</div>
-                  <div className="text-[10px] text-white/30">Weight</div>
+                  <div className="text-sm text-white/60">Weight</div>
                 </div>
                 <div className="text-center">
                   <div className="text-lg font-bold text-[#ef4444]">{athlete.dailyXP?.meet || 0}</div>
-                  <div className="text-[10px] text-white/30">Meet</div>
+                  <div className="text-sm text-white/60">Meet</div>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-white/5 text-center">
-                <span className="text-white/20 text-xs">Streak multiplier: </span>
+                <span className="text-white/50 text-xs">Streak multiplier: </span>
                 <span className="text-[#a855f7] text-sm font-bold">{streakMult}x</span>
               </div>
             </div>
@@ -1352,7 +1352,7 @@ export default function AthletePortal() {
                 <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">IRON DISCIPLINE</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-black text-[#f59e0b]">{athlete.weightStreak}</span>
-                  <span className="text-white/30 text-xs">sessions · {athlete.weekWeightSessions} this week</span>
+                  <span className="text-white/60 text-xs">sessions · {athlete.weekWeightSessions} this week</span>
                 </div>
               </div>
             )}
@@ -1362,7 +1362,7 @@ export default function AthletePortal() {
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">YOUR CONSISTENCY — LAST 28 DAYS</h3>
               <div className="grid grid-cols-7 gap-1.5">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
-                  <div key={i} className="text-center text-white/15 text-[8px] font-mono">{d}</div>
+                  <div key={i} className="text-center text-white/50 text-[8px] font-mono">{d}</div>
                 ))}
                 {(() => {
                   const days = [];
@@ -1387,12 +1387,12 @@ export default function AthletePortal() {
                   return days.map((d, i) => {
                     if (!d) return <div key={`pad-${i}`} />;
                     return (
-                      <div key={d.date} className={`aspect-square rounded-md flex items-center justify-center text-[9px] font-mono transition-all ${
+                      <div key={d.date} className={`aspect-square rounded-md flex items-center justify-center text-sm font-mono transition-all ${
                         d.isToday ? "ring-1 ring-[#a855f7]/40" : ""
                       } ${
                         d.active
                           ? "bg-[#a855f7]/30 text-[#a855f7] border border-[#a855f7]/20"
-                          : "bg-white/[0.02] text-white/10 border border-white/[0.03]"
+                          : "bg-white/[0.02] text-white/40 border border-white/[0.03]"
                       }`}>
                         {d.day}
                       </div>
@@ -1400,9 +1400,9 @@ export default function AthletePortal() {
                   });
                 })()}
               </div>
-              <div className="flex items-center justify-center gap-4 mt-3 text-[9px] font-mono">
+              <div className="flex items-center justify-center gap-4 mt-3 text-sm font-mono">
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#a855f7]/30 border border-[#a855f7]/20" /> Active</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white/[0.02] border border-white/[0.03]" /> <span className="text-white/15">Rest</span></span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white/[0.02] border border-white/[0.03]" /> <span className="text-white/50">Rest</span></span>
               </div>
             </div>
           </div>
@@ -1429,17 +1429,17 @@ export default function AthletePortal() {
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <input type="text" placeholder="Time (M:SS.hh)" value={newTime.time}
                   onChange={e => setNewTime(p => ({ ...p, time: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/30" />
+                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30" />
                 <button onClick={() => setNewTime(p => ({ ...p, meet: !p.meet }))}
                   className={`rounded-lg px-3 py-2.5 text-sm font-bold border transition-all ${
-                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/30 border-white/10"
+                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/60 border-white/10"
                   }`}>
                   {newTime.meet ? "MEET TIME" : "PRACTICE"}
                 </button>
               </div>
               <input type="text" placeholder="Notes (optional)" value={newTime.notes}
                 onChange={e => setNewTime(p => ({ ...p, notes: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
               <button onClick={saveTime} disabled={!newTime.time}
                 className="w-full py-2.5 rounded-lg bg-[#00f0ff]/15 border border-[#00f0ff]/25 text-[#00f0ff] text-sm font-bold disabled:opacity-30 hover:bg-[#00f0ff]/25 transition-all">
                 Save Time
@@ -1459,7 +1459,7 @@ export default function AthletePortal() {
                       </div>
                       <div className="text-right">
                         <span className="text-[#00f0ff] font-mono font-bold">{pr.time}</span>
-                        <span className="text-white/20 text-[10px] block">{pr.date}</span>
+                        <span className="text-white/50 text-sm block">{pr.date}</span>
                       </div>
                     </div>
                   ))}
@@ -1480,11 +1480,11 @@ export default function AthletePortal() {
                           <span className="text-white/60 text-xs">{t.event}m {t.stroke}</span>
                           {isPR && <span className="text-[7px] px-1 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] font-black">PR</span>}
                           {t.meet && <span className="text-[7px] px-1 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
-                          <span className="text-white/15 text-[9px]">{t.session.toUpperCase()}</span>
+                          <span className="text-white/50 text-sm">{t.session.toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-white font-mono text-sm">{t.time}</span>
-                          <span className="text-white/15 text-[9px]">{t.date}</span>
+                          <span className="text-white/50 text-sm">{t.date}</span>
                         </div>
                       </div>
                     );
@@ -1494,7 +1494,7 @@ export default function AthletePortal() {
             )}
 
             {times.length === 0 && (
-              <div className="text-center py-10 text-white/15 text-sm">
+              <div className="text-center py-10 text-white/50 text-sm">
                 No times logged yet. Add your first time above.
               </div>
             )}
@@ -1518,7 +1518,7 @@ export default function AthletePortal() {
                     const courseEvents = EVENTS_BY_COURSE[c];
                     if (!courseEvents.includes(goalEvent)) setGoalEvent(courseEvents[1] || courseEvents[0]);
                   }}
-                    className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${goalCourse === c ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30" : "text-white/30 hover:text-white/50"}`}>
+                    className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${goalCourse === c ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30" : "text-white/60 hover:text-white/50"}`}>
                     <div>{c}</div>
                     <div className="text-[8px] font-normal mt-0.5 opacity-60">{c === "SCY" ? "25yd" : c === "SCM" ? "25m" : "50m"}</div>
                   </button>
@@ -1549,18 +1549,18 @@ export default function AthletePortal() {
                     {/* Your PR */}
                     <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
                       <div className="flex items-center justify-between">
-                        <span className="text-white/30 text-[10px] font-mono">YOUR BEST</span>
+                        <span className="text-white/60 text-sm font-mono">YOUR BEST</span>
                         {pr ? (
                           <div className="flex items-center gap-2">
                             <span className="text-[#00f0ff] font-mono font-bold text-lg">{pr.time}</span>
                             {currentLevel && (
-                              <span className="text-[10px] px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[currentLevel]}15`, color: STANDARD_COLORS[currentLevel], border: `1px solid ${STANDARD_COLORS[currentLevel]}30` }}>
+                              <span className="text-sm px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[currentLevel]}15`, color: STANDARD_COLORS[currentLevel], border: `1px solid ${STANDARD_COLORS[currentLevel]}30` }}>
                                 {currentLevel}
                               </span>
                             )}
                           </div>
                         ) : (
-                          <span className="text-white/15 text-sm">No PR logged</span>
+                          <span className="text-white/50 text-sm">No PR logged</span>
                         )}
                       </div>
                     </div>
@@ -1568,7 +1568,7 @@ export default function AthletePortal() {
                     {/* USA Swimming Standards grid */}
                     {stds && (
                       <div>
-                        <h4 className="text-white/30 text-[10px] font-mono tracking-wider mb-2">USA SWIMMING {goalCourse} ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
+                        <h4 className="text-white/60 text-sm font-mono tracking-wider mb-2">USA SWIMMING {goalCourse} ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
                         <div className="grid grid-cols-3 gap-1.5">
                           {(["B", "BB", "A", "AA", "AAA", "AAAA"] as StandardLevel[]).map(lv => {
                             const cutTime = stds[lv];
@@ -1590,7 +1590,7 @@ export default function AthletePortal() {
                                   isNext ? "bg-white/5 border-2" : "bg-white/[0.02] border-white/5"
                                 }`}
                                 style={isNext ? { borderColor: STANDARD_COLORS[lv] + "60" } : {}}>
-                                <div className="text-[10px] font-black" style={{ color: STANDARD_COLORS[lv] }}>{lv}</div>
+                                <div className="text-sm font-black" style={{ color: STANDARD_COLORS[lv] }}>{lv}</div>
                                 <div className={`font-mono text-sm ${achieved ? "text-emerald-400 line-through" : "text-white"}`}>{cutTime}</div>
                                 {achieved && <div className="text-emerald-400 text-[8px]">ACHIEVED</div>}
                                 {isNext && <div className="text-[8px] font-bold" style={{ color: STANDARD_COLORS[lv] }}>NEXT</div>}
@@ -1598,7 +1598,7 @@ export default function AthletePortal() {
                             );
                           })}
                         </div>
-                        <p className="text-white/10 text-[9px] text-center mt-2">Tap a standard to set it as your goal</p>
+                        <p className="text-white/40 text-sm text-center mt-2">Tap a standard to set it as your goal</p>
                       </div>
                     )}
 
@@ -1623,18 +1623,18 @@ export default function AthletePortal() {
                               <span className="text-xs font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>
                                 TARGET: {activeGoal.targetLevel} CUT
                               </span>
-                              <span className="text-white/30 text-[10px]">{goalEvent}m {goalStroke}</span>
+                              <span className="text-white/60 text-sm">{goalEvent}m {goalStroke}</span>
                             </div>
                             <div className="flex items-center gap-3 mb-3">
                               <div className="text-center">
-                                <div className="text-white/30 text-[9px]">NOW</div>
+                                <div className="text-white/60 text-sm">NOW</div>
                                 <div className="text-[#00f0ff] font-mono font-bold">{pr?.time}</div>
                               </div>
                               <div className="flex-1">
                                 <svg viewBox="0 0 100 8" className="w-full h-2"><rect x="0" y="2" width="100" height="4" rx="2" fill="rgba(255,255,255,0.05)"/><rect x="0" y="2" width={progressPct} height="4" rx="2" fill={STANDARD_COLORS[activeGoal.targetLevel]}/></svg>
                               </div>
                               <div className="text-center">
-                                <div className="text-[9px]" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>GOAL</div>
+                                <div className="text-sm" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>GOAL</div>
                                 <div className="font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>{activeGoal.targetTime}</div>
                               </div>
                             </div>
@@ -1651,17 +1651,17 @@ export default function AthletePortal() {
 
                           {/* Pace breakdown */}
                           <div className="p-3 rounded-lg bg-white/[0.02] border border-white/5">
-                            <h4 className="text-white/30 text-[10px] font-mono mb-2">PACE PER 50</h4>
+                            <h4 className="text-white/60 text-sm font-mono mb-2">PACE PER 50</h4>
                             <div className="flex items-center justify-between">
-                              <div><span className="text-white/20 text-[9px]">Current</span><div className="text-white font-mono">{currentPace}</div></div>
+                              <div><span className="text-white/50 text-sm">Current</span><div className="text-white font-mono">{currentPace}</div></div>
                               <svg width="20" height="10" viewBox="0 0 20 10"><path d="M2 5h14M12 1l4 4-4 4" stroke="rgba(255,255,255,0.15)" strokeWidth="1.5" fill="none"/></svg>
-                              <div className="text-right"><span className="text-[9px]" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>Target</span><div className="font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>{targetPace}</div></div>
+                              <div className="text-right"><span className="text-sm" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>Target</span><div className="font-mono font-bold" style={{ color: STANDARD_COLORS[activeGoal.targetLevel] }}>{targetPace}</div></div>
                             </div>
                           </div>
 
                           {/* Daily micro-goals */}
                           <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
-                            <h4 className="text-[#f59e0b] text-[10px] font-mono tracking-wider mb-3">TODAY&apos;S FOCUS</h4>
+                            <h4 className="text-[#f59e0b] text-sm font-mono tracking-wider mb-3">TODAY&apos;S FOCUS</h4>
                             <div className="space-y-2">
                               {dailyGoals.map((goal, i) => (
                                 <div key={i} className="flex items-start gap-2.5 p-2 rounded-lg bg-white/[0.02]">
@@ -1676,7 +1676,7 @@ export default function AthletePortal() {
                     })()}
 
                     {!stds && (
-                      <div className="text-center py-6 text-white/15 text-sm">
+                      <div className="text-center py-6 text-white/50 text-sm">
                         No USA Swimming standards available for {goalEvent}m {goalStroke}
                       </div>
                     )}
@@ -1700,11 +1700,11 @@ export default function AthletePortal() {
                         className={`w-full p-3 rounded-lg border text-left transition-all ${achieved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/[0.02] border-white/5 hover:border-white/10"}`}>
                         <div className="flex items-center justify-between">
                           <span className="text-white text-sm font-bold">{g.event}m {g.stroke}</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[g.targetLevel]}15`, color: STANDARD_COLORS[g.targetLevel] }}>
+                          <span className="text-sm px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[g.targetLevel]}15`, color: STANDARD_COLORS[g.targetLevel] }}>
                             {achieved ? "ACHIEVED" : g.targetLevel}
                           </span>
                         </div>
-                        <div className="text-white/30 text-xs mt-1">
+                        <div className="text-white/60 text-xs mt-1">
                           {pr ? `${pr.time} → ${g.targetTime}` : `Target: ${g.targetTime}`}
                         </div>
                       </button>
@@ -1723,7 +1723,7 @@ export default function AthletePortal() {
               <h3 className="text-[#ef4444] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
                 <TargetIcon active={true} /> RACE STRATEGY BUILDER
               </h3>
-              <p className="text-white/20 text-[10px] mb-4">Plan your race. Visualize every split. Race with confidence.</p>
+              <p className="text-white/50 text-sm mb-4">Plan your race. Visualize every split. Race with confidence.</p>
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <select value={rpEvent} onChange={e => setRpEvent(e.target.value)}
@@ -1737,16 +1737,16 @@ export default function AthletePortal() {
               </div>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
-                  <label className="text-white/25 text-[9px] font-mono block mb-1">CURRENT BEST</label>
+                  <label className="text-white/60 text-sm font-mono block mb-1">CURRENT BEST</label>
                   <input type="text" placeholder="1:05.30" value={rpCurrent}
                     onChange={e => setRpCurrent(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#ef4444]/30" />
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
                 </div>
                 <div>
-                  <label className="text-white/25 text-[9px] font-mono block mb-1">GOAL TIME</label>
+                  <label className="text-white/60 text-sm font-mono block mb-1">GOAL TIME</label>
                   <input type="text" placeholder="1:02.00" value={rpGoal}
                     onChange={e => setRpGoal(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#ef4444]/30" />
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
                 </div>
               </div>
               <button onClick={generateRacePrep} disabled={!rpCurrent || !rpGoal}
@@ -1764,7 +1764,7 @@ export default function AthletePortal() {
                 </div>
                 <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/15 mb-4">
                   <div className="text-emerald-400 text-sm font-bold">{rpResult.currentTime} → {rpResult.goalTime}</div>
-                  <div className="text-white/30 text-[10px]">You&apos;ve got this. Visualize every split.</div>
+                  <div className="text-white/60 text-sm">You&apos;ve got this. Visualize every split.</div>
                 </div>
 
                 <div className="space-y-1.5 mb-4">
@@ -1772,13 +1772,13 @@ export default function AthletePortal() {
                     <div key={i} className="grid grid-cols-4 gap-2 items-center py-2 px-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04] text-xs">
                       <span className="text-[#00f0ff] font-mono font-bold">{sp.segment}</span>
                       <span className="text-white font-bold">{sp.time}</span>
-                      <span className="text-white/30 font-mono">{sp.pace}</span>
-                      <span className="text-white/40 text-[10px]">{sp.focus}</span>
+                      <span className="text-white/60 font-mono">{sp.pace}</span>
+                      <span className="text-white/40 text-sm">{sp.focus}</span>
                     </div>
                   ))}
                 </div>
 
-                <h4 className="text-[#f59e0b] text-[10px] font-mono tracking-wider mb-2">RACE TIPS</h4>
+                <h4 className="text-[#f59e0b] text-sm font-mono tracking-wider mb-2">RACE TIPS</h4>
                 <div className="space-y-2">
                   {rpResult.tips.map((tip, i) => (
                     <div key={i} className="flex items-start gap-2 text-xs">
@@ -1800,9 +1800,9 @@ export default function AthletePortal() {
                       className="w-full p-3 rounded-lg bg-white/[0.02] border border-white/5 text-left hover:border-[#ef4444]/20 transition-all">
                       <div className="flex items-center justify-between">
                         <span className="text-white text-sm font-bold">{rp.event}m {rp.stroke}</span>
-                        <span className="text-white/20 text-[10px]">{rp.date}</span>
+                        <span className="text-white/50 text-sm">{rp.date}</span>
                       </div>
-                      <div className="text-white/30 text-xs mt-1">{rp.currentTime} → {rp.goalTime} ({rp.improvement}% drop)</div>
+                      <div className="text-white/60 text-xs mt-1">{rp.currentTime} → {rp.goalTime} ({rp.improvement}% drop)</div>
                     </button>
                   ))}
                 </div>
@@ -1823,13 +1823,13 @@ export default function AthletePortal() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-white font-semibold text-sm">{q.name}</span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${CAT_COLORS[q.cat] || ""}`}>{q.cat}</span>
+                        <span className={`text-sm px-1.5 py-0.5 rounded-full border ${CAT_COLORS[q.cat] || ""}`}>{q.cat}</span>
                       </div>
-                      <p className="text-white/25 text-xs">{q.desc}</p>
+                      <p className="text-white/60 text-xs">{q.desc}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="text-[#f59e0b] text-sm font-bold">+{q.xp}</div>
-                      <div className={`text-[10px] font-mono ${status === "done" ? "text-emerald-400" : status === "active" ? "text-[#a855f7]" : "text-white/20"}`}>
+                      <div className={`text-sm font-mono ${status === "done" ? "text-emerald-400" : status === "active" ? "text-[#a855f7]" : "text-white/50"}`}>
                         {status === "done" ? "COMPLETE" : status === "active" ? "ACTIVE" : "LOCKED"}
                       </div>
                     </div>
@@ -1837,7 +1837,7 @@ export default function AthletePortal() {
                 </div>
               );
             })}
-            <p className="text-white/15 text-[10px] text-center mt-4">Quests are assigned and approved by your coach</p>
+            <p className="text-white/50 text-sm text-center mt-4">Quests are assigned and approved by your coach</p>
           </div>
         )}
 
@@ -1858,21 +1858,21 @@ export default function AthletePortal() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-white/30 text-[10px] font-mono block mb-1">WINS TODAY</label>
+                  <label className="text-white/60 text-sm font-mono block mb-1">WINS TODAY</label>
                   <textarea value={journalDraft.wentWell} onChange={e => setJournalDraft(d => ({ ...d, wentWell: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="I nailed my flip turns today..." />
                 </div>
                 <div>
-                  <label className="text-white/30 text-[10px] font-mono block mb-1">WHAT I&apos;LL WORK ON</label>
+                  <label className="text-white/60 text-sm font-mono block mb-1">WHAT I&apos;LL WORK ON</label>
                   <textarea value={journalDraft.workOn} onChange={e => setJournalDraft(d => ({ ...d, workOn: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="Need to focus on breathing pattern..." />
                 </div>
                 <div>
-                  <label className="text-white/30 text-[10px] font-mono block mb-1">MY GOALS</label>
+                  <label className="text-white/60 text-sm font-mono block mb-1">MY GOALS</label>
                   <textarea value={journalDraft.goals} onChange={e => setJournalDraft(d => ({ ...d, goals: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="Drop 2 seconds on my 100 free..." />
                 </div>
                 <button onClick={saveJournalEntry}
@@ -1885,16 +1885,16 @@ export default function AthletePortal() {
 
             {journal.length > 0 && (
               <div className="space-y-2">
-                <h3 className="text-white/30 text-xs font-mono">PAST ENTRIES</h3>
+                <h3 className="text-white/60 text-xs font-mono">PAST ENTRIES</h3>
                 {journal.slice(0, 7).map((j, i) => (
                   <div key={i} className="p-3 rounded-lg bg-[#0a0518]/50 border border-white/5">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-white/40 text-[10px] font-mono">{j.date}</span>
+                      <span className="text-white/40 text-sm font-mono">{j.date}</span>
                       <span className="text-sm">{j.mood === 1 ? "😞" : j.mood === 2 ? "😤" : j.mood === 3 ? "😐" : j.mood === 4 ? "😊" : "🔥"}</span>
                     </div>
-                    {j.wentWell && <p className="text-white/30 text-xs"><span className="text-emerald-400/60">✓</span> {j.wentWell}</p>}
-                    {j.workOn && <p className="text-white/30 text-xs"><span className="text-[#f59e0b]/60">→</span> {j.workOn}</p>}
-                    {j.goals && <p className="text-white/30 text-xs"><span className="text-[#a855f7]/60">★</span> {j.goals}</p>}
+                    {j.wentWell && <p className="text-white/60 text-sm"><span className="text-emerald-400/80">✓</span> {j.wentWell}</p>}
+                    {j.workOn && <p className="text-white/60 text-sm"><span className="text-[#f59e0b]/80">→</span> {j.workOn}</p>}
+                    {j.goals && <p className="text-white/60 text-sm"><span className="text-[#a855f7]/80">★</span> {j.goals}</p>}
                   </div>
                 ))}
               </div>
@@ -1914,8 +1914,8 @@ export default function AthletePortal() {
                 <svg className="w-12 h-12 mx-auto mb-3 opacity-10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5">
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
-                <p className="text-white/20 text-sm">No feedback yet</p>
-                <p className="text-white/10 text-[10px] mt-1">Your coach will send feedback after practices and meets</p>
+                <p className="text-white/50 text-sm">No feedback yet</p>
+                <p className="text-white/40 text-sm mt-1">Your coach will send feedback after practices and meets</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -1938,13 +1938,13 @@ export default function AthletePortal() {
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
                           <span className={`text-xs ${style.labelColor}`}>{style.icon}</span>
-                          <span className={`text-[9px] font-mono font-bold tracking-wider ${style.labelColor}`}>{style.label}</span>
+                          <span className={`text-sm font-mono font-bold tracking-wider ${style.labelColor}`}>{style.label}</span>
                           {!f.read && <span className="w-1.5 h-1.5 rounded-full bg-[#a855f7] animate-pulse" />}
                         </div>
-                        <span className="text-white/15 text-[9px]">{f.date}</span>
+                        <span className="text-white/50 text-sm">{f.date}</span>
                       </div>
                       <p className="text-white/60 text-sm">{f.message}</p>
-                      <p className="text-white/20 text-[9px] mt-1.5">— {f.from}</p>
+                      <p className="text-white/50 text-sm mt-1.5">— {f.from}</p>
                     </div>
                   );
                 })}
@@ -1958,7 +1958,7 @@ export default function AthletePortal() {
           <div className="space-y-2">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">{athlete.gender === "F" ? "GIRLS" : "BOYS"} LEADERBOARD</h3>
-              <span className="text-white/20 text-[10px] font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
+              <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
             </div>
             {leaderboard.map((a, i) => {
               const lv = getLevel(a.xp);
@@ -1970,19 +1970,19 @@ export default function AthletePortal() {
                     isMe ? "bg-[#a855f7]/15 border-[#a855f7]/30 shadow-[0_0_20px_rgba(168,85,247,0.15)] ring-1 ring-[#a855f7]/20" : "bg-[#0a0518]/50 border-white/5"
                   }`}>
                   <div className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-black ${
-                    rank === 1 ? "bg-[#f59e0b]/20 text-[#f59e0b]" : rank === 2 ? "bg-white/10 text-white/50" : rank === 3 ? "bg-[#cd7f32]/20 text-[#cd7f32]" : "bg-white/5 text-white/20"
+                    rank === 1 ? "bg-[#f59e0b]/20 text-[#f59e0b]" : rank === 2 ? "bg-white/10 text-white/50" : rank === 3 ? "bg-[#cd7f32]/20 text-[#cd7f32]" : "bg-white/5 text-white/50"
                   }`}>
                     {rank}
                   </div>
                   <div className="flex-1 min-w-0">
                     <span className={`text-sm font-semibold truncate block ${isMe ? "text-white" : "text-white/60"}`}>
-                      {a.name} {isMe && <span className="text-[#a855f7] text-[10px] ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25 animate-pulse">YOU</span>}
+                      {a.name} {isMe && <span className="text-[#a855f7] text-sm ml-1 px-1.5 py-0.5 rounded bg-[#a855f7]/15 border border-[#a855f7]/25 animate-pulse">YOU</span>}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
                     <span className="text-white/40 text-xs font-mono">{a.xp} XP</span>
-                    {a.streak >= 3 && <span className="text-[10px] text-[#ef4444]">{a.streak}d</span>}
+                    {a.streak >= 3 && <span className="text-sm text-[#ef4444]">{a.streak}d</span>}
                   </div>
                 </div>
               );
@@ -2006,7 +2006,7 @@ export default function AthletePortal() {
                 ].map(metric => (
                   <div key={metric.key}>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-white/40 text-[10px] font-mono tracking-wider">{metric.label}</span>
+                      <span className="text-white/40 text-sm font-mono tracking-wider">{metric.label}</span>
                       <span className="text-lg">{metric.emoji[wellnessCheckin[metric.key] - 1]}</span>
                     </div>
                     <div className="flex gap-1">
@@ -2015,7 +2015,7 @@ export default function AthletePortal() {
                           className={`flex-1 h-8 rounded-lg text-xs font-bold transition-all ${
                             wellnessCheckin[metric.key] >= v
                               ? "bg-emerald-500/30 text-emerald-300 border border-emerald-500/30"
-                              : "bg-white/5 text-white/20 border border-white/5"
+                              : "bg-white/5 text-white/50 border border-white/5"
                           }`}>
                           {v}
                         </button>
@@ -2028,11 +2028,11 @@ export default function AthletePortal() {
                   const readiness = Math.round(avg * 20);
                   return (
                     <div className="mt-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-center">
-                      <span className="text-white/40 text-[10px] font-mono tracking-wider">READINESS SCORE</span>
+                      <span className="text-white/40 text-sm font-mono tracking-wider">READINESS SCORE</span>
                       <div className={`text-3xl font-black mt-1 ${readiness >= 80 ? "text-emerald-400" : readiness >= 60 ? "text-amber-400" : "text-red-400"}`}>
                         {readiness}%
                       </div>
-                      <span className="text-white/25 text-[10px]">
+                      <span className="text-white/60 text-sm">
                         {readiness >= 80 ? "LOCKED IN — go all out today" : readiness >= 60 ? "SOLID — focus on technique" : "LOW BATTERY — listen to your body"}
                       </span>
                     </div>
@@ -2044,7 +2044,7 @@ export default function AthletePortal() {
             {/* Breathwork Timer */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-cyan-500/10">
               <h3 className="text-cyan-400/70 text-xs font-mono tracking-wider mb-3">BOX BREATHING</h3>
-              <p className="text-white/25 text-[10px] mb-3">4 seconds in · 4 hold · 4 out · 4 hold. Calms your nervous system before races.</p>
+              <p className="text-white/60 text-sm mb-3">4 seconds in · 4 hold · 4 out · 4 hold. Calms your nervous system before races.</p>
               <div className="flex flex-col items-center">
                 <div className={`w-28 h-28 rounded-full flex items-center justify-center border-2 transition-all duration-1000 ${
                   breathPhase === "idle" ? "border-white/10" :
@@ -2054,8 +2054,8 @@ export default function AthletePortal() {
                 }`}>
                   <div className="text-center">
                     <div className="text-2xl font-black text-white">{breathPhase === "idle" ? "—" : breathTimer}</div>
-                    <div className={`text-[10px] font-mono tracking-wider mt-1 ${
-                      breathPhase === "idle" ? "text-white/30" :
+                    <div className={`text-sm font-mono tracking-wider mt-1 ${
+                      breathPhase === "idle" ? "text-white/60" :
                       breathPhase === "inhale" ? "text-cyan-400" :
                       breathPhase === "hold" ? "text-amber-400" :
                       "text-indigo-400"
@@ -2099,7 +2099,7 @@ export default function AthletePortal() {
                     </button>
                   )}
                 </div>
-                {breathCount > 0 && <span className="text-white/20 text-[10px] mt-2">{breathCount} cycles completed</span>}
+                {breathCount > 0 && <span className="text-white/50 text-sm mt-2">{breathCount} cycles completed</span>}
               </div>
             </div>
 
@@ -2125,17 +2125,17 @@ export default function AthletePortal() {
                           <span className="text-lg">{med.icon}</span>
                           <div>
                             <span className="text-white/80 text-sm font-semibold block">{med.title}</span>
-                            <span className="text-white/25 text-[10px]">{med.desc}</span>
+                            <span className="text-white/60 text-sm">{med.desc}</span>
                           </div>
                         </div>
-                        <span className="text-white/20 text-[10px] font-mono">{med.duration}</span>
+                        <span className="text-white/50 text-sm font-mono">{med.duration}</span>
                       </div>
                     </button>
                     {activeMeditation === med.id && (
                       <div className="mt-2 ml-4 space-y-2 animate-[fadeIn_0.3s_ease-out]">
                         {med.steps.map((step, i) => (
                           <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-violet-500/5">
-                            <span className="text-violet-400/40 text-xs font-mono w-4 shrink-0">{i + 1}</span>
+                            <span className="text-violet-400/70 text-xs font-mono w-4 shrink-0">{i + 1}</span>
                             <span className="text-white/50 text-sm leading-relaxed">{step}</span>
                           </div>
                         ))}
@@ -2162,8 +2162,8 @@ export default function AthletePortal() {
               {allUpcoming.length === 0 ? (
                 <div className="p-8 rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
                   <MeetsIcon active={false} />
-                  <p className="text-white/30 text-sm mt-3">No upcoming meets yet</p>
-                  <p className="text-white/15 text-xs mt-1">Your coach will add you to meets as they come up</p>
+                  <p className="text-white/60 text-sm mt-3">No upcoming meets yet</p>
+                  <p className="text-white/50 text-xs mt-1">Your coach will add you to meets as they come up</p>
                 </div>
               ) : (
                 allUpcoming.map(meet => {
@@ -2182,16 +2182,16 @@ export default function AthletePortal() {
                           <h4 className="text-white font-bold text-lg">{meet.name}</h4>
                           <div className="flex items-center gap-3 mt-1">
                             <span className="text-white/40 text-xs">{meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-                            <span className="text-white/20">·</span>
+                            <span className="text-white/50">·</span>
                             <span className="text-white/40 text-xs">{meet.location}</span>
-                            <span className="text-white/20">·</span>
-                            <span className="text-[#00f0ff]/60 text-xs font-mono">{meet.course}</span>
+                            <span className="text-white/50">·</span>
+                            <span className="text-[#00f0ff]/80 text-xs font-mono">{meet.course}</span>
                           </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+                        <div className={`px-3 py-1 rounded-full text-sm font-bold ${
                           daysUntil <= 3 ? "bg-red-500/15 text-red-400 border border-red-500/20" :
                           daysUntil <= 7 ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
-                          "bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20"
+                          "bg-[#00f0ff]/10 text-[#00f0ff]/90 border border-[#00f0ff]/20"
                         }`}>
                           {daysUntil <= 0 ? "TODAY" : daysUntil === 1 ? "TOMORROW" : `${daysUntil} DAYS`}
                         </div>
@@ -2200,7 +2200,7 @@ export default function AthletePortal() {
                       {/* My events */}
                       {myEvents.length > 0 && (
                         <div className="mb-3">
-                          <span className="text-white/30 text-[10px] font-mono tracking-wider block mb-2">YOUR EVENTS</span>
+                          <span className="text-white/60 text-sm font-mono tracking-wider block mb-2">YOUR EVENTS</span>
                           <div className="space-y-1.5">
                             {myEvents.map(ev => {
                               const myEntry = ev.entries?.find(en => en.athleteId === athlete.id);
@@ -2208,7 +2208,7 @@ export default function AthletePortal() {
                                 <div key={ev.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                                   <span className="text-white/70 text-sm font-medium">{ev.name}</span>
                                   {myEntry?.seedTime && (
-                                    <span className="text-[#00f0ff]/60 text-xs font-mono">{myEntry.seedTime}</span>
+                                    <span className="text-[#00f0ff]/80 text-xs font-mono">{myEntry.seedTime}</span>
                                   )}
                                 </div>
                               );
@@ -2219,8 +2219,8 @@ export default function AthletePortal() {
 
                       {/* RSVP status */}
                       <div className="flex items-center gap-2 pt-2 border-t border-white/5">
-                        <span className="text-white/25 text-[10px] font-mono">RSVP:</span>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        <span className="text-white/60 text-sm font-mono">RSVP:</span>
+                        <span className={`px-2 py-0.5 rounded text-sm font-bold ${
                           myRsvp === "committed" ? "bg-emerald-500/15 text-emerald-400" :
                           myRsvp === "declined" ? "bg-red-500/15 text-red-400" :
                           "bg-amber-500/15 text-amber-400"
@@ -2228,18 +2228,18 @@ export default function AthletePortal() {
                           {myRsvp === "committed" ? "COMMITTED" : myRsvp === "declined" ? "DECLINED" : "PENDING"}
                         </span>
                         {rsvpDeadline && !rsvpExpired && myRsvp === "pending" && (
-                          <span className="text-white/20 text-[10px]">Deadline: {rsvpDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                          <span className="text-white/50 text-sm">Deadline: {rsvpDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                         )}
                       </div>
 
                       {/* Broadcasts */}
                       {meet.broadcasts && meet.broadcasts.length > 0 && (
                         <div className="mt-3 pt-3 border-t border-white/5">
-                          <span className="text-white/25 text-[10px] font-mono tracking-wider block mb-2">COACH UPDATES</span>
+                          <span className="text-white/60 text-sm font-mono tracking-wider block mb-2">COACH UPDATES</span>
                           {meet.broadcasts.slice(-2).map(b => (
                             <div key={b.id} className="p-2 rounded-lg bg-[#00f0ff]/5 border border-[#00f0ff]/10 mb-1.5">
                               <p className="text-white/50 text-sm">{b.message}</p>
-                              <span className="text-white/15 text-[9px]">{new Date(b.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                              <span className="text-white/50 text-sm">{new Date(b.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                             </div>
                           ))}
                         </div>
@@ -2253,7 +2253,7 @@ export default function AthletePortal() {
         })()}
 
         {/* Footer */}
-        <div className="text-center mt-10 text-white/[0.06] text-[10px] space-y-1">
+        <div className="text-center mt-10 text-white/[0.06] text-sm space-y-1">
           <p>Apex Athlete — Athlete Portal</p>
           <p>Every rep counts · Every streak matters · Keep leveling up</p>
         </div>
