@@ -166,6 +166,132 @@ interface WellnessData {
   recoveryLogs: RecoveryLog[];
 }
 
+// ── meet entry types ────────────────────────────────────────
+
+interface MeetEventEntry {
+  athleteId: string;
+  seedTime: string;
+}
+
+interface MeetEvent {
+  id: string;
+  name: string;
+  entries: MeetEventEntry[];
+}
+
+interface MeetBroadcast {
+  id: string;
+  message: string;
+  timestamp: number;
+  sentBy: string;
+}
+
+interface SwimMeet {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  course: "SCY" | "SCM" | "LCM";
+  rsvpDeadline: string;
+  events: MeetEvent[];
+  rsvps: Record<string, "committed" | "declined" | "pending">;
+  broadcasts: MeetBroadcast[];
+  status: "upcoming" | "active" | "completed";
+}
+
+// ── standard swim events ────────────────────────────────────
+
+const STANDARD_SWIM_EVENTS: { name: string; courses: ("SCY" | "SCM" | "LCM")[] }[] = [
+  { name: "50 Free", courses: ["SCY", "SCM", "LCM"] },
+  { name: "100 Free", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 Free", courses: ["SCY", "SCM", "LCM"] },
+  { name: "500 Free", courses: ["SCY"] },
+  { name: "400 Free", courses: ["SCM", "LCM"] },
+  { name: "1000 Free", courses: ["SCY"] },
+  { name: "800 Free", courses: ["SCM", "LCM"] },
+  { name: "1650 Free", courses: ["SCY"] },
+  { name: "1500 Free", courses: ["SCM", "LCM"] },
+  { name: "50 Back", courses: ["SCY", "SCM", "LCM"] },
+  { name: "100 Back", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 Back", courses: ["SCY", "SCM", "LCM"] },
+  { name: "50 Breast", courses: ["SCY", "SCM", "LCM"] },
+  { name: "100 Breast", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 Breast", courses: ["SCY", "SCM", "LCM"] },
+  { name: "50 Fly", courses: ["SCY", "SCM", "LCM"] },
+  { name: "100 Fly", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 Fly", courses: ["SCY", "SCM", "LCM"] },
+  { name: "100 IM", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 IM", courses: ["SCY", "SCM", "LCM"] },
+  { name: "400 IM", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 Free Relay", courses: ["SCY", "SCM", "LCM"] },
+  { name: "400 Free Relay", courses: ["SCY", "SCM", "LCM"] },
+  { name: "800 Free Relay", courses: ["SCY", "SCM", "LCM"] },
+  { name: "200 Medley Relay", courses: ["SCY", "SCM", "LCM"] },
+  { name: "400 Medley Relay", courses: ["SCY", "SCM", "LCM"] },
+];
+
+// ── qualifying time standards (sample SCY times for suggestions) ──
+const QUALIFYING_STANDARDS: Record<string, Record<string, { M: number; F: number }>> = {
+  SCY: {
+    "50 Free": { M: 22.5, F: 25.0 },
+    "100 Free": { M: 49.0, F: 55.0 },
+    "200 Free": { M: 107.0, F: 118.0 },
+    "500 Free": { M: 285.0, F: 315.0 },
+    "100 Back": { M: 55.0, F: 61.0 },
+    "200 Back": { M: 118.0, F: 130.0 },
+    "100 Breast": { M: 62.0, F: 69.0 },
+    "200 Breast": { M: 132.0, F: 145.0 },
+    "100 Fly": { M: 53.0, F: 60.0 },
+    "200 Fly": { M: 118.0, F: 130.0 },
+    "200 IM": { M: 115.0, F: 125.0 },
+    "400 IM": { M: 250.0, F: 275.0 },
+  },
+  SCM: {
+    "50 Free": { M: 23.5, F: 26.0 },
+    "100 Free": { M: 51.0, F: 57.0 },
+    "200 Free": { M: 112.0, F: 123.0 },
+    "400 Free": { M: 240.0, F: 265.0 },
+    "100 Back": { M: 57.0, F: 63.0 },
+    "200 Back": { M: 122.0, F: 135.0 },
+    "100 Breast": { M: 64.0, F: 72.0 },
+    "200 Breast": { M: 137.0, F: 150.0 },
+    "100 Fly": { M: 55.0, F: 62.0 },
+    "200 Fly": { M: 122.0, F: 135.0 },
+    "200 IM": { M: 120.0, F: 130.0 },
+    "400 IM": { M: 260.0, F: 285.0 },
+  },
+  LCM: {
+    "50 Free": { M: 24.0, F: 27.0 },
+    "100 Free": { M: 52.0, F: 58.0 },
+    "200 Free": { M: 114.0, F: 126.0 },
+    "400 Free": { M: 245.0, F: 270.0 },
+    "100 Back": { M: 58.0, F: 65.0 },
+    "200 Back": { M: 125.0, F: 138.0 },
+    "100 Breast": { M: 66.0, F: 74.0 },
+    "200 Breast": { M: 140.0, F: 155.0 },
+    "100 Fly": { M: 56.0, F: 64.0 },
+    "200 Fly": { M: 125.0, F: 138.0 },
+    "200 IM": { M: 122.0, F: 132.0 },
+    "400 IM": { M: 265.0, F: 290.0 },
+  },
+};
+
+function parseTimeToSeconds(t: string): number {
+  if (!t || t === "NT") return Infinity;
+  const parts = t.split(":");
+  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  if (parts.length === 1) return parseFloat(parts[0]);
+  return Infinity;
+}
+
+function formatSecondsToTime(s: number): string {
+  if (!isFinite(s) || s <= 0) return "NT";
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  if (mins > 0) return `${mins}:${secs < 10 ? "0" : ""}${secs.toFixed(2)}`;
+  return secs.toFixed(2);
+}
+
 // ── schedule types ──────────────────────────────────────────
 
 type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
@@ -570,6 +696,7 @@ const K = {
   GROUP: "apex-athlete-selected-group",
   SCHEDULES: "apex-athlete-schedules-v1",
   WELLNESS: "apex-athlete-wellness-v1",
+  MEETS: "apex-meets-v1",
 };
 
 function load<T>(key: string, fallback: T): T {
@@ -609,7 +736,7 @@ export default function ApexAthletePage() {
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);

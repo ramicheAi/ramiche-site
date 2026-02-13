@@ -112,6 +112,77 @@ const SvgPadlock = ({ size = 16, color = "#475569" }: { size?: number; color?: s
   </svg>
 );
 
+const SvgCalendar = ({ size = 20, color = "#f59e0b" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="3" y="4" width="18" height="18" rx="2" stroke={color} strokeWidth="1.8" fill={`${color}10`}/>
+    <path d="M3 10h18" stroke={color} strokeWidth="1.5"/>
+    <path d="M8 2v4M16 2v4" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    <circle cx="8" cy="15" r="1.2" fill={color}/>
+    <circle cx="12" cy="15" r="1.2" fill={color} opacity="0.6"/>
+    <circle cx="16" cy="15" r="1.2" fill={color} opacity="0.3"/>
+  </svg>
+);
+
+const SvgMegaphone = ({ size = 20, color = "#a855f7" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18 3v18l-6-4H6a2 2 0 01-2-2V9a2 2 0 012-2h6l6-4z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill={`${color}15`}/>
+    <path d="M21 9c1 1 1 3 0 4" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+    <path d="M8 17v3a1 1 0 001 1h2a1 1 0 001-1v-2" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SvgClipboardX = ({ size = 20, color = "#f97316" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M9 2h6v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V2z" stroke={color} strokeWidth="1.5" fill={`${color}15`}/>
+    <rect x="4" y="4" width="16" height="18" rx="2" stroke={color} strokeWidth="1.8" fill={`${color}08`}/>
+    <path d="M9 14l6-4M9 10l6 4" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgSwimWave = ({ size = 20, color = "#60a5fa" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0" stroke={color} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+    <path d="M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0" stroke={color} strokeWidth="1.5" strokeLinecap="round" fill="none" opacity="0.5"/>
+    <circle cx="12" cy="7" r="2.5" stroke={color} strokeWidth="1.5" fill={`${color}20`}/>
+    <path d="M10 9.5l-2 3M14 9.5l2 3" stroke={color} strokeWidth="1.3" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgCheckCircle = ({ size = 20, color = "#34d399" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" fill={`${color}10`}/>
+    <path d="M8 12l3 3 5-5" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SvgXCircle = ({ size = 20, color = "#ef4444" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" fill={`${color}10`}/>
+    <path d="M9 9l6 6M15 9l-6 6" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgClock = ({ size = 16, color = "#94a3b8" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.8" fill={`${color}08`}/>
+    <path d="M12 7v5l3 3" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SvgMapPin = ({ size = 16, color = "#94a3b8" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke={color} strokeWidth="1.8" fill={`${color}12`}/>
+    <circle cx="12" cy="9" r="2.5" stroke={color} strokeWidth="1.5" fill={`${color}20`}/>
+  </svg>
+);
+
+const SvgBell = ({ size = 20, color = "#f59e0b" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill={`${color}12`}/>
+    <path d="M13.73 21a2 2 0 01-3.46 0" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+  </svg>
+);
+
 /* ── Level icon lookup by name ──────────────────────────────── */
 const LEVEL_ICON_MAP: Record<string, (props: { size?: number; color?: string }) => React.ReactElement> = {
   Rookie: SvgSeedling,
@@ -241,7 +312,50 @@ function fmtStreak(s: number) {
   return { label: "STARTER", color: "#475569" };
 }
 
-const K = { ROSTER: "apex-athlete-roster-v5", SNAPSHOTS: "apex-athlete-snapshots-v2" };
+const K = {
+  ROSTER: "apex-athlete-roster-v5",
+  SNAPSHOTS: "apex-athlete-snapshots-v2",
+  MEETS: "apex-meets-v1",
+  ABSENCES: "apex-absences-v1",
+  BROADCASTS: "apex-broadcasts-v1",
+  RSVPS: "apex-parent-rsvps-v1",
+};
+
+interface MeetEntry {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  rsvpDeadline?: string;
+  entries?: { athleteId: string; event: string; seedTime?: string }[];
+  broadcasts?: { message: string; timestamp: string; from?: string }[];
+}
+
+interface AbsenceReport {
+  id: string;
+  athleteId: string;
+  reason: string;
+  dates: string[];
+  note: string;
+  timestamp: string;
+  parentName: string;
+}
+
+interface Broadcast {
+  id: string;
+  message: string;
+  timestamp: string;
+  from?: string;
+  group?: string;
+  type?: string;
+}
+
+interface RsvpRecord {
+  meetId: string;
+  athleteId: string;
+  status: "committed" | "declined";
+  timestamp: string;
+}
 
 interface Athlete {
   id: string; name: string; age: number; gender: "M" | "F"; group: string;
@@ -438,6 +552,23 @@ export default function ParentPortal() {
   const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
   const [addingAnother, setAddingAnother] = useState(false);
 
+  // ── New communication feature states ──
+  const [meets, setMeets] = useState<MeetEntry[]>([]);
+  const [rsvps, setRsvps] = useState<RsvpRecord[]>([]);
+  const [absences, setAbsences] = useState<AbsenceReport[]>([]);
+  const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
+  const [absenceReason, setAbsenceReason] = useState("Illness");
+  const [absenceDateStart, setAbsenceDateStart] = useState("");
+  const [absenceDateEnd, setAbsenceDateEnd] = useState("");
+  const [absenceNote, setAbsenceNote] = useState("");
+  const [absenceSubmitted, setAbsenceSubmitted] = useState(false);
+  const [parentNameInput, setParentNameInput] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("apex-parent-name") || "";
+    }
+    return "";
+  });
+
   const [isCoach, setIsCoach] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -471,6 +602,11 @@ export default function ParentPortal() {
     const r = load<Athlete[]>(K.ROSTER, []);
     setRoster(r);
     setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
+    // Load communication data
+    setMeets(load<MeetEntry[]>(K.MEETS, []));
+    setRsvps(load<RsvpRecord[]>(K.RSVPS, []));
+    setAbsences(load<AbsenceReport[]>(K.ABSENCES, []));
+    setBroadcasts(load<Broadcast[]>(K.BROADCASTS, []));
     // Check for saved parent-child links
     const saved = localStorage.getItem("apex-parent-links");
     if (saved) {
@@ -545,6 +681,94 @@ export default function ParentPortal() {
     setAddingAnother(false);
     setPendingAthlete(null);
   };
+
+  // ── RSVP handler ──
+  const handleRsvp = (meetId: string, status: "committed" | "declined") => {
+    if (!athlete) return;
+    const updated = rsvps.filter(r => !(r.meetId === meetId && r.athleteId === athlete.id));
+    const newRsvp: RsvpRecord = { meetId, athleteId: athlete.id, status, timestamp: new Date().toISOString() };
+    updated.push(newRsvp);
+    setRsvps(updated);
+    localStorage.setItem(K.RSVPS, JSON.stringify(updated));
+  };
+
+  const getRsvpStatus = (meetId: string): RsvpRecord | undefined => {
+    if (!athlete) return undefined;
+    return rsvps.find(r => r.meetId === meetId && r.athleteId === athlete.id);
+  };
+
+  // ── Absence submission ──
+  const handleAbsenceSubmit = () => {
+    if (!athlete || !absenceDateStart || !parentNameInput.trim()) return;
+    const dates: string[] = [];
+    const start = new Date(absenceDateStart);
+    const end = absenceDateEnd ? new Date(absenceDateEnd) : start;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    const report: AbsenceReport = {
+      id: `abs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      athleteId: athlete.id,
+      reason: absenceReason,
+      dates,
+      note: absenceNote.trim(),
+      timestamp: new Date().toISOString(),
+      parentName: parentNameInput.trim(),
+    };
+    const updated = [report, ...absences];
+    setAbsences(updated);
+    localStorage.setItem(K.ABSENCES, JSON.stringify(updated));
+    localStorage.setItem("apex-parent-name", parentNameInput.trim());
+    setAbsenceNote("");
+    setAbsenceDateStart("");
+    setAbsenceDateEnd("");
+    setAbsenceSubmitted(true);
+    setTimeout(() => setAbsenceSubmitted(false), 3000);
+  };
+
+  // ── Computed: upcoming meets for this athlete ──
+  const upcomingMeets = useMemo(() => {
+    if (!athlete) return [];
+    const today = new Date().toISOString().slice(0, 10);
+    return meets
+      .filter(m => m.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date));
+  }, [meets, athlete]);
+
+  // ── Computed: meets with this athlete's entries ──
+  const meetsWithEntries = useMemo(() => {
+    if (!athlete) return [];
+    return upcomingMeets.filter(m =>
+      m.entries?.some(e => e.athleteId === athlete.id)
+    );
+  }, [upcomingMeets, athlete]);
+
+  // ── Computed: all broadcasts (from meets + general) ──
+  const allBroadcasts = useMemo(() => {
+    const meetBroadcasts: Broadcast[] = [];
+    for (const m of meets) {
+      if (m.broadcasts) {
+        for (const b of m.broadcasts) {
+          meetBroadcasts.push({
+            id: `meet-${m.id}-${b.timestamp}`,
+            message: b.message,
+            timestamp: b.timestamp,
+            from: b.from || "Coach",
+            type: "meet",
+            group: m.name,
+          });
+        }
+      }
+    }
+    const all = [...meetBroadcasts, ...broadcasts];
+    return all.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || "")).slice(0, 20);
+  }, [meets, broadcasts]);
+
+  // ── Computed: this athlete's recent absences ──
+  const myAbsences = useMemo(() => {
+    if (!athlete) return [];
+    return absences.filter(a => a.athleteId === athlete.id).slice(0, 10);
+  }, [absences, athlete]);
 
   const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
   const nextLevel = athlete ? getNextLevel(athlete.xp) : LEVELS[1];
@@ -858,6 +1082,323 @@ export default function ParentPortal() {
               <p className="text-white/40 text-sm">Active in the weight room with a <span className="text-[#f97316] font-bold">{athlete.weightStreak}-session streak</span> — building strength alongside swimming.</p>
             )}
           </div>
+        </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            COMMUNICATION FEATURES — Meet RSVP, Absences, Broadcasts, Events
+            ═══════════════════════════════════════════════════════════ */}
+
+        {/* ── Meet RSVP ─────────────────────────────────────────── */}
+        {upcomingMeets.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
+            <div className="flex items-center gap-2 mb-4">
+              <SvgCalendar size={18} color="#f59e0b" />
+              <h3 className="text-[#f59e0b]/70 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
+            </div>
+            <p className="text-white/25 text-xs mb-4">Let your coach know if your swimmer can make it. A quick tap is all it takes!</p>
+            <div className="space-y-3">
+              {upcomingMeets.map(meet => {
+                const existingRsvp = getRsvpStatus(meet.id);
+                const athleteEntries = meet.entries?.filter(e => e.athleteId === athlete.id) || [];
+                const deadlinePassed = meet.rsvpDeadline ? new Date(meet.rsvpDeadline) < new Date() : false;
+                const meetDate = new Date(meet.date + "T12:00:00");
+                const daysUntil = Math.ceil((meetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+                return (
+                  <div key={meet.id} className="p-4 rounded-xl border transition-all"
+                    style={{
+                      backgroundColor: existingRsvp?.status === "committed" ? "rgba(52,211,153,0.04)" :
+                        existingRsvp?.status === "declined" ? "rgba(239,68,68,0.04)" : "rgba(255,255,255,0.02)",
+                      borderColor: existingRsvp?.status === "committed" ? "rgba(52,211,153,0.15)" :
+                        existingRsvp?.status === "declined" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
+                    }}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white font-bold text-sm truncate">{meet.name}</div>
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
+                          <span className="flex items-center gap-1 text-white/30 text-xs">
+                            <SvgClock size={12} color="#94a3b8" />
+                            {meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                          </span>
+                          {meet.location && (
+                            <span className="flex items-center gap-1 text-white/30 text-xs">
+                              <SvgMapPin size={12} color="#94a3b8" />
+                              {meet.location}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${daysUntil <= 3 ? "bg-red-500/15 text-red-400" : "bg-[#f59e0b]/10 text-[#f59e0b]/70"}`}>
+                        {daysUntil === 0 ? "TODAY" : daysUntil === 1 ? "TOMORROW" : `${daysUntil}d`}
+                      </span>
+                    </div>
+
+                    {/* Events entered */}
+                    {athleteEntries.length > 0 && (
+                      <div className="mb-3 flex flex-wrap gap-1.5">
+                        {athleteEntries.map((entry, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full bg-[#60a5fa]/10 border border-[#60a5fa]/15 text-[#60a5fa]/80 text-[10px] font-mono">
+                            {entry.event}{entry.seedTime ? ` · ${entry.seedTime}` : ""}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* RSVP deadline notice */}
+                    {meet.rsvpDeadline && !deadlinePassed && (
+                      <p className="text-white/20 text-[10px] mb-2">
+                        RSVP by {new Date(meet.rsvpDeadline + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                      </p>
+                    )}
+
+                    {/* RSVP buttons */}
+                    {deadlinePassed ? (
+                      <div className="text-white/20 text-xs italic">RSVP deadline has passed</div>
+                    ) : existingRsvp ? (
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          {existingRsvp.status === "committed" ? (
+                            <SvgCheckCircle size={16} color="#34d399" />
+                          ) : (
+                            <SvgXCircle size={16} color="#ef4444" />
+                          )}
+                          <span className={`text-xs font-bold ${existingRsvp.status === "committed" ? "text-emerald-400/80" : "text-red-400/70"}`}>
+                            {existingRsvp.status === "committed" ? "We'll be there!" : "Can't make it"}
+                          </span>
+                        </div>
+                        <button onClick={() => handleRsvp(meet.id, existingRsvp.status === "committed" ? "declined" : "committed")}
+                          className="text-white/20 text-[10px] hover:text-white/40 transition-colors underline decoration-dotted"
+                          style={{ minHeight: "44px", display: "flex", alignItems: "center" }}>
+                          Change
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleRsvp(meet.id, "committed")}
+                          className="flex-1 py-3 rounded-lg bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-sm font-bold hover:bg-emerald-500/25 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          style={{ minHeight: "44px" }}>
+                          <SvgCheckCircle size={16} color="#34d399" />
+                          Count us in!
+                        </button>
+                        <button onClick={() => handleRsvp(meet.id, "declined")}
+                          className="flex-1 py-3 rounded-lg bg-white/[0.03] border border-white/10 text-white/40 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          style={{ minHeight: "44px" }}>
+                          <SvgXCircle size={16} color="#94a3b8" />
+                          Can&apos;t make it
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Upcoming Events ───────────────────────────────────── */}
+        {meetsWithEntries.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#60a5fa]/10">
+            <div className="flex items-center gap-2 mb-4">
+              <SvgSwimWave size={18} color="#60a5fa" />
+              <h3 className="text-[#60a5fa]/70 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
+            </div>
+            <p className="text-white/25 text-xs mb-4">Here&apos;s what {athlete.name.split(" ")[0]} is signed up for. Seed times help set race pace expectations.</p>
+            <div className="space-y-3">
+              {meetsWithEntries.map(meet => {
+                const entries = meet.entries?.filter(e => e.athleteId === athlete.id) || [];
+                return (
+                  <div key={meet.id} className="p-3 rounded-lg bg-[#60a5fa]/[0.03] border border-[#60a5fa]/10">
+                    <div className="text-white/60 text-xs font-bold mb-2">{meet.name}</div>
+                    <div className="text-white/20 text-[10px] mb-2">
+                      {new Date(meet.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+                      {meet.location ? ` · ${meet.location}` : ""}
+                    </div>
+                    <div className="space-y-1.5">
+                      {entries.map((entry, i) => (
+                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                          <span className="text-white/70 text-sm font-medium">{entry.event}</span>
+                          {entry.seedTime ? (
+                            <span className="text-[#60a5fa] text-sm font-mono font-bold">{entry.seedTime}</span>
+                          ) : (
+                            <span className="text-white/15 text-xs italic">No seed time</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Absence Reporting ─────────────────────────────────── */}
+        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f97316]/10">
+          <div className="flex items-center gap-2 mb-3">
+            <SvgClipboardX size={18} color="#f97316" />
+            <h3 className="text-[#f97316]/70 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
+          </div>
+          <p className="text-white/25 text-xs mb-4">
+            Need to let us know your swimmer will miss practice? No worries — just fill this out and the coaching staff will be in the loop.
+          </p>
+
+          {absenceSubmitted && (
+            <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
+              <SvgCheckCircle size={18} color="#34d399" />
+              <span className="text-emerald-400 text-sm font-semibold">Got it! The coach has been notified. Hope your swimmer feels better soon.</span>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {/* Parent name */}
+            <div>
+              <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">YOUR NAME</label>
+              <input type="text" value={parentNameInput} onChange={e => setParentNameInput(e.target.value)}
+                placeholder="e.g., Sarah Johnson"
+                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#f97316]/40 transition-all"
+                style={{ minHeight: "44px" }} />
+            </div>
+
+            {/* Reason dropdown */}
+            <div>
+              <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">REASON</label>
+              <select value={absenceReason} onChange={e => setAbsenceReason(e.target.value)}
+                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all appearance-none cursor-pointer"
+                style={{ minHeight: "44px", backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
+                <option value="Illness">Illness</option>
+                <option value="Family Emergency">Family Emergency</option>
+                <option value="Travel">Travel</option>
+                <option value="Medical Appointment">Medical Appointment</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {/* Date(s) */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">START DATE</label>
+                <input type="date" value={absenceDateStart} onChange={e => setAbsenceDateStart(e.target.value)}
+                  className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all [color-scheme:dark]"
+                  style={{ minHeight: "44px" }} />
+              </div>
+              <div>
+                <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">END DATE <span className="text-white/15">(optional)</span></label>
+                <input type="date" value={absenceDateEnd} onChange={e => setAbsenceDateEnd(e.target.value)}
+                  min={absenceDateStart || undefined}
+                  className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all [color-scheme:dark]"
+                  style={{ minHeight: "44px" }} />
+              </div>
+            </div>
+
+            {/* Optional note */}
+            <div>
+              <label className="text-white/30 text-[10px] font-mono tracking-wider block mb-1">NOTE <span className="text-white/15">(optional)</span></label>
+              <textarea value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
+                placeholder="Any details the coach should know..."
+                rows={2}
+                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#f97316]/40 transition-all resize-none" />
+            </div>
+
+            {/* Submit */}
+            <button onClick={handleAbsenceSubmit}
+              disabled={!absenceDateStart || !parentNameInput.trim()}
+              className="w-full py-3 rounded-lg font-bold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{
+                minHeight: "44px",
+                backgroundColor: absenceDateStart && parentNameInput.trim() ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.03)",
+                borderWidth: "1px",
+                borderColor: absenceDateStart && parentNameInput.trim() ? "rgba(249,115,22,0.25)" : "rgba(255,255,255,0.05)",
+                color: absenceDateStart && parentNameInput.trim() ? "#f97316" : "rgba(255,255,255,0.2)",
+              }}>
+              <SvgClipboardX size={16} color={absenceDateStart && parentNameInput.trim() ? "#f97316" : "#666"} />
+              Submit Absence Report
+            </button>
+          </div>
+
+          {/* Recent absence reports */}
+          {myAbsences.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <div className="text-white/20 text-[10px] font-mono tracking-wider mb-3">RECENT REPORTS</div>
+              <div className="space-y-2">
+                {myAbsences.slice(0, 5).map(report => (
+                  <div key={report.id} className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-white/50 text-xs font-semibold">{report.reason}</div>
+                      <div className="text-white/20 text-[10px] mt-0.5">
+                        {report.dates.length === 1
+                          ? new Date(report.dates[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })
+                          : `${new Date(report.dates[0] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })} — ${new Date(report.dates[report.dates.length - 1] + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+                        }
+                        {report.note && <span className="text-white/15"> · {report.note}</span>}
+                      </div>
+                    </div>
+                    <div className="text-white/15 text-[10px] shrink-0">
+                      {new Date(report.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Coach Broadcasts ──────────────────────────────────── */}
+        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
+          <div className="flex items-center gap-2 mb-3">
+            <SvgMegaphone size={18} color="#a855f7" />
+            <h3 className="text-[#a855f7]/70 text-xs font-mono tracking-wider">COACH UPDATES</h3>
+            {allBroadcasts.length > 0 && (
+              <span className="ml-auto px-2 py-0.5 rounded-full bg-[#a855f7]/10 text-[#a855f7]/60 text-[10px] font-bold">
+                {allBroadcasts.length}
+              </span>
+            )}
+          </div>
+          {allBroadcasts.length === 0 ? (
+            <div className="py-6 text-center">
+              <SvgBell size={28} color="#a855f7" />
+              <p className="text-white/20 text-sm mt-3">No messages yet</p>
+              <p className="text-white/10 text-xs mt-1">When your coach sends updates, they&apos;ll show up here.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(168,85,247,0.2) transparent" }}>
+              {allBroadcasts.map((b, i) => {
+                const ts = new Date(b.timestamp);
+                const now = new Date();
+                const diffMs = now.getTime() - ts.getTime();
+                const diffMins = Math.floor(diffMs / 60000);
+                const diffHrs = Math.floor(diffMs / 3600000);
+                const diffDays = Math.floor(diffMs / 86400000);
+                const timeAgo = diffMins < 1 ? "just now" : diffMins < 60 ? `${diffMins}m ago` : diffHrs < 24 ? `${diffHrs}h ago` : diffDays < 7 ? `${diffDays}d ago` : ts.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                const isNew = diffMs < 86400000; // less than 24h
+
+                return (
+                  <div key={b.id || i} className="p-3 rounded-lg border transition-all"
+                    style={{
+                      backgroundColor: isNew ? "rgba(168,85,247,0.04)" : "rgba(255,255,255,0.015)",
+                      borderColor: isNew ? "rgba(168,85,247,0.12)" : "rgba(255,255,255,0.04)",
+                    }}>
+                    <div className="flex items-start gap-2">
+                      {isNew && <div className="w-1.5 h-1.5 rounded-full bg-[#a855f7] mt-1.5 shrink-0 aa-value-pulse" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white/60 text-sm leading-relaxed">{b.message}</p>
+                        <div className="flex items-center gap-2 mt-1.5">
+                          <span className="text-white/20 text-[10px]">{b.from || "Coach"}</span>
+                          {b.group && (
+                            <>
+                              <span className="text-white/10">·</span>
+                              <span className="text-[#a855f7]/40 text-[10px]">{b.group}</span>
+                            </>
+                          )}
+                          <span className="text-white/10">·</span>
+                          <span className="text-white/15 text-[10px]">{timeAgo}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Meet Day Guide */}

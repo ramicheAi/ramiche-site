@@ -289,6 +289,22 @@ function MessageIcon({ active }: { active: boolean }) {
 function BoardIcon({ active }: { active: boolean }) {
   return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#a855f7" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>);
 }
+function MeetsIcon({ active }: { active: boolean }) {
+  return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={active ? "#00f0ff" : "rgba(255,255,255,0.3)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><circle cx="12" cy="16" r="2"/></svg>);
+}
+
+interface MeetData {
+  id: string;
+  name: string;
+  date: string;
+  location: string;
+  course: "SCY" | "SCM" | "LCM";
+  rsvpDeadline: string;
+  events: { id: string; name: string; entries: { athleteId: string; seedTime?: string }[] }[];
+  rsvps: Record<string, "committed" | "declined" | "pending">;
+  broadcasts: { id: string; message: string; timestamp: number; sentBy: string }[];
+  status: "upcoming" | "active" | "completed";
+}
 
 // ── Radar chart (pure SVG) ──────────────────────────────────
 function RadarChart({ values }: { values: Record<string, number> }) {
@@ -508,7 +524,7 @@ function fmtTime(secs: number): string {
 }
 
 // ── Main component ──────────────────────────────────────────
-type TabKey = "dashboard" | "times" | "goals" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness";
+type TabKey = "dashboard" | "times" | "goals" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness" | "meets";
 
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
@@ -1162,6 +1178,7 @@ export default function AthletePortal() {
     { key: "feedback", label: "Coach", icon: (a) => <MessageIcon active={a} />, badge: unreadCount },
     { key: "leaderboard", label: "Board", icon: (a) => <BoardIcon active={a} /> },
     { key: "wellness", label: "Mind", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#a855f7":"currentColor"} strokeWidth="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> },
+    { key: "meets", label: "Meets", icon: (a) => <MeetsIcon active={a} /> },
   ];
 
   // ── Main dashboard ────────────────────────────────────────
@@ -2116,6 +2133,110 @@ export default function AthletePortal() {
             </div>
           </div>
         )}
+
+        {/* ── MEETS TAB ── */}
+        {tab === "meets" && (() => {
+          const meets: MeetData[] = (() => { try { return JSON.parse(localStorage.getItem("apex-meets-v1") || "[]"); } catch { return []; } })();
+          const myMeets = meets.filter(m => m.status !== "completed" && m.events?.some(e => e.entries?.some(en => en.athleteId === athlete.id)));
+          const myRsvpMeets = meets.filter(m => m.status !== "completed" && (m.rsvps?.[athlete.id] !== undefined || m.events?.some(e => e.entries?.some(en => en.athleteId === athlete.id))));
+          const allUpcoming = myMeets.length > 0 ? myMeets : myRsvpMeets;
+
+          return (
+            <div className="space-y-4">
+              <h3 className="text-white/50 text-xs font-mono tracking-wider">YOUR UPCOMING MEETS</h3>
+
+              {allUpcoming.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+                  <MeetsIcon active={false} />
+                  <p className="text-white/30 text-sm mt-3">No upcoming meets yet</p>
+                  <p className="text-white/15 text-xs mt-1">Your coach will add you to meets as they come up</p>
+                </div>
+              ) : (
+                allUpcoming.map(meet => {
+                  const myEvents = meet.events?.filter(e => e.entries?.some(en => en.athleteId === athlete.id)) || [];
+                  const myRsvp = meet.rsvps?.[athlete.id] || "pending";
+                  const meetDate = new Date(meet.date + "T00:00:00");
+                  const daysUntil = Math.ceil((meetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  const rsvpDeadline = meet.rsvpDeadline ? new Date(meet.rsvpDeadline + "T00:00:00") : null;
+                  const rsvpExpired = rsvpDeadline ? Date.now() > rsvpDeadline.getTime() : false;
+
+                  return (
+                    <div key={meet.id} className="p-4 rounded-2xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
+                      {/* Meet header */}
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="text-white font-bold text-lg">{meet.name}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className="text-white/40 text-xs">{meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                            <span className="text-white/20">·</span>
+                            <span className="text-white/40 text-xs">{meet.location}</span>
+                            <span className="text-white/20">·</span>
+                            <span className="text-[#00f0ff]/60 text-xs font-mono">{meet.course}</span>
+                          </div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-[10px] font-bold ${
+                          daysUntil <= 3 ? "bg-red-500/15 text-red-400 border border-red-500/20" :
+                          daysUntil <= 7 ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
+                          "bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20"
+                        }`}>
+                          {daysUntil <= 0 ? "TODAY" : daysUntil === 1 ? "TOMORROW" : `${daysUntil} DAYS`}
+                        </div>
+                      </div>
+
+                      {/* My events */}
+                      {myEvents.length > 0 && (
+                        <div className="mb-3">
+                          <span className="text-white/30 text-[10px] font-mono tracking-wider block mb-2">YOUR EVENTS</span>
+                          <div className="space-y-1.5">
+                            {myEvents.map(ev => {
+                              const myEntry = ev.entries?.find(en => en.athleteId === athlete.id);
+                              return (
+                                <div key={ev.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
+                                  <span className="text-white/70 text-sm font-medium">{ev.name}</span>
+                                  {myEntry?.seedTime && (
+                                    <span className="text-[#00f0ff]/60 text-xs font-mono">{myEntry.seedTime}</span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* RSVP status */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                        <span className="text-white/25 text-[10px] font-mono">RSVP:</span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          myRsvp === "committed" ? "bg-emerald-500/15 text-emerald-400" :
+                          myRsvp === "declined" ? "bg-red-500/15 text-red-400" :
+                          "bg-amber-500/15 text-amber-400"
+                        }`}>
+                          {myRsvp === "committed" ? "COMMITTED" : myRsvp === "declined" ? "DECLINED" : "PENDING"}
+                        </span>
+                        {rsvpDeadline && !rsvpExpired && myRsvp === "pending" && (
+                          <span className="text-white/20 text-[10px]">Deadline: {rsvpDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                        )}
+                      </div>
+
+                      {/* Broadcasts */}
+                      {meet.broadcasts && meet.broadcasts.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-white/5">
+                          <span className="text-white/25 text-[10px] font-mono tracking-wider block mb-2">COACH UPDATES</span>
+                          {meet.broadcasts.slice(-2).map(b => (
+                            <div key={b.id} className="p-2 rounded-lg bg-[#00f0ff]/5 border border-[#00f0ff]/10 mb-1.5">
+                              <p className="text-white/50 text-sm">{b.message}</p>
+                              <span className="text-white/15 text-[9px]">{new Date(b.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          );
+        })()}
 
         {/* Footer */}
         <div className="text-center mt-10 text-white/[0.06] text-[10px] space-y-1">
