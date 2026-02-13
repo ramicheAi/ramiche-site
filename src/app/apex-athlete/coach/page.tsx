@@ -644,6 +644,10 @@ export default function ApexAthletePage() {
   const [newCoachEmail, setNewCoachEmail] = useState("");
   const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
 
+  // ── push notification state ──────────────────────────────
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
@@ -716,7 +720,58 @@ export default function ApexAthletePage() {
     // Load coaches
     const savedCoaches = load<CoachProfile[]>(K.COACHES, []);
     setCoaches(savedCoaches);
+    // Check push notification status
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.register("/sw.js").then(reg => {
+        reg.pushManager.getSubscription().then(sub => {
+          setPushEnabled(!!sub);
+        });
+      });
+    }
     setMounted(true);
+  }, []);
+
+  // ── push notification helpers ──────────────────────────────
+  const VAPID_PUBLIC_KEY = "BC40XUILXC_z47QjNRauMl4FYVArm62VHaFPLSVOIzbT2R8e8qz7Hnegnhgt5wZ3iGMZ0EhsuZ27XktCacw_2PY";
+
+  const togglePushNotifications = useCallback(async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    setPushLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        await existing.unsubscribe();
+        setPushEnabled(false);
+      } else {
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: VAPID_PUBLIC_KEY,
+        });
+        await fetch("/api/push/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ subscription: sub.toJSON(), userId: pinInput || "coach", group: selectedGroup }),
+        });
+        setPushEnabled(true);
+      }
+    } catch (err) {
+      console.error("Push notification error:", err);
+    } finally {
+      setPushLoading(false);
+    }
+  }, [pinInput, selectedGroup]);
+
+  const sendPushToGroup = useCallback(async (title: string, body: string, group?: string) => {
+    try {
+      await fetch("/api/push/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, body, group }),
+      });
+    } catch (err) {
+      console.error("Send push error:", err);
+    }
   }, []);
 
   // ── auto-snapshot ────────────────────────────────────────
@@ -1354,6 +1409,13 @@ export default function ApexAthletePage() {
                 <h2 className="text-white/90 font-bold text-sm tracking-wide">{culture.teamName}</h2>
                 <p className="text-[#f59e0b]/50 text-[11px] italic font-mono">{culture.mission}</p>
               </div>
+              {/* Notification bell */}
+              <button onClick={togglePushNotifications} disabled={pushLoading}
+                className={`game-btn px-3 py-1.5 text-sm transition-all min-h-[32px] ${
+                  pushEnabled ? "text-[#00f0ff] border border-[#00f0ff]/30" : "text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60"
+                }`} title={pushEnabled ? "Notifications ON" : "Enable notifications"}>
+                {pushLoading ? "..." : pushEnabled ? "🔔" : "🔕"}
+              </button>
               {view === "coach" && (
                 <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
                   className="game-btn px-3 py-1.5 text-[9px] font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">

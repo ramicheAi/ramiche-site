@@ -1,0 +1,21 @@
+{
+  "name": "Apex Athlete",
+  "short_name": "Apex",
+  "description": "Gamified swim training - Unlock your greatness",
+  "start_url": "/apex-athlete",
+  "display": "standalone",
+  "background_color": "#06020f",
+  "theme_color": "#00f0ff",
+  "icons": [
+    {
+      "src": "/agents/apex-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/agents/apex-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
