@@ -3649,147 +3649,311 @@ export default function ApexAthletePage() {
               )}
             </>
           ) : (
-            /* Edit meet — add events, enter athletes */
+            /* Edit meet — Team Unify-style tabbed management */
             <div>
-              <button onClick={() => setEditingMeetId(null)} className="text-[#00f0ff]/50 text-xs font-mono mb-4 hover:text-[#00f0ff] transition-colors">
+              <button onClick={() => { setEditingMeetId(null); setMeetView("overview"); setViewingAthleteEntries(null); }} className="text-[#00f0ff]/50 text-xs font-mono mb-4 hover:text-[#00f0ff] transition-colors">
                 ← Back to meets
               </button>
+
+              {/* Meet header */}
               <Card className="p-5 mb-4" neon>
                 <h3 className="font-bold text-white text-lg mb-1">{editMeet.name}</h3>
-                <p className="text-white/25 text-xs mb-4">{new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {editMeet.course} · {editMeet.location || "TBD"}</p>
+                <p className="text-white/25 text-xs mb-1">
+                  {new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                  {editMeet.endDate && editMeet.endDate !== editMeet.date && ` – ${new Date(editMeet.endDate + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`}
+                  {" · "}{editMeet.course} · {editMeet.location || "TBD"}
+                </p>
+                {editMeet.rsvpDeadline && <p className="text-[10px] text-[#f59e0b]/60">Registration deadline: {new Date(editMeet.rsvpDeadline + "T12:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>}
 
-                {/* Meet files / documents */}
-                <div className="mb-4">
-                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Files & Documents</h4>
-                  {(editMeet.files || []).length > 0 && (
-                    <div className="space-y-1.5 mb-3">
-                      {(editMeet.files || []).map(f => (
-                        <div key={f.id} className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
-                          <svg className="w-4 h-4 text-[#a855f7]/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                          <a href={f.dataUrl} download={f.name} className="text-xs text-[#00f0ff]/70 hover:text-[#00f0ff] truncate flex-1">{f.name}</a>
-                          <span className="text-[9px] text-white/15 shrink-0">{new Date(f.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-                          <button onClick={() => removeMeetFile(editMeet.id, f.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0">✕</button>
-                        </div>
-                      ))}
+                {/* RSVP summary bar */}
+                {(() => { const rc = rsvpCounts(editMeet); return (
+                  <div className="flex items-center gap-4 mt-3 text-[11px]">
+                    <span className="text-emerald-400 font-bold">{rc.committed} committed</span>
+                    <span className="text-red-400">{rc.declined} declined</span>
+                    <span className="text-white/20">{rc.pending} pending</span>
+                    <span className="text-[#a855f7] ml-auto">{editMeet.events.length} events</span>
+                  </div>
+                ); })()}
+              </Card>
+
+              {/* Tab navigation — like Team Unify: Info / Event Order / Member Entry */}
+              <div className="flex gap-1 mb-4 bg-white/[0.02] rounded-xl p-1 border border-white/[0.05]">
+                {(["info", "events", "members"] as const).map(tab => (
+                  <button key={tab} onClick={() => { setMeetView(tab === "events" ? "overview" : tab === "members" ? "entries" : "info"); setViewingAthleteEntries(null); }}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all uppercase tracking-wider ${
+                      (tab === "info" && meetView === "info") || (tab === "events" && meetView === "overview") || (tab === "members" && meetView === "entries")
+                        ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/20"
+                        : "text-white/25 hover:text-white/40"
+                    }`}>
+                    {tab === "info" ? "Info" : tab === "events" ? "Event Order" : "Member Entry"}
+                  </button>
+                ))}
+              </div>
+
+              {/* ── INFO TAB ── */}
+              {meetView === "info" && (
+                <div className="space-y-4">
+                  {/* Description */}
+                  <Card className="p-4">
+                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Meet Description</h4>
+                    {editMeet.description ? (
+                      <p className="text-sm text-white/60 whitespace-pre-wrap">{editMeet.description}</p>
+                    ) : (
+                      <p className="text-sm text-white/15 italic">No description — add one below</p>
+                    )}
+                    <textarea value={meetDescription} onChange={e => setMeetDescription(e.target.value)} placeholder="Add meet info, qualifying standards, notes..."
+                      rows={3} className="mt-3 w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/40 resize-none" style={{ fontSize: "16px" }} />
+                    <button onClick={() => { saveMeets(meets.map(m => m.id === editMeet.id ? { ...m, description: meetDescription } : m)); }}
+                      disabled={!meetDescription.trim()} className="mt-2 game-btn px-4 py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
+                      Save Description
+                    </button>
+                  </Card>
+
+                  {/* Files & Documents */}
+                  <Card className="p-4">
+                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Files & Documents</h4>
+                    {(editMeet.files || []).length > 0 && (
+                      <div className="space-y-1.5 mb-3">
+                        {(editMeet.files || []).map(f => (
+                          <div key={f.id} className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
+                            <svg className="w-4 h-4 text-[#a855f7]/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                            <a href={f.dataUrl} download={f.name} className="text-xs text-[#00f0ff]/70 hover:text-[#00f0ff] truncate flex-1">{f.name}</a>
+                            <span className="text-[9px] text-white/15 shrink-0">{new Date(f.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                            <button onClick={() => removeMeetFile(editMeet.id, f.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0">✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 cursor-pointer game-btn py-2 px-4 text-xs font-bold text-[#a855f7]/50 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] transition-all">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Upload File
+                      <input type="file" multiple className="hidden" onChange={e => handleFileUpload(editMeet.id, e.target.files)} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.hy3,.hyv,.cl2,.sd3" />
+                    </label>
+                  </Card>
+
+                  {/* Message Parents */}
+                  <Card className="p-4">
+                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Message Parents</h4>
+                    <div className="flex gap-2">
+                      <input value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Send update about this meet..."
+                        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                      <button onClick={() => sendMeetBroadcast(editMeet.id)} disabled={!broadcastMsg.trim()}
+                        className="game-btn px-4 py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
+                        Send
+                      </button>
                     </div>
-                  )}
-                  <label className="flex items-center gap-2 cursor-pointer game-btn py-2 px-4 text-xs font-bold text-[#a855f7]/50 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] transition-all">
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                    Upload File
-                    <input type="file" multiple className="hidden" onChange={e => handleFileUpload(editMeet.id, e.target.files)} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.hy3,.hyv,.cl2,.sd3" />
-                  </label>
+                    {editMeet.broadcasts.length > 0 && (
+                      <div className="mt-3 space-y-2 max-h-32 overflow-y-auto">
+                        {editMeet.broadcasts.slice().reverse().map(bc => (
+                          <div key={bc.id} className="text-xs text-white/30 bg-white/[0.02] rounded p-2">
+                            <span className="text-white/50">{bc.message}</span>
+                            <span className="text-white/10 ml-2">{new Date(bc.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Card>
                 </div>
+              )}
 
-                {/* Add events */}
-                <div className="mb-4">
-                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Events</h4>
-                  {editMeet.events.length > 0 && (
-                    <div className="space-y-3 mb-3">
-                      {editMeet.events.map(ev => (
-                        <div key={ev.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-bold text-white">{ev.name}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-[#a855f7] font-mono">{ev.entries.length} entered</span>
-                              <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/30 hover:text-red-400 text-xs transition-colors">✕</button>
-                            </div>
-                          </div>
-                          {/* Quick group entry */}
-                          <div className="flex flex-wrap gap-1.5 mb-3">
-                            <span className="text-[9px] text-white/15 self-center mr-1">Add group:</span>
-                            {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => (
-                              <button key={g.id} onClick={() => enterGroupToEvent(editMeet.id, ev.id, g.id)}
-                                className="text-[9px] px-2 py-0.5 rounded-full bg-[#a855f7]/5 text-[#a855f7]/40 border border-[#a855f7]/10 hover:bg-[#a855f7]/15 hover:text-[#a855f7] transition-all">
-                                {g.name}
-                              </button>
-                            ))}
-                          </div>
-                          {/* Individual athlete selection */}
-                          <div className="flex flex-wrap gap-1.5">
-                            {filteredRoster.map(a => {
-                              const entered = ev.entries.some(e => e.athleteId === a.id);
-                              return (
-                                <button key={a.id} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, a.id)}
-                                  className={`text-[10px] px-2.5 py-1.5 rounded-lg transition-all ${
-                                    entered
-                                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 font-bold"
-                                      : "bg-white/[0.03] text-white/25 border border-white/[0.04] hover:text-white/40"
-                                  }`}>
-                                  {a.name.split(" ")[0]} {a.name.split(" ").slice(-1)}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+              {/* ── EVENT ORDER TAB — manage events + enter athletes per event ── */}
+              {meetView === "overview" && (
+                <div>
+                  {/* Add events */}
                   {meetEventPicker === editMeet.id ? (
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 max-h-48 overflow-y-auto">
-                      <div className="flex flex-wrap gap-1.5">
+                    <Card className="p-4 mb-4">
+                      <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Select Events ({editMeet.course})</h4>
+                      <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
                         {STANDARD_SWIM_EVENTS.filter(e => e.courses.includes(editMeet.course)).map(e => (
                           <button key={e.name} onClick={() => { addEventToMeet(editMeet.id, e.name); }}
                             disabled={editMeet.events.some(ev => ev.name === e.name)}
                             className={`text-[10px] px-2.5 py-1.5 rounded-lg transition-all ${
                               editMeet.events.some(ev => ev.name === e.name)
-                                ? "bg-white/[0.02] text-white/10 cursor-not-allowed"
+                                ? "bg-[#00f0ff]/10 text-[#00f0ff]/50 border border-[#00f0ff]/20"
                                 : "bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20 hover:bg-[#a855f7]/20"
                             }`}>
-                            {e.name}
+                            {editMeet.events.some(ev => ev.name === e.name) ? "✓ " : ""}{e.name}
                           </button>
                         ))}
                       </div>
-                      <button onClick={() => setMeetEventPicker(null)} className="mt-2 text-white/20 text-xs hover:text-white/40 transition-colors">Done</button>
-                    </div>
+                      <button onClick={() => setMeetEventPicker(null)} className="mt-3 game-btn w-full py-2 text-xs font-bold text-white/40 border border-white/[0.08] rounded-lg hover:text-white/60 transition-all">Done Adding Events</button>
+                    </Card>
                   ) : (
                     <button onClick={() => setMeetEventPicker(editMeet.id)}
-                      className="game-btn w-full py-2.5 text-xs font-bold text-[#a855f7] border border-[#a855f7]/20 rounded-lg hover:bg-[#a855f7]/10 transition-all">
+                      className="game-btn w-full py-3 mb-4 text-xs font-bold text-[#a855f7] border border-dashed border-[#a855f7]/20 rounded-xl hover:bg-[#a855f7]/10 transition-all">
                       + Add Events
                     </button>
                   )}
-                </div>
 
-                {/* RSVP summary */}
-                {(() => { const rc = rsvpCounts(editMeet); return (
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2 text-center">
-                      <div className="text-lg font-black text-emerald-400">{rc.committed}</div>
-                      <div className="text-[9px] text-emerald-400/50 uppercase">Committed</div>
-                    </div>
-                    <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-2 text-center">
-                      <div className="text-lg font-black text-red-400">{rc.declined}</div>
-                      <div className="text-[9px] text-red-400/50 uppercase">Declined</div>
-                    </div>
-                    <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-2 text-center">
-                      <div className="text-lg font-black text-white/30">{rc.pending}</div>
-                      <div className="text-[9px] text-white/15 uppercase">Pending</div>
-                    </div>
-                  </div>
-                ); })()}
-
-                {/* Broadcast to parents about this meet */}
-                <div className="border-t border-white/[0.06] pt-3">
-                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Message Parents</h4>
-                  <div className="flex gap-2">
-                    <input value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Send update to all parents..."
-                      className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
-                    <button onClick={() => sendMeetBroadcast(editMeet.id)} disabled={!broadcastMsg.trim()}
-                      className="game-btn px-4 py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
-                      Send
-                    </button>
-                  </div>
-                  {editMeet.broadcasts.length > 0 && (
-                    <div className="mt-3 space-y-2 max-h-32 overflow-y-auto">
-                      {editMeet.broadcasts.slice().reverse().map(bc => (
-                        <div key={bc.id} className="text-xs text-white/30 bg-white/[0.02] rounded p-2">
-                          <span className="text-white/50">{bc.message}</span>
-                          <span className="text-white/10 ml-2">{new Date(bc.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                        </div>
-                      ))}
+                  {/* Event list — organized with event # and entries count */}
+                  {editMeet.events.length === 0 ? (
+                    <div className="text-center py-8 text-white/15 text-sm">No events yet — add events above or import a meet file</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {editMeet.events.map((ev, idx) => {
+                        const entryCount = ev.entries.length;
+                        return (
+                          <Card key={ev.id} className="p-3">
+                            <div className="flex items-center gap-3">
+                              <span className="text-[10px] font-mono text-white/20 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
+                              <span className="text-sm font-bold text-white flex-1 truncate">{ev.name}</span>
+                              <span className="text-[10px] text-[#a855f7] font-mono shrink-0">{entryCount} entered</span>
+                              <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0 ml-1">✕</button>
+                            </div>
+                            {/* Quick group entry buttons */}
+                            <div className="flex flex-wrap gap-1 mt-2 ml-9">
+                              {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => (
+                                <button key={g.id} onClick={() => enterGroupToEvent(editMeet.id, ev.id, g.id)}
+                                  className="text-[8px] px-1.5 py-0.5 rounded bg-[#a855f7]/5 text-[#a855f7]/30 border border-[#a855f7]/10 hover:bg-[#a855f7]/15 hover:text-[#a855f7] transition-all">
+                                  +{g.name}
+                                </button>
+                              ))}
+                            </div>
+                            {/* Entered athletes chips */}
+                            {entryCount > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2 ml-9">
+                                {ev.entries.map(e => (
+                                  <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
+                                    className="text-[9px] px-2 py-0.5 rounded-full bg-[#00f0ff]/10 text-[#00f0ff]/60 border border-[#00f0ff]/15 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/20 transition-all">
+                                    {e.athleteId.split(" ")[0]}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </Card>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
-              </Card>
+              )}
+
+              {/* ── MEMBER ENTRY TAB — athlete-centric (like Team Unify) ── */}
+              {meetView === "entries" && (
+                <div>
+                  {!viewingAthleteEntries ? (
+                    /* Athlete list — pick who to enter */
+                    <div>
+                      <p className="text-[10px] text-white/20 mb-3 uppercase tracking-wider">Select an athlete to manage their entries</p>
+                      <div className="space-y-1.5">
+                        {filteredRoster.map(a => {
+                          const entryCount = editMeet.events.filter(ev => ev.entries.some(e => e.athleteId === a.name)).length;
+                          return (
+                            <button key={a.id} onClick={() => setViewingAthleteEntries(a.name)}
+                              className="w-full flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 hover:bg-white/[0.06] hover:border-white/[0.1] transition-all text-left">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-xs font-bold text-white/40 shrink-0">
+                                {a.name.charAt(0)}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-white truncate">{a.name}</div>
+                                <div className="text-[10px] text-white/20">{a.group} · {a.gender === "M" ? "Male" : "Female"}{a.age ? ` · ${a.age}` : ""}</div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                {entryCount > 0 ? (
+                                  <span className="text-xs font-bold text-[#00f0ff]">{entryCount} events</span>
+                                ) : (
+                                  <span className="text-xs text-white/15">No entries</span>
+                                )}
+                              </div>
+                              <svg className="w-4 h-4 text-white/15 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Individual athlete entry — show all events, toggle entry (Team Unify style) */
+                    <div>
+                      <button onClick={() => setViewingAthleteEntries(null)} className="text-[#00f0ff]/50 text-xs font-mono mb-3 hover:text-[#00f0ff] transition-colors">
+                        ← Back to athletes
+                      </button>
+                      {(() => {
+                        const athlete = filteredRoster.find(a => a.name === viewingAthleteEntries);
+                        if (!athlete) return null;
+                        const enteredEvents = editMeet.events.filter(ev => ev.entries.some(e => e.athleteId === athlete.name));
+                        const totalEvents = editMeet.events.length;
+                        return (
+                          <div>
+                            {/* Athlete header */}
+                            <Card className="p-4 mb-4" neon>
+                              <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-lg font-bold text-white/50">
+                                  {athlete.name.charAt(0)}
+                                </div>
+                                <div>
+                                  <h4 className="font-bold text-white">{athlete.name}</h4>
+                                  <p className="text-[10px] text-white/25">{athlete.group} · {athlete.gender === "M" ? "Male" : "Female"}{athlete.age ? ` · Age ${athlete.age}` : ""}</p>
+                                </div>
+                                <div className="ml-auto text-right">
+                                  <div className="text-lg font-black text-[#00f0ff]">{enteredEvents.length}</div>
+                                  <div className="text-[9px] text-white/20 uppercase">of {totalEvents}</div>
+                                </div>
+                              </div>
+                            </Card>
+
+                            {/* Events list — organized by event order, toggle entry */}
+                            <div className="space-y-1">
+                              {editMeet.events.map((ev, idx) => {
+                                const isEntered = ev.entries.some(e => e.athleteId === athlete.name);
+                                const seedEntry = ev.entries.find(e => e.athleteId === athlete.name);
+                                return (
+                                  <button key={ev.id} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, athlete.name)}
+                                    className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left ${
+                                      isEntered
+                                        ? "bg-[#00f0ff]/[0.08] border border-[#00f0ff]/20"
+                                        : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04]"
+                                    }`}>
+                                    {/* Checkbox */}
+                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                      isEntered ? "bg-[#00f0ff] border-[#00f0ff]" : "border-white/15"
+                                    }`}>
+                                      {isEntered && <svg className="w-3 h-3 text-[#06020f]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                    </div>
+                                    {/* Event # */}
+                                    <span className="text-[10px] font-mono text-white/20 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
+                                    {/* Gender + Age Group */}
+                                    <span className="text-[10px] text-white/25 w-5 shrink-0">{ev.gender === "M" ? "M" : ev.gender === "F" ? "F" : "X"}</span>
+                                    <span className="text-[10px] text-white/20 w-10 shrink-0">{ev.ageGroup || ""}</span>
+                                    {/* Event name */}
+                                    <span className={`text-sm flex-1 truncate ${isEntered ? "text-white font-bold" : "text-white/50"}`}>{ev.name}</span>
+                                    {/* Seed time */}
+                                    <span className={`text-xs font-mono shrink-0 ${
+                                      seedEntry?.seedTime ? "text-emerald-400" : isEntered ? "text-[#f59e0b]" : "text-white/10"
+                                    }`}>
+                                      {seedEntry?.seedTime || (isEntered ? "NT" : "—")}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Navigation between athletes */}
+                            <div className="flex gap-2 mt-4">
+                              {(() => {
+                                const curIdx = filteredRoster.findIndex(a => a.name === viewingAthleteEntries);
+                                const prev = curIdx > 0 ? filteredRoster[curIdx - 1] : null;
+                                const next = curIdx < filteredRoster.length - 1 ? filteredRoster[curIdx + 1] : null;
+                                return (
+                                  <>
+                                    <button onClick={() => prev && setViewingAthleteEntries(prev.name)} disabled={!prev}
+                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all">
+                                      ← {prev?.name.split(" ")[0] || ""}
+                                    </button>
+                                    <button onClick={() => next && setViewingAthleteEntries(next.name)} disabled={!next}
+                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all">
+                                      {next?.name.split(" ")[0] || ""} →
+                                    </button>
+                                  </>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
