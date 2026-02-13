@@ -162,7 +162,7 @@ interface SwimMeet {
   description?: string; warmupTime?: string;
   sessions: MeetSession[];
   events: MeetEvent[]; rsvps: Record<string, "committed" | "declined" | "pending">;
-  broadcasts: MeetBroadcast[]; status: "upcoming" | "active" | "completed";
+  broadcasts: MeetBroadcast[]; status: "upcoming" | "active" | "completed" | "finalized";
   files?: MeetFile[];
 }
 
@@ -3546,6 +3546,70 @@ export default function ApexAthletePage() {
       const vals = Object.values(m.rsvps);
       return { committed: vals.filter(v => v === "committed").length, declined: vals.filter(v => v === "declined").length, pending: filteredRoster.length - vals.length };
     };
+    const finalizeMeet = (meetId: string) => {
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, status: "finalized" as const } : m));
+    };
+    const unfinalizeMeet = (meetId: string) => {
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, status: "upcoming" as const } : m));
+    };
+    const exportMeetCSV = (meet: SwimMeet) => {
+      const rows: string[] = ["Event #,Event,Athlete,Gender,Age,Group,Seed Time"];
+      meet.events.forEach((ev, idx) => {
+        ev.entries.forEach(entry => {
+          const ath = INITIAL_ROSTER.find(a => a.name === entry.athleteId);
+          rows.push(`${ev.eventNum || idx + 1},"${ev.name}","${entry.athleteId}",${ath?.gender || ""},${ath?.age || ""},"${ath?.group || ""}","${entry.seedTime || "NT"}"`);
+        });
+      });
+      const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `${meet.name.replace(/[^a-zA-Z0-9]/g, "_")}_entries.csv`; a.click();
+      URL.revokeObjectURL(url);
+    };
+    const exportMeetSD3 = (meet: SwimMeet) => {
+      // Generate SDIF/SD3 format for OME import
+      const pad = (s: string, len: number) => (s + " ".repeat(len)).slice(0, len);
+      const padNum = (n: number, len: number) => String(n).padStart(len, "0");
+      const dateMMDDYYYY = (d: string) => { const p = d.split("-"); return p[1] + p[2] + p[0]; };
+      const courseCode = meet.course === "LCM" ? "L" : meet.course === "SCM" ? "S" : "Y";
+      const lines: string[] = [];
+      // A0 — File Description
+      lines.push(pad("A0", 2) + pad("03", 2) + pad("Apex Athlete", 30) + pad("", 126));
+      // B1 — Meet record
+      lines.push(pad("B1", 2) + pad("", 9) + pad(meet.name, 45) + pad(meet.location || "", 45) + dateMMDDYYYY(meet.date) + dateMMDDYYYY(meet.endDate || meet.date) + courseCode + pad("", 50));
+      // C1 — Team record
+      lines.push(pad("C1", 2) + pad("", 9) + pad("SA", 6) + pad("Saint Andrew's Aquatics", 30) + pad("", 113));
+      // D0/D3 — Individual entries
+      meet.events.forEach((ev, idx) => {
+        ev.entries.forEach(entry => {
+          const ath = INITIAL_ROSTER.find(a => a.name === entry.athleteId);
+          if (!ath) return;
+          const nameParts = ath.name.split(" ");
+          const lastName = nameParts.slice(-1)[0] || "";
+          const firstName = nameParts.slice(0, -1).join(" ") || "";
+          const gender = ath.gender === "M" ? "M" : "F";
+          const seedTime = entry.seedTime ? entry.seedTime.replace(/[:.]/g, "") : "";
+          // D0 — Individual Event record
+          lines.push(
+            pad("D0", 2) + pad("", 9) +
+            pad(gender, 1) +
+            pad(ath.usaSwimmingId || "", 14) +
+            pad(lastName, 20) + pad(firstName, 20) +
+            pad("", 3) + // nickname
+            padNum(ev.eventNum || idx + 1, 4) +
+            pad(ev.name, 25) +
+            pad(seedTime || "NT", 8) +
+            pad(courseCode, 1) +
+            pad("", 57)
+          );
+        });
+      });
+      // Z0 — File terminator
+      lines.push(pad("Z0", 2) + pad("", 158));
+      const blob = new Blob([lines.join("\r\n")], { type: "text/plain" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `${meet.name.replace(/[^a-zA-Z0-9]/g, "_")}_entries.sd3`; a.click();
+      URL.revokeObjectURL(url);
+    };
     const editMeet = editingMeetId ? meets.find(m => m.id === editingMeetId) : null;
 
     return (
@@ -3617,13 +3681,14 @@ export default function ApexAthletePage() {
                         <div className="flex items-start justify-between mb-2">
                           <div>
                             <h4 className="font-bold text-white text-sm">{m.name}</h4>
-                            <p className="text-white/25 text-xs">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
+                            <p className="text-white/25 text-xs truncate">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
                           </div>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            m.status === "finalized" ? "bg-emerald-500/10 text-emerald-400" :
                             m.status === "upcoming" ? "bg-[#00f0ff]/10 text-[#00f0ff]" :
-                            m.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
+                            m.status === "active" ? "bg-[#f59e0b]/10 text-[#f59e0b]" :
                             "bg-white/5 text-white/30"
-                          }`}>{m.status}</span>
+                          }`}>{m.status === "finalized" ? "✓ Locked" : m.status}</span>
                         </div>
                         <div className="flex items-center gap-3 text-[11px] mb-3">
                           <span className="text-emerald-400">{rc.committed} in</span>
@@ -3674,6 +3739,35 @@ export default function ApexAthletePage() {
                     <span className="text-[#a855f7] ml-auto">{editMeet.events.length} events</span>
                   </div>
                 ); })()}
+
+                {/* Action buttons — finalize + export */}
+                <div className="flex gap-2 mt-4">
+                  {editMeet.status === "finalized" ? (
+                    <button onClick={() => unfinalizeMeet(editMeet.id)}
+                      className="flex-1 game-btn py-2.5 text-xs font-bold text-[#f59e0b] border border-[#f59e0b]/20 rounded-lg hover:bg-[#f59e0b]/10 transition-all">
+                      Unlock Entries
+                    </button>
+                  ) : (
+                    <button onClick={() => finalizeMeet(editMeet.id)}
+                      disabled={editMeet.events.length === 0 || editMeet.events.every(e => e.entries.length === 0)}
+                      className="flex-1 game-btn py-2.5 text-xs font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 disabled:opacity-30 transition-all">
+                      Finalize Entries
+                    </button>
+                  )}
+                  <button onClick={() => exportMeetCSV(editMeet)}
+                    disabled={editMeet.events.every(e => e.entries.length === 0)}
+                    className="game-btn py-2.5 px-4 text-xs font-bold text-[#00f0ff]/60 border border-[#00f0ff]/15 rounded-lg hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] disabled:opacity-30 transition-all">
+                    CSV
+                  </button>
+                  <button onClick={() => exportMeetSD3(editMeet)}
+                    disabled={editMeet.events.every(e => e.entries.length === 0)}
+                    className="game-btn py-2.5 px-4 text-xs font-bold text-[#a855f7]/60 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] disabled:opacity-30 transition-all">
+                    SD3
+                  </button>
+                </div>
+                {editMeet.status === "finalized" && (
+                  <div className="mt-2 text-center text-[10px] text-emerald-400/60 font-mono uppercase">Entries locked — export ready for meet host</div>
+                )}
               </Card>
 
               {/* Tab navigation — like Team Unify: Info / Event Order / Member Entry */}
@@ -3936,11 +4030,11 @@ export default function ApexAthletePage() {
                                 return (
                                   <>
                                     <button onClick={() => prev && setViewingAthleteEntries(prev.name)} disabled={!prev}
-                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all">
+                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all truncate">
                                       ← {prev?.name.split(" ")[0] || ""}
                                     </button>
                                     <button onClick={() => next && setViewingAthleteEntries(next.name)} disabled={!next}
-                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all">
+                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all truncate">
                                       {next?.name.split(" ")[0] || ""} →
                                     </button>
                                   </>
