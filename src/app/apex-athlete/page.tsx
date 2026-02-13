@@ -2332,53 +2332,140 @@ export default function ApexAthletePage() {
       }
 
       const dist = parseInt(stratEvent);
-      const splitCount = dist <= 100 ? 2 : dist <= 200 ? 4 : dist <= 400 ? 4 : Math.min(8, Math.ceil(dist / 100));
-      const segLen = dist / splitCount;
       const improvement = ((current - goal) / current * 100).toFixed(1);
       const timeDrop = current - goal;
+      const stroke = stratStroke;
+
+      // ── SMART SPLIT LOGIC ──
+      // Splits per 50 for pool races; sprints get 25m segments
+      const splitLen = dist <= 50 ? 25 : 50;
+      const splitCount = Math.max(2, Math.round(dist / splitLen));
+      const segLen = dist / splitCount;
+
+      // ── STROKE + DISTANCE SPECIFIC PACE CURVES ──
+      // Based on elite pacing research: sprints = fast start + hold; mid = even/negative; distance = build
+      type PacingStyle = "sprint" | "mid" | "distance";
+      const pacingStyle: PacingStyle = dist <= 100 ? "sprint" : dist <= 200 ? "mid" : "distance";
+
+      const buildPattern = (n: number): number[] => {
+        const raw: number[] = [];
+        for (let i = 0; i < n; i++) {
+          const pos = i / (n - 1 || 1); // 0..1 position through race
+          let w: number;
+          if (pacingStyle === "sprint") {
+            // Fast first split, hold, slight fade, kick finish
+            w = i === 0 ? 0.96 : i === n - 1 ? 1.01 : 1.0 + pos * 0.02;
+          } else if (pacingStyle === "mid") {
+            // Even first half, slight negative split second half
+            w = i === 0 ? 0.98 : pos < 0.5 ? 1.0 : i === n - 1 ? 0.97 : 1.0 - (pos - 0.5) * 0.04;
+          } else {
+            // Distance: controlled start, settle, build, finish strong
+            w = i === 0 ? 0.98 : i === n - 1 ? 0.96 : pos < 0.3 ? 1.01 : pos > 0.8 ? 0.98 : 1.0;
+          }
+          // Stroke adjustments: fly fades more, breast is more even
+          if (stroke === "Butterfly") w += pos * 0.015;
+          if (stroke === "Breaststroke") w = 1.0 + (i === 0 ? -0.02 : 0);
+          raw.push(w);
+        }
+        const sum = raw.reduce((a, b) => a + b, 0);
+        return raw.map(r => r / sum);
+      };
+
+      const pattern = buildPattern(splitCount);
       const splits: { segment: string; time: string; pace: string; focus: string }[] = [];
 
-      const pacePatterns: Record<string, number[]> = {
-        "50": [0.48, 0.52],
-        "100": [0.48, 0.52],
-        "200": [0.24, 0.25, 0.25, 0.26],
-        "400": [0.24, 0.25, 0.26, 0.25],
-        "500": [0.19, 0.20, 0.21, 0.20, 0.20],
-      };
-      const pattern = pacePatterns[stratEvent] || Array(splitCount).fill(1 / splitCount);
+      // ── STROKE + PHASE SPECIFIC FOCUS CUES ──
+      const getFocus = (i: number, n: number): string => {
+        const phase = i / (n - 1 || 1);
+        const isFirst = i === 0;
+        const isLast = i === n - 1;
+        const isSecondLast = i === n - 2;
 
-      const focuses = [
-        "Explosive start — fast off the block, tight streamline",
-        "Build speed — long strokes, high elbow catch",
-        "Hold pace — breathing pattern locked, core engaged",
-        "Maintain rhythm — efficient turns, minimize drag",
-        "Negative split — push through, strong kick",
-        "Final push — all-out effort, head down, race the wall",
-        "Strong finish — accelerate into the wall, no glide",
-        "Close it out — empty the tank, touch strong",
-      ];
+        if (stroke === "Freestyle") {
+          if (isFirst) return dist <= 100 ? "Explosive dive, tight streamline, breakout at full speed" : "Controlled start — long stroke, settle into rhythm";
+          if (isLast) return "Sprint home — increase kick tempo, head down, drive into the wall";
+          if (isSecondLast) return "Build into the finish — shorten stroke slightly, increase turnover";
+          if (phase < 0.3) return "Lock breathing pattern — every 3 strokes. High elbow catch, full extension";
+          if (phase < 0.6) return "Maintain DPS (distance per stroke). Tight streamline off walls, 3+ kicks underwater";
+          return "Start building — engage kick, increase stroke rate, stay long";
+        }
+        if (stroke === "Butterfly") {
+          if (isFirst) return "Strong entry — dolphin kick off the start, aggressive breakout, establish rhythm early";
+          if (isLast) return "Power through — shorten stroke, fast hands, two kicks per stroke to the wall";
+          if (phase < 0.3) return "Big powerful strokes — wide catch, full hip drive, breathe every 2 strokes";
+          if (phase < 0.6) return "Keep hips high. Breathe forward not up. Dolphin kick hard off every wall";
+          return "Fight for technique — if form breaks, shorten stroke but keep moving. Drive kicks";
+        }
+        if (stroke === "Backstroke") {
+          if (isFirst) return "Fast underwater off start — tight streamline, powerful dolphin kicks past the flags";
+          if (isLast) return "Count strokes from flags — tempo up, finish with a strong pull into the wall";
+          if (phase < 0.3) return "Pinky-first entry, full rotation, steady kick. Count strokes per length";
+          if (phase < 0.6) return "Maintain rotation and kick tempo. Tight turns — plant feet high on the wall";
+          return "Build tempo — increase stroke rate, drive hips, keep head still";
+        }
+        if (stroke === "Breaststroke") {
+          if (isFirst) return "Long pullout — full underwater pull + dolphin kick + glide. Don't rush the breakout";
+          if (isLast) return "Accelerate the kick — narrow pull, fast shoot forward, attack the wall";
+          if (phase < 0.3) return "Find your glide. Each stroke: pull → breathe → kick → glide. Don't rush the glide";
+          if (phase < 0.6) return "Maximize pullout off every wall — it's the fastest part of breaststroke";
+          return "Shorten the glide slightly, increase turnover — keep the kick narrow and fast";
+        }
+        // IM
+        if (isFirst) return "Fly leg: fast start, establish tempo early, strong underwaters";
+        if (phase < 0.25) return "Fly → Back transition: carry momentum, tight underwater off the turn";
+        if (phase < 0.5) return "Backstroke leg: steady rotation, fast underwaters, count from flags";
+        if (phase < 0.75) return "Breast leg: long pullouts, don't rush — this is where races are won or lost";
+        if (isLast) return "Free leg: SPRINT. Empty the tank. Fast turnover, head down, drive home";
+        return "Smooth transitions — maintain speed through each turn. Underwaters are free speed";
+      };
 
       for (let i = 0; i < splitCount; i++) {
-        const splitTime = goal * pattern[i % pattern.length];
+        const splitTime = goal * pattern[i];
         splits.push({
-          segment: `${Math.round(segLen * i)}m – ${Math.round(segLen * (i + 1))}m`,
+          segment: `${Math.round(segLen * i)}–${Math.round(segLen * (i + 1))}m`,
           time: fmtTime(splitTime),
-          pace: `${(splitTime / segLen * 100).toFixed(1)}s/100m`,
-          focus: focuses[i % focuses.length],
+          pace: `${(splitTime / segLen * 100).toFixed(1)}s/100`,
+          focus: getFocus(i, splitCount),
         });
       }
 
-      const tips = [
-        `Drop ${timeDrop.toFixed(2)}s from your ${stratEvent}m ${stratStroke} — that's ${improvement}% faster`,
-        dist >= 200 ? "Negative split strategy: go out controlled, finish strong" : "Fast start, maintain through the back half",
-        stratStroke === "Freestyle" ? "Focus on stroke rate consistency — count strokes per length" :
-          stratStroke === "Butterfly" ? "Two strong kicks per stroke — especially off the walls" :
-          stratStroke === "Backstroke" ? "Tight backstroke flags count — nail the turns" :
-          stratStroke === "Breaststroke" ? "Maximize underwater pullout distance off each wall" :
-          "Transition speed between strokes — especially fly-to-back",
-        "Underwater breakouts are free speed — hold streamline past the flags",
-        "Visualize the race: see yourself hitting each split, finishing strong",
-      ];
+      // ── SMART TIPS: stroke + distance + improvement specific ──
+      const tips: string[] = [];
+      tips.push(`Target: drop ${timeDrop.toFixed(2)}s (${improvement}% faster) on your ${stratEvent}m ${stroke}`);
+
+      // Pacing advice
+      if (pacingStyle === "sprint") {
+        tips.push("Sprint race: go out fast and hold. The first 15m off the start is your fastest — use it");
+      } else if (pacingStyle === "mid") {
+        tips.push(stroke === "IM" ? "Fly & back: controlled. Breast: long pullouts. Free: all-out sprint" : "Even splits or slight negative split — don't die on the back half");
+      } else {
+        tips.push("Build through the race. The 3rd quarter is where most people lose it — stay disciplined there");
+      }
+
+      // Stroke-specific technical tip
+      if (stroke === "Freestyle") {
+        tips.push(dist >= 400
+          ? "Count strokes per length — consistency means efficiency. Breathe every 3, switch to every 2 on the last 100"
+          : "High elbow catch + full hip rotation = free speed. Don't cross over on hand entry");
+      } else if (stroke === "Butterfly") {
+        tips.push("Two kicks per stroke — first kick on entry, second on recovery. Keep hips at the surface");
+      } else if (stroke === "Backstroke") {
+        tips.push("Backstroke flags = your turn signal. Know your stroke count. Underwater dolphin kicks are your weapon");
+      } else if (stroke === "Breaststroke") {
+        tips.push("The pullout is the fastest you'll go all race. Full pull → dolphin kick → breaststroke kick → streamline glide");
+      } else {
+        tips.push("Each stroke has a weakness — fly fatigue, back turns, breast tempo, free endurance. Train your weakest");
+      }
+
+      // Underwater / wall work
+      tips.push(dist <= 100
+        ? "Breakout speed off the start sets the tone. Explode off the block and hold your streamline"
+        : "Walls win races — tight turns + 3-5 strong underwater kicks every wall. That's free speed nobody can take");
+
+      // Mental
+      tips.push(dist >= 400
+        ? "Race your splits, not the field. Check the pace clock mentally at each wall"
+        : "Pre-race visualization: see yourself nailing the start, holding form, attacking the finish");
 
       setStratPlan({ splits, tips, xpReward: 150, improvement });
     };
