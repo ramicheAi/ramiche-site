@@ -152,13 +152,18 @@ interface Athlete {
 
 // ── meet entry types ────────────────────────────────────────
 interface MeetEventEntry { athleteId: string; seedTime: string; }
-interface MeetEvent { id: string; name: string; entries: MeetEventEntry[]; }
+interface MeetEvent { id: string; name: string; eventNum?: number; ageGroup?: string; gender?: "M" | "F" | "Mixed"; entries: MeetEventEntry[]; }
+interface MeetSession { id: string; day: string; sessionNum: number; warmupTime?: string; startTime?: string; events: MeetEvent[]; }
 interface MeetBroadcast { id: string; message: string; timestamp: number; sentBy: string; }
+interface MeetFile { id: string; name: string; dataUrl: string; uploadedAt: number; }
 interface SwimMeet {
-  id: string; name: string; date: string; location: string;
+  id: string; name: string; date: string; endDate?: string; location: string;
   course: "SCY" | "SCM" | "LCM"; rsvpDeadline: string;
+  description?: string; warmupTime?: string;
+  sessions: MeetSession[];
   events: MeetEvent[]; rsvps: Record<string, "committed" | "declined" | "pending">;
   broadcasts: MeetBroadcast[]; status: "upcoming" | "active" | "completed";
+  files?: MeetFile[];
 }
 
 // ── Coach Access types ────────────────────────────────────────
@@ -886,6 +891,10 @@ export default function ApexAthletePage() {
   const [newMeetDeadline, setNewMeetDeadline] = useState("");
   const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
   const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
+  const [meetView, setMeetView] = useState<"overview" | "sessions" | "entries" | "info">("overview");
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [meetDescription, setMeetDescription] = useState("");
+  const [viewingAthleteEntries, setViewingAthleteEntries] = useState<string | null>(null);
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
   const [commsMsg, setCommsMsg] = useState("");
   const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
@@ -1919,16 +1928,16 @@ export default function ApexAthletePage() {
             ))}
           </div>
 
-          {/* Section nav tabs */}
-          <div className="grid grid-cols-4 gap-2 mb-4">
+          {/* Section nav tabs — horizontal scroll */}
+          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] ${
+                  className={`py-2.5 px-4 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] whitespace-nowrap shrink-0 ${
                     active
                       ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
-                      : "bg-[#06020f]/40 text-white/15 border border-white/[0.04] hover:text-white/30 hover:border-white/10 active:scale-[0.97]"
+                      : "bg-[#06020f]/40 text-white/30 border border-white/[0.06] hover:text-white/50 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
                 </button>
@@ -3355,10 +3364,37 @@ export default function ApexAthletePage() {
       const m: SwimMeet = {
         id: `meet-${Date.now()}`, name: newMeetName, date: newMeetDate, location: newMeetLocation,
         course: newMeetCourse, rsvpDeadline: newMeetDeadline || newMeetDate,
-        events: [], rsvps: {}, broadcasts: [], status: "upcoming",
+        description: "", sessions: [],
+        events: [], rsvps: {}, broadcasts: [], status: "upcoming", files: [],
       };
       saveMeets([...meets, m]);
       setNewMeetName(""); setNewMeetDate(""); setNewMeetLocation(""); setNewMeetDeadline("");
+    };
+    const handleFileUpload = (meetId: string, files: FileList | null) => {
+      if (!files) return;
+      Array.from(files).forEach(file => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const mf: MeetFile = { id: `f-${Date.now()}-${Math.random().toString(36).slice(2,6)}`, name: file.name, dataUrl: reader.result as string, uploadedAt: Date.now() };
+          saveMeets(meets.map(m => m.id === meetId ? { ...m, files: [...(m.files || []), mf] } : m));
+        };
+        reader.readAsDataURL(file);
+      });
+    };
+    const removeMeetFile = (meetId: string, fileId: string) => {
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, files: (m.files || []).filter(f => f.id !== fileId) } : m));
+    };
+    const enterGroupToEvent = (meetId: string, eventId: string, groupId: string) => {
+      const groupAthletes = INITIAL_ROSTER.filter(a => a.group.toLowerCase().includes(groupId.toLowerCase()));
+      saveMeets(meets.map(m => {
+        if (m.id !== meetId) return m;
+        return { ...m, events: m.events.map(ev => {
+          if (ev.id !== eventId) return ev;
+          const existing = new Set(ev.entries.map(e => e.athleteId));
+          const newEntries = groupAthletes.filter(a => !existing.has(a.name)).map(a => ({ athleteId: a.name, seedTime: "" }));
+          return { ...ev, entries: [...ev.entries, ...newEntries] };
+        })};
+      }));
     };
     const deleteMeet = (id: string) => saveMeets(meets.filter(m => m.id !== id));
     const addEventToMeet = (meetId: string, eventName: string) => {
@@ -3483,31 +3519,64 @@ export default function ApexAthletePage() {
                 <h3 className="font-bold text-white text-lg mb-1">{editMeet.name}</h3>
                 <p className="text-white/25 text-xs mb-4">{new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {editMeet.course} · {editMeet.location || "TBD"}</p>
 
+                {/* Meet files / documents */}
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Files & Documents</h4>
+                  {(editMeet.files || []).length > 0 && (
+                    <div className="space-y-1.5 mb-3">
+                      {(editMeet.files || []).map(f => (
+                        <div key={f.id} className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
+                          <svg className="w-4 h-4 text-[#a855f7]/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                          <a href={f.dataUrl} download={f.name} className="text-xs text-[#00f0ff]/70 hover:text-[#00f0ff] truncate flex-1">{f.name}</a>
+                          <span className="text-[9px] text-white/15 shrink-0">{new Date(f.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                          <button onClick={() => removeMeetFile(editMeet.id, f.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 cursor-pointer game-btn py-2 px-4 text-xs font-bold text-[#a855f7]/50 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] transition-all">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                    Upload File
+                    <input type="file" multiple className="hidden" onChange={e => handleFileUpload(editMeet.id, e.target.files)} accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" />
+                  </label>
+                </div>
+
                 {/* Add events */}
                 <div className="mb-4">
                   <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Events</h4>
                   {editMeet.events.length > 0 && (
-                    <div className="space-y-2 mb-3">
+                    <div className="space-y-3 mb-3">
                       {editMeet.events.map(ev => (
-                        <div key={ev.id} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-white">{ev.name}</span>
+                        <div key={ev.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-bold text-white">{ev.name}</span>
                             <div className="flex items-center gap-2">
-                              <span className="text-[10px] text-[#a855f7]">{ev.entries.length} entered</span>
+                              <span className="text-[10px] text-[#a855f7] font-mono">{ev.entries.length} entered</span>
                               <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/30 hover:text-red-400 text-xs transition-colors">✕</button>
                             </div>
                           </div>
+                          {/* Quick group entry */}
+                          <div className="flex flex-wrap gap-1.5 mb-3">
+                            <span className="text-[9px] text-white/15 self-center mr-1">Add group:</span>
+                            {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => (
+                              <button key={g.id} onClick={() => enterGroupToEvent(editMeet.id, ev.id, g.id)}
+                                className="text-[9px] px-2 py-0.5 rounded-full bg-[#a855f7]/5 text-[#a855f7]/40 border border-[#a855f7]/10 hover:bg-[#a855f7]/15 hover:text-[#a855f7] transition-all">
+                                {g.name}
+                              </button>
+                            ))}
+                          </div>
+                          {/* Individual athlete selection */}
                           <div className="flex flex-wrap gap-1.5">
                             {filteredRoster.map(a => {
                               const entered = ev.entries.some(e => e.athleteId === a.id);
                               return (
                                 <button key={a.id} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, a.id)}
-                                  className={`text-[10px] px-2 py-1 rounded-full transition-all ${
+                                  className={`text-[10px] px-2.5 py-1.5 rounded-lg transition-all ${
                                     entered
-                                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
-                                      : "bg-white/[0.03] text-white/20 border border-white/[0.04] hover:text-white/40"
+                                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 font-bold"
+                                      : "bg-white/[0.03] text-white/25 border border-white/[0.04] hover:text-white/40"
                                   }`}>
-                                  {a.name.split(" ")[0]}
+                                  {a.name.split(" ")[0]} {a.name.split(" ").slice(-1)}
                                 </button>
                               );
                             })}
