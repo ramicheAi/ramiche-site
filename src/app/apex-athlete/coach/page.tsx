@@ -549,9 +549,20 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: 
 
 // ── storage ──────────────────────────────────────────────────
 
+// ── Coach Profile types ──────────────────────────────────────
+interface CoachProfile {
+  id: string;
+  name: string;
+  role: "head" | "assistant";
+  groups: GroupId[];
+  email: string;
+  pin: string;
+}
+
 const K = {
   ROSTER: "apex-athlete-roster-v5",
   PIN: "apex-athlete-pin",
+  COACHES: "apex-athlete-coaches-v1",
   AUDIT: "apex-athlete-audit-v2",
   CHALLENGES: "apex-athlete-challenges-v2",
   SNAPSHOTS: "apex-athlete-snapshots-v2",
@@ -598,7 +609,7 @@ export default function ApexAthletePage() {
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -623,6 +634,15 @@ export default function ApexAthletePage() {
   const [scheduleGroup, setScheduleGroup] = useState<GroupId>("platinum");
   const [editingSession, setEditingSession] = useState<{ day: DayOfWeek; sessionIdx: number } | null>(null);
   const [scheduleEditMode, setScheduleEditMode] = useState(false);
+
+  // ── coach management state ──────────────────────────────
+  const [coaches, setCoaches] = useState<CoachProfile[]>([]);
+  const [addCoachOpen, setAddCoachOpen] = useState(false);
+  const [newCoachName, setNewCoachName] = useState("");
+  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
+  const [newCoachGroups, setNewCoachGroups] = useState<GroupId[]>([]);
+  const [newCoachEmail, setNewCoachEmail] = useState("");
+  const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
 
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
@@ -693,6 +713,9 @@ export default function ApexAthletePage() {
       if (missing.length > 0) { scheds = [...scheds, ...missing]; save(K.SCHEDULES, scheds); }
     }
     setSchedules(scheds);
+    // Load coaches
+    const savedCoaches = load<CoachProfile[]>(K.COACHES, []);
+    setCoaches(savedCoaches);
     setMounted(true);
   }, []);
 
@@ -915,6 +938,55 @@ export default function ApexAthletePage() {
   // ── group switching ─────────────────────────────────────
   const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); setExpandedId(null); }, []);
   const currentGroupDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
+
+  // ── coach management ──────────────────────────────────
+  const saveCoaches = useCallback((c: CoachProfile[]) => { setCoaches(c); save(K.COACHES, c); }, []);
+
+  const addCoach = useCallback(() => {
+    if (!newCoachName.trim()) return;
+    const pin = String(1000 + Math.floor(Math.random() * 9000));
+    const coach: CoachProfile = {
+      id: `coach-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: newCoachName.trim(),
+      role: newCoachRole,
+      groups: newCoachRole === "head" ? ROSTER_GROUPS.map(g => g.id) : newCoachGroups,
+      email: newCoachEmail.trim(),
+      pin,
+    };
+    saveCoaches([...coaches, coach]);
+    setNewCoachName(""); setNewCoachRole("assistant"); setNewCoachGroups([]); setNewCoachEmail(""); setAddCoachOpen(false);
+    addAudit("system", "System", `Added coach: ${coach.name} (${coach.role})`, 0);
+  }, [newCoachName, newCoachRole, newCoachGroups, newCoachEmail, coaches, saveCoaches, addAudit]);
+
+  const removeCoach = useCallback((id: string) => {
+    const c = coaches.find(x => x.id === id);
+    if (!c) return;
+    saveCoaches(coaches.filter(x => x.id !== id));
+    addAudit("system", "System", `Removed coach: ${c.name}`, 0);
+  }, [coaches, saveCoaches, addAudit]);
+
+  const updateCoach = useCallback((id: string, updates: Partial<CoachProfile>) => {
+    saveCoaches(coaches.map(c => c.id === id ? { ...c, ...updates } : c));
+    setEditingCoachId(null);
+  }, [coaches, saveCoaches]);
+
+  const toggleCoachGroup = useCallback((gid: GroupId) => {
+    setNewCoachGroups(prev => prev.includes(gid) ? prev.filter(g => g !== gid) : [...prev, gid]);
+  }, []);
+
+  // Current coach's accessible groups (for access control)
+  // Head coach / admin (PIN 1234) sees all groups; assistant coaches see only their assigned groups
+  const currentCoach = useMemo(() => {
+    if (pinInput === coachPin) return null; // master PIN = admin/head coach
+    return coaches.find(c => c.pin === pinInput);
+  }, [pinInput, coachPin, coaches]);
+
+  const accessibleGroups = useMemo(() => {
+    // Master PIN or no coaches configured = all groups
+    if (!currentCoach) return ROSTER_GROUPS.map(g => g.id);
+    if (currentCoach.role === "head") return ROSTER_GROUPS.map(g => g.id);
+    return currentCoach.groups;
+  }, [currentCoach]);
 
   const addAthleteAction = useCallback(() => {
     if (!newAthleteName.trim() || !newAthleteAge) return;
@@ -1168,10 +1240,17 @@ export default function ApexAthletePage() {
   );
 
   // ── PIN gate ─────────────────────────────────────────────
-  const tryUnlock = () => { if (pinInput === coachPin) { setUnlocked(true); setPinError(false); } else setPinError(true); };
+  const tryUnlock = () => {
+    // Master PIN (admin/head coach)
+    if (pinInput === coachPin) { setUnlocked(true); setPinError(false); return; }
+    // Individual coach PINs
+    const matchedCoach = coaches.find(c => c.pin === pinInput);
+    if (matchedCoach) { setUnlocked(true); setPinError(false); return; }
+    setPinError(true);
+  };
   const resetPin = () => { setCoachPin("1234"); save(K.PIN, "1234"); setPinInput(""); setPinError(false); };
 
-  if (!unlocked && (view === "coach" || view === "schedule")) {
+  if (!unlocked && (view === "coach" || view === "schedule" || view === "staff")) {
     return (
       <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
         <BgOrbs />
@@ -1242,8 +1321,8 @@ export default function ApexAthletePage() {
             </div>
             {/* Game HUD nav tabs */}
             <div className="flex flex-wrap">
-              {(["coach", "parent", "audit", "analytics", "schedule"] as const).map((v, i) => {
-                const icons: Record<string, string> = { coach: "\u25C6", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5" };
+              {(["coach", "staff", "parent", "audit", "analytics", "schedule"] as const).map((v, i) => {
+                const icons: Record<string, string> = { coach: "\u25C6", staff: "\u{1F465}", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5" };
                 const active = view === v;
                 return (
                   <button key={v} onClick={() => setView(v)}
@@ -1603,6 +1682,204 @@ export default function ApexAthletePage() {
     );
   };
 
+  // ── STAFF VIEW ───────────────────────────────────────────
+  if (view === "staff") {
+    // Only head coach / admin (master PIN) can manage staff
+    const isAdmin = pinInput === coachPin || !currentCoach || (currentCoach && currentCoach.role === "head");
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs />
+        <div className="w-full relative z-10 px-5 sm:px-8">
+          <GameHUDHeader />
+          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Coach Staff</h2>
+          <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Manage coaching staff &amp; group access</p>
+
+          {/* Current coaches list */}
+          <div className="space-y-4 mb-8">
+            {coaches.length === 0 && (
+              <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-8 text-center">
+                <p className="text-white/20 text-sm font-mono">No coaches added yet.</p>
+                <p className="text-white/10 text-xs font-mono mt-2">Master PIN ({coachPin}) has full access to all groups.</p>
+              </div>
+            )}
+            {coaches.map(c => {
+              const isEditing = editingCoachId === c.id;
+              return (
+                <div key={c.id} className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/10 p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${
+                        c.role === "head" ? "bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b]" : "bg-[#00f0ff]/10 border border-[#00f0ff]/20 text-[#00f0ff]"
+                      }`}>
+                        {c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="text-white font-bold text-sm">{c.name}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            c.role === "head" ? "bg-[#f59e0b]/15 text-[#f59e0b]" : "bg-[#00f0ff]/10 text-[#00f0ff]/70"
+                          }`}>
+                            {c.role === "head" ? "HEAD COACH" : "ASSISTANT"}
+                          </span>
+                          <span className="text-white/15 text-[10px] font-mono">PIN: {c.pin}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {isAdmin && (
+                      <div className="flex gap-2">
+                        <button onClick={() => setEditingCoachId(isEditing ? null : c.id)}
+                          className="game-btn px-3 py-1.5 text-[10px] font-mono tracking-wider text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all min-h-[32px]">
+                          {isEditing ? "CANCEL" : "EDIT"}
+                        </button>
+                        <button onClick={() => removeCoach(c.id)}
+                          className="game-btn px-3 py-1.5 text-[10px] font-mono tracking-wider text-red-400/30 border border-red-400/10 hover:text-red-400/70 hover:border-red-400/30 transition-all min-h-[32px]">
+                          REMOVE
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Group assignments */}
+                  <div className="mt-3">
+                    <span className="text-white/20 text-[10px] font-mono uppercase tracking-wider">Groups: </span>
+                    {c.role === "head" ? (
+                      <span className="text-[#f59e0b]/60 text-[10px] font-mono">ALL GROUPS (Head Coach)</span>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5 mt-1.5">
+                        {ROSTER_GROUPS.map(g => {
+                          const assigned = c.groups.includes(g.id);
+                          if (isEditing) {
+                            return (
+                              <button key={g.id} onClick={() => {
+                                const newGroups = assigned ? c.groups.filter(x => x !== g.id) : [...c.groups, g.id];
+                                updateCoach(c.id, { groups: newGroups });
+                                setEditingCoachId(c.id); // keep editing
+                              }}
+                                className={`px-2.5 py-1 text-[10px] font-mono rounded-md transition-all min-h-[28px] ${
+                                  assigned
+                                    ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                                    : "bg-white/[0.03] text-white/20 border border-white/[0.06] hover:border-[#00f0ff]/20"
+                                }`}>
+                                {g.icon} {g.name}
+                              </button>
+                            );
+                          }
+                          return assigned ? (
+                            <span key={g.id} className="px-2.5 py-1 text-[10px] font-mono bg-[#00f0ff]/10 text-[#00f0ff]/60 rounded-md border border-[#00f0ff]/15">
+                              {g.icon} {g.name}
+                            </span>
+                          ) : null;
+                        })}
+                        {c.groups.length === 0 && !isEditing && (
+                          <span className="text-red-400/40 text-[10px] font-mono">No groups assigned</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {c.email && (
+                    <div className="mt-2 text-white/15 text-[10px] font-mono">{c.email}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Add Coach Form */}
+          {isAdmin && (
+            <div className="mb-10">
+              {!addCoachOpen ? (
+                <button onClick={() => setAddCoachOpen(true)}
+                  className="game-btn px-5 py-3 bg-gradient-to-r from-[#00f0ff]/15 to-[#a855f7]/15 border border-[#00f0ff]/20 text-[#00f0ff]/70 text-sm font-mono tracking-wider hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all min-h-[44px]">
+                  + ADD COACH
+                </button>
+              ) : (
+                <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/20 p-6 space-y-4">
+                  <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Add New Coach</h3>
+
+                  <div>
+                    <label className="text-white/30 text-[10px] font-mono uppercase tracking-wider block mb-1.5">Name</label>
+                    <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)}
+                      placeholder="Coach name"
+                      className="w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/40 transition-all min-h-[44px] font-mono" />
+                  </div>
+
+                  <div>
+                    <label className="text-white/30 text-[10px] font-mono uppercase tracking-wider block mb-1.5">Email (optional)</label>
+                    <input value={newCoachEmail} onChange={e => setNewCoachEmail(e.target.value)}
+                      placeholder="coach@email.com" type="email"
+                      className="w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/40 transition-all min-h-[44px] font-mono" />
+                  </div>
+
+                  <div>
+                    <label className="text-white/30 text-[10px] font-mono uppercase tracking-wider block mb-1.5">Role</label>
+                    <div className="flex gap-2">
+                      {(["head", "assistant"] as const).map(r => (
+                        <button key={r} onClick={() => setNewCoachRole(r)}
+                          className={`game-btn flex-1 px-4 py-3 text-sm font-mono tracking-wider transition-all min-h-[44px] ${
+                            newCoachRole === r
+                              ? r === "head"
+                                ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/40"
+                                : "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40"
+                              : "bg-[#06020f]/60 text-white/30 border border-white/[0.08] hover:text-white/50"
+                          }`}>
+                          {r === "head" ? "HEAD COACH" : "ASSISTANT"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {newCoachRole === "assistant" && (
+                    <div>
+                      <label className="text-white/30 text-[10px] font-mono uppercase tracking-wider block mb-1.5">Assign Groups</label>
+                      <div className="flex flex-wrap gap-2">
+                        {ROSTER_GROUPS.map(g => (
+                          <button key={g.id} onClick={() => toggleCoachGroup(g.id)}
+                            className={`game-btn px-3 py-2 text-xs font-mono transition-all min-h-[36px] ${
+                              newCoachGroups.includes(g.id)
+                                ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                                : "bg-[#06020f]/60 text-white/25 border border-white/[0.06] hover:border-[#00f0ff]/20"
+                            }`}>
+                            {g.icon} {g.name}
+                          </button>
+                        ))}
+                      </div>
+                      {newCoachGroups.length === 0 && (
+                        <p className="text-[#f59e0b]/40 text-[10px] font-mono mt-1">Select at least one group</p>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={addCoach}
+                      disabled={!newCoachName.trim() || (newCoachRole === "assistant" && newCoachGroups.length === 0)}
+                      className="game-btn flex-1 py-3 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all min-h-[44px] disabled:opacity-30 disabled:cursor-not-allowed">
+                      ADD COACH
+                    </button>
+                    <button onClick={() => { setAddCoachOpen(false); setNewCoachName(""); setNewCoachEmail(""); setNewCoachRole("assistant"); setNewCoachGroups([]); }}
+                      className="game-btn px-4 py-3 text-white/20 border border-white/[0.06] text-sm font-mono hover:text-white/40 transition-all min-h-[44px]">
+                      CANCEL
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Access control info */}
+          <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#a855f7]/10 p-5 mb-10">
+            <h3 className="text-[#a855f7]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">// Access Control</h3>
+            <div className="space-y-2 text-[11px] text-white/30 font-mono">
+              <p><span className="text-[#f59e0b]/60">Master PIN ({coachPin})</span> — Full admin access to all groups</p>
+              <p><span className="text-[#f59e0b]/60">Head Coach</span> — Access to all groups</p>
+              <p><span className="text-[#00f0ff]/60">Assistant</span> — Access only to assigned groups</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── PARENT VIEW ──────────────────────────────────────────
   if (view === "parent") {
     return (
@@ -1952,7 +2229,7 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="py-4">
           <div className="flex flex-wrap gap-2 justify-center">
-            {ROSTER_GROUPS.map(g => {
+            {ROSTER_GROUPS.filter(g => accessibleGroups.includes(g.id)).map(g => {
               const isActive = selectedGroup === g.id;
               const count = roster.filter(a => a.group === g.id).length;
               return (
