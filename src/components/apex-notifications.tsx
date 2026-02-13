@@ -1,10 +1,15 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  requestNotificationPermission,
+  getNotificationStatus,
+  onForegroundMessage,
+} from "@/lib/notifications";
 
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — In-App Notification System
-   Bell icon + badge + dropdown panel
+   APEX ATHLETE — In-App Notification System + Push (FCM)
+   Bell icon + badge + dropdown panel + push permission toggle
    Stored in localStorage key "apex-notifications"
    ══════════════════════════════════════════════════════════════ */
 
@@ -211,6 +216,8 @@ export function ApexNotificationBell({ portal, accentColor = "#00f0ff" }: ApexNo
   const [notifications, setNotifications] = useState<ApexNotification[]>([]);
   const [open, setOpen] = useState(false);
   const [hasNewPulse, setHasNewPulse] = useState(false);
+  const [pushStatus, setPushStatus] = useState<"granted" | "denied" | "default" | "unsupported">("default");
+  const [pushRequesting, setPushRequesting] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
 
@@ -222,7 +229,31 @@ export function ApexNotificationBell({ portal, accentColor = "#00f0ff" }: ApexNo
 
   useEffect(() => {
     setNotifications(loadForPortal());
+    // Check push permission status
+    setPushStatus(getNotificationStatus());
   }, [loadForPortal]);
+
+  // Initialize foreground message listener
+  useEffect(() => {
+    let cleanup: (() => void) | null = null;
+    onForegroundMessage((payload) => {
+      if (payload.title) {
+        addNotification("PRACTICE_REMINDER", payload.title, payload.body || "", portal);
+      }
+    }).then((unsub) => { cleanup = unsub; });
+    return () => { cleanup?.(); };
+  }, [portal]);
+
+  const handleEnablePush = async () => {
+    setPushRequesting(true);
+    const token = await requestNotificationPermission();
+    setPushStatus(getNotificationStatus());
+    setPushRequesting(false);
+    if (token) {
+      // Store token in localStorage for the coach portal to use when sending
+      try { localStorage.setItem("apex-fcm-token", token); } catch {}
+    }
+  };
 
   // Listen for new notifications
   useEffect(() => {
@@ -384,6 +415,37 @@ export function ApexNotificationBell({ portal, accentColor = "#00f0ff" }: ApexNo
               )}
             </div>
           </div>
+
+          {/* Push Notification Toggle */}
+          {pushStatus !== "unsupported" && pushStatus !== "granted" && (
+            <div className="px-4 py-2.5" style={{ borderBottom: `1px solid ${accentColor}10`, background: `${accentColor}05` }}>
+              <button
+                onClick={handleEnablePush}
+                disabled={pushRequesting || pushStatus === "denied"}
+                className="w-full flex items-center gap-2.5 text-left transition-all hover:opacity-80 disabled:opacity-40"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accentColor} strokeWidth="1.8" strokeLinecap="round">
+                  <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9z" />
+                  <path d="M13.73 21a2 2 0 01-3.46 0" />
+                  <line x1="12" y1="2" x2="12" y2="4" strokeWidth="2" />
+                </svg>
+                <div>
+                  <span className="text-[11px] font-bold" style={{ color: accentColor }}>
+                    {pushRequesting ? "Requesting..." : pushStatus === "denied" ? "Push Blocked" : "Enable Push Notifications"}
+                  </span>
+                  <span className="text-[9px] text-white/20 block">
+                    {pushStatus === "denied" ? "Allow in browser settings" : "Get alerts even when app is closed"}
+                  </span>
+                </div>
+              </button>
+            </div>
+          )}
+          {pushStatus === "granted" && (
+            <div className="px-4 py-1.5 flex items-center gap-1.5" style={{ borderBottom: `1px solid ${accentColor}10` }}>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+              <span className="text-[9px] font-mono text-emerald-400/60">PUSH ENABLED</span>
+            </div>
+          )}
 
           {/* Notification List */}
           <div className="overflow-y-auto max-h-[360px] scrollbar-thin">
