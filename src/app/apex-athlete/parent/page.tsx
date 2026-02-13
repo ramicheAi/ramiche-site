@@ -880,13 +880,10 @@ export default function ParentPortal() {
             )}
           </div>
 
-          {/* COPPA notice */}
-          <div className="mt-6 p-4 rounded-xl bg-[#0a0518]/60 border border-[#00f0ff]/10">
-            <div className="flex items-center gap-2 mb-1">
-              <SvgShieldLock size={18} color="#00f0ff" />
-              <span className="text-white/50 text-xs font-bold">COPPA Safe</span>
-            </div>
-            <p className="text-white/50 text-sm">This portal shows growth trends and achievements only. All athlete data is managed by the coach. No personal information is collected.</p>
+          {/* COPPA notice — icon only */}
+          <div className="mt-6 flex items-center justify-center gap-1.5">
+            <SvgShieldLock size={14} color="#00f0ff" />
+            <span className="text-white/30 text-[10px] tracking-wider">COPPA</span>
           </div>
 
           <div className="text-center mt-6">
@@ -1463,19 +1460,10 @@ export default function ParentPortal() {
           </div>
         </div>
 
-        {/* COPPA Footer — SVG shield */}
-        <div className="mt-8 p-3 rounded-lg bg-[#0a0518]/40 border border-[#00f0ff]/5 flex items-center gap-2">
-          <SvgShieldLock size={16} color="#00f0ff" />
-          <p className="text-white/50 text-sm">
-            Parent Portal is read-only. Growth trends and achievements only — no raw checkpoint data, no personal information.
-            All data is managed by the coaching staff.
-          </p>
-        </div>
-
         {/* Footer */}
-        <div className="text-center mt-8 text-white/60 text-sm space-y-1">
-          <p>Apex Athlete — Parent Portal</p>
-          <p>Enough to feel invested, not enough to backseat coach</p>
+        <div className="text-center mt-8 flex items-center justify-center gap-1.5">
+          <SvgShieldLock size={14} color="#00f0ff" />
+          <span className="text-white/30 text-[10px] tracking-wider">COPPA</span>
         </div>
       </div>
     </div>

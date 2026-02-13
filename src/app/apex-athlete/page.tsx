@@ -2261,7 +2261,7 @@ export default function ApexAthletePage() {
                           : "bg-white/10"
                       }`} />
                       <span className={`text-xs font-mono tracking-wider uppercase ${
-                        st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/15"
+                        st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/50"
                       }`}>
                         {st === "done" ? `${athlete.name.split(" ")[0]} completed` : st === "active" ? `${athlete.name.split(" ")[0]} submitted` : "Not assigned"}
                       </span>
@@ -2346,7 +2346,7 @@ export default function ApexAthletePage() {
               </div>
               <textarea value={feedbackMsg} onChange={e => setFeedbackMsg(e.target.value)}
                 placeholder={feedbackType === "praise" ? "Great job today..." : feedbackType === "tip" ? "Try focusing on..." : "Your next goal is..."}
-                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#f59e0b]/30 resize-none"
+                className="w-full px-3 py-2.5 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#f59e0b]/30 resize-none"
                 rows={2} />
               <div className="flex gap-2">
                 <button onClick={() => sendFeedback(athlete.id)} disabled={!feedbackMsg.trim()}
@@ -2615,12 +2615,12 @@ export default function ApexAthletePage() {
               <div>
                 <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Current Best (M:SS.hh)</label>
                 <input type="text" value={stratCurrentTime} onChange={e => setStratCurrentTime(e.target.value)}
-                  placeholder="1:05.30" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/15" />
+                  placeholder="1:05.30" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/50" />
               </div>
               <div>
                 <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Goal Time (M:SS.hh)</label>
                 <input type="text" value={stratGoalTime} onChange={e => setStratGoalTime(e.target.value)}
-                  placeholder="1:02.00" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/15" />
+                  placeholder="1:02.00" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/50" />
               </div>
             </div>
 
@@ -2796,7 +2796,7 @@ export default function ApexAthletePage() {
                         <div className="text-white/35 text-xs font-mono mt-0.5">
                           {fmt12(session.startTime)} – {fmt12(session.endTime)}
                         </div>
-                        <div className="text-white/15 text-xs mt-0.5">{session.location}</div>
+                        <div className="text-white/50 text-xs mt-0.5">{session.location}</div>
 
                         {scheduleEditMode && (
                           <div className="mt-2 space-y-1.5">
@@ -2989,7 +2989,7 @@ export default function ApexAthletePage() {
                             : "border-white/[0.06] bg-[#0a0518]/60 hover:bg-[#0a0518]/80"
                       } ${isPast && !isToday ? "opacity-40" : ""}`}>
                         <span className={`text-xs font-mono font-bold leading-none ${
-                          isToday ? "text-[#00f0ff]" : isRest ? "text-white/15" : "text-white/50"
+                          isToday ? "text-[#00f0ff]" : isRest ? "text-white/50" : "text-white/50"
                         }`}>{day}</span>
                         {!isRest && (
                           <div className="flex gap-[3px] mt-0.5">
@@ -3306,7 +3306,7 @@ export default function ApexAthletePage() {
                     return (
                       <div key={i} className="flex-1 flex flex-col items-center gap-1">
                         <div className="w-full rounded-t bg-[#6b21a8] transition-all" style={{ height: `${(xp / max) * 100}%`, minHeight: "2px" }} />
-                        <span className="text-xs text-white/15 font-mono">{new Date(s.date).getDate()}</span>
+                        <span className="text-xs text-white/50 font-mono">{new Date(s.date).getDate()}</span>
                       </div>
                     );
                   })}
@@ -3650,7 +3650,7 @@ export default function ApexAthletePage() {
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 h-px bg-white/[0.06]" />
-                <span className="text-xs text-white/15 uppercase font-mono">or create manually</span>
+                <span className="text-xs text-white/50 uppercase font-mono">or create manually</span>
                 <div className="flex-1 h-px bg-white/[0.06]" />
               </div>
 
@@ -3686,7 +3686,7 @@ export default function ApexAthletePage() {
 
               {/* Meet list */}
               {meets.length === 0 ? (
-                <div className="text-center py-12 text-white/15 text-sm">No meets created yet</div>
+                <div className="text-center py-12 text-white/50 text-sm">No meets created yet</div>
               ) : (
                 <div className="space-y-3">
                   {meets.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(m => {
@@ -3808,10 +3808,10 @@ export default function ApexAthletePage() {
                     {editMeet.description ? (
                       <p className="text-sm text-white/60 whitespace-pre-wrap">{editMeet.description}</p>
                     ) : (
-                      <p className="text-sm text-white/15 italic">No description — add one below</p>
+                      <p className="text-sm text-white/50 italic">No description — add one below</p>
                     )}
                     <textarea value={meetDescription} onChange={e => setMeetDescription(e.target.value)} placeholder="Add meet info, qualifying standards, notes..."
-                      rows={3} className="mt-3 w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/40 resize-none" style={{ fontSize: "16px" }} />
+                      rows={3} className="mt-3 w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40 resize-none" style={{ fontSize: "16px" }} />
                     <button onClick={() => { saveMeets(meets.map(m => m.id === editMeet.id ? { ...m, description: meetDescription } : m)); }}
                       disabled={!meetDescription.trim()} className="mt-2 game-btn px-4 py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
                       Save Description
@@ -3827,7 +3827,7 @@ export default function ApexAthletePage() {
                           <div key={f.id} className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2">
                             <svg className="w-4 h-4 text-[#a855f7]/60 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                             <a href={f.dataUrl} download={f.name} className="text-xs text-[#00f0ff]/70 hover:text-[#00f0ff] truncate flex-1">{f.name}</a>
-                            <span className="text-xs text-white/15 shrink-0">{new Date(f.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                            <span className="text-xs text-white/50 shrink-0">{new Date(f.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                             <button onClick={() => removeMeetFile(editMeet.id, f.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0">✕</button>
                           </div>
                         ))}
@@ -3896,7 +3896,7 @@ export default function ApexAthletePage() {
 
                   {/* Event list — organized with event # and entries count */}
                   {editMeet.events.length === 0 ? (
-                    <div className="text-center py-8 text-white/15 text-sm">No events yet — add events above or import a meet file</div>
+                    <div className="text-center py-8 text-white/50 text-sm">No events yet — add events above or import a meet file</div>
                   ) : (
                     <div className="space-y-2">
                       {editMeet.events.map((ev, idx) => {
@@ -3961,10 +3961,10 @@ export default function ApexAthletePage() {
                                 {entryCount > 0 ? (
                                   <span className="text-xs font-bold text-[#00f0ff]">{entryCount} events</span>
                                 ) : (
-                                  <span className="text-xs text-white/15">No entries</span>
+                                  <span className="text-xs text-white/50">No entries</span>
                                 )}
                               </div>
-                              <svg className="w-4 h-4 text-white/15 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              <svg className="w-4 h-4 text-white/50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           );
                         })}
@@ -4117,7 +4117,7 @@ export default function ApexAthletePage() {
           <Card className="p-5 mb-6" neon>
             <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Sent Messages</h3>
             {allBroadcasts.length === 0 ? (
-              <p className="text-white/15 text-sm text-center py-4">No messages sent yet</p>
+              <p className="text-white/50 text-sm text-center py-4">No messages sent yet</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {allBroadcasts.slice().reverse().map(bc => (
@@ -4138,7 +4138,7 @@ export default function ApexAthletePage() {
           <Card className="p-5" neon>
             <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Absence Reports</h3>
             {absenceReports.length === 0 ? (
-              <p className="text-white/15 text-sm text-center py-4">No absences reported</p>
+              <p className="text-white/50 text-sm text-center py-4">No absences reported</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {absenceReports.slice().reverse().map(ab => (
@@ -4149,7 +4149,7 @@ export default function ApexAthletePage() {
                     </div>
                     <p className="text-xs text-white/60">{ab.dateStart}{ab.dateEnd !== ab.dateStart ? ` – ${ab.dateEnd}` : ""}</p>
                     {ab.note && <p className="text-xs text-white/50 mt-1">{ab.note}</p>}
-                    <p className="text-xs text-white/10 mt-1">Reported: {new Date(ab.submitted).toLocaleString()}</p>
+                    <p className="text-xs text-white/40 mt-1">Reported: {new Date(ab.submitted).toLocaleString()}</p>
                   </div>
                 ))}
               </div>
@@ -4603,7 +4603,7 @@ export default function ApexAthletePage() {
                         <span className="text-white font-medium text-sm">{tc.name}</span>
                         <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${done ? "text-[#f59e0b]" : "text-white/25"}`}>{tc.current}%<span className="text-white/10">/{tc.target}%</span></span>
                       </div>
-                      <p className="text-white/15 text-xs mb-3">{tc.description} · <span className="text-[#f59e0b]/60">+{tc.reward} XP</span></p>
+                      <p className="text-white/50 text-xs mb-3">{tc.description} · <span className="text-[#f59e0b]/60">+{tc.reward} XP</span></p>
                       <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-700 ${done ? "bg-gradient-to-r from-[#f59e0b] to-[#fbbf24]" : "bg-gradient-to-r from-[#6b21a8] to-[#7c3aed]"}`} style={{ width: `${pct}%` }} />
                       </div>
@@ -4619,7 +4619,6 @@ export default function ApexAthletePage() {
         <div className="text-center text-white/[0.06] text-xs py-10 space-y-2">
           <p className="text-white/60 text-sm italic">&ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;</p>
           <p className="text-white/[0.04]">Every rep counts. Every streak matters. Every athlete has a story.</p>
-          <p className="text-white/[0.03] mt-1">Coach manages all data · Parental consent required · COPPA compliant</p>
         </div>
       </div>
     </div>

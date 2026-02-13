@@ -167,7 +167,6 @@ export default function PortalSelector() {
         <div className="text-center mt-12 sm:mt-16 space-y-2">
           <p className="text-white/10 text-xs italic">&ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;</p>
           <p className="text-white/[0.06] text-[10px]">Every rep counts. Every streak matters. Every athlete has a story.</p>
-          <p className="text-white/[0.04] text-[9px] mt-2">Coach manages all data · Parental consent required · COPPA compliant</p>
         </div>
       </div>
     </div>
