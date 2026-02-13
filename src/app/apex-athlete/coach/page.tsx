@@ -782,6 +782,12 @@ export default function ApexAthletePage() {
   const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
   const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
 
+  // ── comms state (must be at top level — hooks cannot be inside conditionals) ──
+  const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
+  const [commsMsg, setCommsMsg] = useState("");
+  const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
+  const [absenceReports, setAbsenceReports] = useState<{ id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[]>([]);
+
   // ── push notification state ──────────────────────────────
   const [pushEnabled, setPushEnabled] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
@@ -860,6 +866,9 @@ export default function ApexAthletePage() {
     setCoaches(savedCoaches);
     // Load meets
     setMeets(load<SwimMeet[]>(K.MEETS, []));
+    // Load broadcasts + absence reports
+    try { setAllBroadcasts(JSON.parse(localStorage.getItem("apex-broadcasts-v1") || "[]")); } catch { /* empty */ }
+    try { setAbsenceReports(JSON.parse(localStorage.getItem("apex-absences-v1") || "[]")); } catch { /* empty */ }
     // Check push notification status
     if ("serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker.register("/sw.js").then(reg => {
@@ -2416,17 +2425,7 @@ export default function ApexAthletePage() {
   // ── COMMS VIEW (Broadcast to Parents) ──────────────────────
   if (view === "comms") {
     const BROADCAST_KEY = "apex-broadcasts-v1";
-    const loadBroadcasts = (): { id: string; message: string; timestamp: string; from: string; group: string }[] => {
-      try { return JSON.parse(localStorage.getItem(BROADCAST_KEY) || "[]"); } catch { return []; }
-    };
-    const [allBroadcasts, setAllBroadcasts] = useState(loadBroadcasts());
-    const [commsMsg, setCommsMsg] = useState("");
-    const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
     const ABSENCE_KEY = "apex-absences-v1";
-    const loadAbsences = (): { id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[] => {
-      try { return JSON.parse(localStorage.getItem(ABSENCE_KEY) || "[]"); } catch { return []; }
-    };
-    const [absenceReports] = useState(loadAbsences());
 
     const sendBroadcast = () => {
       if (!commsMsg.trim()) return;
