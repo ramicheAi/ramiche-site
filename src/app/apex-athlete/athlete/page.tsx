@@ -1375,7 +1375,7 @@ export default function AthletePortal() {
           </div>
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
             <div className="text-xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
-            <div className="text-white/50 text-[10px] font-mono tracking-wider">
+            <div className="text-white/60 text-xs font-mono tracking-wider">
               {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
             </div>
             <div className="text-white/60 text-xs font-mono tracking-wider">THIS WEEK</div>
