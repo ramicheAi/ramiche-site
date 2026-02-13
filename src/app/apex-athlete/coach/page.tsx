@@ -1352,111 +1352,117 @@ export default function ApexAthletePage() {
   const GameHUDHeader = () => {
     const presentCount = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
     const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
+    const mainTabs = [
+      { id: "coach" as const, label: "Coach" },
+      { id: "staff" as const, label: "Staff" },
+      { id: "parent" as const, label: "Parent" },
+    ];
+    const secondaryTabs = [
+      { id: "analytics" as const, label: "Analytics" },
+      { id: "schedule" as const, label: "Schedule" },
+      { id: "audit" as const, label: "Audit" },
+    ];
     return (
-      <div className="w-full relative mb-6">
+      <div className="w-full relative mb-4">
         {/* Top gradient bar */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00f0ff]/60 to-transparent" />
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#00f0ff]/[0.03] to-transparent pointer-events-none" />
 
-        <div className="pt-8 pb-2">
-          {/* Title + Nav */}
-          <div className="flex items-end justify-between mb-6">
-            <div>
-              <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-1">{'<'} swim.training.system {'/'+'>'}</div>
-              <h1 className="text-4xl sm:text-5xl font-black tracking-[-0.04em] leading-[0.85]" style={{
-                background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundSize: '200% 200%',
-                animation: 'gradientShift 4s ease-in-out infinite',
-                filter: 'drop-shadow(0 0 30px rgba(0,240,255,0.3))'
-              }}>
-                APEX ATHLETE
-              </h1>
-            </div>
-            {/* Game HUD nav tabs */}
-            <div className="flex flex-wrap">
-              {(["coach", "staff", "parent", "audit", "analytics", "schedule"] as const).map((v, i) => {
-                const icons: Record<string, string> = { coach: "\u25C6", staff: "\u{1F465}", parent: "\u25C7", audit: "\u25A3", analytics: "\u25C8", schedule: "\uD83D\uDCC5" };
-                const active = view === v;
-                return (
-                  <button key={v} onClick={() => setView(v)}
-                    className={`relative px-4 sm:px-5 py-3 text-[10px] font-bold font-mono tracking-[0.25em] uppercase transition-all duration-300 ${
-                      active
-                        ? "text-[#00f0ff] bg-[#00f0ff]/[0.08]"
-                        : "text-white/15 hover:text-[#00f0ff]/60 hover:bg-[#00f0ff]/[0.03]"
-                    }`}
-                    style={{
-                      borderTop: active ? '2px solid rgba(0,240,255,0.6)' : '2px solid rgba(0,240,255,0.08)',
-                      borderBottom: active ? 'none' : '1px solid rgba(0,240,255,0.05)',
-                      boxShadow: active ? '0 -4px 20px rgba(0,240,255,0.15), inset 0 1px 15px rgba(0,240,255,0.05)' : 'none'
-                    }}>
-                    <span className={`mr-1.5 ${active ? "text-[#f59e0b]" : ""}`}>{icons[v]}</span>{v}
-                    {active && <div className="absolute bottom-0 left-1/4 right-1/4 h-[1px] bg-[#00f0ff]/40" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Team identity bar */}
-          <div className="game-panel game-panel-border relative bg-[#06020f]/60 backdrop-blur-xl px-6 py-4 mb-4">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 game-panel-sm bg-gradient-to-br from-[#f59e0b]/20 to-[#6b21a8]/20 border border-[#f59e0b]/30 flex items-center justify-center">
-                <span className="text-[#f59e0b] text-lg font-black">SA</span>
-              </div>
-              <div className="flex-1">
-                <h2 className="text-white/90 font-bold text-sm tracking-wide">{culture.teamName}</h2>
-                <p className="text-[#f59e0b]/50 text-[11px] italic font-mono">{culture.mission}</p>
-              </div>
-              {/* Notification bell */}
+        <div className="pt-6 pb-2">
+          {/* Title row — compact */}
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
+              background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundSize: '200% 200%',
+              animation: 'gradientShift 4s ease-in-out infinite',
+              filter: 'drop-shadow(0 0 30px rgba(0,240,255,0.3))'
+            }}>
+              APEX ATHLETE
+            </h1>
+            <div className="flex items-center gap-2">
               <button onClick={togglePushNotifications} disabled={pushLoading}
-                className={`game-btn px-3 py-1.5 text-sm transition-all min-h-[32px] ${
+                className={`game-btn w-10 h-10 flex items-center justify-center text-sm transition-all ${
                   pushEnabled ? "text-[#00f0ff] border border-[#00f0ff]/30" : "text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60"
                 }`} title={pushEnabled ? "Notifications ON" : "Enable notifications"}>
                 {pushLoading ? "..." : pushEnabled ? "🔔" : "🔕"}
               </button>
               {view === "coach" && (
                 <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-                  className="game-btn px-3 py-1.5 text-[9px] font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
-                  {editingCulture ? "SAVE" : "EDIT"}
+                  className="game-btn w-10 h-10 flex items-center justify-center text-[9px] font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
+                  {editingCulture ? "✓" : "✎"}
                 </button>
               )}
             </div>
           </div>
 
-          {/* Season goal progress */}
-          <div className="flex items-center gap-4 px-2 mb-2">
+          {/* Portal nav tabs — large, easy-to-tap */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {mainTabs.map(t => {
+              const active = view === t.id;
+              return (
+                <button key={t.id} onClick={() => setView(t.id)}
+                  className={`relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] ${
+                    active
+                      ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.2)]"
+                      : "bg-[#06020f]/60 text-white/25 border border-white/[0.06] hover:text-[#00f0ff]/50 hover:border-[#00f0ff]/20 active:scale-[0.97]"
+                  }`}>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {secondaryTabs.map(t => {
+              const active = view === t.id;
+              return (
+                <button key={t.id} onClick={() => setView(t.id)}
+                  className={`py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] ${
+                    active
+                      ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
+                      : "bg-[#06020f]/40 text-white/15 border border-white/[0.04] hover:text-white/30 hover:border-white/10 active:scale-[0.97]"
+                  }`}>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Team identity — inline compact */}
+          <div className="flex items-center gap-3 px-1 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#f59e0b]/20 to-[#6b21a8]/20 border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
+              <span className="text-[#f59e0b] text-sm font-black">SA</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-white/70 font-bold text-sm">{culture.teamName}</span>
+              <span className="text-[#f59e0b]/30 text-[10px] ml-2 font-mono italic hidden sm:inline">{culture.mission}</span>
+            </div>
+          </div>
+
+          {/* Season goal — minimal */}
+          <div className="flex items-center gap-3 px-1">
             <span className="text-[#00f0ff]/20 text-[9px] font-mono uppercase tracking-wider shrink-0">{culture.seasonalGoal}</span>
             <div className="flex-1 h-1 rounded-full bg-white/[0.04] overflow-hidden xp-bar-segments">
               <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
             </div>
-            <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono tabular-nums whitespace-nowrap shrink-0">{culture.goalCurrent}%<span className="text-white/10">/{culture.goalTarget}%</span></span>
+            <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono tabular-nums whitespace-nowrap shrink-0">{culture.goalCurrent}%</span>
           </div>
         </div>
 
-        {/* Live HUD data strip */}
+        {/* Live HUD data strip — compact */}
         <div className="relative border-y border-[#00f0ff]/10 bg-[#06020f]/90 backdrop-blur-xl">
-          <div className="absolute inset-0 data-grid-bg opacity-30 pointer-events-none" />
-          <div className="flex items-center gap-6 py-3 relative z-10 scan-sweep px-2">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
-              <span className="neon-text-cyan text-sm font-bold font-mono tabular-nums whitespace-nowrap">{presentCount}<span className="text-white/15 font-normal">/{roster.length}</span></span>
-              <span className="text-[#00f0ff]/30 text-[10px] font-mono uppercase">present</span>
+          <div className="flex items-center justify-center gap-5 py-2.5 px-2">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_8px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
+              <span className="neon-text-cyan text-xs font-bold font-mono tabular-nums">{presentCount}<span className="text-white/15 font-normal">/{roster.length}</span></span>
             </div>
-            <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <div className="flex items-center gap-2">
-              <span className="neon-text-gold text-sm font-bold font-mono tabular-nums whitespace-nowrap">{xpToday}</span>
-              <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
+            <div className="w-px h-3 bg-[#00f0ff]/10" />
+            <div className="flex items-center gap-1.5">
+              <span className="neon-text-gold text-xs font-bold font-mono tabular-nums">{xpToday}</span>
+              <span className="text-[#f59e0b]/30 text-[9px] font-mono uppercase">XP</span>
             </div>
-            <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
-            {culture.weeklyQuote && (
-              <>
-                <div className="w-px h-4 bg-[#00f0ff]/10" />
-                <span className="text-[#a855f7]/30 text-[10px] italic truncate max-w-[200px] font-mono">&ldquo;{culture.weeklyQuote}&rdquo;</span>
-              </>
-            )}
+            <div className="w-px h-3 bg-[#00f0ff]/10" />
+            <span className="text-[#00f0ff]/40 text-[10px] font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
           </div>
         </div>
       </div>
@@ -2442,72 +2448,70 @@ export default function ApexAthletePage() {
         {/* ══════════════════════════════════════════════════════
            COACH TOOLS + ROSTER CHECK-IN
            ══════════════════════════════════════════════════════ */}
-        <div className="w-full px-5 sm:px-8 py-6">
+        <div className="w-full px-5 sm:px-8 py-4">
           <div className="w-full">
-            {/* Session mode + tools */}
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              <div className="flex gap-2">
+            {/* Session mode — clean grid */}
+            <div className="mb-5">
+              <div className="grid grid-cols-4 gap-2">
                 {(["pool", "weight", "meet"] as const).map(m => {
                   const sportIcons = { swimming: { pool: "🏊", weight: "🏋️", meet: "🏁" }, diving: { pool: "🤿", weight: "🏋️", meet: "🏁" }, waterpolo: { pool: "🤽", weight: "🏋️", meet: "🏁" } };
-                  const sportLabels = { swimming: { pool: "Pool", weight: "Weight Room", meet: "Meet Day" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet Day" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match Day" } };
+                  const sportLabels = { swimming: { pool: "Pool", weight: "Weights", meet: "Meet" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match" } };
                   const icons = sportIcons[currentSport as keyof typeof sportIcons] || sportIcons.swimming;
                   const labels = sportLabels[currentSport as keyof typeof sportLabels] || sportLabels.swimming;
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
-                      className={`game-btn px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
+                      className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[44px] ${
                         sessionMode === m
-                          ? "bg-[#00f0ff]/15 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_40px_rgba(0,240,255,0.3),inset_0_0_20px_rgba(0,240,255,0.05)] scale-[1.02]"
-                          : "bg-[#06020f]/60 text-white/30 hover:text-[#00f0ff]/60 border border-[#00f0ff]/10 hover:border-[#00f0ff]/25 hover:shadow-[0_0_25px_rgba(0,240,255,0.1)] hover:scale-[1.01]"
+                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
+                          : "bg-[#06020f]/60 text-white/25 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
                       }`}>
-                      <span className="mr-1.5">{icons[m]}</span>{labels[m]}
+                      <span className="mr-1">{icons[m]}</span>{labels[m]}
                     </button>
                   );
                 })}
-              </div>
-              {/* AM/PM Toggle */}
-              <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
-                className={`game-btn px-4 py-3.5 text-sm font-bold font-mono tracking-wider transition-all duration-200 min-h-[52px] rounded-xl ${
-                  sessionTime === "am"
-                    ? "bg-amber-500/15 text-amber-400 border-2 border-amber-500/30 shadow-[0_0_30px_rgba(245,158,11,0.2)]"
-                    : "bg-indigo-500/15 text-indigo-400 border-2 border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.2)]"
-                }`}>
-                {sessionTime === "am" ? "☀ AM" : "☽ PM"}
-              </button>
-              <div className="flex gap-2 flex-wrap">
-                <button onClick={bulkMarkPresent} className="game-btn px-4 py-2.5 bg-[#00f0ff]/10 text-[#00f0ff]/80 text-sm font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all active:scale-[0.97] min-h-[44px]">
-                  ✅ BULK
+                <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+                  className={`py-3 text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
+                    sessionTime === "am"
+                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                      : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
+                  }`}>
+                  {sessionTime === "am" ? "☀ AM" : "☽ PM"}
                 </button>
-                <button onClick={undoLast} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">↩ UNDO</button>
-                <button onClick={resetDay} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]">🔄 DAY</button>
-                <button onClick={resetWeek} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]">🔄 WEEK</button>
-                <button onClick={resetMonth} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#f59e0b]/30 text-sm font-mono border border-[#f59e0b]/10 hover:text-[#f59e0b]/60 hover:border-[#f59e0b]/25 transition-all active:scale-[0.97] min-h-[44px]">🏆 MONTH</button>
-                <button onClick={exportCSV} className="game-btn px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]">📊 CSV</button>
               </div>
             </div>
 
-            {/* Add athlete */}
-            <div className="mb-6">
-              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)}
-                className="text-white/20 text-xs hover:text-white/40 transition-colors min-h-[36px]">
-                {addAthleteOpen ? "Cancel" : "+ Add Athlete"}
+            {/* Quick actions — single row */}
+            <div className="flex items-center gap-2 mb-5 overflow-x-auto">
+              <button onClick={bulkMarkPresent} className="shrink-0 game-btn px-4 py-2 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">
+                ✅ Bulk
               </button>
-              {addAthleteOpen && (
-                <div className="flex gap-3 mt-3 items-center flex-wrap">
-                  <input value={newAthleteName} onChange={e => setNewAthleteName(e.target.value)} placeholder="Name"
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" />
-                  <input value={newAthleteAge} onChange={e => setNewAthleteAge(e.target.value.replace(/\D/g, ""))} placeholder="Age"
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-20 focus:outline-none min-h-[44px]" />
-                  <select value={newAthleteGender} onChange={e => setNewAthleteGender(e.target.value as "M" | "F")}
-                    className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none min-h-[44px]">
-                    <option value="M">M</option><option value="F">F</option>
-                  </select>
-                  <button onClick={addAthleteAction}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white text-sm font-bold min-h-[44px] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)] transition-all">
-                    Add
-                  </button>
-                </div>
-              )}
+              <button onClick={undoLast} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/20 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">↩ Undo</button>
+              <button onClick={resetDay} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/15 text-xs font-mono border border-white/[0.04] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">🔄 Day</button>
+              <button onClick={resetWeek} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/15 text-xs font-mono border border-white/[0.04] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">🔄 Week</button>
+              <button onClick={resetMonth} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/15 text-xs font-mono border border-white/[0.04] hover:text-[#f59e0b]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">🏆 Month</button>
+              <button onClick={exportCSV} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/15 text-xs font-mono border border-white/[0.04] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">📊 CSV</button>
+              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/15 text-xs font-mono border border-white/[0.04] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">
+                {addAthleteOpen ? "✕ Cancel" : "+ Athlete"}
+              </button>
             </div>
+
+            {/* Add athlete — expandable */}
+            {addAthleteOpen && (
+              <div className="flex gap-3 mb-5 items-center flex-wrap">
+                <input value={newAthleteName} onChange={e => setNewAthleteName(e.target.value)} placeholder="Name"
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" style={{ fontSize: '16px' }} />
+                <input value={newAthleteAge} onChange={e => setNewAthleteAge(e.target.value.replace(/\D/g, ""))} placeholder="Age"
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-20 focus:outline-none min-h-[44px]" style={{ fontSize: '16px' }} />
+                <select value={newAthleteGender} onChange={e => setNewAthleteGender(e.target.value as "M" | "F")}
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none min-h-[44px]" style={{ fontSize: '16px' }}>
+                  <option value="M">M</option><option value="F">F</option>
+                </select>
+                <button onClick={addAthleteAction}
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white text-sm font-bold min-h-[44px] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)] transition-all">
+                  Add
+                </button>
+              </div>
+            )}
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
