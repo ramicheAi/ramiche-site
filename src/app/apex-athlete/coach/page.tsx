@@ -732,7 +732,7 @@ export default function ApexAthletePage() {
   }, []);
 
   // ── push notification helpers ──────────────────────────────
-  const VAPID_PUBLIC_KEY = "BC40XUILXC_z47QjNRauMl4FYVArm62VHaFPLSVOIzbT2R8e8qz7Hnegnhgt5wZ3iGMZ0EhsuZ27XktCacw_2PY";
+  const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "BHgOaNL7hhbIUOL6ThAyhrFtFQor9IxAM_l3gYaIJ9mQlzocIhJY5bHXEdkPqZvg2FGlOnXBwXBBeWGNKrcEM5g";
 
   const togglePushNotifications = useCallback(async () => {
     if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
