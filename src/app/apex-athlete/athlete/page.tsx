@@ -341,15 +341,24 @@ function RadarChart({ values }: { values: Record<string, number> }) {
 }
 
 // ── Race strategy helpers ───────────────────────────────────
+type CourseType = "SCY" | "SCM" | "LCM";
+const COURSE_LABELS: Record<CourseType, string> = { SCY: "Short Course Yards", SCM: "Short Course Meters", LCM: "Long Course Meters" };
+const EVENTS_BY_COURSE: Record<CourseType, string[]> = {
+  SCY: ["50", "100", "200", "500", "1000", "1650"],
+  SCM: ["50", "100", "200", "400", "800", "1500"],
+  LCM: ["50", "100", "200", "400", "800", "1500"],
+};
 const EVENTS = ["50", "100", "200", "400", "500", "800", "1000", "1500", "1650"];
 const STROKES = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"];
+const UNIT_LABEL: Record<CourseType, string> = { SCY: "y", SCM: "m", LCM: "m" };
 
-// ── USA Swimming qualifying standards (SCY — Short Course Yards) ──
-// Source: USA Swimming 2024-2025 motivational time standards
-// Formats: { event: { stroke: { standard: "M:SS.hh" } } }
+// ── USA Swimming motivational time standards ──
+// Source: USA Swimming 2024-2028 motivational time standards
 type StandardLevel = "AAAA" | "AAA" | "AA" | "A" | "BB" | "B";
 interface StandardTimes { [stroke: string]: { [level in StandardLevel]?: string } }
-const USA_STANDARDS_BOYS: { [event: string]: StandardTimes } = {
+
+// ── SCY (Short Course Yards — 25yd pool) ──
+const SCY_BOYS: { [event: string]: StandardTimes } = {
   "50":  { Freestyle: { AAAA: "20.49", AAA: "21.79", AA: "23.19", A: "25.69", BB: "28.69", B: "32.59" }, Backstroke: { AAAA: "23.39", AAA: "24.89", AA: "26.49", A: "29.29", BB: "32.79", B: "37.19" }, Breaststroke: { AAAA: "25.99", AAA: "27.59", AA: "29.39", A: "32.59", BB: "36.39", B: "41.29" }, Butterfly: { AAAA: "22.59", AAA: "23.99", AA: "25.49", A: "28.29", BB: "31.59", B: "35.89" } },
   "100": { Freestyle: { AAAA: "44.69", AAA: "47.49", AA: "50.49", A: "55.99", BB: "1:02.59", B: "1:11.09" }, Backstroke: { AAAA: "50.39", AAA: "53.49", AA: "56.89", A: "1:03.09", BB: "1:10.49", B: "1:19.99" }, Breaststroke: { AAAA: "56.19", AAA: "59.69", AA: "1:03.49", A: "1:10.39", BB: "1:18.69", B: "1:29.39" }, Butterfly: { AAAA: "49.29", AAA: "52.39", AA: "55.69", A: "1:01.79", BB: "1:09.09", B: "1:18.39" }, IM: { AAAA: "52.89", AAA: "56.19", AA: "59.79", A: "1:06.29", BB: "1:14.09", B: "1:24.09" } },
   "200": { Freestyle: { AAAA: "1:38.59", AAA: "1:44.59", AA: "1:51.09", A: "2:03.29", BB: "2:17.79", B: "2:35.79" }, Backstroke: { AAAA: "1:48.89", AAA: "1:55.39", AA: "2:02.39", A: "2:15.79", BB: "2:31.59", B: "2:51.49" }, Breaststroke: { AAAA: "2:01.09", AAA: "2:08.39", AA: "2:16.29", A: "2:31.19", BB: "2:49.09", B: "3:11.39" }, Butterfly: { AAAA: "1:48.29", AAA: "1:54.79", AA: "2:01.69", A: "2:15.09", BB: "2:30.79", B: "2:50.59" }, IM: { AAAA: "1:50.69", AAA: "1:57.29", AA: "2:04.39", A: "2:17.99", BB: "2:33.89", B: "2:53.89" } },
@@ -357,7 +366,7 @@ const USA_STANDARDS_BOYS: { [event: string]: StandardTimes } = {
   "1000": { Freestyle: { AAAA: "9:23.89", AAA: "9:58.69", AA: "10:36.29", A: "11:46.39", BB: "13:09.29", B: "14:55.29" } },
   "1650": { Freestyle: { AAAA: "15:29.79", AAA: "16:27.29", AA: "17:29.49", A: "19:25.29", BB: "21:41.79", B: "24:36.49" } },
 };
-const USA_STANDARDS_GIRLS: { [event: string]: StandardTimes } = {
+const SCY_GIRLS: { [event: string]: StandardTimes } = {
   "50":  { Freestyle: { AAAA: "22.59", AAA: "23.99", AA: "25.49", A: "28.29", BB: "31.59", B: "35.89" }, Backstroke: { AAAA: "25.49", AAA: "27.09", AA: "28.79", A: "31.89", BB: "35.69", B: "40.49" }, Breaststroke: { AAAA: "28.39", AAA: "30.19", AA: "32.09", A: "35.59", BB: "39.79", B: "45.09" }, Butterfly: { AAAA: "24.59", AAA: "26.09", AA: "27.79", A: "30.79", BB: "34.39", B: "39.09" } },
   "100": { Freestyle: { AAAA: "49.19", AAA: "52.29", AA: "55.59", A: "1:01.59", BB: "1:08.89", B: "1:18.19" }, Backstroke: { AAAA: "54.99", AAA: "58.39", AA: "1:02.09", A: "1:08.89", BB: "1:16.99", B: "1:27.39" }, Breaststroke: { AAAA: "1:01.99", AAA: "1:05.89", AA: "1:10.09", A: "1:17.69", BB: "1:26.79", B: "1:38.09" }, Butterfly: { AAAA: "53.99", AAA: "57.39", AA: "1:00.99", A: "1:07.69", BB: "1:15.59", B: "1:25.79" }, IM: { AAAA: "57.79", AAA: "1:01.39", AA: "1:05.29", A: "1:12.39", BB: "1:20.89", B: "1:31.79" } },
   "200": { Freestyle: { AAAA: "1:47.89", AAA: "1:54.39", AA: "2:01.39", A: "2:14.69", BB: "2:30.49", B: "2:50.19" }, Backstroke: { AAAA: "1:58.39", AAA: "2:05.39", AA: "2:12.89", A: "2:27.39", BB: "2:44.49", B: "3:06.09" }, Breaststroke: { AAAA: "2:13.49", AAA: "2:21.59", AA: "2:30.19", A: "2:46.69", BB: "3:06.39", B: "3:31.29" }, Butterfly: { AAAA: "1:58.69", AAA: "2:05.79", AA: "2:13.39", A: "2:27.99", BB: "2:45.09", B: "3:06.89" }, IM: { AAAA: "2:01.49", AAA: "2:08.69", AA: "2:16.39", A: "2:31.29", BB: "2:48.79", B: "3:11.09" } },
@@ -366,17 +375,60 @@ const USA_STANDARDS_GIRLS: { [event: string]: StandardTimes } = {
   "1650": { Freestyle: { AAAA: "16:55.79", AAA: "17:59.69", AA: "19:08.39", A: "21:14.39", BB: "23:43.29", B: "26:54.39" } },
 };
 
+// ── LCM (Long Course Meters — 50m pool) ──
+const LCM_BOYS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { AAAA: "22.99", AAA: "24.39", AA: "25.99", A: "28.79", BB: "32.19", B: "36.49" }, Backstroke: { AAAA: "26.19", AAA: "27.79", AA: "29.59", A: "32.79", BB: "36.59", B: "41.59" }, Breaststroke: { AAAA: "28.99", AAA: "30.79", AA: "32.79", A: "36.39", BB: "40.59", B: "46.09" }, Butterfly: { AAAA: "25.29", AAA: "26.89", AA: "28.59", A: "31.69", BB: "35.39", B: "40.19" } },
+  "100": { Freestyle: { AAAA: "50.49", AAA: "53.59", AA: "56.99", A: "1:03.19", BB: "1:10.69", B: "1:20.19" }, Backstroke: { AAAA: "56.69", AAA: "60.19", AA: "1:03.99", A: "1:10.99", BB: "1:19.39", B: "1:30.09" }, Breaststroke: { AAAA: "1:03.39", AAA: "1:07.29", AA: "1:11.59", A: "1:19.29", BB: "1:28.69", B: "1:40.79" }, Butterfly: { AAAA: "55.49", AAA: "58.99", AA: "1:02.69", A: "1:09.49", BB: "1:17.69", B: "1:28.09" }, IM: { AAAA: "59.59", AAA: "1:03.29", AA: "1:07.29", A: "1:14.59", BB: "1:23.39", B: "1:34.59" } },
+  "200": { Freestyle: { AAAA: "1:51.69", AAA: "1:58.49", AA: "2:05.89", A: "2:19.69", BB: "2:36.09", B: "2:56.49" }, Backstroke: { AAAA: "2:02.49", AAA: "2:09.89", AA: "2:17.89", A: "2:33.09", BB: "2:50.89", B: "3:13.49" }, Breaststroke: { AAAA: "2:17.19", AAA: "2:25.49", AA: "2:34.39", A: "2:51.29", BB: "3:11.09", B: "3:36.29" }, Butterfly: { AAAA: "2:02.09", AAA: "2:09.39", AA: "2:17.29", A: "2:32.39", BB: "2:50.09", B: "3:12.59" }, IM: { AAAA: "2:05.79", AAA: "2:13.29", AA: "2:21.29", A: "2:36.99", BB: "2:55.29", B: "3:18.19" } },
+  "400": { Freestyle: { AAAA: "3:56.09", AAA: "4:10.59", AA: "4:26.39", A: "4:55.09", BB: "5:29.09", B: "6:13.29" }, IM: { AAAA: "4:22.59", AAA: "4:38.79", AA: "4:56.29", A: "5:28.59", BB: "6:07.39", B: "6:56.29" } },
+  "800": { Freestyle: { AAAA: "8:12.29", AAA: "8:42.79", AA: "9:15.69", A: "10:15.89", BB: "11:28.29", B: "12:59.89" } },
+  "1500": { Freestyle: { AAAA: "15:34.39", AAA: "16:31.89", AA: "17:34.39", A: "19:29.09", BB: "21:46.09", B: "24:41.39" } },
+};
+const LCM_GIRLS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { AAAA: "25.39", AAA: "26.99", AA: "28.69", A: "31.79", BB: "35.49", B: "40.29" }, Backstroke: { AAAA: "28.69", AAA: "30.49", AA: "32.39", A: "35.89", BB: "40.09", B: "45.49" }, Breaststroke: { AAAA: "31.89", AAA: "33.89", AA: "36.09", A: "39.99", BB: "44.69", B: "50.69" }, Butterfly: { AAAA: "27.59", AAA: "29.29", AA: "31.19", A: "34.59", BB: "38.59", B: "43.89" } },
+  "100": { Freestyle: { AAAA: "55.49", AAA: "58.99", AA: "1:02.69", A: "1:09.49", BB: "1:17.69", B: "1:28.09" }, Backstroke: { AAAA: "1:01.89", AAA: "1:05.79", AA: "1:09.89", A: "1:17.49", BB: "1:26.59", B: "1:38.29" }, Breaststroke: { AAAA: "1:09.89", AAA: "1:14.29", AA: "1:18.99", A: "1:27.49", BB: "1:37.69", B: "1:50.49" }, Butterfly: { AAAA: "1:00.79", AAA: "1:04.59", AA: "1:08.69", A: "1:16.19", BB: "1:25.09", B: "1:36.49" }, IM: { AAAA: "1:05.09", AAA: "1:09.19", AA: "1:13.49", A: "1:21.49", BB: "1:30.99", B: "1:42.89" } },
+  "200": { Freestyle: { AAAA: "2:01.49", AAA: "2:08.69", AA: "2:16.39", A: "2:31.29", BB: "2:48.79", B: "3:11.09" }, Backstroke: { AAAA: "2:13.89", AAA: "2:21.89", AA: "2:30.49", A: "2:46.89", BB: "3:06.39", B: "3:31.29" }, Breaststroke: { AAAA: "2:30.59", AAA: "2:39.59", AA: "2:49.29", A: "3:07.49", BB: "3:28.99", B: "3:56.39" }, Butterfly: { AAAA: "2:13.49", AAA: "2:21.49", AA: "2:30.09", A: "2:46.39", BB: "3:05.79", B: "3:30.59" }, IM: { AAAA: "2:17.09", AAA: "2:25.19", AA: "2:33.89", A: "2:50.49", BB: "3:09.79", B: "3:35.29" } },
+  "400": { Freestyle: { AAAA: "4:15.69", AAA: "4:31.49", AA: "4:48.59", A: "5:19.79", BB: "5:56.69", B: "6:44.59" }, IM: { AAAA: "4:47.89", AAA: "5:05.69", AA: "5:24.79", A: "5:59.99", BB: "6:42.39", B: "7:36.09" } },
+  "800": { Freestyle: { AAAA: "8:54.89", AAA: "9:27.89", AA: "10:03.59", A: "11:09.29", BB: "12:27.89", B: "14:07.89" } },
+  "1500": { Freestyle: { AAAA: "16:51.29", AAA: "17:53.69", AA: "19:01.09", A: "21:05.49", BB: "23:32.99", B: "26:42.79" } },
+};
+
+// ── SCM (Short Course Meters — 25m pool) ──
+const SCM_BOYS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { AAAA: "22.29", AAA: "23.69", AA: "25.19", A: "27.89", BB: "31.19", B: "35.39" }, Backstroke: { AAAA: "25.39", AAA: "26.99", AA: "28.69", A: "31.79", BB: "35.49", B: "40.29" }, Breaststroke: { AAAA: "27.99", AAA: "29.79", AA: "31.69", A: "35.09", BB: "39.19", B: "44.49" }, Butterfly: { AAAA: "24.49", AAA: "26.09", AA: "27.69", A: "30.69", BB: "34.29", B: "38.89" } },
+  "100": { Freestyle: { AAAA: "48.79", AAA: "51.79", AA: "55.09", A: "1:01.09", BB: "1:08.29", B: "1:17.39" }, Backstroke: { AAAA: "54.79", AAA: "58.19", AA: "1:01.89", A: "1:08.59", BB: "1:16.69", B: "1:27.09" }, Breaststroke: { AAAA: "1:01.19", AAA: "1:04.99", AA: "1:09.19", A: "1:16.59", BB: "1:25.69", B: "1:37.19" }, Butterfly: { AAAA: "53.59", AAA: "56.89", AA: "1:00.49", A: "1:07.09", BB: "1:14.99", B: "1:25.09" }, IM: { AAAA: "57.49", AAA: "1:01.09", AA: "1:04.99", A: "1:12.09", BB: "1:20.49", B: "1:31.19" } },
+  "200": { Freestyle: { AAAA: "1:47.89", AAA: "1:54.39", AA: "2:01.39", A: "2:14.69", BB: "2:30.49", B: "2:50.19" }, Backstroke: { AAAA: "1:58.19", AAA: "2:05.19", AA: "2:12.69", A: "2:27.09", BB: "2:44.09", B: "3:05.49" }, Breaststroke: { AAAA: "2:12.39", AAA: "2:20.39", AA: "2:28.99", A: "2:45.39", BB: "3:04.49", B: "3:28.89" }, Butterfly: { AAAA: "1:58.09", AAA: "2:05.09", AA: "2:12.59", A: "2:27.09", BB: "2:44.09", B: "3:05.49" }, IM: { AAAA: "2:01.09", AAA: "2:08.29", AA: "2:15.99", A: "2:30.89", BB: "2:48.29", B: "3:10.59" } },
+  "400": { Freestyle: { AAAA: "3:49.29", AAA: "4:03.39", AA: "4:18.69", A: "4:46.59", BB: "5:19.59", B: "6:02.49" }, IM: { AAAA: "4:13.89", AAA: "4:29.49", AA: "4:46.39", A: "5:17.69", BB: "5:55.19", B: "6:42.49" } },
+  "800": { Freestyle: { AAAA: "7:56.89", AAA: "8:26.49", AA: "8:58.29", A: "9:56.69", BB: "11:06.89", B: "12:35.69" } },
+  "1500": { Freestyle: { AAAA: "15:04.09", AAA: "16:00.09", AA: "17:00.29", A: "18:51.39", BB: "21:03.89", B: "23:53.59" } },
+};
+const SCM_GIRLS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { AAAA: "24.59", AAA: "26.09", AA: "27.79", A: "30.79", BB: "34.39", B: "39.09" }, Backstroke: { AAAA: "27.79", AAA: "29.49", AA: "31.39", A: "34.79", BB: "38.79", B: "44.09" }, Breaststroke: { AAAA: "30.79", AAA: "32.69", AA: "34.79", A: "38.59", BB: "43.09", B: "48.89" }, Butterfly: { AAAA: "26.69", AAA: "28.39", AA: "30.19", A: "33.49", BB: "37.39", B: "42.39" } },
+  "100": { Freestyle: { AAAA: "53.59", AAA: "56.89", AA: "1:00.49", A: "1:07.09", BB: "1:14.99", B: "1:25.09" }, Backstroke: { AAAA: "59.79", AAA: "1:03.49", AA: "1:07.49", A: "1:14.89", BB: "1:23.69", B: "1:34.89" }, Breaststroke: { AAAA: "1:07.39", AAA: "1:11.59", AA: "1:16.19", A: "1:24.39", BB: "1:34.39", B: "1:46.69" }, Butterfly: { AAAA: "58.69", AAA: "1:02.39", AA: "1:06.29", A: "1:13.49", BB: "1:22.09", B: "1:33.09" }, IM: { AAAA: "1:02.89", AAA: "1:06.79", AA: "1:11.09", A: "1:18.79", BB: "1:28.09", B: "1:39.69" } },
+  "200": { Freestyle: { AAAA: "1:57.19", AAA: "2:04.09", AA: "2:11.49", A: "2:25.89", BB: "2:42.79", B: "3:04.29" }, Backstroke: { AAAA: "2:09.59", AAA: "2:17.29", AA: "2:25.49", A: "2:41.29", BB: "2:59.99", B: "3:24.09" }, Breaststroke: { AAAA: "2:25.39", AAA: "2:34.09", AA: "2:43.39", A: "3:00.89", BB: "3:21.59", B: "3:48.09" }, Butterfly: { AAAA: "2:09.19", AAA: "2:16.89", AA: "2:25.09", A: "2:40.79", BB: "2:59.39", B: "3:23.39" }, IM: { AAAA: "2:12.89", AAA: "2:21.09", AA: "2:29.79", A: "2:45.89", BB: "3:04.69", B: "3:29.39" } },
+  "400": { Freestyle: { AAAA: "4:07.59", AAA: "4:22.89", AA: "4:39.39", A: "5:09.69", BB: "5:45.49", B: "6:31.79" }, IM: { AAAA: "4:38.39", AAA: "4:55.59", AA: "5:14.09", A: "5:48.09", BB: "6:29.09", B: "7:21.09" } },
+  "800": { Freestyle: { AAAA: "8:37.49", AAA: "9:09.39", AA: "9:43.79", A: "10:47.29", BB: "12:03.29", B: "13:40.09" } },
+  "1500": { Freestyle: { AAAA: "16:19.49", AAA: "17:19.69", AA: "18:25.09", A: "20:25.29", BB: "22:48.09", B: "25:51.69" } },
+};
+
+// Lookup table by course
+const STANDARDS_TABLE: Record<CourseType, { M: { [event: string]: StandardTimes }; F: { [event: string]: StandardTimes } }> = {
+  SCY: { M: SCY_BOYS, F: SCY_GIRLS },
+  LCM: { M: LCM_BOYS, F: LCM_GIRLS },
+  SCM: { M: SCM_BOYS, F: SCM_GIRLS },
+};
+
 const STANDARD_COLORS: Record<StandardLevel, string> = {
   AAAA: "#ef4444", AAA: "#f59e0b", AA: "#a855f7", A: "#60a5fa", BB: "#22c55e", B: "#94a3b8",
 };
 
-function getStandardForAthlete(gender: "M"|"F", event: string, stroke: string): { [level in StandardLevel]?: string } | null {
-  const table = gender === "M" ? USA_STANDARDS_BOYS : USA_STANDARDS_GIRLS;
+function getStandardForAthlete(gender: "M"|"F", event: string, stroke: string, course: CourseType = "SCY"): { [level in StandardLevel]?: string } | null {
+  const table = STANDARDS_TABLE[course][gender];
   return table[event]?.[stroke] || null;
 }
 
-function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, timeSecs: number): StandardLevel | null {
-  const stds = getStandardForAthlete(gender, event, stroke);
+function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, timeSecs: number, course: CourseType = "SCY"): StandardLevel | null {
+  const stds = getStandardForAthlete(gender, event, stroke, course);
   if (!stds) return null;
   const levels: StandardLevel[] = ["AAAA", "AAA", "AA", "A", "BB", "B"];
   for (const lv of levels) {
@@ -389,8 +441,8 @@ function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, time
   return null;
 }
 
-function getNextCut(gender: "M"|"F", event: string, stroke: string, timeSecs: number): { level: StandardLevel; time: string; secs: number; gap: number } | null {
-  const stds = getStandardForAthlete(gender, event, stroke);
+function getNextCut(gender: "M"|"F", event: string, stroke: string, timeSecs: number, course: CourseType = "SCY"): { level: StandardLevel; time: string; secs: number; gap: number } | null {
+  const stds = getStandardForAthlete(gender, event, stroke, course);
   if (!stds) return null;
   const levels: StandardLevel[] = ["B", "BB", "A", "AA", "AAA", "AAAA"];
   for (const lv of levels) {
@@ -520,7 +572,8 @@ export default function AthletePortal() {
   // Goals state
   const [goalEvent, setGoalEvent] = useState("100");
   const [goalStroke, setGoalStroke] = useState("Freestyle");
-  const [savedGoals, setSavedGoals] = useState<{ event: string; stroke: string; targetLevel: StandardLevel; targetTime: string }[]>([]);
+  const [goalCourse, setGoalCourse] = useState<CourseType>("SCY");
+  const [savedGoals, setSavedGoals] = useState<{ event: string; stroke: string; targetLevel: StandardLevel; targetTime: string; course?: CourseType }[]>([]);
   const [rpAutoFilled, setRpAutoFilled] = useState(false);
   const [rpResult, setRpResult] = useState<RacePlan | null>(null);
 
@@ -1426,10 +1479,25 @@ export default function AthletePortal() {
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="#22c55e"/></svg>
                 SET YOUR TARGET
               </h3>
+              {/* Course selector */}
+              <div className="flex gap-1.5 mb-4 p-1 rounded-lg bg-white/[0.03] border border-white/5">
+                {(["SCY", "SCM", "LCM"] as CourseType[]).map(c => (
+                  <button key={c} onClick={() => {
+                    setGoalCourse(c);
+                    const courseEvents = EVENTS_BY_COURSE[c];
+                    if (!courseEvents.includes(goalEvent)) setGoalEvent(courseEvents[1] || courseEvents[0]);
+                  }}
+                    className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${goalCourse === c ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30" : "text-white/30 hover:text-white/50"}`}>
+                    <div>{c}</div>
+                    <div className="text-[8px] font-normal mt-0.5 opacity-60">{c === "SCY" ? "25yd" : c === "SCM" ? "25m" : "50m"}</div>
+                  </button>
+                ))}
+              </div>
+
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <select value={goalEvent} onChange={e => setGoalEvent(e.target.value)}
                   className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
-                  {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
+                  {EVENTS_BY_COURSE[goalCourse].map(e => <option key={e} value={e}>{e}{UNIT_LABEL[goalCourse]}</option>)}
                 </select>
                 <select value={goalStroke} onChange={e => setGoalStroke(e.target.value)}
                   className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
@@ -1440,10 +1508,10 @@ export default function AthletePortal() {
               {/* Current PR for selected event */}
               {(() => {
                 const pr = personalRecords.find(p => p.event === goalEvent && p.stroke === goalStroke);
-                const stds = getStandardForAthlete(athlete.gender, goalEvent, goalStroke);
+                const stds = getStandardForAthlete(athlete.gender, goalEvent, goalStroke, goalCourse);
                 const prSecs = pr ? parseTime(pr.time) : null;
-                const currentLevel = prSecs ? getAthleteCutLevel(athlete.gender, goalEvent, goalStroke, prSecs) : null;
-                const nextCut = prSecs ? getNextCut(athlete.gender, goalEvent, goalStroke, prSecs) : null;
+                const currentLevel = prSecs ? getAthleteCutLevel(athlete.gender, goalEvent, goalStroke, prSecs, goalCourse) : null;
+                const nextCut = prSecs ? getNextCut(athlete.gender, goalEvent, goalStroke, prSecs, goalCourse) : null;
 
                 return (
                   <div className="space-y-3">
@@ -1469,7 +1537,7 @@ export default function AthletePortal() {
                     {/* USA Swimming Standards grid */}
                     {stds && (
                       <div>
-                        <h4 className="text-white/30 text-[10px] font-mono tracking-wider mb-2">USA SWIMMING STANDARDS ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
+                        <h4 className="text-white/30 text-[10px] font-mono tracking-wider mb-2">USA SWIMMING {goalCourse} ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
                         <div className="grid grid-cols-3 gap-1.5">
                           {(["B", "BB", "A", "AA", "AAA", "AAAA"] as StandardLevel[]).map(lv => {
                             const cutTime = stds[lv];
@@ -1480,8 +1548,8 @@ export default function AthletePortal() {
                             return (
                               <button key={lv} onClick={() => {
                                 if (cutTime && athlete) {
-                                  const newGoal = { event: goalEvent, stroke: goalStroke, targetLevel: lv, targetTime: cutTime };
-                                  const updated = [...savedGoals.filter(g => !(g.event === goalEvent && g.stroke === goalStroke)), newGoal];
+                                  const newGoal = { event: goalEvent, stroke: goalStroke, targetLevel: lv, targetTime: cutTime, course: goalCourse };
+                                  const updated = [...savedGoals.filter(g => !(g.event === goalEvent && g.stroke === goalStroke && (g.course || "SCY") === goalCourse)), newGoal];
                                   setSavedGoals(updated);
                                   save(`apex-athlete-goals-${athlete.id}`, updated);
                                 }
@@ -1753,7 +1821,7 @@ export default function AthletePortal() {
                     className={`w-10 h-10 rounded-lg border text-lg transition-all ${
                       journalDraft.mood === m ? "border-[#a855f7]/40 bg-[#a855f7]/10 scale-110" : "border-white/5 opacity-30"
                     }`}>
-                    {m <= 2 ? "😤" : m === 3 ? "😐" : m === 4 ? "😊" : "🔥"}
+                    {m === 1 ? "😞" : m === 2 ? "😤" : m === 3 ? "😐" : m === 4 ? "😊" : "🔥"}
                   </button>
                 ))}
               </div>
@@ -1791,7 +1859,7 @@ export default function AthletePortal() {
                   <div key={i} className="p-3 rounded-lg bg-[#0a0518]/50 border border-white/5">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-white/40 text-[10px] font-mono">{j.date}</span>
-                      <span className="text-sm">{j.mood <= 2 ? "😤" : j.mood === 3 ? "😐" : j.mood === 4 ? "😊" : "🔥"}</span>
+                      <span className="text-sm">{j.mood === 1 ? "😞" : j.mood === 2 ? "😤" : j.mood === 3 ? "😐" : j.mood === 4 ? "😊" : "🔥"}</span>
                     </div>
                     {j.wentWell && <p className="text-white/30 text-xs"><span className="text-emerald-400/60">✓</span> {j.wentWell}</p>}
                     {j.workOn && <p className="text-white/30 text-xs"><span className="text-[#f59e0b]/60">→</span> {j.workOn}</p>}
