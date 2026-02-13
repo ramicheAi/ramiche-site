@@ -1767,8 +1767,8 @@ export default function ApexAthletePage() {
             {coaches.map(c => {
               const isEditing = editingCoachId === c.id;
               return (
-                <div key={c.id} className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/10 p-5">
-                  <div className="flex items-center justify-between mb-3">
+                <div key={c.id} className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/10 p-5" style={{ isolation: 'isolate' }}>
+                  <div className="relative z-[5] flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${
                         c.role === "head" ? "bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b]" : "bg-[#00f0ff]/10 border border-[#00f0ff]/20 text-[#00f0ff]"
@@ -1856,21 +1856,24 @@ export default function ApexAthletePage() {
                   + ADD COACH
                 </button>
               ) : (
-                <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/20 p-6 space-y-4">
+                <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/20 p-6 space-y-4" style={{ isolation: 'isolate' }}>
+                  <div className="relative z-[5] space-y-4">
                   <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Add New Coach</h3>
 
                   <div>
                     <label className="text-white/30 text-[10px] font-mono uppercase tracking-wider block mb-1.5">Name</label>
                     <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)}
                       placeholder="Coach name"
-                      className="w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/40 transition-all min-h-[44px] font-mono" />
+                      className="relative z-10 w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/20 transition-all min-h-[44px] font-mono"
+                      style={{ fontSize: '16px', WebkitAppearance: 'none' }} />
                   </div>
 
                   <div>
                     <label className="text-white/30 text-[10px] font-mono uppercase tracking-wider block mb-1.5">Email (optional)</label>
                     <input value={newCoachEmail} onChange={e => setNewCoachEmail(e.target.value)}
                       placeholder="coach@email.com" type="email"
-                      className="w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/40 transition-all min-h-[44px] font-mono" />
+                      className="relative z-10 w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/20 transition-all min-h-[44px] font-mono"
+                      style={{ fontSize: '16px', WebkitAppearance: 'none' }} />
                   </div>
 
                   <div>
@@ -1922,6 +1925,7 @@ export default function ApexAthletePage() {
                       className="game-btn px-4 py-3 text-white/20 border border-white/[0.06] text-sm font-mono hover:text-white/40 transition-all min-h-[44px]">
                       CANCEL
                     </button>
+                  </div>
                   </div>
                 </div>
               )}
