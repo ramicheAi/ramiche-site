@@ -1757,37 +1757,26 @@ export default function ApexAthletePage() {
   const GameHUDHeader = () => {
     const presentCount = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
     const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
+    const mainTabs = [
+      { id: "coach" as const, label: "Coach" },
+      { id: "parent" as const, label: "Parent" },
+    ];
+    const secondaryTabs = [
+      { id: "audit" as const, label: "Audit" },
+      { id: "analytics" as const, label: "Analytics" },
+      { id: "schedule" as const, label: "Schedule" },
+      { id: "strategy" as const, label: "Strategy" },
+    ];
     return (
-      <div className="w-full relative mb-6">
-        {/* Portal switcher bar */}
-        <div className="flex items-center justify-center gap-2 py-2 mb-2">
-          {[
-            { label: "Coach", href: "/apex-athlete", active: true, color: "#00f0ff" },
-            { label: "Athlete", href: "/apex-athlete/athlete", active: false, color: "#a855f7" },
-            { label: "Parent", href: "/apex-athlete/parent", active: false, color: "#f59e0b" },
-          ].map(p => (
-            <a key={p.label} href={p.href}
-              onClick={() => { try { localStorage.setItem("apex-coach-group", selectedGroup); } catch {} }}
-              className="px-4 py-1.5 text-[10px] font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all"
-              style={{
-                background: p.active ? `${p.color}20` : 'transparent',
-                border: `1px solid ${p.active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
-                color: p.active ? p.color : 'rgba(255,255,255,0.3)',
-              }}>
-              {p.label}
-            </a>
-          ))}
-        </div>
+      <div className="w-full relative mb-4">
         {/* Top gradient bar */}
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#00f0ff]/60 to-transparent" />
-        <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-[#00f0ff]/[0.03] to-transparent pointer-events-none" />
 
-        <div className="pt-8 pb-2">
-          {/* Title + Nav */}
-          <div className="flex items-end justify-between mb-6">
+        <div className="pt-6 pb-2">
+          {/* Title row — compact */}
+          <div className="flex items-center justify-between mb-4">
             <div>
-              <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-1">{'<'} swim.training.system {'/'+'>'}</div>
-              <h1 className="text-4xl sm:text-5xl font-black tracking-[-0.04em] leading-[0.85]" style={{
+              <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
                 background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
@@ -1798,184 +1787,128 @@ export default function ApexAthletePage() {
                 APEX ATHLETE
               </h1>
               {/* Sync Status Badge */}
-              <span className={`ml-3 inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded border ${
-                firebaseConnected
-                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                  : "bg-orange-500/20 text-orange-400 border-orange-500/30"
-              }`}>
-                <span className={`inline-block w-1.5 h-1.5 rounded-full ${firebaseConnected ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" : "bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.6)]"}`} />
-                {firebaseConnected ? "CLOUD SYNC" : "OFFLINE"}
-              </span>
-              {firebaseConnected && (
-                <button
-                  onClick={async () => {
-                    if (syncBusy) return;
-                    setSyncBusy(true);
-                    try {
-                      const result = await syncPushAllToFirebase();
-                      setLastSyncResult(result);
-                      setLastSyncTime(Date.now());
-                    } catch { setLastSyncResult({ synced: 0, errors: 1 }); }
-                    setSyncBusy(false);
-                  }}
-                  disabled={syncBusy}
-                  className="ml-1.5 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded bg-[#00f0ff]/10 text-[#00f0ff]/60 border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:text-[#00f0ff]/80 transition-all disabled:opacity-40"
-                >
-                  {syncBusy ? "SYNCING..." : "SYNC NOW"}
-                </button>
-              )}
-              {lastSyncTime && (
-                <span className="ml-1.5 text-[8px] font-mono text-white/20" title={new Date(lastSyncTime).toLocaleString()}>
-                  {lastSyncResult && lastSyncResult.errors > 0
-                    ? `${lastSyncResult.synced} ok / ${lastSyncResult.errors} err`
-                    : `${lastSyncResult?.synced || 0} synced`}
-                  {" "}@ {new Date(lastSyncTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 text-[9px] font-mono tracking-wider rounded border ${
+                  firebaseConnected
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                    : "bg-orange-500/20 text-orange-400 border-orange-500/30"
+                }`}>
+                  <span className={`inline-block w-1.5 h-1.5 rounded-full ${firebaseConnected ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" : "bg-orange-400 shadow-[0_0_6px_rgba(251,146,60,0.6)]"}`} />
+                  {firebaseConnected ? "CLOUD SYNC" : "OFFLINE"}
                 </span>
-              )}
-            </div>
-            {/* Notification bell + Game HUD nav tabs */}
-            <div className="flex items-end gap-3">
-              {/* Notification bell (shared component) */}
-              <div className="mb-0">
-                <ApexNotificationBell portal="coach" accentColor="#00f0ff" />
-              </div>
-            <div className="flex flex-wrap">
-              {(["coach", "parent", "audit", "analytics", "schedule", "strategy"] as const).map((v) => {
-                const navIcons: Record<string, React.ReactNode> = {
-                  coach: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>,
-                  parent: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="5"/><path d="M3 21v-2a7 7 0 0114 0v2"/><path d="M19 8v6M22 11h-6"/></svg>,
-                  audit: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/><path d="M9 15l2 2 4-4"/></svg>,
-                  analytics: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>,
-                  schedule: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>,
-                  strategy: <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
-                };
-                const active = view === v;
-                return (
-                  <button key={v} onClick={() => setView(v)}
-                    className={`relative px-4 sm:px-5 py-3 text-[10px] font-bold font-mono tracking-[0.25em] uppercase transition-all duration-300 flex items-center gap-1.5 ${
-                      active
-                        ? "text-[#00f0ff] bg-[#00f0ff]/[0.08]"
-                        : "text-white/15 hover:text-[#00f0ff]/60 hover:bg-[#00f0ff]/[0.03]"
-                    }`}
-                    style={{
-                      borderTop: active ? '2px solid rgba(0,240,255,0.6)' : '2px solid rgba(0,240,255,0.08)',
-                      borderBottom: active ? 'none' : '1px solid rgba(0,240,255,0.05)',
-                      boxShadow: active ? '0 -4px 20px rgba(0,240,255,0.15), inset 0 1px 15px rgba(0,240,255,0.05)' : 'none'
-                    }}>
-                    <span className={active ? "text-[#f59e0b]" : ""}>{navIcons[v]}</span>{v}
-                    {active && <div className="absolute bottom-0 left-1/4 right-1/4 h-[1px] bg-[#00f0ff]/40" />}
+                {firebaseConnected && (
+                  <button
+                    onClick={async () => {
+                      if (syncBusy) return;
+                      setSyncBusy(true);
+                      try {
+                        const result = await syncPushAllToFirebase();
+                        setLastSyncResult(result);
+                        setLastSyncTime(Date.now());
+                      } catch { setLastSyncResult({ synced: 0, errors: 1 }); }
+                      setSyncBusy(false);
+                    }}
+                    disabled={syncBusy}
+                    className="px-2 py-0.5 text-[9px] font-mono tracking-wider rounded bg-[#00f0ff]/10 text-[#00f0ff]/60 border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:text-[#00f0ff]/80 transition-all disabled:opacity-40"
+                  >
+                    {syncBusy ? "SYNCING..." : "SYNC NOW"}
                   </button>
-                );
-              })}
+                )}
+              </div>
             </div>
-          </div>
-          </div>
-
-          {/* Team identity bar */}
-          <div className="game-panel game-panel-border relative bg-[#06020f]/60 backdrop-blur-xl px-6 py-4 mb-4">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 game-panel-sm bg-gradient-to-br from-[#f59e0b]/20 to-[#6b21a8]/20 border border-[#f59e0b]/30 flex items-center justify-center">
-                <span className="text-[#f59e0b] text-lg font-black">SA</span>
-              </div>
-              <div className="flex-1">
-                <h2 className="text-white/90 font-bold text-sm tracking-wide">{culture.teamName}</h2>
-                <p className="text-[#f59e0b]/50 text-[11px] italic font-mono">{culture.mission}</p>
-              </div>
+            <div className="flex items-center gap-2">
+              <ApexNotificationBell portal="coach" accentColor="#00f0ff" />
               {view === "coach" && (
                 <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-                  className="game-btn px-3 py-1.5 text-[9px] font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
-                  {editingCulture ? "SAVE" : "EDIT"}
+                  className="game-btn w-10 h-10 flex items-center justify-center text-[9px] font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
+                  {editingCulture ? "✓" : "✎"}
                 </button>
               )}
             </div>
           </div>
 
-          {/* ── AM/PM + Session Mode — auto-detects from schedule ── */}
-          {view === "coach" && (
-            <div className="game-panel game-panel-border relative bg-[#06020f]/80 backdrop-blur-xl px-4 py-3 mb-4 flex items-center justify-between flex-wrap gap-3">
-              <div className="flex items-center gap-2">
-                <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule. Tap to override." : "Manual mode. Tap to auto-detect."}
-                  className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all inline-flex items-center gap-1 ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
-                  {autoSession ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg> AUTO</> : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 11V6a2 2 0 00-2-2h-1a2 2 0 00-2 2M9 11V4a2 2 0 00-2-2H6a2 2 0 00-2 2v7m5 0V3a2 2 0 00-2-2H6m9 13v-3a2 2 0 00-2-2H6a2 2 0 00-2 2v6a6 6 0 006 6h1a6 6 0 006-6v-1"/></svg> MANUAL</>}
-                </button>
-                <div className="flex rounded-lg overflow-hidden border border-[#a855f7]/25">
-                  {(["am", "pm"] as const).map(t => (
-                    <button key={t} onClick={() => { setAutoSession(false); setSessionTime(t); }}
-                      className={`px-4 py-2 text-xs font-bold font-mono tracking-wider uppercase transition-all ${
-                        sessionTime === t
-                          ? t === "am"
-                            ? "bg-gradient-to-r from-[#f59e0b]/25 to-[#fbbf24]/15 text-[#fbbf24] shadow-[inset_0_0_15px_rgba(251,191,36,0.15)]"
-                            : "bg-gradient-to-r from-[#6366f1]/25 to-[#818cf8]/15 text-[#818cf8] shadow-[inset_0_0_15px_rgba(129,140,248,0.15)]"
-                          : "bg-[#06020f]/60 text-white/20 hover:text-white/40"
-                      }`}>
-                      {t === "am" ? "☀ AM" : "☽ PM"}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {(["pool", "weight", "meet"] as const).map(m => {
-                  const mLabels = { pool: "Pool", weight: "Weight", meet: "Meet" };
-                  const ModeIcon = ({ mode }: { mode: string }) => {
-                    if (mode === "pool") return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>;
-                    if (mode === "weight") return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
-                    return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
-                  };
-                  return (
-                    <button key={m} onClick={() => { setAutoSession(false); setSessionMode(m); }}
-                      className={`flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold font-mono tracking-wider uppercase rounded-lg border transition-all ${
-                        sessionMode === m
-                          ? "bg-[#00f0ff]/10 text-[#00f0ff] border-[#00f0ff]/30 shadow-[0_0_10px_rgba(0,240,255,0.1)]"
-                          : "text-white/20 border-white/[0.06] hover:text-white/40 hover:border-white/10"
-                      }`}>
-                      <ModeIcon mode={m} /> {mLabels[m]}
-                    </button>
-                  );
-                })}
-              </div>
-              <span className="text-white/10 text-[9px] font-mono">{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-            </div>
-          )}
+          {/* Portal switcher — large, easy-to-tap */}
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {[
+              { label: "Coach", href: "/apex-athlete", active: true, color: "#00f0ff" },
+              { label: "Athlete", href: "/apex-athlete/athlete", active: false, color: "#a855f7" },
+              { label: "Parent", href: "/apex-athlete/parent", active: false, color: "#f59e0b" },
+            ].map(p => (
+              <a key={p.label} href={p.href}
+                onClick={() => { try { localStorage.setItem("apex-coach-group", selectedGroup); } catch {} }}
+                className={`relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center flex items-center justify-center ${
+                  p.active
+                    ? "border-2 shadow-[0_0_20px_rgba(0,240,255,0.2)]"
+                    : "border hover:border-white/20 active:scale-[0.97]"
+                }`}
+                style={{
+                  background: p.active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+                  borderColor: p.active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
+                  color: p.active ? p.color : 'rgba(255,255,255,0.25)',
+                }}>
+                {p.label}
+              </a>
+            ))}
+          </div>
 
-          {/* Season goal progress */}
-          <div className="flex items-center gap-4 px-2 mb-2">
+          {/* Section nav tabs */}
+          <div className="grid grid-cols-4 gap-2 mb-4">
+            {secondaryTabs.map(t => {
+              const active = view === t.id;
+              return (
+                <button key={t.id} onClick={() => setView(t.id)}
+                  className={`py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] ${
+                    active
+                      ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
+                      : "bg-[#06020f]/40 text-white/15 border border-white/[0.04] hover:text-white/30 hover:border-white/10 active:scale-[0.97]"
+                  }`}>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Team identity — inline compact */}
+          <div className="flex items-center gap-3 px-1 mb-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#f59e0b]/20 to-[#6b21a8]/20 border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
+              <span className="text-[#f59e0b] text-sm font-black">SA</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-white/70 font-bold text-sm">{culture.teamName}</span>
+              <span className="text-[#f59e0b]/30 text-[10px] ml-2 font-mono italic hidden sm:inline">{culture.mission}</span>
+            </div>
+          </div>
+
+          {/* Season goal — minimal */}
+          <div className="flex items-center gap-3 px-1">
             <span className="text-[#00f0ff]/20 text-[9px] font-mono uppercase tracking-wider shrink-0">{culture.seasonalGoal}</span>
             <div className="flex-1 h-1 rounded-full bg-white/[0.04] overflow-hidden xp-bar-segments">
               <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
             </div>
-            <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono tabular-nums whitespace-nowrap shrink-0">{culture.goalCurrent}%<span className="text-white/10">/{culture.goalTarget}%</span></span>
+            <span className="text-[#f59e0b]/50 text-[9px] font-bold font-mono tabular-nums whitespace-nowrap shrink-0">{culture.goalCurrent}%</span>
           </div>
         </div>
 
-        {/* Live HUD data strip */}
+        {/* Live HUD data strip — compact */}
         <div className="relative border-y border-[#00f0ff]/10 bg-[#06020f]/90 backdrop-blur-xl">
-          <div className="absolute inset-0 data-grid-bg opacity-30 pointer-events-none" />
-          <div className="flex items-center gap-6 py-3 relative z-10 scan-sweep px-2">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
-              <span className="neon-text-cyan text-sm font-bold font-mono tabular-nums whitespace-nowrap">{presentCount}<span className="text-white/15 font-normal">/{roster.length}</span></span>
-              <span className="text-[#00f0ff]/30 text-[10px] font-mono uppercase">present</span>
+          <div className="flex items-center justify-center gap-5 py-2.5 px-2">
+            <div className="flex items-center gap-1.5">
+              <div className={`w-1.5 h-1.5 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_8px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
+              <span className="neon-text-cyan text-xs font-bold font-mono tabular-nums">{presentCount}<span className="text-white/15 font-normal">/{roster.length}</span></span>
             </div>
-            <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <div className="flex items-center gap-2">
-              <span className="neon-text-gold text-sm font-bold font-mono tabular-nums whitespace-nowrap">{xpToday}</span>
-              <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
+            <div className="w-px h-3 bg-[#00f0ff]/10" />
+            <div className="flex items-center gap-1.5">
+              <span className="neon-text-gold text-xs font-bold font-mono tabular-nums">{xpToday}</span>
+              <span className="text-[#f59e0b]/30 text-[9px] font-mono uppercase">XP</span>
             </div>
-            <div className="w-px h-4 bg-[#00f0ff]/10" />
-            <span className="text-[#00f0ff]/40 text-xs font-mono flex items-center gap-1.5">
+            <div className="w-px h-3 bg-[#00f0ff]/10" />
+            <span className="text-[#00f0ff]/40 text-[10px] font-mono">
               {sessionTime === "am"
-                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#fbbf24]/60"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                : <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#818cf8]/60"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+                ? <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#fbbf24]/60 inline mr-1"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                : <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#818cf8]/60 inline mr-1"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
               }
-              {sessionMode === "pool" ? "POOL" : sessionMode === "weight" ? "WEIGHT" : "MEET"}
-              <span className="text-[#a855f7]/30">{sessionTime.toUpperCase()}</span>
+              {sessionMode === "pool" ? "POOL" : sessionMode === "weight" ? "WEIGHT" : "MEET"} {sessionTime.toUpperCase()}
             </span>
-            {culture.weeklyQuote && (
-              <>
-                <div className="w-px h-4 bg-[#00f0ff]/10" />
-                <span className="text-[#a855f7]/30 text-[10px] italic truncate max-w-[200px] font-mono">&ldquo;{culture.weeklyQuote}&rdquo;</span>
-              </>
-            )}
           </div>
         </div>
       </div>
@@ -3456,29 +3389,6 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="w-full px-5 sm:px-8 py-6">
           <div className="w-full">
-            {/* AM/PM Session Selector — auto-detects from schedule */}
-            <div className="mb-4 p-4 rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/15 flex items-center justify-between flex-wrap gap-3">
-              <button onClick={() => setAutoSession(!autoSession)} title={autoSession ? "Auto-detecting from schedule" : "Manual mode"}
-                className={`text-[9px] font-mono tracking-wider uppercase px-2 py-1 rounded border transition-all inline-flex items-center gap-1 ${autoSession ? "text-[#00f0ff]/60 border-[#00f0ff]/20 bg-[#00f0ff]/5" : "text-white/20 border-white/[0.06]"}`}>
-                {autoSession ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2L3 14h9l-1 10 10-12h-9l1-10z"/></svg> AUTO</> : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 11V6a2 2 0 00-2-2h-1a2 2 0 00-2 2M9 11V4a2 2 0 00-2-2H6a2 2 0 00-2 2v7m5 0V3a2 2 0 00-2-2H6m9 13v-3a2 2 0 00-2-2H6a2 2 0 00-2 2v6a6 6 0 006 6h1a6 6 0 006-6v-1"/></svg> MANUAL</>}
-              </button>
-              <div className="flex rounded-xl overflow-hidden border border-[#a855f7]/25">
-                {(["am", "pm"] as const).map(t => (
-                  <button key={t} onClick={() => { setAutoSession(false); setSessionTime(t); }}
-                    className={`px-6 py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all ${
-                      sessionTime === t
-                        ? t === "am"
-                          ? "bg-gradient-to-r from-[#f59e0b]/20 to-[#fbbf24]/10 text-[#fbbf24] shadow-[inset_0_0_20px_rgba(251,191,36,0.15)] border-r border-[#a855f7]/25"
-                          : "bg-gradient-to-r from-[#6366f1]/20 to-[#818cf8]/10 text-[#818cf8] shadow-[inset_0_0_20px_rgba(129,140,248,0.15)]"
-                        : "bg-[#06020f]/60 text-white/20 hover:text-white/40"
-                    }`}>
-                    <span className="inline-flex items-center gap-1.5">{t === "am" ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg> AM PRACTICE</> : <><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg> PM PRACTICE</>}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="text-white/15 text-[10px] font-mono">{new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</div>
-            </div>
-
             {/* Session mode + tools */}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div className="flex gap-2 flex-wrap items-center">
