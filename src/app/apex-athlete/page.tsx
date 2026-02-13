@@ -141,9 +141,12 @@ interface Athlete {
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: DailyXP;
   // v6 fields — athlete + parent linking
+  birthday?: string; // YYYY-MM-DD or MM/DD/YYYY
   usaSwimmingId?: string;
   parentCode?: string; // 6-char code parents use to access their child's portal
+  parentName?: string;
   parentEmail?: string;
+  parentPhone?: string;
   sport?: "swimming" | "diving" | "waterpolo";
 }
 
@@ -434,31 +437,31 @@ function getCPsForSport(sport: string) {
 }
 
 // ── INITIAL ROSTERS BY GROUP ────────────────────────────────
-type RosterEntry = { name: string; age: number; gender: "M" | "F"; group: GroupId };
+type RosterEntry = { name: string; age: number; gender: "M" | "F"; group: GroupId; birthday?: string; usaSwimmingId?: string; parentName?: string; parentEmail?: string; parentPhone?: string };
 
 const INITIAL_ROSTER: RosterEntry[] = [
   // ── PLATINUM (33) ──
-  { name: "William Domokos-Murphy", age: 17, gender: "M", group: "platinum" },
-  { name: "Enrico Guizardi", age: 15, gender: "M", group: "platinum" },
-  { name: "Jorge Aguila", age: 17, gender: "M", group: "platinum" },
-  { name: "Jared Berke", age: 17, gender: "M", group: "platinum" },
+  { name: "William Domokos-Murphy", age: 17, gender: "M", group: "platinum", parentName: "Monika Domokos", parentPhone: "(561) 704-0402" },
+  { name: "Enrico Guizardi", age: 15, gender: "M", group: "platinum", parentName: "Enrico Guizardi", parentPhone: "(305) 427-9691" },
+  { name: "Jorge Aguila", age: 17, gender: "M", group: "platinum", parentName: "Jorge Aguila", parentPhone: "(954) 839-7321" },
+  { name: "Jared Berke", age: 17, gender: "M", group: "platinum", parentName: "Ira Berke", parentPhone: "(561) 530-7084" },
   { name: "Andrew Bouche", age: 17, gender: "M", group: "platinum" },
-  { name: "Conner Brinley", age: 18, gender: "M", group: "platinum" },
-  { name: "Bradley DiPaolo", age: 16, gender: "M", group: "platinum" },
-  { name: "William Gillis", age: 18, gender: "M", group: "platinum" },
+  { name: "Conner Brinley", age: 18, gender: "M", group: "platinum", parentName: "Brian Brinley", parentPhone: "(561) 702-9878" },
+  { name: "Bradley DiPaolo", age: 16, gender: "M", group: "platinum", parentName: "Frank DiPaolo", parentPhone: "954-734-5919" },
+  { name: "William Gillis", age: 18, gender: "M", group: "platinum", parentName: "Greta Gillis", parentPhone: "(561) 912-9030" },
   { name: "William McAndrews", age: 14, gender: "M", group: "platinum" },
   { name: "Matthias Orlandini", age: 16, gender: "M", group: "platinum" },
-  { name: "Matthew Prieres", age: 16, gender: "M", group: "platinum" },
-  { name: "Luke Reid", age: 14, gender: "M", group: "platinum" },
-  { name: "Surfiel Santiago", age: 18, gender: "M", group: "platinum" },
+  { name: "Matthew Prieres", age: 16, gender: "M", group: "platinum", parentName: "Denise Prieres", parentPhone: "(973) 393-2063" },
+  { name: "Luke Reid", age: 14, gender: "M", group: "platinum", parentName: "Katie Reid", parentPhone: "(847) 431-6211" },
+  { name: "Surfiel Santiago", age: 18, gender: "M", group: "platinum", parentName: "Alexander Santiago", parentPhone: "(772) 924-5527" },
   { name: "Simon Sheinfeld", age: 16, gender: "M", group: "platinum" },
-  { name: "Cash Vinas", age: 17, gender: "M", group: "platinum" },
+  { name: "Cash Vinas", age: 17, gender: "M", group: "platinum", parentName: "Heather Vinas", parentPhone: "(631) 404-2144" },
   { name: "Nerea Gutierrez", age: 17, gender: "F", group: "platinum" },
   { name: "Mayah Chouloute", age: 16, gender: "F", group: "platinum" },
-  { name: "Sophia Gamboa-Pereira", age: 14, gender: "F", group: "platinum" },
+  { name: "Sophia Gamboa-Pereira", age: 14, gender: "F", group: "platinum", parentName: "Sophia Gamboa-Pereira", parentPhone: "(954) 383-3852" },
   { name: "Gabia Gelumbickas", age: 17, gender: "F", group: "platinum" },
   { name: "Alejandra Gil-Restrepo", age: 17, gender: "F", group: "platinum" },
-  { name: "Christina Gumbinger", age: 18, gender: "F", group: "platinum" },
+  { name: "Christina Gumbinger", age: 18, gender: "F", group: "platinum", parentName: "Baoqin Li", parentPhone: "(561) 271-9400" },
   { name: "Alera Hurwitz", age: 16, gender: "F", group: "platinum" },
   { name: "Lilly Karas", age: 15, gender: "F", group: "platinum" },
   { name: "Sienna Kourjakian", age: 15, gender: "F", group: "platinum" },
@@ -473,26 +476,26 @@ const INITIAL_ROSTER: RosterEntry[] = [
   { name: "Grace Weeks", age: 14, gender: "F", group: "platinum" },
   // ── GOLD (22) ──
   { name: "Amelia Baral", age: 13, gender: "F", group: "gold" },
-  { name: "Jackson Baral", age: 12, gender: "M", group: "gold" },
+  { name: "Jackson Baral", age: 12, gender: "M", group: "gold", parentName: "Brian Baral", parentPhone: "(312) 515-3512" },
   { name: "Lorenz Fahnenschmidt", age: 12, gender: "M", group: "gold" },
   { name: "Daniel Gil-Restrepo", age: 14, gender: "M", group: "gold" },
-  { name: "Benjamin Gober", age: 15, gender: "M", group: "gold" },
-  { name: "Joaquin Gomez-Llendo", age: 13, gender: "M", group: "gold" },
+  { name: "Benjamin Gober", age: 15, gender: "M", group: "gold", parentName: "Channing Barnett", parentPhone: "(917) 257-5738" },
+  { name: "Joaquin Gomez-Llendo", age: 13, gender: "M", group: "gold", parentName: "Luis Gomez", parentPhone: "(310) 420-7275" },
   { name: "Kayla Jorge", age: 15, gender: "F", group: "gold" },
-  { name: "Sakshi Kaur", age: 12, gender: "F", group: "gold" },
-  { name: "Peter Lehmann", age: 16, gender: "M", group: "gold" },
-  { name: "Brooklyn Lewis", age: 13, gender: "F", group: "gold" },
+  { name: "Sakshi Kaur", age: 12, gender: "F", group: "gold", parentName: "Manpreet Kaur", parentPhone: "(646) 496-8543" },
+  { name: "Peter Lehmann", age: 16, gender: "M", group: "gold", parentName: "Jeannette Lehmann", parentPhone: "5612123219" },
+  { name: "Brooklyn Lewis", age: 13, gender: "F", group: "gold", parentName: "Meagan Lewis", parentPhone: "(305) 968-6948" },
   { name: "Maria Monozova", age: 14, gender: "F", group: "gold" },
   { name: "Ari Nelson", age: 15, gender: "M", group: "gold" },
   { name: "Aliyana Ordunez", age: 14, gender: "F", group: "gold" },
   { name: "Mathaus Polli", age: 13, gender: "M", group: "gold" },
-  { name: "Eli Rudikoff", age: 15, gender: "M", group: "gold" },
+  { name: "Eli Rudikoff", age: 15, gender: "M", group: "gold", parentName: "Adam Rudikoff", parentPhone: "(617) 290-3640" },
   { name: "Daniel Sigda", age: 13, gender: "M", group: "gold" },
-  { name: "Julieta Siok", age: 13, gender: "F", group: "gold" },
-  { name: "Alexandra Thomson", age: 13, gender: "F", group: "gold" },
+  { name: "Julieta Siok", age: 13, gender: "F", group: "gold", parentName: "Daniela Iurkovic", parentPhone: "(561) 809-1061" },
+  { name: "Alexandra Thomson", age: 13, gender: "F", group: "gold", parentName: "Joanna Thomson", parentPhone: "(405) 706-6058" },
   { name: "Ava Umstattd", age: 14, gender: "F", group: "gold" },
-  { name: "Camile Waber", age: 15, gender: "F", group: "gold" },
-  { name: "Tyler Wright", age: 12, gender: "M", group: "gold" },
+  { name: "Camile Waber", age: 15, gender: "F", group: "gold", parentName: "Jodi Waber", parentPhone: "(561) 414-4878" },
+  { name: "Tyler Wright", age: 12, gender: "M", group: "gold", parentName: "Chelsea Wright", parentPhone: "(954) 552-1442" },
   { name: "Oleh Zinerko", age: 13, gender: "M", group: "gold" },
   // ── SILVER (~48) ──
   { name: "Henry Andrews", age: 10, gender: "M", group: "silver" },
@@ -673,7 +676,7 @@ const INITIAL_ROSTER: RosterEntry[] = [
   { name: "Iddo Yampolsky", age: 11, gender: "M", group: "waterpolo" },
 ];
 
-function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: string }): Athlete {
+function makeAthlete(r: RosterEntry & { group?: string }): Athlete {
   return {
     id: r.name.toLowerCase().replace(/\s+/g, "-"),
     name: r.name, age: r.age, gender: r.gender, group: r.group ?? "Varsity",
@@ -682,9 +685,12 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: 
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
     weightChallenges: {}, quests: {},
     dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 },
-    usaSwimmingId: "",
+    birthday: r.birthday ?? "",
+    usaSwimmingId: r.usaSwimmingId ?? "",
     parentCode: generateParentCode(),
-    parentEmail: "",
+    parentName: r.parentName ?? "",
+    parentEmail: r.parentEmail ?? "",
+    parentPhone: r.parentPhone ?? "",
     sport: "swimming",
   };
 }
@@ -1293,7 +1299,7 @@ export default function ApexAthletePage() {
     addAudit(a.id, a.name, `Added to ${currentGroupDef.name}`, 0);
   }, [newAthleteName, newAthleteAge, newAthleteGender, newAthleteUSAId, newAthleteParentEmail, roster, saveRoster, addAudit, selectedGroup, currentGroupDef]);
 
-  const updateAthleteProfile = useCallback((athleteId: string, updates: Partial<Pick<Athlete, "usaSwimmingId" | "parentEmail" | "parentCode">>) => {
+  const updateAthleteProfile = useCallback((athleteId: string, updates: Partial<Pick<Athlete, "birthday" | "usaSwimmingId" | "parentName" | "parentEmail" | "parentPhone" | "parentCode">>) => {
     setRoster(prev => {
       const next = prev.map(a => a.id === athleteId ? { ...a, ...updates } : a);
       save(K.ROSTER, next);
@@ -1994,13 +2000,18 @@ export default function ApexAthletePage() {
             <div className="flex-1 min-w-0">
               <div className="text-white font-bold text-lg">{athlete.name}</div>
               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <span className="text-white/25 text-xs">{athlete.age}y · {athlete.gender}</span>
+                <span className="text-white/25 text-xs">{athlete.age}y · {athlete.gender === "M" ? "Male" : "Female"}</span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>
                   {lv.icon} {lv.name}
                 </span>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]">
                   {sk.label} · {sk.mult}
                 </span>
+              </div>
+              {/* Athlete Details */}
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                {athlete.birthday && <span className="text-white/30"><span className="text-white/50">DOB:</span> {athlete.birthday}</span>}
+                {athlete.usaSwimmingId && <span className="text-white/30"><span className="text-white/50">USA-S:</span> {athlete.usaSwimmingId}</span>}
               </div>
               <div className="mt-3">
                 <div className="flex justify-between text-[10px] mb-1">
@@ -2964,6 +2975,11 @@ export default function ApexAthletePage() {
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-[10px] font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
                         <span className="text-white/15 text-[10px]">{a.xp} XP</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[10px] text-white/25">
+                        <span>{a.age}y · {a.gender === "M" ? "Male" : "Female"}</span>
+                        {a.birthday && <span>DOB: {a.birthday}</span>}
+                        {a.usaSwimmingId && <span>USA-S: {a.usaSwimmingId}</span>}
                       </div>
                     </div>
                   </div>
