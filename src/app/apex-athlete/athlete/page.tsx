@@ -1282,7 +1282,7 @@ export default function AthletePortal() {
         {tab === "dashboard" && attrs && (
           <div className="space-y-4">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
-              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3 text-center">ATTRIBUTE RADAR</h3>
+              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3 text-center">YOUR STRENGTHS</h3>
               <RadarChart values={attrs} />
               <div className="grid grid-cols-5 gap-1 mt-3">
                 {ATTRIBUTES.map(a => (
@@ -1295,7 +1295,7 @@ export default function AthletePortal() {
             </div>
 
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
-              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TODAY&apos;S XP</h3>
+              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TODAY&apos;S EFFORT</h3>
               <div className="grid grid-cols-3 gap-3">
                 <div className="text-center">
                   <div className="text-lg font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
@@ -1318,7 +1318,7 @@ export default function AthletePortal() {
 
             {athlete.weightStreak > 0 && (
               <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
-                <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">WEIGHT ROOM STREAK</h3>
+                <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">IRON DISCIPLINE</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-black text-[#f59e0b]">{athlete.weightStreak}</span>
                   <span className="text-white/30 text-xs">sessions · {athlete.weekWeightSessions} this week</span>
@@ -1328,7 +1328,7 @@ export default function AthletePortal() {
 
             {/* Attendance Calendar — last 28 days heatmap */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
-              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">ATTENDANCE — LAST 28 DAYS</h3>
+              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">YOUR CONSISTENCY — LAST 28 DAYS</h3>
               <div className="grid grid-cols-7 gap-1.5">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
                   <div key={i} className="text-center text-white/15 text-[8px] font-mono">{d}</div>
@@ -1383,7 +1383,7 @@ export default function AthletePortal() {
             {/* Log new time */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
               <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
-                <TimerIcon active={true} /> LOG A TIME
+                <TimerIcon active={true} /> DROP A TIME
               </h3>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <select value={newTime.event} onChange={e => setNewTime(p => ({ ...p, event: e.target.value }))}
@@ -1814,7 +1814,7 @@ export default function AthletePortal() {
         {tab === "journal" && (
           <div className="space-y-4">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
-              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">TODAY&apos;S REFLECTION</h3>
+              <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">HOW&apos;D IT GO TODAY?</h3>
               <div className="flex items-center gap-1 mb-4 justify-center">
                 {[1, 2, 3, 4, 5].map(m => (
                   <button key={m} onClick={() => setJournalDraft(d => ({ ...d, mood: m }))}
@@ -1827,7 +1827,7 @@ export default function AthletePortal() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-white/30 text-[10px] font-mono block mb-1">WHAT WENT WELL</label>
+                  <label className="text-white/30 text-[10px] font-mono block mb-1">WINS TODAY</label>
                   <textarea value={journalDraft.wentWell} onChange={e => setJournalDraft(d => ({ ...d, wentWell: e.target.value }))}
                     className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/15 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="I nailed my flip turns today..." />
