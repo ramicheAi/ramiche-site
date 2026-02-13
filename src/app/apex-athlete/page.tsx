@@ -3527,92 +3527,92 @@ export default function ApexAthletePage() {
               </button>}
             </div>
 
-            {/* Coach management panel */}
+            {/* Coach management modal — rendered as fixed overlay to avoid z-index/stacking issues on iOS */}
             {manageCoaches && activeCoachGroups.includes("all") && (
-              <div className="mb-6 p-5 relative z-50 rounded-2xl bg-[#0a0518] border border-[#00f0ff]/10" style={{ isolation: "isolate", touchAction: "manipulation", WebkitUserSelect: "text", userSelect: "text", transform: "translateZ(0)" }} onClick={e => e.stopPropagation()}>
-                <h4 className="text-[#00f0ff]/40 text-[10px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Coach Profiles</h4>
-                <div className="space-y-2 mb-4">
-                  {coaches.map((c, i) => (
-                    <div key={i} className="py-2.5 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
-                            {c.role === "head" ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" className="inline-block -mt-0.5"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><rect x="2" y="20" width="20" height="2" rx="1"/></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" className="inline-block -mt-0.5"><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="9" r="3"/></svg>} {c.name}
-                          </span>
-                          <span className="text-[10px] text-white/15 font-mono">PIN: {c.pin}</span>
-                          <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
-                            {c.role.toUpperCase()}
-                          </span>
-                        </div>
-                        {!(c.role === "head" && coaches.filter(x => x.role === "head").length <= 1) && (
-                          <button onClick={() => removeCoach(i)} className="text-red-400/30 hover:text-red-400/80 text-xs transition-colors ml-2 relative z-40" style={{ pointerEvents: "auto", touchAction: "manipulation" }}>✕</button>
-                        )}
-                      </div>
-                      <div className="flex gap-1 flex-wrap mt-1.5">
-                        {c.groups.includes("all") ? (
-                          <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#f59e0b]/10 text-[#f59e0b]/50 font-mono">ALL GROUPS</span>
-                        ) : c.groups.map(gId => {
-                          const gDef = ROSTER_GROUPS.find(g => g.id === gId);
-                          return gDef ? <span key={gId} className="text-[8px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30 font-mono">{gDef.icon} {gDef.name}</span> : null;
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-3" style={{ position: "relative", zIndex: 60 }}>
-                  <div className="flex gap-2 items-center flex-wrap" style={{ position: "relative", zIndex: 60 }}>
-                    <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
-                      type="text" autoComplete="off" autoCorrect="off" autoCapitalize="words" inputMode="text"
-                      onTouchStart={e => e.stopPropagation()}
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-36 focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/30 min-h-[48px] relative" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px", pointerEvents: "auto", touchAction: "manipulation", zIndex: 60, WebkitTapHighlightColor: "rgba(0,240,255,0.1)" }} />
-                    <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
-                      type="tel" autoComplete="off" inputMode="numeric" pattern="[0-9]*"
-                      onTouchStart={e => e.stopPropagation()}
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs w-28 focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/30 min-h-[48px] relative" style={{ colorScheme: "dark", WebkitAppearance: "none", fontSize: "16px", pointerEvents: "auto", touchAction: "manipulation", zIndex: 60, WebkitTapHighlightColor: "rgba(0,240,255,0.1)" }} />
-                    <select value={newCoachRole} onChange={e => { const role = e.target.value as "head" | "assistant" | "guest"; setNewCoachRole(role); if (role === "head") setNewCoachGroups(["all"]); }}
-                      onTouchStart={e => e.stopPropagation()}
-                      className="bg-[#1a1025] border border-white/[0.12] rounded-lg px-3 py-2.5 text-white text-xs focus:outline-none min-h-[48px] relative" style={{ colorScheme: "dark", fontSize: "16px", WebkitAppearance: "menulist", pointerEvents: "auto", touchAction: "manipulation", zIndex: 60, WebkitTapHighlightColor: "rgba(0,240,255,0.1)" }}>
-                      <option value="assistant" style={{ background: "#1a1025", color: "white" }}>Assistant</option>
-                      <option value="head" style={{ background: "#1a1025", color: "white" }}>Head Coach</option>
-                    </select>
+              <div className="fixed inset-0 z-[500] flex items-center justify-center p-4" onClick={() => setManageCoaches(false)}>
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+                <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl bg-[#0a0518] border border-[#00f0ff]/20 p-5 shadow-[0_0_60px_rgba(0,240,255,0.1)]" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-[#00f0ff]/60 text-[10px] uppercase tracking-[0.2em] font-bold font-mono">// Coach Profiles</h4>
+                    <button onClick={() => setManageCoaches(false)} className="text-white/30 hover:text-white/60 transition-colors text-lg leading-none">&times;</button>
                   </div>
-                  {newCoachRole === "assistant" && (
-                    <div>
-                      <p className="text-white/25 text-[10px] font-mono mb-2">ASSIGN GROUPS:</p>
-                      <div className="flex gap-2 flex-wrap">
-                        {ROSTER_GROUPS.map(g => {
-                          const sel = newCoachGroups.includes(g.id);
-                          return (
-                            <button key={g.id} type="button" onClick={() => setNewCoachGroups(prev => sel ? prev.filter(x => x !== g.id) : [...prev.filter(x => x !== "all"), g.id])}
-                              className={`px-3 py-2 rounded-lg text-[11px] font-mono font-bold border transition-all min-h-[44px] relative z-40 ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.02] text-white/25 hover:text-white/40"}`}
-                              style={{ pointerEvents: "auto", touchAction: "manipulation" }}>
-                              {g.icon} {g.name.toUpperCase()}
-                            </button>
-                          );
-                        })}
+                  <div className="space-y-2 mb-4">
+                    {coaches.map((c, i) => (
+                      <div key={i} className="py-2.5 px-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
+                              {c.role === "head" ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" className="inline-block -mt-0.5"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><rect x="2" y="20" width="20" height="2" rx="1"/></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" className="inline-block -mt-0.5"><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="9" r="3"/></svg>} {c.name}
+                            </span>
+                            <span className="text-[10px] text-white/20 font-mono">PIN: {c.pin}</span>
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
+                              {c.role.toUpperCase()}
+                            </span>
+                          </div>
+                          {!(c.role === "head" && coaches.filter(x => x.role === "head").length <= 1) && (
+                            <button onClick={() => removeCoach(i)} className="text-red-400/40 hover:text-red-400/80 text-sm transition-colors ml-2">&times;</button>
+                          )}
+                        </div>
+                        <div className="flex gap-1 flex-wrap mt-1.5">
+                          {c.groups.includes("all") ? (
+                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#f59e0b]/10 text-[#f59e0b]/50 font-mono">ALL GROUPS</span>
+                          ) : c.groups.map(gId => {
+                            const gDef = ROSTER_GROUPS.find(g => g.id === gId);
+                            return gDef ? <span key={gId} className="text-[8px] px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30 font-mono">{gDef.icon} {gDef.name}</span> : null;
+                          })}
+                        </div>
                       </div>
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)} placeholder="Coach name"
+                        type="text" autoComplete="off" autoCorrect="off" autoCapitalize="words" inputMode="text"
+                        className="bg-[#1a1025] border border-white/[0.15] rounded-lg px-3 py-2.5 text-white text-sm w-36 focus:outline-none focus:border-[#00f0ff]/50 focus:ring-1 focus:ring-[#00f0ff]/30 min-h-[48px]" style={{ fontSize: "16px" }} />
+                      <input value={newCoachPin} onChange={e => setNewCoachPin(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="4-digit PIN"
+                        type="tel" autoComplete="off" inputMode="numeric" pattern="[0-9]*"
+                        className="bg-[#1a1025] border border-white/[0.15] rounded-lg px-3 py-2.5 text-white text-sm w-28 focus:outline-none focus:border-[#00f0ff]/50 focus:ring-1 focus:ring-[#00f0ff]/30 min-h-[48px]" style={{ fontSize: "16px" }} />
+                      <select value={newCoachRole} onChange={e => { const role = e.target.value as "head" | "assistant" | "guest"; setNewCoachRole(role); if (role === "head") setNewCoachGroups(["all"]); }}
+                        className="bg-[#1a1025] border border-white/[0.15] rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none min-h-[48px]" style={{ fontSize: "16px" }}>
+                        <option value="assistant" style={{ background: "#1a1025", color: "white" }}>Assistant</option>
+                        <option value="head" style={{ background: "#1a1025", color: "white" }}>Head Coach</option>
+                      </select>
                     </div>
-                  )}
-                  <button onClick={addCoach} disabled={!newCoachName.trim() || newCoachPin.length < 4 || (newCoachRole === "assistant" && newCoachGroups.filter(x => x !== "all").length === 0)}
-                    className="px-5 py-2.5 rounded-lg bg-[#00f0ff]/10 text-[#00f0ff]/80 text-xs font-bold border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all min-h-[44px] disabled:opacity-30 disabled:cursor-not-allowed relative z-40"
-                    style={{ pointerEvents: "auto", touchAction: "manipulation" }}>
-                    + Add Coach
-                  </button>
-                </div>
-                <div className="mt-4 pt-3 border-t border-white/[0.04]">
-                  <h5 className="text-[#a855f7]/40 text-[9px] uppercase tracking-[0.2em] font-bold mb-2 font-mono">// Quick Invite</h5>
-                  <p className="text-white/15 text-[10px] mb-2 font-mono">Share this link with colleagues — they can access Apex with their own PIN:</p>
-                  <div className="flex gap-2 items-center">
-                    <code className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-[#00f0ff]/60 text-[10px] font-mono truncate">
-                      {typeof window !== "undefined" ? `${window.location.origin}/apex-athlete/portal` : "/apex-athlete/portal"}
-                    </code>
-                    <button
-                      onClick={() => { if (typeof navigator !== "undefined") navigator.clipboard.writeText(`${window.location.origin}/apex-athlete/portal`); }}
-                      className="px-3 py-2 rounded-lg bg-[#a855f7]/10 text-[#a855f7]/60 text-[10px] font-bold border border-[#a855f7]/20 hover:bg-[#a855f7]/20 transition-all min-h-[34px] shrink-0">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1 -mt-0.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy
+                    {newCoachRole === "assistant" && (
+                      <div>
+                        <p className="text-white/30 text-[10px] font-mono mb-2">ASSIGN GROUPS:</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {ROSTER_GROUPS.map(g => {
+                            const sel = newCoachGroups.includes(g.id);
+                            return (
+                              <button key={g.id} type="button" onClick={() => setNewCoachGroups(prev => sel ? prev.filter(x => x !== g.id) : [...prev.filter(x => x !== "all"), g.id])}
+                                className={`px-3 py-2 rounded-lg text-[11px] font-mono font-bold border transition-all min-h-[44px] ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.03] text-white/30 hover:text-white/50"}`}>
+                                {g.icon} {g.name.toUpperCase()}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                    <button onClick={addCoach} disabled={!newCoachName.trim() || newCoachPin.length < 4 || (newCoachRole === "assistant" && newCoachGroups.filter(x => x !== "all").length === 0)}
+                      className="w-full px-5 py-3 rounded-lg bg-[#00f0ff]/15 text-[#00f0ff] text-sm font-bold border border-[#00f0ff]/30 hover:bg-[#00f0ff]/25 transition-all min-h-[48px] disabled:opacity-30 disabled:cursor-not-allowed">
+                      + Add Coach
                     </button>
                   </div>
-                  <p className="text-white/10 text-[9px] mt-2 font-mono">Each coach logs in with their own PIN. All check-ins are tracked separately in the audit log.</p>
+                  <div className="mt-4 pt-3 border-t border-white/[0.06]">
+                    <h5 className="text-[#a855f7]/40 text-[9px] uppercase tracking-[0.2em] font-bold mb-2 font-mono">// Quick Invite</h5>
+                    <p className="text-white/20 text-[10px] mb-2 font-mono">Share this link — coaches log in with their own PIN:</p>
+                    <div className="flex gap-2 items-center">
+                      <code className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-[#00f0ff]/60 text-[10px] font-mono truncate">
+                        {typeof window !== "undefined" ? `${window.location.origin}/apex-athlete/portal` : "/apex-athlete/portal"}
+                      </code>
+                      <button
+                        onClick={() => { if (typeof navigator !== "undefined") navigator.clipboard.writeText(`${window.location.origin}/apex-athlete/portal`); }}
+                        className="px-3 py-2 rounded-lg bg-[#a855f7]/10 text-[#a855f7]/60 text-[10px] font-bold border border-[#a855f7]/20 hover:bg-[#a855f7]/20 transition-all min-h-[34px] shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1 -mt-0.5"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
