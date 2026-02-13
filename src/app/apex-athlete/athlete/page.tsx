@@ -1287,21 +1287,25 @@ export default function AthletePortal() {
           </div>
         </div>
 
-        {/* Tab Navigation — scrollable on mobile */}
-        <div className="flex gap-0.5 mb-5 bg-[#0a0518]/50 p-1 rounded-xl border border-white/5 overflow-x-auto no-scrollbar">
-          {TABS.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)}
-              className={`flex-shrink-0 flex items-center gap-1 px-2.5 py-2 text-[10px] font-bold rounded-lg transition-all relative ${
-                tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"
-              }`}>
-              {t.icon(tab === t.key)}
-              <span>{t.label}</span>
-              {t.badge && t.badge > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full text-white text-[8px] font-black flex items-center justify-center">
-                  {t.badge}
-                </span>
-              )}
-            </button>
+        {/* Tab Navigation — 2 rows of 5 so all tabs visible on mobile */}
+        <div className="mb-5 bg-[#0a0518]/50 p-1.5 rounded-xl border border-white/5 space-y-1">
+          {[TABS.slice(0, 5), TABS.slice(5)].map((row, ri) => (
+            <div key={ri} className="grid grid-cols-5 gap-0.5">
+              {row.map(t => (
+                <button key={t.key} onClick={() => setTab(t.key)}
+                  className={`flex flex-col items-center gap-0.5 py-2 text-[9px] font-bold rounded-lg transition-all relative ${
+                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"
+                  }`}>
+                  {t.icon(tab === t.key)}
+                  <span>{t.label}</span>
+                  {t.badge && t.badge > 0 && (
+                    <span className="absolute -top-0.5 right-1 w-3.5 h-3.5 bg-[#ef4444] rounded-full text-white text-[7px] font-black flex items-center justify-center">
+                      {t.badge}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
 
