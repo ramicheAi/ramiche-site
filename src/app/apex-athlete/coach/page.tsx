@@ -736,7 +736,7 @@ export default function ApexAthletePage() {
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -770,6 +770,17 @@ export default function ApexAthletePage() {
   const [newCoachGroups, setNewCoachGroups] = useState<GroupId[]>([]);
   const [newCoachEmail, setNewCoachEmail] = useState("");
   const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
+
+  // ── meets & comms state ─────────────────────────────────
+  const [meets, setMeets] = useState<SwimMeet[]>([]);
+  const [broadcastMsg, setBroadcastMsg] = useState("");
+  const [newMeetName, setNewMeetName] = useState("");
+  const [newMeetDate, setNewMeetDate] = useState("");
+  const [newMeetLocation, setNewMeetLocation] = useState("");
+  const [newMeetCourse, setNewMeetCourse] = useState<"SCY" | "SCM" | "LCM">("SCY");
+  const [newMeetDeadline, setNewMeetDeadline] = useState("");
+  const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
+  const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
 
   // ── push notification state ──────────────────────────────
   const [pushEnabled, setPushEnabled] = useState(false);
@@ -847,6 +858,8 @@ export default function ApexAthletePage() {
     // Load coaches
     const savedCoaches = load<CoachProfile[]>(K.COACHES, []);
     setCoaches(savedCoaches);
+    // Load meets
+    setMeets(load<SwimMeet[]>(K.MEETS, []));
     // Check push notification status
     if ("serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker.register("/sw.js").then(reg => {
@@ -1485,6 +1498,8 @@ export default function ApexAthletePage() {
       { id: "parent" as const, label: "Parent" },
     ];
     const secondaryTabs = [
+      { id: "meets" as const, label: "Meets" },
+      { id: "comms" as const, label: "Comms" },
       { id: "analytics" as const, label: "Analytics" },
       { id: "schedule" as const, label: "Schedule" },
       { id: "audit" as const, label: "Audit" },
@@ -1539,12 +1554,12 @@ export default function ApexAthletePage() {
               );
             })}
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] ${
+                  className={`flex-1 min-w-[60px] py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] ${
                     active
                       ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
                       : "bg-[#06020f]/40 text-white/15 border border-white/[0.04] hover:text-white/30 hover:border-white/10 active:scale-[0.97]"
@@ -2151,6 +2166,348 @@ export default function ApexAthletePage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── MEETS VIEW ──────────────────────────────────────────
+  if (view === "meets") {
+    const saveMeets = (m: SwimMeet[]) => { setMeets(m); save(K.MEETS, m); };
+    const createMeet = () => {
+      if (!newMeetName || !newMeetDate) return;
+      const m: SwimMeet = {
+        id: `meet-${Date.now()}`, name: newMeetName, date: newMeetDate, location: newMeetLocation,
+        course: newMeetCourse, rsvpDeadline: newMeetDeadline || newMeetDate,
+        events: [], rsvps: {}, broadcasts: [], status: "upcoming",
+      };
+      saveMeets([...meets, m]);
+      setNewMeetName(""); setNewMeetDate(""); setNewMeetLocation(""); setNewMeetDeadline("");
+    };
+    const deleteMeet = (id: string) => saveMeets(meets.filter(m => m.id !== id));
+    const addEventToMeet = (meetId: string, eventName: string) => {
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, events: [...m.events, { id: `ev-${Date.now()}`, name: eventName, entries: [] }] } : m));
+    };
+    const removeEvent = (meetId: string, eventId: string) => {
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, events: m.events.filter(e => e.id !== eventId) } : m));
+    };
+    const toggleAthleteEntry = (meetId: string, eventId: string, athleteId: string) => {
+      saveMeets(meets.map(m => {
+        if (m.id !== meetId) return m;
+        return { ...m, events: m.events.map(ev => {
+          if (ev.id !== eventId) return ev;
+          const exists = ev.entries.find(e => e.athleteId === athleteId);
+          if (exists) return { ...ev, entries: ev.entries.filter(e => e.athleteId !== athleteId) };
+          return { ...ev, entries: [...ev.entries, { athleteId, seedTime: "" }] };
+        })};
+      }));
+    };
+    const sendMeetBroadcast = (meetId: string) => {
+      if (!broadcastMsg.trim()) return;
+      const bc: MeetBroadcast = { id: `bc-${Date.now()}`, message: broadcastMsg, timestamp: Date.now(), sentBy: "Coach" };
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, broadcasts: [...m.broadcasts, bc] } : m));
+      setBroadcastMsg("");
+    };
+    const rsvpCounts = (m: SwimMeet) => {
+      const vals = Object.values(m.rsvps);
+      return { committed: vals.filter(v => v === "committed").length, declined: vals.filter(v => v === "declined").length, pending: filteredRoster.length - vals.length };
+    };
+    const editMeet = editingMeetId ? meets.find(m => m.id === editingMeetId) : null;
+
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs />
+        <div className="w-full relative z-10 px-5 sm:px-8 pb-12">
+          <GameHUDHeader />
+          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Meet Entry</h2>
+          <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Create meets · Add events · Enter athletes</p>
+
+          {!editMeet ? (
+            <>
+              {/* Create new meet */}
+              <Card className="p-5 mb-6" neon>
+                <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">New Meet</h3>
+                <div className="space-y-3">
+                  <input value={newMeetName} onChange={e => setNewMeetName(e.target.value)} placeholder="Meet name"
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="date" value={newMeetDate} onChange={e => setNewMeetDate(e.target.value)}
+                      className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                    <select value={newMeetCourse} onChange={e => setNewMeetCourse(e.target.value as "SCY" | "SCM" | "LCM")}
+                      className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40">
+                      <option value="SCY">SCY</option><option value="SCM">SCM</option><option value="LCM">LCM</option>
+                    </select>
+                  </div>
+                  <input value={newMeetLocation} onChange={e => setNewMeetLocation(e.target.value)} placeholder="Location"
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <label className="text-[10px] text-white/20 uppercase mb-1 block">RSVP Deadline</label>
+                      <input type="date" value={newMeetDeadline} onChange={e => setNewMeetDeadline(e.target.value)}
+                        className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                    </div>
+                    <button onClick={createMeet} disabled={!newMeetName || !newMeetDate}
+                      className="mt-4 game-btn px-6 py-2.5 text-sm font-bold bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30 rounded-lg hover:bg-[#00f0ff]/20 disabled:opacity-30 transition-all">
+                      Create
+                    </button>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Meet list */}
+              {meets.length === 0 ? (
+                <div className="text-center py-12 text-white/15 text-sm">No meets created yet</div>
+              ) : (
+                <div className="space-y-3">
+                  {meets.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(m => {
+                    const rc = rsvpCounts(m);
+                    return (
+                      <Card key={m.id} className="p-4" neon>
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="font-bold text-white text-sm">{m.name}</h4>
+                            <p className="text-white/25 text-xs">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
+                          </div>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                            m.status === "upcoming" ? "bg-[#00f0ff]/10 text-[#00f0ff]" :
+                            m.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
+                            "bg-white/5 text-white/30"
+                          }`}>{m.status}</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[11px] mb-3">
+                          <span className="text-emerald-400">{rc.committed} in</span>
+                          <span className="text-red-400">{rc.declined} out</span>
+                          <span className="text-white/20">{rc.pending} pending</span>
+                          <span className="text-white/10">·</span>
+                          <span className="text-[#a855f7]">{m.events.length} events</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => setEditingMeetId(m.id)}
+                            className="flex-1 game-btn py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 transition-all">
+                            Manage
+                          </button>
+                          <button onClick={() => deleteMeet(m.id)}
+                            className="game-btn py-2 px-4 text-xs font-bold text-red-400/50 border border-red-400/10 rounded-lg hover:bg-red-400/10 hover:text-red-400 transition-all">
+                            ✕
+                          </button>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            /* Edit meet — add events, enter athletes */
+            <div>
+              <button onClick={() => setEditingMeetId(null)} className="text-[#00f0ff]/50 text-xs font-mono mb-4 hover:text-[#00f0ff] transition-colors">
+                ← Back to meets
+              </button>
+              <Card className="p-5 mb-4" neon>
+                <h3 className="font-bold text-white text-lg mb-1">{editMeet.name}</h3>
+                <p className="text-white/25 text-xs mb-4">{new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {editMeet.course} · {editMeet.location || "TBD"}</p>
+
+                {/* Add events */}
+                <div className="mb-4">
+                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Events</h4>
+                  {editMeet.events.length > 0 && (
+                    <div className="space-y-2 mb-3">
+                      {editMeet.events.map(ev => (
+                        <div key={ev.id} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-white">{ev.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-[#a855f7]">{ev.entries.length} entered</span>
+                              <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/30 hover:text-red-400 text-xs transition-colors">✕</button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {filteredRoster.map(a => {
+                              const entered = ev.entries.some(e => e.athleteId === a.id);
+                              return (
+                                <button key={a.id} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, a.id)}
+                                  className={`text-[10px] px-2 py-1 rounded-full transition-all ${
+                                    entered
+                                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                                      : "bg-white/[0.03] text-white/20 border border-white/[0.04] hover:text-white/40"
+                                  }`}>
+                                  {a.name.split(" ")[0]}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {meetEventPicker === editMeet.id ? (
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 max-h-48 overflow-y-auto">
+                      <div className="flex flex-wrap gap-1.5">
+                        {STANDARD_SWIM_EVENTS.filter(e => e.courses.includes(editMeet.course)).map(e => (
+                          <button key={e.name} onClick={() => { addEventToMeet(editMeet.id, e.name); }}
+                            disabled={editMeet.events.some(ev => ev.name === e.name)}
+                            className={`text-[10px] px-2.5 py-1.5 rounded-lg transition-all ${
+                              editMeet.events.some(ev => ev.name === e.name)
+                                ? "bg-white/[0.02] text-white/10 cursor-not-allowed"
+                                : "bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20 hover:bg-[#a855f7]/20"
+                            }`}>
+                            {e.name}
+                          </button>
+                        ))}
+                      </div>
+                      <button onClick={() => setMeetEventPicker(null)} className="mt-2 text-white/20 text-xs hover:text-white/40 transition-colors">Done</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setMeetEventPicker(editMeet.id)}
+                      className="game-btn w-full py-2.5 text-xs font-bold text-[#a855f7] border border-[#a855f7]/20 rounded-lg hover:bg-[#a855f7]/10 transition-all">
+                      + Add Events
+                    </button>
+                  )}
+                </div>
+
+                {/* RSVP summary */}
+                {(() => { const rc = rsvpCounts(editMeet); return (
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg p-2 text-center">
+                      <div className="text-lg font-black text-emerald-400">{rc.committed}</div>
+                      <div className="text-[9px] text-emerald-400/50 uppercase">Committed</div>
+                    </div>
+                    <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-2 text-center">
+                      <div className="text-lg font-black text-red-400">{rc.declined}</div>
+                      <div className="text-[9px] text-red-400/50 uppercase">Declined</div>
+                    </div>
+                    <div className="bg-white/[0.02] border border-white/[0.05] rounded-lg p-2 text-center">
+                      <div className="text-lg font-black text-white/30">{rc.pending}</div>
+                      <div className="text-[9px] text-white/15 uppercase">Pending</div>
+                    </div>
+                  </div>
+                ); })()}
+
+                {/* Broadcast to parents about this meet */}
+                <div className="border-t border-white/[0.06] pt-3">
+                  <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Message Parents</h4>
+                  <div className="flex gap-2">
+                    <input value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Send update to all parents..."
+                      className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                    <button onClick={() => sendMeetBroadcast(editMeet.id)} disabled={!broadcastMsg.trim()}
+                      className="game-btn px-4 py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
+                      Send
+                    </button>
+                  </div>
+                  {editMeet.broadcasts.length > 0 && (
+                    <div className="mt-3 space-y-2 max-h-32 overflow-y-auto">
+                      {editMeet.broadcasts.slice().reverse().map(bc => (
+                        <div key={bc.id} className="text-xs text-white/30 bg-white/[0.02] rounded p-2">
+                          <span className="text-white/50">{bc.message}</span>
+                          <span className="text-white/10 ml-2">{new Date(bc.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── COMMS VIEW (Broadcast to Parents) ──────────────────────
+  if (view === "comms") {
+    const BROADCAST_KEY = "apex-broadcasts-v1";
+    const loadBroadcasts = (): { id: string; message: string; timestamp: string; from: string; group: string }[] => {
+      try { return JSON.parse(localStorage.getItem(BROADCAST_KEY) || "[]"); } catch { return []; }
+    };
+    const [allBroadcasts, setAllBroadcasts] = useState(loadBroadcasts());
+    const [commsMsg, setCommsMsg] = useState("");
+    const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
+    const ABSENCE_KEY = "apex-absences-v1";
+    const loadAbsences = (): { id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[] => {
+      try { return JSON.parse(localStorage.getItem(ABSENCE_KEY) || "[]"); } catch { return []; }
+    };
+    const [absenceReports] = useState(loadAbsences());
+
+    const sendBroadcast = () => {
+      if (!commsMsg.trim()) return;
+      const bc = { id: `bc-${Date.now()}`, message: commsMsg, timestamp: new Date().toISOString(), from: "Coach", group: commsGroup };
+      const updated = [...allBroadcasts, bc];
+      setAllBroadcasts(updated);
+      localStorage.setItem(BROADCAST_KEY, JSON.stringify(updated));
+      setCommsMsg("");
+    };
+
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs />
+        <div className="w-full relative z-10 px-5 sm:px-8 pb-12">
+          <GameHUDHeader />
+          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Communications</h2>
+          <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Broadcast to parents · View absence reports</p>
+
+          {/* Send broadcast */}
+          <Card className="p-5 mb-6" neon>
+            <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Send to Parents</h3>
+            <div className="flex gap-2 mb-3">
+              <select value={commsGroup} onChange={e => setCommsGroup(e.target.value as "all" | GroupId)}
+                className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40">
+                <option value="all">All Groups</option>
+                {ROSTER_GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <input value={commsMsg} onChange={e => setCommsMsg(e.target.value)} placeholder="Type a message for parents..."
+                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }}
+                onKeyDown={e => { if (e.key === "Enter") sendBroadcast(); }} />
+              <button onClick={sendBroadcast} disabled={!commsMsg.trim()}
+                className="game-btn px-5 py-2.5 text-sm font-bold text-[#00f0ff] border border-[#00f0ff]/30 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
+                Send
+              </button>
+            </div>
+          </Card>
+
+          {/* Sent messages */}
+          <Card className="p-5 mb-6" neon>
+            <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Sent Messages</h3>
+            {allBroadcasts.length === 0 ? (
+              <p className="text-white/15 text-sm text-center py-4">No messages sent yet</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {allBroadcasts.slice().reverse().map(bc => (
+                  <div key={bc.id} className="bg-white/[0.03] border border-white/[0.05] rounded-lg p-3">
+                    <p className="text-sm text-white/70">{bc.message}</p>
+                    <div className="flex items-center gap-2 mt-1.5 text-[10px] text-white/20">
+                      <span>{new Date(bc.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                      <span>{new Date(bc.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                      <span className="text-[#a855f7]">{bc.group === "all" ? "All Groups" : ROSTER_GROUPS.find(g => g.id === bc.group)?.name || bc.group}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Absence reports from parents */}
+          <Card className="p-5" neon>
+            <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Absence Reports</h3>
+            {absenceReports.length === 0 ? (
+              <p className="text-white/15 text-sm text-center py-4">No absences reported</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {absenceReports.slice().reverse().map(ab => (
+                  <div key={ab.id} className="bg-white/[0.03] border border-white/[0.05] rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-white">{ab.athleteName}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-400/10 text-red-400">{ab.reason}</span>
+                    </div>
+                    <p className="text-xs text-white/30">{ab.dateStart}{ab.dateEnd !== ab.dateStart ? ` – ${ab.dateEnd}` : ""}</p>
+                    {ab.note && <p className="text-xs text-white/20 mt-1">{ab.note}</p>}
+                    <p className="text-[10px] text-white/10 mt-1">Reported: {new Date(ab.submitted).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     );
