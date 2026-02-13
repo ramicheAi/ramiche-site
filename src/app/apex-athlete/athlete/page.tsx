@@ -72,10 +72,10 @@ interface Athlete {
 }
 
 // Practice sessions per week by roster group (from real schedules)
-// Platinum: 9 pool + 3 weight room = 12 total
+// Practice targets per group (from actual schedule)
 const WEEK_TARGETS: Record<string, { pool: number; weight: number }> = {
-  platinum: { pool: 9, weight: 3 }, gold: { pool: 6, weight: 2 }, silver: { pool: 6, weight: 2 },
-  bronze1: { pool: 5, weight: 1 }, bronze2: { pool: 4, weight: 0 }, diving: { pool: 5, weight: 1 }, waterpolo: { pool: 5, weight: 1 },
+  platinum: { pool: 9, weight: 3 }, gold: { pool: 6, weight: 0 }, silver: { pool: 6, weight: 0 },
+  bronze1: { pool: 6, weight: 0 }, bronze2: { pool: 4, weight: 0 }, diving: { pool: 4, weight: 0 }, waterpolo: { pool: 5, weight: 0 },
 };
 const WEEK_TARGETS_TOTAL: Record<string, number> = Object.fromEntries(
   Object.entries(WEEK_TARGETS).map(([k, v]) => [k, v.pool + v.weight])
@@ -970,7 +970,7 @@ export default function AthletePortal() {
             Unlock
           </button>
           {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-          <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/40 transition-colors block mt-6">
+          <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6">
             ← Back to Portal Selector
           </Link>
         </div>
@@ -995,7 +995,7 @@ export default function AthletePortal() {
           <div className="text-center mb-6">
             <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>
             <h1 className="text-2xl font-black text-white">Select Athlete</h1>
-            <p className="text-white/40 text-sm mt-1">Browse any athlete&apos;s portal</p>
+            <p className="text-white/60 text-sm mt-1">Browse any athlete&apos;s portal</p>
           </div>
           {/* Group filter for coaches */}
           <div className="flex flex-wrap justify-center gap-1.5 mb-3">
@@ -1099,7 +1099,7 @@ export default function AthletePortal() {
           {/* Step 1: Select name from roster */}
           {onboardStep === "name" && (
             <div>
-              <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">Your Name</label>
+              <label className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-2 block">Your Name</label>
               <div className="relative">
                 <input type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setOnboardError(""); }}
                   placeholder="Start typing your name..."
@@ -1150,7 +1150,7 @@ export default function AthletePortal() {
               </div>
 
               <div>
-                <label className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-2 block">USA Swimming ID</label>
+                <label className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-2 block">USA Swimming ID</label>
                 <div className="relative">
                   <input type="text" value={idInput}
                     onChange={e => { setIdInput(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase()); setOnboardError(""); }}
@@ -1231,7 +1231,7 @@ export default function AthletePortal() {
                     <div className="p-3 rounded-xl bg-amber-500/5 border border-amber-500/15">
                       <div className="flex items-start gap-2">
                         <svg className="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                        <p className="text-white/40 text-sm">This will lock this device to your profile. Only your data will be visible. To switch athletes, you&apos;ll need to log out first.</p>
+                        <p className="text-white/60 text-sm">This will lock this device to your profile. Only your data will be visible. To switch athletes, you&apos;ll need to log out first.</p>
                       </div>
                     </div>
 
@@ -1252,7 +1252,7 @@ export default function AthletePortal() {
           )}
 
           <div className="text-center mt-8">
-            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/40 transition-colors">← Back to Portal Selector</Link>
+            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors">← Back to Portal Selector</Link>
           </div>
         </div>
       </div>
@@ -1329,7 +1329,7 @@ export default function AthletePortal() {
               <span className="text-white/50 text-sm font-mono">Age {athlete.age}</span>
               {athlete.usaSwimmingId && (
                 <>
-                  <span className="text-white/40 text-sm">·</span>
+                  <span className="text-white/60 text-sm">·</span>
                   <span className="text-[#00f0ff]/90 text-sm font-mono">USA-S {athlete.usaSwimmingId}</span>
                 </>
               )}
@@ -1349,7 +1349,7 @@ export default function AthletePortal() {
         {/* XP Bar */}
         <div className="mb-4 p-3 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-white/40 text-xs font-mono">XP: {athlete.xp}</span>
+            <span className="text-white/60 text-xs font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
               <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
@@ -1487,7 +1487,7 @@ export default function AthletePortal() {
                       } ${
                         d.active
                           ? "bg-[#a855f7]/30 text-[#a855f7] border border-[#a855f7]/20"
-                          : "bg-white/[0.02] text-white/40 border border-white/[0.03]"
+                          : "bg-white/[0.02] text-white/60 border border-white/[0.03]"
                       }`}>
                         {d.day}
                       </div>
@@ -1669,7 +1669,7 @@ export default function AthletePortal() {
                                     const hasCol = events.some(e2 => getAllStandards(g, e2, stroke, goalCourse)[lv]);
                                     if (!hasCol) return null;
                                     const cutTime = stds[lv];
-                                    if (!cutTime) return <td key={lv} className="text-center py-2 px-1 text-white/20">—</td>;
+                                    if (!cutTime) return <td key={lv} className="text-center py-2 px-1 text-white/50">—</td>;
                                     const cutSecs = parseTime(cutTime);
                                     const achieved = prSecs && cutSecs ? prSecs <= cutSecs : false;
                                     return (
@@ -1720,7 +1720,7 @@ export default function AthletePortal() {
                                   const hasStroke = Object.values(fgcTable).some(e => e[s]);
                                   if (!hasStroke) return null;
                                   const cutTime = fgcTable[ev]?.[s];
-                                  if (!cutTime) return <td key={s} className="text-center py-2 px-1 text-white/20">—</td>;
+                                  if (!cutTime) return <td key={s} className="text-center py-2 px-1 text-white/50">—</td>;
                                   const cutSecs = parseTime(cutTime);
                                   const pr = personalRecords.find(p => p.event === ev && p.stroke === s);
                                   const prSecs = pr ? parseTime(pr.time) : null;
@@ -1737,7 +1737,7 @@ export default function AthletePortal() {
                         </tbody>
                       </table>
                     </div>
-                    <p className="text-white/40 text-xs mt-2">Qualifying times for Florida Gold Coast Senior Championships</p>
+                    <p className="text-white/60 text-xs mt-2">Qualifying times for Florida Gold Coast Senior Championships</p>
                   </div>
                 )}
 
@@ -1857,7 +1857,7 @@ export default function AthletePortal() {
                             );
                           })}
                         </div>
-                        <p className="text-white/40 text-sm text-center mt-2">Tap a standard to set it as your goal</p>
+                        <p className="text-white/60 text-sm text-center mt-2">Tap a standard to set it as your goal</p>
                       </div>
                     )}
 
@@ -1898,7 +1898,7 @@ export default function AthletePortal() {
                               </div>
                             </div>
                             {gap > 0 ? (
-                              <div className="text-center text-white/40 text-xs">
+                              <div className="text-center text-white/60 text-xs">
                                 <span className="text-white font-bold">{fmtTime(gap)}</span> to drop
                               </div>
                             ) : (
@@ -2032,7 +2032,7 @@ export default function AthletePortal() {
                       <span className="text-[#00f0ff] font-mono font-bold">{sp.segment}</span>
                       <span className="text-white font-bold">{sp.time}</span>
                       <span className="text-white/60 font-mono">{sp.pace}</span>
-                      <span className="text-white/40 text-sm">{sp.focus}</span>
+                      <span className="text-white/60 text-sm">{sp.focus}</span>
                     </div>
                   ))}
                 </div>
@@ -2148,7 +2148,7 @@ export default function AthletePortal() {
                 {journal.slice(0, 7).map((j, i) => (
                   <div key={i} className="p-3 rounded-lg bg-[#0a0518]/50 border border-white/5">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-white/40 text-sm font-mono">{j.date}</span>
+                      <span className="text-white/60 text-sm font-mono">{j.date}</span>
                       <span className="text-sm">{j.mood === 1 ? "😞" : j.mood === 2 ? "😤" : j.mood === 3 ? "😐" : j.mood === 4 ? "😊" : "🔥"}</span>
                     </div>
                     {j.wentWell && <p className="text-white/60 text-sm"><span className="text-emerald-400/80">✓</span> {j.wentWell}</p>}
@@ -2174,7 +2174,7 @@ export default function AthletePortal() {
                   <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <p className="text-white/50 text-sm">No feedback yet</p>
-                <p className="text-white/40 text-sm mt-1">Your coach will send feedback after practices and meets</p>
+                <p className="text-white/60 text-sm mt-1">Your coach will send feedback after practices and meets</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -2240,7 +2240,7 @@ export default function AthletePortal() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
-                    <span className="text-white/40 text-xs font-mono">{a.xp} XP</span>
+                    <span className="text-white/60 text-xs font-mono">{a.xp} XP</span>
                     {a.streak >= 3 && <span className="text-sm text-[#ef4444]">{a.streak}d</span>}
                   </div>
                 </div>
@@ -2265,7 +2265,7 @@ export default function AthletePortal() {
                 ].map(metric => (
                   <div key={metric.key}>
                     <div className="flex justify-between items-center mb-1">
-                      <span className="text-white/40 text-sm font-mono tracking-wider">{metric.label}</span>
+                      <span className="text-white/60 text-sm font-mono tracking-wider">{metric.label}</span>
                       <span className="text-lg">{metric.emoji[wellnessCheckin[metric.key] - 1]}</span>
                     </div>
                     <div className="flex gap-1">
@@ -2287,7 +2287,7 @@ export default function AthletePortal() {
                   const readiness = Math.round(avg * 20);
                   return (
                     <div className="mt-3 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 text-center">
-                      <span className="text-white/40 text-sm font-mono tracking-wider">READINESS SCORE</span>
+                      <span className="text-white/60 text-sm font-mono tracking-wider">READINESS SCORE</span>
                       <div className={`text-3xl font-black mt-1 ${readiness >= 80 ? "text-emerald-400" : readiness >= 60 ? "text-amber-400" : "text-red-400"}`}>
                         {readiness}%
                       </div>
@@ -2440,9 +2440,9 @@ export default function AthletePortal() {
                         <div>
                           <h4 className="text-white font-bold text-lg">{meet.name}</h4>
                           <div className="flex items-center gap-3 mt-1">
-                            <span className="text-white/40 text-xs">{meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                            <span className="text-white/60 text-xs">{meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
                             <span className="text-white/50">·</span>
-                            <span className="text-white/40 text-xs">{meet.location}</span>
+                            <span className="text-white/60 text-xs">{meet.location}</span>
                             <span className="text-white/50">·</span>
                             <span className="text-[#00f0ff]/80 text-xs font-mono">{meet.course}</span>
                           </div>

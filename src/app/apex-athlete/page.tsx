@@ -693,10 +693,10 @@ const INITIAL_ROSTER: RosterEntry[] = [
 ];
 
 // Practice sessions per week by roster group (from real schedules)
-// Platinum: 9 pool + 3 weight room = 12 total
+// Practice targets per group (from actual schedule)
 const WEEK_TARGETS: Record<string, { pool: number; weight: number }> = {
-  platinum: { pool: 9, weight: 3 }, gold: { pool: 6, weight: 2 }, silver: { pool: 6, weight: 2 },
-  bronze1: { pool: 5, weight: 1 }, bronze2: { pool: 4, weight: 0 }, diving: { pool: 5, weight: 1 }, waterpolo: { pool: 5, weight: 1 },
+  platinum: { pool: 9, weight: 3 }, gold: { pool: 6, weight: 0 }, silver: { pool: 6, weight: 0 },
+  bronze1: { pool: 6, weight: 0 }, bronze2: { pool: 4, weight: 0 }, diving: { pool: 4, weight: 0 }, waterpolo: { pool: 5, weight: 0 },
 };
 const WEEK_TARGETS_TOTAL: Record<string, number> = Object.fromEntries(
   Object.entries(WEEK_TARGETS).map(([k, v]) => [k, v.pool + v.weight])
@@ -1833,7 +1833,7 @@ export default function ApexAthletePage() {
               Parent / Read-Only Access
             </button>
             {pinError && (
-              <button onClick={resetPin} className="text-white/40 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px]">
+              <button onClick={resetPin} className="text-white/60 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px]">
                 RESET PIN → 1234
               </button>
             )}
@@ -1912,7 +1912,7 @@ export default function ApexAthletePage() {
               <ApexNotificationBell portal="coach" accentColor="#00f0ff" />
               {view === "coach" && (
                 <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-                  className="game-btn w-10 h-10 flex items-center justify-center text-xs font-mono tracking-wider uppercase text-white/20 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
+                  className="game-btn w-10 h-10 flex items-center justify-center text-xs font-mono tracking-wider uppercase text-white/50 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
                   {editingCulture ? "✓" : "✎"}
                 </button>
               )}
@@ -1986,7 +1986,7 @@ export default function ApexAthletePage() {
           <div className="flex items-center justify-center gap-5 py-2.5 px-2">
             <div className="flex items-center gap-1.5">
               <div className={`w-1.5 h-1.5 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_8px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
-              <span className="neon-text-cyan text-sm font-bold font-mono tabular-nums">{presentCount}<span className="text-white/40 font-normal">/{roster.length}</span></span>
+              <span className="neon-text-cyan text-sm font-bold font-mono tabular-nums">{presentCount}<span className="text-white/60 font-normal">/{roster.length}</span></span>
             </div>
             <div className="w-px h-3 bg-[#00f0ff]/10" />
             <div className="flex items-center gap-1.5">
@@ -2029,13 +2029,13 @@ export default function ApexAthletePage() {
       </div>
       <div className="mb-3">
         <div className="flex items-center justify-between text-sm mb-1.5">
-          <span className="text-white/40">
+          <span className="text-white/60">
             {editingCulture ? (
               <input value={culture.seasonalGoal} onChange={e => setCulture({ ...culture, seasonalGoal: e.target.value })}
                 className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-0.5 text-white/50 w-52 focus:outline-none" />
             ) : culture.seasonalGoal}
           </span>
-          <span className="text-[#f59e0b] font-bold">{culture.goalCurrent}%<span className="text-white/20">/{culture.goalTarget}%</span></span>
+          <span className="text-[#f59e0b] font-bold">{culture.goalCurrent}%<span className="text-white/50">/{culture.goalTarget}%</span></span>
         </div>
         <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
           <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
@@ -2044,14 +2044,14 @@ export default function ApexAthletePage() {
       <div className="border-t border-white/[0.04] pt-3">
         {editingCulture ? (
           <input value={culture.weeklyQuote} onChange={e => setCulture({ ...culture, weeklyQuote: e.target.value })}
-            className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-white/30 text-sm italic w-full focus:outline-none" />
+            className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-white/60 text-sm italic w-full focus:outline-none" />
         ) : (
-          <p className="text-white/20 text-sm italic text-center">&ldquo;{culture.weeklyQuote}&rdquo;</p>
+          <p className="text-white/50 text-sm italic text-center">&ldquo;{culture.weeklyQuote}&rdquo;</p>
         )}
       </div>
       {editingCulture && (
         <div className="mt-3 flex gap-3 text-xs items-center">
-          <label className="text-white/30">Goal %: <input type="number" value={culture.goalTarget}
+          <label className="text-white/60">Goal %: <input type="number" value={culture.goalTarget}
             onChange={e => setCulture({ ...culture, goalTarget: parseInt(e.target.value) || 0 })}
             className="ml-1 w-16 bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-white/50 focus:outline-none" /></label>
         </div>
@@ -2198,7 +2198,7 @@ export default function ApexAthletePage() {
                     <div className="text-white text-sm font-medium">{cp.name}</div>
                     <div className="text-white/50 text-sm">{cp.desc}</div>
                   </div>
-                  <span className={`text-xs font-bold shrink-0 ${checked ? "text-[#f59e0b]" : "text-white/20"}`}>+{cp.xp} xp</span>
+                  <span className={`text-xs font-bold shrink-0 ${checked ? "text-[#f59e0b]" : "text-white/50"}`}>+{cp.xp} xp</span>
                 </button>
               );
             })}
@@ -2227,7 +2227,7 @@ export default function ApexAthletePage() {
                       <div className="text-white text-sm font-medium">{ch.name}</div>
                       <div className="text-white/50 text-sm">{ch.desc}</div>
                     </div>
-                    <span className={`text-xs font-bold ${done ? "text-[#f59e0b]" : "text-white/20"}`}>+{ch.xp} xp</span>
+                    <span className={`text-xs font-bold ${done ? "text-[#f59e0b]" : "text-white/50"}`}>+{ch.xp} xp</span>
                   </button>
                 );
               })}
@@ -2247,7 +2247,7 @@ export default function ApexAthletePage() {
                     st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
                   }`}
                 >
-                  <span className={`text-xs font-bold px-2 py-1 rounded-md shrink-0 uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/40"}`}>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-md shrink-0 uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/60"}`}>
                     {q.cat}
                   </span>
                   <div className="flex-1 min-w-0">
@@ -2354,7 +2354,7 @@ export default function ApexAthletePage() {
                   Send to {athlete.name.split(" ")[0]}
                 </button>
                 <button onClick={() => setFeedbackAthleteId(null)}
-                  className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/30 text-sm hover:text-white/50 transition-all">
+                  className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-white/60 text-sm hover:text-white/50 transition-all">
                   Cancel
                 </button>
               </div>
@@ -2373,13 +2373,13 @@ export default function ApexAthletePage() {
             <h4 className="text-white/60 text-sm uppercase tracking-[0.15em] font-bold mb-4">You vs Last Month</h4>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-white/20"}`}>
+                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-white/50"}`}>
                   {growth.xpGain > 0 ? "+" : ""}{growth.xpGain}
                 </div>
                 <div className="text-white/50 text-sm uppercase mt-1">XP Gained</div>
               </div>
               <div>
-                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-white/20"}`}>
+                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-white/50"}`}>
                   {growth.streakDelta > 0 ? "+" : ""}{growth.streakDelta}d
                 </div>
                 <div className="text-white/50 text-sm uppercase mt-1">Streak</div>
@@ -2642,7 +2642,7 @@ export default function ApexAthletePage() {
 
                 <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-[#00f0ff]/10 border border-emerald-500/20">
                   <div className="text-emerald-400 text-sm font-bold">Target Improvement: {stratPlan.improvement}%</div>
-                  <div className="text-white/40 text-xs mt-1">{stratCurrentTime} → {stratGoalTime} — You&apos;ve got this!</div>
+                  <div className="text-white/60 text-xs mt-1">{stratCurrentTime} → {stratGoalTime} — You&apos;ve got this!</div>
                 </div>
 
                 {/* Split table */}
@@ -2654,7 +2654,7 @@ export default function ApexAthletePage() {
                     <div key={i} className="grid grid-cols-4 gap-3 items-center py-3 px-3 rounded-lg bg-white/[0.02] border border-white/[0.04] hover:border-[#00f0ff]/15 transition-all text-sm">
                       <span className="text-[#00f0ff] font-mono font-bold text-xs">{sp.segment}</span>
                       <span className="text-white font-bold tabular-nums">{sp.time}</span>
-                      <span className="text-white/40 font-mono text-xs">{sp.pace}</span>
+                      <span className="text-white/60 font-mono text-xs">{sp.pace}</span>
                       <span className="text-white/50 text-xs">{sp.focus}</span>
                     </div>
                   ))}
@@ -2711,7 +2711,7 @@ export default function ApexAthletePage() {
                   className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider uppercase transition-all ${
                     scheduleGroup === g.id
                       ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
-                      : "bg-[#06020f]/60 text-white/20 border border-white/5 hover:text-white/40"
+                      : "bg-[#06020f]/60 text-white/50 border border-white/5 hover:text-white/60"
                   }`}>
                   {g.name}
                 </button>
@@ -2721,13 +2721,13 @@ export default function ApexAthletePage() {
               <div className="flex rounded-xl overflow-hidden border border-white/10">
                 <button onClick={() => setCalendarView(false)}
                   className={`px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all ${
-                    !calendarView ? "bg-[#00f0ff]/15 text-[#00f0ff]" : "bg-transparent text-white/20 hover:text-white/40"
+                    !calendarView ? "bg-[#00f0ff]/15 text-[#00f0ff]" : "bg-transparent text-white/50 hover:text-white/60"
                   }`}>
                   Weekly
                 </button>
                 <button onClick={() => setCalendarView(true)}
                   className={`px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all ${
-                    calendarView ? "bg-[#a855f7]/15 text-[#a855f7]" : "bg-transparent text-white/20 hover:text-white/40"
+                    calendarView ? "bg-[#a855f7]/15 text-[#a855f7]" : "bg-transparent text-white/50 hover:text-white/60"
                   }`}>
                   Season Calendar
                 </button>
@@ -2761,7 +2761,7 @@ export default function ApexAthletePage() {
                     {template && (
                       <div className="mt-1">
                         <span className="text-sm" style={{ color: template.color }}>{template.icon}</span>
-                        <span className="text-xs text-white/20 block mt-0.5">{template.name}</span>
+                        <span className="text-xs text-white/50 block mt-0.5">{template.name}</span>
                       </div>
                     )}
                   </div>
@@ -2838,7 +2838,7 @@ export default function ApexAthletePage() {
                     {dayData?.sessions.length === 0 && !scheduleEditMode && (
                       <div className="text-center py-3">
                         <button onClick={() => setScheduleEditMode(true)}
-                          className="text-white/40 text-sm hover:text-white/60 transition-all px-3 py-2.5 rounded-lg border border-dashed border-white/15 hover:border-white/25 min-h-[44px]">
+                          className="text-white/60 text-sm hover:text-white/60 transition-all px-3 py-2.5 rounded-lg border border-dashed border-white/15 hover:border-white/25 min-h-[44px]">
                           + Add Practice
                         </button>
                       </div>
@@ -2946,18 +2946,18 @@ export default function ApexAthletePage() {
               <div>
                 {/* Month navigation */}
                 <div className="flex items-center justify-center gap-4 mb-4">
-                  <button onClick={prevMonth} className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/40 hover:text-[#00f0ff] hover:border-[#00f0ff]/30 flex items-center justify-center transition-all text-lg font-bold">&lsaquo;</button>
+                  <button onClick={prevMonth} className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:text-[#00f0ff] hover:border-[#00f0ff]/30 flex items-center justify-center transition-all text-lg font-bold">&lsaquo;</button>
                   <div className="text-center min-w-[180px]">
                     <div className="text-sm font-black tracking-wider text-white/80">{MONTH_NAMES[calendarMonth]} {calendarYear}</div>
-                    <div className="text-xs font-mono text-white/20 mt-0.5">{groupInfo?.name || "Group"} season schedule</div>
+                    <div className="text-xs font-mono text-white/50 mt-0.5">{groupInfo?.name || "Group"} season schedule</div>
                   </div>
-                  <button onClick={nextMonth} className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/40 hover:text-[#00f0ff] hover:border-[#00f0ff]/30 flex items-center justify-center transition-all text-lg font-bold">&rsaquo;</button>
+                  <button onClick={nextMonth} className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 text-white/60 hover:text-[#00f0ff] hover:border-[#00f0ff]/30 flex items-center justify-center transition-all text-lg font-bold">&rsaquo;</button>
                 </div>
 
                 {/* Day-of-week header */}
                 <div className="grid grid-cols-7 gap-1 mb-1">
                   {DAY_LABELS.map(d => (
-                    <div key={d} className="text-center text-xs font-mono font-bold text-white/20 tracking-wider py-1">{d}</div>
+                    <div key={d} className="text-center text-xs font-mono font-bold text-white/50 tracking-wider py-1">{d}</div>
                   ))}
                 </div>
 
@@ -3060,7 +3060,7 @@ export default function ApexAthletePage() {
                       <div className="text-white font-medium text-sm truncate">{a.name}</div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
-                        <span className="text-white/40 text-sm">{a.xp} XP</span>
+                        <span className="text-white/60 text-sm">{a.xp} XP</span>
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-xs text-white/25">
                         <span>{a.age}y · {a.gender === "M" ? "Male" : "Female"}</span>
@@ -3082,16 +3082,16 @@ export default function ApexAthletePage() {
                   )}
                   <div className="mt-3 pt-3 border-t border-white/[0.04]">
                     <div className="grid grid-cols-3 gap-2 text-xs text-white/25">
-                      <div><span className="text-white/40 font-bold">{a.totalPractices}</span> sessions</div>
-                      <div><span className="text-white/40 font-bold">{Object.values(a.quests).filter(q => q === "done").length}</span> quests</div>
-                      <div><span className="text-white/40 font-bold">{getStreakMult(a.streak)}x</span> multiplier</div>
+                      <div><span className="text-white/60 font-bold">{a.totalPractices}</span> sessions</div>
+                      <div><span className="text-white/60 font-bold">{Object.values(a.quests).filter(q => q === "done").length}</span> quests</div>
+                      <div><span className="text-white/60 font-bold">{getStreakMult(a.streak)}x</span> multiplier</div>
                     </div>
                   </div>
                 </Card>
               );
             })}
           </div>
-          <p className="text-white/40 text-sm text-center mt-12">Coach manages all data. Parental consent required. Contact coach for data export.</p>
+          <p className="text-white/60 text-sm text-center mt-12">Coach manages all data. Parental consent required. Contact coach for data export.</p>
         </div>
       </div>
     );
@@ -3106,7 +3106,7 @@ export default function ApexAthletePage() {
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-6">Audit Log</h2>
           <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
-            {!auditLog.length && <p className="text-white/20 text-sm p-6 font-mono">No actions recorded yet.</p>}
+            {!auditLog.length && <p className="text-white/50 text-sm p-6 font-mono">No actions recorded yet.</p>}
             {auditLog.slice(0, 200).map((e, i) => (
               <div key={i} className="flex items-center gap-3 py-3 px-5 text-sm hover:bg-[#00f0ff]/[0.03] transition-colors border-b border-[#00f0ff]/5 last:border-0">
                 <span className="text-[#00f0ff]/25 text-xs w-36 shrink-0 font-mono">{new Date(e.timestamp).toLocaleString()}</span>
@@ -3130,7 +3130,7 @@ export default function ApexAthletePage() {
     const riskColor = (r: number) => r >= 60 ? "text-red-400" : r >= 40 ? "text-orange-400" : "text-yellow-400";
     const riskBg = (r: number) => r >= 60 ? "bg-red-500" : r >= 40 ? "bg-orange-500" : "bg-yellow-500";
     const trendIcon = engagementTrend.direction === "up" ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg> : engagementTrend.direction === "down" ? <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 18l-9.5-9.5-5 5L1 6"/><path d="M17 18h6v-6"/></svg> : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M5 12h14M15 8l4 4-4 4"/></svg>;
-    const trendColor = engagementTrend.direction === "up" ? "text-emerald-400" : engagementTrend.direction === "down" ? "text-red-400" : "text-white/40";
+    const trendColor = engagementTrend.direction === "up" ? "text-emerald-400" : engagementTrend.direction === "down" ? "text-red-400" : "text-white/60";
     const cultureColor = cultureScore >= 70 ? "text-emerald-400" : cultureScore >= 40 ? "text-[#f59e0b]" : "text-red-400";
     const cultureBg = cultureScore >= 70 ? "bg-emerald-500" : cultureScore >= 40 ? "bg-[#f59e0b]" : "bg-red-500";
 
@@ -3154,17 +3154,17 @@ export default function ApexAthletePage() {
             <Card className="p-5 text-center" neon>
               <div className={`text-4xl font-black tabular-nums whitespace-nowrap ${trendColor}`}>{engagementTrend.delta > 0 ? "+" : ""}{engagementTrend.delta}%</div>
               <div className="text-white/50 text-sm uppercase mt-1 tracking-wider">{trendIcon} Engagement Trend</div>
-              <div className="text-white/40 text-sm mt-2">vs last 7 days</div>
+              <div className="text-white/60 text-sm mt-2">vs last 7 days</div>
             </Card>
             <Card className="p-5 text-center" neon>
               <div className="text-4xl font-black tabular-nums whitespace-nowrap text-red-400">{atRiskAthletes.length}</div>
               <div className="text-white/50 text-sm uppercase mt-1 tracking-wider">At Risk Athletes</div>
-              <div className="text-white/40 text-sm mt-2">need attention</div>
+              <div className="text-white/60 text-sm mt-2">need attention</div>
             </Card>
             <Card className="p-5 text-center" neon>
               <div className="text-4xl font-black tabular-nums whitespace-nowrap text-[#f59e0b]">{avgAtt(snapshots.slice(-30))}%</div>
               <div className="text-white/50 text-sm uppercase mt-1 tracking-wider">30-Day Attendance</div>
-              <div className="text-white/40 text-sm mt-2">{avgXP(snapshots.slice(-30))} avg XP/day</div>
+              <div className="text-white/60 text-sm mt-2">{avgXP(snapshots.slice(-30))} avg XP/day</div>
             </Card>
           </div>
 
@@ -3174,7 +3174,7 @@ export default function ApexAthletePage() {
               <div className="flex items-center gap-3 mb-5">
                 <span className="text-lg"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{filter:'drop-shadow(0 0 6px rgba(239,68,68,0.4))'}}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
                 <h3 className="text-red-400 text-sm font-black uppercase tracking-wider">Attrition Risk Radar</h3>
-                <span className="text-white/40 text-sm ml-auto font-mono">{atRiskAthletes.length} athlete{atRiskAthletes.length > 1 ? "s" : ""} flagged</span>
+                <span className="text-white/60 text-sm ml-auto font-mono">{atRiskAthletes.length} athlete{atRiskAthletes.length > 1 ? "s" : ""} flagged</span>
               </div>
               <div className="space-y-3">
                 {atRiskAthletes.slice(0, 8).map(a => {
@@ -3192,7 +3192,7 @@ export default function ApexAthletePage() {
                       </div>
                       <div className="text-right shrink-0">
                         <div className={`text-lg font-black tabular-nums whitespace-nowrap ${riskColor(a.risk)}`}>{a.risk}</div>
-                        <div className="text-white/40 text-sm">risk score</div>
+                        <div className="text-white/60 text-sm">risk score</div>
                       </div>
                       <div className="w-16 h-2 rounded-full bg-white/[0.04] overflow-hidden shrink-0">
                         <div className={`h-full rounded-full ${riskBg(a.risk)} transition-all`} style={{ width: `${a.risk}%` }} />
@@ -3201,7 +3201,7 @@ export default function ApexAthletePage() {
                   );
                 })}
               </div>
-              <p className="text-white/40 text-sm mt-4 font-mono">Risk factors: low attendance, broken streaks, low XP growth, no quest engagement, no teammate interaction</p>
+              <p className="text-white/60 text-sm mt-4 font-mono">Risk factors: low attendance, broken streaks, low XP growth, no quest engagement, no teammate interaction</p>
             </Card>
           )}
 
@@ -3218,29 +3218,29 @@ export default function ApexAthletePage() {
                     <span className={`text-xs font-bold font-mono ${isTop ? "text-[#f59e0b]" : "text-white/25"}`}>{pw.avgXP}</span>
                     <div className={`w-full rounded-t transition-all ${isTop ? "bg-gradient-to-t from-[#f59e0b] to-[#f59e0b]/60" : "bg-[#6b21a8]/60"}`}
                       style={{ height: `${Math.max(pct, 4)}%` }} />
-                    <span className={`text-xs font-bold ${isTop ? "text-[#f59e0b]" : "text-white/30"}`}>{pw.day}</span>
+                    <span className={`text-xs font-bold ${isTop ? "text-[#f59e0b]" : "text-white/60"}`}>{pw.day}</span>
                   </div>
                 );
               })}
             </div>
             {peakWindows[0]?.avgXP > 0 && (
-              <p className="text-white/40 text-sm mt-4 font-mono">Best day: <span className="text-[#f59e0b]">{peakWindows[0].day}</span> — avg {peakWindows[0].avgXP} XP across {peakWindows[0].sessions} sessions</p>
+              <p className="text-white/60 text-sm mt-4 font-mono">Best day: <span className="text-[#f59e0b]">{peakWindows[0].day}</span> — avg {peakWindows[0].avgXP} XP across {peakWindows[0].sessions} sessions</p>
             )}
           </Card>
 
           {/* ── CHECKPOINT EFFICIENCY ── */}
           <Card className="p-6 mb-6">
             <h3 className="text-white/60 text-sm uppercase tracking-[0.15em] font-bold mb-5">Checkpoint Efficiency</h3>
-            <p className="text-white/40 text-sm mb-4 font-mono">Which habits are sticking? Sorted by completion rate across the team.</p>
+            <p className="text-white/60 text-sm mb-4 font-mono">Which habits are sticking? Sorted by completion rate across the team.</p>
             <div className="space-y-2">
               {checkpointEfficiency.slice(0, 8).map(cp => (
                 <div key={cp.id} className="flex items-center gap-3">
-                  <span className="text-white/40 text-xs w-40 truncate">{cp.name}</span>
+                  <span className="text-white/60 text-xs w-40 truncate">{cp.name}</span>
                   <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
                     <div className="h-full rounded-full bg-[#6b21a8] transition-all" style={{ width: `${cp.rate}%` }} />
                   </div>
                   <span className="text-white/50 text-sm font-mono w-10 text-right">{cp.rate}%</span>
-                  <span className="text-white/40 text-sm font-mono w-8 text-right">{cp.count}</span>
+                  <span className="text-white/60 text-sm font-mono w-8 text-right">{cp.count}</span>
                 </div>
               ))}
             </div>
@@ -3262,7 +3262,7 @@ export default function ApexAthletePage() {
                 return (
                   <button key={ds} onClick={() => setSelectedDay(isSel ? null : ds)}
                     className={`w-9 h-9 rounded-lg text-xs font-medium transition-all ${
-                      isSel ? "ring-2 ring-[#f59e0b]/40 text-white" : "text-white/30 hover:bg-white/[0.04]"
+                      isSel ? "ring-2 ring-[#f59e0b]/40 text-white" : "text-white/60 hover:bg-white/[0.04]"
                     }`}
                     style={{ background: intensity > 0 ? `rgba(107,33,168,${0.1 + intensity * 0.5})` : "rgba(255,255,255,0.02)" }}>
                     {d.getDate()}
@@ -3273,7 +3273,7 @@ export default function ApexAthletePage() {
             {selSnap && (
               <Card className="mt-4 p-4 text-sm">
                 <div className="font-bold text-white mb-2">{selectedDay}</div>
-                <div className="grid grid-cols-3 gap-3 text-white/40">
+                <div className="grid grid-cols-3 gap-3 text-white/60">
                   <span>Attendance: {selSnap.attendance}/{selSnap.totalAthletes}</span>
                   <span>XP Earned: {selSnap.totalXPAwarded}</span>
                   <span>Pool: {selSnap.poolCheckins} | Wt: {selSnap.weightCheckins}</span>
@@ -3318,7 +3318,7 @@ export default function ApexAthletePage() {
           {/* ── PERIOD COMPARISON ── */}
           <Card className="p-6 mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <h3 className="text-white/30 text-xs uppercase tracking-[0.15em] font-bold">Period Comparison</h3>
+              <h3 className="text-white/60 text-xs uppercase tracking-[0.15em] font-bold">Period Comparison</h3>
               <select value={comparePeriod} onChange={e => setComparePeriod(e.target.value as "week" | "month")}
                 className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none min-h-[32px]">
                 <option value="week">Week</option><option value="month">Month</option>
@@ -3350,7 +3350,7 @@ export default function ApexAthletePage() {
               <div className="text-white/50 text-sm uppercase tracking-wider mb-2">Top 5</div>
               {top5.map((a, i) => (
                 <div key={a.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <span className="text-white/40 truncate min-w-0"><span className="text-[#f59e0b] font-bold mr-2">{i + 1}.</span>{a.name}</span>
+                  <span className="text-white/60 truncate min-w-0"><span className="text-[#f59e0b] font-bold mr-2">{i + 1}.</span>{a.name}</span>
                   <span className="text-[#f59e0b] font-bold tabular-nums whitespace-nowrap shrink-0">{a.xp} XP</span>
                 </div>
               ))}
@@ -3640,7 +3640,7 @@ export default function ApexAthletePage() {
               {/* Import meet file — one-tap from TM/HY3/HYV file */}
               <Card className="p-5 mb-4" neon>
                 <h3 className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Import Meet File</h3>
-                <p className="text-white/20 text-xs mb-3">Upload a .hy3, .hyv, .cl2, or .sd3 file from the meet host — events auto-populate</p>
+                <p className="text-white/50 text-xs mb-3">Upload a .hy3, .hyv, .cl2, or .sd3 file from the meet host — events auto-populate</p>
                 <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-3 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
@@ -3659,7 +3659,7 @@ export default function ApexAthletePage() {
                 <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">New Meet</h3>
                 <div className="space-y-3">
                   <input value={newMeetName} onChange={e => setNewMeetName(e.target.value)} placeholder="Meet name"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
                   <div className="grid grid-cols-2 gap-3">
                     <input type="date" value={newMeetDate} onChange={e => setNewMeetDate(e.target.value)}
                       className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
@@ -3669,10 +3669,10 @@ export default function ApexAthletePage() {
                     </select>
                   </div>
                   <input value={newMeetLocation} onChange={e => setNewMeetLocation(e.target.value)} placeholder="Location"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <label className="text-xs text-white/20 uppercase mb-1 block">RSVP Deadline</label>
+                      <label className="text-xs text-white/50 uppercase mb-1 block">RSVP Deadline</label>
                       <input type="date" value={newMeetDeadline} onChange={e => setNewMeetDeadline(e.target.value)}
                         className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
                     </div>
@@ -3702,13 +3702,13 @@ export default function ApexAthletePage() {
                             m.status === "finalized" ? "bg-emerald-500/10 text-emerald-400" :
                             m.status === "upcoming" ? "bg-[#00f0ff]/10 text-[#00f0ff]" :
                             m.status === "active" ? "bg-[#f59e0b]/10 text-[#f59e0b]" :
-                            "bg-white/5 text-white/30"
+                            "bg-white/5 text-white/60"
                           }`}>{m.status === "finalized" ? "✓ Locked" : m.status}</span>
                         </div>
                         <div className="flex items-center gap-3 text-xs mb-3">
                           <span className="text-emerald-400">{rc.committed} in</span>
                           <span className="text-red-400">{rc.declined} out</span>
-                          <span className="text-white/20">{rc.pending} pending</span>
+                          <span className="text-white/50">{rc.pending} pending</span>
                           <span className="text-white/10">·</span>
                           <span className="text-[#a855f7]">{m.events.length} events</span>
                         </div>
@@ -3750,7 +3750,7 @@ export default function ApexAthletePage() {
                   <div className="flex items-center gap-4 mt-3 text-xs">
                     <span className="text-emerald-400 font-bold">{rc.committed} committed</span>
                     <span className="text-red-400">{rc.declined} declined</span>
-                    <span className="text-white/20">{rc.pending} pending</span>
+                    <span className="text-white/50">{rc.pending} pending</span>
                     <span className="text-[#a855f7] ml-auto">{editMeet.events.length} events</span>
                   </div>
                 ); })()}
@@ -3792,7 +3792,7 @@ export default function ApexAthletePage() {
                     className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all uppercase tracking-wider ${
                       (tab === "info" && meetView === "info") || (tab === "events" && meetView === "overview") || (tab === "members" && meetView === "entries")
                         ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/20"
-                        : "text-white/25 hover:text-white/40"
+                        : "text-white/25 hover:text-white/60"
                     }`}>
                     {tab === "info" ? "Info" : tab === "events" ? "Event Order" : "Member Entry"}
                   </button>
@@ -3804,7 +3804,7 @@ export default function ApexAthletePage() {
                 <div className="space-y-4">
                   {/* Description */}
                   <Card className="p-4">
-                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Meet Description</h4>
+                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Meet Description</h4>
                     {editMeet.description ? (
                       <p className="text-sm text-white/60 whitespace-pre-wrap">{editMeet.description}</p>
                     ) : (
@@ -3820,7 +3820,7 @@ export default function ApexAthletePage() {
 
                   {/* Files & Documents */}
                   <Card className="p-4">
-                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Files & Documents</h4>
+                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Files & Documents</h4>
                     {(editMeet.files || []).length > 0 && (
                       <div className="space-y-1.5 mb-3">
                         {(editMeet.files || []).map(f => (
@@ -3842,10 +3842,10 @@ export default function ApexAthletePage() {
 
                   {/* Message Parents */}
                   <Card className="p-4">
-                    <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Message Parents</h4>
+                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Message Parents</h4>
                     <div className="flex gap-2">
                       <input value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Send update about this meet..."
-                        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                        className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
                       <button onClick={() => sendMeetBroadcast(editMeet.id)} disabled={!broadcastMsg.trim()}
                         className="game-btn px-4 py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
                         Send
@@ -3854,7 +3854,7 @@ export default function ApexAthletePage() {
                     {editMeet.broadcasts.length > 0 && (
                       <div className="mt-3 space-y-2 max-h-32 overflow-y-auto">
                         {editMeet.broadcasts.slice().reverse().map(bc => (
-                          <div key={bc.id} className="text-xs text-white/30 bg-white/[0.02] rounded p-2">
+                          <div key={bc.id} className="text-xs text-white/60 bg-white/[0.02] rounded p-2">
                             <span className="text-white/50">{bc.message}</span>
                             <span className="text-white/10 ml-2">{new Date(bc.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                           </div>
@@ -3871,7 +3871,7 @@ export default function ApexAthletePage() {
                   {/* Add events */}
                   {meetEventPicker === editMeet.id ? (
                     <Card className="p-4 mb-4">
-                      <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Select Events ({editMeet.course})</h4>
+                      <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Select Events ({editMeet.course})</h4>
                       <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
                         {STANDARD_SWIM_EVENTS.filter(e => e.courses.includes(editMeet.course)).map(e => (
                           <button key={e.name} onClick={() => { addEventToMeet(editMeet.id, e.name); }}
@@ -3885,7 +3885,7 @@ export default function ApexAthletePage() {
                           </button>
                         ))}
                       </div>
-                      <button onClick={() => setMeetEventPicker(null)} className="mt-3 game-btn w-full py-2 text-xs font-bold text-white/40 border border-white/[0.08] rounded-lg hover:text-white/60 transition-all">Done Adding Events</button>
+                      <button onClick={() => setMeetEventPicker(null)} className="mt-3 game-btn w-full py-2 text-xs font-bold text-white/60 border border-white/[0.08] rounded-lg hover:text-white/60 transition-all">Done Adding Events</button>
                     </Card>
                   ) : (
                     <button onClick={() => setMeetEventPicker(editMeet.id)}
@@ -3904,7 +3904,7 @@ export default function ApexAthletePage() {
                         return (
                           <Card key={ev.id} className="p-3">
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-mono text-white/20 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
+                              <span className="text-xs font-mono text-white/50 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
                               <span className="text-sm font-bold text-white flex-1 truncate">{ev.name}</span>
                               <span className="text-xs text-[#a855f7] font-mono shrink-0">{entryCount} entered</span>
                               <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0 ml-1">✕</button>
@@ -3943,19 +3943,19 @@ export default function ApexAthletePage() {
                   {!viewingAthleteEntries ? (
                     /* Athlete list — pick who to enter */
                     <div>
-                      <p className="text-xs text-white/20 mb-3 uppercase tracking-wider">Select an athlete to manage their entries</p>
+                      <p className="text-xs text-white/50 mb-3 uppercase tracking-wider">Select an athlete to manage their entries</p>
                       <div className="space-y-1.5">
                         {filteredRoster.map(a => {
                           const entryCount = editMeet.events.filter(ev => ev.entries.some(e => e.athleteId === a.name)).length;
                           return (
                             <button key={a.id} onClick={() => setViewingAthleteEntries(a.name)}
                               className="w-full flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 hover:bg-white/[0.06] hover:border-white/[0.1] transition-all text-left">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-xs font-bold text-white/40 shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-xs font-bold text-white/60 shrink-0">
                                 {a.name.charAt(0)}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-sm font-bold text-white truncate">{a.name}</div>
-                                <div className="text-xs text-white/20">{a.group} · {a.gender === "M" ? "Male" : "Female"}{a.age ? ` · ${a.age}` : ""}</div>
+                                <div className="text-xs text-white/50">{a.group} · {a.gender === "M" ? "Male" : "Female"}{a.age ? ` · ${a.age}` : ""}</div>
                               </div>
                               <div className="text-right shrink-0">
                                 {entryCount > 0 ? (
@@ -3995,7 +3995,7 @@ export default function ApexAthletePage() {
                                 </div>
                                 <div className="ml-auto text-right">
                                   <div className="text-lg font-black text-[#00f0ff]">{enteredEvents.length}</div>
-                                  <div className="text-xs text-white/20 uppercase">of {totalEvents}</div>
+                                  <div className="text-xs text-white/50 uppercase">of {totalEvents}</div>
                                 </div>
                               </div>
                             </Card>
@@ -4019,10 +4019,10 @@ export default function ApexAthletePage() {
                                       {isEntered && <svg className="w-3 h-3 text-[#06020f]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                     </div>
                                     {/* Event # */}
-                                    <span className="text-xs font-mono text-white/20 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
+                                    <span className="text-xs font-mono text-white/50 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
                                     {/* Gender + Age Group */}
                                     <span className="text-xs text-white/25 w-5 shrink-0">{ev.gender === "M" ? "M" : ev.gender === "F" ? "F" : "X"}</span>
-                                    <span className="text-xs text-white/20 w-10 shrink-0">{ev.ageGroup || ""}</span>
+                                    <span className="text-xs text-white/50 w-10 shrink-0">{ev.ageGroup || ""}</span>
                                     {/* Event name */}
                                     <span className={`text-sm flex-1 truncate ${isEntered ? "text-white font-bold" : "text-white/50"}`}>{ev.name}</span>
                                     {/* Seed time */}
@@ -4045,11 +4045,11 @@ export default function ApexAthletePage() {
                                 return (
                                   <>
                                     <button onClick={() => prev && setViewingAthleteEntries(prev.name)} disabled={!prev}
-                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all truncate">
+                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/60 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all truncate">
                                       ← {prev?.name.split(" ")[0] || ""}
                                     </button>
                                     <button onClick={() => next && setViewingAthleteEntries(next.name)} disabled={!next}
-                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/30 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all truncate">
+                                      className="flex-1 game-btn py-2.5 text-xs font-bold text-white/60 border border-white/[0.06] rounded-lg hover:text-white/50 disabled:opacity-20 transition-all truncate">
                                       {next?.name.split(" ")[0] || ""} →
                                     </button>
                                   </>
@@ -4104,7 +4104,7 @@ export default function ApexAthletePage() {
             </div>
             <div className="flex gap-2">
               <input value={commsMsg} onChange={e => setCommsMsg(e.target.value)} placeholder="Type a message for parents..."
-                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }}
+                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }}
                 onKeyDown={e => { if (e.key === "Enter") sendBroadcast(); }} />
               <button onClick={sendBroadcast} disabled={!commsMsg.trim()}
                 className="game-btn px-5 py-2.5 text-sm font-bold text-[#00f0ff] border border-[#00f0ff]/30 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
@@ -4123,7 +4123,7 @@ export default function ApexAthletePage() {
                 {allBroadcasts.slice().reverse().map(bc => (
                   <div key={bc.id} className="bg-white/[0.03] border border-white/[0.05] rounded-lg p-3">
                     <p className="text-sm text-white/70">{bc.message}</p>
-                    <div className="flex items-center gap-2 mt-1.5 text-xs text-white/20">
+                    <div className="flex items-center gap-2 mt-1.5 text-xs text-white/50">
                       <span>{new Date(bc.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
                       <span>{new Date(bc.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                       <span className="text-[#a855f7]">{bc.group === "all" ? "All Groups" : ROSTER_GROUPS.find(g => g.id === bc.group)?.name || bc.group}</span>
@@ -4147,8 +4147,8 @@ export default function ApexAthletePage() {
                       <span className="text-sm font-medium text-white">{ab.athleteName}</span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-400/10 text-red-400">{ab.reason}</span>
                     </div>
-                    <p className="text-xs text-white/30">{ab.dateStart}{ab.dateEnd !== ab.dateStart ? ` – ${ab.dateEnd}` : ""}</p>
-                    {ab.note && <p className="text-xs text-white/20 mt-1">{ab.note}</p>}
+                    <p className="text-xs text-white/60">{ab.dateStart}{ab.dateEnd !== ab.dateStart ? ` – ${ab.dateEnd}` : ""}</p>
+                    {ab.note && <p className="text-xs text-white/50 mt-1">{ab.note}</p>}
                     <p className="text-xs text-white/10 mt-1">Reported: {new Date(ab.submitted).toLocaleString()}</p>
                   </div>
                 ))}
@@ -4189,7 +4189,7 @@ export default function ApexAthletePage() {
                   className={`game-btn px-4 py-3 text-xs sm:text-sm font-bold font-mono tracking-wider transition-all min-h-[44px] ${
                     isActive
                       ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.3)]"
-                      : "bg-[#06020f]/60 text-white/30 border border-white/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20"
+                      : "bg-[#06020f]/60 text-white/60 border border-white/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20"
                   }`}>
                   <span className="mr-1">{g.icon}</span>
                   <span>{g.name.toUpperCase()}</span>
@@ -4198,7 +4198,7 @@ export default function ApexAthletePage() {
               );
             })}
           </div>
-          <div className="text-center mt-3 text-xs font-mono text-white/20">
+          <div className="text-center mt-3 text-xs font-mono text-white/50">
             {currentGroupDef.icon} {currentGroupDef.name} — {currentGroupDef.sport.toUpperCase()} — {filteredRoster.length} athletes
           </div>
         </div>
@@ -4384,7 +4384,7 @@ export default function ApexAthletePage() {
                       className={`game-btn flex items-center gap-2 px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/15 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_40px_rgba(0,240,255,0.3),inset_0_0_20px_rgba(0,240,255,0.05)] scale-[1.02]"
-                          : "bg-[#06020f]/60 text-white/30 hover:text-[#00f0ff]/60 border border-[#00f0ff]/10 hover:border-[#00f0ff]/25 hover:shadow-[0_0_25px_rgba(0,240,255,0.1)] hover:scale-[1.01]"
+                          : "bg-[#06020f]/60 text-white/60 hover:text-[#00f0ff]/60 border border-[#00f0ff]/10 hover:border-[#00f0ff]/25 hover:shadow-[0_0_25px_rgba(0,240,255,0.1)] hover:scale-[1.01]"
                       }`}>
                       <ModeSvg />{labels[m]}
                     </button>
@@ -4410,7 +4410,7 @@ export default function ApexAthletePage() {
               <span className="text-[#a855f7]/40">SESSION: <span className="text-[#e879f9]/70">{sessionTime.toUpperCase()} {sessionMode === "pool" ? "POOL" : sessionMode === "weight" ? "WEIGHT" : "MEET"}</span></span>
               <span className="text-white/10">|</span>
               {activeCoachGroups.includes("all") && <button onClick={() => setManageCoaches(!manageCoaches)}
-                className="text-white/20 hover:text-[#00f0ff]/60 transition-colors">
+                className="text-white/50 hover:text-[#00f0ff]/60 transition-colors">
                 {manageCoaches ? "CLOSE" : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline-block mr-1 -mt-0.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>MANAGE COACHES</>}
               </button>}
             </div>
@@ -4422,7 +4422,7 @@ export default function ApexAthletePage() {
                 <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl bg-[#0a0518] border border-[#00f0ff]/20 p-5 shadow-[0_0_60px_rgba(0,240,255,0.1)]" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-[#00f0ff]/60 text-xs uppercase tracking-[0.2em] font-bold font-mono">// Coach Profiles</h4>
-                    <button onClick={() => setManageCoaches(false)} className="text-white/30 hover:text-white/60 transition-colors text-lg leading-none">&times;</button>
+                    <button onClick={() => setManageCoaches(false)} className="text-white/60 hover:text-white/60 transition-colors text-lg leading-none">&times;</button>
                   </div>
                   <div className="space-y-2 mb-4">
                     {coaches.map((c, i) => (
@@ -4432,7 +4432,7 @@ export default function ApexAthletePage() {
                             <span className={`text-xs font-mono ${c.role === "head" ? "text-[#f59e0b]" : "text-[#00f0ff]/60"}`}>
                               {c.role === "head" ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" className="inline-block -mt-0.5"><path d="M2 20h20l-2-8-4 4-4-8-4 8-4-4z"/><rect x="2" y="20" width="20" height="2" rx="1"/></svg> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" className="inline-block -mt-0.5"><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="9" r="3"/></svg>} {c.name}
                             </span>
-                            <span className="text-xs text-white/20 font-mono">PIN: {c.pin}</span>
+                            <span className="text-xs text-white/50 font-mono">PIN: {c.pin}</span>
                             <span className={`text-xs px-2 py-0.5 rounded font-mono ${c.role === "head" ? "bg-[#f59e0b]/10 text-[#f59e0b]/60" : "bg-[#00f0ff]/10 text-[#00f0ff]/40"}`}>
                               {c.role.toUpperCase()}
                             </span>
@@ -4446,7 +4446,7 @@ export default function ApexAthletePage() {
                             <span className="text-xs px-1.5 py-0.5 rounded bg-[#f59e0b]/10 text-[#f59e0b]/50 font-mono">ALL GROUPS</span>
                           ) : c.groups.map(gId => {
                             const gDef = ROSTER_GROUPS.find(g => g.id === gId);
-                            return gDef ? <span key={gId} className="text-xs px-1.5 py-0.5 rounded bg-white/[0.04] text-white/30 font-mono">{gDef.icon} {gDef.name}</span> : null;
+                            return gDef ? <span key={gId} className="text-xs px-1.5 py-0.5 rounded bg-white/[0.04] text-white/60 font-mono">{gDef.icon} {gDef.name}</span> : null;
                           })}
                         </div>
                       </div>
@@ -4474,7 +4474,7 @@ export default function ApexAthletePage() {
                             const sel = newCoachGroups.includes(g.id);
                             return (
                               <button key={g.id} type="button" onClick={() => setNewCoachGroups(prev => sel ? prev.filter(x => x !== g.id) : [...prev.filter(x => x !== "all"), g.id])}
-                                className={`px-3 py-2 rounded-lg text-xs font-mono font-bold border transition-all min-h-[44px] ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.03] text-white/30 hover:text-white/50"}`}>
+                                className={`px-3 py-2 rounded-lg text-xs font-mono font-bold border transition-all min-h-[44px] ${sel ? "border-[#00f0ff]/40 bg-[#00f0ff]/15 text-[#00f0ff]" : "border-white/[0.08] bg-white/[0.03] text-white/60 hover:text-white/50"}`}>
                                 {g.icon} {g.name.toUpperCase()}
                               </button>
                             );
@@ -4508,7 +4508,7 @@ export default function ApexAthletePage() {
             {/* Add athlete */}
             <div className="mb-6">
               <button onClick={() => setAddAthleteOpen(!addAthleteOpen)}
-                className="text-white/20 text-xs hover:text-white/40 transition-colors min-h-[36px]">
+                className="text-white/50 text-xs hover:text-white/60 transition-colors min-h-[36px]">
                 {addAthleteOpen ? "Cancel" : "+ Add Athlete"}
               </button>
               {addAthleteOpen && (
@@ -4572,7 +4572,7 @@ export default function ApexAthletePage() {
                           </div>
                         </div>
                         <div className="w-32 shrink-0 text-right">
-                          <div className="text-white font-black text-base tabular-nums whitespace-nowrap drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/40 text-sm ml-1">XP</span></div>
+                          <div className="text-white font-black text-base tabular-nums whitespace-nowrap drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/60 text-sm ml-1">XP</span></div>
                           <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mt-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
@@ -4617,7 +4617,7 @@ export default function ApexAthletePage() {
 
         {/* Mission + Privacy footer */}
         <div className="text-center text-white/[0.06] text-xs py-10 space-y-2">
-          <p className="text-white/40 text-sm italic">&ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;</p>
+          <p className="text-white/60 text-sm italic">&ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;</p>
           <p className="text-white/[0.04]">Every rep counts. Every streak matters. Every athlete has a story.</p>
           <p className="text-white/[0.03] mt-1">Coach manages all data · Parental consent required · COPPA compliant</p>
         </div>

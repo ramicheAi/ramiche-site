@@ -890,7 +890,7 @@ export default function ParentPortal() {
           </div>
 
           <div className="text-center mt-6">
-            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/40 transition-colors">
+            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors">
               ← Back to Portal Selector
             </Link>
           </div>
@@ -1072,22 +1072,22 @@ export default function ParentPortal() {
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">HIGHLIGHTS</h3>
           <div className="space-y-2">
             {athlete.streak >= 7 && (
-              <p className="text-white/40 text-sm">Your swimmer has maintained a <span className="text-[#f59e0b] font-bold">{athlete.streak}-day streak</span> — that&apos;s incredible consistency!</p>
+              <p className="text-white/60 text-sm">Your swimmer has maintained a <span className="text-[#f59e0b] font-bold">{athlete.streak}-day streak</span> — that&apos;s incredible consistency!</p>
             )}
             {athlete.streak >= 3 && athlete.streak < 7 && (
-              <p className="text-white/40 text-sm">Building momentum with a <span className="text-[#f59e0b] font-bold">{athlete.streak}-day streak</span>. Keep encouraging them!</p>
+              <p className="text-white/60 text-sm">Building momentum with a <span className="text-[#f59e0b] font-bold">{athlete.streak}-day streak</span>. Keep encouraging them!</p>
             )}
             {athlete.totalPractices >= 10 && (
-              <p className="text-white/40 text-sm"><span className="text-[#60a5fa] font-bold">{athlete.totalPractices} practices</span> logged — showing real dedication to the sport.</p>
+              <p className="text-white/60 text-sm"><span className="text-[#60a5fa] font-bold">{athlete.totalPractices} practices</span> logged — showing real dedication to the sport.</p>
             )}
             {Object.values(athlete.quests || {}).includes("done") && (
-              <p className="text-white/40 text-sm">Completed side quests — going above and beyond regular practice!</p>
+              <p className="text-white/60 text-sm">Completed side quests — going above and beyond regular practice!</p>
             )}
             {athlete.xp < 100 && athlete.totalPractices < 5 && (
-              <p className="text-white/40 text-sm">Just getting started! Every practice builds the foundation. Your support matters.</p>
+              <p className="text-white/60 text-sm">Just getting started! Every practice builds the foundation. Your support matters.</p>
             )}
             {athlete.weightStreak >= 3 && (
-              <p className="text-white/40 text-sm">Active in the weight room with a <span className="text-[#f97316] font-bold">{athlete.weightStreak}-session streak</span> — building strength alongside swimming.</p>
+              <p className="text-white/60 text-sm">Active in the weight room with a <span className="text-[#f97316] font-bold">{athlete.weightStreak}-session streak</span> — building strength alongside swimming.</p>
             )}
           </div>
         </div>
@@ -1175,7 +1175,7 @@ export default function ParentPortal() {
                           </span>
                         </div>
                         <button onClick={() => handleRsvp(meet.id, existingRsvp.status === "committed" ? "declined" : "committed")}
-                          className="text-white/50 text-sm hover:text-white/40 transition-colors underline decoration-dotted"
+                          className="text-white/50 text-sm hover:text-white/60 transition-colors underline decoration-dotted"
                           style={{ minHeight: "44px", display: "flex", alignItems: "center" }}>
                           Change
                         </button>
@@ -1189,7 +1189,7 @@ export default function ParentPortal() {
                           Count us in!
                         </button>
                         <button onClick={() => handleRsvp(meet.id, "declined")}
-                          className="flex-1 py-3 rounded-lg bg-white/[0.03] border border-white/10 text-white/40 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          className="flex-1 py-3 rounded-lg bg-white/[0.03] border border-white/10 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           style={{ minHeight: "44px" }}>
                           <SvgXCircle size={16} color="#94a3b8" />
                           Can&apos;t make it
@@ -1365,7 +1365,7 @@ export default function ParentPortal() {
             <div className="py-6 text-center">
               <SvgBell size={28} color="#a855f7" />
               <p className="text-white/50 text-sm mt-3">No messages yet</p>
-              <p className="text-white/40 text-xs mt-1">When your coach sends updates, they&apos;ll show up here.</p>
+              <p className="text-white/60 text-xs mt-1">When your coach sends updates, they&apos;ll show up here.</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(168,85,247,0.2) transparent" }}>
@@ -1393,11 +1393,11 @@ export default function ParentPortal() {
                           <span className="text-white/50 text-sm">{b.from || "Coach"}</span>
                           {b.group && (
                             <>
-                              <span className="text-white/40">·</span>
+                              <span className="text-white/60">·</span>
                               <span className="text-[#a855f7]/90 text-sm">{b.group}</span>
                             </>
                           )}
-                          <span className="text-white/40">·</span>
+                          <span className="text-white/60">·</span>
                           <span className="text-white/50 text-sm">{timeAgo}</span>
                         </div>
                       </div>
@@ -1415,7 +1415,7 @@ export default function ParentPortal() {
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
               <span className="text-emerald-400 text-xs font-bold block mb-1">BEFORE THE RACE</span>
-              <ul className="text-white/40 text-sm space-y-1">
+              <ul className="text-white/60 text-sm space-y-1">
                 <li>• &quot;Have fun out there&quot; — keep it simple</li>
                 <li>• Avoid talking about times or expectations</li>
                 <li>• Make sure they&apos;ve eaten and hydrated</li>
@@ -1424,7 +1424,7 @@ export default function ParentPortal() {
             </div>
             <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
               <span className="text-amber-400 text-xs font-bold block mb-1">AFTER THE RACE</span>
-              <ul className="text-white/40 text-sm space-y-1">
+              <ul className="text-white/60 text-sm space-y-1">
                 <li>• &quot;I love watching you swim&quot; — always works</li>
                 <li>• Ask how they FELT, not what their time was</li>
                 <li>• Let the coach handle technique talk</li>
@@ -1473,7 +1473,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8 text-white/40 text-sm space-y-1">
+        <div className="text-center mt-8 text-white/60 text-sm space-y-1">
           <p>Apex Athlete — Parent Portal</p>
           <p>Enough to feel invested, not enough to backseat coach</p>
         </div>
