@@ -665,12 +665,21 @@ const INITIAL_ROSTER: RosterEntry[] = [
   { name: "Iddo Yampolsky", age: 11, gender: "M", group: "waterpolo" },
 ];
 
+const WEEK_TARGETS: Record<string, number> = {
+  platinum: 8, gold: 6, silver: 6, bronze1: 6, bronze2: 4, diving: 4, waterpolo: 4,
+};
+function getWeekTarget(group: string): number {
+  const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
+  return WEEK_TARGETS[key] ?? 5;
+}
+
 function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: string }): Athlete {
+  const g = r.group ?? "Varsity";
   return {
     id: r.name.toLowerCase().replace(/\s+/g, "-"),
-    name: r.name, age: r.age, gender: r.gender, group: r.group ?? "Varsity",
+    name: r.name, age: r.age, gender: r.gender, group: g,
     xp: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "",
-    totalPractices: 0, weekSessions: 0, weekWeightSessions: 0, weekTarget: 5,
+    totalPractices: 0, weekSessions: 0, weekWeightSessions: 0, weekTarget: getWeekTarget(g),
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
     weightChallenges: {}, quests: {},
     dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 },

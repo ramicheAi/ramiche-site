@@ -71,6 +71,15 @@ interface Athlete {
   parentEmail?: string;
 }
 
+// Practice sessions per week by roster group (from real schedules)
+const WEEK_TARGETS: Record<string, number> = {
+  platinum: 8, gold: 6, silver: 6, bronze1: 6, bronze2: 4, diving: 4, waterpolo: 4,
+};
+function getWeekTarget(group: string): number {
+  const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
+  return WEEK_TARGETS[key] ?? 5;
+}
+
 interface JournalEntry {
   date: string;
   wentWell: string;
@@ -370,8 +379,8 @@ const STROKES = ["Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"];
 const UNIT_LABEL: Record<CourseType, string> = { SCY: "y", SCM: "m", LCM: "m" };
 
 // ── USA Swimming motivational time standards ──
-// Source: USA Swimming 2024-2028 motivational time standards
-type StandardLevel = "AAAA" | "AAA" | "AA" | "A" | "BB" | "B";
+// Source: USA Swimming 2024-2028 motivational time standards + 2026 championship qualifying times
+type StandardLevel = "OT" | "JR_NATL" | "FUTURES" | "SECTIONALS" | "AAAA" | "AAA" | "AA" | "A" | "BB" | "B";
 interface StandardTimes { [stroke: string]: { [level in StandardLevel]?: string } }
 
 // ── SCY (Short Course Yards — 25yd pool) ──
@@ -436,18 +445,90 @@ const STANDARDS_TABLE: Record<CourseType, { M: { [event: string]: StandardTimes 
 };
 
 const STANDARD_COLORS: Record<StandardLevel, string> = {
+  OT: "#ffd700", JR_NATL: "#ff6b35", FUTURES: "#ef4444", SECTIONALS: "#f472b6",
   AAAA: "#ef4444", AAA: "#f59e0b", AA: "#a855f7", A: "#60a5fa", BB: "#22c55e", B: "#94a3b8",
 };
+const STANDARD_LABELS: Record<StandardLevel, string> = {
+  OT: "Olympic Trials", JR_NATL: "Jr. Nationals", FUTURES: "Futures", SECTIONALS: "Sectionals",
+  AAAA: "AAAA", AAA: "AAA", AA: "AA", A: "A", BB: "BB", B: "B",
+};
+
+// ── Championship Qualifying Times (SCY) — USA Swimming 2025-2026 ──
+const CHAMP_SCY_BOYS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { OT: "19.19", JR_NATL: "20.09", FUTURES: "20.79", SECTIONALS: "21.49" }, Backstroke: { JR_NATL: "23.09", FUTURES: "23.89" }, Breaststroke: { JR_NATL: "25.19", FUTURES: "26.09" }, Butterfly: { JR_NATL: "22.09", FUTURES: "22.89" } },
+  "100": { Freestyle: { OT: "42.09", JR_NATL: "43.59", FUTURES: "45.09", SECTIONALS: "46.49" }, Backstroke: { OT: "46.09", JR_NATL: "48.09", FUTURES: "49.69", SECTIONALS: "51.29" }, Breaststroke: { OT: "52.09", JR_NATL: "54.09", FUTURES: "55.69", SECTIONALS: "57.39" }, Butterfly: { OT: "45.59", JR_NATL: "47.29", FUTURES: "48.89", SECTIONALS: "50.49" }, IM: { JR_NATL: "49.79", FUTURES: "51.49" } },
+  "200": { Freestyle: { OT: "1:32.09", JR_NATL: "1:35.69", FUTURES: "1:38.09", SECTIONALS: "1:40.49" }, Backstroke: { OT: "1:40.09", JR_NATL: "1:43.89", FUTURES: "1:46.49", SECTIONALS: "1:49.09" }, Breaststroke: { OT: "1:52.09", JR_NATL: "1:56.29", FUTURES: "1:59.09", SECTIONALS: "2:01.89" }, Butterfly: { OT: "1:41.09", JR_NATL: "1:44.69", FUTURES: "1:47.29", SECTIONALS: "1:49.89" }, IM: { OT: "1:42.09", JR_NATL: "1:45.79", FUTURES: "1:48.49", SECTIONALS: "1:51.09" } },
+  "500": { Freestyle: { OT: "4:11.09", JR_NATL: "4:18.69", FUTURES: "4:24.09", SECTIONALS: "4:29.49" } },
+  "1000": { Freestyle: { JR_NATL: "9:05.69", FUTURES: "9:18.09" } },
+  "1650": { Freestyle: { OT: "14:32.09", JR_NATL: "14:59.49", FUTURES: "15:19.09", SECTIONALS: "15:39.09" } },
+};
+const CHAMP_SCY_GIRLS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { OT: "21.69", JR_NATL: "22.59", FUTURES: "23.29", SECTIONALS: "23.99" }, Backstroke: { JR_NATL: "25.19", FUTURES: "25.99" }, Breaststroke: { JR_NATL: "27.89", FUTURES: "28.79" }, Butterfly: { JR_NATL: "24.09", FUTURES: "24.89" } },
+  "100": { Freestyle: { OT: "47.09", JR_NATL: "48.89", FUTURES: "50.29", SECTIONALS: "51.69" }, Backstroke: { OT: "51.69", JR_NATL: "53.69", FUTURES: "55.19", SECTIONALS: "56.69" }, Breaststroke: { OT: "58.09", JR_NATL: "1:00.29", FUTURES: "1:01.89", SECTIONALS: "1:03.49" }, Butterfly: { OT: "50.69", JR_NATL: "52.69", FUTURES: "54.19", SECTIONALS: "55.69" }, IM: { JR_NATL: "55.29", FUTURES: "56.89" } },
+  "200": { Freestyle: { OT: "1:42.09", JR_NATL: "1:45.89", FUTURES: "1:48.49", SECTIONALS: "1:51.09" }, Backstroke: { OT: "1:51.09", JR_NATL: "1:55.09", FUTURES: "1:57.89", SECTIONALS: "2:00.69" }, Breaststroke: { OT: "2:05.09", JR_NATL: "2:09.59", FUTURES: "2:12.69", SECTIONALS: "2:15.79" }, Butterfly: { OT: "1:51.69", JR_NATL: "1:55.69", FUTURES: "1:58.49", SECTIONALS: "2:01.29" }, IM: { OT: "1:53.09", JR_NATL: "1:57.09", FUTURES: "2:00.09", SECTIONALS: "2:03.09" } },
+  "500": { Freestyle: { OT: "4:34.09", JR_NATL: "4:42.29", FUTURES: "4:48.49", SECTIONALS: "4:54.69" } },
+  "1000": { Freestyle: { JR_NATL: "9:52.09", FUTURES: "10:06.09" } },
+  "1650": { Freestyle: { OT: "15:52.09", JR_NATL: "16:22.69", FUTURES: "16:44.09", SECTIONALS: "17:05.09" } },
+};
+// ── Championship Qualifying Times (LCM) ──
+const CHAMP_LCM_BOYS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { OT: "22.09", JR_NATL: "22.89", FUTURES: "23.49" }, Backstroke: { JR_NATL: "26.19" }, Breaststroke: { JR_NATL: "28.49" }, Butterfly: { JR_NATL: "24.59" } },
+  "100": { Freestyle: { OT: "48.49", JR_NATL: "49.79", FUTURES: "50.99", SECTIONALS: "52.09" }, Backstroke: { OT: "53.59", JR_NATL: "55.19", FUTURES: "56.49" }, Breaststroke: { OT: "59.69", JR_NATL: "1:01.59", FUTURES: "1:02.99" }, Butterfly: { OT: "51.59", JR_NATL: "53.29", FUTURES: "54.49" } },
+  "200": { Freestyle: { OT: "1:46.09", JR_NATL: "1:49.09", FUTURES: "1:51.49", SECTIONALS: "1:53.89" }, Backstroke: { OT: "1:56.09", JR_NATL: "1:59.69", FUTURES: "2:02.29" }, Breaststroke: { OT: "2:09.09", JR_NATL: "2:13.09", FUTURES: "2:15.89" }, Butterfly: { OT: "1:54.09", JR_NATL: "1:57.49", FUTURES: "2:00.09" }, IM: { OT: "1:57.09", JR_NATL: "2:00.69", FUTURES: "2:03.29" } },
+  "400": { Freestyle: { OT: "3:46.09", JR_NATL: "3:52.09", FUTURES: "3:56.49" }, IM: { OT: "4:11.09", JR_NATL: "4:17.89", FUTURES: "4:22.49" } },
+  "800": { Freestyle: { OT: "7:52.09", JR_NATL: "8:05.09", FUTURES: "8:14.09" } },
+  "1500": { Freestyle: { OT: "15:00.09", JR_NATL: "15:22.09", FUTURES: "15:38.09" } },
+};
+const CHAMP_LCM_GIRLS: { [event: string]: StandardTimes } = {
+  "50":  { Freestyle: { OT: "24.69", JR_NATL: "25.49", FUTURES: "26.09" }, Backstroke: { JR_NATL: "29.09" }, Breaststroke: { JR_NATL: "31.89" }, Butterfly: { JR_NATL: "27.19" } },
+  "100": { Freestyle: { OT: "53.69", JR_NATL: "55.29", FUTURES: "56.49", SECTIONALS: "57.69" }, Backstroke: { OT: "59.69", JR_NATL: "1:01.49", FUTURES: "1:02.89" }, Breaststroke: { OT: "1:06.09", JR_NATL: "1:08.29", FUTURES: "1:09.79" }, Butterfly: { OT: "57.69", JR_NATL: "59.49", FUTURES: "1:00.89" } },
+  "200": { Freestyle: { OT: "1:56.09", JR_NATL: "1:59.39", FUTURES: "2:01.89", SECTIONALS: "2:04.39" }, Backstroke: { OT: "2:07.09", JR_NATL: "2:10.89", FUTURES: "2:13.59" }, Breaststroke: { OT: "2:22.09", JR_NATL: "2:26.49", FUTURES: "2:29.49" }, Butterfly: { OT: "2:07.09", JR_NATL: "2:10.89", FUTURES: "2:13.59" }, IM: { OT: "2:09.09", JR_NATL: "2:13.09", FUTURES: "2:16.09" } },
+  "400": { Freestyle: { OT: "4:05.09", JR_NATL: "4:11.49", FUTURES: "4:16.09" }, IM: { OT: "4:35.09", JR_NATL: "4:42.49", FUTURES: "4:47.49" } },
+  "800": { Freestyle: { OT: "8:26.09", JR_NATL: "8:40.09", FUTURES: "8:50.09" } },
+  "1500": { Freestyle: { OT: "16:10.09", JR_NATL: "16:34.09", FUTURES: "16:50.09" } },
+};
+// ── Florida Gold Coast LSC Senior Champs (SCY) ──
+const FGC_SCY_BOYS: { [event: string]: { [stroke: string]: string } } = {
+  "50": { Freestyle: "23.99", Backstroke: "27.49", Breaststroke: "29.99", Butterfly: "26.49" },
+  "100": { Freestyle: "51.99", Backstroke: "58.99", Breaststroke: "1:04.99", Butterfly: "56.99", IM: "1:01.99" },
+  "200": { Freestyle: "1:52.99", Backstroke: "2:05.99", Breaststroke: "2:19.99", Butterfly: "2:04.99", IM: "2:07.99" },
+  "500": { Freestyle: "5:09.99" },
+  "1650": { Freestyle: "17:49.99" },
+};
+const FGC_SCY_GIRLS: { [event: string]: { [stroke: string]: string } } = {
+  "50": { Freestyle: "26.49", Backstroke: "29.99", Breaststroke: "33.49", Butterfly: "29.49" },
+  "100": { Freestyle: "57.49", Backstroke: "1:04.99", Breaststroke: "1:12.49", Butterfly: "1:03.49", IM: "1:07.99" },
+  "200": { Freestyle: "2:04.99", Backstroke: "2:17.99", Breaststroke: "2:34.99", Butterfly: "2:17.49", IM: "2:20.99" },
+  "500": { Freestyle: "5:39.99" },
+  "1650": { Freestyle: "19:29.99" },
+};
+
+// Unified lookup: merges motivational + championship cuts
+function getAllStandards(gender: "M"|"F", event: string, stroke: string, course: CourseType): { [level in StandardLevel]?: string } {
+  const motivational = STANDARDS_TABLE[course]?.[gender]?.[event]?.[stroke] || {};
+  let champ: Record<string, string> = {};
+  if (course === "SCY") {
+    champ = (gender === "M" ? CHAMP_SCY_BOYS : CHAMP_SCY_GIRLS)[event]?.[stroke] || {};
+  } else if (course === "LCM") {
+    champ = (gender === "M" ? CHAMP_LCM_BOYS : CHAMP_LCM_GIRLS)[event]?.[stroke] || {};
+  }
+  return { ...motivational, ...champ };
+}
+
+function getFGCCut(gender: "M"|"F", event: string, stroke: string): string | null {
+  const table = gender === "M" ? FGC_SCY_BOYS : FGC_SCY_GIRLS;
+  return table[event]?.[stroke] || null;
+}
 
 function getStandardForAthlete(gender: "M"|"F", event: string, stroke: string, course: CourseType = "SCY"): { [level in StandardLevel]?: string } | null {
-  const table = STANDARDS_TABLE[course][gender];
-  return table[event]?.[stroke] || null;
+  const all = getAllStandards(gender, event, stroke, course);
+  return Object.keys(all).length > 0 ? all : null;
 }
 
 function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, timeSecs: number, course: CourseType = "SCY"): StandardLevel | null {
   const stds = getStandardForAthlete(gender, event, stroke, course);
   if (!stds) return null;
-  const levels: StandardLevel[] = ["AAAA", "AAA", "AA", "A", "BB", "B"];
+  const levels: StandardLevel[] = ["OT", "JR_NATL", "FUTURES", "SECTIONALS", "AAAA", "AAA", "AA", "A", "BB", "B"];
   for (const lv of levels) {
     const cutStr = stds[lv];
     if (cutStr) {
@@ -461,7 +542,7 @@ function getAthleteCutLevel(gender: "M"|"F", event: string, stroke: string, time
 function getNextCut(gender: "M"|"F", event: string, stroke: string, timeSecs: number, course: CourseType = "SCY"): { level: StandardLevel; time: string; secs: number; gap: number } | null {
   const stds = getStandardForAthlete(gender, event, stroke, course);
   if (!stds) return null;
-  const levels: StandardLevel[] = ["B", "BB", "A", "AA", "AAA", "AAAA"];
+  const levels: StandardLevel[] = ["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"];
   for (const lv of levels) {
     const cutStr = stds[lv];
     if (cutStr) {
@@ -525,7 +606,7 @@ function fmtTime(secs: number): string {
 }
 
 // ── Main component ──────────────────────────────────────────
-type TabKey = "dashboard" | "times" | "goals" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness" | "meets";
+type TabKey = "dashboard" | "times" | "goals" | "standards" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness" | "meets";
 
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
@@ -875,7 +956,7 @@ export default function AthletePortal() {
             className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
             placeholder="····" autoFocus />
           <button onClick={handlePin}
-            className="w-full mt-4 py-3 rounded-xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold hover:bg-[#a855f7]/30 transition-all">
+            className="w-full mt-4 py-3 rounded-xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold hover:bg-[#a855f7]/30 transition-all min-h-[44px]">
             Unlock
           </button>
           {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
@@ -1172,14 +1253,15 @@ export default function AthletePortal() {
   const TABS: { key: TabKey; label: string; icon: (active: boolean) => React.ReactNode; badge?: number }[] = [
     { key: "dashboard", label: "Stats", icon: (a) => <StatsIcon active={a} /> },
     { key: "times", label: "Times", icon: (a) => <TimerIcon active={a} /> },
+    { key: "standards", label: "Cuts", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#ffd700":"currentColor"} strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg> },
     { key: "goals", label: "Goals", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#22c55e":"currentColor"} strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill={a?"#22c55e":"currentColor"}/></svg> },
     { key: "raceprep", label: "Race", icon: (a) => <TargetIcon active={a} /> },
+    { key: "meets", label: "Meets", icon: (a) => <MeetsIcon active={a} /> },
     { key: "quests", label: "Quests", icon: (a) => <QuestsIcon active={a} /> },
     { key: "journal", label: "Log", icon: (a) => <JournalIcon active={a} /> },
     { key: "feedback", label: "Coach", icon: (a) => <MessageIcon active={a} />, badge: unreadCount },
     { key: "leaderboard", label: "Board", icon: (a) => <BoardIcon active={a} /> },
     { key: "wellness", label: "Mind", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#a855f7":"currentColor"} strokeWidth="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> },
-    { key: "meets", label: "Meets", icon: (a) => <MeetsIcon active={a} /> },
   ];
 
   // ── Main dashboard ────────────────────────────────────────
@@ -1225,7 +1307,7 @@ export default function AthletePortal() {
       <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4">
-          <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors">{isCoach ? "← Switch" : "Sign Out"}</button>
+          <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
@@ -1282,15 +1364,15 @@ export default function AthletePortal() {
             <div className="text-white/60 text-sm font-mono tracking-wider">PRACTICES</div>
           </div>
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-xl font-black text-white">{athlete.weekSessions}/{athlete.weekTarget}</div>
+            <div className="text-xl font-black text-white">{athlete.weekSessions}/{getWeekTarget(athlete.group)}</div>
             <div className="text-white/60 text-sm font-mono tracking-wider">THIS WEEK</div>
           </div>
         </div>
 
-        {/* Tab Navigation — 2 rows of 5 so all tabs visible on mobile */}
+        {/* Tab Navigation — 2 rows so all tabs visible on mobile */}
         <div className="mb-5 bg-[#0a0518]/50 p-1.5 rounded-xl border border-white/5 space-y-1">
-          {[TABS.slice(0, 5), TABS.slice(5)].map((row, ri) => (
-            <div key={ri} className="grid grid-cols-5 gap-0.5">
+          {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
+            <div key={ri} className={`grid gap-0.5 ${ri === 0 ? "grid-cols-6" : "grid-cols-5"}`}>
               {row.map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
                   className={`flex flex-col items-center gap-0.5 py-2 text-xs font-bold rounded-lg transition-all relative ${
@@ -1299,7 +1381,7 @@ export default function AthletePortal() {
                   {t.icon(tab === t.key)}
                   <span>{t.label}</span>
                   {t.badge && t.badge > 0 && (
-                    <span className="absolute -top-0.5 right-1 w-3.5 h-3.5 bg-[#ef4444] rounded-full text-white text-[7px] font-black flex items-center justify-center">
+                    <span className="absolute -top-0.5 right-1 w-3.5 h-3.5 bg-[#ef4444] rounded-full text-white text-xs font-black flex items-center justify-center">
                       {t.badge}
                     </span>
                   )}
@@ -1362,7 +1444,7 @@ export default function AthletePortal() {
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">YOUR CONSISTENCY — LAST 28 DAYS</h3>
               <div className="grid grid-cols-7 gap-1.5">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
-                  <div key={i} className="text-center text-white/50 text-[8px] font-mono">{d}</div>
+                  <div key={i} className="text-center text-white/50 text-xs font-mono">{d}</div>
                 ))}
                 {(() => {
                   const days = [];
@@ -1441,7 +1523,7 @@ export default function AthletePortal() {
                 onChange={e => setNewTime(p => ({ ...p, notes: e.target.value }))}
                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
               <button onClick={saveTime} disabled={!newTime.time}
-                className="w-full py-2.5 rounded-lg bg-[#00f0ff]/15 border border-[#00f0ff]/25 text-[#00f0ff] text-sm font-bold disabled:opacity-30 hover:bg-[#00f0ff]/25 transition-all">
+                className="w-full py-2.5 rounded-lg bg-[#00f0ff]/15 border border-[#00f0ff]/25 text-[#00f0ff] text-sm font-bold disabled:opacity-30 hover:bg-[#00f0ff]/25 transition-all min-h-[44px]">
                 Save Time
               </button>
             </div>
@@ -1455,7 +1537,7 @@ export default function AthletePortal() {
                     <div key={`${pr.event}-${pr.stroke}`} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                       <div>
                         <span className="text-white text-sm font-bold">{pr.event}m {pr.stroke}</span>
-                        {pr.meet && <span className="ml-2 text-[8px] px-1.5 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
+                        {pr.meet && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
                       </div>
                       <div className="text-right">
                         <span className="text-[#00f0ff] font-mono font-bold">{pr.time}</span>
@@ -1478,8 +1560,8 @@ export default function AthletePortal() {
                       <div key={t.id} className={`flex items-center justify-between p-2 rounded-lg ${isPR ? "bg-[#f59e0b]/5 border border-[#f59e0b]/15" : "bg-white/[0.01]"}`}>
                         <div className="flex items-center gap-2">
                           <span className="text-white/60 text-xs">{t.event}m {t.stroke}</span>
-                          {isPR && <span className="text-[7px] px-1 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] font-black">PR</span>}
-                          {t.meet && <span className="text-[7px] px-1 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
+                          {isPR && <span className="text-xs px-1 py-0.5 rounded bg-[#f59e0b]/20 text-[#f59e0b] font-black">PR</span>}
+                          {t.meet && <span className="text-xs px-1 py-0.5 rounded bg-[#ef4444]/15 text-[#ef4444] font-bold">MEET</span>}
                           <span className="text-white/50 text-sm">{t.session.toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1501,6 +1583,170 @@ export default function AthletePortal() {
           </div>
         )}
 
+        {/* ══════════════ TIME STANDARDS TAB ══════════════ */}
+        {tab === "standards" && athlete && (() => {
+          const g = athlete.gender;
+          return (
+            <div className="space-y-4">
+              {/* Course selector */}
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ffd700]/10">
+                <h3 className="text-[#ffd700] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffd700" strokeWidth="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  USA SWIMMING TIME STANDARDS
+                </h3>
+                <div className="flex gap-1.5 mb-4 p-1 rounded-lg bg-white/[0.03] border border-white/5">
+                  {(["SCY", "SCM", "LCM"] as CourseType[]).map(c => (
+                    <button key={c} onClick={() => setGoalCourse(c)}
+                      className={`flex-1 py-2.5 rounded-md text-sm font-bold transition-all min-h-[44px] ${goalCourse === c ? "bg-[#ffd700]/20 text-[#ffd700] border border-[#ffd700]/30" : "text-white/60 hover:text-white/80"}`}>
+                      <div>{c}</div>
+                      <div className="text-xs font-normal mt-0.5 opacity-70">{c === "SCY" ? "25yd" : c === "SCM" ? "25m" : "50m"}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Championship Qualifying Cuts */}
+                <div className="mb-4">
+                  <h4 className="text-white/80 text-sm font-bold mb-2">Championship Qualifying Times</h4>
+                  <p className="text-white/50 text-xs mb-3">These are the times needed to qualify for national-level meets</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(["OT", "JR_NATL", "FUTURES", "SECTIONALS"] as StandardLevel[]).map(lv => (
+                      <span key={lv} className="px-2.5 py-1 rounded-full text-xs font-bold" style={{ background: STANDARD_COLORS[lv] + "15", color: STANDARD_COLORS[lv], border: `1px solid ${STANDARD_COLORS[lv]}30` }}>
+                        {STANDARD_LABELS[lv]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Standards table by stroke */}
+                {STROKES.map(stroke => {
+                  const events = EVENTS_BY_COURSE[goalCourse];
+                  const hasAnyData = events.some(ev => {
+                    const stds = getAllStandards(g, ev, stroke, goalCourse);
+                    return Object.keys(stds).length > 0;
+                  });
+                  if (!hasAnyData) return null;
+                  return (
+                    <div key={stroke} className="mb-5">
+                      <h4 className="text-white font-bold text-sm mb-2 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[#ffd700]" />
+                        {stroke}
+                      </h4>
+                      <div className="overflow-x-auto -mx-2 px-2">
+                        <table className="w-full text-xs">
+                          <thead>
+                            <tr className="border-b border-white/10">
+                              <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
+                              {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => {
+                                const hasCol = events.some(ev => getAllStandards(g, ev, stroke, goalCourse)[lv]);
+                                if (!hasCol) return null;
+                                return <th key={lv} className="text-center py-2 px-1 font-bold" style={{ color: STANDARD_COLORS[lv] }}>{lv === "JR_NATL" ? "JrNat" : lv === "SECTIONALS" ? "Sect" : lv === "FUTURES" ? "Fut" : lv}</th>;
+                              })}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {events.map(ev => {
+                              const stds = getAllStandards(g, ev, stroke, goalCourse);
+                              if (!stds || Object.keys(stds).length === 0) return null;
+                              const pr = personalRecords.find(p => p.event === ev && p.stroke === stroke);
+                              const prSecs = pr ? parseTime(pr.time) : null;
+                              return (
+                                <tr key={ev} className="border-b border-white/5 hover:bg-white/[0.02]">
+                                  <td className="py-2 pr-2 text-white font-bold">{ev}{UNIT_LABEL[goalCourse]}</td>
+                                  {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => {
+                                    const hasCol = events.some(e2 => getAllStandards(g, e2, stroke, goalCourse)[lv]);
+                                    if (!hasCol) return null;
+                                    const cutTime = stds[lv];
+                                    if (!cutTime) return <td key={lv} className="text-center py-2 px-1 text-white/20">—</td>;
+                                    const cutSecs = parseTime(cutTime);
+                                    const achieved = prSecs && cutSecs ? prSecs <= cutSecs : false;
+                                    return (
+                                      <td key={lv} className={`text-center py-2 px-1 font-mono ${achieved ? "text-emerald-400 font-bold" : "text-white/80"}`}>
+                                        {achieved && <span className="text-emerald-400">✓</span>}
+                                        {cutTime}
+                                      </td>
+                                    );
+                                  })}
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Florida Gold Coast LSC */}
+                {goalCourse === "SCY" && (
+                  <div className="mt-6 p-4 rounded-xl bg-[#0a0518]/60 border border-[#00f0ff]/10">
+                    <h4 className="text-[#00f0ff] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2"><path d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1h3a1 1 0 001-1V10"/></svg>
+                      FL GOLD COAST LSC — SENIOR CHAMPS
+                    </h4>
+                    <div className="overflow-x-auto -mx-2 px-2">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-white/10">
+                            <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
+                            {STROKES.map(s => {
+                              const fgcTable = g === "M" ? FGC_SCY_BOYS : FGC_SCY_GIRLS;
+                              const hasStroke = Object.values(fgcTable).some(ev => ev[s]);
+                              if (!hasStroke) return null;
+                              return <th key={s} className="text-center py-2 px-1 text-[#00f0ff] font-bold">{s.slice(0, 4)}</th>;
+                            })}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {EVENTS_BY_COURSE.SCY.map(ev => {
+                            const fgcTable = g === "M" ? FGC_SCY_BOYS : FGC_SCY_GIRLS;
+                            if (!fgcTable[ev]) return null;
+                            return (
+                              <tr key={ev} className="border-b border-white/5 hover:bg-white/[0.02]">
+                                <td className="py-2 pr-2 text-white font-bold">{ev}y</td>
+                                {STROKES.map(s => {
+                                  const hasStroke = Object.values(fgcTable).some(e => e[s]);
+                                  if (!hasStroke) return null;
+                                  const cutTime = fgcTable[ev]?.[s];
+                                  if (!cutTime) return <td key={s} className="text-center py-2 px-1 text-white/20">—</td>;
+                                  const cutSecs = parseTime(cutTime);
+                                  const pr = personalRecords.find(p => p.event === ev && p.stroke === s);
+                                  const prSecs = pr ? parseTime(pr.time) : null;
+                                  const achieved = prSecs && cutSecs ? prSecs <= cutSecs : false;
+                                  return (
+                                    <td key={s} className={`text-center py-2 px-1 font-mono ${achieved ? "text-emerald-400 font-bold" : "text-white/80"}`}>
+                                      {achieved && "✓"}{cutTime}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-white/40 text-xs mt-2">Qualifying times for Florida Gold Coast Senior Championships</p>
+                  </div>
+                )}
+
+                {/* Legend */}
+                <div className="mt-4 p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs">
+                    <span className="text-emerald-400 font-bold">✓ = Achieved</span>
+                    <span className="text-white/60">Showing: {g === "M" ? "Boys" : "Girls"} · {goalCourse}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => (
+                      <span key={lv} className="text-xs px-1.5 py-0.5 rounded" style={{ color: STANDARD_COLORS[lv], background: STANDARD_COLORS[lv] + "10" }}>
+                        {STANDARD_LABELS[lv]}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* ══════════════ GOALS TAB ══════════════ */}
         {tab === "goals" && athlete && (
           <div className="space-y-4">
@@ -1520,7 +1766,7 @@ export default function AthletePortal() {
                   }}
                     className={`flex-1 py-2 rounded-md text-xs font-bold transition-all ${goalCourse === c ? "bg-[#22c55e]/20 text-[#22c55e] border border-[#22c55e]/30" : "text-white/60 hover:text-white/50"}`}>
                     <div>{c}</div>
-                    <div className="text-[8px] font-normal mt-0.5 opacity-60">{c === "SCY" ? "25yd" : c === "SCM" ? "25m" : "50m"}</div>
+                    <div className="text-xs font-normal mt-0.5 opacity-70">{c === "SCY" ? "25yd" : c === "SCM" ? "25m" : "50m"}</div>
                   </button>
                 ))}
               </div>
@@ -1570,7 +1816,7 @@ export default function AthletePortal() {
                       <div>
                         <h4 className="text-white/60 text-sm font-mono tracking-wider mb-2">USA SWIMMING {goalCourse} ({athlete.gender === "M" ? "BOYS" : "GIRLS"})</h4>
                         <div className="grid grid-cols-3 gap-1.5">
-                          {(["B", "BB", "A", "AA", "AAA", "AAAA"] as StandardLevel[]).map(lv => {
+                          {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT"] as StandardLevel[]).map(lv => {
                             const cutTime = stds[lv];
                             if (!cutTime) return null;
                             const cutSecs = parseTime(cutTime);
@@ -1592,8 +1838,8 @@ export default function AthletePortal() {
                                 style={isNext ? { borderColor: STANDARD_COLORS[lv] + "60" } : {}}>
                                 <div className="text-sm font-black" style={{ color: STANDARD_COLORS[lv] }}>{lv}</div>
                                 <div className={`font-mono text-sm ${achieved ? "text-emerald-400 line-through" : "text-white"}`}>{cutTime}</div>
-                                {achieved && <div className="text-emerald-400 text-[8px]">ACHIEVED</div>}
-                                {isNext && <div className="text-[8px] font-bold" style={{ color: STANDARD_COLORS[lv] }}>NEXT</div>}
+                                {achieved && <div className="text-emerald-400 text-xs">ACHIEVED</div>}
+                                {isNext && <div className="text-xs font-bold" style={{ color: STANDARD_COLORS[lv] }}>NEXT</div>}
                               </button>
                             );
                           })}
@@ -1750,7 +1996,7 @@ export default function AthletePortal() {
                 </div>
               </div>
               <button onClick={generateRacePrep} disabled={!rpCurrent || !rpGoal}
-                className="w-full py-3 rounded-lg bg-gradient-to-r from-[#ef4444]/20 to-[#f59e0b]/20 border border-[#ef4444]/25 text-white text-sm font-bold disabled:opacity-30 hover:border-[#ef4444]/40 transition-all">
+                className="w-full py-3 rounded-lg bg-gradient-to-r from-[#ef4444]/20 to-[#f59e0b]/20 border border-[#ef4444]/25 text-white text-sm font-bold disabled:opacity-30 hover:border-[#ef4444]/40 transition-all min-h-[44px]">
                 GENERATE RACE PLAN
               </button>
             </div>
@@ -1877,7 +2123,7 @@ export default function AthletePortal() {
                 </div>
                 <button onClick={saveJournalEntry}
                   disabled={!journalDraft.wentWell && !journalDraft.workOn && !journalDraft.goals}
-                  className="w-full py-2.5 rounded-lg bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#a855f7]/30 transition-all">
+                  className="w-full py-2.5 rounded-lg bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[#a855f7]/30 transition-all min-h-[44px]">
                   Save Reflection
                 </button>
               </div>

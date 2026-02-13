@@ -186,18 +186,35 @@ export function save(key: string, val: unknown) {
 
 // ── Roster Helpers ────────────────────────────────────────────────
 
+// Practice sessions per week by roster group (derived from real schedules)
+const WEEK_TARGETS: Record<string, number> = {
+  platinum: 8,   // Mon AM+PM, Tue PM, Wed AM+PM, Thu PM, Fri AM, Sat
+  gold: 6,       // Mon-Fri + Sat
+  silver: 6,     // Mon-Fri + Sat
+  bronze1: 6,    // Mon-Sat (6 days)
+  bronze2: 4,    // Tue, Thu, Fri, Sat
+  diving: 4,     // Mon, Wed, Fri, Sat
+  waterpolo: 4,  // Mon-Thu
+};
+
+export function getWeekTarget(group: string): number {
+  const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
+  return WEEK_TARGETS[key] ?? 5;
+}
+
 export function makeAthlete(r: {
   name: string;
   age: number;
   gender: "M" | "F";
   group?: string;
 }): Athlete {
+  const group = r.group ?? "Varsity";
   return {
     id: r.name.toLowerCase().replace(/\s+/g, "-"),
     name: r.name,
     age: r.age,
     gender: r.gender,
-    group: r.group ?? "Varsity",
+    group,
     xp: 0,
     streak: 0,
     weightStreak: 0,
@@ -206,7 +223,7 @@ export function makeAthlete(r: {
     totalPractices: 0,
     weekSessions: 0,
     weekWeightSessions: 0,
-    weekTarget: 5,
+    weekTarget: getWeekTarget(group),
     checkpoints: {},
     weightCheckpoints: {},
     meetCheckpoints: {},

@@ -372,6 +372,14 @@ interface Athlete {
   parentEmail?: string;
 }
 
+const WEEK_TARGETS: Record<string, number> = {
+  platinum: 8, gold: 6, silver: 6, bronze1: 6, bronze2: 4, diving: 4, waterpolo: 4,
+};
+function getWeekTarget(group: string): number {
+  const key = group.toLowerCase().replace(/\s+/g, "").replace("bronze 1", "bronze1").replace("bronze 2", "bronze2").replace("water polo", "waterpolo");
+  return WEEK_TARGETS[key] ?? 5;
+}
+
 interface DailySnapshot {
   date: string; attendance: number; totalAthletes: number; totalXPAwarded: number;
   poolCheckins: number; weightCheckins: number; meetCheckins: number;
@@ -1008,7 +1016,7 @@ export default function ParentPortal() {
                 <div className="text-white/60 text-sm">XP earned this week</div>
               </div>
               <div>
-                <div className="text-xl font-bold text-[#60a5fa]">{athlete.weekSessions}/{athlete.weekTarget}</div>
+                <div className="text-xl font-bold text-[#60a5fa]">{athlete.weekSessions}/{getWeekTarget(athlete.group)}</div>
                 <div className="text-white/60 text-sm">sessions this week</div>
               </div>
             </div>
