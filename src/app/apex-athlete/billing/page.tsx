@@ -129,125 +129,35 @@ interface PlanTier {
   cta: string;
 }
 
-const TIERS: PlanTier[] = [
-  {
-    id: "free",
-    name: "FREE",
-    subtitle: "Starter Loadout",
-    price: null,
-    priceLabel: "$0",
-    priceId: null,
-    color: "#94a3b8",
-    glowColor: "rgba(148,163,184,0.3)",
-    borderColor: "rgba(148,163,184,0.2)",
-    icon: ShieldIcon,
-    featured: false,
-    features: [
-      { text: "1 team roster", included: true },
-      { text: "Up to 15 athletes", included: true },
-      { text: "XP & streak tracking", included: true },
-      { text: "Basic checkpoints", included: true },
-      { text: "Coach dashboard", included: true },
-      { text: "Multi-team support", included: false },
-      { text: "Analytics & reports", included: false },
-      { text: "Recruiting features", included: false },
-      { text: "API access", included: false },
-    ],
-    limits: "1 team / 15 athletes",
-    cta: "Get Started",
-  },
-  {
-    id: "pro",
-    name: "PRO",
-    subtitle: "Battle Pass",
-    price: 29,
-    priceLabel: "$29",
-    priceId: "price_pro",
-    color: "#00f0ff",
-    glowColor: "rgba(0,240,255,0.3)",
-    borderColor: "rgba(0,240,255,0.3)",
-    icon: BoltIcon,
-    featured: true,
-    features: [
-      { text: "1 team roster", included: true },
-      { text: "Unlimited athletes", included: true },
-      { text: "XP & streak tracking", included: true },
-      { text: "All checkpoints & quests", included: true },
-      { text: "Coach + parent portals", included: true },
-      { text: "Firebase cloud sync", included: true },
-      { text: "Schedule management", included: true },
-      { text: "Multi-team support", included: false },
-      { text: "API access", included: false },
-    ],
-    limits: "1 team / unlimited athletes",
-    cta: "Subscribe",
-  },
-  {
-    id: "club",
-    name: "CLUB",
-    subtitle: "Commander Tier",
-    price: 99,
-    priceLabel: "$99",
-    priceId: "price_club",
-    color: "#a855f7",
-    glowColor: "rgba(168,85,247,0.3)",
-    borderColor: "rgba(168,85,247,0.3)",
-    icon: CrownIcon,
-    featured: false,
-    features: [
-      { text: "Unlimited teams", included: true },
-      { text: "Unlimited athletes", included: true },
-      { text: "All Pro features", included: true },
-      { text: "Advanced analytics", included: true },
-      { text: "Performance reports", included: true },
-      { text: "Recruiting board", included: true },
-      { text: "Multi-sport support", included: true },
-      { text: "Priority email support", included: true },
-      { text: "API access", included: false },
-    ],
-    limits: "Unlimited teams & athletes",
-    cta: "Subscribe",
-  },
-  {
-    id: "enterprise",
-    name: "ENTERPRISE",
-    subtitle: "Legendary Edition",
-    price: 249,
-    priceLabel: "$249",
-    priceId: "price_enterprise",
-    color: "#f59e0b",
-    glowColor: "rgba(245,158,11,0.3)",
-    borderColor: "rgba(245,158,11,0.3)",
-    icon: DiamondIcon,
-    featured: false,
-    features: [
-      { text: "Everything in Club", included: true },
-      { text: "White-label branding", included: true },
-      { text: "Full REST API access", included: true },
-      { text: "Custom integrations", included: true },
-      { text: "Dedicated onboarding", included: true },
-      { text: "Priority support (24h)", included: true },
-      { text: "Bulk data import/export", included: true },
-      { text: "SSO & advanced security", included: true },
-      { text: "Custom feature requests", included: true },
-    ],
-    limits: "Unlimited everything",
-    cta: "Subscribe",
-  },
-];
-
-// ── Feature category icons ──────────────────────────────────
-
-function FeatureCategoryIcon({ tier }: { tier: PlanTier }) {
-  const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-    free: ShieldIcon,
-    pro: BoltIcon,
-    club: CrownIcon,
-    enterprise: DiamondIcon,
-  };
-  const Icon = iconMap[tier.id] || ShieldIcon;
-  return <Icon className="w-8 h-8" />;
-}
+const TEAM_PLAN: PlanTier = {
+  id: "team",
+  name: "TEAM",
+  subtitle: "Full Arsenal",
+  price: 249,
+  priceLabel: "$249",
+  priceId: "price_team_monthly",
+  color: "#00f0ff",
+  glowColor: "rgba(0,240,255,0.3)",
+  borderColor: "rgba(0,240,255,0.3)",
+  icon: CrownIcon,
+  featured: true,
+  features: [
+    { text: "Up to ~50 athletes per team", included: true },
+    { text: "Coach, Athlete & Parent portals", included: true },
+    { text: "XP, streaks & gamification", included: true },
+    { text: "Meet entry + SD3/CSV export", included: true },
+    { text: "Race strategy AI", included: true },
+    { text: "Time standards (SCY/LCM/SCM)", included: true },
+    { text: "Performance analytics & reports", included: true },
+    { text: "Schedule & attendance tracking", included: true },
+    { text: "Cloud sync across all devices", included: true },
+    { text: "Parent comms & absence reports", included: true },
+    { text: "Multi-sport support (coming soon)", included: true },
+    { text: "Priority support", included: true },
+  ],
+  limits: "~50 athletes / unlimited coaches",
+  cta: "Subscribe",
+};
 
 // ── Tier Card Component ─────────────────────────────────────
 
@@ -507,161 +417,46 @@ function TierCard({
   );
 }
 
-// ── Feature Comparison Table ────────────────────────────────
+// ── Value Stats Section ──────────────────────────────────────
 
-function ComparisonTable() {
-  const categories = [
-    {
-      name: "Team Management",
-      icon: UsersIcon,
-      features: [
-        { name: "Teams", free: "1", pro: "1", club: "Unlimited", enterprise: "Unlimited" },
-        { name: "Athletes per team", free: "15", pro: "Unlimited", club: "Unlimited", enterprise: "Unlimited" },
-        { name: "Coach dashboard", free: true, pro: true, club: true, enterprise: true },
-        { name: "Parent portal", free: false, pro: true, club: true, enterprise: true },
-        { name: "Multi-sport support", free: false, pro: false, club: true, enterprise: true },
-      ],
-    },
-    {
-      name: "Training Features",
-      icon: BoltIcon,
-      features: [
-        { name: "XP & streak tracking", free: true, pro: true, club: true, enterprise: true },
-        { name: "Checkpoints & quests", free: "Basic", pro: "All", club: "All", enterprise: "All + Custom" },
-        { name: "Schedule management", free: false, pro: true, club: true, enterprise: true },
-        { name: "Cloud sync", free: false, pro: true, club: true, enterprise: true },
-        { name: "Wellness tracking", free: false, pro: true, club: true, enterprise: true },
-      ],
-    },
-    {
-      name: "Analytics & Reporting",
-      icon: ChartIcon,
-      features: [
-        { name: "Basic stats", free: true, pro: true, club: true, enterprise: true },
-        { name: "Performance analytics", free: false, pro: false, club: true, enterprise: true },
-        { name: "Custom reports", free: false, pro: false, club: true, enterprise: true },
-        { name: "Recruiting board", free: false, pro: false, club: true, enterprise: true },
-        { name: "Data export", free: false, pro: false, club: false, enterprise: true },
-      ],
-    },
-    {
-      name: "Platform & Support",
-      icon: ApiIcon,
-      features: [
-        { name: "Email support", free: "Community", pro: "48h", club: "24h", enterprise: "Priority" },
-        { name: "White-label branding", free: false, pro: false, club: false, enterprise: true },
-        { name: "REST API access", free: false, pro: false, club: false, enterprise: true },
-        { name: "SSO & security", free: false, pro: false, club: false, enterprise: true },
-        { name: "Custom integrations", free: false, pro: false, club: false, enterprise: true },
-      ],
-    },
+function ValueStats() {
+  const stats = [
+    { label: "Cost per athlete", value: "~$5/mo", sub: "based on ~50 athletes", icon: UsersIcon },
+    { label: "vs Team Unify", value: "60% less", sub: "$249 vs $600+/mo", icon: ChartIcon },
+    { label: "Meet entry time saved", value: "3+ hrs", sub: "per meet with SD3 export", icon: BoltIcon },
+    { label: "Setup time", value: "< 1 day", sub: "import roster + go live", icon: RocketIcon },
   ];
 
-  const tierColors = {
-    free: "#94a3b8",
-    pro: "#00f0ff",
-    club: "#a855f7",
-    enterprise: "#f59e0b",
-  };
-
   return (
-    <div className="mt-20">
-      {/* Section Header */}
-      <div className="text-center mb-12">
+    <div className="mt-16">
+      <div className="text-center mb-10">
         <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-2">
-          {"<"} feature.comparison {"/>"}
+          {"<"} value.breakdown {"/>"}
         </div>
         <h2
-          className="text-3xl sm:text-4xl font-black tracking-tight"
+          className="text-2xl sm:text-3xl font-black tracking-tight"
           style={{
             background: "linear-gradient(135deg, #00f0ff, #a855f7)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}
         >
-          Full Feature Breakdown
+          Why Teams Switch to Apex
         </h2>
       </div>
 
-      {/* Table */}
-      <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[640px]">
-            {/* Header */}
-            <thead>
-              <tr className="border-b border-[#00f0ff]/10">
-                <th className="text-left p-4 sm:p-5 text-white/30 text-xs font-mono uppercase tracking-wider w-[200px]">
-                  Feature
-                </th>
-                {(["free", "pro", "club", "enterprise"] as const).map((tid) => (
-                  <th
-                    key={tid}
-                    className="p-4 sm:p-5 text-center text-xs font-bold font-mono uppercase tracking-[0.2em]"
-                    style={{ color: tierColors[tid] }}
-                  >
-                    {tid}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {categories.map((cat, ci) => (
-                <React.Fragment key={ci}>
-                  {/* Category header */}
-                  <tr className="border-t border-[#00f0ff]/10">
-                    <td
-                      colSpan={5}
-                      className="p-4 sm:p-5"
-                      style={{
-                        background: "linear-gradient(90deg, rgba(0,240,255,0.04), transparent)",
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <cat.icon className="w-4 h-4 text-[#00f0ff]/50" />
-                        <span className="text-white/50 text-xs font-bold font-mono uppercase tracking-[0.2em]">
-                          {cat.name}
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                  {/* Features */}
-                  {cat.features.map((feat, fi) => (
-                    <tr
-                      key={fi}
-                      className="border-t border-white/[0.03] hover:bg-white/[0.02] transition-colors"
-                    >
-                      <td className="p-4 sm:p-5 text-white/40 text-sm font-mono">
-                        {feat.name}
-                      </td>
-                      {(["free", "pro", "club", "enterprise"] as const).map((tid) => {
-                        const val = feat[tid];
-                        return (
-                          <td key={tid} className="p-4 sm:p-5 text-center">
-                            {val === true ? (
-                              <CheckIcon
-                                className="w-4 h-4 mx-auto"
-                                style={{ color: tierColors[tid] } as React.CSSProperties}
-                              />
-                            ) : val === false ? (
-                              <span className="text-white/10 text-sm">-</span>
-                            ) : (
-                              <span
-                                className="text-xs font-mono font-bold"
-                                style={{ color: tierColors[tid] }}
-                              >
-                                {val}
-                              </span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {stats.map((s, i) => (
+          <div
+            key={i}
+            className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-xl p-5 text-center"
+          >
+            <s.icon className="w-6 h-6 mx-auto mb-3 text-[#00f0ff]/50" />
+            <div className="text-2xl sm:text-3xl font-black text-[#00f0ff] mb-1">{s.value}</div>
+            <div className="text-white/60 text-xs font-mono font-bold uppercase tracking-wider mb-1">{s.label}</div>
+            <div className="text-white/25 text-[10px] font-mono">{s.sub}</div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -688,26 +483,14 @@ export default function BillingPage() {
     }
   }, []);
 
-  const handleSelectPlan = useCallback(
-    async (tier: PlanTier) => {
-      // Free tier: set directly
-      if (tier.id === "free") {
-        try {
-          localStorage.setItem("apex-billing-plan", "free");
-          setCurrentPlan("free");
-        } catch {
-          // ignore
-        }
-        return;
-      }
-
-      // Paid tiers: redirect to Stripe Checkout
-      setLoading(tier.id);
+  const handleSubscribe = useCallback(
+    async () => {
+      setLoading("team");
       try {
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ priceId: tier.priceId, planId: tier.id }),
+          body: JSON.stringify({ priceId: TEAM_PLAN.priceId, planId: TEAM_PLAN.id }),
         });
 
         const data = await res.json();
@@ -730,11 +513,10 @@ export default function BillingPage() {
   useEffect(() => {
     if (!mounted) return;
     const params = new URLSearchParams(window.location.search);
-    const planFromSuccess = params.get("plan");
-    if (params.get("success") === "true" && planFromSuccess) {
+    if (params.get("success") === "true") {
       try {
-        localStorage.setItem("apex-billing-plan", planFromSuccess);
-        setCurrentPlan(planFromSuccess);
+        localStorage.setItem("apex-billing-plan", "team");
+        setCurrentPlan("team");
       } catch {
         // ignore
       }
@@ -810,36 +592,32 @@ export default function BillingPage() {
           </h1>
 
           <p className="text-white/30 text-sm sm:text-base font-mono max-w-xl mx-auto leading-relaxed">
-            Unlock the full power of Apex Athlete. Every tier includes core
-            gamification. Upgrade to expand your roster, unlock analytics, and
-            dominate the competition.
+            Everything your team needs. One price. No hidden fees.
+            Cancel anytime.
           </p>
 
           {/* Current plan indicator */}
-          {currentPlan && (
+          {currentPlan === "team" && (
             <div className="mt-6 inline-flex items-center gap-3 px-5 py-2.5 game-panel-sm bg-[#06020f]/80 border border-[#00f0ff]/20">
               <div className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
               <span className="text-[#00f0ff]/60 text-xs font-mono uppercase tracking-wider">
-                Active Plan:
+                Status:
               </span>
               <span className="text-[#00f0ff] text-sm font-bold font-mono uppercase tracking-wider">
-                {currentPlan}
+                ACTIVE
               </span>
             </div>
           )}
         </div>
 
-        {/* ── Pricing Grid ─────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 xl:gap-6">
-          {TIERS.map((tier) => (
-            <TierCard
-              key={tier.id}
-              tier={tier}
-              currentPlan={currentPlan}
-              loading={loading}
-              onSelect={handleSelectPlan}
-            />
-          ))}
+        {/* ── Single Plan Card ────────────────────────────────── */}
+        <div className="max-w-lg mx-auto">
+          <TierCard
+            tier={TEAM_PLAN}
+            currentPlan={currentPlan}
+            loading={loading}
+            onSelect={() => handleSubscribe()}
+          />
         </div>
 
         {/* ── Trust bar ────────────────────────────────────────── */}
@@ -870,8 +648,8 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* ── Comparison Table ─────────────────────────────────── */}
-        <ComparisonTable />
+        {/* ── Value Stats ──────────────────────────────────────── */}
+        <ValueStats />
 
         {/* ── FAQ Section ──────────────────────────────────────── */}
         <div className="mt-20 mb-16">

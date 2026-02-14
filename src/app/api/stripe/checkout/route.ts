@@ -6,11 +6,12 @@ import Stripe from "stripe";
    Creates a Stripe Checkout session for a selected plan
    ══════════════════════════════════════════════════════════════ */
 
-// Placeholder price IDs — replace with real Stripe price IDs
+// Team plan price ID — set STRIPE_TEAM_PRICE_ID env var with your real Stripe price ID
+// Create product + price in Stripe Dashboard → Products → Add product → $249/month recurring
+const TEAM_PRICE_ID = process.env.STRIPE_TEAM_PRICE_ID || "price_team_monthly";
+
 const VALID_PRICES: Record<string, { priceId: string; planId: string }> = {
-  price_pro: { priceId: "price_pro", planId: "pro" },
-  price_club: { priceId: "price_club", planId: "club" },
-  price_enterprise: { priceId: "price_enterprise", planId: "enterprise" },
+  price_team_monthly: { priceId: TEAM_PRICE_ID, planId: "team" },
 };
 
 function getStripe(): Stripe {
@@ -29,7 +30,7 @@ export async function POST(req: Request) {
     // Validate the price ID
     if (!priceId || !VALID_PRICES[priceId]) {
       return NextResponse.json(
-        { error: "Invalid price ID. Must be one of: price_pro, price_club, price_enterprise" },
+        { error: "Invalid price ID" },
         { status: 400 }
       );
     }
@@ -48,11 +49,11 @@ export async function POST(req: Request) {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: priceId,
+          price: VALID_PRICES[priceId].priceId,
           quantity: 1,
         },
       ],
-      success_url: `${origin}/apex-athlete/billing?success=true&plan=${planId}&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/apex-athlete/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/apex-athlete/billing?canceled=true`,
       metadata: {
         planId: planId || VALID_PRICES[priceId].planId,
