@@ -541,6 +541,425 @@ function MiniBarChart({ data }: { data: { date: string; xp: number; label: strin
   );
 }
 
+/* ── SVG Icons for Enrollment ──────────────────────────────── */
+const SvgUserPlus = ({ size = 20, color = "#f59e0b" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="10" cy="8" r="5" stroke={color} strokeWidth="1.8" fill={`${color}12`}/>
+    <path d="M2 21c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke={color} strokeWidth="1.8" strokeLinecap="round" fill={`${color}06`}/>
+    <path d="M20 8v6M23 11h-6" stroke={color} strokeWidth="2" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgEnvelope = ({ size = 20, color = "#60a5fa" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="2" y="4" width="20" height="16" rx="2" stroke={color} strokeWidth="1.8" fill={`${color}10`}/>
+    <path d="M2 7l10 7 10-7" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const SvgPhone = ({ size = 20, color = "#34d399" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"
+      stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill={`${color}10`}/>
+  </svg>
+);
+
+const SvgChildLink = ({ size = 20, color = "#a855f7" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="12" cy="7" r="4" stroke={color} strokeWidth="1.8" fill={`${color}15`}/>
+    <path d="M5.5 21c0-3.59 2.91-6.5 6.5-6.5s6.5 2.91 6.5 6.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" fill={`${color}06`}/>
+    <path d="M17 10l2 2-2 2" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 12h7" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+  </svg>
+);
+
+const SvgWave = ({ size = 20, color = "#f59e0b" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M7 11c1.5-2 3-3 5-3s3 1.5 4.5 1.5c1 0 2-.5 3.5-2" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    <path d="M3 15c1.5-2 3-3 5-3s3 1.5 4.5 1.5c1 0 2-.5 3.5-2" stroke={color} strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+    <circle cx="5" cy="6" r="2" stroke={color} strokeWidth="1.5" fill={`${color}20`}/>
+    <path d="M5 8v2" stroke={color} strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
+
+const SvgRocket = ({ size = 24, color = "#f59e0b" }: { size?: number; color?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2c-2 4-3 8-3 12h6c0-4-1-8-3-12z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" fill={`${color}15`}/>
+    <path d="M9 14l-2 4h2l1-2M15 14l2 4h-2l-1-2" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <circle cx="12" cy="10" r="1.5" fill={color}/>
+    <path d="M5 22c1-2 3-3 7-3s6 1 7 3" stroke={color} strokeWidth="1.2" strokeLinecap="round" opacity="0.4"/>
+  </svg>
+);
+
+/* ── Enrollment Types ─────────────────────────────────────── */
+interface ParentEnrollment {
+  parentName: string;
+  email: string;
+  phone: string;
+  childName: string;
+  matchedAthleteId: string | null;
+  enrolledAt: string;
+}
+
+/* ── Parent Enrollment Form ───────────────────────────────── */
+function EnrollmentForm({ roster, onComplete }: {
+  roster: Athlete[];
+  onComplete: (enrollment: ParentEnrollment, matchedAthlete: Athlete | null) => void;
+}) {
+  const [parentName, setParentName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [childName, setChildName] = useState("");
+  const [matchResults, setMatchResults] = useState<Athlete[]>([]);
+  const [selectedMatch, setSelectedMatch] = useState<Athlete | null>(null);
+  const [step, setStep] = useState<"form" | "confirm">("form");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Auto-match child name against roster
+  useEffect(() => {
+    if (childName.length < 2) { setMatchResults([]); return; }
+    const q = childName.toLowerCase().trim();
+    const results = roster.filter(a => {
+      const name = a.name.toLowerCase();
+      // Match on full name, first name, or last name
+      return name.includes(q) || name.split(" ").some(part => part.startsWith(q));
+    }).slice(0, 5);
+    setMatchResults(results);
+  }, [childName, roster]);
+
+  const validate = (): boolean => {
+    const e: Record<string, string> = {};
+    if (!parentName.trim()) e.parentName = "Please enter your name";
+    if (!email.trim()) e.email = "Please enter your email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = "Please enter a valid email";
+    if (!phone.trim()) e.phone = "Please enter your phone number";
+    else if (phone.replace(/\D/g, "").length < 10) e.phone = "Please enter a valid phone number";
+    if (!childName.trim()) e.childName = "Please enter your child's name";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleContinue = () => {
+    if (!validate()) return;
+    // Auto-select if there's exactly one match
+    if (matchResults.length === 1 && !selectedMatch) {
+      setSelectedMatch(matchResults[0]);
+    }
+    setStep("confirm");
+  };
+
+  const handleSubmit = () => {
+    const enrollment: ParentEnrollment = {
+      parentName: parentName.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      childName: childName.trim(),
+      matchedAthleteId: selectedMatch?.id || null,
+      enrolledAt: new Date().toISOString(),
+    };
+    localStorage.setItem("apex-parent-enrollment", JSON.stringify(enrollment));
+    // Also save parent name for absence forms etc.
+    localStorage.setItem("apex-parent-name", parentName.trim());
+    onComplete(enrollment, selectedMatch);
+  };
+
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, "").slice(0, 10);
+    if (digits.length <= 3) return digits;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  };
+
+  // ── Confirmation step ──
+  if (step === "confirm") {
+    return (
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+        {STYLE_TAG}
+        <div className="fixed inset-0 pointer-events-none">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
+        </div>
+        <div className="relative z-10 w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: "rgba(52,211,153,0.1)", border: "2px solid rgba(52,211,153,0.3)" }}>
+              <SvgCheckCircle size={32} color="#34d399" />
+            </div>
+            <h2 className="text-2xl font-black text-white mb-2">Almost there!</h2>
+            <p className="text-white/60 text-sm">Let&apos;s make sure everything looks right.</p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/15 space-y-4 mb-6">
+            <div>
+              <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR NAME</div>
+              <div className="text-white font-semibold">{parentName}</div>
+            </div>
+            <div className="border-t border-white/5" />
+            <div>
+              <div className="text-white/40 text-xs font-mono tracking-wider mb-1">EMAIL</div>
+              <div className="text-white/80">{email}</div>
+            </div>
+            <div className="border-t border-white/5" />
+            <div>
+              <div className="text-white/40 text-xs font-mono tracking-wider mb-1">PHONE</div>
+              <div className="text-white/80">{phone}</div>
+            </div>
+            <div className="border-t border-white/5" />
+            <div>
+              <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR SWIMMER</div>
+              {selectedMatch ? (
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: `${getLevel(selectedMatch.xp).color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp).color}40` }}>
+                    <LevelIcon name={getLevel(selectedMatch.xp).name} size={16} color={getLevel(selectedMatch.xp).color} />
+                  </div>
+                  <div>
+                    <div className="text-white font-semibold">{selectedMatch.name}</div>
+                    <div className="text-xs flex items-center gap-1.5" style={{ color: getLevel(selectedMatch.xp).color }}>
+                      <LevelIcon name={getLevel(selectedMatch.xp).name} size={12} color={getLevel(selectedMatch.xp).color} />
+                      {getLevel(selectedMatch.xp).name} <span className="text-white/40">in</span> {selectedMatch.group}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="text-white font-semibold">{childName}</div>
+                  <div className="text-[#f59e0b]/70 text-xs mt-1 flex items-center gap-1.5">
+                    <SvgClock size={12} color="#f59e0b" />
+                    No roster match yet -- the coach will link them
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={() => setStep("form")}
+              className="flex-1 py-4 rounded-xl bg-white/[0.03] border border-white/10 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
+              style={{ minHeight: "52px" }}>
+              Go back
+            </button>
+            <button onClick={handleSubmit}
+              className="flex-1 py-4 rounded-xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              style={{
+                minHeight: "52px",
+                background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,179,8,0.15))",
+                border: "1px solid rgba(245,158,11,0.35)",
+                color: "#f59e0b",
+                boxShadow: "0 0 20px rgba(245,158,11,0.1)",
+              }}>
+              <SvgRocket size={18} color="#f59e0b" />
+              Let&apos;s go!
+            </button>
+          </div>
+
+          <div className="text-center mt-6 flex items-center justify-center gap-1.5">
+            <SvgShieldLock size={14} color="#00f0ff" />
+            <span className="text-white/30 text-[10px] tracking-wider">YOUR INFO IS STORED LOCALLY ON THIS DEVICE ONLY</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main enrollment form ──
+  return (
+    <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
+      {STYLE_TAG}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
+        <div className="absolute bottom-0 left-1/4 w-[400px] h-[300px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.05)_0%,transparent_70%)]" />
+      </div>
+
+      <div className="relative z-10 max-w-md mx-auto px-5 py-8 sm:py-14">
+        {/* Welcome header */}
+        <div className="text-center mb-8">
+          <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center relative"
+            style={{
+              background: "linear-gradient(135deg, rgba(245,158,11,0.1), rgba(168,85,247,0.08))",
+              border: "2px solid rgba(245,158,11,0.25)",
+              boxShadow: "0 0 30px rgba(245,158,11,0.1), 0 0 60px rgba(245,158,11,0.05)",
+            }}>
+            <SvgUserPlus size={36} color="#f59e0b" />
+            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-[#06020f] flex items-center justify-center border border-emerald-500/30">
+              <SvgWave size={14} color="#34d399" />
+            </div>
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">
+            Welcome, swim parent!
+          </h1>
+          <p className="text-white/60 text-base leading-relaxed max-w-sm mx-auto">
+            We&apos;re glad you&apos;re here. Let&apos;s get you connected so you can follow your swimmer&apos;s journey.
+          </p>
+        </div>
+
+        {/* Form card */}
+        <div className="p-5 sm:p-6 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 space-y-5 mb-6"
+          style={{ boxShadow: "0 4px 30px rgba(0,0,0,0.3)" }}>
+
+          {/* Parent Name */}
+          <div>
+            <label className="flex items-center gap-2 mb-2">
+              <SvgUserPlus size={16} color="#f59e0b" />
+              <span className="text-white/70 text-sm font-semibold tracking-wide">Your name</span>
+            </label>
+            <input
+              type="text"
+              value={parentName}
+              onChange={e => { setParentName(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.parentName; return n; }); }}
+              placeholder="e.g., Sarah Johnson"
+              className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "border-white/10 focus:border-[#f59e0b]/40"}`}
+              style={{ fontSize: "16px", minHeight: "52px" }}
+              autoFocus
+            />
+            {errors.parentName && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.parentName}</p>}
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="flex items-center gap-2 mb-2">
+              <SvgEnvelope size={16} color="#60a5fa" />
+              <span className="text-white/70 text-sm font-semibold tracking-wide">Email</span>
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => { setEmail(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.email; return n; }); }}
+              placeholder="parent@email.com"
+              className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "border-white/10 focus:border-[#60a5fa]/40"}`}
+              style={{ fontSize: "16px", minHeight: "52px" }}
+              autoComplete="email"
+            />
+            {errors.email && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.email}</p>}
+          </div>
+
+          {/* Phone */}
+          <div>
+            <label className="flex items-center gap-2 mb-2">
+              <SvgPhone size={16} color="#34d399" />
+              <span className="text-white/70 text-sm font-semibold tracking-wide">Phone number</span>
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={e => { setPhone(formatPhone(e.target.value)); setErrors(prev => { const n = { ...prev }; delete n.phone; return n; }); }}
+              placeholder="(555) 123-4567"
+              className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "border-white/10 focus:border-[#34d399]/40"}`}
+              style={{ fontSize: "16px", minHeight: "52px" }}
+              inputMode="tel"
+              autoComplete="tel"
+            />
+            {errors.phone && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.phone}</p>}
+          </div>
+
+          {/* Child's Name with auto-match */}
+          <div>
+            <label className="flex items-center gap-2 mb-2">
+              <SvgChildLink size={16} color="#a855f7" />
+              <span className="text-white/70 text-sm font-semibold tracking-wide">Your swimmer&apos;s name</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={childName}
+                onChange={e => { setChildName(e.target.value); setSelectedMatch(null); setErrors(prev => { const n = { ...prev }; delete n.childName; return n; }); }}
+                placeholder="Type to search the roster..."
+                className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "border-white/10 focus:border-[#a855f7]/40"}`}
+                style={{ fontSize: "16px", minHeight: "52px" }}
+              />
+              {selectedMatch && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <SvgCheckCircle size={20} color="#34d399" />
+                </div>
+              )}
+            </div>
+            {errors.childName && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.childName}</p>}
+
+            {/* Auto-match dropdown */}
+            {matchResults.length > 0 && !selectedMatch && (
+              <div className="mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden">
+                <div className="px-3 py-2 border-b border-white/5">
+                  <span className="text-white/40 text-xs font-mono tracking-wider">ROSTER MATCHES</span>
+                </div>
+                {matchResults.map(a => {
+                  const lv = getLevel(a.xp);
+                  return (
+                    <button key={a.id} onClick={() => { setSelectedMatch(a); setChildName(a.name); }}
+                      className="w-full px-4 py-3.5 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
+                      style={{ minHeight: "48px" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center"
+                          style={{ backgroundColor: `${lv.color}15`, border: `1px solid ${lv.color}30` }}>
+                          <LevelIcon name={lv.name} size={14} color={lv.color} />
+                        </div>
+                        <span className="text-white font-semibold">{a.name}</span>
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ color: lv.color, backgroundColor: `${lv.color}12` }}>
+                        {a.group}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Selected match badge */}
+            {selectedMatch && (
+              <div className="mt-2 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ backgroundColor: `${getLevel(selectedMatch.xp).color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp).color}40` }}>
+                  <LevelIcon name={getLevel(selectedMatch.xp).name} size={16} color={getLevel(selectedMatch.xp).color} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-white font-semibold text-sm">{selectedMatch.name}</div>
+                  <div className="text-emerald-400/70 text-xs">{selectedMatch.group} -- {getLevel(selectedMatch.xp).name}</div>
+                </div>
+                <button onClick={() => { setSelectedMatch(null); setChildName(""); }}
+                  className="text-white/40 hover:text-white/60 transition-colors p-1"
+                  style={{ minWidth: "32px", minHeight: "32px" }}
+                  aria-label="Clear selection">
+                  <SvgXCircle size={18} color="#94a3b8" />
+                </button>
+              </div>
+            )}
+
+            {/* Hint when no match */}
+            {childName.length >= 2 && matchResults.length === 0 && !selectedMatch && (
+              <p className="text-white/40 text-xs mt-2 ml-1">
+                No roster match found -- no worries! Just type their full name and the coach can link them later.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Submit button */}
+        <button onClick={handleContinue}
+          className="w-full py-4 rounded-xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          style={{
+            minHeight: "56px",
+            background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,179,8,0.15))",
+            border: "1px solid rgba(245,158,11,0.35)",
+            color: "#f59e0b",
+            boxShadow: "0 0 20px rgba(245,158,11,0.1)",
+          }}>
+          <SvgRocket size={18} color="#f59e0b" />
+          Continue
+        </button>
+
+        {/* Privacy notice */}
+        <div className="text-center mt-6 space-y-2">
+          <div className="flex items-center justify-center gap-1.5">
+            <SvgShieldLock size={14} color="#00f0ff" />
+            <span className="text-white/30 text-[10px] tracking-wider">STORED LOCALLY ON THIS DEVICE ONLY</span>
+          </div>
+          <Link href="/apex-athlete/portal" className="text-white/40 text-sm hover:text-white/50 transition-colors block py-2">
+            Back to Portal Selector
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ParentPortal() {
   const [mounted, setMounted] = useState(false);
   const [pinInput, setPinInput] = useState("");
@@ -559,6 +978,9 @@ export default function ParentPortal() {
   const [showWelcome, setShowWelcome] = useState(false);
   const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
   const [addingAnother, setAddingAnother] = useState(false);
+
+  // ── Enrollment state ──
+  const [enrollment, setEnrollment] = useState<ParentEnrollment | null>(null);
 
   // ── New communication feature states ──
   const [meets, setMeets] = useState<MeetEntry[]>([]);
@@ -580,6 +1002,13 @@ export default function ParentPortal() {
   const [isCoach, setIsCoach] = useState(false);
   useEffect(() => {
     setMounted(true);
+    // Load enrollment data from localStorage
+    try {
+      const enrollmentData = localStorage.getItem("apex-parent-enrollment");
+      if (enrollmentData) {
+        setEnrollment(JSON.parse(enrollmentData));
+      }
+    } catch { /* ignore */ }
     try {
       if (sessionStorage.getItem("apex-coach-auth")) {
         setUnlocked(true);
@@ -825,6 +1254,28 @@ export default function ParentPortal() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  // ── Enrollment screen (first-time parent visitors) ───────
+  if (!enrollment && !isCoach) {
+    return (
+      <EnrollmentForm
+        roster={roster}
+        onComplete={(enrollData, matchedAthlete) => {
+          setEnrollment(enrollData);
+          setParentNameInput(enrollData.parentName);
+          if (matchedAthlete) {
+            // Auto-link the matched child and go straight to dashboard
+            const updated = [...new Set([...linkedChildren, matchedAthlete.id])];
+            setLinkedChildren(updated);
+            localStorage.setItem("apex-parent-links", JSON.stringify(updated));
+            setAthlete(matchedAthlete);
+            setShowWelcome(true);
+            setTimeout(() => setShowWelcome(false), 2200);
+          }
+        }}
+      />
     );
   }
 
