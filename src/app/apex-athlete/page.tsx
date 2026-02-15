@@ -4522,24 +4522,23 @@ export default function ApexAthletePage() {
                 )}
               </div>
             </div>
-              {/* Bulk undo bar — appears after bulk check-in, auto-dismisses in 10s */}
-              {bulkUndoVisible && (
-                <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl">
-                  <span className="text-[#f59e0b]/80 text-xs font-mono">Bulk check-in applied</span>
-                  <button onClick={bulkUndoAll} className="px-4 py-1.5 bg-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold font-mono rounded-lg hover:bg-[#f59e0b]/30 transition-all active:scale-[0.97]">Undo All</button>
+            {/* Bulk undo bar — appears after bulk check-in, auto-dismisses in 10s */}
+            {bulkUndoVisible && (
+              <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl">
+                <span className="text-[#f59e0b]/80 text-xs font-mono">Bulk check-in applied</span>
+                <button onClick={bulkUndoAll} className="px-4 py-1.5 bg-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold font-mono rounded-lg hover:bg-[#f59e0b]/30 transition-all active:scale-[0.97]">Undo All</button>
+              </div>
+            )}
+            {/* Confirm dialog for destructive actions */}
+            {confirmAction && (
+              <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <span className="text-red-400/80 text-xs font-mono">{confirmAction.label}</span>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                  <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
                 </div>
-              )}
-              {/* Confirm dialog for destructive actions */}
-              {confirmAction && (
-                <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
-                  <span className="text-red-400/80 text-xs font-mono">{confirmAction.label}</span>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
-                    <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* Active session info bar */}
             <div className="flex items-center gap-3 mb-4 text-xs font-mono tracking-wider text-white/25">

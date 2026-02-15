@@ -2831,7 +2831,7 @@ export default function ApexAthletePage() {
                 const groupRoster = roster.filter(a => a.group === selectedGroup);
                 const presentCount = groupRoster.filter(a => a.present).length;
                 const presentRate = groupRoster.length ? Math.round((presentCount / groupRoster.length) * 100) : 0;
-                const shoutoutCount = groupRoster.filter(a => a.shoutouts > 0).length;
+                const shoutoutCount = groupRoster.filter(a => auditLog.some(e => e.athleteId === a.id && e.action.includes("Shoutout"))).length;
                 const shoutoutRate = groupRoster.length ? Math.round((shoutoutCount / groupRoster.length) * 100) : 0;
                 return (
                   <>
