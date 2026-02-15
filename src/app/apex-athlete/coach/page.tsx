@@ -123,6 +123,7 @@ interface Athlete {
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: DailyXP;
+  present?: boolean;
   birthday?: string;
   usaSwimmingId?: string;
   parentName?: string;
@@ -787,6 +788,15 @@ export default function ApexAthletePage() {
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
   const floatCounter = useRef(0);
 
+  // ── bulk undo state ────────────────────────────────────
+  const [bulkUndoVisible, setBulkUndoVisible] = useState(false);
+  const [bulkUndoSnapshot, setBulkUndoSnapshot] = useState<Athlete[] | null>(null);
+  const bulkUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ── more menu & confirm dialog ─────────────────────────
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => void } | null>(null);
+
   // ── schedule state ──────────────────────────────────────
   const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
   const [scheduleGroup, setScheduleGroup] = useState<GroupId>("platinum");
@@ -1118,23 +1128,50 @@ export default function ApexAthletePage() {
     return combos;
   }, []);
 
+  // ── attendance toggle (per-athlete, no expansion needed) ─
+  const togglePresent = useCallback((athleteId: string) => {
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === athleteId);
+      if (idx < 0) return prev;
+      const a = { ...prev[idx], present: !prev[idx].present };
+      addAudit(a.id, a.name, a.present ? "Marked present" : "Marked absent", 0);
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+    });
+  }, [addAudit]);
+
   // ── coach tools ──────────────────────────────────────────
   const bulkMarkPresent = useCallback(() => {
+    // Save snapshot for timed undo
+    setBulkUndoSnapshot(roster.map(a => ({ ...a })));
+    if (bulkUndoTimer.current) clearTimeout(bulkUndoTimer.current);
+    setBulkUndoVisible(true);
+    bulkUndoTimer.current = setTimeout(() => { setBulkUndoVisible(false); setBulkUndoSnapshot(null); }, 10000);
+
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
     const sportCPs = getCPsForSport(gDef.sport);
     const firstCP = sportCPs[0];
     setRoster(prev => {
       const r = prev.map(a => {
-        if (a.group !== selectedGroup) return a; // only affect current group
+        if (a.group !== selectedGroup) return a;
         const cp = { ...a.checkpoints, [firstCP.id]: true };
-        const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp }, firstCP.xp, "pool");
+        const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp, present: true }, firstCP.xp, "pool");
         addAudit(newAthlete.id, newAthlete.name, `Bulk: ${firstCP.name}`, awarded);
         const streakAlreadyCounted = a.lastStreakDate === today();
-        return { ...newAthlete, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
+        return { ...newAthlete, present: true, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
       });
       save(K.ROSTER, r); return r;
     });
-  }, [awardXP, addAudit, selectedGroup]);
+  }, [awardXP, addAudit, selectedGroup, roster]);
+
+  const bulkUndoAll = useCallback(() => {
+    if (!bulkUndoSnapshot) return;
+    setRoster(bulkUndoSnapshot);
+    save(K.ROSTER, bulkUndoSnapshot);
+    addAudit("system", "System", "Bulk check-in undone", 0);
+    setBulkUndoVisible(false);
+    setBulkUndoSnapshot(null);
+    if (bulkUndoTimer.current) clearTimeout(bulkUndoTimer.current);
+  }, [bulkUndoSnapshot, addAudit]);
 
   const undoLast = useCallback(() => {
     setAuditLog(prev => {
@@ -1159,15 +1196,15 @@ export default function ApexAthletePage() {
   }, []);
 
   const resetDay = useCallback(() => {
-    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
   const resetWeek = useCallback(() => {
-    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, weekSessions: 0, weekWeightSessions: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, weekSessions: 0, weekWeightSessions: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
   const resetMonth = useCallback(() => {
-    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
   // ── group switching ─────────────────────────────────────
@@ -1511,7 +1548,7 @@ export default function ApexAthletePage() {
 
   // ── shared game HUD header (used by ALL views) ─────────
   const GameHUDHeader = () => {
-    const presentCount = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
+    const presentCount = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
     const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
     const mainTabs = [
       { id: "coach" as const, label: "Coach" },
@@ -2779,7 +2816,7 @@ export default function ApexAthletePage() {
      COACH MAIN VIEW — LEADERBOARD-FIRST LAYOUT
      ════════════════════════════════════════════════════════════ */
 
-  const present = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
+  const present = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
   const totalXpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
 
   return (
@@ -2975,20 +3012,52 @@ export default function ApexAthletePage() {
               </div>
             </div>
 
-            {/* Quick actions — single row */}
-            <div className="flex items-center gap-2 mb-5 overflow-x-auto">
-              <button onClick={bulkMarkPresent} className="shrink-0 game-btn px-4 py-2 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">
-                ✅ Bulk
+            {/* Quick actions — clean toolbar */}
+            <div className="flex items-center gap-2 mb-3">
+              <button onClick={bulkMarkPresent} className="shrink-0 game-btn px-4 py-2.5 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">
+                Bulk Check-In
               </button>
-              <button onClick={undoLast} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/60 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">↩ Undo</button>
-              <button onClick={resetDay} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.04] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">🔄 Day</button>
-              <button onClick={resetWeek} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.04] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">🔄 Week</button>
-              <button onClick={resetMonth} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.04] hover:text-[#f59e0b]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">🏆 Month</button>
-              <button onClick={exportCSV} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.04] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">📊 CSV</button>
-              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="shrink-0 game-btn px-3 py-2 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.04] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[36px]">
-                {addAthleteOpen ? "✕ Cancel" : "+ Athlete"}
+              <button onClick={exportCSV} className="shrink-0 game-btn px-3 py-2.5 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">Export</button>
+              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="shrink-0 game-btn px-3 py-2.5 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">
+                {addAthleteOpen ? "Cancel" : "+ Athlete"}
               </button>
+              <div className="relative ml-auto">
+                <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="shrink-0 game-btn px-3 py-2.5 bg-[#06020f]/60 text-white/40 text-xs font-mono border border-white/[0.06] hover:text-white/60 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">
+                  More
+                </button>
+                {showMoreMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-[#0a0315]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] py-1 min-w-[160px]">
+                      <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
+                      <div className="border-t border-white/[0.06] my-1" />
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset this week's sessions and check-ins?", action: resetWeek }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Week</button>
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset all monthly data, streaks, and quests?", action: resetMonth }); }} className="w-full text-left px-4 py-3 text-red-400/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Month</button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
+
+            {/* Bulk undo bar — appears after bulk check-in, auto-dismisses in 10s */}
+            {bulkUndoVisible && (
+              <div className="flex items-center justify-between gap-3 mb-3 px-4 py-3 bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl animate-in slide-in-from-top-2">
+                <span className="text-[#f59e0b]/80 text-xs font-mono">Bulk check-in applied</span>
+                <button onClick={bulkUndoAll} className="px-4 py-1.5 bg-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold font-mono rounded-lg hover:bg-[#f59e0b]/30 transition-all active:scale-[0.97]">Undo All</button>
+              </div>
+            )}
+
+            {/* Confirm dialog for destructive actions */}
+            {confirmAction && (
+              <div className="flex items-center justify-between gap-3 mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                <span className="text-red-400/80 text-xs font-mono">{confirmAction.label}</span>
+                <div className="flex gap-2 shrink-0">
+                  <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                  <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
+                </div>
+              </div>
+            )}
 
             {/* Add athlete — expandable */}
             {addAthleteOpen && (
@@ -3026,11 +3095,27 @@ export default function ApexAthletePage() {
                       isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
-                        className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
+                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
                         onClick={() => setExpandedId(isExp ? null : a.id)}
                       >
-                        <div className="w-14 h-14 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
-                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `2.5px solid ${lv.color}${hasCk ? "90" : "35"}`, boxShadow: hasCk ? `0 0 25px ${lv.color}25, 0 0 50px ${lv.color}08` : `0 0 10px ${lv.color}10` }}
+                        {/* Present toggle — tap to mark present/absent without expanding */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); togglePresent(a.id); }}
+                          className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center transition-all duration-200 active:scale-90 ${
+                            a.present
+                              ? "bg-emerald-500/20 border-2 border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
+                              : "bg-white/[0.03] border-2 border-white/10 hover:border-white/20"
+                          }`}
+                          aria-label={a.present ? "Mark absent" : "Mark present"}
+                        >
+                          {a.present ? (
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          ) : (
+                            <div className="w-2 h-2 rounded-full bg-white/15" />
+                          )}
+                        </button>
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
+                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `2px solid ${lv.color}${hasCk ? "90" : "35"}`, boxShadow: hasCk ? `0 0 20px ${lv.color}20` : `0 0 8px ${lv.color}08` }}
                         >
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
@@ -3039,15 +3124,14 @@ export default function ApexAthletePage() {
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
                             {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70">🔥 {a.streak}d · {sk.mult}</span>}
-                            {hasCk && <span className="text-emerald-400/60 text-xs font-bold">✓ checked in</span>}
                           </div>
                         </div>
-                        <div className="w-32 shrink-0 text-right">
-                          <div className="text-white font-black text-base tabular-nums whitespace-nowrap drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/50 text-xs ml-1">XP</span></div>
-                          <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mt-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]">
+                        <div className="w-28 shrink-0 text-right">
+                          <div className="text-white font-black text-sm tabular-nums whitespace-nowrap">{a.xp}<span className="text-white/50 text-xs ml-1">XP</span></div>
+                          <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
-                          {dailyUsed > 0 && <div className="text-xs text-[#f59e0b]/60 font-bold mt-1.5">+{dailyUsed} today</div>}
+                          {dailyUsed > 0 && <div className="text-xs text-[#f59e0b]/60 font-bold mt-1">+{dailyUsed}</div>}
                         </div>
                       </div>
                       <div className={`athlete-card-wrapper ${isExp ? "open" : ""}`}>
