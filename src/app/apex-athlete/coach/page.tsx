@@ -838,7 +838,7 @@ export default function ApexAthletePage() {
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
-    if (!pin) { setCoachPin("2451"); save(K.PIN, "2451"); } else { setCoachPin(pin); }
+    if (!pin || pin === "1234") { setCoachPin("2451"); save(K.PIN, "2451"); } else { setCoachPin(pin); }
     // Load selected group
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
@@ -1118,6 +1118,18 @@ export default function ApexAthletePage() {
       const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
     });
   }, [awardXP, addAudit, spawnXpFloat]);
+
+  // ── quest deny (reset to pending) ─────────────────────────
+  const denyQuest = useCallback((athleteId: string, qId: string) => {
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === athleteId);
+      if (idx < 0) return prev;
+      const a = { ...prev[idx], quests: { ...prev[idx].quests } };
+      a.quests[qId] = "pending";
+      addAudit(a.id, a.name, `Quest denied: ${qId}`, 0);
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
+    });
+  }, [addAudit]);
 
   // ── combo detection ──────────────────────────────────────
   const checkCombos = useCallback((athlete: Athlete) => {
@@ -1690,12 +1702,12 @@ export default function ApexAthletePage() {
           </div>
 
           {/* Portal nav tabs — large, easy-to-tap */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {mainTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] ${
+                  className={`relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.2)]"
                       : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 hover:border-[#00f0ff]/20 active:scale-[0.97]"
@@ -1705,12 +1717,12 @@ export default function ApexAthletePage() {
               );
             })}
           </div>
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex gap-2 mb-4">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`flex-1 min-w-[60px] py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[40px] ${
+                  className={`flex-1 py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[44px] ${
                     active
                       ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
                       : "bg-[#06020f]/40 text-white/50 border border-white/[0.04] hover:text-white/60 hover:border-white/10 active:scale-[0.97]"
@@ -1903,40 +1915,30 @@ export default function ApexAthletePage() {
           </Card>
         </div>
 
-        {/* Daily check-in */}
-        <div>
-          <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">
-            {sessionMode === "pool" ? (currentSport === "diving" ? "Board Check-In" : currentSport === "waterpolo" ? "Pool Check-In" : "Pool Check-In") : sessionMode === "weight" ? (currentSport === "diving" ? "Dryland" : currentSport === "waterpolo" ? "Gym" : "Weight Room") : (currentSport === "waterpolo" ? "Match Day" : "Meet Day")}
-          </h4>
-          <Card className="divide-y divide-white/[0.04]">
-            {cps.map(cp => {
-              const checked = cpMap[cp.id];
-              return (
-                <button key={cp.id}
-                  onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, sessionMode, e)}
-                  disabled={dailyUsed >= DAILY_XP_CAP && !checked}
-                  className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors duration-200 min-h-[56px] ${
-                    checked ? "bg-[#6b21a8]/15 shadow-[inset_0_0_20px_rgba(107,33,168,0.06)]" : dailyUsed >= DAILY_XP_CAP ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.03] cursor-pointer active:bg-white/[0.05]"
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${
-                    checked ? "border-[#7c3aed] bg-gradient-to-br from-[#7c3aed] to-[#6b21a8] scale-100" : "border-white/15 scale-100"
-                  }`}>
-                    {checked && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-sm font-medium">{cp.name}</div>
-                    <div className="text-white/60 text-[11px]">{cp.desc}</div>
-                  </div>
-                  <span className={`text-xs font-bold shrink-0 ${checked ? "text-[#f59e0b]" : "text-white/60"}`}>+{cp.xp} xp</span>
-                </button>
-              );
-            })}
+        {/* Check-in status + Shoutout */}
+        <div className="space-y-3">
+          <Card className="px-5 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${athlete.present ? "bg-emerald-500/20 border-2 border-emerald-400/50" : "bg-white/5 border-2 border-white/10"}`}>
+                  {athlete.present ? (
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                  ) : (
+                    <span className="text-white/30 text-xs font-black">—</span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-white text-sm font-medium">{athlete.present ? "Checked in — all credit awarded" : "Not checked in"}</div>
+                  <div className="text-white/40 text-[11px] mt-0.5">{athlete.present ? "Tap the row toggle to undo" : "Tap present on the roster to check in"}</div>
+                </div>
+              </div>
+              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp</span>
+            </div>
           </Card>
           {/* Shoutout — coach recognition for standout moments */}
           <button
             onClick={(e) => giveShoutout(athlete.id, e)}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-[#f59e0b]/10 to-[#fbbf24]/10 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 hover:from-[#f59e0b]/15 hover:to-[#fbbf24]/15 transition-all active:scale-[0.98] min-h-[56px]"
+            className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-[#f59e0b]/10 to-[#fbbf24]/10 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 hover:from-[#f59e0b]/15 hover:to-[#fbbf24]/15 transition-all active:scale-[0.98] min-h-[56px]"
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1"/></svg>
             <span className="text-[#f59e0b] font-bold text-sm">Shoutout</span>
@@ -1974,34 +1976,83 @@ export default function ApexAthletePage() {
           </div>
         )}
 
-        {/* Side quests */}
+        {/* Side quests — Coach assigns, athlete completes, coach approves */}
         <div>
-          <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Side Quests</h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Side Quests</h4>
+            <span className="text-white/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
+          </div>
           <Card className="divide-y divide-white/[0.04]">
             {QUEST_DEFS.map(q => {
               const st = athlete.quests[q.id] || "pending";
               return (
-                <button key={q.id} onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
-                  className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[56px] ${
-                    st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "hover:bg-white/[0.02]"
+                <div key={q.id}
+                  className={`w-full px-5 py-4 transition-colors ${
+                    st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
                   }`}
                 >
-                  <span className={`text-xs font-bold px-2 py-1 rounded-md shrink-0 uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/40"}`}>
-                    {q.cat}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-sm font-medium">{q.name}</div>
-                    <div className="text-white/60 text-[11px]">{q.desc}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className={`text-xs font-bold ${
-                      st === "done" ? "text-emerald-400" : st === "active" ? "text-[#a855f7]" : "text-white/50"
+                  <div className="flex items-start gap-3">
+                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                      st === "done" ? "border-emerald-400 bg-emerald-400/20" : st === "active" ? "border-[#a855f7] bg-[#a855f7]/20" : "border-white/15"
                     }`}>
-                      {st === "done" ? "DONE" : st === "active" ? "ACTIVE" : "START"}
-                    </span>
-                    <div className="text-white/60 text-xs">+{q.xp} xp</div>
+                      {st === "done" ? (
+                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      ) : st === "active" ? (
+                        <svg className="w-3.5 h-3.5 text-[#a855f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9" strokeWidth="2"/></svg>
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white text-sm font-medium">{q.name}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/40"}`}>
+                          {q.cat}
+                        </span>
+                      </div>
+                      <div className="text-white/40 text-xs mt-1">{q.desc}</div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-xs font-mono tracking-wider ${
+                          st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/25"
+                        }`}>
+                          {st === "done" ? "Completed" : st === "active" ? "Awaiting approval" : "Not assigned"}
+                        </span>
+                        <span className={`text-xs font-bold font-mono ${st === "done" ? "text-emerald-400/60" : "text-white/20"}`}>+{q.xp} xp</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center">
+                      {st === "pending" && (
+                        <button
+                          onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
+                          className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/25 hover:bg-[#a855f7]/25 transition-all active:scale-[0.97]"
+                        >
+                          Assign
+                        </button>
+                      )}
+                      {st === "active" && (
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
+                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all active:scale-[0.97]"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => denyQuest(athlete.id, q.id)}
+                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-red-500/10 text-red-400/70 border border-red-500/15 hover:bg-red-500/20 transition-all active:scale-[0.97]"
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      )}
+                      {st === "done" && (
+                        <span className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/15">
+                          Done
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </button>
+                </div>
               );
             })}
           </Card>
@@ -2771,25 +2822,39 @@ export default function ApexAthletePage() {
             )}
           </Card>
 
-          {/* ── CHECKPOINT EFFICIENCY ── */}
+          {/* ── ATTENDANCE & RECOGNITION ── */}
           <Card className="p-6 mb-6">
-            <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Checkpoint Efficiency</h3>
-            <p className="text-white/50 text-xs mb-4 font-mono">Which habits are sticking? Sorted by completion rate across the team.</p>
-            <div className="space-y-2">
-              {checkpointEfficiency.slice(0, 8).map(cp => (
-                <div key={cp.id} className="flex items-center gap-3">
-                  <span className="text-white/40 text-xs w-40 truncate">{cp.name}</span>
-                  <div className="flex-1 h-2 rounded-full bg-white/[0.04] overflow-hidden">
-                    <div className="h-full rounded-full bg-[#6b21a8] transition-all" style={{ width: `${cp.rate}%` }} />
-                  </div>
-                  <span className="text-white/60 text-xs font-mono w-10 text-right">{cp.rate}%</span>
-                  <span className="text-white/50 text-xs font-mono w-8 text-right">{cp.count}</span>
-                </div>
-              ))}
+            <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Attendance & Recognition</h3>
+            <p className="text-white/50 text-xs mb-4 font-mono">Attendance rate and shoutout distribution across the team.</p>
+            <div className="space-y-3">
+              {(() => {
+                const groupRoster = roster.filter(a => a.group === selectedGroup);
+                const presentCount = groupRoster.filter(a => a.present).length;
+                const presentRate = groupRoster.length ? Math.round((presentCount / groupRoster.length) * 100) : 0;
+                const shoutoutCount = groupRoster.filter(a => a.shoutouts > 0).length;
+                const shoutoutRate = groupRoster.length ? Math.round((shoutoutCount / groupRoster.length) * 100) : 0;
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <span className="text-white/40 text-xs w-32">Attendance</span>
+                      <div className="flex-1 h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${presentRate}%` }} />
+                      </div>
+                      <span className="text-emerald-400 text-xs font-mono font-bold w-12 text-right">{presentRate}%</span>
+                      <span className="text-white/50 text-xs font-mono w-12 text-right">{presentCount}/{groupRoster.length}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-white/40 text-xs w-32">Shoutouts</span>
+                      <div className="flex-1 h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#f59e0b] transition-all" style={{ width: `${shoutoutRate}%` }} />
+                      </div>
+                      <span className="text-[#f59e0b] text-xs font-mono font-bold w-12 text-right">{shoutoutRate}%</span>
+                      <span className="text-white/50 text-xs font-mono w-12 text-right">{shoutoutCount}/{groupRoster.length}</span>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
-            {checkpointEfficiency.length > 0 && checkpointEfficiency[checkpointEfficiency.length - 1].rate < 20 && (
-              <p className="text-orange-400/40 text-xs mt-4 font-mono">Low adoption: <span className="text-orange-400">{checkpointEfficiency[checkpointEfficiency.length - 1].name}</span> — consider coaching emphasis</p>
-            )}
           </Card>
 
           {/* ── ENGAGEMENT CALENDAR ── */}
@@ -3084,47 +3149,50 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="w-full px-5 sm:px-8 py-4">
           <div className="w-full">
-            {/* Session mode — clean grid */}
-            <div className="mb-5">
-              <div className="grid grid-cols-4 gap-2">
+            {/* Session mode — full-width tabs + AM/PM toggle */}
+            <div className="mb-5 space-y-3">
+              <div className="grid grid-cols-3 gap-2">
                 {(["pool", "weight", "meet"] as const).map(m => {
-                  const sportIcons = { swimming: { pool: "🏊", weight: "🏋️", meet: "🏁" }, diving: { pool: "🤿", weight: "🏋️", meet: "🏁" }, waterpolo: { pool: "🤽", weight: "🏋️", meet: "🏁" } };
-                  const sportLabels = { swimming: { pool: "Pool", weight: "Weights", meet: "Meet" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match" } };
-                  const icons = sportIcons[currentSport as keyof typeof sportIcons] || sportIcons.swimming;
+                  const sportLabels = { swimming: { pool: "Pool", weight: "Weight Room", meet: "Meet Day" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet Day" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match Day" } };
                   const labels = sportLabels[currentSport as keyof typeof sportLabels] || sportLabels.swimming;
+                  const ModeIcon = () => {
+                    if (m === "pool") return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>;
+                    if (m === "weight") return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
+                    return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
+                  };
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
-                      className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[44px] ${
+                      className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 ${
                         sessionMode === m
-                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
+                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
                           : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
                       }`}>
-                      <span className="mr-1">{icons[m]}</span>{labels[m]}
+                      <ModeIcon /><span className="text-[11px]">{labels[m]}</span>
                     </button>
                   );
                 })}
-                <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
-                  className={`py-3 text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
-                    sessionTime === "am"
-                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                      : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
-                  }`}>
-                  {sessionTime === "am" ? "☀ AM" : "☽ PM"}
-                </button>
               </div>
+              <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+                className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
+                  sessionTime === "am"
+                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                    : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
+                }`}>
+                {sessionTime === "am" ? "☀ AM" : "☽ PM"}
+              </button>
             </div>
 
-            {/* Quick actions — clean toolbar */}
-            <div className="flex items-center gap-2 mb-3">
-              <button onClick={bulkMarkPresent} className="shrink-0 game-btn px-4 py-2.5 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">
-                Bulk Check-In
+            {/* Quick actions — full-width toolbar */}
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+                Bulk
               </button>
-              <button onClick={exportCSV} className="shrink-0 game-btn px-3 py-2.5 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">Export</button>
-              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="shrink-0 game-btn px-3 py-2.5 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">
-                {addAthleteOpen ? "Cancel" : "+ Athlete"}
+              <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
+              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+                {addAthleteOpen ? "Cancel" : "+ Add"}
               </button>
-              <div className="relative ml-auto">
-                <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="shrink-0 game-btn px-3 py-2.5 bg-[#06020f]/60 text-white/40 text-xs font-mono border border-white/[0.06] hover:text-white/60 transition-all active:scale-[0.97] rounded-lg min-h-[40px]">
+              <div className="relative">
+                <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="w-full game-btn py-3 bg-[#06020f]/60 text-white/40 text-xs font-mono border border-white/[0.06] hover:text-white/60 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                   More
                 </button>
                 {showMoreMenu && (

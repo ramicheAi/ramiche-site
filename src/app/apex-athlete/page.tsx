@@ -71,6 +71,8 @@ function fmtWStreak(s: number) {
 }
 
 const DAILY_XP_CAP = 150;
+const PRESENT_XP = 5; // Base XP for showing up
+const SHOUTOUT_XP = 25; // MVP/Shoutout bonus XP
 const today = () => new Date().toISOString().slice(0, 10);
 
 // ── checkpoint & quest definitions ───────────────────────────
@@ -148,6 +150,7 @@ interface Athlete {
   parentEmail?: string;
   parentPhone?: string;
   sport?: "swimming" | "diving" | "waterpolo";
+  present?: boolean;
 }
 
 // ── meet entry types ────────────────────────────────────────
@@ -723,6 +726,7 @@ function makeAthlete(r: RosterEntry & { group?: string }): Athlete {
     parentEmail: r.parentEmail ?? "",
     parentPhone: r.parentPhone ?? "",
     sport: "swimming",
+    present: false,
   };
 }
 
@@ -859,6 +863,13 @@ export default function ApexAthletePage() {
   const [activeCoach, setActiveCoach] = useState<string>("Coach");
   const [activeCoachGroups, setActiveCoachGroups] = useState<string[]>(["all"]);
 
+  // ── Bulk undo + More menu state ─────────────────────────────
+  const [bulkUndoVisible, setBulkUndoVisible] = useState(false);
+  const [bulkUndoSnapshot, setBulkUndoSnapshot] = useState<Athlete[] | null>(null);
+  const bulkUndoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => void } | null>(null);
+
   // ── Race Strategy state ───────────────────────────────────
   const [stratAthleteId, setStratAthleteId] = useState<string>("");
   const [stratEvent, setStratEvent] = useState("100");
@@ -982,7 +993,8 @@ export default function ApexAthletePage() {
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
-    if (!pin) { setCoachPin("2451"); save(K.PIN, "2451"); } else { setCoachPin(pin); }
+    // Force-migrate old default PIN or empty → current default
+    if (!pin || pin === "1234") { setCoachPin("2451"); save(K.PIN, "2451"); } else { setCoachPin(pin); }
     // Load selected group
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
@@ -1334,35 +1346,133 @@ export default function ApexAthletePage() {
   }, []);
 
   // ── coach tools ──────────────────────────────────────────
-  const bulkMarkPresent = useCallback(() => {
+
+  const togglePresent = useCallback((athleteId: string) => {
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
-    const sportCPs = getCPsForSport(gDef.sport);
-    const firstCP = sportCPs[0];
+    const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === athleteId);
+      if (idx < 0) return prev;
+      const wasPresent = prev[idx].present;
+      let a = { ...prev[idx] };
+      if (!wasPresent) {
+        a.present = true;
+        const newCPs: Record<string, boolean> = { ...(a as any)[cpMapKey] };
+        let totalAwarded = 0;
+        const { newAthlete: a1, awarded: baseAwarded } = awardXP(a, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
+        a = { ...a1 };
+        totalAwarded += baseAwarded;
+        for (const cp of sportCPs) {
+          if (!newCPs[cp.id]) {
+            newCPs[cp.id] = true;
+            const { newAthlete: aN, awarded } = awardXP(a, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
+            a = { ...aN };
+            totalAwarded += awarded;
+          }
+        }
+        a = { ...a, [cpMapKey]: newCPs };
+        const streakAlreadyCounted = prev[idx].lastStreakDate === today();
+        if (!streakAlreadyCounted) {
+          a = { ...a, streak: a.streak + 1, lastStreakDate: today(), totalPractices: a.totalPractices + 1, weekSessions: a.weekSessions + 1 };
+        }
+        addAudit(a.id, a.name, `Present (all checkpoints)`, totalAwarded);
+      } else {
+        a.present = false;
+        const oldCPs: Record<string, boolean> = { ...(a as any)[cpMapKey] };
+        const mult = sessionMode === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
+        let totalReverted = 0;
+        for (const cp of sportCPs) {
+          if (oldCPs[cp.id]) {
+            oldCPs[cp.id] = false;
+            const reverted = Math.round(cp.xp * mult);
+            a.xp = Math.max(0, a.xp - reverted);
+            totalReverted += reverted;
+          }
+        }
+        const baseReverted = Math.round(PRESENT_XP * mult);
+        a.xp = Math.max(0, a.xp - baseReverted);
+        if (a.dailyXP.date === today()) {
+          const sport = sessionMode === "meet" ? "meet" : sessionMode;
+          a.dailyXP = { ...a.dailyXP, [sport]: Math.max(0, (a.dailyXP as any)[sport] - (baseReverted + totalReverted)) };
+        }
+        a = { ...a, [cpMapKey]: oldCPs };
+        addAudit(a.id, a.name, `Absent (undone)`, -(baseReverted + totalReverted));
+      }
+      const r = [...prev]; r[idx] = a; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
+    });
+  }, [awardXP, addAudit, selectedGroup, sessionMode]);
+
+  const giveShoutout = useCallback((athleteId: string, e?: React.MouseEvent) => {
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === athleteId);
+      if (idx < 0) return prev;
+      const a = { ...prev[idx] };
+      const { newAthlete, awarded } = awardXP(a, SHOUTOUT_XP, "pool");
+      addAudit(newAthlete.id, newAthlete.name, "Shoutout", awarded);
+      if (e) spawnXpFloat(awarded, e);
+      const r = [...prev]; r[idx] = newAthlete; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
+    });
+  }, [awardXP, addAudit, spawnXpFloat, selectedGroup]);
+
+  const bulkMarkPresent = useCallback(() => {
+    setBulkUndoSnapshot(roster.map(a => ({ ...a })));
+    if (bulkUndoTimer.current) clearTimeout(bulkUndoTimer.current);
+    setBulkUndoVisible(true);
+    bulkUndoTimer.current = setTimeout(() => { setBulkUndoVisible(false); setBulkUndoSnapshot(null); }, 10000);
+    const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
+    const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const r = prev.map(a => {
-        if (a.group !== selectedGroup) return a; // only affect current group
-        const cp = { ...a.checkpoints, [firstCP.id]: true };
-        const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp }, firstCP.xp, "pool");
-        addAudit(newAthlete.id, newAthlete.name, `Bulk: ${firstCP.name}`, awarded);
+        if (a.group !== selectedGroup) return a;
+        let athlete = { ...a };
+        athlete.present = true;
+        const newCPs: Record<string, boolean> = { ...(athlete as any)[cpMapKey] };
+        let totalAwarded = 0;
+        const { newAthlete: a1, awarded: baseAwarded } = awardXP(athlete, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
+        athlete = { ...a1 };
+        totalAwarded += baseAwarded;
+        for (const cp of sportCPs) {
+          if (!newCPs[cp.id]) {
+            newCPs[cp.id] = true;
+            const { newAthlete: aN, awarded } = awardXP(athlete, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
+            athlete = { ...aN };
+            totalAwarded += awarded;
+          }
+        }
+        athlete = { ...athlete, [cpMapKey]: newCPs };
+        addAudit(athlete.id, athlete.name, `Bulk: all checkpoints`, totalAwarded);
         const streakAlreadyCounted = a.lastStreakDate === today();
-        return { ...newAthlete, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
+        if (!streakAlreadyCounted) {
+          athlete = { ...athlete, streak: athlete.streak + 1, lastStreakDate: today(), totalPractices: athlete.totalPractices + 1, weekSessions: athlete.weekSessions + 1 };
+        }
+        return athlete;
       });
       save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
     });
-  }, [awardXP, addAudit, selectedGroup]);
+  }, [awardXP, addAudit, selectedGroup, roster, sessionMode]);
+
+  const bulkUndoAll = useCallback(() => {
+    if (!bulkUndoSnapshot) return;
+    setRoster(bulkUndoSnapshot);
+    save(K.ROSTER, bulkUndoSnapshot); syncSaveRoster(K.ROSTER, selectedGroup, bulkUndoSnapshot);
+    addAudit("system", "System", "Bulk check-in undone", 0);
+    setBulkUndoVisible(false);
+    setBulkUndoSnapshot(null);
+    if (bulkUndoTimer.current) clearTimeout(bulkUndoTimer.current);
+  }, [bulkUndoSnapshot, addAudit, selectedGroup]);
 
   const undoLast = useCallback(() => {
     setAuditLog(prev => {
       if (!prev.length) return prev;
       const last = prev[0];
-      // Actually revert XP from the athlete
       if (last.xpDelta > 0) {
         setRoster(rPrev => {
           const idx = rPrev.findIndex(a => a.id === last.athleteId);
           if (idx < 0) return rPrev;
           const a = { ...rPrev[idx] };
           a.xp = Math.max(0, a.xp - last.xpDelta);
-          // Revert daily XP tracking
           if (a.dailyXP.date === today()) {
             a.dailyXP = { ...a.dailyXP, pool: Math.max(0, a.dailyXP.pool - last.xpDelta) };
           }
@@ -1374,15 +1484,15 @@ export default function ApexAthletePage() {
   }, [selectedGroup]);
 
   const resetDay = useCallback(() => {
-    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
   const resetWeek = useCallback(() => {
-    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, weekSessions: 0, weekWeightSessions: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, weekSessions: 0, weekWeightSessions: 0, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
   const resetMonth = useCallback(() => {
-    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
+    saveRoster(roster.map(a => a.group !== selectedGroup ? a : ({ ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {}, weightChallenges: {}, quests: {}, weekSessions: 0, weekWeightSessions: 0, streak: 0, weightStreak: 0, lastStreakDate: "", lastWeightStreakDate: "", dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } })));
   }, [roster, saveRoster, selectedGroup]);
 
   // ── group switching ─────────────────────────────────────
@@ -1920,7 +2030,7 @@ export default function ApexAthletePage() {
           </div>
 
           {/* Portal switcher — large, easy-to-tap */}
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="flex gap-2 mb-4">
             {[
               { label: "Coach", href: "/apex-athlete", active: true, color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: false, color: "#a855f7" },
@@ -1928,7 +2038,7 @@ export default function ApexAthletePage() {
             ].map(p => (
               <a key={p.label} href={p.href}
                 onClick={() => { try { localStorage.setItem("apex-coach-group", selectedGroup); } catch {} }}
-                className={`relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center flex items-center justify-center ${
+                className={`flex-1 relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center flex items-center justify-center ${
                   p.active
                     ? "border-2 shadow-[0_0_20px_rgba(0,240,255,0.2)]"
                     : "border hover:border-white/20 active:scale-[0.97]"
@@ -1943,13 +2053,13 @@ export default function ApexAthletePage() {
             ))}
           </div>
 
-          {/* Section nav tabs — horizontal scroll */}
-          <div className="flex gap-2 mb-4 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Section nav tabs — fill width */}
+          <div className="flex gap-2 mb-4">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`py-3 px-5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[44px] whitespace-nowrap shrink-0 ${
+                  className={`flex-1 py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[44px] ${
                     active
                       ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
                       : "bg-[#06020f]/40 text-white/50 border border-white/[0.08] hover:text-white/70 hover:border-white/20 active:scale-[0.97]"
@@ -2061,7 +2171,6 @@ export default function ApexAthletePage() {
 
   // ── expanded athlete detail ─────────────────────────────
   const AthleteExpanded = ({ athlete }: { athlete: Athlete }) => {
-    const [localMode, setLocalMode] = useState<"pool" | "weight" | "meet">(sessionMode);
     const lv = getLevel(athlete.xp);
     const prog = getLevelProgress(athlete.xp);
     const nxt = getNextLevel(athlete.xp);
@@ -2071,8 +2180,6 @@ export default function ApexAthletePage() {
     const growth = getPersonalGrowth(athlete);
     const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
     const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
-    const cps = localMode === "pool" ? currentCPs : localMode === "weight" ? WEIGHT_CPS : MEET_CPS;
-    const cpMap = localMode === "pool" ? athlete.checkpoints : localMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
 
     return (
       <div className="expand-in mt-5 space-y-6" onClick={e => e.stopPropagation()}>
@@ -2154,56 +2261,34 @@ export default function ApexAthletePage() {
           </Card>
         </div>
 
-        {/* Sticky mini session-mode toggle */}
-        <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-[#0a0518]/95 backdrop-blur-sm">
-          <div className="flex gap-1 rounded-xl bg-white/[0.04] p-1 border border-white/[0.06]">
-            {([
-              { mode: "pool" as const, label: "Pool", color: "#60a5fa", activeColor: "bg-[#60a5fa]/20 text-[#60a5fa] border-[#60a5fa]/30" },
-              { mode: "weight" as const, label: "Weight", color: "#f59e0b", activeColor: "bg-[#f59e0b]/20 text-[#f59e0b] border-[#f59e0b]/30" },
-              { mode: "meet" as const, label: "Meet", color: "#34d399", activeColor: "bg-[#34d399]/20 text-[#34d399] border-[#34d399]/30" },
-            ]).map(opt => (
-              <button key={opt.mode}
-                onClick={(e) => { e.stopPropagation(); setLocalMode(opt.mode); }}
-                className={`flex-1 py-2.5 rounded-lg text-sm font-bold tracking-wide border transition-all min-h-[44px] ${
-                  localMode === opt.mode ? opt.activeColor : "text-white/50 border-transparent hover:bg-white/[0.04]"
-                }`}>
-                {opt.label}
-              </button>
-            ))}
+        {/* Check-in status */}
+        <Card className="px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${athlete.present ? "bg-emerald-500/20 border-2 border-emerald-400/50" : "bg-white/5 border-2 border-white/10"}`}>
+                {athlete.present ? (
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                ) : (
+                  <span className="text-white/30 text-xs font-black">—</span>
+                )}
+              </div>
+              <div>
+                <div className="text-white text-sm font-medium">{athlete.present ? "Checked in — all credit awarded" : "Not checked in"}</div>
+                <div className="text-white/40 text-[11px] mt-0.5">{athlete.present ? "Tap the row toggle to undo" : "Tap present on the roster to check in"}</div>
+              </div>
+            </div>
+            <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp</span>
           </div>
-        </div>
+        </Card>
 
-        {/* Daily check-in */}
-        <div>
-          <h4 className="text-white/60 text-sm uppercase tracking-[0.15em] font-bold mb-3">
-            {localMode === "pool" ? (currentSport === "diving" ? "Board Check-In" : currentSport === "waterpolo" ? "Pool Check-In" : "Pool Check-In") : localMode === "weight" ? (currentSport === "diving" ? "Dryland" : currentSport === "waterpolo" ? "Gym" : "Weight Room") : (currentSport === "waterpolo" ? "Match Day" : "Meet Day")}
-          </h4>
-          <Card className="divide-y divide-white/[0.04]">
-            {cps.map(cp => {
-              const checked = cpMap[cp.id];
-              return (
-                <button key={cp.id}
-                  onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, localMode, e)}
-                  disabled={dailyUsed >= DAILY_XP_CAP && !checked}
-                  className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors duration-200 min-h-[56px] ${
-                    checked ? "bg-[#6b21a8]/15 shadow-[inset_0_0_20px_rgba(107,33,168,0.06)]" : dailyUsed >= DAILY_XP_CAP ? "opacity-30 cursor-not-allowed" : "hover:bg-white/[0.03] cursor-pointer active:bg-white/[0.05]"
-                  }`}
-                >
-                  <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 ${
-                    checked ? "border-[#7c3aed] bg-gradient-to-br from-[#7c3aed] to-[#6b21a8] scale-100" : "border-white/15 scale-100"
-                  }`}>
-                    {checked && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-sm font-medium">{cp.name}</div>
-                    <div className="text-white/50 text-sm">{cp.desc}</div>
-                  </div>
-                  <span className={`text-xs font-bold shrink-0 ${checked ? "text-[#f59e0b]" : "text-white/50"}`}>+{cp.xp} xp</span>
-                </button>
-              );
-            })}
-          </Card>
-        </div>
+        {/* Shoutout — coach recognition for standout moments */}
+        <button
+          onClick={(e) => giveShoutout(athlete.id, e)}
+          className="w-full game-btn px-5 py-4 bg-[#f59e0b]/10 text-[#f59e0b] text-sm font-bold font-mono tracking-wider border border-[#f59e0b]/20 hover:bg-[#f59e0b]/20 transition-all active:scale-[0.97] rounded-xl flex items-center justify-center gap-2 min-h-[52px]"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          SHOUTOUT +{SHOUTOUT_XP} XP
+        </button>
 
         {/* Weight challenges */}
         {sessionMode === "weight" && (
@@ -2235,75 +2320,85 @@ export default function ApexAthletePage() {
           </div>
         )}
 
-        {/* Side quests — Coach Approval Workflow */}
+        {/* Side quests — Coach assigns, athlete completes, coach approves */}
         <div>
-          <h4 className="text-white/60 text-sm uppercase tracking-[0.15em] font-bold mb-3">Side Quests</h4>
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-white/60 text-sm uppercase tracking-[0.15em] font-bold">Side Quests</h4>
+            <span className="text-white/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
+          </div>
           <Card className="divide-y divide-white/[0.04]">
             {QUEST_DEFS.map(q => {
               const st = athlete.quests[q.id] || "pending";
               return (
                 <div key={q.id}
-                  className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[56px] ${
+                  className={`w-full px-5 py-4 transition-colors ${
                     st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
                   }`}
                 >
-                  <span className={`text-xs font-bold px-2 py-1 rounded-md shrink-0 uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/60"}`}>
-                    {q.cat}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white text-sm font-medium">{q.name}</div>
-                    <div className="text-white/50 text-sm">{q.desc}</div>
-                    {/* Athlete quest state indicator */}
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className={`inline-block w-1.5 h-1.5 rounded-full ${
-                        st === "done" ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.5)]"
-                          : st === "active" ? "bg-[#a855f7] shadow-[0_0_6px_rgba(168,85,247,0.5)]"
-                          : "bg-white/10"
-                      }`} />
-                      <span className={`text-xs font-mono tracking-wider uppercase ${
-                        st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/50"
-                      }`}>
-                        {st === "done" ? `${athlete.name.split(" ")[0]} completed` : st === "active" ? `${athlete.name.split(" ")[0]} submitted` : "Not assigned"}
-                      </span>
+                  <div className="flex items-start gap-3">
+                    {/* Status indicator */}
+                    <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+                      st === "done" ? "border-emerald-400 bg-emerald-400/20" : st === "active" ? "border-[#a855f7] bg-[#a855f7]/20" : "border-white/15"
+                    }`}>
+                      {st === "done" ? (
+                        <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      ) : st === "active" ? (
+                        <svg className="w-4 h-4 text-[#a855f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9" strokeWidth="2"/></svg>
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-white/20" />
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {st === "pending" && (
-                      <button
-                        onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold uppercase tracking-wider min-h-[44px] bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/25 hover:bg-[#a855f7]/25 hover:border-[#a855f7]/40 transition-all"
-                      >
-                        <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M8 1v14M1 8h14" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                        ASSIGN
-                      </button>
-                    )}
-                    {st === "active" && (
-                      <div className="flex items-center gap-1.5">
+                    {/* Quest info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white text-sm font-medium">{q.name}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/60"}`}>
+                          {q.cat}
+                        </span>
+                      </div>
+                      <div className="text-white/40 text-xs mt-1">{q.desc}</div>
+                      {/* Status line */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className={`text-xs font-mono tracking-wider ${
+                          st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/25"
+                        }`}>
+                          {st === "done" ? "Completed" : st === "active" ? "Awaiting approval" : "Not assigned"}
+                        </span>
+                        <span className={`text-xs font-bold font-mono ${st === "done" ? "text-emerald-400/60" : "text-white/20"}`}>+{q.xp} xp</span>
+                      </div>
+                    </div>
+                    {/* Action buttons */}
+                    <div className="shrink-0 flex items-center">
+                      {st === "pending" && (
                         <button
                           onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-bold uppercase tracking-wider min-h-[44px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 hover:border-emerald-500/40 hover:shadow-[0_0_12px_rgba(52,211,153,0.2)] transition-all"
+                          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[40px] bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/25 hover:bg-[#a855f7]/25 transition-all active:scale-[0.97]"
                         >
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M2 8.5l4 4L14 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          APPROVE
+                          Assign
                         </button>
-                        <button
-                          onClick={() => denyQuest(athlete.id, q.id)}
-                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-bold uppercase tracking-wider min-h-[44px] bg-red-500/15 text-red-400 border border-red-500/25 hover:bg-red-500/25 hover:border-red-500/40 hover:shadow-[0_0_12px_rgba(239,68,68,0.2)] transition-all"
-                        >
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/></svg>
-                          DENY
-                        </button>
-                      </div>
-                    )}
-                    {st === "done" && (
-                      <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold uppercase tracking-wider min-h-[44px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          <svg width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M2 8.5l4 4L14 3" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                          COMPLETED
+                      )}
+                      {st === "active" && (
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
+                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[40px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all active:scale-[0.97]"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => denyQuest(athlete.id, q.id)}
+                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[40px] bg-red-500/10 text-red-400/70 border border-red-500/15 hover:bg-red-500/20 transition-all active:scale-[0.97]"
+                          >
+                            Deny
+                          </button>
+                        </div>
+                      )}
+                      {st === "done" && (
+                        <span className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/15">
+                          Done
                         </span>
-                        <span className="text-emerald-400/80 text-sm font-bold font-mono">+{q.xp} xp</span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -4367,40 +4462,83 @@ export default function ApexAthletePage() {
            ══════════════════════════════════════════════════════ */}
         <div className="w-full px-5 sm:px-8 py-6">
           <div className="w-full">
-            {/* Session mode + tools */}
-            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-              <div className="flex gap-2 flex-wrap items-center">
-                {/* Session type */}
+            {/* Session mode — full-width tabs */}
+            <div className="space-y-2.5 mb-5">
+              <div className="grid grid-cols-3 gap-2">
                 {(["pool", "weight", "meet"] as const).map(m => {
                   const sportLabels = { swimming: { pool: "Pool", weight: "Weight Room", meet: "Meet Day" }, diving: { pool: "Board", weight: "Dryland", meet: "Meet Day" }, waterpolo: { pool: "Pool", weight: "Gym", meet: "Match Day" } };
                   const labels = sportLabels[currentSport as keyof typeof sportLabels] || sportLabels.swimming;
                   const ModeSvg = () => {
-                    if (m === "pool") return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>;
-                    if (m === "weight") return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
-                    return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
+                    if (m === "pool") return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>;
+                    if (m === "weight") return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
+                    return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
                   };
                   return (
                     <button key={m} onClick={() => setSessionMode(m)}
-                      className={`game-btn flex items-center gap-2 px-6 py-3.5 text-sm font-bold transition-all duration-200 min-h-[52px] font-mono tracking-wider uppercase ${
+                      className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 ${
                         sessionMode === m
-                          ? "bg-[#00f0ff]/15 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_40px_rgba(0,240,255,0.3),inset_0_0_20px_rgba(0,240,255,0.05)] scale-[1.02]"
-                          : "bg-[#06020f]/60 text-white/60 hover:text-[#00f0ff]/60 border border-[#00f0ff]/10 hover:border-[#00f0ff]/25 hover:shadow-[0_0_25px_rgba(0,240,255,0.1)] hover:scale-[1.01]"
+                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
+                          : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
                       }`}>
-                      <ModeSvg />{labels[m]}
+                      <ModeSvg /><span className="text-[11px]">{labels[m]}</span>
                     </button>
                   );
                 })}
               </div>
-              <div className="flex gap-2 flex-wrap">
-                <button onClick={bulkMarkPresent} className="game-btn px-4 py-2.5 bg-[#00f0ff]/10 text-[#00f0ff]/80 text-sm font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all active:scale-[0.97] min-h-[44px]">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>BULK
+              <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+                className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
+                  sessionTime === "am"
+                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                    : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
+                }`}>
+                {sessionTime === "am" ? "☀ AM" : "☽ PM"}
+              </button>
+            </div>
+
+            {/* Quick actions — full-width toolbar */}
+            <div className="grid grid-cols-4 gap-2 mb-3">
+              <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+                Bulk Check-In
+              </button>
+              <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
+              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+                {addAthleteOpen ? "Cancel" : "+ Athlete"}
+              </button>
+              <div className="relative">
+                <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="w-full game-btn py-3 bg-[#06020f]/60 text-white/40 text-xs font-mono border border-white/[0.06] hover:text-white/60 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+                  More
                 </button>
-                <button onClick={undoLast} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg> UNDO</button>
-                <button onClick={resetDay} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> DAY</button>
-                <button onClick={resetWeek} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#a855f7]/30 text-sm font-mono border border-[#a855f7]/10 hover:text-[#e879f9]/60 hover:border-[#e879f9]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg> WEEK</button>
-                <button onClick={resetMonth} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#f59e0b]/30 text-sm font-mono border border-[#f59e0b]/10 hover:text-[#f59e0b]/60 hover:border-[#f59e0b]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M6 9l6 6 6-6"/><circle cx="12" cy="12" r="10"/></svg> MONTH</button>
-                <button onClick={exportCSV} className="game-btn flex items-center gap-1 px-3 py-2.5 bg-[#06020f]/60 text-[#00f0ff]/30 text-sm font-mono border border-[#00f0ff]/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/25 transition-all active:scale-[0.97] min-h-[44px]"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> CSV</button>
+                {showMoreMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-[#0a0315]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] py-1 min-w-[160px]">
+                      <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
+                      <div className="border-t border-white/[0.06] my-1" />
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset this week's sessions and check-ins?", action: resetWeek }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Week</button>
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset all monthly data, streaks, and quests?", action: resetMonth }); }} className="w-full text-left px-4 py-3 text-red-400/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Month</button>
+                    </div>
+                  </>
+                )}
               </div>
+            </div>
+              {/* Bulk undo bar — appears after bulk check-in, auto-dismisses in 10s */}
+              {bulkUndoVisible && (
+                <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded-xl">
+                  <span className="text-[#f59e0b]/80 text-xs font-mono">Bulk check-in applied</span>
+                  <button onClick={bulkUndoAll} className="px-4 py-1.5 bg-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold font-mono rounded-lg hover:bg-[#f59e0b]/30 transition-all active:scale-[0.97]">Undo All</button>
+                </div>
+              )}
+              {/* Confirm dialog for destructive actions */}
+              {confirmAction && (
+                <div className="flex items-center justify-between gap-3 mt-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                  <span className="text-red-400/80 text-xs font-mono">{confirmAction.label}</span>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                    <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Active session info bar */}
@@ -4505,12 +4643,8 @@ export default function ApexAthletePage() {
               </div>
             )}
 
-            {/* Add athlete */}
+            {/* Add athlete — expandable */}
             <div className="mb-6">
-              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)}
-                className="text-white/50 text-xs hover:text-white/60 transition-colors min-h-[36px]">
-                {addAthleteOpen ? "Cancel" : "+ Add Athlete"}
-              </button>
               {addAthleteOpen && (
                 <div className="mt-3 space-y-3">
                   <div className="flex gap-3 items-center flex-wrap">
@@ -4555,9 +4689,24 @@ export default function ApexAthletePage() {
                       isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
-                        className="flex items-center gap-4 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
-                        onClick={() => setExpandedId(isExp ? null : a.id)}
+                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
                       >
+                        {/* Present toggle — one tap, no expansion */}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); togglePresent(a.id); }}
+                          className={`w-10 h-10 rounded-full border-2 flex items-center justify-center shrink-0 transition-all duration-200 active:scale-90 ${
+                            a.present
+                              ? "border-emerald-400 bg-emerald-400/20 shadow-[0_0_15px_rgba(52,211,153,0.3)]"
+                              : "border-white/15 hover:border-white/30"
+                          }`}
+                          aria-label={a.present ? "Mark absent" : "Mark present"}
+                        >
+                          {a.present
+                            ? <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            : <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                          }
+                        </button>
+                        <div className="flex items-center gap-4 flex-1 min-w-0" onClick={() => setExpandedId(isExp ? null : a.id)}>
                         <div className="w-14 h-14 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
                           style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `2.5px solid ${lv.color}${hasCk ? "90" : "35"}`, boxShadow: hasCk ? `0 0 25px ${lv.color}25, 0 0 50px ${lv.color}08` : `0 0 10px ${lv.color}10` }}
                         >
@@ -4568,15 +4717,16 @@ export default function ApexAthletePage() {
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
                             {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d · {sk.mult}</span>}
-                            {hasCk && <span className="text-emerald-400/60 text-xs font-bold">✓ checked in</span>}
+                            {a.present && <span className="text-emerald-400/60 text-xs font-bold">PRESENT</span>}
                           </div>
                         </div>
-                        <div className="w-32 shrink-0 text-right">
+                        <div className="w-28 shrink-0 text-right">
                           <div className="text-white font-black text-base tabular-nums whitespace-nowrap drop-shadow-[0_0_8px_rgba(245,158,11,0.15)]">{a.xp}<span className="text-white/60 text-sm ml-1">XP</span></div>
                           <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mt-2 shadow-[inset_0_1px_3px_rgba(0,0,0,0.3)]">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
                           {dailyUsed > 0 && <div className="text-xs text-[#f59e0b]/60 font-bold mt-1.5">+{dailyUsed} today</div>}
+                        </div>
                         </div>
                       </div>
                       <div className={`athlete-card-wrapper ${isExp ? "open" : ""}`}>
