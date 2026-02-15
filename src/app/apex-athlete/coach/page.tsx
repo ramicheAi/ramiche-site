@@ -54,6 +54,8 @@ function fmtWStreak(s: number) {
 }
 
 const DAILY_XP_CAP = 150;
+const PRESENT_XP = 5; // Base XP just for showing up
+const SHOUTOUT_XP = 25; // MVP/Shoutout bonus XP
 const today = () => new Date().toISOString().slice(0, 10);
 
 // ── checkpoint & quest definitions ───────────────────────────
@@ -1129,15 +1131,87 @@ export default function ApexAthletePage() {
   }, []);
 
   // ── attendance toggle (per-athlete, no expansion needed) ─
+  // Present = auto-check ALL checkpoints + base XP. Coach deselects exceptions.
   const togglePresent = useCallback((athleteId: string) => {
+    const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
+    const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const idx = prev.findIndex(a => a.id === athleteId);
       if (idx < 0) return prev;
-      const a = { ...prev[idx], present: !prev[idx].present };
-      addAudit(a.id, a.name, a.present ? "Marked present" : "Marked absent", 0);
+      const wasPresent = prev[idx].present;
+      let a = { ...prev[idx] };
+
+      if (!wasPresent) {
+        // MARKING PRESENT → auto-check all checkpoints + award XP
+        a.present = true;
+        const newCPs: Record<string, boolean> = { ...a[cpMapKey] };
+        let totalAwarded = 0;
+        // Award base "showed up" XP
+        const { newAthlete: a1, awarded: baseAwarded } = awardXP(a, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
+        a = { ...a1 };
+        totalAwarded += baseAwarded;
+        // Auto-check each checkpoint
+        for (const cp of sportCPs) {
+          if (!newCPs[cp.id]) {
+            newCPs[cp.id] = true;
+            const { newAthlete: aN, awarded } = awardXP(a, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
+            a = { ...aN };
+            totalAwarded += awarded;
+          }
+        }
+        a = { ...a, [cpMapKey]: newCPs };
+        // Streak increment (once per day)
+        const streakAlreadyCounted = a.lastStreakDate === today();
+        if (!streakAlreadyCounted) {
+          a = { ...a, streak: a.streak + 1, lastStreakDate: today(), totalPractices: a.totalPractices + 1, weekSessions: a.weekSessions + 1 };
+        }
+        addAudit(a.id, a.name, `Present (all checkpoints)`, totalAwarded);
+      } else {
+        // MARKING ABSENT → uncheck all checkpoints + revert XP
+        a.present = false;
+        const oldCPs: Record<string, boolean> = { ...a[cpMapKey] };
+        const mult = sessionMode === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
+        let totalReverted = 0;
+        for (const cp of sportCPs) {
+          if (oldCPs[cp.id]) {
+            oldCPs[cp.id] = false;
+            const reverted = Math.round(cp.xp * mult);
+            a.xp = Math.max(0, a.xp - reverted);
+            if (a.dailyXP.date === today()) {
+              const cat = sessionMode === "meet" ? "meet" : sessionMode;
+              a.dailyXP = { ...a.dailyXP, [cat]: Math.max(0, a.dailyXP[cat] - reverted) };
+            }
+            totalReverted += reverted;
+          }
+        }
+        // Revert base present XP
+        const baseReverted = Math.round(PRESENT_XP * mult);
+        a.xp = Math.max(0, a.xp - baseReverted);
+        if (a.dailyXP.date === today()) {
+          const cat = sessionMode === "meet" ? "meet" : sessionMode;
+          a.dailyXP = { ...a.dailyXP, [cat]: Math.max(0, a.dailyXP[cat] - baseReverted) };
+        }
+        totalReverted += baseReverted;
+        a = { ...a, [cpMapKey]: oldCPs };
+        addAudit(a.id, a.name, `Absent (checkpoints cleared)`, -totalReverted);
+      }
       const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
     });
-  }, [addAudit]);
+  }, [addAudit, awardXP, selectedGroup, sessionMode]);
+
+  // ── shoutout / MVP — coach recognition for standout moments ─
+  const giveShoutout = useCallback((athleteId: string, e?: React.MouseEvent) => {
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === athleteId);
+      if (idx < 0) return prev;
+      const a = { ...prev[idx] };
+      const { newAthlete, awarded } = awardXP(a, SHOUTOUT_XP, "pool");
+      addAudit(newAthlete.id, newAthlete.name, "Shoutout", awarded);
+      if (e) spawnXpFloat(awarded, e);
+      const r = [...prev]; r[idx] = newAthlete; save(K.ROSTER, r); return r;
+    });
+  }, [awardXP, addAudit, spawnXpFloat]);
 
   // ── coach tools ──────────────────────────────────────────
   const bulkMarkPresent = useCallback(() => {
@@ -1148,20 +1222,39 @@ export default function ApexAthletePage() {
     bulkUndoTimer.current = setTimeout(() => { setBulkUndoVisible(false); setBulkUndoSnapshot(null); }, 10000);
 
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
-    const sportCPs = getCPsForSport(gDef.sport);
-    const firstCP = sportCPs[0];
+    const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const r = prev.map(a => {
         if (a.group !== selectedGroup) return a;
-        const cp = { ...a.checkpoints, [firstCP.id]: true };
-        const { newAthlete, awarded } = awardXP({ ...a, checkpoints: cp, present: true }, firstCP.xp, "pool");
-        addAudit(newAthlete.id, newAthlete.name, `Bulk: ${firstCP.name}`, awarded);
+        let athlete = { ...a };
+        athlete.present = true;
+        const newCPs: Record<string, boolean> = { ...athlete[cpMapKey] };
+        let totalAwarded = 0;
+        // Base present XP
+        const { newAthlete: a1, awarded: baseAwarded } = awardXP(athlete, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
+        athlete = { ...a1 };
+        totalAwarded += baseAwarded;
+        // Auto-check ALL checkpoints
+        for (const cp of sportCPs) {
+          if (!newCPs[cp.id]) {
+            newCPs[cp.id] = true;
+            const { newAthlete: aN, awarded } = awardXP(athlete, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
+            athlete = { ...aN };
+            totalAwarded += awarded;
+          }
+        }
+        athlete = { ...athlete, [cpMapKey]: newCPs };
+        addAudit(athlete.id, athlete.name, `Bulk: all checkpoints`, totalAwarded);
         const streakAlreadyCounted = a.lastStreakDate === today();
-        return { ...newAthlete, present: true, checkpoints: cp, totalPractices: streakAlreadyCounted ? a.totalPractices : a.totalPractices + 1, weekSessions: streakAlreadyCounted ? a.weekSessions : a.weekSessions + 1, streak: streakAlreadyCounted ? a.streak : a.streak + 1, lastStreakDate: today() };
+        if (!streakAlreadyCounted) {
+          athlete = { ...athlete, streak: athlete.streak + 1, lastStreakDate: today(), totalPractices: athlete.totalPractices + 1, weekSessions: athlete.weekSessions + 1 };
+        }
+        return athlete;
       });
       save(K.ROSTER, r); return r;
     });
-  }, [awardXP, addAudit, selectedGroup, roster]);
+  }, [awardXP, addAudit, selectedGroup, roster, sessionMode]);
 
   const bulkUndoAll = useCallback(() => {
     if (!bulkUndoSnapshot) return;
@@ -1840,6 +1933,15 @@ export default function ApexAthletePage() {
               );
             })}
           </Card>
+          {/* Shoutout — coach recognition for standout moments */}
+          <button
+            onClick={(e) => giveShoutout(athlete.id, e)}
+            className="mt-3 w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-[#f59e0b]/10 to-[#fbbf24]/10 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 hover:from-[#f59e0b]/15 hover:to-[#fbbf24]/15 transition-all active:scale-[0.98] min-h-[56px]"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1"/></svg>
+            <span className="text-[#f59e0b] font-bold text-sm">Shoutout</span>
+            <span className="text-[#f59e0b]/60 text-xs font-mono">+{SHOUTOUT_XP} xp</span>
+          </button>
         </div>
 
         {/* Weight challenges */}
