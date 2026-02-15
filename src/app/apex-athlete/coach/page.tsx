@@ -826,7 +826,7 @@ export default function ApexAthletePage() {
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
-    if (!pin) { setCoachPin("1234"); save(K.PIN, "1234"); } else { setCoachPin(pin); }
+    if (!pin) { setCoachPin("2451"); save(K.PIN, "2451"); } else { setCoachPin(pin); }
     // Load selected group
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
@@ -1210,7 +1210,7 @@ export default function ApexAthletePage() {
   }, []);
 
   // Current coach's accessible groups (for access control)
-  // Head coach / admin (PIN 1234) sees all groups; assistant coaches see only their assigned groups
+  // Head coach / admin (master PIN) sees all groups; assistant coaches see only their assigned groups
   const currentCoach = useMemo(() => {
     if (pinInput === coachPin) return null; // master PIN = admin/head coach
     return coaches.find(c => c.pin === pinInput);
@@ -1464,7 +1464,7 @@ export default function ApexAthletePage() {
     if (matchedCoach) { setUnlocked(true); setPinError(false); return; }
     setPinError(true);
   };
-  const resetPin = () => { setCoachPin("1234"); save(K.PIN, "1234"); setPinInput(""); setPinError(false); };
+  const resetPin = () => { setCoachPin("2451"); save(K.PIN, "2451"); setPinInput(""); setPinError(false); };
 
   if (!unlocked && (view === "coach" || view === "schedule" || view === "staff")) {
     return (
@@ -1489,7 +1489,7 @@ export default function ApexAthletePage() {
                 className={`w-full text-center text-2xl tracking-[0.5em] py-4 bg-[#06020f]/80 backdrop-blur-xl border-2 text-[#00f0ff] placeholder:text-[#00f0ff]/15 focus:outline-none transition-all font-mono game-panel-sm ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#00f0ff]/20 focus:border-[#00f0ff]/50 focus:shadow-[0_0_30px_rgba(0,240,255,0.2)]"}`}
               />
             </div>
-            {pinError && <p className="text-red-400 text-xs -mt-2 font-mono">ACCESS DENIED. Default: 1234.</p>}
+            {pinError && <p className="text-red-400 text-xs -mt-2 font-mono">ACCESS DENIED. Default: 2451.</p>}
             <button onClick={tryUnlock}
               className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]">
               Authenticate
@@ -1500,7 +1500,7 @@ export default function ApexAthletePage() {
             </button>
             {pinError && (
               <button onClick={resetPin} className="text-white/50 text-xs hover:text-white/60 transition-colors font-mono">
-                RESET PIN → 1234
+                RESET PIN → 2451
               </button>
             )}
           </div>

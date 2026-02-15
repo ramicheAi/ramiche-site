@@ -710,7 +710,7 @@ export default function AthletePortal() {
   }, []);
 
   const handlePin = () => {
-    if (pinInput === "1234") { setUnlocked(true); setPinError(false); return; }
+    if (pinInput === "2451") { setUnlocked(true); setPinError(false); return; }
     let stored = "";
     if (typeof window !== "undefined") {
       const raw = localStorage.getItem("apex-athlete-pin");
