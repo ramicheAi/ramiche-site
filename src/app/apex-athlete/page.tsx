@@ -99,6 +99,9 @@ const AUTO_CHECK_IDS = new Set([
   "practice-complete", "cool-down-complete", "no-skipped-reps",
 ]);
 
+// Auto-checked basics — visible so coach can deselect exceptions
+const AUTO_POOL_CPS = POOL_CPS.filter(cp => AUTO_CHECK_IDS.has(cp.id));
+
 // Manual-award checkpoints — coach taps these for standout kids
 const MANUAL_POOL_CPS = POOL_CPS.filter(cp => !AUTO_CHECK_IDS.has(cp.id));
 
@@ -2277,25 +2280,75 @@ export default function ApexAthletePage() {
           </Card>
         </div>
 
-        {/* Check-in status */}
-        <Card className="px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${athlete.present ? "bg-emerald-500/20 border-2 border-emerald-400/50" : "bg-white/5 border-2 border-white/10"}`}>
-                {athlete.present ? (
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                ) : (
-                  <span className="text-white/30 text-xs font-black">—</span>
-                )}
-              </div>
-              <div>
-                <div className="text-white text-sm font-medium">{athlete.present ? "Checked in — all credit awarded" : "Not checked in"}</div>
-                <div className="text-white/40 text-[11px] mt-0.5">{athlete.present ? "Tap the row toggle to undo" : "Tap present on the roster to check in"}</div>
-              </div>
+        {/* Daily Check-In — auto-checked basics the coach can deselect */}
+        {sessionMode === "pool" && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h4>
+              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp today</span>
             </div>
-            <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp</span>
+            {!athlete.present && (
+              <Card className="px-5 py-4">
+                <div className="text-white/40 text-sm text-center">Tap present on the roster to check in</div>
+              </Card>
+            )}
+            {athlete.present && (
+              <Card className="divide-y divide-white/[0.04]">
+                {AUTO_POOL_CPS.map(cp => {
+                  const done = cpMap[cp.id];
+                  return (
+                    <button key={cp.id} onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, "pool", e)}
+                      className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${
+                        done ? "bg-emerald-500/5" : "hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        done ? "border-emerald-400 bg-emerald-500" : "border-white/15"
+                      }`}>
+                        {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm font-medium">{cp.name}</div>
+                        <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                      </div>
+                      <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-white/30"}`}>+{cp.xp}</span>
+                    </button>
+                  );
+                })}
+              </Card>
+            )}
           </div>
-        </Card>
+        )}
+
+        {/* Standout Awards — manual checkpoints coach taps for exceptional behavior */}
+        {sessionMode === "pool" && (
+          <div>
+            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Standout Awards</h4>
+            <Card className="divide-y divide-white/[0.04]">
+              {MANUAL_POOL_CPS.map(cp => {
+                const done = cpMap[cp.id];
+                return (
+                  <button key={cp.id} onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, "pool", e)}
+                    className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${
+                      done ? "bg-[#a855f7]/5" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      done ? "border-[#a855f7] bg-[#a855f7]" : "border-white/15"
+                    }`}>
+                      {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-sm font-medium">{cp.name}</div>
+                      <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                    </div>
+                    <span className={`text-xs font-bold ${done ? "text-[#a855f7]" : "text-white/30"}`}>+{cp.xp}</span>
+                  </button>
+                );
+              })}
+            </Card>
+          </div>
+        )}
 
         {/* Shoutout — coach recognition for standout moments */}
         <button
