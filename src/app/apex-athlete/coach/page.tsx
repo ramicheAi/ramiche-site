@@ -76,6 +76,15 @@ const POOL_CPS = [
   { id: "no-skipped-reps", name: "No Skipped Reps", xp: 10, desc: "Completed every single rep — zero shortcuts" },
 ];
 
+// IDs auto-checked when "present" is toggled (the basics every kid does)
+const AUTO_CHECK_IDS = new Set([
+  "on-deck-early", "gear-ready", "on-time-ready", "warmup-complete",
+  "practice-complete", "cool-down-complete", "no-skipped-reps",
+]);
+
+// Manual-award checkpoints — coach taps these for standout kids
+const MANUAL_POOL_CPS = POOL_CPS.filter(cp => !AUTO_CHECK_IDS.has(cp.id));
+
 const WEIGHT_CPS = [
   { id: "w-showed-up", name: "Showed Up", xp: 10, desc: "Present at 5:30pm, ready to lift" },
   { id: "w-full-workout", name: "Full Workout", xp: 20, desc: "Completed every exercise" },
@@ -1143,10 +1152,12 @@ export default function ApexAthletePage() {
   }, []);
 
   // ── attendance toggle (per-athlete, no expansion needed) ─
-  // Present = auto-check ALL checkpoints + base XP. Coach deselects exceptions.
+  // Present = auto-check Tier 1 (basics) + base XP. Coach manually awards Tier 2.
   const togglePresent = useCallback((athleteId: string) => {
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
     const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    // For pool: only auto-check Tier 1 IDs. For weight/meet: auto-check all (smaller lists).
+    const autoCPs = sessionMode === "pool" ? sportCPs.filter(cp => AUTO_CHECK_IDS.has(cp.id)) : sportCPs;
     const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const idx = prev.findIndex(a => a.id === athleteId);
@@ -1155,7 +1166,7 @@ export default function ApexAthletePage() {
       let a = { ...prev[idx] };
 
       if (!wasPresent) {
-        // MARKING PRESENT → auto-check all checkpoints + award XP
+        // MARKING PRESENT → auto-check Tier 1 checkpoints + award XP
         a.present = true;
         const newCPs: Record<string, boolean> = { ...a[cpMapKey] };
         let totalAwarded = 0;
@@ -1163,8 +1174,8 @@ export default function ApexAthletePage() {
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(a, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
         a = { ...a1 };
         totalAwarded += baseAwarded;
-        // Auto-check each checkpoint
-        for (const cp of sportCPs) {
+        // Auto-check only Tier 1 checkpoints
+        for (const cp of autoCPs) {
           if (!newCPs[cp.id]) {
             newCPs[cp.id] = true;
             const { newAthlete: aN, awarded } = awardXP(a, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
@@ -1178,9 +1189,9 @@ export default function ApexAthletePage() {
         if (!streakAlreadyCounted) {
           a = { ...a, streak: a.streak + 1, lastStreakDate: today(), totalPractices: a.totalPractices + 1, weekSessions: a.weekSessions + 1 };
         }
-        addAudit(a.id, a.name, `Present (all checkpoints)`, totalAwarded);
+        addAudit(a.id, a.name, `Present (basics auto-checked)`, totalAwarded);
       } else {
-        // MARKING ABSENT → uncheck all checkpoints + revert XP
+        // MARKING ABSENT → uncheck ALL checkpoints (Tier 1 + any manual Tier 2) + revert XP
         a.present = false;
         const oldCPs: Record<string, boolean> = { ...a[cpMapKey] };
         const mult = sessionMode === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
@@ -1235,6 +1246,8 @@ export default function ApexAthletePage() {
 
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
     const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    // For pool: only auto-check Tier 1 IDs. For weight/meet: auto-check all.
+    const autoCPs = sessionMode === "pool" ? sportCPs.filter(cp => AUTO_CHECK_IDS.has(cp.id)) : sportCPs;
     const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const r = prev.map(a => {
@@ -1247,8 +1260,8 @@ export default function ApexAthletePage() {
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(athlete, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
         athlete = { ...a1 };
         totalAwarded += baseAwarded;
-        // Auto-check ALL checkpoints
-        for (const cp of sportCPs) {
+        // Auto-check only Tier 1 checkpoints
+        for (const cp of autoCPs) {
           if (!newCPs[cp.id]) {
             newCPs[cp.id] = true;
             const { newAthlete: aN, awarded } = awardXP(athlete, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
@@ -1257,7 +1270,7 @@ export default function ApexAthletePage() {
           }
         }
         athlete = { ...athlete, [cpMapKey]: newCPs };
-        addAudit(athlete.id, athlete.name, `Bulk: all checkpoints`, totalAwarded);
+        addAudit(athlete.id, athlete.name, `Bulk: basics auto-checked`, totalAwarded);
         const streakAlreadyCounted = a.lastStreakDate === today();
         if (!streakAlreadyCounted) {
           athlete = { ...athlete, streak: athlete.streak + 1, lastStreakDate: today(), totalPractices: athlete.totalPractices + 1, weekSessions: athlete.weekSessions + 1 };
@@ -1915,36 +1928,65 @@ export default function ApexAthletePage() {
           </Card>
         </div>
 
-        {/* Check-in status + Shoutout */}
-        <div className="space-y-3">
-          <Card className="px-5 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${athlete.present ? "bg-emerald-500/20 border-2 border-emerald-400/50" : "bg-white/5 border-2 border-white/10"}`}>
-                  {athlete.present ? (
-                    <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                  ) : (
-                    <span className="text-white/30 text-xs font-black">—</span>
-                  )}
-                </div>
-                <div>
-                  <div className="text-white text-sm font-medium">{athlete.present ? "Checked in — all credit awarded" : "Not checked in"}</div>
-                  <div className="text-white/40 text-[11px] mt-0.5">{athlete.present ? "Tap the row toggle to undo" : "Tap present on the roster to check in"}</div>
-                </div>
+        {/* Check-in status */}
+        <Card className="px-5 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${athlete.present ? "bg-emerald-500/20 border-2 border-emerald-400/50" : "bg-white/5 border-2 border-white/10"}`}>
+                {athlete.present ? (
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                ) : (
+                  <span className="text-white/30 text-xs font-black">—</span>
+                )}
               </div>
-              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp</span>
+              <div>
+                <div className="text-white text-sm font-medium">{athlete.present ? "Checked in — basics awarded" : "Not checked in"}</div>
+                <div className="text-white/40 text-[11px] mt-0.5">{athlete.present ? "Tap standout items below for extra XP" : "Tap present on the roster to check in"}</div>
+              </div>
             </div>
-          </Card>
-          {/* Shoutout — coach recognition for standout moments */}
-          <button
-            onClick={(e) => giveShoutout(athlete.id, e)}
-            className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-[#f59e0b]/10 to-[#fbbf24]/10 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 hover:from-[#f59e0b]/15 hover:to-[#fbbf24]/15 transition-all active:scale-[0.98] min-h-[56px]"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1"/></svg>
-            <span className="text-[#f59e0b] font-bold text-sm">Shoutout</span>
-            <span className="text-[#f59e0b]/60 text-xs font-mono">+{SHOUTOUT_XP} xp</span>
-          </button>
-        </div>
+            <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp</span>
+          </div>
+        </Card>
+
+        {/* Standout awards — manual checkpoints coach taps for exceptional behavior */}
+        {sessionMode === "pool" && (
+          <div>
+            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Standout Awards</h4>
+            <Card className="divide-y divide-white/[0.04]">
+              {MANUAL_POOL_CPS.map(cp => {
+                const done = cpMap[cp.id];
+                return (
+                  <button key={cp.id} onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, "pool", e)}
+                    className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${
+                      done ? "bg-[#a855f7]/5" : "hover:bg-white/[0.02]"
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      done ? "border-[#a855f7] bg-[#a855f7]" : "border-white/15"
+                    }`}>
+                      {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-sm font-medium">{cp.name}</div>
+                      <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                    </div>
+                    <span className={`text-xs font-bold ${done ? "text-[#a855f7]" : "text-white/30"}`}>+{cp.xp}</span>
+                  </button>
+                );
+              })}
+            </Card>
+          </div>
+        )}
+
+        {/* Shoutout — coach recognition for standout moments */}
+        <button
+          onClick={(e) => giveShoutout(athlete.id, e)}
+          className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-[#f59e0b]/10 to-[#fbbf24]/10 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 hover:from-[#f59e0b]/15 hover:to-[#fbbf24]/15 transition-all active:scale-[0.98] min-h-[56px]"
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1"/></svg>
+          <span className="text-[#f59e0b] font-bold text-sm">Shoutout</span>
+          <span className="text-[#f59e0b]/60 text-xs font-mono">+{SHOUTOUT_XP} xp</span>
+        </button>
 
         {/* Weight challenges */}
         {sessionMode === "weight" && (

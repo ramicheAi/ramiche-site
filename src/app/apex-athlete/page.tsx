@@ -93,6 +93,15 @@ const POOL_CPS = [
   { id: "no-skipped-reps", name: "No Skipped Reps", xp: 10, desc: "Completed every single rep — zero shortcuts" },
 ];
 
+// IDs auto-checked when "present" is toggled (the basics every kid does)
+const AUTO_CHECK_IDS = new Set([
+  "on-deck-early", "gear-ready", "on-time-ready", "warmup-complete",
+  "practice-complete", "cool-down-complete", "no-skipped-reps",
+]);
+
+// Manual-award checkpoints — coach taps these for standout kids
+const MANUAL_POOL_CPS = POOL_CPS.filter(cp => !AUTO_CHECK_IDS.has(cp.id));
+
 const WEIGHT_CPS = [
   { id: "w-showed-up", name: "Showed Up", xp: 10, desc: "Present at 5:30pm, ready to lift" },
   { id: "w-full-workout", name: "Full Workout", xp: 20, desc: "Completed every exercise" },
@@ -1350,6 +1359,8 @@ export default function ApexAthletePage() {
   const togglePresent = useCallback((athleteId: string) => {
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
     const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    // For pool: only auto-check Tier 1 IDs. For weight/meet: auto-check all.
+    const autoCPs = sessionMode === "pool" ? sportCPs.filter(cp => AUTO_CHECK_IDS.has(cp.id)) : sportCPs;
     const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const idx = prev.findIndex(a => a.id === athleteId);
@@ -1363,7 +1374,8 @@ export default function ApexAthletePage() {
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(a, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
         a = { ...a1 };
         totalAwarded += baseAwarded;
-        for (const cp of sportCPs) {
+        // Only auto-check Tier 1 checkpoints
+        for (const cp of autoCPs) {
           if (!newCPs[cp.id]) {
             newCPs[cp.id] = true;
             const { newAthlete: aN, awarded } = awardXP(a, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
@@ -1376,8 +1388,9 @@ export default function ApexAthletePage() {
         if (!streakAlreadyCounted) {
           a = { ...a, streak: a.streak + 1, lastStreakDate: today(), totalPractices: a.totalPractices + 1, weekSessions: a.weekSessions + 1 };
         }
-        addAudit(a.id, a.name, `Present (all checkpoints)`, totalAwarded);
+        addAudit(a.id, a.name, `Present (basics auto-checked)`, totalAwarded);
       } else {
+        // MARKING ABSENT → uncheck ALL checkpoints (Tier 1 + any manual Tier 2) + revert XP
         a.present = false;
         const oldCPs: Record<string, boolean> = { ...(a as any)[cpMapKey] };
         const mult = sessionMode === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
@@ -1422,6 +1435,8 @@ export default function ApexAthletePage() {
     bulkUndoTimer.current = setTimeout(() => { setBulkUndoVisible(false); setBulkUndoSnapshot(null); }, 10000);
     const gDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
     const sportCPs = sessionMode === "pool" ? getCPsForSport(gDef.sport) : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+    // For pool: only auto-check Tier 1 IDs. For weight/meet: auto-check all.
+    const autoCPs = sessionMode === "pool" ? sportCPs.filter(cp => AUTO_CHECK_IDS.has(cp.id)) : sportCPs;
     const cpMapKey = sessionMode === "pool" ? "checkpoints" : sessionMode === "weight" ? "weightCheckpoints" : "meetCheckpoints";
     setRoster(prev => {
       const r = prev.map(a => {
@@ -1433,7 +1448,8 @@ export default function ApexAthletePage() {
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(athlete, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
         athlete = { ...a1 };
         totalAwarded += baseAwarded;
-        for (const cp of sportCPs) {
+        // Only auto-check Tier 1 checkpoints
+        for (const cp of autoCPs) {
           if (!newCPs[cp.id]) {
             newCPs[cp.id] = true;
             const { newAthlete: aN, awarded } = awardXP(athlete, cp.xp, sessionMode === "meet" ? "meet" : sessionMode);
@@ -1442,7 +1458,7 @@ export default function ApexAthletePage() {
           }
         }
         athlete = { ...athlete, [cpMapKey]: newCPs };
-        addAudit(athlete.id, athlete.name, `Bulk: all checkpoints`, totalAwarded);
+        addAudit(athlete.id, athlete.name, `Bulk: basics auto-checked`, totalAwarded);
         const streakAlreadyCounted = a.lastStreakDate === today();
         if (!streakAlreadyCounted) {
           athlete = { ...athlete, streak: athlete.streak + 1, lastStreakDate: today(), totalPractices: athlete.totalPractices + 1, weekSessions: athlete.weekSessions + 1 };
