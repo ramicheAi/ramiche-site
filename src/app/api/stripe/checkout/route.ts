@@ -3,15 +3,19 @@ import Stripe from "stripe";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT SESSION — API Route
-   Creates a Stripe Checkout session for a selected plan
+   Creates a Stripe Checkout session for a selected plan tier
+   Supports: Starter ($149), Club ($349), Program ($549)
    ══════════════════════════════════════════════════════════════ */
 
-// Team plan price ID — set STRIPE_TEAM_PRICE_ID env var with your real Stripe price ID
-// Create product + price in Stripe Dashboard → Products → Add product → $249/month recurring
-const TEAM_PRICE_ID = process.env.STRIPE_TEAM_PRICE_ID || "price_team_monthly";
+// Price IDs — set via env vars, or create in Stripe Dashboard → Products
+const STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || "price_starter_monthly";
+const CLUB_PRICE_ID = process.env.STRIPE_CLUB_PRICE_ID || "price_club_monthly";
+const PROGRAM_PRICE_ID = process.env.STRIPE_PROGRAM_PRICE_ID || "price_program_monthly";
 
 const VALID_PRICES: Record<string, { priceId: string; planId: string }> = {
-  price_team_monthly: { priceId: TEAM_PRICE_ID, planId: "team" },
+  price_starter_monthly: { priceId: STARTER_PRICE_ID, planId: "starter" },
+  price_club_monthly: { priceId: CLUB_PRICE_ID, planId: "club" },
+  price_program_monthly: { priceId: PROGRAM_PRICE_ID, planId: "program" },
 };
 
 function getStripe(): Stripe {
@@ -43,6 +47,8 @@ export async function POST(req: Request) {
 
     const stripe = getStripe();
 
+    const resolvedPlanId = planId || VALID_PRICES[priceId].planId;
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -53,10 +59,10 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${origin}/apex-athlete/billing?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/apex-athlete/billing?success=true&plan=${resolvedPlanId}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/apex-athlete/billing?canceled=true`,
       metadata: {
-        planId: planId || VALID_PRICES[priceId].planId,
+        planId: resolvedPlanId,
       },
     });
 

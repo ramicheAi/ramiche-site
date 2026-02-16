@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import React from "react";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — BILLING & PRICING
-   Stripe-powered subscription management
-   Dark sci-fi game UI · Fortnite/Fallout aesthetic
+   3-Tier subscription model + Enterprise
+   Stripe-powered · Dark sci-fi game UI
    ══════════════════════════════════════════════════════════════ */
 
 // ── SVG Icon Components ─────────────────────────────────────
@@ -35,9 +36,9 @@ function CrownIcon({ className = "", style }: { className?: string; style?: Reac
   );
 }
 
-function DiamondIcon({ className = "" }: { className?: string }) {
+function DiamondIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.7 2.71a2.41 2.41 0 0 0-3.41 0z" />
     </svg>
   );
@@ -75,15 +76,6 @@ function RocketIcon({ className = "", style }: { className?: string; style?: Rea
   );
 }
 
-function ApiIcon({ className = "" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="16 18 22 12 16 6" />
-      <polyline points="8 6 2 12 8 18" />
-    </svg>
-  );
-}
-
 function CheckIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
   return (
     <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -110,6 +102,14 @@ function ArrowLeftIcon({ className = "" }: { className?: string }) {
   );
 }
 
+function StarIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 // ── Tier Definitions ────────────────────────────────────────
 
 interface PlanTier {
@@ -118,46 +118,109 @@ interface PlanTier {
   subtitle: string;
   price: number | null;
   priceLabel: string;
+  perAthlete: string | null;
   priceId: string | null;
   color: string;
   glowColor: string;
   borderColor: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   featured: boolean;
   features: { text: string; included: boolean }[];
   limits: string;
   cta: string;
+  badge?: string;
 }
 
-const TEAM_PLAN: PlanTier = {
-  id: "team",
-  name: "TEAM",
-  subtitle: "Full Arsenal",
-  price: 249,
-  priceLabel: "$249",
-  priceId: "price_team_monthly",
-  color: "#00f0ff",
-  glowColor: "rgba(0,240,255,0.3)",
-  borderColor: "rgba(0,240,255,0.3)",
-  icon: CrownIcon,
-  featured: true,
-  features: [
-    { text: "Up to ~50 athletes per team", included: true },
-    { text: "Coach, Athlete & Parent portals", included: true },
-    { text: "XP, streaks & gamification", included: true },
-    { text: "Meet entry + SD3/CSV export", included: true },
-    { text: "Race strategy AI", included: true },
-    { text: "Time standards (SCY/LCM/SCM)", included: true },
-    { text: "Performance analytics & reports", included: true },
-    { text: "Schedule & attendance tracking", included: true },
-    { text: "Cloud sync across all devices", included: true },
-    { text: "Parent comms & absence reports", included: true },
-    { text: "Multi-sport support (coming soon)", included: true },
-    { text: "Priority support", included: true },
-  ],
-  limits: "~50 athletes / unlimited coaches",
-  cta: "Subscribe",
-};
+const PLANS: PlanTier[] = [
+  {
+    id: "starter",
+    name: "STARTER",
+    subtitle: "Launch Pad",
+    price: 149,
+    priceLabel: "$149",
+    perAthlete: "~$3/athlete",
+    priceId: "price_starter_monthly",
+    color: "#22d3ee",
+    glowColor: "rgba(34,211,238,0.25)",
+    borderColor: "rgba(34,211,238,0.3)",
+    icon: BoltIcon,
+    featured: false,
+    features: [
+      { text: "Up to 50 athletes", included: true },
+      { text: "Coach & Athlete portals", included: true },
+      { text: "XP, streaks & gamification", included: true },
+      { text: "Schedule & attendance tracking", included: true },
+      { text: "Performance analytics", included: true },
+      { text: "Cloud sync across devices", included: true },
+      { text: "Time standards (SCY/LCM/SCM)", included: true },
+      { text: "Parent portal", included: false },
+      { text: "Meet entry + SD3/CSV export", included: false },
+      { text: "Race strategy AI", included: false },
+      { text: "Priority support", included: false },
+    ],
+    limits: "Up to 50 athletes",
+    cta: "Get Started",
+  },
+  {
+    id: "club",
+    name: "CLUB",
+    subtitle: "Full Arsenal",
+    price: 349,
+    priceLabel: "$349",
+    perAthlete: "~$2.33/athlete",
+    priceId: "price_club_monthly",
+    color: "#00f0ff",
+    glowColor: "rgba(0,240,255,0.3)",
+    borderColor: "rgba(0,240,255,0.3)",
+    icon: CrownIcon,
+    featured: true,
+    badge: "Most Popular",
+    features: [
+      { text: "Up to 150 athletes", included: true },
+      { text: "Coach, Athlete & Parent portals", included: true },
+      { text: "XP, streaks & gamification", included: true },
+      { text: "Schedule & attendance tracking", included: true },
+      { text: "Performance analytics & reports", included: true },
+      { text: "Cloud sync across devices", included: true },
+      { text: "Time standards (SCY/LCM/SCM)", included: true },
+      { text: "Meet entry + SD3/CSV export", included: true },
+      { text: "Race strategy AI", included: true },
+      { text: "Parent comms & absence reports", included: true },
+      { text: "Priority support", included: true },
+    ],
+    limits: "Up to 150 athletes",
+    cta: "Subscribe",
+  },
+  {
+    id: "program",
+    name: "PROGRAM",
+    subtitle: "Command Center",
+    price: 549,
+    priceLabel: "$549",
+    perAthlete: "~$1.83/athlete",
+    priceId: "price_program_monthly",
+    color: "#a855f7",
+    glowColor: "rgba(168,85,247,0.3)",
+    borderColor: "rgba(168,85,247,0.3)",
+    icon: DiamondIcon,
+    featured: false,
+    features: [
+      { text: "Up to 300 athletes", included: true },
+      { text: "Coach, Athlete & Parent portals", included: true },
+      { text: "XP, streaks & gamification", included: true },
+      { text: "Schedule & attendance tracking", included: true },
+      { text: "Advanced analytics & custom reports", included: true },
+      { text: "Cloud sync across devices", included: true },
+      { text: "Time standards (SCY/LCM/SCM)", included: true },
+      { text: "Meet entry + SD3/CSV export", included: true },
+      { text: "Race strategy AI", included: true },
+      { text: "Parent comms & absence reports", included: true },
+      { text: "Multi-sport support", included: true },
+    ],
+    limits: "Up to 300 athletes",
+    cta: "Subscribe",
+  },
+];
 
 // ── Tier Card Component ─────────────────────────────────────
 
@@ -183,10 +246,10 @@ function TierCard({
       }`}
     >
       {/* Featured badge */}
-      {tier.featured && (
+      {tier.badge && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
           <div
-            className="px-4 py-1 text-[10px] font-bold font-mono tracking-[0.3em] uppercase"
+            className="px-4 py-1 text-[10px] font-bold font-mono tracking-[0.3em] uppercase whitespace-nowrap"
             style={{
               background: `linear-gradient(135deg, ${tier.color}22, ${tier.color}44)`,
               border: `1px solid ${tier.color}66`,
@@ -195,7 +258,7 @@ function TierCard({
                 "polygon(8px 0%, calc(100% - 8px) 0%, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0% 50%)",
             }}
           >
-            Most Popular
+            {tier.badge}
           </div>
         </div>
       )}
@@ -232,22 +295,10 @@ function TierCard({
         />
 
         {/* Corner brackets */}
-        <div
-          className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 opacity-40"
-          style={{ borderColor: tier.color }}
-        />
-        <div
-          className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 opacity-40"
-          style={{ borderColor: tier.color }}
-        />
-        <div
-          className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 opacity-40"
-          style={{ borderColor: tier.color }}
-        />
-        <div
-          className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 opacity-40"
-          style={{ borderColor: tier.color }}
-        />
+        <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 opacity-40" style={{ borderColor: tier.color }} />
+        <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 opacity-40" style={{ borderColor: tier.color }} />
+        <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 opacity-40" style={{ borderColor: tier.color }} />
+        <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 opacity-40" style={{ borderColor: tier.color }} />
 
         {/* Content */}
         <div className="relative z-10 p-6 sm:p-8 flex flex-col h-full">
@@ -259,11 +310,10 @@ function TierCard({
               style={{
                 background: `linear-gradient(135deg, ${tier.color}15, ${tier.color}08)`,
                 border: `1px solid ${tier.color}40`,
-                clipPath:
-                  "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
               }}
             >
-              <TierIcon className={`w-6 h-6`} />
+              <TierIcon className="w-6 h-6" style={{ color: tier.color }} />
             </div>
 
             {/* Tier label */}
@@ -294,8 +344,12 @@ function TierCard({
                 <span className="text-white/20 text-sm font-mono">/mo</span>
               )}
             </div>
-            {tier.price === null && (
-              <span className="text-white/20 text-xs font-mono">forever free</span>
+
+            {/* Per-athlete cost */}
+            {tier.perAthlete && (
+              <div className="text-white/30 text-xs font-mono mt-1">
+                {tier.perAthlete}
+              </div>
             )}
 
             {/* Limit badge */}
@@ -305,8 +359,7 @@ function TierCard({
                 background: `${tier.color}10`,
                 border: `1px solid ${tier.color}20`,
                 color: `${tier.color}99`,
-                clipPath:
-                  "polygon(6px 0%, calc(100% - 6px) 0%, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0% 50%)",
+                clipPath: "polygon(6px 0%, calc(100% - 6px) 0%, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0% 50%)",
               }}
             >
               {tier.limits}
@@ -334,10 +387,7 @@ function TierCard({
                       borderRadius: "2px",
                     }}
                   >
-                    <CheckIcon
-                      className="w-3 h-3"
-                      style={{ color: tier.color } as React.CSSProperties}
-                    />
+                    <CheckIcon className="w-3 h-3" style={{ color: tier.color }} />
                   </div>
                 ) : (
                   <div className="w-5 h-5 shrink-0 flex items-center justify-center mt-0.5 border border-white/10 rounded-sm">
@@ -364,8 +414,7 @@ function TierCard({
                   background: `${tier.color}15`,
                   border: `1px solid ${tier.color}40`,
                   color: tier.color,
-                  clipPath:
-                    "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
+                  clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
                 }}
               >
                 <span className="flex items-center justify-center gap-2">
@@ -382,8 +431,7 @@ function TierCard({
                   background: `linear-gradient(135deg, ${tier.color}30, ${tier.color}15)`,
                   border: `1px solid ${tier.color}50`,
                   color: tier.color,
-                  clipPath:
-                    "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
+                  clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
                   boxShadow: `0 0 20px ${tier.glowColor}, inset 0 1px 15px ${tier.color}08`,
                 }}
               >
@@ -417,12 +465,87 @@ function TierCard({
   );
 }
 
+// ── Enterprise Card ──────────────────────────────────────────
+
+function EnterpriseCard() {
+  return (
+    <div className="mt-8 max-w-5xl mx-auto">
+      <div className="game-panel game-panel-border relative bg-[#06020f]/90 backdrop-blur-xl overflow-hidden">
+        {/* Scan lines */}
+        <div className="absolute inset-0 pointer-events-none opacity-20">
+          <div className="data-grid-bg w-full h-full" />
+        </div>
+
+        {/* Top accent */}
+        <div
+          className="absolute top-0 left-0 right-0 h-[2px]"
+          style={{
+            background: "linear-gradient(90deg, transparent, #f59e0b, transparent)",
+          }}
+        />
+
+        {/* Corner brackets */}
+        <div className="absolute top-3 left-3 w-4 h-4 border-t-2 border-l-2 opacity-40 border-[#f59e0b]" />
+        <div className="absolute top-3 right-3 w-4 h-4 border-t-2 border-r-2 opacity-40 border-[#f59e0b]" />
+        <div className="absolute bottom-3 left-3 w-4 h-4 border-b-2 border-l-2 opacity-40 border-[#f59e0b]" />
+        <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 opacity-40 border-[#f59e0b]" />
+
+        <div className="relative z-10 p-8 sm:p-10 flex flex-col sm:flex-row items-center gap-8">
+          {/* Left side */}
+          <div className="flex-1 text-center sm:text-left">
+            <div className="flex items-center justify-center sm:justify-start gap-3 mb-3">
+              <div
+                className="w-10 h-10 flex items-center justify-center"
+                style={{
+                  background: "linear-gradient(135deg, #f59e0b15, #f59e0b08)",
+                  border: "1px solid #f59e0b40",
+                  clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+                }}
+              >
+                <StarIcon className="w-5 h-5" style={{ color: "#f59e0b" }} />
+              </div>
+              <div>
+                <div className="text-[9px] font-mono tracking-[0.5em] uppercase text-[#f59e0b]/50">
+                  Elite Tier
+                </div>
+                <h3 className="text-xl font-black tracking-wider text-[#f59e0b]">
+                  ENTERPRISE
+                </h3>
+              </div>
+            </div>
+            <p className="text-white/40 text-sm font-mono leading-relaxed max-w-md">
+              300+ athletes, custom integrations, dedicated onboarding, multi-location support, and a pricing plan built around your program.
+            </p>
+          </div>
+
+          {/* Right side */}
+          <div className="shrink-0">
+            <a
+              href="mailto:ramichehq@gmail.com?subject=Apex%20Enterprise%20Inquiry"
+              className="inline-flex items-center gap-2 px-8 py-3.5 text-sm font-bold font-mono tracking-[0.2em] uppercase transition-all duration-300 hover:brightness-125"
+              style={{
+                background: "linear-gradient(135deg, #f59e0b30, #f59e0b15)",
+                border: "1px solid #f59e0b50",
+                color: "#f59e0b",
+                clipPath: "polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px))",
+                boxShadow: "0 0 20px rgba(245,158,11,0.2), inset 0 1px 15px rgba(245,158,11,0.05)",
+              }}
+            >
+              Contact Us
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Value Stats Section ──────────────────────────────────────
 
 function ValueStats() {
   const stats = [
-    { label: "Cost per athlete", value: "~$5/mo", sub: "based on ~50 athletes", icon: UsersIcon },
-    { label: "vs Team Unify", value: "60% less", sub: "$249 vs $600+/mo", icon: ChartIcon },
+    { label: "Starting at", value: "$3/mo", sub: "per athlete on Starter", icon: UsersIcon },
+    { label: "vs TeamUnify", value: "70% less", sub: "comparable features, fraction of cost", icon: ChartIcon },
     { label: "Meet entry time saved", value: "3+ hrs", sub: "per meet with SD3 export", icon: BoltIcon },
     { label: "Setup time", value: "< 1 day", sub: "import roster + go live", icon: RocketIcon },
   ];
@@ -462,9 +585,6 @@ function ValueStats() {
   );
 }
 
-// ── Import React for Fragment ───────────────────────────────
-import React from "react";
-
 // ── Main Billing Page ───────────────────────────────────────
 
 export default function BillingPage() {
@@ -472,7 +592,6 @@ export default function BillingPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
-  // Read current plan from localStorage
   useEffect(() => {
     setMounted(true);
     try {
@@ -484,13 +603,14 @@ export default function BillingPage() {
   }, []);
 
   const handleSubscribe = useCallback(
-    async () => {
-      setLoading("team");
+    async (tier: PlanTier) => {
+      if (!tier.priceId) return;
+      setLoading(tier.id);
       try {
         const res = await fetch("/api/stripe/checkout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ priceId: TEAM_PLAN.priceId, planId: TEAM_PLAN.id }),
+          body: JSON.stringify({ priceId: tier.priceId, planId: tier.id }),
         });
 
         const data = await res.json();
@@ -509,18 +629,17 @@ export default function BillingPage() {
     []
   );
 
-  // Read success/cancel from URL params
   useEffect(() => {
     if (!mounted) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("success") === "true") {
+    const plan = params.get("plan");
+    if (params.get("success") === "true" && plan) {
       try {
-        localStorage.setItem("apex-billing-plan", "team");
-        setCurrentPlan("team");
+        localStorage.setItem("apex-billing-plan", plan);
+        setCurrentPlan(plan);
       } catch {
         // ignore
       }
-      // Clean URL
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [mounted]);
@@ -531,29 +650,24 @@ export default function BillingPage() {
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-hidden">
       {/* ── Ambient background ─────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none z-0">
-        {/* Nebula orbs */}
         <div
           className="absolute top-[10%] left-[15%] w-[500px] h-[500px] rounded-full nebula-1 opacity-20"
           style={{
-            background:
-              "radial-gradient(circle, rgba(0,240,255,0.15) 0%, rgba(168,85,247,0.08) 40%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(0,240,255,0.15) 0%, rgba(168,85,247,0.08) 40%, transparent 70%)",
           }}
         />
         <div
           className="absolute bottom-[20%] right-[10%] w-[600px] h-[600px] rounded-full nebula-2 opacity-15"
           style={{
-            background:
-              "radial-gradient(circle, rgba(168,85,247,0.12) 0%, rgba(245,158,11,0.06) 40%, transparent 70%)",
+            background: "radial-gradient(circle, rgba(168,85,247,0.12) 0%, rgba(245,158,11,0.06) 40%, transparent 70%)",
           }}
         />
         <div
           className="absolute top-[50%] left-[50%] w-[400px] h-[400px] rounded-full nebula-3 opacity-10"
           style={{
-            background:
-              "radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 60%)",
+            background: "radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 60%)",
           }}
         />
-        {/* Scan line */}
         <div className="absolute inset-0 scan-line bg-gradient-to-b from-transparent via-[#00f0ff]/[0.02] to-transparent h-[200px]" />
       </div>
 
@@ -570,17 +684,14 @@ export default function BillingPage() {
 
         {/* ── Page Header ──────────────────────────────────────── */}
         <div className="text-center mb-12 sm:mb-16">
-          {/* HUD tag */}
           <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-3">
             {"<"} billing.system {"/>"}
           </div>
 
-          {/* Title */}
           <h1
             className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-[-0.04em] leading-[0.85] mb-4"
             style={{
-              background:
-                "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)",
+              background: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundSize: "200% 200%",
@@ -591,34 +702,40 @@ export default function BillingPage() {
             CHOOSE YOUR TIER
           </h1>
 
-          <p className="text-white/30 text-sm sm:text-base font-mono max-w-xl mx-auto leading-relaxed">
-            Everything your team needs. One price. No hidden fees.
-            Cancel anytime.
+          <p className="text-white/30 text-sm sm:text-base font-mono max-w-2xl mx-auto leading-relaxed">
+            Scale your program. Every tier includes gamification, analytics, and cloud sync.
+            The bigger your team, the more you save.
           </p>
 
           {/* Current plan indicator */}
-          {currentPlan === "team" && (
+          {currentPlan && (
             <div className="mt-6 inline-flex items-center gap-3 px-5 py-2.5 game-panel-sm bg-[#06020f]/80 border border-[#00f0ff]/20">
               <div className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)]" />
               <span className="text-[#00f0ff]/60 text-xs font-mono uppercase tracking-wider">
-                Status:
+                Current Plan:
               </span>
               <span className="text-[#00f0ff] text-sm font-bold font-mono uppercase tracking-wider">
-                ACTIVE
+                {currentPlan.toUpperCase()}
               </span>
             </div>
           )}
         </div>
 
-        {/* ── Single Plan Card ────────────────────────────────── */}
-        <div className="max-w-lg mx-auto">
-          <TierCard
-            tier={TEAM_PLAN}
-            currentPlan={currentPlan}
-            loading={loading}
-            onSelect={() => handleSubscribe()}
-          />
+        {/* ── 3 Tier Cards ──────────────────────────────────────── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+          {PLANS.map((plan) => (
+            <TierCard
+              key={plan.id}
+              tier={plan}
+              currentPlan={currentPlan}
+              loading={loading}
+              onSelect={handleSubscribe}
+            />
+          ))}
         </div>
+
+        {/* ── Enterprise Card ───────────────────────────────────── */}
+        <EnterpriseCard />
 
         {/* ── Trust bar ────────────────────────────────────────── */}
         <div className="mt-12 sm:mt-16 text-center">
@@ -677,11 +794,11 @@ export default function BillingPage() {
               },
               {
                 q: "Is there a contract or commitment?",
-                a: "No. All plans are month-to-month. Cancel anytime from your billing portal -- no questions asked, no cancellation fees.",
+                a: "No. All plans are month-to-month. Cancel anytime from your billing portal — no questions asked, no cancellation fees.",
               },
               {
-                q: "What happens to my data if I downgrade?",
-                a: "Your data is never deleted. If you exceed the free tier limits, roster management is read-only until you upgrade or reduce your roster.",
+                q: "What happens if I outgrow my plan?",
+                a: "You'll get a heads-up when you're approaching your athlete limit. Upgrade seamlessly — all your data carries over, no downtime.",
               },
               {
                 q: "Do you offer discounts for annual billing?",
