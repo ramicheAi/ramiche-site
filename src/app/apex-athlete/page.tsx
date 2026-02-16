@@ -1901,7 +1901,6 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative">
       <BgOrbs />
       <div className="text-center relative z-10">
-        <div className="text-3xl mb-2"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" style={{filter:'drop-shadow(0 0 8px rgba(0,240,255,0.5))'}}><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><path d="M2 16c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="7" r="3"/><path d="M9 10l-2 6h2l1-3 2 3 2-3 1 3h2l-2-6"/></svg></div>
         <div className="neon-text-cyan text-sm font-mono tracking-wider opacity-60">INITIALIZING...</div>
       </div>
     </div>
@@ -1931,7 +1930,6 @@ export default function ApexAthletePage() {
         <div className="text-center max-w-xs w-full relative z-10">
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
-            <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" style={{filter:'drop-shadow(0 0 20px rgba(0,240,255,0.5))'}}><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><path d="M2 16c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="7" r="3"/><path d="M9 10l-2 6h2l1-3 2 3 2-3 1 3h2l-2-6"/></svg></div>
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
             <div className="text-[#a855f7]/60 text-sm tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
@@ -2096,15 +2094,9 @@ export default function ApexAthletePage() {
             })}
           </div>
 
-          {/* Team identity — inline compact */}
-          <div className="flex items-center gap-3 px-1 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#f59e0b]/20 to-[#6b21a8]/20 border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
-              <span className="text-[#f59e0b] text-sm font-black">SA</span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <span className="text-white/70 font-bold text-sm">{culture.teamName}</span>
-              <span className="text-[#f59e0b]/60 text-sm ml-2 font-mono italic hidden sm:inline">{culture.mission}</span>
-            </div>
+          {/* Team name */}
+          <div className="px-1 mb-3">
+            <span className="text-white/70 font-bold text-sm">{culture.teamName}</span>
           </div>
 
           {/* Season goal — minimal */}
@@ -2929,27 +2921,25 @@ export default function ApexAthletePage() {
                 </button>
               ))}
             </div>
-            <div className="flex gap-2 w-full">
-              <div className="flex flex-1 rounded-xl overflow-hidden border border-white/10">
-                <button onClick={() => setCalendarView(false)}
-                  className={`flex-1 px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] ${
-                    !calendarView ? "bg-[#00f0ff]/15 text-[#00f0ff]" : "bg-transparent text-white/50 hover:text-white/60"
-                  }`}>
-                  Weekly
-                </button>
-                <button onClick={() => setCalendarView(true)}
-                  className={`flex-1 px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] ${
-                    calendarView ? "bg-[#a855f7]/15 text-[#a855f7]" : "bg-transparent text-white/50 hover:text-white/60"
-                  }`}>
-                  Season Calendar
-                </button>
-              </div>
+            <div className={`grid ${!calendarView ? 'grid-cols-3' : 'grid-cols-2'} gap-2 w-full`}>
+              <button onClick={() => setCalendarView(false)}
+                className={`py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] text-center border ${
+                  !calendarView ? "bg-[#00f0ff]/15 text-[#00f0ff] border-[#00f0ff]/30" : "bg-transparent text-white/50 hover:text-white/60 border-white/10"
+                }`}>
+                Weekly
+              </button>
+              <button onClick={() => setCalendarView(true)}
+                className={`py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] text-center border ${
+                  calendarView ? "bg-[#a855f7]/15 text-[#a855f7] border-[#a855f7]/30" : "bg-transparent text-white/50 hover:text-white/60 border-white/10"
+                }`}>
+                Season Calendar
+              </button>
               {!calendarView && (
                 <button onClick={() => setScheduleEditMode(!scheduleEditMode)}
-                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] ${
-                    scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30" : "bg-white/5 text-white/25 border border-white/10"
+                  className={`py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] text-center border ${
+                    scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border-[#f59e0b]/30" : "bg-white/5 text-white/25 border-white/10"
                   }`}>
-                  {scheduleEditMode ? "✓ Done Editing" : "✎ Edit Schedule"}
+                  {scheduleEditMode ? "✓ Done" : "✎ Edit"}
                 </button>
               )}
             </div>

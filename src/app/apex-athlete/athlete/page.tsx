@@ -345,29 +345,30 @@ function RadarChart({ values }: { values: Record<string, number> }) {
   });
 
   return (
-    <div className="flex justify-center w-full py-2">
-      <svg viewBox="0 0 200 200" className="w-full max-w-[300px]">
+    <div className="flex justify-center w-full py-6">
+      <svg viewBox="0 0 200 200" className="w-full max-w-[320px]" style={{ filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.25))' }}>
         {gridLevels.map(level => (
           <polygon key={level} points={points(r * level).map(p => p.join(",")).join(" ")}
-            fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />
+            fill="none" stroke="rgba(168,85,247,0.25)" strokeWidth="1" />
         ))}
         {attrs.map((_, i) => {
           const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
           return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(angle)} y2={cy + r * Math.sin(angle)}
-            stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />;
+            stroke="rgba(168,85,247,0.25)" strokeWidth="1" />;
         })}
         <polygon points={dataPoints.map(p => p.join(",")).join(" ")}
-          fill="rgba(168,85,247,0.25)" stroke="#a855f7" strokeWidth="2" />
+          fill="rgba(168,85,247,0.4)" stroke="#a855f7" strokeWidth="2.5" style={{ filter: 'drop-shadow(0 0 12px rgba(168,85,247,0.5))' }} />
         {dataPoints.map((p, i) => (
-          <circle key={i} cx={p[0]} cy={p[1]} r="4" fill={attrs[i].color} stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
+          <circle key={i} cx={p[0]} cy={p[1]} r="5" fill={attrs[i].color} stroke="rgba(255,255,255,0.5)" strokeWidth="1.5"
+            style={{ filter: `drop-shadow(0 0 4px ${attrs[i].color})` }} />
         ))}
         {attrs.map((a, i) => {
           const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-          const lx = cx + (r + 18) * Math.cos(angle);
-          const ly = cy + (r + 18) * Math.sin(angle);
+          const lx = cx + (r + 20) * Math.cos(angle);
+          const ly = cy + (r + 20) * Math.sin(angle);
           return (
             <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
-              fill="rgba(255,255,255,0.7)" fontSize="8" fontWeight="700">
+              fill="rgba(255,255,255,1)" fontSize="10" fontWeight="700">
               {values[a.key] || 0}
             </text>
           );
@@ -988,28 +989,49 @@ export default function AthletePortal() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
         </div>
         <div className="relative z-10 w-full max-w-md">
-          {/* Portal switcher */}
-          <div className="flex justify-center gap-2 mb-6">
-            <Link href="/apex-athlete" className="px-3 py-2.5 rounded-full text-xs font-bold border border-[#00f0ff]/30 text-[#00f0ff]/80 hover:bg-[#00f0ff]/10 transition-all min-h-[44px]">Coach</Link>
-            <span className="px-3 py-1.5 rounded-full text-xs font-bold border border-[#a855f7] bg-[#a855f7]/20 text-[#a855f7]">Athlete</span>
-            <Link href="/apex-athlete/parent" className="px-3 py-2.5 rounded-full text-xs font-bold border border-[#f59e0b]/30 text-[#f59e0b]/80 hover:bg-[#f59e0b]/10 transition-all min-h-[44px]">Parent</Link>
+          {/* Portal switcher — full-width grid */}
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            {[
+              { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
+              { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
+              { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
+            ].map(p => (
+              <Link key={p.label} href={p.href}
+                className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
+                  (p as any).active
+                    ? "border-2 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
+                    : "border hover:border-white/20 active:scale-[0.97]"
+                }`}
+                style={{
+                  background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+                  borderColor: (p as any).active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
+                  color: (p as any).active ? p.color : 'rgba(255,255,255,0.25)',
+                }}>
+                {p.label}
+              </Link>
+            ))}
           </div>
           <div className="text-center mb-6">
             <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>
             <h1 className="text-2xl font-black text-white">Select Athlete</h1>
             <p className="text-white/60 text-sm mt-1">Browse any athlete&apos;s portal</p>
           </div>
-          {/* Group filter for coaches */}
-          <div className="flex flex-wrap justify-center gap-1.5 mb-3">
-            {["all", "platinum", "gold", "silver", "bronze1", "bronze2", "diving", "waterpolo"].map(g => (
-              <button key={g} onClick={() => setCoachGroup(g === "all" ? "" : g)}
-                className="px-3 py-2.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all min-h-[44px]"
-                style={{
-                  background: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f720' : 'transparent',
-                  border: `1px solid ${(g === "all" ? !coachGroup : coachGroup === g) ? '#a855f760' : 'rgba(255,255,255,0.08)'}`,
-                  color: (g === "all" ? !coachGroup : coachGroup === g) ? '#a855f7' : 'rgba(255,255,255,0.5)',
-                }}>{g === "all" ? "All" : g.replace("bronze", "Brz ").replace("waterpolo", "WP").replace("platinum", "Plat").replace("gold", "Gold").replace("silver", "Silver").replace("diving", "Diving")}</button>
-            ))}
+          {/* Group filter for coaches — full-width grid */}
+          <div className="grid grid-cols-4 gap-2 mb-3">
+            {["all", "platinum", "gold", "silver", "bronze1", "bronze2", "diving", "waterpolo"].map(g => {
+              const isActive = g === "all" ? !coachGroup : coachGroup === g;
+              return (
+                <button key={g} onClick={() => setCoachGroup(g === "all" ? "" : g)}
+                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all min-h-[40px] text-center ${
+                    isActive ? "border-2 shadow-[0_0_12px_rgba(168,85,247,0.15)]" : "border hover:border-white/20"
+                  }`}
+                  style={{
+                    background: isActive ? '#a855f720' : 'rgba(6,2,15,0.6)',
+                    borderColor: isActive ? '#a855f760' : 'rgba(255,255,255,0.06)',
+                    color: isActive ? '#a855f7' : 'rgba(255,255,255,0.4)',
+                  }}>{g === "all" ? "All" : g.replace("bronze", "Brz ").replace("waterpolo", "WP").replace("platinum", "Plat").replace("gold", "Gold").replace("silver", "Silver").replace("diving", "Diving")}</button>
+              );
+            })}
           </div>
           <input type="text" placeholder="Search by name..." value={nameInput}
             onChange={e => setNameInput(e.target.value)}
@@ -1287,7 +1309,7 @@ export default function AthletePortal() {
           { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
         ].map(p => (
           <a key={p.label} href={p.href}
-            className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-xl transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
+            className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
               (p as any).active
                 ? "border-2 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
                 : "border hover:border-white/20 active:scale-[0.97]"
@@ -1388,17 +1410,17 @@ export default function AthletePortal() {
           </div>
         </div>
 
-        {/* Tab Navigation — two rows, full-width, easy tap targets */}
+        {/* Tab Navigation — two rows, full-width, generous tap targets */}
         <div className="mb-5 bg-[#0a0518]/60 p-2 rounded-2xl border border-white/[0.06] space-y-1.5">
-          {[TABS.slice(0, 5), TABS.slice(5)].map((row, ri) => (
+          {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
             <div key={ri} className="grid" style={{ gridTemplateColumns: `repeat(${row.length}, 1fr)`, gap: '4px' }}>
               {row.map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold rounded-xl transition-all duration-200 relative min-h-[48px] ${
-                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border border-[#a855f7]/30 shadow-[0_0_12px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.03] border border-transparent"
+                  className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-bold rounded-lg transition-all duration-200 relative min-h-[48px] ${
+                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.04] border border-white/[0.06]"
                   }`}>
                   {t.icon(tab === t.key)}
-                  <span>{t.label}</span>
+                  <span className="tracking-wide">{t.label}</span>
                   {t.badge && t.badge > 0 && (
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full text-white text-[8px] font-black flex items-center justify-center">
                       {t.badge}

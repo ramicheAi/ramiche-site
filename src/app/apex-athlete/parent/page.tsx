@@ -1289,10 +1289,10 @@ export default function ParentPortal() {
         </div>
         <div className="relative z-10 w-full max-w-md">
           {isCoach && (
-            <div className="flex justify-center gap-2 mb-6">
-              <a href="/apex-athlete" className="px-3 py-2.5 rounded-full text-sm font-bold border border-[#00f0ff]/30 text-[#00f0ff]/80 hover:bg-[#00f0ff]/10 transition-all min-h-[44px] flex items-center">Coach</a>
-              <a href="/apex-athlete/athlete" className="px-3 py-2.5 rounded-full text-sm font-bold border border-[#a855f7]/30 text-[#a855f7]/80 hover:bg-[#a855f7]/10 transition-all min-h-[44px] flex items-center">Athlete</a>
-              <span className="px-3 py-2.5 rounded-full text-sm font-bold border border-[#f59e0b] bg-[#f59e0b]/20 text-[#f59e0b] min-h-[44px] flex items-center">Parent</span>
+            <div className="grid grid-cols-3 gap-2 mb-6">
+              <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Coach</a>
+              <a href="/apex-athlete/athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Athlete</a>
+              <span className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]" style={{ background: '#f59e0b1a', borderColor: '#f59e0b66', color: '#f59e0b' }}>Parent</span>
             </div>
           )}
           <div className="text-center mb-8">
