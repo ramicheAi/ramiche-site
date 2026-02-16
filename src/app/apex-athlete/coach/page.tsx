@@ -1609,7 +1609,6 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative">
       <BgOrbs />
       <div className="text-center relative z-10">
-        <div className="text-3xl mb-2">🏊</div>
         <div className="neon-text-cyan text-sm font-mono tracking-wider opacity-60">INITIALIZING...</div>
       </div>
     </div>
@@ -1633,7 +1632,6 @@ export default function ApexAthletePage() {
         <div className="text-center max-w-xs w-full relative z-10">
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
-            <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]">🏊</div>
             <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Athlete Performance System</div>
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
             <div className="text-[#a855f7]/30 text-xs tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
