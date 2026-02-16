@@ -2199,6 +2199,7 @@ export default function ApexAthletePage() {
     const growth = getPersonalGrowth(athlete);
     const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
     const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
+    const cpMap = sessionMode === "pool" ? athlete.checkpoints : sessionMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
 
     return (
       <div className="expand-in mt-5 space-y-6" onClick={e => e.stopPropagation()}>
