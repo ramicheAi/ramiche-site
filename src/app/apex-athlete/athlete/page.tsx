@@ -345,33 +345,35 @@ function RadarChart({ values }: { values: Record<string, number> }) {
   });
 
   return (
-    <svg viewBox="0 0 200 200" className="w-full max-w-[260px] mx-auto">
-      {gridLevels.map(level => (
-        <polygon key={level} points={points(r * level).map(p => p.join(",")).join(" ")}
-          fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-      ))}
-      {attrs.map((_, i) => {
-        const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-        return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(angle)} y2={cy + r * Math.sin(angle)}
-          stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />;
-      })}
-      <polygon points={dataPoints.map(p => p.join(",")).join(" ")}
-        fill="rgba(168,85,247,0.15)" stroke="#a855f7" strokeWidth="1.5" />
-      {dataPoints.map((p, i) => (
-        <circle key={i} cx={p[0]} cy={p[1]} r="3" fill={attrs[i].color} />
-      ))}
-      {attrs.map((a, i) => {
-        const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
-        const lx = cx + (r + 18) * Math.cos(angle);
-        const ly = cy + (r + 18) * Math.sin(angle);
-        return (
-          <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
-            fill="rgba(255,255,255,0.4)" fontSize="7" fontWeight="600">
-            {values[a.key] || 0}
-          </text>
-        );
-      })}
-    </svg>
+    <div className="flex justify-center w-full py-2">
+      <svg viewBox="0 0 200 200" className="w-full max-w-[300px]">
+        {gridLevels.map(level => (
+          <polygon key={level} points={points(r * level).map(p => p.join(",")).join(" ")}
+            fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />
+        ))}
+        {attrs.map((_, i) => {
+          const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+          return <line key={i} x1={cx} y1={cy} x2={cx + r * Math.cos(angle)} y2={cy + r * Math.sin(angle)}
+            stroke="rgba(255,255,255,0.12)" strokeWidth="0.5" />;
+        })}
+        <polygon points={dataPoints.map(p => p.join(",")).join(" ")}
+          fill="rgba(168,85,247,0.25)" stroke="#a855f7" strokeWidth="2" />
+        {dataPoints.map((p, i) => (
+          <circle key={i} cx={p[0]} cy={p[1]} r="4" fill={attrs[i].color} stroke="rgba(255,255,255,0.3)" strokeWidth="1" />
+        ))}
+        {attrs.map((a, i) => {
+          const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+          const lx = cx + (r + 18) * Math.cos(angle);
+          const ly = cy + (r + 18) * Math.sin(angle);
+          return (
+            <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+              fill="rgba(255,255,255,0.7)" fontSize="8" fontWeight="700">
+              {values[a.key] || 0}
+            </text>
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
@@ -1277,19 +1279,23 @@ export default function AthletePortal() {
   // ── Main dashboard ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
-      {/* Portal switcher */}
-      <div className="relative z-20 flex items-center justify-center gap-2 py-2">
+      {/* Portal switcher — full-width grid */}
+      <div className="relative z-20 grid grid-cols-3 gap-2 px-4 pt-3 pb-2">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
           { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
         ].map(p => (
           <a key={p.label} href={p.href}
-            className="px-4 py-2.5 text-xs font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all min-h-[44px]"
+            className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-xl transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
+              (p as any).active
+                ? "border-2 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
+                : "border hover:border-white/20 active:scale-[0.97]"
+            }`}
             style={{
-              background: (p as any).active ? `${p.color}20` : 'transparent',
-              border: `1px solid ${(p as any).active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
-              color: (p as any).active ? p.color : 'rgba(255,255,255,0.5)',
+              background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+              borderColor: (p as any).active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
+              color: (p as any).active ? p.color : 'rgba(255,255,255,0.25)',
             }}>
             {p.label}
           </a>
@@ -1382,14 +1388,14 @@ export default function AthletePortal() {
           </div>
         </div>
 
-        {/* Tab Navigation — two rows for full visibility on mobile */}
-        <div className="mb-5 bg-[#0a0518]/50 p-1.5 rounded-xl border border-white/5 space-y-1">
+        {/* Tab Navigation — two rows, full-width, easy tap targets */}
+        <div className="mb-5 bg-[#0a0518]/60 p-2 rounded-2xl border border-white/[0.06] space-y-1.5">
           {[TABS.slice(0, 5), TABS.slice(5)].map((row, ri) => (
-            <div key={ri} className="flex gap-0.5">
+            <div key={ri} className="grid" style={{ gridTemplateColumns: `repeat(${row.length}, 1fr)`, gap: '4px' }}>
               {row.map(t => (
                 <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`flex-1 flex items-center justify-center gap-1 px-1 py-2 text-[10px] font-bold rounded-lg transition-all relative ${
-                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7]" : "text-white/30 hover:text-white/50"
+                  className={`flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] font-bold rounded-xl transition-all duration-200 relative min-h-[48px] ${
+                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border border-[#a855f7]/30 shadow-[0_0_12px_rgba(168,85,247,0.15)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.03] border border-transparent"
                   }`}>
                   {t.icon(tab === t.key)}
                   <span>{t.label}</span>

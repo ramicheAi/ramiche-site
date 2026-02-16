@@ -95,7 +95,9 @@ const WEIGHT_CPS = [
 ];
 
 const MEET_CPS = [
-  { id: "m-pr", name: "Personal Record", xp: 50, desc: "Set a new PR in any event" },
+  { id: "m-pr", name: "Personal Best", xp: 50, desc: "Set a new personal best in any event" },
+  { id: "m-meet-record", name: "Meet Record", xp: 75, desc: "Broke the meet record" },
+  { id: "m-team-record", name: "Team Record", xp: 100, desc: "Set a new team record" },
   { id: "m-best-time", name: "Best Time", xp: 30, desc: "Season-best or meet-best time" },
   { id: "m-sportsmanship", name: "Sportsmanship", xp: 20, desc: "Cheered teammates, showed respect" },
 ];
@@ -1631,9 +1633,8 @@ export default function ApexAthletePage() {
         <div className="text-center max-w-xs w-full relative z-10">
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
-            <div className="hud-corner-tl hud-corner-br absolute inset-0 pointer-events-none" />
             <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]">🏊</div>
-            <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Swim Training System</div>
+            <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Athlete Performance System</div>
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
             <div className="text-[#a855f7]/30 text-xs tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
@@ -1652,10 +1653,10 @@ export default function ApexAthletePage() {
               className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]">
               Authenticate
             </button>
-            <button onClick={() => setView("parent")}
-              className="text-[#00f0ff]/20 text-xs hover:text-[#00f0ff]/50 transition-colors mt-2 min-h-[44px] font-mono tracking-wider uppercase">
+            <a href="/apex-athlete/parent"
+              className="text-[#00f0ff]/20 text-xs hover:text-[#00f0ff]/50 transition-colors mt-2 min-h-[44px] font-mono tracking-wider uppercase block text-center">
               Parent / Read-Only Access
-            </button>
+            </a>
             {pinError && (
               <button onClick={resetPin} className="text-white/50 text-xs hover:text-white/60 transition-colors font-mono">
                 RESET PIN → 2451
@@ -1671,12 +1672,8 @@ export default function ApexAthletePage() {
   const GameHUDHeader = () => {
     const presentCount = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
     const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
-    const mainTabs = [
-      { id: "coach" as const, label: "Coach" },
-      { id: "staff" as const, label: "Staff" },
-      { id: "parent" as const, label: "Parent" },
-    ];
     const secondaryTabs = [
+      { id: "coach" as const, label: "Check-In" },
       { id: "meets" as const, label: "Meets" },
       { id: "comms" as const, label: "Comms" },
       { id: "analytics" as const, label: "Analytics" },
@@ -1717,31 +1714,31 @@ export default function ApexAthletePage() {
             </div>
           </div>
 
-          {/* Portal nav tabs — large, easy-to-tap */}
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {mainTabs.map(t => {
+          {/* Section nav tabs — full width grid */}
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {secondaryTabs.slice(0, 3).map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center ${
+                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
-                      ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.2)]"
-                      : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 hover:border-[#00f0ff]/20 active:scale-[0.97]"
+                      ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
                 </button>
               );
             })}
           </div>
-          <div className="flex gap-2 mb-4">
-            {secondaryTabs.map(t => {
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {secondaryTabs.slice(3).map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`flex-1 py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[44px] ${
+                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
-                      ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
-                      : "bg-[#06020f]/40 text-white/50 border border-white/[0.04] hover:text-white/60 hover:border-white/10 active:scale-[0.97]"
+                      ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
+                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
                 </button>

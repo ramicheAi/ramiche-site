@@ -112,7 +112,9 @@ const WEIGHT_CPS = [
 ];
 
 const MEET_CPS = [
-  { id: "m-pr", name: "Personal Record", xp: 50, desc: "Set a new PR in any event" },
+  { id: "m-pr", name: "Personal Best", xp: 50, desc: "Set a new personal best in any event" },
+  { id: "m-meet-record", name: "Meet Record", xp: 75, desc: "Broke the meet record" },
+  { id: "m-team-record", name: "Team Record", xp: 100, desc: "Set a new team record" },
   { id: "m-best-time", name: "Best Time", xp: 30, desc: "Season-best or meet-best time" },
   { id: "m-sportsmanship", name: "Sportsmanship", xp: 20, desc: "Cheered teammates, showed respect" },
 ];
@@ -1929,9 +1931,7 @@ export default function ApexAthletePage() {
         <div className="text-center max-w-xs w-full relative z-10">
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
-            <div className="hud-corner-tl hud-corner-br absolute inset-0 pointer-events-none" />
             <div className="text-5xl mb-4 drop-shadow-[0_0_30px_rgba(0,240,255,0.5)]"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="1.5" style={{filter:'drop-shadow(0 0 20px rgba(0,240,255,0.5))'}}><path d="M2 20c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><path d="M2 16c2-1 4-2 6-2s4 1 6 2 4 1 6 0" strokeLinecap="round"/><circle cx="12" cy="7" r="3"/><path d="M9 10l-2 6h2l1-3 2 3 2-3 1 3h2l-2-6"/></svg></div>
-            <div className="neon-text-cyan text-sm tracking-[0.5em] uppercase mb-2 font-bold opacity-80">Swim Training System</div>
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
             <div className="text-[#a855f7]/60 text-sm tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
@@ -1957,10 +1957,6 @@ export default function ApexAthletePage() {
               className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]">
               Authenticate
             </button>
-            <button onClick={() => setView("parent")}
-              className="text-[#00f0ff]/50 text-sm hover:text-[#00f0ff]/80 transition-colors mt-2 min-h-[44px] font-mono tracking-wider uppercase">
-              Parent / Read-Only Access
-            </button>
             {pinError && (
               <button onClick={resetPin} className="text-white/60 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px]">
                 RESET PIN → 2451
@@ -1976,17 +1972,13 @@ export default function ApexAthletePage() {
   const GameHUDHeader = () => {
     const presentCount = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
     const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
-    const mainTabs = [
-      { id: "coach" as const, label: "Coach" },
-      { id: "parent" as const, label: "Parent" },
-    ];
     const secondaryTabs = [
-      { id: "audit" as const, label: "Audit" },
+      { id: "coach" as const, label: "Check-In" },
+      { id: "meets" as const, label: "Meets" },
+      { id: "comms" as const, label: "Comms" },
       { id: "analytics" as const, label: "Analytics" },
       { id: "schedule" as const, label: "Schedule" },
       { id: "strategy" as const, label: "Strategy" },
-      { id: "meets" as const, label: "Meets" },
-      { id: "comms" as const, label: "Comms" },
     ];
     return (
       <div className="w-full relative mb-4">
@@ -2048,8 +2040,8 @@ export default function ApexAthletePage() {
             </div>
           </div>
 
-          {/* Portal switcher — large, easy-to-tap */}
-          <div className="flex gap-2 mb-4">
+          {/* Portal switcher — full-width grid */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
             {[
               { label: "Coach", href: "/apex-athlete", active: true, color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: false, color: "#a855f7" },
@@ -2057,7 +2049,7 @@ export default function ApexAthletePage() {
             ].map(p => (
               <a key={p.label} href={p.href}
                 onClick={() => { try { localStorage.setItem("apex-coach-group", selectedGroup); } catch {} }}
-                className={`flex-1 relative py-3.5 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center flex items-center justify-center ${
+                className={`py-3 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[48px] text-center flex items-center justify-center ${
                   p.active
                     ? "border-2 shadow-[0_0_20px_rgba(0,240,255,0.2)]"
                     : "border hover:border-white/20 active:scale-[0.97]"
@@ -2072,16 +2064,31 @@ export default function ApexAthletePage() {
             ))}
           </div>
 
-          {/* Section nav tabs — fill width */}
-          <div className="flex gap-2 mb-4">
-            {secondaryTabs.map(t => {
+          {/* Section nav tabs — 2-row grid, full width */}
+          <div className="grid grid-cols-3 gap-2 mb-2">
+            {secondaryTabs.slice(0, 3).map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
-                  className={`flex-1 py-2.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-lg min-h-[44px] ${
+                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
-                      ? "bg-[#a855f7]/12 text-[#a855f7] border border-[#a855f7]/40"
-                      : "bg-[#06020f]/40 text-white/50 border border-white/[0.08] hover:text-white/70 hover:border-white/20 active:scale-[0.97]"
+                      ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                  }`}>
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {secondaryTabs.slice(3).map(t => {
+              const active = view === t.id;
+              return (
+                <button key={t.id} onClick={() => setView(t.id)}
+                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                    active
+                      ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
+                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
                 </button>
@@ -2387,6 +2394,46 @@ export default function ApexAthletePage() {
                 );
               })}
             </Card>
+          </div>
+        )}
+
+        {/* Meet Day Bonuses — shown when session mode is meet */}
+        {sessionMode === "meet" && (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Meet Day Bonuses</h4>
+              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-red-400" : "text-white/30"}`}>{dailyUsed} xp today</span>
+            </div>
+            {!athlete.present && (
+              <Card className="px-5 py-4">
+                <div className="text-white/40 text-sm text-center">Tap present on the roster to check in</div>
+              </Card>
+            )}
+            {athlete.present && (
+              <Card className="divide-y divide-white/[0.04]">
+                {MEET_CPS.map(cp => {
+                  const done = cpMap[cp.id];
+                  return (
+                    <button key={cp.id} onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, "meet", e)}
+                      className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${
+                        done ? "bg-red-500/5" : "hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        done ? "border-red-400 bg-red-500" : "border-white/15"
+                      }`}>
+                        {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-white text-sm font-medium">{cp.name}</div>
+                        <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                      </div>
+                      <span className={`text-xs font-bold ${done ? "text-red-400" : "text-white/30"}`}>+{cp.xp}</span>
+                    </button>
+                  );
+                })}
+              </Card>
+            )}
           </div>
         )}
 
@@ -2882,16 +2929,16 @@ export default function ApexAthletePage() {
                 </button>
               ))}
             </div>
-            <div className="flex gap-2">
-              <div className="flex rounded-xl overflow-hidden border border-white/10">
+            <div className="flex gap-2 w-full">
+              <div className="flex flex-1 rounded-xl overflow-hidden border border-white/10">
                 <button onClick={() => setCalendarView(false)}
-                  className={`px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all ${
+                  className={`flex-1 px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] ${
                     !calendarView ? "bg-[#00f0ff]/15 text-[#00f0ff]" : "bg-transparent text-white/50 hover:text-white/60"
                   }`}>
                   Weekly
                 </button>
                 <button onClick={() => setCalendarView(true)}
-                  className={`px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all ${
+                  className={`flex-1 px-3 py-2.5 text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] ${
                     calendarView ? "bg-[#a855f7]/15 text-[#a855f7]" : "bg-transparent text-white/50 hover:text-white/60"
                   }`}>
                   Season Calendar
@@ -2899,10 +2946,10 @@ export default function ApexAthletePage() {
               </div>
               {!calendarView && (
                 <button onClick={() => setScheduleEditMode(!scheduleEditMode)}
-                  className={`px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all ${
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-xs font-bold font-mono tracking-wider transition-all min-h-[44px] ${
                     scheduleEditMode ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/30" : "bg-white/5 text-white/25 border border-white/10"
                   }`}>
-                  {scheduleEditMode ? "✓ Done Editing" : "✎ Tap to Edit Schedule"}
+                  {scheduleEditMode ? "✓ Done Editing" : "✎ Edit Schedule"}
                 </button>
               )}
             </div>

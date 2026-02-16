@@ -1350,19 +1350,23 @@ export default function ParentPortal() {
   // ── Parent Dashboard (read-only) ─────────────────────────
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
-      {/* Portal switcher */}
-      <div className="relative z-20 flex items-center justify-center gap-2 py-2">
+      {/* Portal switcher — full-width grid */}
+      <div className="relative z-20 grid grid-cols-3 gap-2 px-4 pt-3 pb-2">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
           { label: "Parent", href: "/apex-athlete/parent", active: true, color: "#f59e0b" },
         ].map(p => (
           <a key={p.label} href={p.href}
-            className="px-4 py-2.5 text-sm font-bold font-mono tracking-[0.2em] uppercase rounded-full transition-all min-h-[44px] flex items-center"
+            className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-xl transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
+              (p as any).active
+                ? "border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
+                : "border hover:border-white/20 active:scale-[0.97]"
+            }`}
             style={{
-              background: (p as any).active ? `${p.color}20` : 'transparent',
-              border: `1px solid ${(p as any).active ? p.color + '60' : 'rgba(255,255,255,0.08)'}`,
-              color: (p as any).active ? p.color : 'rgba(255,255,255,0.3)',
+              background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+              borderColor: (p as any).active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
+              color: (p as any).active ? p.color : 'rgba(255,255,255,0.25)',
             }}>
             {p.label}
           </a>
