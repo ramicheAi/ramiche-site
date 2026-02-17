@@ -3742,14 +3742,20 @@ export default function ApexAthletePage() {
 
     const handleMeetFileImport = (files: FileList | null) => {
       if (!files || files.length === 0) return;
-      setImportStatus(null);
-      Array.from(files).forEach(file => {
-        const reader = new FileReader();
-        reader.onload = () => {
+      setImportStatus({ type: "success", message: "Reading file..." });
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
           const text = reader.result as string;
-          // Try parsing regardless of extension — auto-detection handles it
+          if (!text || text.length < 10) {
+            setImportStatus({ type: "error", message: `File "${file.name}" appears empty or too small (${text?.length || 0} bytes)` });
+            return;
+          }
           const parsed = parseMeetFile(text, file.name);
           if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
+            let dataUrl = "";
+            try { dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`; } catch { dataUrl = ""; }
             const newMeet: SwimMeet = {
               id: `meet-${Date.now()}`,
               name: parsed.name || file.name,
@@ -3764,20 +3770,23 @@ export default function ApexAthletePage() {
               rsvps: {},
               broadcasts: [],
               status: "upcoming",
-              files: [{ id: `f-${Date.now()}`, name: file.name, dataUrl: `data:text/plain;base64,${btoa(text)}`, uploadedAt: Date.now() }],
+              files: dataUrl ? [{ id: `f-${Date.now()}`, name: file.name, dataUrl, uploadedAt: Date.now() }] : [],
             };
-            saveMeets([...meets, newMeet]);
-            setEditingMeetId(newMeet.id);
-            setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${parsed.events?.length || 0} events loaded` });
+            const updated = [...meets, newMeet];
+            saveMeets(updated);
+            setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${parsed.events?.length || 0} events, ${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString() : "TBD"} at ${parsed.location || "TBD"}` });
+            setTimeout(() => setEditingMeetId(newMeet.id), 1200);
           } else {
-            setImportStatus({ type: "error", message: `Could not parse "${file.name}". Make sure it's a valid Hy-Tek meet file (.hy3, .ev3, .hyv, .cl2, .sd3)` });
+            setImportStatus({ type: "error", message: `Could not parse "${file.name}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Make sure this is a Hy-Tek meet file (.hy3 or .ev3).` });
           }
-        };
-        reader.onerror = () => {
-          setImportStatus({ type: "error", message: `Failed to read file "${file.name}"` });
-        };
-        reader.readAsText(file);
-      });
+        } catch (err) {
+          setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown error"}` });
+        }
+      };
+      reader.onerror = () => {
+        setImportStatus({ type: "error", message: `Failed to read "${file.name}". Try from Files app instead of directly from email/downloads.` });
+      };
+      reader.readAsText(file);
     };
 
     const handleFileUpload = (meetId: string, files: FileList | null) => {
@@ -3917,7 +3926,7 @@ export default function ApexAthletePage() {
                 <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-3 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
-                  <input type="file" className="hidden" onChange={e => handleMeetFileImport(e.target.files)} accept="*/*" />
+                  <input type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept=".hy3,.hyv,.ev3,.cl2,.sd3,.txt,.csv,*/*" />
                 </label>
               </Card>
 
