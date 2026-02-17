@@ -1010,7 +1010,7 @@ export default function CommandCenter() {
       <div className="relative z-10 w-full">
 
         {/* ═══════ TOP NAV + IDENTITY + CLOCK ═══════ */}
-        <header className="w-full px-4 sm:px-6 lg:px-10 pt-4 pb-2">
+        <header className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 pt-4 pb-2">
 
           {/* Nav bar */}
           <nav className="flex items-center justify-between mb-4 overflow-visible">
@@ -1082,7 +1082,7 @@ export default function CommandCenter() {
         </header>
 
         {/* ═══════ SYSTEM STATUS STRIP ═══════ */}
-        <div className="w-full px-4 sm:px-6 lg:px-10 mb-6">
+        <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 mb-6">
           <div
             className="game-panel game-panel-scan scan-sweep relative px-5 py-3 flex items-center justify-between gap-4 flex-wrap"
             style={{
@@ -1121,7 +1121,7 @@ export default function CommandCenter() {
           </div>
         </div>
 
-        <div className="w-full px-4 sm:px-6 lg:px-10">
+        <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
 
           {/* ═══════ WHAT'S NEXT — #1 PRIORITY ═══════ */}
           <div className="mb-6">
@@ -1550,7 +1550,7 @@ export default function CommandCenter() {
               </svg>
 
               {/* === Squad Grid — 3D Characters at Workstations === */}
-              <div className="relative z-10 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 gap-y-4 px-3 sm:px-6 pb-6 mt-2">
+              <div className="relative z-10 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-9 gap-x-4 gap-y-6 px-4 sm:px-8 pb-8 mt-2">
                 {agents.slice(1).map((a, i) => {
                   const isActive = a.status === "active";
                   const isDone = a.status === "done";
@@ -1634,7 +1634,7 @@ export default function CommandCenter() {
                             ? `chibi-bounce ${3.5 + (i % 4) * 0.5}s ease-in-out ${bobDelay}s infinite`
                             : `chibi-wobble ${4.5 + (i % 3) * 0.5}s ease-in-out ${bobDelay}s infinite`,
                         }}>
-                        <div className="mx-auto relative" style={{ width: "68px", height: "100px" }}>
+                        <div className="mx-auto relative" style={{ width: "72px", height: "105px" }}>
                           {/* Character aura — stronger for active */}
                           <div className="absolute inset-[-12px] pointer-events-none" style={{
                             background: `radial-gradient(ellipse 70% 55% at 50% 50%, ${a.color}${isWorking ? "10" : "04"} 0%, transparent 70%)`,

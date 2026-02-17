@@ -127,7 +127,7 @@ export default function Home() {
 
       {/* ── HUD navigation bar ─────────────────────────────────── */}
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-2">
               <span className="neon-text-cyan text-sm font-bold tracking-widest">RAMICHE</span>
@@ -170,13 +170,13 @@ export default function Home() {
       </section>
 
       {/* ── portal cards ───────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+      <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
           <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Mission Portals</h2>
           <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 xl:gap-8">
           {portals.map((portal) => {
             const colors = accentColors[portal.accent];
             return (
@@ -200,7 +200,7 @@ export default function Home() {
       </section>
 
       {/* ── live stats ────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+      <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
         <div className="game-panel game-panel-border bg-white/[0.02] p-6 sm:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse" />
@@ -224,7 +224,7 @@ export default function Home() {
 
       {/* ── active agents ─────────────────────────────────────── */}
       {data && (
-        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Agent Status</h2>
@@ -235,7 +235,7 @@ export default function Home() {
           {activeAgents.length > 0 && (
             <div className="mb-4">
               <div className="text-[10px] tracking-widest uppercase text-[#00ff88]/60 mb-3">Active ({activeAgents.length})</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {activeAgents.map(a => (
                   <div key={a.name} className="border border-[#00ff88]/20 bg-[#00ff88]/5 rounded-sm p-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -255,7 +255,7 @@ export default function Home() {
           {doneAgents.length > 0 && (
             <div className="mb-4">
               <div className="text-[10px] tracking-widest uppercase text-[#00f0ff]/60 mb-3">Completed ({doneAgents.length})</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {doneAgents.map(a => (
                   <div key={a.name} className="border border-[#00f0ff]/15 bg-[#00f0ff]/3 rounded-sm p-3">
                     <div className="flex items-center gap-2 mb-1">
@@ -274,7 +274,7 @@ export default function Home() {
           {blockedAgents.length > 0 && (
             <div className="mb-4">
               <div className="text-[10px] tracking-widest uppercase text-[#f59e0b]/60 mb-3">Blocked ({blockedAgents.length})</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {blockedAgents.map(a => (
                   <div key={a.name} className="border border-[#f59e0b]/20 bg-[#f59e0b]/5 rounded-sm p-3">
                     <div className="flex items-center gap-2 mb-1">
@@ -292,15 +292,15 @@ export default function Home() {
 
       {/* ── project progress ──────────────────────────────────── */}
       {data && (
-        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Project Progress</h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {data.projects.map(p => (
-              <div key={p.name} className="border rounded-sm p-4" style={{ borderColor: `${p.accent}30`, background: `${p.accent}08` }}>
+              <div key={p.name} className="border rounded-sm p-5" style={{ borderColor: `${p.accent}30`, background: `${p.accent}08` }}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-bold" style={{ color: p.accent }}>{p.name}</span>
                   <div className="flex items-center gap-2">
@@ -334,7 +334,7 @@ export default function Home() {
 
       {/* ── blockers ──────────────────────────────────────────── */}
       {data && data.blockers.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
           <div className="game-panel game-panel-border border-[#f59e0b]/20 bg-[#f59e0b]/5 p-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-[#f59e0b]">⚠</span>
@@ -357,7 +357,7 @@ export default function Home() {
 
       {/* ── recent activity ───────────────────────────────────── */}
       {data && (
-        <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Recent Activity</h2>
@@ -376,7 +376,7 @@ export default function Home() {
       )}
 
       {/* ── brand ecosystem ────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12">
+      <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
           <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Brand Ecosystem</h2>
@@ -400,7 +400,7 @@ export default function Home() {
 
       {/* ── footer ─────────────────────────────────────────────── */}
       <footer className="relative z-10 border-t border-white/5 bg-[#06020f]/60 backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="neon-text-cyan text-xs font-bold tracking-widest">RAMICHE</span>

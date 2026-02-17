@@ -89,7 +89,7 @@ const READINESS = [
 
 export default function FinancialDashboard() {
   const [time, setTime] = useState<string | null>(null);
-  const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
+  // Brand revenue streams are always expanded on desktop
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString("en-US", {
@@ -132,7 +132,7 @@ export default function FinancialDashboard() {
         <div style={{ color: "#64748b", fontSize: 13, fontFamily: "monospace" }}>{time}</div>
       </nav>
 
-      <div style={{ padding: "80px 24px 40px", maxWidth: 1400, margin: "0 auto" }}>
+      <div style={{ padding: "80px 32px 40px", maxWidth: 1800, margin: "0 auto" }}>
         {/* ── HEADER ── */}
         <div style={{ marginBottom: 40 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
@@ -148,13 +148,13 @@ export default function FinancialDashboard() {
 
         {/* ── KEY METRICS ── */}
         <div style={{
-          display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: 16, marginBottom: 40,
+          display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 20, marginBottom: 48,
         }}>
           {METRICS.map(m => (
             <div key={m.label} style={{
               background: "rgba(255,255,255,0.03)", border: `1px solid ${m.color}22`,
-              borderRadius: 16, padding: 24,
+              borderRadius: 16, padding: "28px 24px",
             }}>
               <div style={{ fontSize: 12, color: "#64748b", letterSpacing: 1.2, fontWeight: 600, marginBottom: 8 }}>
                 {m.label.toUpperCase()}
@@ -171,8 +171,8 @@ export default function FinancialDashboard() {
             \u2726 APEX ATHLETE \u2014 PRICING TIERS
           </h2>
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 16,
+            display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 20,
           }}>
             {APEX_TIERS.map(t => (
               <div key={t.name} style={{
@@ -194,40 +194,34 @@ export default function FinancialDashboard() {
           <h2 style={{ fontSize: 18, fontWeight: 600, color: "#fcd34d", marginBottom: 16, letterSpacing: 1 }}>
             {"📈"} ARR PROJECTIONS
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
             {APEX_PROJECTIONS.map(p => (
               <div key={p.year} style={{
                 background: "rgba(255,255,255,0.03)",
                 border: `1px solid ${p.color}22`,
-                borderRadius: 12, padding: "16px 24px",
-                display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap",
+                borderRadius: 16, padding: 24,
+                display: "flex", flexDirection: "column", gap: 12,
               }}>
-                <div style={{ minWidth: 160 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: p.color }}>{p.year}</div>
-                </div>
-                <div style={{ flex: 1, display: "flex", gap: 32, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: p.color, marginBottom: 4 }}>{p.year}</div>
+                <div style={{ fontSize: 32, fontWeight: 700, color: "#fff" }}>{p.arr}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
                   <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>ARR</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>{p.arr}</div>
+                    <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1 }}>TEAMS</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#94a3b8" }}>{p.teams}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Teams</div>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: "#94a3b8" }}>{p.teams}</div>
+                    <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1 }}>ARPU</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#94a3b8" }}>{p.arpu}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>ARPU</div>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: "#94a3b8" }}>{p.arpu}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Churn</div>
-                    <div style={{ fontSize: 18, fontWeight: 600, color: "#94a3b8" }}>{p.churn}</div>
+                    <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1 }}>CHURN</div>
+                    <div style={{ fontSize: 16, fontWeight: 600, color: "#94a3b8" }}>{p.churn}</div>
                   </div>
                 </div>
-                {/* ── visual bar ── */}
-                <div style={{ width: 200, height: 8, background: "rgba(255,255,255,0.05)", borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 4, overflow: "hidden", marginTop: 4 }}>
                   <div style={{
                     height: "100%", borderRadius: 4, background: p.color,
-                    width: `${Math.min(100, (parseFloat(p.arr.replace(/[$M]/g, "")) / 14.7) * 100)}%`,
+                    width: `${Math.min(100, (parseFloat(p.arr.replace(/[$M]/g, "")) / 14.9) * 100)}%`,
                     transition: "width 1s ease",
                   }} />
                 </div>
@@ -241,53 +235,42 @@ export default function FinancialDashboard() {
           <h2 style={{ fontSize: 18, fontWeight: 600, color: "#00f0ff", marginBottom: 16, letterSpacing: 1 }}>
             {"🏢"} REVENUE STREAMS BY BRAND
           </h2>
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
             {BRANDS.map(b => (
               <div key={b.name} style={{
                 background: "rgba(255,255,255,0.03)",
                 border: `1px solid ${b.accent}22`,
-                borderRadius: 16, overflow: "hidden",
+                borderRadius: 16, padding: 24,
               }}>
-                <button onClick={() => setExpandedBrand(expandedBrand === b.name ? null : b.name)} style={{
-                  width: "100%", padding: "16px 24px", background: "none", border: "none",
-                  color: "#e2e8f0", cursor: "pointer", display: "flex", alignItems: "center",
-                  justifyContent: "space-between",
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <span style={{ fontSize: 20 }}>{b.icon}</span>
-                    <span style={{ fontSize: 16, fontWeight: 600, color: b.accent }}>{b.name}</span>
-                    <span style={{ fontSize: 12, color: "#64748b" }}>({b.streams.length} streams)</span>
-                  </div>
-                  <span style={{ color: "#64748b", fontSize: 18, transform: expandedBrand === b.name ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                    \u25BC
-                  </span>
-                </button>
-                {expandedBrand === b.name && (
-                  <div style={{ padding: "0 24px 16px" }}>
-                    {b.streams.map(s => (
-                      <div key={s.name} style={{
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
-                        padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.04)",
-                      }}>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0" }}>{s.name}</div>
-                          <div style={{ fontSize: 11, color: "#64748b" }}>Current: {s.monthly}</div>
-                        </div>
-                        <div style={{ textAlign: "right" }}>
-                          <span style={{
-                            fontSize: 10, fontWeight: 700, letterSpacing: 1,
-                            padding: "3px 8px", borderRadius: 6,
-                            color: s.status === "active" ? "#34d399" : s.status === "ready" ? "#60a5fa" : s.status === "blocked" ? "#ef4444" : "#94a3b8",
-                            background: s.status === "active" ? "rgba(52,211,153,0.1)" : s.status === "ready" ? "rgba(96,165,250,0.1)" : s.status === "blocked" ? "rgba(239,68,68,0.1)" : "rgba(148,163,184,0.1)",
-                          }}>
-                            {s.status.toUpperCase()}
-                          </span>
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{s.potential}</div>
-                        </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                  <span style={{ fontSize: 20 }}>{b.icon}</span>
+                  <span style={{ fontSize: 16, fontWeight: 600, color: b.accent }}>{b.name}</span>
+                  <span style={{ fontSize: 12, color: "#64748b" }}>({b.streams.length} streams)</span>
+                </div>
+                <div>
+                  {b.streams.map(s => (
+                    <div key={s.name} style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.04)",
+                    }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0" }}>{s.name}</div>
+                        <div style={{ fontSize: 11, color: "#64748b" }}>Current: {s.monthly}</div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, letterSpacing: 1,
+                          padding: "3px 8px", borderRadius: 6,
+                          color: s.status === "active" ? "#34d399" : s.status === "ready" ? "#60a5fa" : s.status === "blocked" ? "#ef4444" : "#94a3b8",
+                          background: s.status === "active" ? "rgba(52,211,153,0.1)" : s.status === "ready" ? "rgba(96,165,250,0.1)" : s.status === "blocked" ? "rgba(239,68,68,0.1)" : "rgba(148,163,184,0.1)",
+                        }}>
+                          {s.status.toUpperCase()}
+                        </span>
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{s.potential}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
