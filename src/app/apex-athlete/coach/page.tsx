@@ -880,14 +880,31 @@ export default function ApexAthletePage() {
       const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
       if (missing.length > 0) { r = [...r, ...missing]; save(K.ROSTER, r); }
     }
+    // Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
+    const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
+    if (anyPastCheckins) {
+      const prevDate = r.find(a => a.dailyXP?.date && a.dailyXP.date !== today())?.dailyXP?.date || today();
+      const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
+      if (!snaps.some(s => s.date === prevDate)) {
+        const att = r.filter(a => a.present).length;
+        snaps.push({
+          date: prevDate, attendance: att, totalAthletes: r.length,
+          totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0), 0),
+          poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
+          weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
+          meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+        });
+        save(K.SNAPSHOTS, snaps);
+      }
+    }
     r = r.map(a => {
       // Ensure new fields exist for legacy data
       if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
       if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
       if (!a.group) a = { ...a, group: "platinum" };
-      // Reset daily XP if new day
-      if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
-      else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 } };
+      // Reset daily XP + check-ins for new day (clean slate per practice)
+      if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+      else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
       // Auto-break streaks if last check-in was more than 1 day ago
       if (a.lastStreakDate && a.streak > 0) {
         const last = new Date(a.lastStreakDate); const now = new Date(today());
@@ -987,7 +1004,25 @@ export default function ApexAthletePage() {
     const sessionKey = `${today()}-${sessionTime}-${selectedGroup}`;
     const lastSession = load<string>(K.LAST_SESSION, "");
     if (lastSession && lastSession !== sessionKey) {
-      // New session detected — clear present + checkpoints for this group only
+      // New session detected — snapshot old data, then clear present + checkpoints for this group
+      const groupRoster = roster.filter(a => a.group === selectedGroup);
+      const hadCheckins = groupRoster.some(a => a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean));
+      if (hadCheckins) {
+        // Save snapshot before clearing
+        const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
+        const prevDate = lastSession.split("-").slice(0, 3).join("-") || today();
+        if (!snaps.some(s => s.date === prevDate)) {
+          const att = groupRoster.filter(a => a.present).length;
+          snaps.push({
+            date: prevDate, attendance: att, totalAthletes: groupRoster.length,
+            totalXPAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
+            poolCheckins: groupRoster.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
+            weightCheckins: groupRoster.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
+            meetCheckins: groupRoster.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+          });
+          save(K.SNAPSHOTS, snaps);
+        }
+      }
       const cleared = roster.map(a => a.group !== selectedGroup ? a : ({
         ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
       }));
