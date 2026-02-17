@@ -3596,18 +3596,30 @@ export default function ApexAthletePage() {
       // Auto-detect format if extension is missing or unrecognized
       if (!["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext)) {
         const firstLine = lines[0];
-        if (firstLine.includes(";") && firstLine.includes("Hy-Tek")) {
-          // HY3 header contains "Hy-Tek's MEET MANAGER"
-          ext = "hy3";
-        } else if (firstLine.includes(";") && lines[1]?.split(";").length > 10) {
-          // HY3 format: event rows have many semicolon-separated fields
-          ext = "hy3";
-        } else if (firstLine.includes(";") && lines[1]?.split(";").length >= 8 && lines[1]?.split(";").length <= 10) {
-          // EV3 format: fewer fields per event row
-          ext = "ev3";
-        } else if (firstLine.includes(";")) {
-          // Generic semicolon format — try hy3 as default
-          ext = "hy3";
+        const firstRow = lines[1]?.replace(/\*>$/, "").split(";") || [];
+        if (firstLine.includes(";")) {
+          // Distinguish HY3 from EV3 by event row structure:
+          // HY3 rows have 20+ fields, with field[8]=distance (numeric), field[9]=stroke letter (A-E)
+          // EV3 rows have 15-18 fields, with field[6]=distance (numeric), field[7]=stroke number (1-7)
+          if (firstRow.length > 15) {
+            const hy3Dist = parseInt(firstRow[8] || "");
+            const ev3Dist = parseInt(firstRow[6] || "");
+            const hy3Stroke = (firstRow[9] || "").trim().toUpperCase();
+            const ev3StrokeNum = parseInt(firstRow[7] || "");
+            if (hy3Dist > 0 && /^[A-E]$/.test(hy3Stroke) && firstRow.length > 20) {
+              ext = "hy3";
+            } else if (ev3Dist > 0 && ev3StrokeNum >= 1 && ev3StrokeNum <= 7 && firstRow.length <= 20) {
+              ext = "ev3";
+            } else if (firstLine.includes("MEET MANAGER")) {
+              ext = "hy3";
+            } else {
+              ext = firstRow.length > 20 ? "hy3" : "ev3";
+            }
+          } else if (firstRow.length >= 8 && firstRow.length <= 15) {
+            ext = "ev3";
+          } else {
+            ext = "hy3";
+          }
         } else if (firstLine.substring(0, 2) === "B1" || firstLine.substring(0, 2) === "01") {
           ext = "sd3";
         } else {
@@ -3905,7 +3917,7 @@ export default function ApexAthletePage() {
                 <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-3 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
-                  <input type="file" className="hidden" onChange={e => handleMeetFileImport(e.target.files)} accept=".hy3,.hyv,.cl2,.sd3,.ev3,text/plain,application/octet-stream" />
+                  <input type="file" className="hidden" onChange={e => handleMeetFileImport(e.target.files)} accept="*/*" />
                 </label>
               </Card>
 
