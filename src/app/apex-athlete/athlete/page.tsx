@@ -63,7 +63,8 @@ interface Athlete {
   weightCheckpoints: Record<string, boolean>;
   meetCheckpoints: Record<string, boolean>;
   weightChallenges: Record<string, boolean>;
-  quests: Record<string, "active" | "done" | "pending">;
+  quests: Record<string, "active" | "submitted" | "done" | "pending">;
+  questNotes?: Record<string, string>;
   dailyXP: { date: string; pool: number; weight: number; meet: number };
   usaSwimmingId?: string;
   birthday?: string;
@@ -2126,30 +2127,89 @@ export default function AthletePortal() {
         {/* ══════════════ QUESTS TAB ══════════════ */}
         {tab === "quests" && (
           <div className="space-y-3">
-            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">SIDE QUESTS</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-white/50 text-xs font-mono tracking-wider">SIDE QUESTS</h3>
+              <span className="text-white/25 text-xs font-mono">
+                {Object.values(athlete.quests || {}).filter(s => s === "done").length}/{QUEST_DEFS.length} done
+              </span>
+            </div>
             {QUEST_DEFS.map(q => {
               const status = athlete.quests?.[q.id] || "pending";
+              const note = athlete.questNotes?.[q.id] || "";
               return (
-                <div key={q.id} className={`p-4 rounded-xl border transition-all ${status === "done" ? "bg-emerald-500/5 border-emerald-500/20" : status === "active" ? "bg-[#a855f7]/5 border-[#a855f7]/20" : "bg-[#0a0518]/80 border-white/5"}`}>
+                <div key={q.id} className={`p-4 rounded-xl border transition-all ${
+                  status === "done" ? "bg-emerald-500/5 border-emerald-500/20" :
+                  status === "submitted" ? "bg-[#f59e0b]/5 border-[#f59e0b]/20" :
+                  status === "active" ? "bg-[#a855f7]/5 border-[#a855f7]/20" :
+                  "bg-[#0a0518]/80 border-white/5"
+                }`}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-white font-semibold text-sm">{q.name}</span>
-                        <span className={`text-sm px-1.5 py-0.5 rounded-full border ${CAT_COLORS[q.cat] || ""}`}>{q.cat}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-bold ${CAT_COLORS[q.cat] || ""}`}>{q.cat}</span>
                       </div>
                       <p className="text-white/60 text-xs">{q.desc}</p>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="text-[#f59e0b] text-sm font-bold">+{q.xp}</div>
-                      <div className={`text-sm font-mono ${status === "done" ? "text-emerald-400" : status === "active" ? "text-[#a855f7]" : "text-white/50"}`}>
-                        {status === "done" ? "COMPLETE" : status === "active" ? "ACTIVE" : "LOCKED"}
+                      <div className="text-[#f59e0b] text-sm font-bold">+{q.xp} XP</div>
+                      <div className={`text-[10px] font-mono uppercase tracking-wider ${
+                        status === "done" ? "text-emerald-400" :
+                        status === "submitted" ? "text-[#f59e0b]" :
+                        status === "active" ? "text-[#a855f7]" :
+                        "text-white/30"
+                      }`}>
+                        {status === "done" ? "COMPLETE" : status === "submitted" ? "SUBMITTED" : status === "active" ? "ACTIVE" : "LOCKED"}
                       </div>
                     </div>
                   </div>
+                  {/* Submit area — only for active quests */}
+                  {status === "active" && (
+                    <div className="mt-3 pt-3 border-t border-white/5">
+                      <textarea
+                        placeholder="What did you do? (optional)"
+                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-2.5 text-white text-xs placeholder:text-white/20 resize-none focus:border-[#a855f7]/30 focus:outline-none"
+                        rows={2}
+                        value={note}
+                        onChange={e => {
+                          const newNotes = { ...(athlete.questNotes || {}), [q.id]: e.target.value };
+                          const roster = load<Athlete[]>(K.ROSTER, []);
+                          const idx = roster.findIndex(a => a.id === athlete.id);
+                          if (idx >= 0) { roster[idx] = { ...roster[idx], questNotes: newNotes }; save(K.ROSTER, roster); }
+                          setAthlete(prev => prev ? { ...prev, questNotes: newNotes } : prev);
+                        }}
+                      />
+                      <button
+                        onClick={() => {
+                          const roster = load<Athlete[]>(K.ROSTER, []);
+                          const idx = roster.findIndex(a => a.id === athlete.id);
+                          if (idx >= 0) {
+                            roster[idx] = { ...roster[idx], quests: { ...roster[idx].quests, [q.id]: "submitted" } };
+                            save(K.ROSTER, roster);
+                          }
+                          setAthlete(prev => prev ? { ...prev, quests: { ...prev.quests, [q.id]: "submitted" } } : prev);
+                        }}
+                        className="mt-2 w-full py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/25 hover:bg-[#a855f7]/25 active:scale-[0.98] transition-all"
+                      >
+                        Submit for Review
+                      </button>
+                    </div>
+                  )}
+                  {/* Submitted — waiting for coach */}
+                  {status === "submitted" && (
+                    <div className="mt-3 pt-3 border-t border-[#f59e0b]/10 text-center">
+                      <span className="text-[#f59e0b]/60 text-xs font-mono">Waiting for coach review</span>
+                    </div>
+                  )}
+                  {/* Done — show XP earned */}
+                  {status === "done" && (
+                    <div className="mt-3 pt-3 border-t border-emerald-500/10 text-center">
+                      <span className="text-emerald-400/60 text-xs font-mono">+{q.xp} XP earned</span>
+                    </div>
+                  )}
                 </div>
               );
             })}
-            <p className="text-white/50 text-sm text-center mt-4">Quests are assigned and approved by your coach</p>
           </div>
         )}
 

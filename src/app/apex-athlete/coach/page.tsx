@@ -137,7 +137,8 @@ interface Athlete {
   weightCheckpoints: Record<string, boolean>;
   meetCheckpoints: Record<string, boolean>;
   weightChallenges: Record<string, boolean>;
-  quests: Record<string, "active" | "done" | "pending">;
+  quests: Record<string, "active" | "submitted" | "done" | "pending">;
+  questNotes?: Record<string, string>;
   dailyXP: DailyXP;
   present?: boolean;
   birthday?: string;
@@ -1169,14 +1170,19 @@ export default function ApexAthletePage() {
     });
   }, [awardXP, addAudit, spawnXpFloat]);
 
-  // ── quest cycle ──────────────────────────────────────────
+  // ── quest: coach assigns (pending→active) or approves (submitted→done) ──
   const cycleQuest = useCallback((athleteId: string, qId: string, qXP: number, e?: React.MouseEvent) => {
     setRoster(prev => {
       const idx = prev.findIndex(a => a.id === athleteId);
       if (idx < 0) return prev;
       let a = { ...prev[idx], quests: { ...prev[idx].quests } };
       const cur = a.quests[qId] || "pending";
-      const next: "active" | "done" | "pending" = cur === "pending" ? "active" : cur === "active" ? "done" : "pending";
+      // Coach flow: pending → active (assign), submitted → done (approve)
+      const next: "active" | "submitted" | "done" | "pending" =
+        cur === "pending" ? "active" :
+        cur === "submitted" ? "done" :
+        cur === "active" ? "done" : // fallback: coach can still approve directly
+        "pending";
       a.quests[qId] = next;
       let awarded = 0;
       if (next === "done") {
@@ -1190,13 +1196,13 @@ export default function ApexAthletePage() {
     });
   }, [awardXP, addAudit, spawnXpFloat]);
 
-  // ── quest deny (reset to pending) ─────────────────────────
+  // ── quest deny (reset to active so athlete can re-submit) ──
   const denyQuest = useCallback((athleteId: string, qId: string) => {
     setRoster(prev => {
       const idx = prev.findIndex(a => a.id === athleteId);
       if (idx < 0) return prev;
       const a = { ...prev[idx], quests: { ...prev[idx].quests } };
-      a.quests[qId] = "pending";
+      a.quests[qId] = "active"; // back to active, not pending — quest stays assigned
       addAudit(a.id, a.name, `Quest denied: ${qId}`, 0);
       const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
     });
@@ -2113,7 +2119,14 @@ export default function ApexAthletePage() {
         {/* Side quests — Coach assigns, athlete completes, coach approves */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Side Quests</h4>
+            <div className="flex items-center gap-2">
+              <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Side Quests</h4>
+              {Object.values(athlete.quests).filter(q => q === "submitted").length > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30 animate-pulse">
+                  {Object.values(athlete.quests).filter(q => q === "submitted").length} to review
+                </span>
+              )}
+            </div>
             <span className="text-white/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
           </div>
           <Card className="divide-y divide-white/[0.04]">
@@ -2122,15 +2135,17 @@ export default function ApexAthletePage() {
               return (
                 <div key={q.id}
                   className={`w-full px-5 py-4 transition-colors ${
-                    st === "done" ? "bg-emerald-500/5" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
+                    st === "done" ? "bg-emerald-500/5" : st === "submitted" ? "bg-[#f59e0b]/5 border-l-2 border-l-[#f59e0b]/40" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                      st === "done" ? "border-emerald-400 bg-emerald-400/20" : st === "active" ? "border-[#a855f7] bg-[#a855f7]/20" : "border-white/15"
+                      st === "done" ? "border-emerald-400 bg-emerald-400/20" : st === "submitted" ? "border-[#f59e0b] bg-[#f59e0b]/20" : st === "active" ? "border-[#a855f7] bg-[#a855f7]/20" : "border-white/15"
                     }`}>
                       {st === "done" ? (
                         <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      ) : st === "submitted" ? (
+                        <svg className="w-3.5 h-3.5 text-[#f59e0b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3L12 3z" /></svg>
                       ) : st === "active" ? (
                         <svg className="w-3.5 h-3.5 text-[#a855f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9" strokeWidth="2"/></svg>
                       ) : (
@@ -2147,12 +2162,18 @@ export default function ApexAthletePage() {
                       <div className="text-white/40 text-xs mt-1">{q.desc}</div>
                       <div className="flex items-center gap-2 mt-2">
                         <span className={`text-xs font-mono tracking-wider ${
-                          st === "done" ? "text-emerald-400/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/25"
+                          st === "done" ? "text-emerald-400/70" : st === "submitted" ? "text-[#f59e0b]/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/25"
                         }`}>
-                          {st === "done" ? "Completed" : st === "active" ? "Awaiting approval" : "Not assigned"}
+                          {st === "done" ? "Completed" : st === "submitted" ? "Submitted — review now" : st === "active" ? "In progress" : "Not assigned"}
                         </span>
                         <span className={`text-xs font-bold font-mono ${st === "done" ? "text-emerald-400/60" : "text-white/20"}`}>+{q.xp} xp</span>
                       </div>
+                      {st === "submitted" && athlete.questNotes?.[q.id] && (
+                        <div className="mt-2 p-2 rounded-lg bg-[#f59e0b]/5 border border-[#f59e0b]/15">
+                          <span className="text-[#f59e0b]/60 text-[10px] uppercase tracking-wider font-bold">Athlete notes:</span>
+                          <p className="text-white/70 text-xs mt-0.5">{athlete.questNotes[q.id]}</p>
+                        </div>
+                      )}
                     </div>
                     <div className="shrink-0 flex items-center">
                       {st === "pending" && (
@@ -2163,11 +2184,11 @@ export default function ApexAthletePage() {
                           Assign
                         </button>
                       )}
-                      {st === "active" && (
+                      {st === "submitted" && (
                         <div className="flex gap-1.5">
                           <button
                             onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
-                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all active:scale-[0.97]"
+                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all active:scale-[0.97] animate-pulse"
                           >
                             Approve
                           </button>
@@ -2178,6 +2199,11 @@ export default function ApexAthletePage() {
                             Deny
                           </button>
                         </div>
+                      )}
+                      {st === "active" && (
+                        <span className="px-3 py-2 rounded-lg text-xs font-mono tracking-wider text-[#a855f7]/50 border border-[#a855f7]/10">
+                          Waiting
+                        </span>
                       )}
                       {st === "done" && (
                         <span className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/15">
