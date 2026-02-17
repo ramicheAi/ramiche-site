@@ -2,43 +2,38 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { APEX_PRICING, APEX_PROJECTIONS as SHARED_PROJECTIONS, NAV_LINKS, KEY_METRICS } from "@/lib/shared-config";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    FINANCIAL DASHBOARD — KIYOSAKI'S ORACLE
    Revenue projections, brand P&L, pricing tiers, and growth metrics.
    Powered by KIYOSAKI (8 financial minds integrated).
+   Imports from shared-config.ts — single source of truth.
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
-const NAV = [
-  { label: "HQ", href: "/", icon: "\u25C8" },
-  { label: "COMMAND", href: "/command-center", icon: "\u25C7" },
-  { label: "APEX", href: "/apex-athlete", icon: "\u2726" },
-  { label: "FINANCE", href: "/financial", icon: "\u25C9", active: true },
-  { label: "STUDIO", href: "/studio", icon: "\u2662" },
-];
+const NAV = NAV_LINKS.map(n => ({
+  ...n,
+  active: n.label === "FINANCE",
+}));
 
-/* ── APEX ATHLETE FINANCIALS ───────────────────────────────────────────────── */
-const APEX_TIERS = [
-  { name: "Free", price: "$0", teams: "1 team, 15 athletes", features: "Basic check-ins, XP engine, leaderboard", color: "#94a3b8" },
-  { name: "Pro", price: "$29/mo", teams: "3 teams, 100 athletes", features: "Analytics, weight room, meet day, quests", color: "#60a5fa" },
-  { name: "Club", price: "$99/mo", teams: "Unlimited teams, 500 athletes", features: "Multi-sport, parent portal, advanced analytics", color: "#f59e0b" },
-  { name: "Enterprise", price: "$249/mo", teams: "Unlimited everything", features: "White-label, API, dedicated support, custom", color: "#a855f7" },
-];
+/* ── APEX ATHLETE FINANCIALS (from shared config) ──────────────────────────── */
+const APEX_TIERS = APEX_PRICING.tiers.map(t => ({
+  name: t.name,
+  price: t.priceLabel,
+  teams: t.athletes,
+  features: t.features,
+  color: t.color,
+}));
 
-const APEX_PROJECTIONS = [
-  { year: "Y1 (Conservative)", arr: "$2.94M", teams: "1,000", arpu: "$245", churn: "5%", color: "#60a5fa" },
-  { year: "Y1 (Base)", arr: "$5.88M", teams: "2,000", arpu: "$245", churn: "4%", color: "#f59e0b" },
-  { year: "Y1 (Aggressive)", arr: "$14.7M", teams: "5,000", arpu: "$245", churn: "3%", color: "#ef4444" },
-  { year: "Y3 (Base)", arr: "$23.5M", teams: "8,000", arpu: "$245", churn: "3%", color: "#a855f7" },
-];
+const APEX_PROJECTIONS = SHARED_PROJECTIONS.map(p => ({ ...p }));
 
 /* ── BRAND REVENUE STREAMS ─────────────────────────────────────────────────── */
 const BRANDS = [
   {
     name: "Apex Athlete", accent: "#f59e0b", icon: "\u2726",
     streams: [
-      { name: "SaaS Subscriptions", status: "active", monthly: "Beta (free)", potential: "$245K/mo @ 1K teams" },
+      { name: "SaaS Subscriptions ($149-$549/mo)", status: "active", monthly: "Beta (Stripe live)", potential: "$310K/mo @ 1K teams" },
       { name: "App Store (v3)", status: "planned", monthly: "\u2014", potential: "$50K+/mo (30% premium)" },
     ],
   },
@@ -68,12 +63,12 @@ const BRANDS = [
   },
 ];
 
-/* ── KEY METRICS ───────────────────────────────────────────────────────────── */
+/* ── KEY METRICS (from shared config) ──────────────────────────────────────── */
 const METRICS = [
-  { label: "Active Agents", value: "19", sub: "Full squad operational", color: "#00f0ff" },
-  { label: "Athletes (Beta)", value: "240+", sub: "Saint Andrew's Aquatics — 7 groups", color: "#f59e0b" },
-  { label: "GA Products", value: "23", sub: "13 cases + 5 posters + 5 tees", color: "#00f0ff" },
-  { label: "Apex ARR Target", value: "$5.88M", sub: "Y1 base · LTV:CAC 39:1", color: "#a855f7" },
+  { label: "Active Agents", value: String(KEY_METRICS.activeAgents), sub: "Full squad operational", color: "#00f0ff" },
+  { label: "Athletes (Beta)", value: KEY_METRICS.athletesBeta, sub: KEY_METRICS.betaPartner, color: "#f59e0b" },
+  { label: "GA Products", value: String(KEY_METRICS.gaProducts), sub: KEY_METRICS.gaProductsBreakdown, color: "#00f0ff" },
+  { label: "Apex ARR Target", value: "$3.72M", sub: "Y1 base · blended $310 ARPU", color: "#a855f7" },
 ];
 
 /* ── INVESTMENT READINESS ──────────────────────────────────────────────────── */
@@ -84,17 +79,17 @@ const READINESS = [
   { item: "19-agent AI operations team (model tiers locked)", done: true },
   { item: "Multi-brand portfolio (4 active brands)", done: true },
   { item: "Shopify store created (GALAKTIK ANTICS)", done: true },
-  { item: "Firebase backend (v2) — spec ready, deploy pending", done: false },
+  { item: "Stripe checkout — 3 tiers wired + tested", done: true },
+  { item: "CI/CD pipeline (GitHub Actions + Husky + Vitest)", done: true },
+  { item: "Copyright filed (Feb 17, 2026)", done: true },
+  { item: "Firebase backend (v2) — deploy pending", done: false },
   { item: "App Store deployment (v3)", done: false },
   { item: "Revenue / paying customers", done: false },
 ];
 
 export default function FinancialDashboard() {
-  const [mounted, setMounted] = useState(false);
-  const [time, setTime] = useState("");
+  const [time, setTime] = useState<string | null>(null);
   const [expandedBrand, setExpandedBrand] = useState<string | null>(null);
-
-  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString("en-US", {
@@ -105,7 +100,7 @@ export default function FinancialDashboard() {
     return () => clearInterval(id);
   }, []);
 
-  if (!mounted) return null;
+  if (!time) return null;
 
   return (
     <div style={{
@@ -141,7 +136,7 @@ export default function FinancialDashboard() {
         {/* ── HEADER ── */}
         <div style={{ marginBottom: 40 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ fontSize: 28 }}>\uD83D\uDC8E</span>
+            <span style={{ fontSize: 28 }}>{"💎"}</span>
             <h1 style={{ fontSize: 32, fontWeight: 700, color: "#fcd34d", margin: 0 }}>
               ORACLE Financial Dashboard
             </h1>
@@ -197,7 +192,7 @@ export default function FinancialDashboard() {
         {/* ── ARR PROJECTIONS ── */}
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 18, fontWeight: 600, color: "#fcd34d", marginBottom: 16, letterSpacing: 1 }}>
-            \uD83D\uDCC8 ARR PROJECTIONS
+            {"📈"} ARR PROJECTIONS
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {APEX_PROJECTIONS.map(p => (
@@ -244,7 +239,7 @@ export default function FinancialDashboard() {
         {/* ── BRAND REVENUE STREAMS ── */}
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 18, fontWeight: 600, color: "#00f0ff", marginBottom: 16, letterSpacing: 1 }}>
-            \uD83C\uDFE2 REVENUE STREAMS BY BRAND
+            {"🏢"} REVENUE STREAMS BY BRAND
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {BRANDS.map(b => (
@@ -301,7 +296,7 @@ export default function FinancialDashboard() {
         {/* ── INVESTMENT READINESS ── */}
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 18, fontWeight: 600, color: "#a855f7", marginBottom: 16, letterSpacing: 1 }}>
-            \uD83C\uDFAF INVESTMENT READINESS
+            {"🎯"} INVESTMENT READINESS
           </h2>
           <div style={{
             background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 24,

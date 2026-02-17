@@ -17,7 +17,7 @@ const AGENTS = [
     desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
     connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     credits: { used: 1250, limit: 5000 },
-    activeTask: "Full dashboard refresh + real-time deploy — all systems updated",
+    activeTask: "Dashboard auto-sync + quest flow UX + meet management enhancements",
   },
   {
     name: "TheMAESTRO", model: "DeepSeek V3.2", role: "Music Production AI",
@@ -153,7 +153,7 @@ const AGENTS = [
     desc: "ORACLE — 8 financial minds (Buffett/Dalio/Soros/Livermore/Ramsey/Kiyosaki/Taleb/Wood). Wealth architecture.",
     connections: [0, 2, 3],
     credits: { used: 420, limit: 5000 },
-    activeTask: "DELIVERED: Apex financial model — $2.94M–$14.7M ARR, LTV:CAC 39:1",
+    activeTask: "DELIVERED: Apex financial model — tiered pricing validated ($149/$349/$549)",
   },
   {
     name: "TRIAGE", model: "Sonnet 4.5", role: "System Doctor",
@@ -271,17 +271,18 @@ const MISSIONS = [
   },
   {
     name: "Apex Athlete", accent: "#f59e0b", status: "active" as const,
-    desc: "Gamified swim training \u2014 LIVE BETA \u2014 tested Feb 7", priority: "CRITICAL",
+    desc: "Gamified swim training \u2014 LIVE BETA \u2014 Stripe checkout live", priority: "CRITICAL",
     tasks: [
       { t: "Game engine + check-ins", done: true },
       { t: "Coach dashboard + leaderboard", done: true },
-      { t: "Advanced analytics (attrition, culture, peak perf)", done: true },
+      { t: "Three-portal architecture (Coach/Athlete/Parent)", done: true },
       { t: "Multi-roster expansion (240+ athletes, 7 groups)", done: true },
-      { t: "Sport-specific checkpoints (Diving + Water Polo)", done: true },
-      { t: "Three-portal architecture (Coach/Athlete/Parent)", done: false },
-      { t: "Practice schedule builder", done: false },
-      { t: "Firebase backend (v2)", done: false },
-      { t: "Monthly MVP per gender per group", done: false },
+      { t: "Stripe billing \u2014 3 tiers ($149/$349/$549)", done: true },
+      { t: "CI/CD pipeline (GitHub Actions + Husky + Vitest)", done: true },
+      { t: "Copyright filed (Feb 17, 2026)", done: true },
+      { t: "Hy-Tek import (.hy3/.ev3) — iOS fix deployed", done: true },
+      { t: "Quest flow UX polish", done: false },
+      { t: "Firebase backend (v2) deploy", done: false },
     ],
     link: { label: "Open App", href: "/apex-athlete" },
   },
@@ -362,24 +363,20 @@ const LINKS = [
 
 /* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
 const LOG = [
-  { time: "Now", text: "Atlas: Full HQ update \u2014 all dashboards refreshed Feb 10", color: "#00f0ff" },
-  { time: "Now", text: "Shopify store created \u2014 GALAKTIK ANTICS (API setup pending)", color: "#96bf48" },
-  { time: "Feb 10", text: "KIYOSAKI + TRIAGE agents added to squad (19 total)", color: "#fcd34d" },
-  { time: "Feb 10", text: "KIYOSAKI: Apex financial model delivered ($2.94M\u2013$14.7M ARR)", color: "#fcd34d" },
+  { time: "Feb 17", text: "Atlas: All dashboards synced to shared config \u2014 single source of truth", color: "#00f0ff" },
+  { time: "Feb 17", text: "Copyright filed for Apex Athlete at eco.copyright.gov", color: "#a855f7" },
+  { time: "Feb 17", text: "Stripe checkout confirmed \u2014 all 3 tiers working end-to-end", color: "#34d399" },
+  { time: "Feb 16", text: "Billing page rebuilt \u2014 $149/$349/$549, full features every tier", color: "#f59e0b" },
+  { time: "Feb 16", text: "CI/CD pipeline deployed \u2014 GitHub Actions + Husky + Vitest", color: "#00f0ff" },
+  { time: "Feb 16", text: "Competitor research \u2014 TeamUnify, ARI, TeamSnap analyzed", color: "#22d3ee" },
+  { time: "Feb 16", text: "Hy-Tek import patched \u2014 ArrayBuffer for iOS compatibility", color: "#34d399" },
+  { time: "Feb 10", text: "KIYOSAKI: Apex financial model delivered", color: "#fcd34d" },
   { time: "Feb 10", text: "INK: 5-piece launch content package completed", color: "#c084fc" },
-  { time: "Feb 10", text: "ramichehq@gmail.com + @ramichehq (X) accounts created", color: "#00f0ff" },
-  { time: "Feb 10", text: "SCOWW.com TLS fixed \u2014 DNS corrected", color: "#22d3ee" },
-  { time: "Feb 10", text: "Financial Dashboard added to Command Center", color: "#fcd34d" },
-  { time: "Feb 9", text: "RAMICHE HQ group chat activated \u2014 19 agents wired", color: "#a855f7" },
-  { time: "Feb 9", text: "7 new agents: Mercury, Echo, Haven, Ink, Nova, Kiyosaki, Triage", color: "#fbbf24" },
-  { time: "Feb 9", text: "Model tiers locked \u2014 Ramon's hard rule applied to all agents", color: "#00f0ff" },
-  { time: "Feb 9", text: "Watchdog cron active (5-min cycle) \u2014 outage protection live", color: "#ef4444" },
-  { time: "Feb 9", text: "Gateway restart completed \u2014 full squad operational", color: "#22d3ee" },
+  { time: "Feb 10", text: "Shopify store created \u2014 GALAKTIK ANTICS", color: "#96bf48" },
+  { time: "Feb 9", text: "Model tiers locked \u2014 19 agents assigned", color: "#00f0ff" },
   { time: "Feb 8", text: "Apex Athlete v1 tested live \u2014 all checkpoints working", color: "#f59e0b" },
   { time: "Feb 8", text: "Multi-roster: 240+ athletes across 7 groups deployed", color: "#f59e0b" },
-  { time: "Feb 8", text: "Aetherion: 5 blueprints + Phase 1 matrix + SHARED_CONTEXT", color: "#818cf8" },
-  { time: "Feb 8", text: "Vee: GA pre-launch content (4 briefs, 7-day calendar)", color: "#ec4899" },
-  { time: "Feb 8", text: "Squad expanded: 12 \u2192 19 agents (7 new roles provisioned)", color: "#a855f7" },
+  { time: "Feb 8", text: "Aetherion: 5 blueprints + Phase 1 matrix delivered", color: "#818cf8" },
 ];
 
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
@@ -396,11 +393,11 @@ const SCHEDULE = [
 
 /* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
 const NOTIFICATIONS = [
-  { text: "Shopify store live \u2014 GALAKTIK ANTICS \u2014 API token needed to load products", accent: "#96bf48", icon: "\u26A0" },
-  { text: "KIYOSAKI delivered Apex financial model ($2.94M\u2013$14.7M ARR)", accent: "#fcd34d", icon: "\u25C8" },
-  { text: "19 agents operational in RAMICHE HQ", accent: "#a855f7", icon: "\u25C8" },
-  { text: "Apex three-portal build in progress (SHURI + PROXIMON)", accent: "#f59e0b", icon: "\u25C8" },
-  { text: "5 Batch A Weavy renders still pending", accent: "#f59e0b", icon: "\u26A0" },
+  { text: "Stripe checkout LIVE \u2014 3 tiers ($149/$349/$549) tested + working", accent: "#34d399", icon: "\u25C8" },
+  { text: "Copyright filed \u2014 Apex Athlete protected (Feb 17)", accent: "#a855f7", icon: "\u25C8" },
+  { text: "CI/CD pipeline deployed \u2014 GitHub Actions + Husky + Vitest", accent: "#00f0ff", icon: "\u25C8" },
+  { text: "Billing page rebuilt \u2014 full features at every tier, no vapor", accent: "#f59e0b", icon: "\u25C8" },
+  { text: "Hy-Tek import \u2014 .hy3/.ev3 iOS fix deployed, needs user test", accent: "#22d3ee", icon: "\u25C8" },
   { text: "TheMAESTRO blocked \u2014 needs release timeline from Ramon", accent: "#f59e0b", icon: "\u26A0" },
 ];
 
@@ -1149,10 +1146,10 @@ export default function CommandCenter() {
                     </span>
                   </div>
                   <div className="text-base sm:text-lg font-bold text-white/90 leading-snug">
-                    Three-portal architecture (Coach / Athlete / Parent) for Apex Athlete
+                    Quest flow UX polish + Firebase v2 deploy for Apex Athlete
                   </div>
                   <div className="text-[10px] font-mono text-white/25 mt-1">
-                    Next milestone — game engine v2 with Firebase backend
+                    Stripe live · Copyright filed · CI/CD deployed — now polish + scale
                   </div>
                 </div>
                 <div className="hidden sm:block flex-shrink-0">
