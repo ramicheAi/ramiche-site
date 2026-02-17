@@ -950,6 +950,7 @@ export default function ApexAthletePage() {
   const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
   const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
   const [meetView, setMeetView] = useState<"overview" | "sessions" | "entries" | "info">("overview");
+  const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [meetDescription, setMeetDescription] = useState("");
   const [viewingAthleteEntries, setViewingAthleteEntries] = useState<string | null>(null);
@@ -3590,8 +3591,29 @@ export default function ApexAthletePage() {
     // ── HY3/HYV/EV3/SD3 Meet File Parser ──────────────────────────────
     const parseMeetFile = (text: string, filename: string): Partial<SwimMeet> | null => {
       const lines = text.split(/\r?\n/).filter(l => l.length > 2);
-      const ext = filename.toLowerCase().split(".").pop();
-      if (!["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext || "")) return null;
+      if (lines.length < 2) return null;
+      let ext = filename.toLowerCase().split(".").pop() || "";
+      // Auto-detect format if extension is missing or unrecognized
+      if (!["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext)) {
+        const firstLine = lines[0];
+        if (firstLine.includes(";") && firstLine.includes("Hy-Tek")) {
+          // HY3 header contains "Hy-Tek's MEET MANAGER"
+          ext = "hy3";
+        } else if (firstLine.includes(";") && lines[1]?.split(";").length > 10) {
+          // HY3 format: event rows have many semicolon-separated fields
+          ext = "hy3";
+        } else if (firstLine.includes(";") && lines[1]?.split(";").length >= 8 && lines[1]?.split(";").length <= 10) {
+          // EV3 format: fewer fields per event row
+          ext = "ev3";
+        } else if (firstLine.includes(";")) {
+          // Generic semicolon format — try hy3 as default
+          ext = "hy3";
+        } else if (firstLine.substring(0, 2) === "B1" || firstLine.substring(0, 2) === "01") {
+          ext = "sd3";
+        } else {
+          return null;
+        }
+      }
 
       let meetName = ""; let meetDate = ""; let meetEndDate = ""; let facility = "";
       let course: "SCY" | "SCM" | "LCM" = "SCY";
@@ -3707,40 +3729,40 @@ export default function ApexAthletePage() {
     };
 
     const handleMeetFileImport = (files: FileList | null) => {
-      if (!files) return;
+      if (!files || files.length === 0) return;
+      setImportStatus(null);
       Array.from(files).forEach(file => {
-        const ext = file.name.toLowerCase().split(".").pop();
-        const isMeetFile = ["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext || "");
-
         const reader = new FileReader();
         reader.onload = () => {
-          if (isMeetFile) {
-            // Parse meet file → auto-create meet with events
-            const parsed = parseMeetFile(reader.result as string, file.name);
-            if (parsed) {
-              const newMeet: SwimMeet = {
-                id: `meet-${Date.now()}`,
-                name: parsed.name || file.name,
-                date: parsed.date || new Date().toISOString().slice(0, 10),
-                endDate: parsed.endDate,
-                location: parsed.location || "",
-                course: parsed.course || "SCY",
-                rsvpDeadline: parsed.date || new Date().toISOString().slice(0, 10),
-                description: `Imported from ${file.name}`,
-                sessions: parsed.sessions || [],
-                events: parsed.events || [],
-                rsvps: {},
-                broadcasts: [],
-                status: "upcoming",
-                files: [{ id: `f-${Date.now()}`, name: file.name, dataUrl: `data:text/plain;base64,${btoa(reader.result as string)}`, uploadedAt: Date.now() }],
-              };
-              saveMeets([...meets, newMeet]);
-              setEditingMeetId(newMeet.id);
-            }
+          const text = reader.result as string;
+          // Try parsing regardless of extension — auto-detection handles it
+          const parsed = parseMeetFile(text, file.name);
+          if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
+            const newMeet: SwimMeet = {
+              id: `meet-${Date.now()}`,
+              name: parsed.name || file.name,
+              date: parsed.date || new Date().toISOString().slice(0, 10),
+              endDate: parsed.endDate,
+              location: parsed.location || "",
+              course: parsed.course || "SCY",
+              rsvpDeadline: parsed.date || new Date().toISOString().slice(0, 10),
+              description: `Imported from ${file.name}`,
+              sessions: parsed.sessions || [],
+              events: parsed.events || [],
+              rsvps: {},
+              broadcasts: [],
+              status: "upcoming",
+              files: [{ id: `f-${Date.now()}`, name: file.name, dataUrl: `data:text/plain;base64,${btoa(text)}`, uploadedAt: Date.now() }],
+            };
+            saveMeets([...meets, newMeet]);
+            setEditingMeetId(newMeet.id);
+            setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${parsed.events?.length || 0} events loaded` });
           } else {
-            // Regular file upload — attach to current meet being edited
-            // (handled by handleFileUpload)
+            setImportStatus({ type: "error", message: `Could not parse "${file.name}". Make sure it's a valid Hy-Tek meet file (.hy3, .ev3, .hyv, .cl2, .sd3)` });
           }
+        };
+        reader.onerror = () => {
+          setImportStatus({ type: "error", message: `Failed to read file "${file.name}"` });
         };
         reader.readAsText(file);
       });
@@ -3883,9 +3905,15 @@ export default function ApexAthletePage() {
                 <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-3 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
-                  <input type="file" className="hidden" onChange={e => handleMeetFileImport(e.target.files)} accept=".hy3,.hyv,.cl2,.sd3,.ev3" />
+                  <input type="file" className="hidden" onChange={e => handleMeetFileImport(e.target.files)} accept=".hy3,.hyv,.cl2,.sd3,.ev3,text/plain,application/octet-stream" />
                 </label>
               </Card>
+
+              {importStatus && (
+                <div className={`mb-4 px-4 py-3 rounded-xl border text-sm font-medium ${importStatus.type === "success" ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}>
+                  {importStatus.type === "success" ? "✓ " : "✕ "}{importStatus.message}
+                </div>
+              )}
 
               <div className="flex items-center gap-3 mb-4">
                 <div className="flex-1 h-px bg-white/[0.06]" />
