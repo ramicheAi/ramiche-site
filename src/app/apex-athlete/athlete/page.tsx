@@ -1342,7 +1342,7 @@ export default function AthletePortal() {
         </div>
       )}
 
-      <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <div className="relative z-10 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4">
           <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>

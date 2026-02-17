@@ -2170,7 +2170,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full relative z-10 px-5 sm:px-8">
+        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Coach Staff</h2>
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Manage coaching staff &amp; group access</p>
@@ -2370,11 +2370,11 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs /><XpFloats /><LevelUpOverlay />
-        <div className="w-full relative z-10 px-5 sm:px-8">
+        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Read-only — athlete progress & growth</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {roster.sort((a, b) => a.name.localeCompare(b.name)).map(a => {
               const lv = getLevel(a.xp); const prog = getLevelProgress(a.xp); const growth = getPersonalGrowth(a);
               return (
@@ -2424,7 +2424,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full relative z-10 px-5 sm:px-8">
+        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-6">Audit Log</h2>
           <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
@@ -2488,7 +2488,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full relative z-10 px-5 sm:px-8 pb-12">
+        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Meet Entry</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Create meets · Add events · Enter athletes</p>
@@ -2701,7 +2701,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full relative z-10 px-5 sm:px-8 pb-12">
+        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Communications</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Broadcast to parents · View absence reports</p>
@@ -2791,7 +2791,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full relative z-10 px-5 sm:px-8 pb-12">
+        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-2">Coach Analytics</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-8">Advanced insights · Predictive intelligence · Team health</p>
@@ -3051,7 +3051,7 @@ export default function ApexAthletePage() {
       <BgOrbs />
       <XpFloats /><LevelUpOverlay />
 
-      <div className="relative z-10 w-full px-5 sm:px-8">
+      <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 lg:px-10">
         <div className="w-full">
           <GameHUDHeader />
 
@@ -3129,7 +3129,7 @@ export default function ApexAthletePage() {
               <div className="relative mb-10">
                 {/* Podium glow backdrop */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
-                <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] mx-auto items-end">
+                <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] lg:max-w-[1000px] mx-auto items-end">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp);
@@ -3378,7 +3378,7 @@ export default function ApexAthletePage() {
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
               <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Team Challenges</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
                   const done = tc.current >= tc.target;
