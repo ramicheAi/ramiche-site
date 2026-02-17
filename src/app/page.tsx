@@ -58,7 +58,7 @@ export default function Home() {
 
   const portals = [
     { title: "Command Center", description: "Mission control for all operations", href: "/command-center", accent: "cyan" as const, icon: "◈", status: "ONLINE" },
-    { title: "Apex Athlete", description: "Gamified swim training system", href: "/apex-athlete", accent: "purple" as const, icon: "✦", status: "ACTIVE" },
+    { title: "Apex Athlete", description: "Athlete engagement & performance platform", href: "/apex-athlete", accent: "purple" as const, icon: "✦", status: "ACTIVE" },
     { title: "Financial", description: "ORACLE — Revenue & growth metrics", href: "/financial", accent: "gold" as const, icon: "◉", status: "LIVE" },
     { title: "Ramiche Studio", description: "Creative direction for the bold", href: "/studio", accent: "cyan" as const, icon: "♢", status: "LIVE" },
   ];

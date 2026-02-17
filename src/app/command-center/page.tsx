@@ -436,6 +436,7 @@ export default function CommandCenter() {
   const [workedOut, setWorkedOut] = useState(false);
   const [vitalsLoaded, setVitalsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [liveAgents, setLiveAgents] = useState<typeof AGENTS | null>(null);
   const [time, setTime] = useState("");
   const [dateStr, setDateStr] = useState("");
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
@@ -771,6 +772,29 @@ export default function CommandCenter() {
     localStorage.setItem("cc-reading-plan", JSON.stringify(newPlan));
   };
 
+  /* ── fetch live agent data from status.json ── */
+  useEffect(() => {
+    fetch("/status.json", { cache: "no-store" })
+      .then(r => r.json())
+      .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
+        if (!data.agents) return;
+        const merged = AGENTS.map(a => {
+          const live = data.agents!.find(la => la.name === a.name);
+          if (!live) return a;
+          return {
+            ...a,
+            status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as typeof a.status,
+            activeTask: live.task || a.activeTask,
+          };
+        });
+        setLiveAgents(merged);
+      })
+      .catch(() => { /* fallback to hardcoded */ });
+  }, []);
+
+  /* ── resolved agents: live data when available, fallback to static ── */
+  const agents = liveAgents || AGENTS;
+
   useEffect(() => {
     setMounted(true);
     fetchWeather();
@@ -899,7 +923,7 @@ export default function CommandCenter() {
   const totalT = MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
   const doneT = MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
   const pct = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
-  const activeAgents = AGENTS.filter((a) => a.status === "active").length;
+  const activeAgents = agents.filter((a) => a.status === "active").length;
   const activeMissions = MISSIONS.filter((m) => m.status === "active").length;
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -1074,7 +1098,7 @@ export default function CommandCenter() {
               </div>
               <div className="h-3 w-[1px] bg-white/10" />
               <div className="text-[9px] font-mono text-white/30">
-                <span className="neon-text-cyan">{activeAgents}</span>/{AGENTS.length} AGENTS
+                <span className="neon-text-cyan">{activeAgents}</span>/{agents.length} AGENTS
               </div>
               <div className="h-3 w-[1px] bg-white/10" />
               <div className="text-[9px] font-mono text-white/30">
@@ -1372,7 +1396,7 @@ export default function CommandCenter() {
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
               <div className="text-[11px] font-mono text-white/30">
-                {activeAgents} ACTIVE // {AGENTS.length} TOTAL
+                {activeAgents} ACTIVE // {agents.length} TOTAL
               </div>
             </div>
 
@@ -1527,7 +1551,7 @@ export default function CommandCenter() {
 
               {/* === Squad Grid — 3D Characters at Workstations === */}
               <div className="relative z-10 grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-x-3 gap-y-4 px-3 sm:px-6 pb-6 mt-2">
-                {AGENTS.slice(1).map((a, i) => {
+                {agents.slice(1).map((a, i) => {
                   const isActive = a.status === "active";
                   const isDone = a.status === "done";
                   const isWorking = isActive || isDone;

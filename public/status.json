@@ -1,13 +1,13 @@
 {
-  "lastUpdated": "2026-02-17T13:00:00Z",
+  "lastUpdated": "2026-02-17T18:30:00Z",
   "stats": {
     "activeProjects": 6,
-    "tasksShipped": 92,
+    "tasksShipped": 95,
     "agentsOnline": 19,
     "athletesBeta": "240+"
   },
   "agents": [
-    { "name": "Atlas", "model": "Opus 4.6", "role": "Lead Strategist", "status": "active", "task": "Dashboard auto-sync + quest flow UX + meet management enhancements", "color": "#00f0ff" },
+    { "name": "Atlas", "model": "Opus 4.6", "role": "Lead Strategist", "status": "active", "task": "Auto-update system + page fixes + meet management", "color": "#00f0ff" },
     { "name": "SHURI", "model": "DeepSeek V3.2", "role": "Creative Coding", "status": "idle", "task": "Three-portal UI build complete — awaiting next assignment", "color": "#34d399" },
     { "name": "PROXIMON", "model": "Gemini 3.0 Pro", "role": "Systems Architect", "status": "idle", "task": "Firebase v2 spec delivered — awaiting deploy", "color": "#f97316" },
     { "name": "MICHAEL", "model": "GLM 4.6", "role": "Swim Training AI", "status": "done", "task": "Practice schedule builder — 7 group templates DELIVERED", "color": "#06b6d4" },
@@ -28,7 +28,7 @@
     { "name": "TRIAGE", "model": "Sonnet 4.5", "role": "System Doctor", "status": "standby", "task": "On-demand: diagnostics + debugging (SWE-bench 77.2%)", "color": "#f472b6" }
   ],
   "projects": [
-    { "name": "Apex Athlete", "status": "active", "priority": "CRITICAL", "progress": 82, "accent": "#f59e0b", "blockers": ["Quest flow UX polish", "Firebase v2 deploy"] },
+    { "name": "Apex Athlete", "status": "active", "priority": "CRITICAL", "progress": 84, "accent": "#f59e0b", "blockers": ["Quest flow UX polish", "Firebase v2 deploy"] },
     { "name": "Galactik Antics", "status": "active", "priority": "HIGH", "progress": 48, "accent": "#00f0ff", "blockers": ["Shopify API token needed", "Weavy product renders pending"] },
     { "name": "Ramiche Studio", "status": "active", "priority": "HIGH", "progress": 40, "accent": "#a855f7", "blockers": ["Portfolio + case studies needed"] },
     { "name": "SCOWW", "status": "active", "priority": "HIGH", "progress": 55, "accent": "#22d3ee", "blockers": ["Event logistics finalization", "Registration page"] },
@@ -36,7 +36,7 @@
     { "name": "Parallax", "status": "active", "priority": "MED", "progress": 15, "accent": "#e879f9", "blockers": ["Artist roster page", "Distribution pipeline"] }
   ],
   "recentActivity": [
-    { "time": "1:21 PM", "text": "Atlas: All dashboards synced to shared-config.ts — auto-updating", "color": "#00f0ff" },
+    { "time": "1:36 PM", "text": "Atlas: All pages now auto-update from status.json — no more stale data", "color": "#00f0ff" },
     { "time": "9:41 AM", "text": "Stripe checkout confirmed working — all 3 tiers ($149/$349/$549)", "color": "#34d399" },
     { "time": "9:32 AM", "text": "Ramon: Copyright filed for Apex Athlete at eco.copyright.gov ($65)", "color": "#a855f7" },
     { "time": "Feb 16 PM", "text": "Atlas: CI/CD pipeline deployed (GitHub Actions + Husky + Vitest)", "color": "#00f0ff" },
@@ -56,14 +56,71 @@
     "apexARR": "$3.72M",
     "apexTarget": "Y1 Base (1K teams)",
     "gaProducts": 23,
+    "gaProductsBreakdown": "13 cases + 5 posters + 5 tees",
     "studioRevenue": "$300-500 per sprint",
     "investmentReadiness": "9/12 (copyright filed)",
     "unitEconomics": { "cac": "$15", "ltv": "$588", "ltvCacRatio": "39:1" },
     "pricing": {
-      "starter": "$149/mo (50 athletes)",
-      "club": "$349/mo (150 athletes)",
-      "program": "$549/mo (300 athletes)",
-      "enterprise": "Custom (300+)"
-    }
+      "tiers": [
+        { "name": "Starter", "price": "$149/mo", "athletes": "Up to 50 athletes", "features": "All core features included", "support": "Email support (48h response)", "color": "#22d3ee" },
+        { "name": "Club", "price": "$349/mo", "athletes": "Up to 150 athletes", "features": "All core features + priority support", "support": "Priority support (24h response)", "color": "#00f0ff", "featured": true },
+        { "name": "Program", "price": "$549/mo", "athletes": "Up to 300 athletes", "features": "All core features + dedicated manager", "support": "Dedicated success manager", "color": "#a855f7" },
+        { "name": "Enterprise", "price": "Custom", "athletes": "300+ athletes", "features": "Contact us for custom pricing", "support": "Full onboarding + custom SLA", "color": "#fcd34d" }
+      ],
+      "philosophy": "Full features at every tier. Scale by team size & support."
+    },
+    "projections": [
+      { "year": "Y1 (Conservative)", "arr": "$1.86M", "teams": "500", "arpu": "$310", "churn": "5%", "color": "#60a5fa" },
+      { "year": "Y1 (Base)", "arr": "$3.72M", "teams": "1,000", "arpu": "$310", "churn": "4%", "color": "#f59e0b" },
+      { "year": "Y1 (Aggressive)", "arr": "$9.3M", "teams": "2,500", "arpu": "$310", "churn": "3%", "color": "#ef4444" },
+      { "year": "Y3 (Base)", "arr": "$14.9M", "teams": "4,000", "arpu": "$310", "churn": "3%", "color": "#a855f7" }
+    ],
+    "brands": [
+      {
+        "name": "Apex Athlete", "accent": "#f59e0b", "icon": "\u2726",
+        "streams": [
+          { "name": "SaaS Subscriptions ($149-$549/mo)", "status": "active", "monthly": "Beta (Stripe live)", "potential": "$310K/mo @ 1K teams" },
+          { "name": "App Store (v3)", "status": "planned", "monthly": "\u2014", "potential": "$50K+/mo (30% premium)" }
+        ]
+      },
+      {
+        "name": "Galactik Antics", "accent": "#00f0ff", "icon": "\u2606",
+        "streams": [
+          { "name": "Phone Cases", "status": "ready", "monthly": "\u2014", "potential": "$5K\u2013$15K/mo" },
+          { "name": "Framed Posters", "status": "ready", "monthly": "\u2014", "potential": "$3K\u2013$8K/mo" },
+          { "name": "T-Shirts", "status": "planned", "monthly": "\u2014", "potential": "$2K\u2013$6K/mo" },
+          { "name": "Collector Tiers", "status": "planned", "monthly": "\u2014", "potential": "$1K\u2013$5K/mo (recurring)" }
+        ]
+      },
+      {
+        "name": "Ramiche Studio", "accent": "#a855f7", "icon": "\u2662",
+        "streams": [
+          { "name": "48h Sprint ($300\u2013$500)", "status": "active", "monthly": "\u2014", "potential": "$3K\u2013$10K/mo" },
+          { "name": "AI Agent Setup ($1K\u2013$3K)", "status": "soon", "monthly": "\u2014", "potential": "$5K\u2013$15K/mo" },
+          { "name": "Shopify Setup ($500\u20131.5K)", "status": "soon", "monthly": "\u2014", "potential": "$2K\u2013$6K/mo" }
+        ]
+      },
+      {
+        "name": "The Baba Studio", "accent": "#e879f9", "icon": "\u266B",
+        "streams": [
+          { "name": "Music Releases", "status": "blocked", "monthly": "\u2014", "potential": "TBD (needs timeline)" },
+          { "name": "Artist Management", "status": "planned", "monthly": "\u2014", "potential": "Revenue splits TBD" }
+        ]
+      }
+    ],
+    "readiness": [
+      { "item": "Live beta with real users (240+ athletes)", "done": true },
+      { "item": "Successful live test (Feb 7)", "done": true },
+      { "item": "Financial model with 3 scenarios + unit economics", "done": true },
+      { "item": "19-agent AI operations team (model tiers locked)", "done": true },
+      { "item": "Multi-brand portfolio (4 active brands)", "done": true },
+      { "item": "Shopify store created (GALAKTIK ANTICS)", "done": true },
+      { "item": "Stripe checkout — 3 tiers wired + tested", "done": true },
+      { "item": "CI/CD pipeline (GitHub Actions + Husky + Vitest)", "done": true },
+      { "item": "Copyright filed (Feb 17, 2026)", "done": true },
+      { "item": "Firebase backend (v2) — deploy pending", "done": false },
+      { "item": "App Store deployment (v3)", "done": false },
+      { "item": "Revenue / paying customers", "done": false }
+    ]
   }
 }
