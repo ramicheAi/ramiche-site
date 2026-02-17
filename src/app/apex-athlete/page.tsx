@@ -169,7 +169,7 @@ interface Athlete {
 
 // ── meet entry types ────────────────────────────────────────
 interface MeetEventEntry { athleteId: string; seedTime: string; }
-interface MeetEvent { id: string; name: string; eventNum?: number; ageGroup?: string; gender?: "M" | "F" | "Mixed"; entries: MeetEventEntry[]; }
+interface MeetEvent { id: string; name: string; eventNum?: number; ageGroup?: string; gender?: "M" | "F" | "Mixed"; qualifyingTime?: string; entries: MeetEventEntry[]; }
 interface MeetSession { id: string; day: string; sessionNum: number; warmupTime?: string; startTime?: string; events: MeetEvent[]; }
 interface MeetBroadcast { id: string; message: string; timestamp: number; sentBy: string; }
 interface MeetFile { id: string; name: string; dataUrl: string; uploadedAt: number; }
@@ -3590,33 +3590,40 @@ export default function ApexAthletePage() {
     };
     // ── HY3/HYV/EV3/SD3 Meet File Parser ──────────────────────────────
     const parseMeetFile = (text: string, filename: string): Partial<SwimMeet> | null => {
-      const lines = text.split(/\r?\n/).filter(l => l.length > 2);
+      // Handle files that might have *> as line delimiters (common in Hy-Tek exports)
+      let normalizedText = text;
+      if (text.includes("*>") && text.split(/\r?\n/).filter(l => l.length > 2).length < 3) {
+        normalizedText = text.replace(/\*>/g, "\n");
+      }
+      const lines = normalizedText.split(/\r?\n/).map(l => l.replace(/\*>$/, "").trim()).filter(l => l.length > 2);
       if (lines.length < 2) return null;
       let ext = filename.toLowerCase().split(".").pop() || "";
       // Auto-detect format if extension is missing or unrecognized
       if (!["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext)) {
         const firstLine = lines[0];
-        const firstRow = lines[1]?.replace(/\*>$/, "").split(";") || [];
+        const firstRow = lines[1]?.split(";") || [];
         if (firstLine.includes(";")) {
-          // Distinguish HY3 from EV3 by event row structure:
-          // HY3 rows have 20+ fields, with field[8]=distance (numeric), field[9]=stroke letter (A-E)
-          // EV3 rows have 15-18 fields, with field[6]=distance (numeric), field[7]=stroke number (1-7)
-          if (firstRow.length > 15) {
-            const hy3Dist = parseInt(firstRow[8] || "");
-            const ev3Dist = parseInt(firstRow[6] || "");
-            const hy3Stroke = (firstRow[9] || "").trim().toUpperCase();
-            const ev3StrokeNum = parseInt(firstRow[7] || "");
-            if (hy3Dist > 0 && /^[A-E]$/.test(hy3Stroke) && firstRow.length > 20) {
-              ext = "hy3";
-            } else if (ev3Dist > 0 && ev3StrokeNum >= 1 && ev3StrokeNum <= 7 && firstRow.length <= 20) {
-              ext = "ev3";
-            } else if (firstLine.includes("MEET MANAGER")) {
-              ext = "hy3";
-            } else {
-              ext = firstRow.length > 20 ? "hy3" : "ev3";
-            }
-          } else if (firstRow.length >= 8 && firstRow.length <= 15) {
+          // Distinguish HY3 from EV3 by header structure first:
+          // HY3 header: meetName;facility;startDate;endDate;... (field[1] is facility name, not a date)
+          // EV3 header: meetName;startDate;endDate;... (field[1] is a date like MM/DD/YYYY)
+          const field1 = (firstLine.split(";")[1] || "").trim();
+          const field1IsDate = /^\d{2}\/\d{2}\/\d{4}$/.test(field1);
+          if (field1IsDate) {
             ext = "ev3";
+          } else if (firstLine.includes("MEET MANAGER") || firstLine.includes("Hy-Tek")) {
+            ext = "hy3";
+          } else if (firstRow.length > 20) {
+            // HY3 event rows have 20+ fields
+            ext = "hy3";
+          } else if (firstRow.length >= 8 && firstRow.length <= 20) {
+            // EV3 event rows have 8-20 fields; verify by checking field structure
+            const ev3Dist = parseInt(firstRow[6] || "");
+            const ev3StrokeNum = parseInt(firstRow[7] || "");
+            if (ev3Dist > 0 && ev3StrokeNum >= 1 && ev3StrokeNum <= 7) {
+              ext = "ev3";
+            } else {
+              ext = "hy3";
+            }
           } else {
             ext = "hy3";
           }
@@ -3668,7 +3675,7 @@ export default function ApexAthletePage() {
           const evNum = parseInt(row[0]) || (i);
 
           if (ext === "ev3") {
-            // EV3 row: evNum;sessionType;gender;I/R;0;0;distance;strokeNum;...;qualTime;...;maxEntries;...;cutTime
+            // EV3 row: evNum;sessionType;gender;I/R;0;0;distance;strokeNum;;qualTime;;maxEntries;;cutTime;;;;
             const dist = row[6]?.trim() || "";
             const strokeNum = row[7]?.trim() || "1";
             const genderCode = row[2]?.toUpperCase() || "";
@@ -3677,10 +3684,11 @@ export default function ApexAthletePage() {
               ? (strokeNum === "1" ? "Free Relay" : "Medley Relay")
               : (strokeMapNum[strokeNum] || strokeMap[strokeNum] || "Free");
             const gender: "M" | "F" | "Mixed" = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
+            const qualTime = row[9]?.trim() || "";
             const name = `${dist} ${strokeName}`;
-            events.push({ id: `ev-import-${evNum}`, name, eventNum: evNum, gender, entries: [] });
+            events.push({ id: `ev-import-${evNum}`, name, eventNum: evNum, gender, qualifyingTime: qualTime || undefined, entries: [] });
           } else {
-            // HY3 row: evNum;evNum;sessionType;session;I/R;gender(W/M);0;109;distance;strokeCode;...
+            // HY3 row: evNum;evNum;sessionType;session;I/R;gender(W/M);0;109;distance;strokeCode;...;;cutTime;;;;qualTime;...
             const dist = row[8]?.trim() || "";
             const strokeCode = row[9]?.trim().toUpperCase() || "A";
             const genderCode = row[5]?.toUpperCase() || "";
@@ -3690,9 +3698,9 @@ export default function ApexAthletePage() {
               : (strokeMap[strokeCode] || "Free");
             const gender: "M" | "F" | "Mixed" = genderCode === "M" ? "M" : genderCode === "W" || genderCode === "F" ? "F" : "Mixed";
             const sessionType = row[2]?.toUpperCase() || "";
-            const sessionNum = parseInt(row[3]) || 1;
+            const qualTime = row[16]?.trim() || row[15]?.trim() || "";
             const name = `${dist} ${strokeName}${sessionType === "P" ? " (Prelims)" : sessionType === "F" ? " (Finals)" : ""}`;
-            events.push({ id: `ev-import-${evNum}`, name, eventNum: evNum, gender, entries: [] });
+            events.push({ id: `ev-import-${evNum}`, name, eventNum: evNum, gender, qualifyingTime: qualTime || undefined, entries: [] });
           }
         }
       } else {
@@ -3741,15 +3749,18 @@ export default function ApexAthletePage() {
     };
 
     const handleMeetFileImport = (files: FileList | null) => {
-      if (!files || files.length === 0) return;
-      setImportStatus({ type: "success", message: "Reading file..." });
+      if (!files || files.length === 0) {
+        setImportStatus({ type: "error", message: "No file selected. Tap the button and choose a .hy3 or .ev3 file." });
+        return;
+      }
       const file = files[0];
+      setImportStatus({ type: "success", message: `Reading "${file.name}"...` });
       const reader = new FileReader();
       reader.onload = () => {
         try {
           const text = reader.result as string;
           if (!text || text.length < 10) {
-            setImportStatus({ type: "error", message: `File "${file.name}" appears empty or too small (${text?.length || 0} bytes)` });
+            setImportStatus({ type: "error", message: `File "${file.name}" appears empty or too small (${text?.length || 0} bytes). Make sure the file is a Hy-Tek meet export.` });
             return;
           }
           const parsed = parseMeetFile(text, file.name);
@@ -3777,14 +3788,14 @@ export default function ApexAthletePage() {
             setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${parsed.events?.length || 0} events, ${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString() : "TBD"} at ${parsed.location || "TBD"}` });
             setTimeout(() => setEditingMeetId(newMeet.id), 1200);
           } else {
-            setImportStatus({ type: "error", message: `Could not parse "${file.name}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Make sure this is a Hy-Tek meet file (.hy3 or .ev3).` });
+            setImportStatus({ type: "error", message: `Could not parse "${file.name}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). The file may not be a valid Hy-Tek meet export (.hy3 or .ev3). Try saving the file to the Files app first, then upload from there.` });
           }
         } catch (err) {
-          setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown error"}` });
+          setImportStatus({ type: "error", message: `Error reading "${file.name}": ${err instanceof Error ? err.message : "unknown error"}` });
         }
       };
       reader.onerror = () => {
-        setImportStatus({ type: "error", message: `Failed to read "${file.name}". Try from Files app instead of directly from email/downloads.` });
+        setImportStatus({ type: "error", message: `Failed to read "${file.name}". Try saving to Files app first, then upload from there.` });
       };
       reader.readAsText(file);
     };
@@ -3926,13 +3937,15 @@ export default function ApexAthletePage() {
                 <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-3 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
-                  <input type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept=".hy3,.hyv,.ev3,.cl2,.sd3,.txt,.csv,*/*" />
+                  <input type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept="*/*" />
                 </label>
               </Card>
 
               {importStatus && (
-                <div className={`mb-4 px-4 py-3 rounded-xl border text-sm font-medium ${importStatus.type === "success" ? "bg-green-500/10 border-green-500/30 text-green-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}>
+                <div className={`mb-4 px-4 py-3 rounded-xl border text-sm font-bold animate-pulse ${importStatus.type === "success" ? "bg-green-500/15 border-green-500/40 text-green-400" : "bg-red-500/15 border-red-500/40 text-red-400"}`}
+                  onClick={() => setImportStatus(null)}>
                   {importStatus.type === "success" ? "✓ " : "✕ "}{importStatus.message}
+                  <span className="block text-[10px] opacity-50 mt-1">tap to dismiss</span>
                 </div>
               )}
 
@@ -4193,7 +4206,13 @@ export default function ApexAthletePage() {
                           <Card key={ev.id} className="p-3">
                             <div className="flex items-center gap-3">
                               <span className="text-xs font-mono text-white/50 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
-                              <span className="text-sm font-bold text-white flex-1 truncate">{ev.name}</span>
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm font-bold text-white truncate block">{ev.name}</span>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  {ev.gender && <span className="text-[10px] font-mono text-[#00f0ff]/40">{ev.gender === "F" ? "Girls" : ev.gender === "M" ? "Boys" : "Mixed"}</span>}
+                                  {ev.qualifyingTime && <span className="text-[10px] font-mono text-[#f59e0b]/60">QT: {ev.qualifyingTime}</span>}
+                                </div>
+                              </div>
                               <span className="text-xs text-[#a855f7] font-mono shrink-0">{entryCount} entered</span>
                               <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0 ml-1">✕</button>
                             </div>
