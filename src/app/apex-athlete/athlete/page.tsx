@@ -1342,7 +1342,7 @@ export default function AthletePortal() {
         </div>
       )}
 
-      <div className="relative z-10 max-w-4xl lg:max-w-6xl xl:max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-6 sm:py-10">
+      <div className="relative z-10 w-full max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4">
           <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
@@ -1454,7 +1454,9 @@ export default function AthletePortal() {
 
         {/* ══════════════ DASHBOARD TAB ══════════════ */}
         {tab === "dashboard" && attrs && (
-          <div className="space-y-4">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-4 lg:space-y-0">
+            {/* Left column on desktop */}
+            <div className="space-y-4">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3 text-center">YOUR STRENGTHS</h3>
               <RadarChart values={attrs} />
@@ -1499,7 +1501,9 @@ export default function AthletePortal() {
                 </div>
               </div>
             )}
-
+            </div>
+            {/* Right column on desktop */}
+            <div className="space-y-4">
             {/* Attendance Calendar — last 28 days heatmap */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-white/5">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">YOUR CONSISTENCY — LAST 28 DAYS</h3>
@@ -1547,6 +1551,7 @@ export default function AthletePortal() {
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-[#a855f7]/30 border border-[#a855f7]/20" /> Active</span>
                 <span className="flex items-center gap-1"><span className="w-3 h-3 rounded bg-white/[0.02] border border-white/[0.03]" /> <span className="text-white/50">Rest</span></span>
               </div>
+            </div>
             </div>
           </div>
         )}

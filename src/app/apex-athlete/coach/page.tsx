@@ -2187,7 +2187,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] mx-auto relative z-10 px-5 sm:px-8 lg:px-10 xl:px-16">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Coach Staff</h2>
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Manage coaching staff &amp; group access</p>
@@ -2387,7 +2387,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs /><XpFloats /><LevelUpOverlay />
-        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] mx-auto relative z-10 px-5 sm:px-8 lg:px-10 xl:px-16">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Read-only — athlete progress & growth</p>
@@ -2441,7 +2441,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] mx-auto relative z-10 px-5 sm:px-8 lg:px-10 xl:px-16">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-6">Audit Log</h2>
           <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
@@ -2505,7 +2505,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10 pb-12">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] mx-auto relative z-10 px-5 sm:px-8 lg:px-10 xl:px-16 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Meet Entry</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Create meets · Add events · Enter athletes</p>
@@ -2718,7 +2718,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10 pb-12">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] mx-auto relative z-10 px-5 sm:px-8 lg:px-10 xl:px-16 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Communications</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Broadcast to parents · View absence reports</p>
@@ -2808,7 +2808,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs />
-        <div className="w-full max-w-7xl mx-auto relative z-10 px-5 sm:px-8 lg:px-10 pb-12">
+        <div className="w-full max-w-7xl xl:max-w-[1440px] mx-auto relative z-10 px-5 sm:px-8 lg:px-10 xl:px-16 pb-12">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-2">Coach Analytics</h2>
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-8">Advanced insights · Predictive intelligence · Team health</p>
@@ -3068,7 +3068,7 @@ export default function ApexAthletePage() {
       <BgOrbs />
       <XpFloats /><LevelUpOverlay />
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto px-5 sm:px-8 lg:px-10">
+      <div className="relative z-10 w-full max-w-7xl xl:max-w-[1440px] mx-auto px-5 sm:px-8 lg:px-10 xl:px-16">
         <div className="w-full">
           <GameHUDHeader />
 
