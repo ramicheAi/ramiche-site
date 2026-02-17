@@ -1410,26 +1410,46 @@ export default function AthletePortal() {
           </div>
         </div>
 
-        {/* Tab Navigation — two rows, full-width, generous tap targets */}
-        <div className="mb-5 bg-[#0a0518]/60 p-2 rounded-2xl border border-white/[0.06] space-y-1.5">
-          {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
-            <div key={ri} className="grid" style={{ gridTemplateColumns: `repeat(${row.length}, 1fr)`, gap: '4px' }}>
-              {row.map(t => (
-                <button key={t.key} onClick={() => setTab(t.key)}
-                  className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-bold rounded-lg transition-all duration-200 relative min-h-[48px] ${
-                    tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.04] border border-white/[0.06]"
-                  }`}>
-                  {t.icon(tab === t.key)}
-                  <span className="tracking-wide">{t.label}</span>
-                  {t.badge && t.badge > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full text-white text-[8px] font-black flex items-center justify-center">
-                      {t.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          ))}
+        {/* Tab Navigation — two rows on mobile, single row on tablet+ */}
+        <div className="mb-5 bg-[#0a0518]/60 p-2 rounded-2xl border border-white/[0.06]">
+          {/* Mobile: 2 rows */}
+          <div className="md:hidden space-y-1.5">
+            {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
+              <div key={ri} className="grid" style={{ gridTemplateColumns: `repeat(${row.length}, 1fr)`, gap: '4px' }}>
+                {row.map(t => (
+                  <button key={t.key} onClick={() => setTab(t.key)}
+                    className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-bold rounded-lg transition-all duration-200 relative min-h-[48px] ${
+                      tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.04] border border-white/[0.06]"
+                    }`}>
+                    {t.icon(tab === t.key)}
+                    <span className="tracking-wide">{t.label}</span>
+                    {t.badge && t.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full text-white text-[8px] font-black flex items-center justify-center">
+                        {t.badge}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+          {/* Tablet+: single row */}
+          <div className="hidden md:grid" style={{ gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '4px' }}>
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)}
+                className={`flex flex-col items-center justify-center gap-0.5 py-2 text-[10px] lg:text-xs font-bold rounded-lg transition-all duration-200 relative min-h-[48px] ${
+                  tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.04] border border-white/[0.06]"
+                }`}>
+                {t.icon(tab === t.key)}
+                <span className="tracking-wide">{t.label}</span>
+                {t.badge && t.badge > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full text-white text-[8px] font-black flex items-center justify-center">
+                    {t.badge}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* ══════════════ DASHBOARD TAB ══════════════ */}

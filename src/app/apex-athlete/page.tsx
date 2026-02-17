@@ -2063,30 +2063,15 @@ export default function ApexAthletePage() {
             ))}
           </div>
 
-          {/* Section nav tabs — 2-row grid, full width */}
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            {secondaryTabs.slice(0, 3).map(t => {
+          {/* Section nav tabs — 2-row on mobile, single row on md+ */}
+          <div className="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4">
+            {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
                   className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
-                  }`}>
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {secondaryTabs.slice(3).map(t => {
-              const active = view === t.id;
-              return (
-                <button key={t.id} onClick={() => setView(t.id)}
-                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
-                    active
-                      ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
                       : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
@@ -3754,23 +3739,51 @@ export default function ApexAthletePage() {
         return;
       }
       const file = files[0];
-      setImportStatus({ type: "success", message: `Reading "${file.name}" (${file.size} bytes)...` });
+      const shortName = file.name.length > 40 ? file.name.slice(0, 20) + "..." + file.name.slice(-15) : file.name;
+      setImportStatus({ type: "success", message: `Reading "${shortName}" (${(file.size / 1024).toFixed(1)} KB)...` });
 
-      // Use ArrayBuffer reader for maximum iOS compatibility, then decode to text
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          let text = "";
-          if (reader.result instanceof ArrayBuffer) {
-            const decoder = new TextDecoder("utf-8");
-            text = decoder.decode(new Uint8Array(reader.result));
+      // Try reading as text first (most reliable), fall back to ArrayBuffer
+      const tryReadAsText = () => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = reader.result as string || "";
+          if (text && text.length >= 10) {
+            processFileText(text, file);
           } else {
-            text = reader.result as string || "";
+            // Fallback: try ArrayBuffer approach
+            tryReadAsArrayBuffer();
           }
-          if (!text || text.length < 10) {
-            setImportStatus({ type: "error", message: `File "${file.name}" appears empty (${text?.length || 0} chars, ${file.size} bytes). Save the file to the Files app first, then upload from there.` });
-            return;
+        };
+        reader.onerror = () => tryReadAsArrayBuffer();
+        reader.readAsText(file, "utf-8");
+      };
+
+      const tryReadAsArrayBuffer = () => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            let text = "";
+            if (reader.result instanceof ArrayBuffer) {
+              const decoder = new TextDecoder("utf-8");
+              text = decoder.decode(new Uint8Array(reader.result));
+            }
+            if (!text || text.length < 10) {
+              setImportStatus({ type: "error", message: `File "${shortName}" appears empty (${file.size} bytes). Try: save the file to your device first, then upload from Files.` });
+              return;
+            }
+            processFileText(text, file);
+          } catch (err) {
+            setImportStatus({ type: "error", message: `Error reading file: ${err instanceof Error ? err.message : "unknown"}` });
           }
+        };
+        reader.onerror = () => {
+          setImportStatus({ type: "error", message: `Failed to read "${shortName}" (${file.size} bytes). Save to Files app first, then upload.` });
+        };
+        reader.readAsArrayBuffer(file);
+      };
+
+      const processFileText = (text: string, file: File) => {
+        try {
           const parsed = parseMeetFile(text, file.name);
           if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
             let dataUrl = "";
@@ -3796,16 +3809,14 @@ export default function ApexAthletePage() {
             setImportStatus({ type: "success", message: `✅ Imported "${parsed.name}" — ${parsed.events?.length || 0} events, ${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString() : "TBD"} at ${parsed.location || "TBD"}` });
             setTimeout(() => setEditingMeetId(newMeet.id), 1200);
           } else {
-            setImportStatus({ type: "error", message: `Could not parse "${file.name}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
+            setImportStatus({ type: "error", message: `Could not parse "${shortName}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
           }
         } catch (err) {
-          setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown error"}` });
+          setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown"}` });
         }
       };
-      reader.onerror = () => {
-        setImportStatus({ type: "error", message: `Failed to read "${file.name}" (${file.size} bytes). Save to Files app first, then upload.` });
-      };
-      reader.readAsArrayBuffer(file);
+
+      tryReadAsText();
     };
 
     const handleFileUpload = (meetId: string, files: FileList | null) => {
@@ -3942,10 +3953,10 @@ export default function ApexAthletePage() {
               <Card className="p-5 mb-4" neon>
                 <h3 className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Import Meet File</h3>
                 <p className="text-white/50 text-xs mb-3">Upload a .hy3, .ev3, .hyv, .cl2, or .sd3 file from the meet host — events auto-populate</p>
-                <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-3 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all">
+                <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-4 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all active:scale-[0.97] min-h-[56px]">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
-                  <input type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept="*/*" />
+                  <input type="file" className="hidden" onChange={e => { const f = e.target.files; if (f && f.length > 0) { const blob = new File([f[0]], f[0].name, { type: f[0].type }); handleMeetFileImport(Object.assign([blob], { item: (i: number) => i === 0 ? blob : null }) as unknown as FileList); } e.target.value = ""; }} accept="*/*" />
                 </label>
               </Card>
 
@@ -4487,7 +4498,7 @@ export default function ApexAthletePage() {
       <BgOrbs />
       <XpFloats /><LevelUpOverlay />
 
-      <div className="relative z-10 w-full px-5 sm:px-8">
+      <div className="relative z-10 w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-10">
         <div className="w-full">
           <GameHUDHeader />
 
@@ -4642,9 +4653,9 @@ export default function ApexAthletePage() {
 
         {/* ═══════ TEAM CHALLENGES ═══════ */}
         {view === "coach" && (
-          <div className="w-full px-5 sm:px-8 py-4">
+          <div className="w-full py-4">
             <h3 className="text-[#f59e0b]/50 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-3">// Team Challenges</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { id: "attendance-war", name: "Attendance War", desc: "Which group has the highest attendance % this week?", metric: "GROUP ATTENDANCE", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 7l4-4 4 4-4 4M3 11l4 4"/></svg>, color: "#ef4444" },
                 { id: "xp-race", name: "XP Race", desc: "First group to collectively earn 5,000 XP wins", metric: "COLLECTIVE XP", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>, color: "#f59e0b" },
@@ -4680,7 +4691,7 @@ export default function ApexAthletePage() {
         {/* ══════════════════════════════════════════════════════
            COACH TOOLS + ROSTER CHECK-IN
            ══════════════════════════════════════════════════════ */}
-        <div className="w-full px-5 sm:px-8 py-6">
+        <div className="w-full py-6">
           <div className="w-full">
             {/* Session mode — full-width tabs */}
             <div className="space-y-2.5 mb-5">
@@ -4892,7 +4903,7 @@ export default function ApexAthletePage() {
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
-            <div className="space-y-2 mb-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-10">
               {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);

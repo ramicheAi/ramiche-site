@@ -1712,30 +1712,47 @@ export default function ApexAthletePage() {
             </div>
           </div>
 
-          {/* Section nav tabs — full width grid */}
-          <div className="grid grid-cols-3 gap-2 mb-2">
-            {secondaryTabs.slice(0, 3).map(t => {
+          {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
+          <div className="md:hidden space-y-2 mb-4">
+            <div className="grid grid-cols-3 gap-2">
+              {secondaryTabs.slice(0, 3).map(t => {
+                const active = view === t.id;
+                return (
+                  <button key={t.id} onClick={() => setView(t.id)}
+                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                      active
+                        ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                        : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                    }`}>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {secondaryTabs.slice(3).map(t => {
+                const active = view === t.id;
+                return (
+                  <button key={t.id} onClick={() => setView(t.id)}
+                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                      active
+                        ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
+                        : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                    }`}>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="hidden md:grid grid-cols-6 gap-2 mb-4">
+            {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => setView(t.id)}
                   className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
-                  }`}>
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
-          <div className="grid grid-cols-3 gap-2 mb-4">
-            {secondaryTabs.slice(3).map(t => {
-              const active = view === t.id;
-              return (
-                <button key={t.id} onClick={() => setView(t.id)}
-                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
-                    active
-                      ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
                       : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
