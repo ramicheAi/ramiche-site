@@ -3754,13 +3754,21 @@ export default function ApexAthletePage() {
         return;
       }
       const file = files[0];
-      setImportStatus({ type: "success", message: `Reading "${file.name}"...` });
+      setImportStatus({ type: "success", message: `Reading "${file.name}" (${file.size} bytes)...` });
+
+      // Use ArrayBuffer reader for maximum iOS compatibility, then decode to text
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const text = reader.result as string;
+          let text = "";
+          if (reader.result instanceof ArrayBuffer) {
+            const decoder = new TextDecoder("utf-8");
+            text = decoder.decode(new Uint8Array(reader.result));
+          } else {
+            text = reader.result as string || "";
+          }
           if (!text || text.length < 10) {
-            setImportStatus({ type: "error", message: `File "${file.name}" appears empty or too small (${text?.length || 0} bytes). Make sure the file is a Hy-Tek meet export.` });
+            setImportStatus({ type: "error", message: `File "${file.name}" appears empty (${text?.length || 0} chars, ${file.size} bytes). Save the file to the Files app first, then upload from there.` });
             return;
           }
           const parsed = parseMeetFile(text, file.name);
@@ -3785,19 +3793,19 @@ export default function ApexAthletePage() {
             };
             const updated = [...meets, newMeet];
             saveMeets(updated);
-            setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${parsed.events?.length || 0} events, ${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString() : "TBD"} at ${parsed.location || "TBD"}` });
+            setImportStatus({ type: "success", message: `✅ Imported "${parsed.name}" — ${parsed.events?.length || 0} events, ${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString() : "TBD"} at ${parsed.location || "TBD"}` });
             setTimeout(() => setEditingMeetId(newMeet.id), 1200);
           } else {
-            setImportStatus({ type: "error", message: `Could not parse "${file.name}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). The file may not be a valid Hy-Tek meet export (.hy3 or .ev3). Try saving the file to the Files app first, then upload from there.` });
+            setImportStatus({ type: "error", message: `Could not parse "${file.name}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
           }
         } catch (err) {
-          setImportStatus({ type: "error", message: `Error reading "${file.name}": ${err instanceof Error ? err.message : "unknown error"}` });
+          setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown error"}` });
         }
       };
       reader.onerror = () => {
-        setImportStatus({ type: "error", message: `Failed to read "${file.name}". Try saving to Files app first, then upload from there.` });
+        setImportStatus({ type: "error", message: `Failed to read "${file.name}" (${file.size} bytes). Save to Files app first, then upload.` });
       };
-      reader.readAsText(file);
+      reader.readAsArrayBuffer(file);
     };
 
     const handleFileUpload = (meetId: string, files: FileList | null) => {
