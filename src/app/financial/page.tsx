@@ -126,108 +126,112 @@ export default function FinancialDashboard() {
         </div>
       </nav>
 
-      <div className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-8">
+      <div className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-10 lg:py-14">
 
         {/* Header */}
-        <div className="mb-10">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="w-14 h-14 game-panel flex items-center justify-center"
-              style={{ background: "linear-gradient(135deg, rgba(252,211,77,0.1) 0%, rgba(245,158,11,0.05) 100%)", border: "1px solid rgba(252,211,77,0.2)" }}>
-              <span className="text-2xl">{"💎"}</span>
+        <div className="mb-12 lg:mb-14">
+          <div className="flex items-center gap-5 mb-3">
+            <div className="w-16 h-16 lg:w-20 lg:h-20 game-panel flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, rgba(252,211,77,0.12) 0%, rgba(245,158,11,0.06) 100%)", border: "1px solid rgba(252,211,77,0.25)" }}>
+              <span className="text-3xl lg:text-4xl" role="img" aria-label="gem">&#x1F48E;</span>
             </div>
             <div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-none">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-none">
                 <span className="bg-gradient-to-r from-[#fcd34d] via-[#f59e0b] to-[#e879f9] bg-clip-text text-transparent bg-[length:200%_200%] animated-gradient-text">
                   ORACLE Financial Dashboard
                 </span>
               </h1>
-              <p className="text-white/30 text-xs font-mono mt-1 tracking-wider">
+              <p className="text-white/30 text-sm font-mono mt-2 tracking-wider">
                 Powered by KIYOSAKI \u2014 8 financial minds integrated \u2014 Updated {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
               </p>
             </div>
           </div>
         </div>
 
-        {/* Key Metrics — full width */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-10">
+        {/* Key Metrics — full width, tall + prominent */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8 mb-12">
           {METRICS.map(m => (
-            <div key={m.label} className="game-panel game-panel-border relative p-6 lg:p-8"
-              style={{ background: `linear-gradient(145deg, ${m.color}08 0%, rgba(6,2,15,0.97) 100%)` }}>
-              <div className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse" style={{ background: m.color, boxShadow: `0 0 8px ${m.color}` }} />
-              <div className="text-[10px] tracking-[0.2em] uppercase text-white/30 font-mono mb-3">
+            <div key={m.label} className="game-panel game-panel-border relative p-8 lg:p-10 xl:p-12 min-h-[180px] lg:min-h-[220px] flex flex-col justify-center"
+              style={{ background: `linear-gradient(145deg, ${m.color}0a 0%, rgba(6,2,15,0.97) 100%)` }}>
+              <div className="absolute top-4 right-4 w-3 h-3 rounded-full animate-pulse" style={{ background: m.color, boxShadow: `0 0 12px ${m.color}` }} />
+              <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 rounded-tl" style={{ borderColor: `${m.color}30` }} />
+              <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 rounded-br" style={{ borderColor: `${m.color}30` }} />
+              <div className="text-xs lg:text-sm tracking-[0.2em] uppercase text-white/30 font-mono mb-4">
                 {m.label}
               </div>
-              <div className="text-4xl lg:text-5xl font-black tabular-nums leading-none mb-2" style={{ color: m.color,
-                textShadow: `0 0 20px ${m.color}40` }}>
+              <div className="text-5xl lg:text-6xl xl:text-7xl font-black tabular-nums leading-none mb-3" style={{ color: m.color,
+                textShadow: `0 0 30px ${m.color}40, 0 0 60px ${m.color}15` }}>
                 {m.value}
               </div>
-              <div className="text-xs text-white/40">{m.sub}</div>
+              <div className="text-sm lg:text-base text-white/40">{m.sub}</div>
             </div>
           ))}
         </div>
 
         {/* Apex Pricing Tiers */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-[#f59e0b]/20 to-transparent" />
-            <h2 className="text-xs tracking-[0.25em] uppercase text-[#f59e0b]/60 font-mono font-bold">
-              Apex Athlete \u2014 Pricing Tiers
+            <h2 className="text-sm tracking-[0.25em] uppercase text-[#f59e0b]/60 font-mono font-bold">
+              Apex Athlete &#x2014; Pricing Tiers
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#f59e0b]/20 to-transparent" />
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
             {APEX_TIERS.map(t => (
-              <div key={t.name} className="game-panel relative p-6 lg:p-8 transition-all duration-300 hover:-translate-y-1"
+              <div key={t.name} className="game-panel relative p-6 lg:p-10 xl:p-12 transition-all duration-300 hover:-translate-y-1 min-h-[200px] lg:min-h-[240px] flex flex-col justify-center"
                 style={{
                   background: `linear-gradient(145deg, ${t.color}0a 0%, rgba(6,2,15,0.97) 100%)`,
                   border: `1px solid ${t.color}30`,
                 }}>
-                <div className="absolute top-0 left-0 w-4 h-4 border-t border-l" style={{ borderColor: `${t.color}40` }} />
-                <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r" style={{ borderColor: `${t.color}40` }} />
-                <div className="text-sm font-bold mb-2" style={{ color: t.color }}>{t.name}</div>
-                <div className="text-3xl lg:text-4xl font-black text-white mb-3">{t.price}</div>
-                <div className="text-xs text-white/40 mb-1">{t.teams}</div>
-                <div className="text-[11px] text-white/25 leading-relaxed">{t.features}</div>
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2" style={{ borderColor: `${t.color}40` }} />
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2" style={{ borderColor: `${t.color}40` }} />
+                <div className="text-base lg:text-lg font-bold mb-3" style={{ color: t.color }}>{t.name}</div>
+                <div className="text-4xl lg:text-5xl xl:text-6xl font-black text-white mb-4">{t.price}</div>
+                <div className="text-sm text-white/40 mb-2">{t.teams}</div>
+                <div className="text-xs text-white/25 leading-relaxed">{t.features}</div>
               </div>
             ))}
           </div>
         </div>
 
         {/* ARR Projections */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-6">
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-[#fcd34d]/20 to-transparent" />
-            <h2 className="text-xs tracking-[0.25em] uppercase text-[#fcd34d]/60 font-mono font-bold">
-              ARR Projections
+            <h2 className="text-sm tracking-[0.25em] uppercase text-[#fcd34d]/60 font-mono font-bold">
+              <span role="img" aria-label="chart">&#x1F4C8;</span> ARR Projections
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#fcd34d]/20 to-transparent" />
           </div>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-8">
             {APEX_PROJECTIONS.map(p => (
-              <div key={p.year} className="game-panel game-panel-border relative p-6 lg:p-8"
-                style={{ background: `linear-gradient(145deg, ${p.color}08 0%, rgba(6,2,15,0.97) 100%)` }}>
-                <div className="text-xs font-mono font-bold mb-4" style={{ color: p.color }}>{p.year}</div>
-                <div className="text-3xl lg:text-4xl font-black text-white mb-4">{p.arr}</div>
-                <div className="grid grid-cols-3 gap-3 mb-4">
+              <div key={p.year} className="game-panel game-panel-border relative p-6 lg:p-10 xl:p-12 min-h-[240px] lg:min-h-[280px] flex flex-col"
+                style={{ background: `linear-gradient(145deg, ${p.color}0c 0%, rgba(6,2,15,0.97) 100%)` }}>
+                <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2" style={{ borderColor: `${p.color}30` }} />
+                <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2" style={{ borderColor: `${p.color}30` }} />
+                <div className="text-sm font-mono font-bold mb-5" style={{ color: p.color }}>{p.year}</div>
+                <div className="text-4xl lg:text-5xl xl:text-6xl font-black text-white mb-6 leading-none" style={{ textShadow: `0 0 30px ${p.color}30` }}>{p.arr}</div>
+                <div className="grid grid-cols-3 gap-4 mb-6 flex-1">
                   <div>
-                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-mono">Teams</div>
-                    <div className="text-base font-bold text-white/60">{p.teams}</div>
+                    <div className="text-[10px] lg:text-xs text-white/25 tracking-widest uppercase font-mono mb-1">Teams</div>
+                    <div className="text-lg lg:text-xl font-bold text-white/60">{p.teams}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-mono">ARPU</div>
-                    <div className="text-base font-bold text-white/60">{p.arpu}</div>
+                    <div className="text-[10px] lg:text-xs text-white/25 tracking-widest uppercase font-mono mb-1">ARPU</div>
+                    <div className="text-lg lg:text-xl font-bold text-white/60">{p.arpu}</div>
                   </div>
                   <div>
-                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-mono">Churn</div>
-                    <div className="text-base font-bold text-white/60">{p.churn}</div>
+                    <div className="text-[10px] lg:text-xs text-white/25 tracking-widest uppercase font-mono mb-1">Churn</div>
+                    <div className="text-lg lg:text-xl font-bold text-white/60">{p.churn}</div>
                   </div>
                 </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden xp-bar-segments">
+                <div className="h-3 lg:h-4 bg-white/5 rounded-full overflow-hidden xp-bar-segments">
                   <div className="h-full rounded-full transition-all duration-1000"
                     style={{
-                      background: p.color,
+                      background: `linear-gradient(90deg, ${p.color}, ${p.color}cc)`,
                       width: `${Math.min(100, (parseFloat(p.arr.replace(/[$M]/g, "")) / 14.9) * 100)}%`,
-                      boxShadow: `0 0 8px ${p.color}60`,
+                      boxShadow: `0 0 12px ${p.color}60, 0 0 24px ${p.color}20`,
                     }} />
                 </div>
               </div>
@@ -235,48 +239,48 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        {/* Brand Revenue Streams — 2x2 grid on desktop */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-6">
+        {/* Brand Revenue Streams — 2x2 grid, fills ultrawide */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
-            <h2 className="text-xs tracking-[0.25em] uppercase text-[#00f0ff]/60 font-mono font-bold">
+            <h2 className="text-sm tracking-[0.25em] uppercase text-[#00f0ff]/60 font-mono font-bold">
               Revenue Streams by Brand
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
             {BRANDS.map(b => (
-              <div key={b.name} className="game-panel relative p-6"
+              <div key={b.name} className="game-panel relative p-6 lg:p-8 xl:p-10"
                 style={{
-                  background: `linear-gradient(145deg, ${b.accent}06 0%, rgba(6,2,15,0.97) 100%)`,
+                  background: `linear-gradient(145deg, ${b.accent}08 0%, rgba(6,2,15,0.97) 100%)`,
                   border: `1px solid ${b.accent}20`,
                 }}>
-                <div className="flex items-center gap-3 mb-5">
-                  <div className="w-10 h-10 game-panel-sm flex items-center justify-center text-lg"
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 lg:w-14 lg:h-14 game-panel-sm flex items-center justify-center text-xl lg:text-2xl"
                     style={{ background: `${b.accent}12`, border: `1px solid ${b.accent}25`, color: b.accent }}>
                     {b.icon}
                   </div>
                   <div>
-                    <span className="text-base font-bold" style={{ color: b.accent }}>{b.name}</span>
-                    <span className="text-xs text-white/25 ml-2">({b.streams.length} streams)</span>
+                    <span className="text-lg lg:text-xl font-bold" style={{ color: b.accent }}>{b.name}</span>
+                    <span className="text-xs text-white/25 ml-3">({b.streams.length} streams)</span>
                   </div>
                 </div>
                 <div className="space-y-0">
                   {b.streams.map(s => (
-                    <div key={s.name} className="flex items-center justify-between py-3 border-t border-white/[0.04]">
+                    <div key={s.name} className="flex items-center justify-between py-4 border-t border-white/[0.04]">
                       <div className="min-w-0 flex-1">
-                        <div className="text-sm font-medium text-white/70">{s.name}</div>
-                        <div className="text-[11px] text-white/25">Current: {s.monthly}</div>
+                        <div className="text-sm lg:text-base font-medium text-white/70">{s.name}</div>
+                        <div className="text-xs text-white/25 mt-0.5">Current: {s.monthly}</div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-4">
-                        <span className={`text-[9px] font-bold tracking-wider px-2 py-1 rounded-sm uppercase ${
+                      <div className="text-right flex-shrink-0 ml-6">
+                        <span className={`text-[10px] font-bold tracking-wider px-3 py-1.5 rounded-sm uppercase ${
                           s.status === "active" ? "bg-[#34d399]/10 text-[#34d399]" :
                           s.status === "ready" ? "bg-[#60a5fa]/10 text-[#60a5fa]" :
                           s.status === "blocked" ? "bg-[#ef4444]/10 text-[#ef4444]" :
                           s.status === "soon" ? "bg-[#fbbf24]/10 text-[#fbbf24]" :
                           "bg-white/5 text-white/30"
                         }`}>{s.status}</span>
-                        <div className="text-[11px] text-white/40 mt-1">{s.potential}</div>
+                        <div className="text-xs text-white/40 mt-1.5">{s.potential}</div>
                       </div>
                     </div>
                   ))}
@@ -286,42 +290,52 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        {/* Investment Readiness */}
-        <div className="mb-10">
-          <div className="flex items-center gap-3 mb-6">
+        {/* Investment Readiness — Achievement Tracker */}
+        <div className="mb-12">
+          <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
-            <h2 className="text-xs tracking-[0.25em] uppercase text-[#a855f7]/60 font-mono font-bold">
-              Investment Readiness
+            <h2 className="text-sm tracking-[0.25em] uppercase text-[#a855f7]/60 font-mono font-bold">
+              &#x1F3AF; Investment Readiness &#x2014; Achievement Tracker
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
           </div>
-          <div className="game-panel game-panel-border relative p-6 lg:p-8"
-            style={{ background: "linear-gradient(145deg, rgba(168,85,247,0.04) 0%, rgba(6,2,15,0.97) 100%)" }}>
-            {/* Progress bar */}
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-3">
-                <span className="text-sm text-white/50 font-mono">Readiness Score</span>
-                <span className="text-2xl font-black neon-text-purple">{readinessScore}%</span>
+          <div className="game-panel game-panel-border relative p-8 lg:p-10 xl:p-12"
+            style={{ background: "linear-gradient(145deg, rgba(168,85,247,0.06) 0%, rgba(6,2,15,0.97) 100%)" }}>
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 rounded-tl" style={{ borderColor: "rgba(168,85,247,0.3)" }} />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 rounded-tr" style={{ borderColor: "rgba(168,85,247,0.3)" }} />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 rounded-bl" style={{ borderColor: "rgba(168,85,247,0.3)" }} />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 rounded-br" style={{ borderColor: "rgba(168,85,247,0.3)" }} />
+            {/* XP Progress bar */}
+            <div className="mb-8">
+              <div className="flex justify-between items-end mb-4">
+                <div>
+                  <span className="text-xs text-white/30 font-mono tracking-widest uppercase block mb-1">Mission Progress</span>
+                  <span className="text-base lg:text-lg text-white/50 font-mono">Readiness Score</span>
+                </div>
+                <div className="text-right">
+                  <span className="text-4xl lg:text-5xl font-black neon-text-purple" style={{ textShadow: "0 0 20px rgba(168,85,247,0.4)" }}>{readinessScore}%</span>
+                  <span className="block text-xs text-white/30 font-mono mt-1">{READINESS.filter(r => r.done).length}/{READINESS.length} UNLOCKED</span>
+                </div>
               </div>
-              <div className="h-3 bg-white/5 rounded-full overflow-hidden xp-bar-segments">
+              <div className="h-4 lg:h-5 bg-white/5 rounded-full overflow-hidden xp-bar-segments relative">
                 <div className="h-full rounded-full transition-all duration-1000"
                   style={{
-                    background: "linear-gradient(90deg, #a855f7, #e879f9)",
+                    background: "linear-gradient(90deg, #a855f7, #c084fc, #e879f9)",
                     width: `${readinessScore}%`,
-                    boxShadow: "0 0 12px rgba(168,85,247,0.5)",
+                    boxShadow: "0 0 16px rgba(168,85,247,0.5), 0 0 32px rgba(168,85,247,0.2)",
                   }} />
               </div>
             </div>
-            {/* Checklist in 2 columns on desktop */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+            {/* Achievement grid in 2 columns on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-10 gap-y-1">
               {READINESS.map(r => (
-                <div key={r.item} className="flex items-center gap-3 py-2 border-t border-white/[0.04]">
-                  <div className={`w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0 ${
-                    r.done ? "bg-[#34d399]/15 text-[#34d399]" : "bg-white/5 text-white/20"
+                <div key={r.item} className={`flex items-center gap-4 py-3 border-t border-white/[0.04] transition-all duration-200 ${r.done ? "hover:bg-white/[0.02]" : "opacity-60"}`}>
+                  <div className={`w-8 h-8 lg:w-9 lg:h-9 rounded-lg flex items-center justify-center text-sm flex-shrink-0 transition-all ${
+                    r.done ? "bg-[#34d399]/15 text-[#34d399] shadow-[0_0_8px_rgba(52,211,153,0.2)]" : "bg-white/5 text-white/20 border border-white/10"
                   }`}>
-                    {r.done ? "\u2713" : "\u2022"}
+                    {r.done ? "\u2713" : "\u25CB"}
                   </div>
-                  <span className={`text-sm ${r.done ? "text-white/70" : "text-white/30"}`}>{r.item}</span>
+                  <span className={`text-sm lg:text-base ${r.done ? "text-white/70" : "text-white/30"}`}>{r.item}</span>
                 </div>
               ))}
             </div>

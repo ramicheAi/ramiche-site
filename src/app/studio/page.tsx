@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { label: "GA Dock", href: "/", active: false },
   { label: "Command Center", href: "/command-center", active: false },
   { label: "Apex Athlete", href: "/apex-athlete", active: false },
+  { label: "Financial", href: "/financial", active: false },
   { label: "Studio", href: "/studio", active: true },
 ];
 
@@ -452,7 +453,7 @@ export default function StudioPage() {
 
         {/* ── navigation HUD tabs ────────────────────────────── */}
         <nav className="w-full border-b border-white/[0.06] bg-[#06020f]/80 backdrop-blur-md">
-          <div className="mx-auto max-w-6xl flex items-center justify-between px-4 sm:px-6 py-3">
+          <div className="mx-auto max-w-[2000px] flex items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-16 py-3">
             <span className="text-xs sm:text-sm tracking-[0.25em] uppercase text-white/30 font-mono">
               Ramiche // Studio
             </span>
@@ -477,11 +478,11 @@ export default function StudioPage() {
         </nav>
 
         {/* ── hero section ───────────────────────────────────── */}
-        <section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 px-4 sm:px-6 text-center">
+        <section className="relative pt-20 pb-16 sm:pt-28 sm:pb-24 px-4 sm:px-6 lg:px-10 xl:px-16 text-center">
           <div className="absolute top-8 left-4 sm:left-12 w-8 h-8 border-t-2 border-l-2 border-[#00f0ff]/30 pointer-events-none" />
           <div className="absolute top-8 right-4 sm:right-12 w-8 h-8 border-t-2 border-r-2 border-[#00f0ff]/30 pointer-events-none" />
 
-          <div className="mx-auto max-w-4xl">
+          <div className="mx-auto max-w-[2000px]">
             <div className="mb-4 inline-block">
               <span className="text-[10px] sm:text-xs tracking-[0.4em] uppercase text-[#00f0ff]/60 font-mono border border-[#00f0ff]/20 px-4 py-1.5 game-btn">
                 Creative Direction for Small Brands
@@ -531,8 +532,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── results strip ────────────────────────────────────── */}
-        <section className="px-4 sm:px-6 pb-16">
-          <div className="mx-auto max-w-4xl">
+        <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-16">
+          <div className="mx-auto max-w-[2000px]">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {RESULTS.map((r) => (
                 <div key={r.label} className="text-center py-6 px-4 bg-white/[0.02] border border-white/[0.06] game-panel">
@@ -545,8 +546,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── why ramiche section ──────────────────────────────── */}
-        <section className="px-4 sm:px-6 pb-20">
-          <div className="mx-auto max-w-6xl">
+        <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
             <div className="text-center mb-12">
               <span className="text-xs tracking-[0.3em] uppercase text-white/30 font-mono block mb-3">
                 The Difference
@@ -579,8 +580,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── who this is for / not for ─────────────────────── */}
-        <section className="px-4 sm:px-6 pb-20">
-          <div className="mx-auto max-w-6xl">
+        <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Best Fit */}
               <div className="game-panel bg-white/[0.02] border border-[#00f0ff]/20 p-6 sm:p-8">
@@ -618,8 +619,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── portfolio / the work section ──────────────────── */}
-        <section id="work" className="px-4 sm:px-6 pb-20">
-          <div className="mx-auto max-w-6xl">
+        <section id="work" className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
             <div className="text-center mb-12">
               <span className="text-xs tracking-[0.3em] uppercase text-white/30 font-mono block mb-3">
                 Selected Work
@@ -684,8 +685,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── $400 sprint section ────────────────────────────── */}
-        <section className="px-4 sm:px-6 pb-20">
-          <div className="mx-auto max-w-6xl">
+        <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
             <div className="game-panel game-panel-border bg-white/[0.02] border border-[#00f0ff]/20 p-6 sm:p-10 relative overflow-hidden">
               <div className="scan-sweep absolute inset-0 pointer-events-none" />
 
@@ -772,8 +773,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── packages section ───────────────────────────────── */}
-        <section id="packages" className="px-4 sm:px-6 pb-20">
-          <div className="mx-auto max-w-6xl">
+        <section id="packages" className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
             <div className="text-center mb-12">
               <span className="text-xs tracking-[0.3em] uppercase text-white/30 font-mono block mb-3">
                 Select Your Tier
@@ -876,8 +877,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── inquiry form section ──────────────────────────────── */}
-        <section id="inquiry" className="px-4 sm:px-6 pb-20">
-          <div className="mx-auto max-w-4xl">
+        <section id="inquiry" className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
             <div className="game-panel game-panel-border relative bg-white/[0.02] border border-[#00f0ff]/15 p-8 sm:p-14 overflow-hidden">
               <div
                 className="absolute inset-0 pointer-events-none opacity-30"
@@ -932,8 +933,8 @@ export default function StudioPage() {
         </section>
 
         {/* ── footer ─────────────────────────────────────────── */}
-        <footer className="border-t border-white/[0.06] py-8 px-4 sm:px-6">
-          <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <footer className="border-t border-white/[0.06] py-8 px-4 sm:px-6 lg:px-10 xl:px-16">
+          <div className="mx-auto max-w-[2000px] flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="text-white/20 text-xs font-mono tracking-wider">
               &copy; 2026 Ramiche Studio
             </span>
