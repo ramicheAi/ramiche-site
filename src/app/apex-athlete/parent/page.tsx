@@ -770,7 +770,7 @@ function EnrollmentForm({ roster, onComplete }: {
         <div className="absolute bottom-0 left-1/4 w-[400px] h-[300px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.05)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 max-w-lg lg:max-w-4xl xl:max-w-6xl mx-auto px-5 sm:px-8 lg:px-10 py-8 sm:py-14">
+      <div className="relative z-10 max-w-lg lg:max-w-5xl xl:max-w-[1920px] mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-14">
         {/* Welcome header */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center relative"
@@ -1378,7 +1378,7 @@ export default function ParentPortal() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl xl:max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-16 py-6 sm:py-10">
+      <div className="relative z-10 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors">← Switch</button>

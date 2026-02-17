@@ -510,7 +510,7 @@ function TierCard({
 
 function EnterpriseCard() {
   return (
-    <div className="mt-8 max-w-xl md:max-w-5xl lg:max-w-7xl mx-auto">
+    <div className="mt-8 max-w-xl md:max-w-5xl lg:max-w-[1400px] xl:max-w-[1600px] mx-auto">
       <div className="game-panel game-panel-border relative bg-[#06020f]/90 backdrop-blur-xl overflow-hidden">
         {/* Scan lines */}
         <div className="absolute inset-0 pointer-events-none opacity-20">
@@ -713,7 +713,7 @@ export default function BillingPage() {
       </div>
 
       {/* ── Content ────────────────────────────────────────────── */}
-      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+      <div className="relative z-10 max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-10 xl:px-16 py-8 sm:py-12 lg:py-16">
         {/* Back nav */}
         <a
           href="/apex-athlete"
@@ -764,7 +764,7 @@ export default function BillingPage() {
         </div>
 
         {/* ── 3 Tier Cards ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-xl md:max-w-5xl lg:max-w-7xl mx-auto items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 max-w-xl md:max-w-5xl lg:max-w-[1400px] xl:max-w-[1600px] mx-auto items-stretch">
           {PLANS.map((plan) => (
             <TierCard
               key={plan.id}
