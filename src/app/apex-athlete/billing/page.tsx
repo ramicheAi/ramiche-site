@@ -129,11 +129,11 @@ const CORE_FEATURES = [
   "Performance analytics & reports",
   "Time standards (SCY / LCM / SCM)",
   "Meet entry + SD3/CSV export",
-  "Race planning & strategy tools",
-  "Wellness & journaling",
   "Weight room logging",
   "Cloud sync across devices",
   "Parent comms & absence reports",
+  "Multi-sport support",
+  "Team challenges",
 ];
 
 // ── Tier Definitions ────────────────────────────────────────
@@ -199,8 +199,6 @@ const PLANS: PlanTier[] = [
     scalePerks: [
       "All core features included",
       "Priority support (24h response)",
-      "Performance analytics & insights",
-      "Multi-sport support",
     ],
     cta: "Subscribe",
   },
@@ -222,7 +220,6 @@ const PLANS: PlanTier[] = [
     scalePerks: [
       "All core features included",
       "Dedicated success manager",
-      "Multi-sport support",
     ],
     cta: "Subscribe",
   },
@@ -248,7 +245,7 @@ function TierCard({
   return (
     <div
       className={`relative group flex flex-col h-full ${
-        tier.featured ? "lg:-mt-4 lg:mb-4" : ""
+        tier.featured ? "md:-mt-4 md:mb-4" : ""
       }`}
     >
       {/* Featured badge */}
@@ -307,7 +304,7 @@ function TierCard({
         <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 opacity-40" style={{ borderColor: tier.color }} />
 
         {/* Content */}
-        <div className="relative z-10 p-6 sm:p-8 lg:p-10 flex flex-col h-full">
+        <div className="relative z-10 p-6 sm:p-8 md:p-6 lg:p-7 xl:p-8 flex flex-col h-full">
           {/* Header */}
           <div className="text-center mb-6">
             {/* Icon */}
@@ -388,8 +385,8 @@ function TierCard({
             </span>
           </div>
 
-          {/* Core features — 2-col on lg screens */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-x-3 gap-y-2 mb-5">
+          {/* Core features */}
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-x-3 gap-y-2 mb-5">
             {CORE_FEATURES.map((feature, i) => (
               <div key={i} className="flex items-start gap-2">
                 <div
@@ -402,7 +399,7 @@ function TierCard({
                 >
                   <CheckIcon className="w-2.5 h-2.5" style={{ color: tier.color }} />
                 </div>
-                <span className="text-[12px] lg:text-[11px] xl:text-[12px] font-mono text-white/60 leading-tight">
+                <span className="text-[12px] md:text-[11px] xl:text-[12px] font-mono text-white/60 leading-tight">
                   {feature}
                 </span>
               </div>
@@ -513,7 +510,7 @@ function TierCard({
 
 function EnterpriseCard() {
   return (
-    <div className="mt-8 max-w-6xl lg:max-w-7xl mx-auto">
+    <div className="mt-8 max-w-xl md:max-w-4xl lg:max-w-7xl mx-auto">
       <div className="game-panel game-panel-border relative bg-[#06020f]/90 backdrop-blur-xl overflow-hidden">
         {/* Scan lines */}
         <div className="absolute inset-0 pointer-events-none opacity-20">
@@ -767,7 +764,7 @@ export default function BillingPage() {
         </div>
 
         {/* ── 3 Tier Cards ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl lg:max-w-7xl mx-auto items-stretch">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-xl md:max-w-4xl lg:max-w-7xl mx-auto items-stretch">
           {PLANS.map((plan) => (
             <TierCard
               key={plan.id}
@@ -835,11 +832,11 @@ export default function BillingPage() {
             {[
               {
                 q: "Do all tiers get the same features?",
-                a: "Yes. Every tier includes the complete Apex experience — all three portals, full gamification, meet management, analytics, AI, and wellness tools. No features are locked behind higher tiers.",
+                a: "Yes. Every tier includes the complete Apex experience — all three portals, full gamification, meet management, analytics, and performance tools. No features are locked behind higher tiers.",
               },
               {
                 q: "What's the difference between tiers?",
-                a: "Team size and support level. Starter fits up to 50 athletes with email support. Club handles 150 with priority support and custom branding. Program scales to 300 with a dedicated success manager and multi-sport support.",
+                a: "Team size and support level. Starter fits up to 50 athletes with email support. Club handles 150 with priority support. Program scales to 300 with a dedicated success manager.",
               },
               {
                 q: "Can I switch plans at any time?",
