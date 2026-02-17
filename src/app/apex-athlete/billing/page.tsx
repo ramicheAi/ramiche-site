@@ -129,7 +129,7 @@ const CORE_FEATURES = [
   "Performance analytics & reports",
   "Time standards (SCY / LCM / SCM)",
   "Meet entry + SD3/CSV export",
-  "Race strategy AI",
+  "Race planning & strategy tools",
   "Wellness & journaling",
   "Weight room logging",
   "Cloud sync across devices",
@@ -199,8 +199,8 @@ const PLANS: PlanTier[] = [
     scalePerks: [
       "All core features included",
       "Priority support (24h response)",
-      "Advanced analytics dashboard",
-      "Custom team branding",
+      "Performance analytics & insights",
+      "Multi-sport support",
     ],
     cta: "Subscribe",
   },
@@ -307,7 +307,7 @@ function TierCard({
         <div className="absolute bottom-3 right-3 w-4 h-4 border-b-2 border-r-2 opacity-40" style={{ borderColor: tier.color }} />
 
         {/* Content */}
-        <div className="relative z-10 p-6 sm:p-8 flex flex-col h-full">
+        <div className="relative z-10 p-6 sm:p-8 lg:p-10 flex flex-col h-full">
           {/* Header */}
           <div className="text-center mb-6">
             {/* Icon */}
@@ -388,12 +388,12 @@ function TierCard({
             </span>
           </div>
 
-          {/* Core features — compact list */}
-          <div className="flex-1 space-y-2 mb-5">
+          {/* Core features — 2-col on lg screens */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-x-3 gap-y-2 mb-5">
             {CORE_FEATURES.map((feature, i) => (
-              <div key={i} className="flex items-start gap-2.5">
+              <div key={i} className="flex items-start gap-2">
                 <div
-                  className="w-4 h-4 shrink-0 flex items-center justify-center mt-0.5"
+                  className="w-3.5 h-3.5 shrink-0 flex items-center justify-center mt-0.5"
                   style={{
                     background: `${tier.color}12`,
                     border: `1px solid ${tier.color}25`,
@@ -402,7 +402,7 @@ function TierCard({
                 >
                   <CheckIcon className="w-2.5 h-2.5" style={{ color: tier.color }} />
                 </div>
-                <span className="text-[13px] font-mono text-white/60">
+                <span className="text-[12px] lg:text-[11px] xl:text-[12px] font-mono text-white/60 leading-tight">
                   {feature}
                 </span>
               </div>
@@ -513,7 +513,7 @@ function TierCard({
 
 function EnterpriseCard() {
   return (
-    <div className="mt-8 max-w-5xl mx-auto">
+    <div className="mt-8 max-w-6xl lg:max-w-7xl mx-auto">
       <div className="game-panel game-panel-border relative bg-[#06020f]/90 backdrop-blur-xl overflow-hidden">
         {/* Scan lines */}
         <div className="absolute inset-0 pointer-events-none opacity-20">
@@ -558,7 +558,7 @@ function EnterpriseCard() {
               </div>
             </div>
             <p className="text-white/40 text-sm font-mono leading-relaxed max-w-md">
-              300+ athletes. Everything in Program, plus unlimited athletes, dedicated onboarding, and a pricing plan built around your program. Let&apos;s talk about what your team needs.
+              300+ athletes. Everything in Program, plus unlimited athletes and a pricing plan built around your program. Let&apos;s talk about what your team needs.
             </p>
           </div>
 
@@ -767,7 +767,7 @@ export default function BillingPage() {
         </div>
 
         {/* ── 3 Tier Cards ──────────────────────────────────────── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl lg:max-w-7xl mx-auto items-stretch">
           {PLANS.map((plan) => (
             <TierCard
               key={plan.id}
