@@ -222,8 +222,6 @@ const PLANS: PlanTier[] = [
     scalePerks: [
       "All core features included",
       "Dedicated success manager",
-      "White-label branding",
-      "API access & integrations",
       "Multi-sport support",
     ],
     cta: "Subscribe",
@@ -560,7 +558,7 @@ function EnterpriseCard() {
               </div>
             </div>
             <p className="text-white/40 text-sm font-mono leading-relaxed max-w-md">
-              300+ athletes. Everything in Program, plus unlimited athletes, multi-location support, custom integrations, dedicated onboarding, and a pricing plan built around your program.
+              300+ athletes. Everything in Program, plus unlimited athletes, dedicated onboarding, and a pricing plan built around your program. Let&apos;s talk about what your team needs.
             </p>
           </div>
 
@@ -841,7 +839,7 @@ export default function BillingPage() {
               },
               {
                 q: "What's the difference between tiers?",
-                a: "Team size and support level. Starter fits up to 50 athletes with email support. Club handles 150 with priority support. Program scales to 300 with a dedicated success manager, white-labeling, and API access.",
+                a: "Team size and support level. Starter fits up to 50 athletes with email support. Club handles 150 with priority support and custom branding. Program scales to 300 with a dedicated success manager and multi-sport support.",
               },
               {
                 q: "Can I switch plans at any time?",
