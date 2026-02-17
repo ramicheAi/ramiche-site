@@ -893,6 +893,9 @@ export default function ApexAthletePage() {
           poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
           weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
           meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+          questsCompleted: 0, challengesCompleted: 0,
+          athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0])),
+          athleteStreaks: Object.fromEntries(r.map(a => [a.id, a.streak || 0])),
         });
         save(K.SNAPSHOTS, snaps);
       }
@@ -1019,6 +1022,9 @@ export default function ApexAthletePage() {
             poolCheckins: groupRoster.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
             weightCheckins: groupRoster.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
             meetCheckins: groupRoster.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+            questsCompleted: 0, challengesCompleted: 0,
+            athleteXPs: Object.fromEntries(groupRoster.map(a => [a.id, a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
+            athleteStreaks: Object.fromEntries(groupRoster.map(a => [a.id, a.streak || 0])),
           });
           save(K.SNAPSHOTS, snaps);
         }
