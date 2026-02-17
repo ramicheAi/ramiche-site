@@ -5,7 +5,7 @@ import React from "react";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — BILLING & PRICING
-   3-Tier subscription model + Enterprise
+   Full features at every tier · Scale by team size & support
    Stripe-powered · Dark sci-fi game UI
    ══════════════════════════════════════════════════════════════ */
 
@@ -110,6 +110,32 @@ function StarIcon({ className = "", style }: { className?: string; style?: React
   );
 }
 
+function HeadsetIcon({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+      <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+    </svg>
+  );
+}
+
+// ── Core Features (included in ALL tiers) ────────────────────
+
+const CORE_FEATURES = [
+  "Coach, Athlete & Parent portals",
+  "XP, leveling & gamification engine",
+  "Quest system with coach approval",
+  "Schedule & attendance tracking",
+  "Performance analytics & reports",
+  "Time standards (SCY / LCM / SCM)",
+  "Meet entry + SD3/CSV export",
+  "Race strategy AI",
+  "Wellness & journaling",
+  "Weight room logging",
+  "Cloud sync across devices",
+  "Parent comms & absence reports",
+];
+
 // ── Tier Definitions ────────────────────────────────────────
 
 interface PlanTier {
@@ -125,8 +151,9 @@ interface PlanTier {
   borderColor: string;
   icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
   featured: boolean;
-  features: { text: string; included: boolean }[];
-  limits: string;
+  athleteLimit: string;
+  scalePerks: string[];
+  supportLevel: string;
   cta: string;
   badge?: string;
 }
@@ -145,20 +172,12 @@ const PLANS: PlanTier[] = [
     borderColor: "rgba(34,211,238,0.3)",
     icon: BoltIcon,
     featured: false,
-    features: [
-      { text: "Up to 50 athletes", included: true },
-      { text: "Coach & Athlete portals", included: true },
-      { text: "XP, streaks & gamification", included: true },
-      { text: "Schedule & attendance tracking", included: true },
-      { text: "Performance analytics", included: true },
-      { text: "Cloud sync across devices", included: true },
-      { text: "Time standards (SCY/LCM/SCM)", included: true },
-      { text: "Parent portal", included: false },
-      { text: "Meet entry + SD3/CSV export", included: false },
-      { text: "Race strategy AI", included: false },
-      { text: "Priority support", included: false },
+    athleteLimit: "Up to 50 athletes",
+    supportLevel: "Email support",
+    scalePerks: [
+      "All core features included",
+      "Email support (48h response)",
     ],
-    limits: "Up to 50 athletes",
     cta: "Get Started",
   },
   {
@@ -175,20 +194,14 @@ const PLANS: PlanTier[] = [
     icon: CrownIcon,
     featured: true,
     badge: "Most Popular",
-    features: [
-      { text: "Up to 150 athletes", included: true },
-      { text: "Coach, Athlete & Parent portals", included: true },
-      { text: "XP, streaks & gamification", included: true },
-      { text: "Schedule & attendance tracking", included: true },
-      { text: "Performance analytics & reports", included: true },
-      { text: "Cloud sync across devices", included: true },
-      { text: "Time standards (SCY/LCM/SCM)", included: true },
-      { text: "Meet entry + SD3/CSV export", included: true },
-      { text: "Race strategy AI", included: true },
-      { text: "Parent comms & absence reports", included: true },
-      { text: "Priority support", included: true },
+    athleteLimit: "Up to 150 athletes",
+    supportLevel: "Priority support",
+    scalePerks: [
+      "All core features included",
+      "Priority support (24h response)",
+      "Advanced analytics dashboard",
+      "Custom team branding",
     ],
-    limits: "Up to 150 athletes",
     cta: "Subscribe",
   },
   {
@@ -204,20 +217,15 @@ const PLANS: PlanTier[] = [
     borderColor: "rgba(168,85,247,0.3)",
     icon: DiamondIcon,
     featured: false,
-    features: [
-      { text: "Up to 300 athletes", included: true },
-      { text: "Coach, Athlete & Parent portals", included: true },
-      { text: "XP, streaks & gamification", included: true },
-      { text: "Schedule & attendance tracking", included: true },
-      { text: "Advanced analytics & custom reports", included: true },
-      { text: "Cloud sync across devices", included: true },
-      { text: "Time standards (SCY/LCM/SCM)", included: true },
-      { text: "Meet entry + SD3/CSV export", included: true },
-      { text: "Race strategy AI", included: true },
-      { text: "Parent comms & absence reports", included: true },
-      { text: "Multi-sport support", included: true },
+    athleteLimit: "Up to 300 athletes",
+    supportLevel: "Dedicated manager",
+    scalePerks: [
+      "All core features included",
+      "Dedicated success manager",
+      "White-label branding",
+      "API access & integrations",
+      "Multi-sport support",
     ],
-    limits: "Up to 300 athletes",
     cta: "Subscribe",
   },
 ];
@@ -352,7 +360,7 @@ function TierCard({
               </div>
             )}
 
-            {/* Limit badge */}
+            {/* Athlete limit badge */}
             <div
               className="inline-block mt-3 px-3 py-1 text-[10px] font-mono tracking-wider"
               style={{
@@ -362,48 +370,86 @@ function TierCard({
                 clipPath: "polygon(6px 0%, calc(100% - 6px) 0%, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0% 50%)",
               }}
             >
-              {tier.limits}
+              {tier.athleteLimit}
             </div>
           </div>
 
           {/* Divider */}
           <div
-            className="h-px mb-6 opacity-20"
+            className="h-px mb-5 opacity-20"
             style={{
               background: `linear-gradient(90deg, transparent, ${tier.color}, transparent)`,
             }}
           />
 
-          {/* Features */}
-          <div className="flex-1 space-y-3 mb-8">
-            {tier.features.map((feature, i) => (
-              <div key={i} className="flex items-start gap-3">
-                {feature.included ? (
-                  <div
-                    className="w-5 h-5 shrink-0 flex items-center justify-center mt-0.5"
-                    style={{
-                      background: `${tier.color}15`,
-                      border: `1px solid ${tier.color}30`,
-                      borderRadius: "2px",
-                    }}
-                  >
-                    <CheckIcon className="w-3 h-3" style={{ color: tier.color }} />
-                  </div>
-                ) : (
-                  <div className="w-5 h-5 shrink-0 flex items-center justify-center mt-0.5 border border-white/10 rounded-sm">
-                    <LockIcon className="w-3 h-3 text-white/15" />
-                  </div>
-                )}
-                <span
-                  className={`text-sm font-mono ${
-                    feature.included ? "text-white/70" : "text-white/20"
-                  }`}
+          {/* "Everything included" label */}
+          <div className="flex items-center gap-2 mb-4">
+            <CheckIcon className="w-4 h-4 shrink-0" style={{ color: tier.color }} />
+            <span className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: `${tier.color}CC` }}>
+              Full Apex Experience
+            </span>
+          </div>
+
+          {/* Core features — compact list */}
+          <div className="flex-1 space-y-2 mb-5">
+            {CORE_FEATURES.map((feature, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div
+                  className="w-4 h-4 shrink-0 flex items-center justify-center mt-0.5"
+                  style={{
+                    background: `${tier.color}12`,
+                    border: `1px solid ${tier.color}25`,
+                    borderRadius: "2px",
+                  }}
                 >
-                  {feature.text}
+                  <CheckIcon className="w-2.5 h-2.5" style={{ color: tier.color }} />
+                </div>
+                <span className="text-[13px] font-mono text-white/60">
+                  {feature}
                 </span>
               </div>
             ))}
           </div>
+
+          {/* Scale perks divider */}
+          {tier.scalePerks.length > 0 && (
+            <>
+              <div
+                className="h-px mb-4 opacity-15"
+                style={{
+                  background: `linear-gradient(90deg, transparent, ${tier.color}, transparent)`,
+                }}
+              />
+
+              {/* Support & scale extras */}
+              <div className="flex items-center gap-2 mb-3">
+                <HeadsetIcon className="w-4 h-4 shrink-0" style={{ color: `${tier.color}88` }} />
+                <span className="text-[10px] font-mono font-bold uppercase tracking-wider" style={{ color: `${tier.color}88` }}>
+                  Scale & Support
+                </span>
+              </div>
+
+              <div className="space-y-2 mb-6">
+                {tier.scalePerks.filter(p => p !== "All core features included").map((perk, i) => (
+                  <div key={i} className="flex items-start gap-2.5">
+                    <div
+                      className="w-4 h-4 shrink-0 flex items-center justify-center mt-0.5"
+                      style={{
+                        background: `${tier.color}18`,
+                        border: `1px solid ${tier.color}35`,
+                        borderRadius: "2px",
+                      }}
+                    >
+                      <StarIcon className="w-2.5 h-2.5" style={{ color: tier.color }} />
+                    </div>
+                    <span className="text-[13px] font-mono text-white/50">
+                      {perk}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           {/* CTA Button */}
           <div className="mt-auto">
@@ -514,7 +560,7 @@ function EnterpriseCard() {
               </div>
             </div>
             <p className="text-white/40 text-sm font-mono leading-relaxed max-w-md">
-              300+ athletes, custom integrations, dedicated onboarding, multi-location support, and a pricing plan built around your program.
+              300+ athletes. Everything in Program, plus unlimited athletes, multi-location support, custom integrations, dedicated onboarding, and a pricing plan built around your program.
             </p>
           </div>
 
@@ -544,7 +590,7 @@ function EnterpriseCard() {
 
 function ValueStats() {
   const stats = [
-    { label: "Starting at", value: "$3/mo", sub: "per athlete on Starter", icon: UsersIcon },
+    { label: "Every athlete gets", value: "100%", sub: "full features at every tier", icon: ShieldIcon },
     { label: "vs TeamUnify", value: "70% less", sub: "comparable features, fraction of cost", icon: ChartIcon },
     { label: "Meet entry time saved", value: "3+ hrs", sub: "per meet with SD3 export", icon: BoltIcon },
     { label: "Setup time", value: "< 1 day", sub: "import roster + go live", icon: RocketIcon },
@@ -699,12 +745,13 @@ export default function BillingPage() {
               filter: "drop-shadow(0 0 30px rgba(0,240,255,0.3))",
             }}
           >
-            CHOOSE YOUR TIER
+            PICK YOUR TEAM SIZE
           </h1>
 
           <p className="text-white/30 text-sm sm:text-base font-mono max-w-2xl mx-auto leading-relaxed">
-            Scale your program. Every tier includes gamification, analytics, and cloud sync.
-            The bigger your team, the more you save.
+            Every tier includes the full Apex experience. All features, every portal, complete gamification.
+            <br />
+            <span className="text-white/50">The only difference is how many athletes you bring.</span>
           </p>
 
           {/* Current plan indicator */}
@@ -788,6 +835,14 @@ export default function BillingPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
             {[
+              {
+                q: "Do all tiers get the same features?",
+                a: "Yes. Every tier includes the complete Apex experience — all three portals, full gamification, meet management, analytics, AI, and wellness tools. No features are locked behind higher tiers.",
+              },
+              {
+                q: "What's the difference between tiers?",
+                a: "Team size and support level. Starter fits up to 50 athletes with email support. Club handles 150 with priority support. Program scales to 300 with a dedicated success manager, white-labeling, and API access.",
+              },
               {
                 q: "Can I switch plans at any time?",
                 a: "Yes. Upgrade or downgrade anytime. When upgrading, you only pay the prorated difference. Downgrades take effect at the end of your billing cycle.",
