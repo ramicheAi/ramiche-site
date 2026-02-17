@@ -127,7 +127,7 @@ export default function Home() {
 
       {/* ── HUD navigation bar ─────────────────────────────────── */}
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
-        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12">
+        <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-2">
               <span className="neon-text-cyan text-sm font-bold tracking-widest">RAMICHE</span>
@@ -170,24 +170,24 @@ export default function Home() {
       </section>
 
       {/* ── portal cards ───────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+      <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
           <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Mission Portals</h2>
           <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 xl:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 xl:gap-6">
           {portals.map((portal) => {
             const colors = accentColors[portal.accent];
             return (
               <a key={portal.href} href={portal.href}
-                className={`game-panel game-panel-border group relative flex flex-col ${colors.bg} ${colors.bgHover} border ${colors.border} ${colors.borderHover} ${colors.shadow} p-6 transition-all duration-300 hover:-translate-y-1`}>
-                <div className="flex items-center justify-between mb-4">
-                  <span className={`${colors.text} text-2xl`}>{portal.icon}</span>
-                  <span className={`${colors.statusBg} ${colors.text} text-[10px] tracking-widest font-bold px-2.5 py-1 rounded-sm uppercase`}>{portal.status}</span>
+                className={`game-panel game-panel-border group relative flex flex-col ${colors.bg} ${colors.bgHover} border ${colors.border} ${colors.borderHover} ${colors.shadow} p-6 lg:p-8 transition-all duration-300 hover:-translate-y-1`}>
+                <div className="flex items-center justify-between mb-5">
+                  <span className={`${colors.text} text-3xl`}>{portal.icon}</span>
+                  <span className={`${colors.statusBg} ${colors.text} text-[10px] tracking-widest font-bold px-3 py-1.5 rounded-sm uppercase`}>{portal.status}</span>
                 </div>
-                <h3 className={`text-lg font-bold ${colors.text} mb-1 tracking-wide`}>{portal.title}</h3>
-                <p className="text-sm text-white/40 leading-relaxed mb-4">{portal.description}</p>
+                <h3 className={`text-xl font-bold ${colors.text} mb-2 tracking-wide`}>{portal.title}</h3>
+                <p className="text-sm text-white/40 leading-relaxed mb-5">{portal.description}</p>
                 <div className="flex items-center gap-2 mt-auto">
                   <div className={`h-0.5 flex-1 ${colors.barBg} opacity-20 group-hover:opacity-40 transition-opacity`} />
                   <span className={`text-[10px] ${colors.text} opacity-50 group-hover:opacity-100 tracking-widest uppercase transition-opacity`}>Enter</span>
@@ -200,20 +200,20 @@ export default function Home() {
       </section>
 
       {/* ── live stats ────────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+      <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
         <div className="game-panel game-panel-border bg-white/[0.02] p-6 sm:p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">System Telemetry</h2>
             <span className="text-[10px] text-[#00ff88]/50 ml-auto tracking-wider">LIVE — 10s refresh</span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 lg:gap-6">
             {stats.map((stat) => {
               const colors = accentColors[stat.accent];
               return (
-                <div key={stat.label} className={`relative border ${colors.border} ${colors.bg} rounded-sm p-4`}>
-                  <div className="text-[10px] tracking-widest uppercase text-white/30 mb-2">{stat.label}</div>
-                  <div className={`text-3xl font-black ${colors.text} tracking-tight tabular-nums`}>{stat.value}</div>
+                <div key={stat.label} className={`relative border ${colors.border} ${colors.bg} rounded-sm p-5 lg:p-6`}>
+                  <div className="text-[10px] tracking-widest uppercase text-white/30 mb-3">{stat.label}</div>
+                  <div className={`text-4xl lg:text-5xl font-black ${colors.text} tracking-tight tabular-nums`}>{stat.value}</div>
                   <div className={`absolute top-0 right-0 w-3 h-3 border-t border-r ${colors.border} opacity-50`} />
                 </div>
               );
@@ -224,7 +224,7 @@ export default function Home() {
 
       {/* ── active agents ─────────────────────────────────────── */}
       {data && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+        <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Agent Status</h2>
@@ -292,15 +292,15 @@ export default function Home() {
 
       {/* ── project progress ──────────────────────────────────── */}
       {data && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+        <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Project Progress</h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
             {data.projects.map(p => (
-              <div key={p.name} className="border rounded-sm p-5" style={{ borderColor: `${p.accent}30`, background: `${p.accent}08` }}>
+              <div key={p.name} className="border rounded-sm p-5 lg:p-6" style={{ borderColor: `${p.accent}30`, background: `${p.accent}08` }}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-bold" style={{ color: p.accent }}>{p.name}</span>
                   <div className="flex items-center gap-2">
@@ -334,7 +334,7 @@ export default function Home() {
 
       {/* ── blockers ──────────────────────────────────────────── */}
       {data && data.blockers.length > 0 && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+        <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="game-panel game-panel-border border-[#f59e0b]/20 bg-[#f59e0b]/5 p-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-[#f59e0b]">⚠</span>
@@ -357,7 +357,7 @@ export default function Home() {
 
       {/* ── recent activity ───────────────────────────────────── */}
       {data && (
-        <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+        <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
             <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Recent Activity</h2>
@@ -376,7 +376,7 @@ export default function Home() {
       )}
 
       {/* ── brand ecosystem ────────────────────────────────────── */}
-      <section className="relative z-10 mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 pb-12">
+      <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
         <div className="flex items-center gap-3 mb-8">
           <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
           <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Brand Ecosystem</h2>
@@ -400,7 +400,7 @@ export default function Home() {
 
       {/* ── footer ─────────────────────────────────────────────── */}
       <footer className="relative z-10 border-t border-white/5 bg-[#06020f]/60 backdrop-blur-sm">
-        <div className="mx-auto max-w-[1800px] px-4 sm:px-6 lg:px-8 xl:px-12 py-8">
+        <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <span className="neon-text-cyan text-xs font-bold tracking-widest">RAMICHE</span>

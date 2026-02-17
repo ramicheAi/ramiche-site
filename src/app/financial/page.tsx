@@ -7,17 +7,14 @@ import { APEX_PRICING, APEX_PROJECTIONS as SHARED_PROJECTIONS, NAV_LINKS, KEY_ME
 /* ══════════════════════════════════════════════════════════════════════════════
    FINANCIAL DASHBOARD — KIYOSAKI'S ORACLE
    Revenue projections, brand P&L, pricing tiers, and growth metrics.
-   Powered by KIYOSAKI (8 financial minds integrated).
-   Imports from shared-config.ts — single source of truth.
+   Full-width, immersive, game-UI design.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── NAV ───────────────────────────────────────────────────────────────────── */
 const NAV = NAV_LINKS.map(n => ({
   ...n,
   active: n.label === "FINANCE",
 }));
 
-/* ── APEX ATHLETE FINANCIALS (from shared config) ──────────────────────────── */
 const APEX_TIERS = APEX_PRICING.tiers.map(t => ({
   name: t.name,
   price: t.priceLabel,
@@ -28,7 +25,6 @@ const APEX_TIERS = APEX_PRICING.tiers.map(t => ({
 
 const APEX_PROJECTIONS = SHARED_PROJECTIONS.map(p => ({ ...p }));
 
-/* ── BRAND REVENUE STREAMS ─────────────────────────────────────────────────── */
 const BRANDS = [
   {
     name: "Apex Athlete", accent: "#f59e0b", icon: "\u2726",
@@ -63,15 +59,13 @@ const BRANDS = [
   },
 ];
 
-/* ── KEY METRICS (from shared config) ──────────────────────────────────────── */
 const METRICS = [
   { label: "Active Agents", value: String(KEY_METRICS.activeAgents), sub: "Full squad operational", color: "#00f0ff" },
   { label: "Athletes (Beta)", value: KEY_METRICS.athletesBeta, sub: KEY_METRICS.betaPartner, color: "#f59e0b" },
   { label: "GA Products", value: String(KEY_METRICS.gaProducts), sub: KEY_METRICS.gaProductsBreakdown, color: "#00f0ff" },
-  { label: "Apex ARR Target", value: "$3.72M", sub: "Y1 base · blended $310 ARPU", color: "#a855f7" },
+  { label: "Apex ARR Target", value: "$3.72M", sub: "Y1 base \u00b7 blended $310 ARPU", color: "#a855f7" },
 ];
 
-/* ── INVESTMENT READINESS ──────────────────────────────────────────────────── */
 const READINESS = [
   { item: "Live beta with real users (240+ athletes)", done: true },
   { item: "Successful live test (Feb 7)", done: true },
@@ -79,17 +73,16 @@ const READINESS = [
   { item: "19-agent AI operations team (model tiers locked)", done: true },
   { item: "Multi-brand portfolio (4 active brands)", done: true },
   { item: "Shopify store created (GALAKTIK ANTICS)", done: true },
-  { item: "Stripe checkout — 3 tiers wired + tested", done: true },
+  { item: "Stripe checkout \u2014 3 tiers wired + tested", done: true },
   { item: "CI/CD pipeline (GitHub Actions + Husky + Vitest)", done: true },
   { item: "Copyright filed (Feb 17, 2026)", done: true },
-  { item: "Firebase backend (v2) — deploy pending", done: false },
+  { item: "Firebase backend (v2) \u2014 deploy pending", done: false },
   { item: "App Store deployment (v3)", done: false },
   { item: "Revenue / paying customers", done: false },
 ];
 
 export default function FinancialDashboard() {
   const [time, setTime] = useState<string | null>(null);
-  // Brand revenue streams are always expanded on desktop
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString("en-US", {
@@ -102,171 +95,188 @@ export default function FinancialDashboard() {
 
   if (!time) return null;
 
+  const readinessScore = Math.round((READINESS.filter(r => r.done).length / READINESS.length) * 100);
+
   return (
-    <div style={{
-      minHeight: "100vh", background: "#000", color: "#e2e8f0",
-      fontFamily: "'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif",
-    }}>
-      {/* ── NAV BAR ── */}
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        background: "rgba(0,0,0,0.85)", backdropFilter: "blur(20px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "0 24px", height: 56,
-      }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {NAV.map(n => (
-            <Link key={n.label} href={n.href} style={{
-              color: n.active ? "#fcd34d" : "#94a3b8", textDecoration: "none",
-              fontSize: 12, fontWeight: 600, letterSpacing: 1.5,
-              padding: "6px 14px", borderRadius: 8,
-              background: n.active ? "rgba(252,211,77,0.1)" : "transparent",
-              border: n.active ? "1px solid rgba(252,211,77,0.2)" : "1px solid transparent",
-              transition: "all 0.2s",
-            }}>
-              <span style={{ marginRight: 6 }}>{n.icon}</span>{n.label}
-            </Link>
-          ))}
+    <main className="relative min-h-screen bg-[#06020f] text-white overflow-hidden">
+      {/* Background nebulae */}
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <div className="nebula-1 absolute rounded-full blur-3xl" style={{ width: "700px", height: "700px", top: "-10%", left: "-5%", background: "radial-gradient(circle, rgba(245,158,11,0.07) 0%, transparent 70%)" }} />
+        <div className="nebula-2 absolute rounded-full blur-3xl" style={{ width: "600px", height: "600px", top: "40%", right: "-10%", background: "radial-gradient(circle, rgba(168,85,247,0.06) 0%, transparent 70%)" }} />
+        <div className="nebula-3 absolute rounded-full blur-3xl" style={{ width: "500px", height: "500px", bottom: "5%", left: "30%", background: "radial-gradient(circle, rgba(0,240,255,0.05) 0%, transparent 70%)" }} />
+        <div className="scan-line absolute left-0 w-full h-px" style={{ background: "rgba(245,158,11,0.08)" }} />
+      </div>
+
+      {/* Nav bar */}
+      <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
+        <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-1">
+              {NAV.map(n => (
+                <Link key={n.label} href={n.href}
+                  className={`game-btn px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all whitespace-nowrap flex-shrink-0 ${
+                    n.active ? "bg-[#fcd34d]/10 text-[#fcd34d] border border-[#fcd34d]/30" : "text-white/40 hover:text-white/70 hover:bg-white/5 border border-transparent"
+                  }`}>
+                  <span className="mr-1.5 opacity-50">{n.icon}</span>{n.label}
+                </Link>
+              ))}
+            </div>
+            <div className="text-white/30 text-xs font-mono tabular-nums">{time}</div>
+          </div>
         </div>
-        <div style={{ color: "#64748b", fontSize: 13, fontFamily: "monospace" }}>{time}</div>
       </nav>
 
-      <div style={{ padding: "80px 32px 40px", maxWidth: 1800, margin: "0 auto" }}>
-        {/* ── HEADER ── */}
-        <div style={{ marginBottom: 40 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
-            <span style={{ fontSize: 28 }}>{"💎"}</span>
-            <h1 style={{ fontSize: 32, fontWeight: 700, color: "#fcd34d", margin: 0 }}>
-              ORACLE Financial Dashboard
-            </h1>
+      <div className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-8">
+
+        {/* Header */}
+        <div className="mb-10">
+          <div className="flex items-center gap-4 mb-3">
+            <div className="w-14 h-14 game-panel flex items-center justify-center"
+              style={{ background: "linear-gradient(135deg, rgba(252,211,77,0.1) 0%, rgba(245,158,11,0.05) 100%)", border: "1px solid rgba(252,211,77,0.2)" }}>
+              <span className="text-2xl">{"💎"}</span>
+            </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-none">
+                <span className="bg-gradient-to-r from-[#fcd34d] via-[#f59e0b] to-[#e879f9] bg-clip-text text-transparent bg-[length:200%_200%] animated-gradient-text">
+                  ORACLE Financial Dashboard
+                </span>
+              </h1>
+              <p className="text-white/30 text-xs font-mono mt-1 tracking-wider">
+                Powered by KIYOSAKI \u2014 8 financial minds integrated \u2014 Updated {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
           </div>
-          <p style={{ color: "#64748b", fontSize: 14, margin: 0 }}>
-            Powered by KIYOSAKI \u2014 8 financial minds integrated \u2014 Updated {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-          </p>
         </div>
 
-        {/* ── KEY METRICS ── */}
-        <div style={{
-          display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-          gap: 20, marginBottom: 48,
-        }}>
+        {/* Key Metrics — full width */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-10">
           {METRICS.map(m => (
-            <div key={m.label} style={{
-              background: "rgba(255,255,255,0.03)", border: `1px solid ${m.color}22`,
-              borderRadius: 16, padding: "28px 24px",
-            }}>
-              <div style={{ fontSize: 12, color: "#64748b", letterSpacing: 1.2, fontWeight: 600, marginBottom: 8 }}>
-                {m.label.toUpperCase()}
+            <div key={m.label} className="game-panel game-panel-border relative p-6 lg:p-8"
+              style={{ background: `linear-gradient(145deg, ${m.color}08 0%, rgba(6,2,15,0.97) 100%)` }}>
+              <div className="absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse" style={{ background: m.color, boxShadow: `0 0 8px ${m.color}` }} />
+              <div className="text-[10px] tracking-[0.2em] uppercase text-white/30 font-mono mb-3">
+                {m.label}
               </div>
-              <div style={{ fontSize: 32, fontWeight: 700, color: m.color, marginBottom: 4 }}>{m.value}</div>
-              <div style={{ fontSize: 12, color: "#94a3b8" }}>{m.sub}</div>
+              <div className="text-4xl lg:text-5xl font-black tabular-nums leading-none mb-2" style={{ color: m.color,
+                textShadow: `0 0 20px ${m.color}40` }}>
+                {m.value}
+              </div>
+              <div className="text-xs text-white/40">{m.sub}</div>
             </div>
           ))}
         </div>
 
-        {/* ── APEX ATHLETE PRICING TIERS ── */}
-        <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#f59e0b", marginBottom: 16, letterSpacing: 1 }}>
-            \u2726 APEX ATHLETE \u2014 PRICING TIERS
-          </h2>
-          <div style={{
-            display: "grid", gridTemplateColumns: "repeat(4, 1fr)",
-            gap: 20,
-          }}>
+        {/* Apex Pricing Tiers */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px flex-1 bg-gradient-to-r from-[#f59e0b]/20 to-transparent" />
+            <h2 className="text-xs tracking-[0.25em] uppercase text-[#f59e0b]/60 font-mono font-bold">
+              Apex Athlete \u2014 Pricing Tiers
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-[#f59e0b]/20 to-transparent" />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {APEX_TIERS.map(t => (
-              <div key={t.name} style={{
-                background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${t.color}33`,
-                borderRadius: 16, padding: 24,
-              }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: t.color, marginBottom: 4 }}>{t.name}</div>
-                <div style={{ fontSize: 28, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{t.price}</div>
-                <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>{t.teams}</div>
-                <div style={{ fontSize: 11, color: "#64748b", lineHeight: 1.5 }}>{t.features}</div>
+              <div key={t.name} className="game-panel relative p-6 lg:p-8 transition-all duration-300 hover:-translate-y-1"
+                style={{
+                  background: `linear-gradient(145deg, ${t.color}0a 0%, rgba(6,2,15,0.97) 100%)`,
+                  border: `1px solid ${t.color}30`,
+                }}>
+                <div className="absolute top-0 left-0 w-4 h-4 border-t border-l" style={{ borderColor: `${t.color}40` }} />
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r" style={{ borderColor: `${t.color}40` }} />
+                <div className="text-sm font-bold mb-2" style={{ color: t.color }}>{t.name}</div>
+                <div className="text-3xl lg:text-4xl font-black text-white mb-3">{t.price}</div>
+                <div className="text-xs text-white/40 mb-1">{t.teams}</div>
+                <div className="text-[11px] text-white/25 leading-relaxed">{t.features}</div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── ARR PROJECTIONS ── */}
-        <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#fcd34d", marginBottom: 16, letterSpacing: 1 }}>
-            {"📈"} ARR PROJECTIONS
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 20 }}>
+        {/* ARR Projections */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px flex-1 bg-gradient-to-r from-[#fcd34d]/20 to-transparent" />
+            <h2 className="text-xs tracking-[0.25em] uppercase text-[#fcd34d]/60 font-mono font-bold">
+              ARR Projections
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-[#fcd34d]/20 to-transparent" />
+          </div>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
             {APEX_PROJECTIONS.map(p => (
-              <div key={p.year} style={{
-                background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${p.color}22`,
-                borderRadius: 16, padding: 24,
-                display: "flex", flexDirection: "column", gap: 12,
-              }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: p.color, marginBottom: 4 }}>{p.year}</div>
-                <div style={{ fontSize: 32, fontWeight: 700, color: "#fff" }}>{p.arr}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div key={p.year} className="game-panel game-panel-border relative p-6 lg:p-8"
+                style={{ background: `linear-gradient(145deg, ${p.color}08 0%, rgba(6,2,15,0.97) 100%)` }}>
+                <div className="text-xs font-mono font-bold mb-4" style={{ color: p.color }}>{p.year}</div>
+                <div className="text-3xl lg:text-4xl font-black text-white mb-4">{p.arr}</div>
+                <div className="grid grid-cols-3 gap-3 mb-4">
                   <div>
-                    <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1 }}>TEAMS</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#94a3b8" }}>{p.teams}</div>
+                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-mono">Teams</div>
+                    <div className="text-base font-bold text-white/60">{p.teams}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1 }}>ARPU</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#94a3b8" }}>{p.arpu}</div>
+                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-mono">ARPU</div>
+                    <div className="text-base font-bold text-white/60">{p.arpu}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, color: "#64748b", letterSpacing: 1 }}>CHURN</div>
-                    <div style={{ fontSize: 16, fontWeight: 600, color: "#94a3b8" }}>{p.churn}</div>
+                    <div className="text-[9px] text-white/25 tracking-widest uppercase font-mono">Churn</div>
+                    <div className="text-base font-bold text-white/60">{p.churn}</div>
                   </div>
                 </div>
-                <div style={{ height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 4, overflow: "hidden", marginTop: 4 }}>
-                  <div style={{
-                    height: "100%", borderRadius: 4, background: p.color,
-                    width: `${Math.min(100, (parseFloat(p.arr.replace(/[$M]/g, "")) / 14.9) * 100)}%`,
-                    transition: "width 1s ease",
-                  }} />
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden xp-bar-segments">
+                  <div className="h-full rounded-full transition-all duration-1000"
+                    style={{
+                      background: p.color,
+                      width: `${Math.min(100, (parseFloat(p.arr.replace(/[$M]/g, "")) / 14.9) * 100)}%`,
+                      boxShadow: `0 0 8px ${p.color}60`,
+                    }} />
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* ── BRAND REVENUE STREAMS ── */}
-        <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#00f0ff", marginBottom: 16, letterSpacing: 1 }}>
-            {"🏢"} REVENUE STREAMS BY BRAND
-          </h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20 }}>
+        {/* Brand Revenue Streams — 2x2 grid on desktop */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
+            <h2 className="text-xs tracking-[0.25em] uppercase text-[#00f0ff]/60 font-mono font-bold">
+              Revenue Streams by Brand
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6">
             {BRANDS.map(b => (
-              <div key={b.name} style={{
-                background: "rgba(255,255,255,0.03)",
-                border: `1px solid ${b.accent}22`,
-                borderRadius: 16, padding: 24,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                  <span style={{ fontSize: 20 }}>{b.icon}</span>
-                  <span style={{ fontSize: 16, fontWeight: 600, color: b.accent }}>{b.name}</span>
-                  <span style={{ fontSize: 12, color: "#64748b" }}>({b.streams.length} streams)</span>
+              <div key={b.name} className="game-panel relative p-6"
+                style={{
+                  background: `linear-gradient(145deg, ${b.accent}06 0%, rgba(6,2,15,0.97) 100%)`,
+                  border: `1px solid ${b.accent}20`,
+                }}>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="w-10 h-10 game-panel-sm flex items-center justify-center text-lg"
+                    style={{ background: `${b.accent}12`, border: `1px solid ${b.accent}25`, color: b.accent }}>
+                    {b.icon}
+                  </div>
+                  <div>
+                    <span className="text-base font-bold" style={{ color: b.accent }}>{b.name}</span>
+                    <span className="text-xs text-white/25 ml-2">({b.streams.length} streams)</span>
+                  </div>
                 </div>
-                <div>
+                <div className="space-y-0">
                   {b.streams.map(s => (
-                    <div key={s.name} style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "10px 0", borderTop: "1px solid rgba(255,255,255,0.04)",
-                    }}>
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 500, color: "#e2e8f0" }}>{s.name}</div>
-                        <div style={{ fontSize: 11, color: "#64748b" }}>Current: {s.monthly}</div>
+                    <div key={s.name} className="flex items-center justify-between py-3 border-t border-white/[0.04]">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm font-medium text-white/70">{s.name}</div>
+                        <div className="text-[11px] text-white/25">Current: {s.monthly}</div>
                       </div>
-                      <div style={{ textAlign: "right" }}>
-                        <span style={{
-                          fontSize: 10, fontWeight: 700, letterSpacing: 1,
-                          padding: "3px 8px", borderRadius: 6,
-                          color: s.status === "active" ? "#34d399" : s.status === "ready" ? "#60a5fa" : s.status === "blocked" ? "#ef4444" : "#94a3b8",
-                          background: s.status === "active" ? "rgba(52,211,153,0.1)" : s.status === "ready" ? "rgba(96,165,250,0.1)" : s.status === "blocked" ? "rgba(239,68,68,0.1)" : "rgba(148,163,184,0.1)",
-                        }}>
-                          {s.status.toUpperCase()}
-                        </span>
-                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>{s.potential}</div>
+                      <div className="text-right flex-shrink-0 ml-4">
+                        <span className={`text-[9px] font-bold tracking-wider px-2 py-1 rounded-sm uppercase ${
+                          s.status === "active" ? "bg-[#34d399]/10 text-[#34d399]" :
+                          s.status === "ready" ? "bg-[#60a5fa]/10 text-[#60a5fa]" :
+                          s.status === "blocked" ? "bg-[#ef4444]/10 text-[#ef4444]" :
+                          s.status === "soon" ? "bg-[#fbbf24]/10 text-[#fbbf24]" :
+                          "bg-white/5 text-white/30"
+                        }`}>{s.status}</span>
+                        <div className="text-[11px] text-white/40 mt-1">{s.potential}</div>
                       </div>
                     </div>
                   ))}
@@ -276,59 +286,55 @@ export default function FinancialDashboard() {
           </div>
         </div>
 
-        {/* ── INVESTMENT READINESS ── */}
-        <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 600, color: "#a855f7", marginBottom: 16, letterSpacing: 1 }}>
-            {"🎯"} INVESTMENT READINESS
-          </h2>
-          <div style={{
-            background: "rgba(255,255,255,0.03)", borderRadius: 16, padding: 24,
-            border: "1px solid rgba(168,85,247,0.15)",
-          }}>
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, color: "#94a3b8" }}>Readiness Score</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#a855f7" }}>
-                  {Math.round((READINESS.filter(r => r.done).length / READINESS.length) * 100)}%
-                </span>
+        {/* Investment Readiness */}
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
+            <h2 className="text-xs tracking-[0.25em] uppercase text-[#a855f7]/60 font-mono font-bold">
+              Investment Readiness
+            </h2>
+            <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
+          </div>
+          <div className="game-panel game-panel-border relative p-6 lg:p-8"
+            style={{ background: "linear-gradient(145deg, rgba(168,85,247,0.04) 0%, rgba(6,2,15,0.97) 100%)" }}>
+            {/* Progress bar */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-sm text-white/50 font-mono">Readiness Score</span>
+                <span className="text-2xl font-black neon-text-purple">{readinessScore}%</span>
               </div>
-              <div style={{ height: 8, background: "rgba(255,255,255,0.05)", borderRadius: 4, overflow: "hidden" }}>
-                <div style={{
-                  height: "100%", borderRadius: 4,
-                  background: "linear-gradient(90deg, #a855f7, #e879f9)",
-                  width: `${(READINESS.filter(r => r.done).length / READINESS.length) * 100}%`,
-                  transition: "width 1s ease",
-                }} />
+              <div className="h-3 bg-white/5 rounded-full overflow-hidden xp-bar-segments">
+                <div className="h-full rounded-full transition-all duration-1000"
+                  style={{
+                    background: "linear-gradient(90deg, #a855f7, #e879f9)",
+                    width: `${readinessScore}%`,
+                    boxShadow: "0 0 12px rgba(168,85,247,0.5)",
+                  }} />
               </div>
             </div>
-            {READINESS.map(r => (
-              <div key={r.item} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "8px 0",
-                borderTop: "1px solid rgba(255,255,255,0.04)",
-              }}>
-                <span style={{
-                  fontSize: 14, width: 22, height: 22, borderRadius: 6,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: r.done ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.05)",
-                  color: r.done ? "#34d399" : "#64748b",
-                }}>
-                  {r.done ? "\u2713" : "\u2022"}
-                </span>
-                <span style={{ fontSize: 13, color: r.done ? "#e2e8f0" : "#64748b" }}>{r.item}</span>
-              </div>
-            ))}
+            {/* Checklist in 2 columns on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-1">
+              {READINESS.map(r => (
+                <div key={r.item} className="flex items-center gap-3 py-2 border-t border-white/[0.04]">
+                  <div className={`w-6 h-6 rounded flex items-center justify-center text-xs flex-shrink-0 ${
+                    r.done ? "bg-[#34d399]/15 text-[#34d399]" : "bg-white/5 text-white/20"
+                  }`}>
+                    {r.done ? "\u2713" : "\u2022"}
+                  </div>
+                  <span className={`text-sm ${r.done ? "text-white/70" : "text-white/30"}`}>{r.item}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 
-        {/* ── FOOTER ── */}
-        <div style={{
-          textAlign: "center", padding: "24px 0",
-          borderTop: "1px solid rgba(255,255,255,0.04)",
-          color: "#475569", fontSize: 11,
-        }}>
-          ORACLE Financial Dashboard \u2014 KIYOSAKI Agent \u2014 RAMICHE HQ \u2014 {new Date().getFullYear()}
+        {/* Footer */}
+        <div className="border-t border-white/5 pt-6 pb-4 text-center">
+          <p className="text-[10px] text-white/15 tracking-widest uppercase">
+            ORACLE Financial Dashboard \u2014 KIYOSAKI Agent \u2014 RAMICHE HQ \u2014 {new Date().getFullYear()}
+          </p>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
