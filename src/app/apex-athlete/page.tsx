@@ -1012,8 +1012,33 @@ export default function ApexAthletePage() {
     return lower;
   };
 
+  // Course conversion factors (USA Swimming standard approximations)
+  // These convert times FROM source course TO target course
+  const courseConvert = (secs: number, from: "SCY"|"SCM"|"LCM", to: "SCY"|"SCM"|"LCM"): number => {
+    if (from === to) return secs;
+    // SCY ↔ LCM
+    if (from === "SCY" && to === "LCM") return secs * 1.11;
+    if (from === "LCM" && to === "SCY") return secs * 0.9;
+    // SCY ↔ SCM
+    if (from === "SCY" && to === "SCM") return secs * 1.03;
+    if (from === "SCM" && to === "SCY") return secs * 0.97;
+    // LCM ↔ SCM
+    if (from === "LCM" && to === "SCM") return secs * 0.97;
+    if (from === "SCM" && to === "LCM") return secs * 1.03;
+    return secs;
+  };
+
+  const formatSecsToTime = (secs: number): string => {
+    if (secs >= 60) {
+      const mins = Math.floor(secs / 60);
+      const rest = (secs - mins * 60).toFixed(2).padStart(5, "0");
+      return `${mins}:${rest}`;
+    }
+    return secs.toFixed(2);
+  };
+
   // Helper: find an athlete's best time for a given event, handling stroke name normalization
-  // Tries exact course match first, then falls back to any course (best time across all courses)
+  // Tries exact course match first, then converts from other courses if needed
   const findMatchingBestTime = (bestTimes: BestTime[] | undefined, distance: number | undefined, stroke: string | undefined, course: "SCY" | "SCM" | "LCM" = "SCY"): BestTime | null => {
     if (!bestTimes || !distance || !stroke) return null;
     const normStroke = normalizeStrokeForMatch(stroke);
@@ -1023,8 +1048,17 @@ export default function ApexAthletePage() {
     // Prefer exact course match
     const exactCourse = matches.find(t => t.course === course);
     if (exactCourse) return exactCourse;
-    // Fall back to fastest time across any course
-    return matches.sort((a, b) => (a.seconds || 0) - (b.seconds || 0))[0] || null;
+    // Convert from other courses and return the fastest equivalent
+    const converted = matches.map(t => ({
+      ...t,
+      seconds: courseConvert(t.seconds, t.course, course),
+      time: formatSecsToTime(courseConvert(t.seconds, t.course, course)),
+      course,
+      _originalCourse: t.course,
+      _originalTime: t.time,
+    }));
+    converted.sort((a, b) => a.seconds - b.seconds);
+    return converted[0] || null;
   };
 
   // Fetch best times from SwimCloud for a single athlete
