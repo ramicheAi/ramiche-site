@@ -109,7 +109,7 @@ export default function FinancialDashboard() {
 
       {/* Nav bar */}
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
-        <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
+        <div className="mx-auto w-full max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-1">
               {NAV.map(n => (
@@ -126,14 +126,14 @@ export default function FinancialDashboard() {
         </div>
       </nav>
 
-      <div className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-10 lg:py-14">
+      <div className="relative z-10 mx-auto w-full max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-10 lg:py-14">
 
         {/* Header */}
         <div className="mb-12 lg:mb-14">
           <div className="flex items-center gap-5 mb-3">
             <div className="w-16 h-16 lg:w-20 lg:h-20 game-panel flex items-center justify-center"
               style={{ background: "linear-gradient(135deg, rgba(252,211,77,0.12) 0%, rgba(245,158,11,0.06) 100%)", border: "1px solid rgba(252,211,77,0.25)" }}>
-              <span className="text-3xl lg:text-4xl" role="img" aria-label="gem">&#x1F48E;</span>
+              <span className="text-3xl lg:text-4xl" role="img" aria-label="gem">💎</span>
             </div>
             <div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-none">
@@ -200,7 +200,7 @@ export default function FinancialDashboard() {
           <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-[#fcd34d]/20 to-transparent" />
             <h2 className="text-sm tracking-[0.25em] uppercase text-[#fcd34d]/60 font-mono font-bold">
-              <span role="img" aria-label="chart">&#x1F4C8;</span> ARR Projections
+              <span role="img" aria-label="chart">📈</span> ARR Projections
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#fcd34d]/20 to-transparent" />
           </div>
