@@ -953,6 +953,8 @@ export default function ApexAthletePage() {
   const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
   const [meetView, setMeetView] = useState<"overview" | "sessions" | "entries" | "info">("overview");
   const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [showPasteImport, setShowPasteImport] = useState(false);
+  const [pasteText, setPasteText] = useState("");
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [meetDescription, setMeetDescription] = useState("");
   const [viewingAthleteEntries, setViewingAthleteEntries] = useState<string | null>(null);
@@ -1084,7 +1086,7 @@ export default function ApexAthletePage() {
     // Load meets + comms
     // Load meets + auto-migrate broken event data from old parser
     const loadedMeets = load<SwimMeet[]>(K.MEETS, []);
-    const CURRENT_PARSER_VERSION = 3;
+    const CURRENT_PARSER_VERSION = 4;
     const migratedMeets = loadedMeets.map(m => {
       // Check if events have broken data: no distance, all same stroke, all "Mixed" gender, or generic "Free" names
       const hasBrokenEvents = m.events.length > 3 && (
@@ -4025,7 +4027,7 @@ export default function ApexAthletePage() {
               broadcasts: existingIdx >= 0 ? meets[existingIdx].broadcasts : [],
               status: "upcoming",
               files: dataUrl ? [{ id: `f-${Date.now()}`, name: file.name, dataUrl, uploadedAt: Date.now() }] : [],
-              parserVersion: 3,
+              parserVersion: 4,
             };
             // Delete old meet fully and insert fresh — prevents stale localStorage data
             const updated = existingIdx >= 0
@@ -4057,6 +4059,54 @@ export default function ApexAthletePage() {
       };
 
       tryReadAsText();
+    };
+
+    const handlePasteImport = () => {
+      const text = pasteText.trim();
+      if (!text || text.length < 10) {
+        setImportStatus({ type: "error", message: "Paste the meet file content first — copy from email or Hy-Tek export." });
+        return;
+      }
+      const fakeFile = { name: "pasted-meet.hy3", size: text.length } as File;
+      try {
+        const parsed = parseMeetFile(text, fakeFile.name);
+        if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
+          let dataUrl = "";
+          try { dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`; } catch { dataUrl = ""; }
+          const existingIdx = meets.findIndex(m => m.name === parsed.name);
+          const newMeet: SwimMeet = {
+            id: existingIdx >= 0 ? meets[existingIdx].id : `meet-${Date.now()}`,
+            name: parsed.name || "Pasted Meet",
+            date: parsed.date || new Date().toISOString().slice(0, 10),
+            endDate: parsed.endDate,
+            location: parsed.location || "",
+            course: parsed.course || "SCY",
+            rsvpDeadline: parsed.date || new Date().toISOString().slice(0, 10),
+            description: "Imported from pasted content",
+            sessions: parsed.sessions || [],
+            events: parsed.events || [],
+            rsvps: {},
+            broadcasts: existingIdx >= 0 ? meets[existingIdx].broadcasts : [],
+            status: "upcoming",
+            files: dataUrl ? [{ id: `f-${Date.now()}`, name: "pasted-meet.hy3", dataUrl, uploadedAt: Date.now() }] : [],
+            parserVersion: 4,
+          };
+          const updated = existingIdx >= 0
+            ? meets.map((m, i) => i === existingIdx ? newMeet : m)
+            : [...meets, newMeet];
+          saveMeets(updated);
+          const evCount = parsed.events?.length || 0;
+          const replacedText = existingIdx >= 0 ? " (REPLACED old data)" : "";
+          setImportStatus({ type: "success", message: `Imported "${parsed.name}"${replacedText}\n${evCount} events | ${parsed.course || "SCY"}\n${parsed.location || ""}` });
+          setPasteText("");
+          setShowPasteImport(false);
+          setTimeout(() => setEditingMeetId(newMeet.id), 1200);
+        } else {
+          setImportStatus({ type: "error", message: "Could not parse pasted content. Make sure you copied the full meet file." });
+        }
+      } catch (err) {
+        setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown"}` });
+      }
     };
 
     const handleFileUpload = (meetId: string, files: FileList | null) => {
@@ -4189,16 +4239,36 @@ export default function ApexAthletePage() {
 
           {!editMeet ? (
             <>
-              {/* Import meet file — one-tap from TM/HY3/HYV file */}
+              {/* Import meet file — upload or paste */}
               <Card className="p-5 mb-4" neon>
-                <h3 className="text-base font-bold text-white/60 mb-2 uppercase tracking-wider">Import Meet File</h3>
-                <p className="text-white/50 text-sm mb-3">Upload a .hy3, .ev3, .hyv, .cl2, or .sd3 file from the meet host — events auto-populate</p>
-                <label className="flex items-center justify-center gap-3 cursor-pointer game-btn py-8 px-6 text-xl font-black text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-2xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all active:scale-[0.97] min-h-[80px]">
-                  <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
-                  Import Meet File
-                  <input type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept=".hy3,.ev3,.hyv,.cl2,.sd3,text/plain,*/*" />
-                </label>
-                <p className="text-center text-sm text-white/30 mt-2">Supports Hy-Tek .hy3, .ev3, SDIF .sd3 files</p>
+                <h3 className="text-base font-bold text-white/60 mb-2 uppercase tracking-wider">Import Meet</h3>
+                <p className="text-white/50 text-sm mb-3">Upload a file or paste the content — events auto-populate</p>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-6 px-4 text-lg font-black text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-2xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all active:scale-[0.97] min-h-[72px]">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                    Upload File
+                    <input type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept=".hy3,.ev3,.hyv,.cl2,.sd3,text/plain,*/*" />
+                  </label>
+                  <button onClick={() => setShowPasteImport(!showPasteImport)}
+                    className={`flex items-center justify-center gap-2 game-btn py-6 px-4 text-lg font-black border-2 border-dashed rounded-2xl transition-all active:scale-[0.97] min-h-[72px] ${showPasteImport ? "text-[#a855f7] border-[#a855f7]/30 bg-[#a855f7]/10" : "text-[#a855f7]/70 border-[#a855f7]/20 hover:bg-[#a855f7]/10 hover:border-[#a855f7]/30"}`}>
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                    Paste Content
+                  </button>
+                </div>
+                {showPasteImport && (
+                  <div className="mt-3">
+                    <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
+                      placeholder="Paste the full meet file content here (from email, Hy-Tek export, etc.)"
+                      rows={6}
+                      className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/40 font-mono resize-none"
+                      style={{ fontSize: "14px" }} />
+                    <button onClick={handlePasteImport} disabled={!pasteText.trim()}
+                      className={`w-full mt-2 py-4 rounded-xl text-lg font-black transition-all active:scale-[0.97] ${pasteText.trim() ? "bg-[#a855f7] text-white" : "bg-white/[0.04] text-white/20 cursor-not-allowed"}`}>
+                      Import Pasted Content
+                    </button>
+                  </div>
+                )}
+                <p className="text-center text-xs text-white/20 mt-2">Supports Hy-Tek .hy3, .ev3, SDIF .sd3</p>
               </Card>
 
               {importStatus && (
@@ -4390,7 +4460,7 @@ export default function ApexAthletePage() {
                             events: parsed.events || [],
                             sessions: parsed.sessions || [],
                             files: dataUrl ? [{ id: `f-${Date.now()}`, name: f[0].name, dataUrl, uploadedAt: Date.now() }] : m.files,
-                            parserVersion: 3,
+                            parserVersion: 4,
                           } as SwimMeet) : m));
                           const sampleEvs = (parsed.events || []).slice(0, 4).map(ev => {
                             const qt = ev.qualifyingTime ? ` QT: ${ev.qualifyingTime}` : "";
@@ -4537,7 +4607,7 @@ export default function ApexAthletePage() {
                                       course: parsed.course || m.course,
                                       events: parsed.events ?? m.events,
                                       files: dataUrl ? [{ id: `f-${Date.now()}`, name: f[0].name, dataUrl, uploadedAt: Date.now() }, ...(m.files || []).filter(mf => !mf.name.startsWith("file_"))] : m.files,
-                                      parserVersion: 3,
+                                      parserVersion: 4,
                                     } as SwimMeet) : m));
                                     setImportStatus({ type: "success", message: `Re-imported ${parsed.events.length} events successfully` });
                                   }
