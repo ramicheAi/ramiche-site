@@ -1013,11 +1013,18 @@ export default function ApexAthletePage() {
   };
 
   // Helper: find an athlete's best time for a given event, handling stroke name normalization
+  // Tries exact course match first, then falls back to any course (best time across all courses)
   const findMatchingBestTime = (bestTimes: BestTime[] | undefined, distance: number | undefined, stroke: string | undefined, course: "SCY" | "SCM" | "LCM" = "SCY"): BestTime | null => {
     if (!bestTimes || !distance || !stroke) return null;
     const normStroke = normalizeStrokeForMatch(stroke);
     const distStr = String(distance);
-    return bestTimes.find(t => t.event === distStr && normalizeStrokeForMatch(t.stroke) === normStroke && t.course === course) || null;
+    const matches = bestTimes.filter(t => t.event === distStr && normalizeStrokeForMatch(t.stroke) === normStroke);
+    if (matches.length === 0) return null;
+    // Prefer exact course match
+    const exactCourse = matches.find(t => t.course === course);
+    if (exactCourse) return exactCourse;
+    // Fall back to fastest time across any course
+    return matches.sort((a, b) => (a.seconds || 0) - (b.seconds || 0))[0] || null;
   };
 
   // Fetch best times from SwimCloud for a single athlete
@@ -4920,8 +4927,8 @@ export default function ApexAthletePage() {
                                 {/* QT filter indicator */}
                                 {ev.qualifyingTime && ev.distance && ev.stroke && (
                                   <div className="flex items-center gap-2 mb-3 px-1">
-                                    <span className="text-xs font-bold text-[#f59e0b]/70 uppercase tracking-wider">Auto-filtering by QT {ev.qualifyingTime}</span>
-                                    <span className="text-xs text-white/30">— only athletes with qualifying times shown</span>
+                                    <span className="text-xs font-bold text-[#f59e0b]/70 uppercase tracking-wider">QT {ev.qualifyingTime}</span>
+                                    <span className="text-xs text-white/30">— athletes with times shown. Green = qualifies, Amber = close, Red = needs work</span>
                                   </div>
                                 )}
                                 <div className="flex flex-wrap gap-2.5">
@@ -4945,17 +4952,8 @@ export default function ApexAthletePage() {
                                     const allEntered = enteredFromGroup === groupAthletes.length;
                                     return (
                                       <button key={g.id} onClick={() => {
-                                        // Enter only gender-matched athletes from this group — auto-populate seed times
-                                        let toEnter = groupAthletes.filter(a => !ev.entries.some(e => e.athleteId === a.name));
-                                        // If QT exists, only enter athletes who qualify
-                                        if (ev.qualifyingTime && ev.distance && ev.stroke) {
-                                          const qtSecs = parseTimeToSecs(ev.qualifyingTime);
-                                          toEnter = toEnter.filter(a => {
-                                            const ra = roster.find(r => r.name === a.name);
-                                            const bt = findMatchingBestTime(ra?.bestTimes, ev.distance, ev.stroke, editMeet.course || "SCY");
-                                            return bt && bt.seconds <= qtSecs;
-                                          });
-                                        }
+                                        // Enter all gender-matched athletes from this group — auto-populate seed times
+                                        const toEnter = groupAthletes.filter(a => !ev.entries.some(e => e.athleteId === a.name));
                                         if (toEnter.length === 0) return;
                                         saveMeets(meets.map(m => {
                                           if (m.id !== editMeet.id) return m;
@@ -4984,16 +4982,28 @@ export default function ApexAthletePage() {
                                     );
                                   })}
                                 </div>
-                                {/* Entered athletes — show seed times */}
+                                {/* Entered athletes — show seed times + QT comparison */}
                                 {entryCount > 0 && (
                                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
-                                    {ev.entries.map(e => (
-                                      <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
-                                        className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
-                                        <span>{e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}</span>
-                                        {e.seedTime && <span className="text-sm font-mono ml-2 text-emerald-400">{e.seedTime}</span>}
-                                      </button>
-                                    ))}
+                                    {ev.entries.map(e => {
+                                      const seedSecs = e.seedTime ? parseTimeToSecs(e.seedTime) : 0;
+                                      const qtSecs = ev.qualifyingTime ? parseTimeToSecs(ev.qualifyingTime) : 0;
+                                      const qualifies = seedSecs > 0 && qtSecs > 0 && seedSecs <= qtSecs;
+                                      const gap = seedSecs > 0 && qtSecs > 0 ? seedSecs - qtSecs : 0;
+                                      const borderColor = !e.seedTime ? "#00f0ff" : qualifies ? "#22c55e" : gap < 5 ? "#f59e0b" : "#ef4444";
+                                      return (
+                                        <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
+                                          className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl transition-all active:scale-[0.96] hover:opacity-80"
+                                          style={{ background: borderColor + "10", color: borderColor + "cc", border: `1px solid ${borderColor}30` }}>
+                                          <span>{e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}</span>
+                                          {e.seedTime && <span className="text-sm font-mono ml-2" style={{ color: qualifies ? "#22c55e" : "#f59e0b" }}>{e.seedTime}</span>}
+                                          {e.seedTime && qtSecs > 0 && !qualifies && gap > 0 && (
+                                            <span className="text-xs ml-1 opacity-60">+{gap.toFixed(1)}s</span>
+                                          )}
+                                          {qualifies && <span className="text-xs ml-1 text-emerald-400">QT</span>}
+                                        </button>
+                                      );
+                                    })}
                                   </div>
                                 )}
                               </div>

@@ -1618,37 +1618,62 @@ export default function AthletePortal() {
               </div>
             )}
 
-            {/* Best Times (USA Swimming / SwimCloud) */}
-            {athlete?.bestTimes && athlete.bestTimes.length > 0 && (
-              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider flex items-center gap-2">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-                    USA SWIMMING BEST TIMES
-                  </h3>
-                  {athlete.bestTimesUpdated && (
-                    <span className="text-white/30 text-xs">Updated {athlete.bestTimesUpdated}</span>
+            {/* Best Times (USA Swimming / SwimCloud) — grouped by course */}
+            {athlete?.bestTimes && athlete.bestTimes.length > 0 && (() => {
+              const strokeNames: Record<string, string> = { Freestyle: "Free", Backstroke: "Back", Breaststroke: "Breast", Butterfly: "Fly", IM: "IM", Free: "Free", Back: "Back", Breast: "Breast", Fly: "Fly" };
+              const shortStroke = (s: string) => strokeNames[s] || s;
+              const courseOrder = ["SCY", "LCM", "SCM"] as const;
+              const byCourse: Record<string, typeof athlete.bestTimes> = {};
+              for (const bt of athlete.bestTimes) {
+                const c = bt.course || "SCY";
+                if (!byCourse[c]) byCourse[c] = [];
+                byCourse[c].push(bt);
+              }
+              // Sort each course's times by distance then stroke
+              for (const c of Object.keys(byCourse)) {
+                byCourse[c].sort((a, b) => {
+                  const dA = parseInt(a.event) || 0, dB = parseInt(b.event) || 0;
+                  if (dA !== dB) return dA - dB;
+                  return (a.stroke || "").localeCompare(b.stroke || "");
+                });
+              }
+              const courseColors: Record<string, string> = { SCY: "#00f0ff", LCM: "#a855f7", SCM: "#f59e0b" };
+              return (
+                <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider flex items-center gap-2">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                      USA SWIMMING BEST TIMES
+                    </h3>
+                    {athlete.bestTimesUpdated && (
+                      <span className="text-white/30 text-xs">Updated {athlete.bestTimesUpdated}</span>
+                    )}
+                  </div>
+                  {courseOrder.filter(c => byCourse[c]?.length > 0).map(c => (
+                    <div key={c} className="mb-4 last:mb-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-black tracking-widest px-2 py-0.5 rounded" style={{ color: courseColors[c], background: courseColors[c] + "15", border: `1px solid ${courseColors[c]}30` }}>{c}</span>
+                        <span className="text-white/30 text-xs">{c === "SCY" ? "Short Course Yards" : c === "LCM" ? "Long Course Meters" : "Short Course Meters"}</span>
+                      </div>
+                      <div className="grid gap-1.5">
+                        {byCourse[c].map((bt, i) => (
+                          <div key={`${c}-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/5 min-h-[48px]">
+                            <span className="text-white text-sm font-bold">{bt.event} {shortStroke(bt.stroke)}</span>
+                            <div className="text-right flex items-center gap-3">
+                              <span className="font-mono font-bold text-base" style={{ color: courseColors[c] }}>{bt.time}</span>
+                              {bt.date && <span className="text-white/30 text-xs">{bt.date}</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {Object.keys(byCourse).length === 0 && (
+                    <p className="text-white/40 text-sm text-center py-4">No registered times found.</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  {athlete.bestTimes.map((bt, i) => {
-                    const strokeNames: Record<string, string> = { Free: "Freestyle", Back: "Backstroke", Breast: "Breaststroke", Fly: "Butterfly", IM: "Individual Medley" };
-                    return (
-                      <div key={`bt-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/5">
-                        <div>
-                          <span className="text-white text-sm font-bold">{bt.event} {strokeNames[bt.stroke] || bt.stroke}</span>
-                          <span className="text-white/40 text-xs ml-2">{bt.course}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-[#00f0ff] font-mono font-bold text-base">{bt.time}</span>
-                          {bt.date && <span className="text-white/40 text-xs block">{bt.date}</span>}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Recent times */}
             {times.length > 0 && (
