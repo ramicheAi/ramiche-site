@@ -169,7 +169,7 @@ interface Athlete {
 
 // ── meet entry types ────────────────────────────────────────
 interface MeetEventEntry { athleteId: string; seedTime: string; }
-interface MeetEvent { id: string; name: string; eventNum?: number; ageGroup?: string; gender?: "M" | "F" | "Mixed"; qualifyingTime?: string; entries: MeetEventEntry[]; }
+interface MeetEvent { id: string; name: string; eventNum?: number; ageGroup?: string; gender?: "M" | "F" | "Mixed"; distance?: number; stroke?: string; sessionType?: "P" | "F"; isRelay?: boolean; qualifyingTime?: string; cutTime?: string; dayNumber?: number; entries: MeetEventEntry[]; }
 interface MeetSession { id: string; day: string; sessionNum: number; warmupTime?: string; startTime?: string; events: MeetEvent[]; }
 interface MeetBroadcast { id: string; message: string; timestamp: number; sentBy: string; }
 interface MeetFile { id: string; name: string; dataUrl: string; uploadedAt: number; }
@@ -3575,42 +3575,44 @@ export default function ApexAthletePage() {
     };
     // ── HY3/HYV/EV3/SD3 Meet File Parser ──────────────────────────────
     const parseMeetFile = (text: string, filename: string): Partial<SwimMeet> | null => {
-      // Handle files that might have *> as line delimiters (common in Hy-Tek exports)
+      // Normalize: handle *> as line delimiters OR trailing markers
       let normalizedText = text;
-      if (text.includes("*>") && text.split(/\r?\n/).filter(l => l.length > 2).length < 3) {
-        normalizedText = text.replace(/\*>/g, "\n");
+      // Strip BOM if present
+      if (normalizedText.charCodeAt(0) === 0xFEFF) normalizedText = normalizedText.slice(1);
+      const rawLines = normalizedText.split(/\r?\n/).filter(l => l.trim().length > 2);
+      if (rawLines.length < 3 && normalizedText.includes("*>")) {
+        // All on one line with *> as delimiter
+        normalizedText = normalizedText.replace(/\*>/g, "\n");
       }
-      const lines = normalizedText.split(/\r?\n/).map(l => l.replace(/\*>$/, "").trim()).filter(l => l.length > 2);
+      const lines = normalizedText.split(/\r?\n/)
+        .map(l => l.replace(/\*>\s*$/, "").replace(/\*>$/, "").trim())
+        .filter(l => l.length > 2);
       if (lines.length < 2) return null;
+
       let ext = filename.toLowerCase().split(".").pop() || "";
       // Auto-detect format if extension is missing or unrecognized
       if (!["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext)) {
         const firstLine = lines[0];
-        const firstRow = lines[1]?.split(";") || [];
         if (firstLine.includes(";")) {
-          // Distinguish HY3 from EV3 by header structure first:
-          // HY3 header: meetName;facility;startDate;endDate;... (field[1] is facility name, not a date)
-          // EV3 header: meetName;startDate;endDate;... (field[1] is a date like MM/DD/YYYY)
-          const field1 = (firstLine.split(";")[1] || "").trim();
+          const headerFields = firstLine.split(";");
+          // Detect .ev3 vs .hy3 by checking if field1 is a date (MM/DD/YYYY)
+          const field1 = (headerFields[1] || "").trim();
           const field1IsDate = /^\d{2}\/\d{2}\/\d{4}$/.test(field1);
+          // Also check: ev3 event rows have format evNum;P/F;M/F;I/R;...
+          // hy3 event rows have format evNum;evNum;P/F;session;I/R;W/M;...
+          // In ev3, row[1] of event lines is P or F. In hy3, row[1] is a number.
+          // Use the header date test as primary, but also check 2nd line
           if (field1IsDate) {
             ext = "ev3";
-          } else if (firstLine.includes("MEET MANAGER") || firstLine.includes("Hy-Tek")) {
-            ext = "hy3";
-          } else if (firstRow.length > 20) {
-            // HY3 event rows have 20+ fields
-            ext = "hy3";
-          } else if (firstRow.length >= 8 && firstRow.length <= 20) {
-            // EV3 event rows have 8-20 fields; verify by checking field structure
-            const ev3Dist = parseInt(firstRow[6] || "");
-            const ev3StrokeNum = parseInt(firstRow[7] || "");
-            if (ev3Dist > 0 && ev3StrokeNum >= 1 && ev3StrokeNum <= 7) {
+          } else {
+            // Double-check: if 2nd line field[1] is P or F (not a number), it's ev3
+            const secondLine = lines[1]?.split(";") || [];
+            const field1of2 = (secondLine[1] || "").trim().toUpperCase();
+            if (field1of2 === "P" || field1of2 === "F") {
               ext = "ev3";
             } else {
               ext = "hy3";
             }
-          } else {
-            ext = "hy3";
           }
         } else if (firstLine.substring(0, 2) === "B1" || firstLine.substring(0, 2) === "01") {
           ext = "sd3";
@@ -3626,67 +3628,90 @@ export default function ApexAthletePage() {
 
       const strokeMap: Record<string, string> = { A: "Free", B: "Back", C: "Breast", D: "Fly", E: "IM" };
       const strokeMapNum: Record<string, string> = { "1": "Free", "2": "Back", "3": "Breast", "4": "Fly", "5": "IM", "6": "Free Relay", "7": "Medley Relay" };
+      const parseDate = (d: string) => { const p = (d || "").trim().split("/"); return p.length === 3 && p[0].length >= 1 ? `${p[2]}-${p[0].padStart(2,"0")}-${p[1].padStart(2,"0")}` : ""; };
 
-      // Detect semicolon-delimited Hy-Tek format (most common export)
       const isSemicolon = lines[0]?.includes(";");
 
       if (isSemicolon) {
-        // ── Semicolon-delimited Hy-Tek format ──
-        const header = lines[0].replace(/\*>$/, "").split(";");
-        meetName = header[0]?.trim() || "";
+        const header = lines[0].split(";");
+        meetName = (header[0] || "").trim();
 
         if (ext === "ev3") {
           // EV3 header: meetName;startDate;endDate;entryDeadline;Y;facility;;software;version;CN;code
-          const parseDate = (d: string) => { const p = d.split("/"); return p.length === 3 ? `${p[2]}-${p[0].padStart(2,"0")}-${p[1].padStart(2,"0")}` : ""; };
           meetDate = parseDate(header[1] || "");
           meetEndDate = parseDate(header[2] || "");
-          facility = header[5]?.trim() || "";
+          facility = (header[5] || "").trim();
+          const courseField = (header[4] || "").toUpperCase();
+          if (courseField.includes("Y")) course = "SCY";
+          else if (courseField.includes("L")) course = "LCM";
+          else if (courseField.includes("S")) course = "SCM";
         } else {
-          // HY3 header: meetName;facility;startDate;endDate;...
-          facility = header[1]?.trim() || "";
-          const parseDate = (d: string) => { const p = d.split("/"); return p.length === 3 ? `${p[2]}-${p[0].padStart(2,"0")}-${p[1].padStart(2,"0")}` : ""; };
+          // HY3 header: meetName;facility;startDate;endDate;entryDeadline;courseCode;...
+          facility = (header[1] || "").trim();
           meetDate = parseDate(header[2] || "");
           meetEndDate = parseDate(header[3] || "");
-          // Course from header field (YLS = yards)
           const courseField = (header[5] || "").toUpperCase();
-          if (courseField.includes("L") && !courseField.includes("Y")) course = "LCM";
-          else if (courseField.includes("S") && !courseField.includes("Y")) course = "SCM";
+          if (courseField.includes("Y") || courseField === "YLS") course = "SCY";
+          else if (courseField.includes("L")) course = "LCM";
+          else if (courseField.includes("S")) course = "SCM";
         }
 
-        // Parse event rows (lines after header)
+        // Parse event rows
         for (let i = 1; i < lines.length; i++) {
-          const row = lines[i].replace(/\*>$/, "").split(";");
-          if (row.length < 8) continue;
-          const evNum = parseInt(row[0]) || (i);
+          const row = lines[i].split(";");
+          if (row.length < 7) continue;
+          const evNum = parseInt(row[0]) || i;
+
+          let dist = ""; let strokeName = ""; let gender: "M" | "F" | "Mixed" = "Mixed";
+          let sessionType = ""; let qualTime = ""; let cutTimeVal = ""; let dayNum: number | undefined;
+          let isRelay = false;
 
           if (ext === "ev3") {
             // EV3 row: evNum;sessionType;gender;I/R;0;0;distance;strokeNum;;qualTime;;maxEntries;;cutTime;;;;
-            const dist = row[6]?.trim() || "";
-            const strokeNum = row[7]?.trim() || "1";
-            const genderCode = row[2]?.toUpperCase() || "";
-            const isRelay = row[3]?.toUpperCase() === "R";
-            const strokeName = isRelay
-              ? (strokeNum === "1" ? "Free Relay" : "Medley Relay")
-              : (strokeMapNum[strokeNum] || strokeMap[strokeNum] || "Free");
-            const gender: "M" | "F" | "Mixed" = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
-            const qualTime = row[9]?.trim() || "";
-            const name = `${dist} ${strokeName}`;
-            events.push({ id: `ev-import-${evNum}`, name, eventNum: evNum, gender, qualifyingTime: qualTime || undefined, entries: [] });
+            dist = (row[6] || "").trim();
+            const strokeNum = (row[7] || "1").trim();
+            const genderCode = (row[2] || "").toUpperCase().trim();
+            sessionType = (row[1] || "").toUpperCase().trim();
+            isRelay = (row[3] || "").toUpperCase().trim() === "R";
+            strokeName = isRelay
+              ? (strokeNum === "1" || strokeNum === "6" ? "Free Relay" : "Medley Relay")
+              : (strokeMapNum[strokeNum] || "Free");
+            gender = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
+            qualTime = (row[9] || "").trim();
           } else {
-            // HY3 row: evNum;evNum;sessionType;session;I/R;gender(W/M);0;109;distance;strokeCode;...;;cutTime;;;;qualTime;...
-            const dist = row[8]?.trim() || "";
-            const strokeCode = row[9]?.trim().toUpperCase() || "A";
-            const genderCode = row[5]?.toUpperCase() || "";
-            const isRelay = row[4]?.toUpperCase() === "R";
-            const strokeName = isRelay
-              ? (strokeCode === "A" || strokeCode === "E" ? "Free Relay" : "Medley Relay")
+            // HY3 row: evNum;evNum;sessionType;session;I/R;gender(W/M);0;109;distance;strokeCode;...
+            dist = (row[8] || "").trim();
+            const strokeCode = (row[9] || "A").trim().toUpperCase();
+            const genderCode = (row[5] || "").toUpperCase().trim();
+            sessionType = (row[2] || "").toUpperCase().trim();
+            isRelay = (row[4] || "").toUpperCase().trim() === "R";
+            strokeName = isRelay
+              ? (strokeCode === "A" ? "Free Relay" : "Medley Relay")
               : (strokeMap[strokeCode] || "Free");
-            const gender: "M" | "F" | "Mixed" = genderCode === "M" ? "M" : genderCode === "W" || genderCode === "F" ? "F" : "Mixed";
-            const sessionType = row[2]?.toUpperCase() || "";
-            const qualTime = row[16]?.trim() || row[15]?.trim() || "";
-            const name = `${dist} ${strokeName}${sessionType === "P" ? " (Prelims)" : sessionType === "F" ? " (Finals)" : ""}`;
-            events.push({ id: `ev-import-${evNum}`, name, eventNum: evNum, gender, qualifyingTime: qualTime || undefined, entries: [] });
+            gender = genderCode === "M" ? "M" : (genderCode === "W" || genderCode === "F") ? "F" : "Mixed";
+            qualTime = (row[20] || "").trim();
+            cutTimeVal = (row[15] || "").trim() || (row[16] || "").trim();
+            dayNum = parseInt(row[23] || "") || undefined;
           }
+
+          const genderLabel = gender === "F" ? "Girls" : gender === "M" ? "Boys" : "";
+          const sessionLabel = sessionType === "P" ? "Prelims" : sessionType === "F" ? "Finals" : "";
+          const distStr = dist && dist !== "0" ? `${dist} ` : "";
+          const name = `${genderLabel ? genderLabel + " " : ""}${distStr}${strokeName}${sessionLabel ? " (" + sessionLabel + ")" : ""}`.trim();
+          events.push({
+            id: `ev-import-${evNum}`,
+            name: name || `Event ${evNum}`,
+            eventNum: evNum,
+            gender,
+            distance: parseInt(dist) || undefined,
+            stroke: strokeName,
+            sessionType: (sessionType === "P" || sessionType === "F") ? sessionType as "P" | "F" : undefined,
+            isRelay,
+            qualifyingTime: qualTime || cutTimeVal || undefined,
+            cutTime: cutTimeVal && qualTime && cutTimeVal !== qualTime ? cutTimeVal : undefined,
+            dayNumber: dayNum,
+            entries: [],
+          });
         }
       } else {
         // ── Fixed-width record format (SDIF / older Hy-Tek) ──
@@ -3709,13 +3734,13 @@ export default function ApexAthletePage() {
             const eventDesc = (isSD3 ? line.substring(11, 36) : line.substring(2, 32)).trim();
             let name = eventDesc;
             if (!name || name.length < 3) {
-              const dist = line.substring(isSD3 ? 36 : 32, isSD3 ? 40 : 36).trim();
+              const d = line.substring(isSD3 ? 36 : 32, isSD3 ? 40 : 36).trim();
               const sc = line.charAt(isSD3 ? 40 : 36);
-              name = `${dist} ${strokeMapNum[sc] || "Free"}`;
+              name = `${d} ${strokeMapNum[sc] || "Free"}`;
             }
             const genderCode = line.charAt(isSD3 ? 41 : 37);
-            const gender: "M" | "F" | "Mixed" = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
-            if (name.length > 2) events.push({ id: `ev-import-${eventNum}`, name, eventNum, gender, entries: [] });
+            const gdr: "M" | "F" | "Mixed" = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
+            if (name.length > 2) events.push({ id: `ev-import-${eventNum}`, name, eventNum, gender: gdr, entries: [] });
           }
         }
       }
@@ -3806,8 +3831,12 @@ export default function ApexAthletePage() {
             };
             const updated = [...meets, newMeet];
             saveMeets(updated);
-            setImportStatus({ type: "success", message: `✅ Imported "${parsed.name}" — ${parsed.events?.length || 0} events, ${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString() : "TBD"} at ${parsed.location || "TBD"}` });
-            setTimeout(() => setEditingMeetId(newMeet.id), 1200);
+            // Show detailed import summary with first few event names
+            const evCount = parsed.events?.length || 0;
+            const sampleEvents = (parsed.events || []).slice(0, 3).map(e => e.name).join(", ");
+            const moreText = evCount > 3 ? ` + ${evCount - 3} more` : "";
+            setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${evCount} events (${parsed.course || "SCY"})\n${sampleEvents}${moreText}\n${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "TBD"} at ${parsed.location || "TBD"}` });
+            setTimeout(() => setEditingMeetId(newMeet.id), 1500);
           } else {
             setImportStatus({ type: "error", message: `Could not parse "${shortName}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
           }
@@ -3944,16 +3973,16 @@ export default function ApexAthletePage() {
         <BgOrbs />
         <div className="w-full max-w-[1920px] mx-auto relative z-10 px-5 sm:px-8 lg:px-12 xl:px-16 pb-12">
           <GameHUDHeader />
-          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Meet Entry</h2>
-          <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Create meets · Import meet files · Enter athletes</p>
+          <h2 className="text-3xl font-black tracking-tight neon-text-cyan mb-1">Meet Entry</h2>
+          <p className="text-[#00f0ff]/30 text-sm font-mono mb-6">Create meets · Import meet files · Enter athletes</p>
 
           {!editMeet ? (
             <>
               {/* Import meet file — one-tap from TM/HY3/HYV file */}
               <Card className="p-5 mb-4" neon>
-                <h3 className="text-sm font-bold text-white/60 mb-2 uppercase tracking-wider">Import Meet File</h3>
-                <p className="text-white/50 text-xs mb-3">Upload a .hy3, .ev3, .hyv, .cl2, or .sd3 file from the meet host — events auto-populate</p>
-                <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-4 px-4 text-sm font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all active:scale-[0.97] min-h-[56px]">
+                <h3 className="text-base font-bold text-white/60 mb-2 uppercase tracking-wider">Import Meet File</h3>
+                <p className="text-white/50 text-sm mb-3">Upload a .hy3, .ev3, .hyv, .cl2, or .sd3 file from the meet host — events auto-populate</p>
+                <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-6 px-4 text-lg font-bold text-[#00f0ff] border-2 border-dashed border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/50 transition-all active:scale-[0.97] min-h-[64px]">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                   Import Meet File
                   <input type="file" className="hidden" onChange={e => { const f = e.target.files; if (f && f.length > 0) { const blob = new File([f[0]], f[0].name, { type: f[0].type }); handleMeetFileImport(Object.assign([blob], { item: (i: number) => i === 0 ? blob : null }) as unknown as FileList); } e.target.value = ""; }} accept="*/*" />
@@ -3961,10 +3990,15 @@ export default function ApexAthletePage() {
               </Card>
 
               {importStatus && (
-                <div className={`mb-4 px-4 py-3 rounded-xl border text-sm font-bold animate-pulse ${importStatus.type === "success" ? "bg-green-500/15 border-green-500/40 text-green-400" : "bg-red-500/15 border-red-500/40 text-red-400"}`}
+                <div className={`mb-4 px-5 py-5 rounded-xl border ${importStatus.type === "success" ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}
                   onClick={() => setImportStatus(null)}>
-                  {importStatus.type === "success" ? "✓ " : "✕ "}{importStatus.message}
-                  <span className="block text-[10px] opacity-50 mt-1">tap to dismiss</span>
+                  <div className={`text-lg font-bold mb-1 ${importStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                    {importStatus.type === "success" ? "✓ Import Successful" : "✕ Import Failed"}
+                  </div>
+                  <div className={`text-sm whitespace-pre-wrap ${importStatus.type === "success" ? "text-green-300/70" : "text-red-300/70"}`}>
+                    {importStatus.message}
+                  </div>
+                  <span className="block text-xs opacity-40 mt-2">tap to dismiss</span>
                 </div>
               )}
 
@@ -3976,7 +4010,7 @@ export default function ApexAthletePage() {
 
               {/* Create new meet */}
               <Card className="p-5 mb-6" neon>
-                <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">New Meet</h3>
+                <h3 className="text-base font-bold text-white/60 mb-3 uppercase tracking-wider">New Meet</h3>
                 <div className="space-y-3">
                   <input value={newMeetName} onChange={e => setNewMeetName(e.target.value)} placeholder="Meet name"
                     className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
@@ -4012,33 +4046,33 @@ export default function ApexAthletePage() {
                   {meets.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(m => {
                     const rc = rsvpCounts(m);
                     return (
-                      <Card key={m.id} className="p-4" neon>
-                        <div className="flex items-start justify-between mb-2">
+                      <Card key={m.id} className="p-5" neon>
+                        <div className="flex items-start justify-between mb-3">
                           <div>
-                            <h4 className="font-bold text-white text-sm">{m.name}</h4>
-                            <p className="text-white/50 text-sm truncate">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
+                            <h4 className="font-bold text-white text-base">{m.name}</h4>
+                            <p className="text-white/50 text-sm">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase ${
+                          <span className={`text-sm px-3 py-1 rounded-full font-bold uppercase ${
                             m.status === "finalized" ? "bg-emerald-500/10 text-emerald-400" :
                             m.status === "upcoming" ? "bg-[#00f0ff]/10 text-[#00f0ff]" :
                             m.status === "active" ? "bg-[#f59e0b]/10 text-[#f59e0b]" :
                             "bg-white/5 text-white/60"
                           }`}>{m.status === "finalized" ? "✓ Locked" : m.status}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs mb-3">
-                          <span className="text-emerald-400">{rc.committed} in</span>
+                        <div className="flex items-center gap-4 text-sm mb-4">
+                          <span className="text-emerald-400 font-semibold">{rc.committed} in</span>
                           <span className="text-red-400">{rc.declined} out</span>
                           <span className="text-white/50">{rc.pending} pending</span>
                           <span className="text-white/10">·</span>
-                          <span className="text-[#a855f7]">{m.events.length} events</span>
+                          <span className="text-[#a855f7] font-semibold">{m.events.length} events</span>
                         </div>
                         <div className="flex gap-2">
                           <button onClick={() => setEditingMeetId(m.id)}
-                            className="flex-1 game-btn py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 transition-all">
+                            className="flex-1 game-btn py-3 text-sm font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 transition-all">
                             Manage
                           </button>
                           <button onClick={() => deleteMeet(m.id)}
-                            className="game-btn py-2 px-4 text-xs font-bold text-red-400/50 border border-red-400/10 rounded-lg hover:bg-red-400/10 hover:text-red-400 transition-all">
+                            className="game-btn py-3 px-5 text-sm font-bold text-red-400/50 border border-red-400/10 rounded-lg hover:bg-red-400/10 hover:text-red-400 transition-all">
                             ✕
                           </button>
                         </div>
@@ -4057,8 +4091,8 @@ export default function ApexAthletePage() {
 
               {/* Meet header */}
               <Card className="p-5 mb-4" neon>
-                <h3 className="font-bold text-white text-lg mb-1">{editMeet.name}</h3>
-                <p className="text-white/50 text-sm mb-1">
+                <h3 className="font-bold text-white text-2xl mb-1">{editMeet.name}</h3>
+                <p className="text-white/50 text-base mb-1">
                   {new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
                   {editMeet.endDate && editMeet.endDate !== editMeet.date && ` – ${new Date(editMeet.endDate + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`}
                   {" · "}{editMeet.course} · {editMeet.location || "TBD"}
@@ -4067,11 +4101,11 @@ export default function ApexAthletePage() {
 
                 {/* RSVP summary bar */}
                 {(() => { const rc = rsvpCounts(editMeet); return (
-                  <div className="flex items-center gap-4 mt-3 text-xs">
+                  <div className="flex items-center gap-4 mt-3 text-base">
                     <span className="text-emerald-400 font-bold">{rc.committed} committed</span>
                     <span className="text-red-400">{rc.declined} declined</span>
                     <span className="text-white/50">{rc.pending} pending</span>
-                    <span className="text-[#a855f7] ml-auto">{editMeet.events.length} events</span>
+                    <span className="text-[#a855f7] ml-auto font-bold">{editMeet.events.length} events</span>
                   </div>
                 ); })()}
 
@@ -4079,24 +4113,24 @@ export default function ApexAthletePage() {
                 <div className="flex gap-2 mt-4">
                   {editMeet.status === "finalized" ? (
                     <button onClick={() => unfinalizeMeet(editMeet.id)}
-                      className="flex-1 game-btn py-2.5 text-xs font-bold text-[#f59e0b] border border-[#f59e0b]/20 rounded-lg hover:bg-[#f59e0b]/10 transition-all">
+                      className="flex-1 game-btn py-3 text-sm font-bold text-[#f59e0b] border border-[#f59e0b]/20 rounded-lg hover:bg-[#f59e0b]/10 transition-all">
                       Unlock Entries
                     </button>
                   ) : (
                     <button onClick={() => finalizeMeet(editMeet.id)}
                       disabled={editMeet.events.length === 0 || editMeet.events.every(e => e.entries.length === 0)}
-                      className="flex-1 game-btn py-2.5 text-xs font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 disabled:opacity-30 transition-all">
+                      className="flex-1 game-btn py-3 text-sm font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 disabled:opacity-30 transition-all">
                       Finalize Entries
                     </button>
                   )}
                   <button onClick={() => exportMeetCSV(editMeet)}
                     disabled={editMeet.events.every(e => e.entries.length === 0)}
-                    className="game-btn py-2.5 px-4 text-xs font-bold text-[#00f0ff]/60 border border-[#00f0ff]/15 rounded-lg hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] disabled:opacity-30 transition-all">
+                    className="game-btn py-3 px-5 text-sm font-bold text-[#00f0ff]/60 border border-[#00f0ff]/15 rounded-lg hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] disabled:opacity-30 transition-all">
                     CSV
                   </button>
                   <button onClick={() => exportMeetSD3(editMeet)}
                     disabled={editMeet.events.every(e => e.entries.length === 0)}
-                    className="game-btn py-2.5 px-4 text-xs font-bold text-[#a855f7]/60 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] disabled:opacity-30 transition-all">
+                    className="game-btn py-3 px-5 text-sm font-bold text-[#a855f7]/60 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] disabled:opacity-30 transition-all">
                     SD3
                   </button>
                 </div>
@@ -4106,10 +4140,10 @@ export default function ApexAthletePage() {
               </Card>
 
               {/* Tab navigation — like Team Unify: Info / Event Order / Member Entry */}
-              <div className="flex gap-1 mb-4 bg-white/[0.02] rounded-xl p-1 border border-white/[0.05]">
+              <div className="flex gap-1 mb-4 bg-white/[0.02] rounded-xl p-1.5 border border-white/[0.05]">
                 {(["info", "events", "members"] as const).map(tab => (
                   <button key={tab} onClick={() => { setMeetView(tab === "events" ? "overview" : tab === "members" ? "entries" : "info"); setViewingAthleteEntries(null); }}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all uppercase tracking-wider ${
+                    className={`flex-1 py-4 text-base font-bold rounded-lg transition-all uppercase tracking-wider ${
                       (tab === "info" && meetView === "info") || (tab === "events" && meetView === "overview") || (tab === "members" && meetView === "entries")
                         ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/20"
                         : "text-white/25 hover:text-white/60"
@@ -4124,7 +4158,7 @@ export default function ApexAthletePage() {
                 <div className="space-y-4">
                   {/* Description */}
                   <Card className="p-4">
-                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Meet Description</h4>
+                    <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-2">Meet Description</h4>
                     {editMeet.description ? (
                       <p className="text-sm text-white/60 whitespace-pre-wrap">{editMeet.description}</p>
                     ) : (
@@ -4140,7 +4174,7 @@ export default function ApexAthletePage() {
 
                   {/* Files & Documents */}
                   <Card className="p-4">
-                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Files & Documents</h4>
+                    <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-2">Files & Documents</h4>
                     {(editMeet.files || []).length > 0 && (
                       <div className="space-y-1.5 mb-3">
                         {(editMeet.files || []).map(f => (
@@ -4162,7 +4196,7 @@ export default function ApexAthletePage() {
 
                   {/* Message Parents */}
                   <Card className="p-4">
-                    <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Message Parents</h4>
+                    <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-2">Message Parents</h4>
                     <div className="flex gap-2">
                       <input value={broadcastMsg} onChange={e => setBroadcastMsg(e.target.value)} placeholder="Send update about this meet..."
                         className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
@@ -4185,79 +4219,160 @@ export default function ApexAthletePage() {
                 </div>
               )}
 
-              {/* ── EVENT ORDER TAB — manage events + enter athletes per event ── */}
+              {/* ── EVENT ORDER TAB — Apple-quality meet management ── */}
               {meetView === "overview" && (
                 <div>
-                  {/* Add events */}
+                  {/* Add events button */}
                   {meetEventPicker === editMeet.id ? (
-                    <Card className="p-4 mb-4">
-                      <h4 className="text-xs font-bold text-white/60 uppercase tracking-wider mb-2">Select Events ({editMeet.course})</h4>
-                      <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
-                        {STANDARD_SWIM_EVENTS.filter(e => e.courses.includes(editMeet.course)).map(e => (
-                          <button key={e.name} onClick={() => { addEventToMeet(editMeet.id, e.name); }}
-                            disabled={editMeet.events.some(ev => ev.name === e.name)}
-                            className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
-                              editMeet.events.some(ev => ev.name === e.name)
-                                ? "bg-[#00f0ff]/10 text-[#00f0ff]/50 border border-[#00f0ff]/20"
-                                : "bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20 hover:bg-[#a855f7]/20"
-                            }`}>
-                            {editMeet.events.some(ev => ev.name === e.name) ? "✓ " : ""}{e.name}
-                          </button>
-                        ))}
+                    <Card className="p-6 mb-5">
+                      <h4 className="text-xl font-bold text-white mb-1">Select Events</h4>
+                      <p className="text-base text-white/40 mb-4">{editMeet.course} course</p>
+                      <div className="grid grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto pb-2">
+                        {STANDARD_SWIM_EVENTS.filter(e => e.courses.includes(editMeet.course)).map(e => {
+                          const added = editMeet.events.some(ev => ev.name === e.name);
+                          return (
+                            <button key={e.name} onClick={() => { if (!added) addEventToMeet(editMeet.id, e.name); }}
+                              className={`text-lg px-5 py-5 min-h-[64px] rounded-2xl transition-all font-bold tracking-tight ${
+                                added
+                                  ? "bg-[#00f0ff]/15 text-[#00f0ff] border-2 border-[#00f0ff]/40"
+                                  : "bg-white/[0.04] text-white/80 border-2 border-white/[0.08] hover:bg-[#a855f7]/15 hover:text-[#a855f7] hover:border-[#a855f7]/30 active:scale-[0.96]"
+                              }`}>
+                              {added && <span className="mr-1">✓</span>}{e.name}
+                            </button>
+                          );
+                        })}
                       </div>
-                      <button onClick={() => setMeetEventPicker(null)} className="mt-3 game-btn w-full py-2 text-xs font-bold text-white/60 border border-white/[0.08] rounded-lg hover:text-white/60 transition-all">Done Adding Events</button>
+                      <button onClick={() => setMeetEventPicker(null)} className="mt-5 w-full py-5 text-lg font-bold text-white/70 bg-white/[0.04] border-2 border-white/[0.1] rounded-2xl hover:bg-white/[0.08] transition-all active:scale-[0.98]">Done</button>
                     </Card>
                   ) : (
                     <button onClick={() => setMeetEventPicker(editMeet.id)}
-                      className="game-btn w-full py-3 mb-4 text-xs font-bold text-[#a855f7] border border-dashed border-[#a855f7]/20 rounded-xl hover:bg-[#a855f7]/10 transition-all">
+                      className="w-full py-6 mb-5 text-xl font-bold text-[#a855f7] bg-[#a855f7]/[0.06] border-2 border-dashed border-[#a855f7]/25 rounded-2xl hover:bg-[#a855f7]/15 transition-all min-h-[72px] active:scale-[0.98]">
                       + Add Events
                     </button>
                   )}
 
-                  {/* Event list — organized with event # and entries count */}
+                  {/* Event list */}
                   {editMeet.events.length === 0 ? (
-                    <div className="text-center py-8 text-white/50 text-sm">No events yet — add events above or import a meet file</div>
+                    <div className="text-center py-16 text-white/40 text-lg">No events yet — add events above or import a meet file</div>
                   ) : (
-                    <div className="space-y-2">
-                      {editMeet.events.map((ev, idx) => {
-                        const entryCount = ev.entries.length;
-                        return (
-                          <Card key={ev.id} className="p-3">
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-mono text-white/50 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
-                              <div className="flex-1 min-w-0">
-                                <span className="text-sm font-bold text-white truncate block">{ev.name}</span>
-                                <div className="flex items-center gap-2 mt-0.5">
-                                  {ev.gender && <span className="text-[10px] font-mono text-[#00f0ff]/40">{ev.gender === "F" ? "Girls" : ev.gender === "M" ? "Boys" : "Mixed"}</span>}
-                                  {ev.qualifyingTime && <span className="text-[10px] font-mono text-[#f59e0b]/60">QT: {ev.qualifyingTime}</span>}
+                    <div className="space-y-3">
+                      {(() => {
+                        const strokeColor: Record<string, string> = {
+                          "Free": "#00f0ff", "Back": "#4ade80", "Breast": "#f59e0b", "Fly": "#a855f7", "IM": "#ec4899",
+                          "Free Relay": "#00f0ff", "Medley Relay": "#ec4899",
+                        };
+                        const renderEventCard = (ev: MeetEvent, idx: number) => {
+                          const entryCount = ev.entries.length;
+                          const color = strokeColor[ev.stroke || ""] || "#00f0ff";
+                          const genderLabel = ev.gender === "F" ? "Girls" : ev.gender === "M" ? "Boys" : "";
+                          const distLabel = ev.distance ? `${ev.distance}` : "";
+                          const strokeLabel = ev.stroke || "";
+                          const sessionLabel = ev.sessionType === "P" ? "Prelims" : ev.sessionType === "F" ? "Finals" : "";
+                          // Build display: prefer structured data, fall back to name
+                          const hasStructured = ev.distance || ev.stroke;
+                          return (
+                            <div key={ev.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                              {/* Main event row — large tap target */}
+                              <div className="flex items-center gap-4 px-5 py-5 min-h-[80px]">
+                                {/* Event number */}
+                                <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-black text-lg" style={{ backgroundColor: `${color}15`, color, border: `2px solid ${color}30` }}>
+                                  {ev.eventNum || idx + 1}
+                                </div>
+                                {/* Event details */}
+                                <div className="flex-1 min-w-0">
+                                  {hasStructured ? (
+                                    <>
+                                      <div className="text-xl font-black text-white tracking-tight">
+                                        {distLabel} {strokeLabel}{ev.isRelay ? "" : ""}
+                                      </div>
+                                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        {genderLabel && (
+                                          <span className="text-sm font-bold px-2.5 py-0.5 rounded-full" style={{ backgroundColor: ev.gender === "F" ? "#ec489915" : "#3b82f615", color: ev.gender === "F" ? "#ec4899" : "#3b82f6" }}>
+                                            {genderLabel}
+                                          </span>
+                                        )}
+                                        {sessionLabel && (
+                                          <span className={`text-sm font-bold px-2.5 py-0.5 rounded-full ${sessionLabel === "Finals" ? "bg-[#f59e0b]/15 text-[#f59e0b]" : "bg-white/[0.06] text-white/50"}`}>
+                                            {sessionLabel}
+                                          </span>
+                                        )}
+                                        {ev.isRelay && <span className="text-sm font-bold px-2.5 py-0.5 rounded-full bg-[#a855f7]/15 text-[#a855f7]">Relay</span>}
+                                        {ev.qualifyingTime && (
+                                          <span className="text-sm font-mono text-[#f59e0b]/80 font-bold">QT {ev.qualifyingTime}</span>
+                                        )}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <div className="text-xl font-black text-white tracking-tight">{ev.name}</div>
+                                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        {genderLabel && <span className="text-sm font-bold text-white/40">{genderLabel}</span>}
+                                        {ev.qualifyingTime && <span className="text-sm font-mono text-[#f59e0b]/80 font-bold">QT {ev.qualifyingTime}</span>}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                {/* Entry count + delete */}
+                                <div className="flex items-center gap-3 shrink-0">
+                                  <div className="text-right">
+                                    <span className="text-xl font-black" style={{ color }}>{entryCount}</span>
+                                    <span className="text-sm text-white/30 block">entered</span>
+                                  </div>
+                                  <button onClick={() => removeEvent(editMeet.id, ev.id)}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-red-400/20 hover:text-red-400 hover:bg-red-400/10 transition-all">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                  </button>
                                 </div>
                               </div>
-                              <span className="text-xs text-[#a855f7] font-mono shrink-0">{entryCount} entered</span>
-                              <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/20 hover:text-red-400 text-xs transition-colors shrink-0 ml-1">✕</button>
-                            </div>
-                            {/* Quick group entry buttons */}
-                            <div className="flex flex-wrap gap-1 mt-2 ml-9">
-                              {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => (
-                                <button key={g.id} onClick={() => enterGroupToEvent(editMeet.id, ev.id, g.id)}
-                                  className="text-xs px-1.5 py-0.5 rounded bg-[#a855f7]/5 text-[#a855f7]/30 border border-[#a855f7]/10 hover:bg-[#a855f7]/15 hover:text-[#a855f7] transition-all">
-                                  +{g.name}
-                                </button>
-                              ))}
-                            </div>
-                            {/* Entered athletes chips */}
-                            {entryCount > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2 ml-9">
-                                {ev.entries.map(e => (
-                                  <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
-                                    className="text-xs px-2 py-0.5 rounded-full bg-[#00f0ff]/10 text-[#00f0ff]/60 border border-[#00f0ff]/15 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/20 transition-all">
-                                    {e.athleteId.split(" ")[0]}
-                                  </button>
-                                ))}
+                              {/* Group entry buttons — large pill buttons */}
+                              <div className="px-5 pb-4">
+                                <div className="flex flex-wrap gap-2">
+                                  {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => (
+                                    <button key={g.id} onClick={() => enterGroupToEvent(editMeet.id, ev.id, g.id)}
+                                      className="text-base font-bold px-5 py-3 min-h-[52px] rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-[#a855f7]/15 hover:text-[#a855f7] hover:border-[#a855f7]/30 transition-all active:scale-[0.96]"
+                                      style={{ color: g.color + "90" }}>
+                                      + {g.name}
+                                    </button>
+                                  ))}
+                                </div>
+                                {/* Entered athletes */}
+                                {entryCount > 0 && (
+                                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
+                                    {ev.entries.map(e => (
+                                      <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
+                                        className="text-base font-semibold px-4 py-2.5 min-h-[44px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
+                                        {e.athleteId.split(" ")[0]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </Card>
-                        );
-                      })}
+                            </div>
+                          );
+                        };
+                        const hasDays = editMeet.events.some(ev => ev.dayNumber && ev.dayNumber > 0);
+                        if (hasDays) {
+                          const dayGroups = new Map<number, { ev: MeetEvent; idx: number }[]>();
+                          editMeet.events.forEach((ev, idx) => {
+                            const day = ev.dayNumber || 1;
+                            if (!dayGroups.has(day)) dayGroups.set(day, []);
+                            dayGroups.get(day)!.push({ ev, idx });
+                          });
+                          return Array.from(dayGroups.keys()).sort((a, b) => a - b).map(day => (
+                            <div key={`day-${day}`}>
+                              <div className="flex items-center gap-3 mt-6 mb-3">
+                                <div className="text-lg font-black text-[#00f0ff] uppercase tracking-widest">Day {day}</div>
+                                <div className="flex-1 h-px bg-[#00f0ff]/15" />
+                                <span className="text-sm text-white/30 font-mono">{dayGroups.get(day)!.length} events</span>
+                              </div>
+                              <div className="space-y-3">
+                                {dayGroups.get(day)!.map(({ ev, idx }) => renderEventCard(ev, idx))}
+                              </div>
+                            </div>
+                          ));
+                        }
+                        return editMeet.events.map((ev, idx) => renderEventCard(ev, idx));
+                      })()}
                     </div>
                   )}
                 </div>
@@ -4269,28 +4384,28 @@ export default function ApexAthletePage() {
                   {!viewingAthleteEntries ? (
                     /* Athlete list — pick who to enter */
                     <div>
-                      <p className="text-xs text-white/50 mb-3 uppercase tracking-wider">Select an athlete to manage their entries</p>
-                      <div className="space-y-1.5">
+                      <p className="text-sm text-white/50 mb-3 uppercase tracking-wider">Select an athlete to manage their entries</p>
+                      <div className="space-y-2">
                         {filteredRoster.map(a => {
                           const entryCount = editMeet.events.filter(ev => ev.entries.some(e => e.athleteId === a.name)).length;
                           return (
                             <button key={a.id} onClick={() => setViewingAthleteEntries(a.name)}
-                              className="w-full flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-3 hover:bg-white/[0.06] hover:border-white/[0.1] transition-all text-left">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-xs font-bold text-white/60 shrink-0">
+                              className="w-full flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-lg px-4 py-4 hover:bg-white/[0.06] hover:border-white/[0.1] transition-all text-left">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-sm font-bold text-white/60 shrink-0">
                                 {a.name.charAt(0)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-white truncate">{a.name}</div>
-                                <div className="text-xs text-white/50">{a.group} · {a.gender === "M" ? "Male" : "Female"}{a.age ? ` · ${a.age}` : ""}</div>
+                                <div className="text-lg font-bold text-white truncate">{a.name}</div>
+                                <div className="text-sm text-white/50">{a.group} · {a.gender === "M" ? "Male" : "Female"}{a.age ? ` · ${a.age}` : ""}</div>
                               </div>
                               <div className="text-right shrink-0">
                                 {entryCount > 0 ? (
-                                  <span className="text-xs font-bold text-[#00f0ff]">{entryCount} events</span>
+                                  <span className="text-sm font-bold text-[#00f0ff]">{entryCount} events</span>
                                 ) : (
-                                  <span className="text-xs text-white/50">No entries</span>
+                                  <span className="text-sm text-white/50">No entries</span>
                                 )}
                               </div>
-                              <svg className="w-4 h-4 text-white/50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                              <svg className="w-5 h-5 text-white/50 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                             </button>
                           );
                         })}
@@ -4327,33 +4442,30 @@ export default function ApexAthletePage() {
                             </Card>
 
                             {/* Events list — organized by event order, toggle entry */}
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                               {editMeet.events.map((ev, idx) => {
                                 const isEntered = ev.entries.some(e => e.athleteId === athlete.name);
                                 const seedEntry = ev.entries.find(e => e.athleteId === athlete.name);
                                 return (
                                   <button key={ev.id} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, athlete.name)}
-                                    className={`w-full flex items-center gap-2 px-3 py-3 rounded-lg transition-all text-left ${
+                                    className={`w-full flex items-center gap-3 px-4 py-4 rounded-lg transition-all text-left ${
                                       isEntered
                                         ? "bg-[#00f0ff]/[0.08] border border-[#00f0ff]/20"
                                         : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04]"
                                     }`}>
                                     {/* Checkbox */}
-                                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
                                       isEntered ? "bg-[#00f0ff] border-[#00f0ff]" : "border-white/15"
                                     }`}>
-                                      {isEntered && <svg className="w-3 h-3 text-[#06020f]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                      {isEntered && <svg className="w-4 h-4 text-[#06020f]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                                     </div>
                                     {/* Event # */}
-                                    <span className="text-xs font-mono text-white/50 w-6 text-right shrink-0">#{ev.eventNum || idx + 1}</span>
-                                    {/* Gender + Age Group */}
-                                    <span className="text-xs text-white/25 w-5 shrink-0">{ev.gender === "M" ? "M" : ev.gender === "F" ? "F" : "X"}</span>
-                                    <span className="text-xs text-white/50 w-10 shrink-0">{ev.ageGroup || ""}</span>
+                                    <span className="text-sm font-mono text-white/50 w-8 text-right shrink-0 font-bold">#{ev.eventNum || idx + 1}</span>
                                     {/* Event name */}
-                                    <span className={`text-sm flex-1 truncate ${isEntered ? "text-white font-bold" : "text-white/50"}`}>{ev.name}</span>
+                                    <span className={`text-lg flex-1 truncate ${isEntered ? "text-white font-bold" : "text-white/50"}`}>{ev.name}</span>
                                     {/* Seed time */}
-                                    <span className={`text-xs font-mono shrink-0 ${
-                                      seedEntry?.seedTime ? "text-emerald-400" : isEntered ? "text-[#f59e0b]" : "text-white/10"
+                                    <span className={`text-sm font-mono shrink-0 ${
+                                      seedEntry?.seedTime ? "text-emerald-400 font-bold" : isEntered ? "text-[#f59e0b]" : "text-white/10"
                                     }`}>
                                       {seedEntry?.seedTime || (isEntered ? "NT" : "—")}
                                     </span>

@@ -198,6 +198,9 @@ interface MeetEventEntry {
 interface MeetEvent {
   id: string;
   name: string;
+  eventNum?: number;
+  gender?: "M" | "F" | "Mixed";
+  qualifyingTime?: string;
   entries: MeetEventEntry[];
 }
 
@@ -2633,32 +2636,32 @@ export default function ApexAthletePage() {
                   {meets.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map(m => {
                     const rc = rsvpCounts(m);
                     return (
-                      <Card key={m.id} className="p-4" neon>
-                        <div className="flex items-start justify-between mb-2">
+                      <Card key={m.id} className="p-5" neon>
+                        <div className="flex items-start justify-between mb-3">
                           <div>
-                            <h4 className="font-bold text-white text-sm">{m.name}</h4>
-                            <p className="text-white/60 text-xs">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
+                            <h4 className="font-bold text-white text-base">{m.name}</h4>
+                            <p className="text-white/60 text-sm mt-0.5">{new Date(m.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {m.course} · {m.location || "TBD"}</p>
                           </div>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase ${
+                          <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase ${
                             m.status === "upcoming" ? "bg-[#00f0ff]/10 text-[#00f0ff]" :
                             m.status === "active" ? "bg-emerald-500/10 text-emerald-400" :
                             "bg-white/5 text-white/60"
                           }`}>{m.status}</span>
                         </div>
-                        <div className="flex items-center gap-3 text-[11px] mb-3">
-                          <span className="text-emerald-400">{rc.committed} in</span>
-                          <span className="text-red-400">{rc.declined} out</span>
+                        <div className="flex items-center gap-4 text-sm mb-4">
+                          <span className="text-emerald-400 font-medium">{rc.committed} in</span>
+                          <span className="text-red-400 font-medium">{rc.declined} out</span>
                           <span className="text-white/60">{rc.pending} pending</span>
                           <span className="text-white/40">·</span>
-                          <span className="text-[#a855f7]">{m.events.length} events</span>
+                          <span className="text-[#a855f7] font-bold">{m.events.length} events</span>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3">
                           <button onClick={() => setEditingMeetId(m.id)}
-                            className="flex-1 game-btn py-2 text-xs font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 transition-all">
+                            className="flex-1 game-btn py-3 text-sm font-bold text-[#00f0ff] border border-[#00f0ff]/20 rounded-lg hover:bg-[#00f0ff]/10 transition-all active:scale-[0.98]">
                             Manage
                           </button>
                           <button onClick={() => deleteMeet(m.id)}
-                            className="game-btn py-2 px-4 text-xs font-bold text-red-400/50 border border-red-400/10 rounded-lg hover:bg-red-400/10 hover:text-red-400 transition-all">
+                            className="game-btn py-3 px-5 text-sm font-bold text-red-400/50 border border-red-400/10 rounded-lg hover:bg-red-400/10 hover:text-red-400 transition-all active:scale-[0.98]">
                             ✕
                           </button>
                         </div>
@@ -2682,25 +2685,52 @@ export default function ApexAthletePage() {
                 <div className="mb-4">
                   <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Events</h4>
                   {editMeet.events.length > 0 && (
-                    <div className="space-y-2 mb-3">
-                      {editMeet.events.map(ev => (
-                        <div key={ev.id} className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-white">{ev.name}</span>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs text-[#a855f7]">{ev.entries.length} entered</span>
-                              <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/30 hover:text-red-400 text-xs transition-colors">✕</button>
+                    <div className="space-y-3 mb-4">
+                      {editMeet.events.map((ev, idx) => (
+                        <div key={ev.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <span className="text-sm font-mono text-[#00f0ff]/50 w-8 text-right shrink-0 font-bold">#{ev.eventNum || idx + 1}</span>
+                              <div className="min-w-0">
+                                <span className="text-base font-bold text-white block truncate">{ev.name}</span>
+                                {ev.qualifyingTime && <span className="text-xs font-mono text-[#f59e0b]/70">QT: {ev.qualifyingTime}</span>}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0">
+                              <span className="text-sm text-[#a855f7] font-bold">{ev.entries.length} entered</span>
+                              <button onClick={() => removeEvent(editMeet.id, ev.id)} className="text-red-400/30 hover:text-red-400 text-sm p-1 transition-colors">✕</button>
                             </div>
                           </div>
-                          <div className="flex flex-wrap gap-1.5">
+                          {/* Group quick-entry buttons */}
+                          <div className="flex flex-wrap gap-2 mb-2">
+                            {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => {
+                              const groupAthletes = roster.filter(a => a.group === g.id);
+                              const allEntered = groupAthletes.length > 0 && groupAthletes.every(a => ev.entries.some(e => e.athleteId === a.id));
+                              return (
+                                <button key={g.id} onClick={() => {
+                                  const ga = groupAthletes.filter(a => !ev.entries.some(e => e.athleteId === a.id));
+                                  if (ga.length > 0) ga.forEach(a => toggleAthleteEntry(editMeet.id, ev.id, a.id));
+                                }}
+                                  className={`text-sm px-4 py-2 rounded-lg font-bold transition-all ${
+                                    allEntered
+                                      ? "bg-[#00f0ff]/15 text-[#00f0ff]/50 border border-[#00f0ff]/20"
+                                      : "bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20 hover:bg-[#a855f7]/20 active:scale-95"
+                                  }`}>
+                                  +{g.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {/* Individual athlete buttons */}
+                          <div className="flex flex-wrap gap-2">
                             {filteredRoster.map(a => {
                               const entered = ev.entries.some(e => e.athleteId === a.id);
                               return (
                                 <button key={a.id} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, a.id)}
-                                  className={`text-xs px-2 py-1 rounded-full transition-all ${
+                                  className={`text-sm px-3 py-2 rounded-lg font-medium transition-all active:scale-95 ${
                                     entered
-                                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
-                                      : "bg-white/[0.03] text-white/60 border border-white/[0.04] hover:text-white/40"
+                                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 font-bold"
+                                      : "bg-white/[0.03] text-white/50 border border-white/[0.06] hover:text-white/70"
                                   }`}>
                                   {a.name.split(" ")[0]}
                                 </button>
@@ -2712,25 +2742,25 @@ export default function ApexAthletePage() {
                     </div>
                   )}
                   {meetEventPicker === editMeet.id ? (
-                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 max-h-48 overflow-y-auto">
-                      <div className="flex flex-wrap gap-1.5">
+                    <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 max-h-64 overflow-y-auto">
+                      <div className="flex flex-wrap gap-2">
                         {STANDARD_SWIM_EVENTS.filter(e => e.courses.includes(editMeet.course)).map(e => (
                           <button key={e.name} onClick={() => { addEventToMeet(editMeet.id, e.name); }}
                             disabled={editMeet.events.some(ev => ev.name === e.name)}
-                            className={`text-xs px-2.5 py-1.5 rounded-lg transition-all ${
+                            className={`text-sm px-4 py-2.5 rounded-lg font-medium transition-all active:scale-95 ${
                               editMeet.events.some(ev => ev.name === e.name)
-                                ? "bg-white/[0.02] text-white/40 cursor-not-allowed"
+                                ? "bg-white/[0.02] text-white/30 cursor-not-allowed"
                                 : "bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20 hover:bg-[#a855f7]/20"
                             }`}>
                             {e.name}
                           </button>
                         ))}
                       </div>
-                      <button onClick={() => setMeetEventPicker(null)} className="mt-2 text-white/60 text-xs hover:text-white/40 transition-colors">Done</button>
+                      <button onClick={() => setMeetEventPicker(null)} className="mt-3 text-white/50 text-sm hover:text-white/70 transition-colors">Done</button>
                     </div>
                   ) : (
                     <button onClick={() => setMeetEventPicker(editMeet.id)}
-                      className="game-btn w-full py-2.5 text-xs font-bold text-[#a855f7] border border-[#a855f7]/20 rounded-lg hover:bg-[#a855f7]/10 transition-all">
+                      className="game-btn w-full py-3 text-sm font-bold text-[#a855f7] border border-[#a855f7]/20 rounded-lg hover:bg-[#a855f7]/10 transition-all active:scale-[0.98]">
                       + Add Events
                     </button>
                   )}
