@@ -5318,6 +5318,34 @@ export default function ApexAthletePage() {
           <div className="text-center mt-3 text-xs font-mono text-white/50">
             {currentGroupDef.icon} {currentGroupDef.name} — {currentGroupDef.sport.toUpperCase()} — {filteredRoster.length} athletes
           </div>
+
+          {/* Best Times — quick action below group selector */}
+          {currentGroupDef.sport === "swimming" && (
+            <div className="mt-3 flex items-center justify-center gap-3">
+              <button onClick={fetchAllBestTimes} disabled={fetchingTimesAll}
+                className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all min-h-[48px] active:scale-[0.97] ${
+                  fetchingTimesAll
+                    ? "bg-[#00f0ff]/10 text-[#00f0ff]/50 cursor-wait"
+                    : "bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20"
+                }`}>
+                <svg className={`w-4 h-4 ${fetchingTimesAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {fetchingTimesAll ? "Fetching..." : "Fetch Best Times"}
+              </button>
+              {bestTimesStatus && (
+                <span className={`text-xs ${bestTimesStatus.includes("Error") || bestTimesStatus.includes("not found") ? "text-red-400/60" : "text-emerald-400/60"}`}>
+                  {bestTimesStatus}
+                </span>
+              )}
+              {(() => {
+                const withTimes = filteredRoster.filter(a => a.bestTimes && a.bestTimes.length > 0).length;
+                return withTimes > 0 ? (
+                  <span className="text-xs text-white/30">{withTimes}/{filteredRoster.length} have times</span>
+                ) : null;
+              })()}
+            </div>
+          )}
         </div>
 
         {/* ══════════════════════════════════════════════════════
