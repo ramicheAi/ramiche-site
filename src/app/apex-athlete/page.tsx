@@ -1080,7 +1080,88 @@ export default function ApexAthletePage() {
     setSchedules(scheds);
     setCoaches(load<CoachAccess[]>(K.COACHES, []));
     // Load meets + comms
-    setMeets(load<SwimMeet[]>(K.MEETS, []));
+    // Load meets + auto-migrate broken event data from old parser
+    const loadedMeets = load<SwimMeet[]>(K.MEETS, []);
+    const migratedMeets = loadedMeets.map(m => {
+      // Check if events have broken data (no distance, or distance=0 with stroke="Free" for all)
+      const hasBrokenEvents = m.events.length > 0 && m.events.every(ev => !ev.distance || ev.distance === 0);
+      if (!hasBrokenEvents) return m;
+      // Try to re-parse from stored source file
+      const sourceFile = (m.files || []).find(f => /\.(hy3|ev3|hyv|cl2|sd3)$/i.test(f.name) || f.name.startsWith("file_"));
+      if (!sourceFile || !sourceFile.dataUrl) return m;
+      try {
+        // Decode base64 data URL
+        let text = "";
+        if (sourceFile.dataUrl.startsWith("data:")) {
+          const b64 = sourceFile.dataUrl.split(",")[1] || "";
+          text = decodeURIComponent(escape(atob(b64)));
+        }
+        if (!text || text.length < 20) return m;
+        // Inline mini-parser for migration (same logic as parseMeetFile)
+        let normalized = text;
+        if (normalized.charCodeAt(0) === 0xFEFF) normalized = normalized.slice(1);
+        const rawL = normalized.split(/\r?\n/).filter(l => l.trim().length > 2);
+        if (rawL.length < 3 && normalized.includes("*>")) normalized = normalized.replace(/\*>/g, "\n");
+        const lines = normalized.split(/\r?\n/).map(l => l.replace(/\*>\s*$/, "").trim()).filter(l => l.length > 2);
+        if (lines.length < 2 || !lines[0].includes(";")) return m;
+        // Detect format
+        const hf = lines[0].split(";");
+        const f1 = (hf[1] || "").trim();
+        const f1IsDate = /^\d{2}\/\d{2}\/\d{4}$/.test(f1);
+        let ext = "hy3";
+        if (f1IsDate) { ext = "ev3"; } else {
+          const sl = lines[1]?.split(";") || [];
+          const f1of2 = (sl[1] || "").trim().toUpperCase();
+          if (f1of2 === "P" || f1of2 === "F") ext = "ev3";
+        }
+        const sMap: Record<string, string> = { A: "Free", B: "Back", C: "Breast", D: "Fly", E: "IM" };
+        const sMapN: Record<string, string> = { "1": "Free", "2": "Back", "3": "Breast", "4": "Fly", "5": "IM", "6": "Free Relay", "7": "Medley Relay" };
+        const newEvents: MeetEvent[] = [];
+        for (let i = 1; i < lines.length; i++) {
+          const r = lines[i].split(";");
+          if (r.length < 7) continue;
+          const evNum = parseInt(r[0]) || i;
+          let dist = "", strokeName = "", gender: "M" | "F" | "Mixed" = "Mixed";
+          let sessType = "", qualTime = "", cutTimeV = "", isRelay = false;
+          let dayNum: number | undefined;
+          if (ext === "ev3") {
+            dist = (r[6] || "").trim(); const sn = (r[7] || "1").trim();
+            const gc = (r[2] || "").toUpperCase().trim(); sessType = (r[1] || "").toUpperCase().trim();
+            isRelay = (r[3] || "").toUpperCase().trim() === "R";
+            strokeName = isRelay ? (sn === "1" || sn === "6" ? "Free Relay" : "Medley Relay") : (sMapN[sn] || "Free");
+            gender = gc === "M" ? "M" : gc === "F" ? "F" : "Mixed"; qualTime = (r[9] || "").trim();
+          } else {
+            dist = (r[8] || "").trim(); const sc = (r[9] || "A").trim().toUpperCase();
+            const gc = (r[5] || "").toUpperCase().trim(); sessType = (r[2] || "").toUpperCase().trim();
+            isRelay = (r[4] || "").toUpperCase().trim() === "R";
+            strokeName = isRelay ? (sc === "A" ? "Free Relay" : "Medley Relay") : (sMap[sc] || "Free");
+            gender = gc === "M" ? "M" : (gc === "W" || gc === "F") ? "F" : "Mixed";
+            qualTime = (r[20] || "").trim(); cutTimeV = (r[15] || "").trim() || (r[16] || "").trim();
+            dayNum = parseInt(r[23] || "") || undefined;
+          }
+          const gLabel = gender === "F" ? "Girls" : gender === "M" ? "Boys" : "";
+          const sLabel = sessType === "P" ? "Prelims" : sessType === "F" ? "Finals" : "";
+          const dStr = dist && dist !== "0" ? `${dist} ` : "";
+          const name = `${gLabel ? gLabel + " " : ""}${dStr}${strokeName}${sLabel ? " (" + sLabel + ")" : ""}`.trim();
+          // Preserve existing entries from old event at same index
+          const oldEv = m.events[i - 1];
+          newEvents.push({
+            id: oldEv?.id || `ev-import-${evNum}`, name: name || `Event ${evNum}`,
+            eventNum: evNum, gender, distance: parseInt(dist) || undefined, stroke: strokeName,
+            sessionType: (sessType === "P" || sessType === "F") ? sessType as "P" | "F" : undefined,
+            isRelay, qualifyingTime: qualTime || cutTimeV || undefined,
+            cutTime: cutTimeV && qualTime && cutTimeV !== qualTime ? cutTimeV : undefined,
+            dayNumber: dayNum, entries: oldEv?.entries || [],
+          });
+        }
+        if (newEvents.length > 0) return { ...m, events: newEvents };
+      } catch { /* migration failed, keep original */ }
+      return m;
+    });
+    if (JSON.stringify(migratedMeets) !== JSON.stringify(loadedMeets)) {
+      save(K.MEETS, migratedMeets);
+    }
+    setMeets(migratedMeets);
     try { setAllBroadcasts(JSON.parse(localStorage.getItem("apex-broadcasts-v1") || "[]")); } catch { /* */ }
     try { setAbsenceReports(JSON.parse(localStorage.getItem("apex-absences-v1") || "[]")); } catch { /* */ }
     // Read ?invite= param for auto-fill on PIN screen
