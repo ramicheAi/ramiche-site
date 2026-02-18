@@ -4989,14 +4989,21 @@ export default function ApexAthletePage() {
                                     // Filter by event gender if specific
                                     if (ev.gender === "M") groupAthletes = groupAthletes.filter(a => a.gender === "M");
                                     if (ev.gender === "F") groupAthletes = groupAthletes.filter(a => a.gender === "F");
-                                    // Count how many qualify based on best times vs QT
+                                    // Count how many qualify based on best times vs QT and bonus
                                     let qualifiedCount = 0;
-                                    if (ev.qualifyingTime && ev.distance && ev.stroke) {
-                                      const qtSecs = parseTimeToSecs(ev.qualifyingTime);
+                                    let bonusCount = 0;
+                                    let hasTimeCount = 0;
+                                    const qtSecs = ev.qualifyingTime ? parseTimeToSecs(ev.qualifyingTime) : 0;
+                                    const bonusSecs = ev.cutTime ? parseTimeToSecs(ev.cutTime) : 0;
+                                    if (ev.distance && ev.stroke) {
                                       groupAthletes.forEach(a => {
                                         const ra = roster.find(r => r.name === a.name);
                                         const bt = findMatchingBestTime(ra?.bestTimes, ev.distance, ev.stroke, editMeet.course || "SCY");
-                                        if (bt && bt.seconds <= qtSecs) qualifiedCount++;
+                                        if (bt) {
+                                          hasTimeCount++;
+                                          if (qtSecs > 0 && bt.seconds <= qtSecs) qualifiedCount++;
+                                          else if (bonusSecs > 0 && bt.seconds <= bonusSecs) bonusCount++;
+                                        }
                                       });
                                     }
                                     if (groupAthletes.length === 0) return null;
@@ -5027,8 +5034,14 @@ export default function ApexAthletePage() {
                                         style={!allEntered ? { color: g.color + "90" } : undefined}>
                                         {allEntered ? "✓ " : "+ "}{g.name}
                                         <span className="text-sm opacity-60 ml-1.5">{enteredFromGroup}/{groupAthletes.length}</span>
-                                        {ev.qualifyingTime && qualifiedCount > 0 && (
-                                          <span className="text-xs ml-1 text-[#f59e0b]">({qualifiedCount} qualify)</span>
+                                        {qualifiedCount > 0 && (
+                                          <span className="text-xs ml-1 text-[#22c55e]">({qualifiedCount} QT)</span>
+                                        )}
+                                        {bonusCount > 0 && (
+                                          <span className="text-xs ml-1 text-[#f59e0b]">({bonusCount} bonus)</span>
+                                        )}
+                                        {hasTimeCount > 0 && qualifiedCount === 0 && bonusCount === 0 && (
+                                          <span className="text-xs ml-1 text-white/30">({hasTimeCount} timed)</span>
                                         )}
                                       </button>
                                     );
@@ -5039,20 +5052,23 @@ export default function ApexAthletePage() {
                                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
                                     {ev.entries.map(e => {
                                       const seedSecs = e.seedTime ? parseTimeToSecs(e.seedTime) : 0;
-                                      const qtSecs = ev.qualifyingTime ? parseTimeToSecs(ev.qualifyingTime) : 0;
-                                      const qualifies = seedSecs > 0 && qtSecs > 0 && seedSecs <= qtSecs;
-                                      const gap = seedSecs > 0 && qtSecs > 0 ? seedSecs - qtSecs : 0;
-                                      const borderColor = !e.seedTime ? "#00f0ff" : qualifies ? "#22c55e" : gap < 5 ? "#f59e0b" : "#ef4444";
+                                      const evQtSecs = ev.qualifyingTime ? parseTimeToSecs(ev.qualifyingTime) : 0;
+                                      const evBonusSecs = ev.cutTime ? parseTimeToSecs(ev.cutTime) : 0;
+                                      const qualifies = seedSecs > 0 && evQtSecs > 0 && seedSecs <= evQtSecs;
+                                      const meetsBonus = !qualifies && seedSecs > 0 && evBonusSecs > 0 && seedSecs <= evBonusSecs;
+                                      const gap = seedSecs > 0 && evQtSecs > 0 ? seedSecs - evQtSecs : 0;
+                                      const borderColor = !e.seedTime ? "#00f0ff" : qualifies ? "#22c55e" : meetsBonus ? "#f59e0b" : gap > 0 && gap < 10 ? "#f59e0b" : "#ef4444";
                                       return (
                                         <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
                                           className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl transition-all active:scale-[0.96] hover:opacity-80"
                                           style={{ background: borderColor + "10", color: borderColor + "cc", border: `1px solid ${borderColor}30` }}>
                                           <span>{e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}</span>
-                                          {e.seedTime && <span className="text-sm font-mono ml-2" style={{ color: qualifies ? "#22c55e" : "#f59e0b" }}>{e.seedTime}</span>}
-                                          {e.seedTime && qtSecs > 0 && !qualifies && gap > 0 && (
+                                          {e.seedTime && <span className="text-sm font-mono ml-2" style={{ color: qualifies ? "#22c55e" : meetsBonus ? "#f59e0b" : "#ef4444" }}>{e.seedTime}</span>}
+                                          {e.seedTime && evQtSecs > 0 && !qualifies && gap > 0 && (
                                             <span className="text-xs ml-1 opacity-60">+{gap.toFixed(1)}s</span>
                                           )}
                                           {qualifies && <span className="text-xs ml-1 text-emerald-400">QT</span>}
+                                          {meetsBonus && <span className="text-xs ml-1 text-[#f59e0b]">BONUS</span>}
                                         </button>
                                       );
                                     })}
