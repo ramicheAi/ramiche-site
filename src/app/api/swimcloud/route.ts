@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 
-/* ── SwimCloud Best Times Scraper ─────────────────────────────
-   Fetches best times for an athlete from SwimCloud.com
+/* ── SwimCloud Best Times Scraper v2 ─────────────────────────
+   Fetches best times for ALL courses (SCY, LCM, SCM).
    Step 1: /api/search/?q=NAME → JSON array of {name, url, team}
-   Step 2: /swimmer/ID/ → HTML profile with embedded times table
+   Step 2: /swimmer/ID/ → HTML profile page
+     - Parse HTML best times table (current season, primary course)
+     - Parse embedded season JSON (all seasons, all courses)
+     - Merge both sources → complete best times across all courses
    ────────────────────────────────────────────────────────────── */
 
 interface BestTimeEntry {
@@ -44,11 +47,15 @@ function normalizeStroke(s: string): string {
   return s;
 }
 
-function normalizeCourse(c: string): "SCY" | "SCM" | "LCM" {
-  const lower = c.toLowerCase();
-  if (lower === "l" || lower.includes("lcm") || lower.includes("long")) return "LCM";
-  if (lower === "s" || lower.includes("scm") || lower.includes("short course m")) return "SCM";
-  return "SCY";
+function parseEventString(eventStr: string): { distance: string; course: "SCY" | "SCM" | "LCM"; stroke: string } | null {
+  // Formats: "50 Y Free", "200 L IM", "100 S Breast", "1500 L Free"
+  const m = eventStr.match(/^(\d+)\s+([YLS])?\s*(.+)$/i);
+  if (!m) return null;
+  const distance = m[1];
+  const courseChar = (m[2] || "Y").toUpperCase();
+  const course = courseChar === "L" ? "LCM" as const : courseChar === "S" ? "SCM" as const : "SCY" as const;
+  const stroke = normalizeStroke(m[3].trim());
+  return { distance, course, stroke };
 }
 
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -100,7 +107,7 @@ export async function POST(req: Request) {
 
     const swimmerUrl = best.url; // e.g. "/swimmer/2429607"
 
-    // Step 2: Fetch swimmer profile page (has latest times embedded)
+    // Step 2: Fetch swimmer profile page
     const profileUrl = `https://www.swimcloud.com${swimmerUrl}`;
     const profileRes = await fetch(profileUrl, {
       headers: { "User-Agent": UA, "Accept": "text/html" },
@@ -113,71 +120,89 @@ export async function POST(req: Request) {
     }
 
     const html = await profileRes.text();
+    const bestMap = new Map<string, BestTimeEntry>();
 
-    // Parse times from HTML tables
-    // Pattern: <strong>50 Y Free</strong> ... <a href="/results/...">26.96</a>
-    // Each <tr> has: event cell (with <strong>EVENT</strong>), time cell (with <a>TIME</a>), improvement, place
-    let times: BestTimeEntry[] = [];
-
-    // Extract all <tr> blocks
+    // ── Source 1: HTML best times table (current season, primary course) ──
     const rowRegex = /<tr[\s\S]*?<\/tr>/gi;
     const rows = html.match(rowRegex) || [];
 
     for (const row of rows) {
-      // Skip header rows and rows without event data
       if (row.includes("<th")) continue;
 
-      // Extract event name: <strong>50 Y Free</strong> or <strong>100 L Fly</strong>
       const eventMatch = row.match(/<strong>(\d+\s+[A-Z]?\s*\w[\w\s()]*)<\/strong>/i);
       if (!eventMatch) continue;
 
       const eventRaw = eventMatch[1].trim();
-
-      // Skip relay splits — they contain "(Split)" in the event name
       if (eventRaw.includes("Relay") || eventRaw.includes("Split")) continue;
 
-      // Extract time: <a href="/results/...">26.96</a> or <a ...>2:03.76</a>
       const timeMatch = row.match(/<a\s+href="\/results\/[^"]*">(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})<\/a>/);
       if (!timeMatch) continue;
+
+      const parsed = parseEventString(eventRaw);
+      if (!parsed) continue;
 
       const timeStr = timeMatch[1];
       const seconds = parseTime(timeStr);
       if (seconds <= 0) continue;
 
-      // Parse event: "50 Y Free" → distance=50, course=Y(SCY), stroke=Free
-      // Formats: "100 Y Free", "200 L IM", "100 Y Breast", "50 Y Fly"
-      const eventParts = eventRaw.match(/^(\d+)\s+([YLS])?\s*(.+)$/i);
-      if (!eventParts) continue;
-
-      const distance = eventParts[1];
-      const courseChar = (eventParts[2] || "Y").toUpperCase();
-      const strokeRaw = eventParts[3].trim();
-
-      const course = courseChar === "L" ? "LCM" : courseChar === "S" ? "SCM" : "SCY";
-      const stroke = normalizeStroke(strokeRaw);
-
-      times.push({
-        event: distance,
-        stroke,
-        time: timeStr,
-        seconds,
-        course,
-        meet: "",
-        date: "",
-        source: "swimcloud",
-      });
-    }
-
-    // Deduplicate — keep best (fastest) time per event/stroke/course
-    const bestMap = new Map<string, BestTimeEntry>();
-    for (const t of times) {
-      const key = `${t.event}-${t.stroke}-${t.course}`;
+      const key = `${parsed.distance}-${parsed.stroke}-${parsed.course}`;
       const existing = bestMap.get(key);
-      if (!existing || t.seconds < existing.seconds) {
-        bestMap.set(key, t);
+      if (!existing || seconds < existing.seconds) {
+        bestMap.set(key, {
+          event: parsed.distance,
+          stroke: parsed.stroke,
+          time: timeStr,
+          seconds,
+          course: parsed.course,
+          meet: "",
+          date: "",
+          source: "swimcloud",
+        });
       }
     }
-    times = Array.from(bestMap.values()).sort((a, b) => {
+
+    // ── Source 2: Embedded season JSON (all seasons, all courses) ──
+    // Pattern: const data = [{...swimmer_id, fastest_times: [{event: "50 Y Free", time: "26.96"}, ...], ...}, ...]
+    const jsonMatch = html.match(/const\s+data\s*=\s*(\[[\s\S]*?\]);/);
+    if (jsonMatch) {
+      try {
+        const seasons = JSON.parse(jsonMatch[1]) as Array<{
+          fastest_times?: Array<{ event: string; time: string }>;
+        }>;
+
+        for (const season of seasons) {
+          for (const ft of season.fastest_times || []) {
+            const parsed = parseEventString(ft.event);
+            if (!parsed) continue;
+
+            const seconds = parseTime(ft.time);
+            if (seconds <= 0) continue;
+
+            const key = `${parsed.distance}-${parsed.stroke}-${parsed.course}`;
+            const existing = bestMap.get(key);
+            if (!existing || seconds < existing.seconds) {
+              bestMap.set(key, {
+                event: parsed.distance,
+                stroke: parsed.stroke,
+                time: ft.time,
+                seconds,
+                course: parsed.course,
+                meet: "",
+                date: "",
+                source: "swimcloud",
+              });
+            }
+          }
+        }
+      } catch {
+        // JSON parse failed — continue with HTML-only times
+      }
+    }
+
+    const times = Array.from(bestMap.values()).sort((a, b) => {
+      // Sort by course (SCY first, then LCM, then SCM), then distance, then stroke
+      const courseOrder = { SCY: 0, LCM: 1, SCM: 2 };
+      if (courseOrder[a.course] !== courseOrder[b.course]) return courseOrder[a.course] - courseOrder[b.course];
       const distA = parseInt(a.event) || 0;
       const distB = parseInt(b.event) || 0;
       if (distA !== distB) return distA - distB;
