@@ -998,6 +998,28 @@ export default function ApexAthletePage() {
     return parseFloat(clean) || 0;
   };
 
+  // Helper: normalize stroke names for comparison between Hy-Tek (abbreviated) and SwimCloud (full)
+  // Hy-Tek uses: "Free", "Back", "Breast", "Fly", "IM"
+  // SwimCloud uses: "Freestyle", "Backstroke", "Breaststroke", "Butterfly", "IM"
+  const normalizeStrokeForMatch = (s: string): string => {
+    if (!s) return "";
+    const lower = s.toLowerCase().trim();
+    if (lower === "free" || lower === "freestyle") return "free";
+    if (lower === "back" || lower === "backstroke") return "back";
+    if (lower === "breast" || lower === "breaststroke") return "breast";
+    if (lower === "fly" || lower === "butterfly") return "fly";
+    if (lower === "im" || lower === "individual medley") return "im";
+    return lower;
+  };
+
+  // Helper: find an athlete's best time for a given event, handling stroke name normalization
+  const findMatchingBestTime = (bestTimes: BestTime[] | undefined, distance: number | undefined, stroke: string | undefined, course: "SCY" | "SCM" | "LCM" = "SCY"): BestTime | null => {
+    if (!bestTimes || !distance || !stroke) return null;
+    const normStroke = normalizeStrokeForMatch(stroke);
+    const distStr = String(distance);
+    return bestTimes.find(t => t.event === distStr && normalizeStrokeForMatch(t.stroke) === normStroke && t.course === course) || null;
+  };
+
   // Fetch best times from SwimCloud for a single athlete
   const fetchBestTimes = useCallback(async (athlete: Athlete) => {
     if (!athlete.name) return;
@@ -4240,7 +4262,7 @@ export default function ApexAthletePage() {
             const rosterAthlete = roster.find(r => r.name === a.name);
             let seedTime = "";
             if (rosterAthlete?.bestTimes && ev.distance && ev.stroke) {
-              const bt = rosterAthlete.bestTimes.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (meet?.course || "SCY"));
+              const bt = findMatchingBestTime(rosterAthlete.bestTimes, ev.distance, ev.stroke, meet?.course || "SCY");
               if (bt) seedTime = bt.time;
             }
             return { athleteId: a.name, seedTime };
@@ -4268,7 +4290,7 @@ export default function ApexAthletePage() {
           let seedTime = "";
           const rosterAthlete = roster.find(r => r.name === athleteId);
           if (rosterAthlete?.bestTimes && ev.distance && ev.stroke) {
-            const bt = rosterAthlete.bestTimes.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (meet?.course || "SCY"));
+            const bt = findMatchingBestTime(rosterAthlete.bestTimes, ev.distance, ev.stroke, meet?.course || "SCY");
             if (bt) seedTime = bt.time;
           }
           return { ...ev, entries: [...ev.entries, { athleteId, seedTime }] };
@@ -4914,7 +4936,7 @@ export default function ApexAthletePage() {
                                       const qtSecs = parseTimeToSecs(ev.qualifyingTime);
                                       groupAthletes.forEach(a => {
                                         const ra = roster.find(r => r.name === a.name);
-                                        const bt = ra?.bestTimes?.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (editMeet.course || "SCY"));
+                                        const bt = findMatchingBestTime(ra?.bestTimes, ev.distance, ev.stroke, editMeet.course || "SCY");
                                         if (bt && bt.seconds <= qtSecs) qualifiedCount++;
                                       });
                                     }
@@ -4930,7 +4952,7 @@ export default function ApexAthletePage() {
                                           const qtSecs = parseTimeToSecs(ev.qualifyingTime);
                                           toEnter = toEnter.filter(a => {
                                             const ra = roster.find(r => r.name === a.name);
-                                            const bt = ra?.bestTimes?.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (editMeet.course || "SCY"));
+                                            const bt = findMatchingBestTime(ra?.bestTimes, ev.distance, ev.stroke, editMeet.course || "SCY");
                                             return bt && bt.seconds <= qtSecs;
                                           });
                                         }
@@ -4941,7 +4963,7 @@ export default function ApexAthletePage() {
                                             if (e.id !== ev.id) return e;
                                             return { ...e, entries: [...e.entries, ...toEnter.map(a => {
                                               const ra = roster.find(r => r.name === a.name);
-                                              const bt = ra?.bestTimes?.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (editMeet.course || "SCY"));
+                                              const bt = findMatchingBestTime(ra?.bestTimes, ev.distance, ev.stroke, editMeet.course || "SCY");
                                               return { athleteId: a.name, seedTime: bt?.time || "" };
                                             })] };
                                           })};
