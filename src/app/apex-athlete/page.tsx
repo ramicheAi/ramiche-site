@@ -3680,26 +3680,47 @@ export default function ApexAthletePage() {
       if (!["hy3", "hyv", "cl2", "sd3", "ev3"].includes(ext)) {
         const firstLine = lines[0];
         if (firstLine.includes(";")) {
+          // Use MULTIPLE signals to differentiate HY3 vs EV3
+          let ev3Score = 0;
+          let hy3Score = 0;
+
+          // Signal 1: Header field[1] is a date (MM/DD/YYYY) => EV3
           const headerFields = firstLine.split(";");
-          // Detect .ev3 vs .hy3 by checking if field1 is a date (MM/DD/YYYY)
           const field1 = (headerFields[1] || "").trim();
-          const field1IsDate = /^\d{2}\/\d{2}\/\d{4}$/.test(field1);
-          // Also check: ev3 event rows have format evNum;P/F;M/F;I/R;...
-          // hy3 event rows have format evNum;evNum;P/F;session;I/R;W/M;...
-          // In ev3, row[1] of event lines is P or F. In hy3, row[1] is a number.
-          // Use the header date test as primary, but also check 2nd line
-          if (field1IsDate) {
-            ext = "ev3";
-          } else {
-            // Double-check: if 2nd line field[1] is P or F (not a number), it's ev3
-            const secondLine = lines[1]?.split(";") || [];
-            const field1of2 = (secondLine[1] || "").trim().toUpperCase();
-            if (field1of2 === "P" || field1of2 === "F") {
-              ext = "ev3";
-            } else {
-              ext = "hy3";
-            }
+          if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(field1)) ev3Score += 3;
+          else hy3Score += 1;
+
+          // Signal 2: Semicolon count in event lines (HY3 has ~25-30+ fields, EV3 has ~16)
+          const eventLine = lines[1] || "";
+          const semiCount = (eventLine.match(/;/g) || []).length;
+          if (semiCount > 20) hy3Score += 2;
+          else if (semiCount <= 20 && semiCount >= 8) ev3Score += 1;
+
+          // Signal 3: Event line field[1] is P or F (session type) => EV3 format
+          const evFields = eventLine.split(";");
+          const f1 = (evFields[1] || "").trim().toUpperCase();
+          if (f1 === "P" || f1 === "F") {
+            // In EV3, field[1] is session type. In HY3, field[1] is event number (a digit).
+            if (!/^\d+$/.test(f1)) ev3Score += 3;
+          } else if (/^\d+$/.test(f1)) {
+            hy3Score += 2; // field[1] is a number => HY3 (evNum;evNum;...)
           }
+
+          // Signal 4: HY3 has stroke code (single letter A-E) at index 9
+          const f9 = (evFields[9] || "").trim().toUpperCase();
+          if (/^[A-E]$/.test(f9)) hy3Score += 2;
+
+          // Signal 5: EV3 has stroke NUMBER at index 7
+          const f7ev3 = (evFields[7] || "").trim();
+          if (/^[1-7]$/.test(f7ev3) && (f1 === "P" || f1 === "F")) ev3Score += 2;
+
+          // Signal 6: EV3 has gender (F/M) at field[2], HY3 has gender (W/M) at field[5]
+          const f2 = (evFields[2] || "").trim().toUpperCase();
+          const f5 = (evFields[5] || "").trim().toUpperCase();
+          if ((f2 === "F" || f2 === "M") && (f1 === "P" || f1 === "F")) ev3Score += 2;
+          if (f5 === "W" || f5 === "M") hy3Score += 1;
+
+          ext = ev3Score > hy3Score ? "ev3" : "hy3";
         } else if (firstLine.substring(0, 2) === "B1" || firstLine.substring(0, 2) === "01") {
           ext = "sd3";
         } else {
@@ -3715,6 +3736,13 @@ export default function ApexAthletePage() {
       const strokeMap: Record<string, string> = { A: "Free", B: "Back", C: "Breast", D: "Fly", E: "IM" };
       const strokeMapNum: Record<string, string> = { "1": "Free", "2": "Back", "3": "Breast", "4": "Fly", "5": "IM", "6": "Free Relay", "7": "Medley Relay" };
       const parseDate = (d: string) => { const p = (d || "").trim().split("/"); return p.length === 3 && p[0].length >= 1 ? `${p[2]}-${p[0].padStart(2,"0")}-${p[1].padStart(2,"0")}` : ""; };
+      // Validate that a string looks like a swim time (e.g. "17:34.59", "1:23.45", "59.99", "NT")
+      const isValidTime = (t: string) => /^\d{1,3}:\d{2}\.\d{2}$/.test(t) || /^\d{1,2}\.\d{2}$/.test(t);
+      // Find first valid time from multiple HY3 row indices
+      const findHy3Time = (row: string[], indices: number[]) => {
+        for (const i of indices) { const v = (row[i] || "").trim(); if (isValidTime(v)) return v; }
+        return "";
+      };
 
       const isSemicolon = lines[0]?.includes(";");
 
@@ -3763,7 +3791,11 @@ export default function ApexAthletePage() {
               ? (strokeNum === "1" || strokeNum === "6" ? "Free Relay" : "Medley Relay")
               : (strokeMapNum[strokeNum] || "Free");
             gender = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
-            qualTime = (row[9] || "").trim();
+            const rawQT = (row[9] || "").trim();
+            qualTime = isValidTime(rawQT) ? rawQT : "";
+            // Also check index 13 for cut time
+            const rawCut = (row[13] || "").trim();
+            if (isValidTime(rawCut)) cutTimeVal = rawCut;
           } else {
             // HY3 row: evNum;evNum;sessionType;session;I/R;gender(W/M);0;109;distance;strokeCode;...
             dist = (row[8] || "").trim();
@@ -3775,8 +3807,10 @@ export default function ApexAthletePage() {
               ? (strokeCode === "A" ? "Free Relay" : "Medley Relay")
               : (strokeMap[strokeCode] || "Free");
             gender = genderCode === "M" ? "M" : (genderCode === "W" || genderCode === "F") ? "F" : "Mixed";
-            qualTime = (row[20] || "").trim();
-            cutTimeVal = (row[15] || "").trim() || (row[16] || "").trim();
+            // HY3: QT can be at index 20, cut time at 15/16. Search broadly for valid times.
+            qualTime = findHy3Time(row, [20, 21, 19, 15, 16]);
+            cutTimeVal = findHy3Time(row, [15, 16, 20, 21]);
+            if (cutTimeVal === qualTime) cutTimeVal = ""; // don't duplicate
             dayNum = parseInt(row[23] || "") || undefined;
           }
 
@@ -4239,8 +4273,10 @@ export default function ApexAthletePage() {
           ) : (
             /* Edit meet — Team Unify-style tabbed management */
             <div>
-              <button onClick={() => { setEditingMeetId(null); setMeetView("overview"); setViewingAthleteEntries(null); }} className="text-[#00f0ff]/50 text-xs font-mono mb-4 hover:text-[#00f0ff] transition-colors">
-                ← Back to meets
+              <button onClick={() => { setEditingMeetId(null); setMeetView("overview"); setViewingAthleteEntries(null); }}
+                className="flex items-center gap-2 text-[#00f0ff]/60 text-base font-bold mb-5 hover:text-[#00f0ff] transition-colors py-3 -ml-1">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+                All Meets
               </button>
 
               {/* Meet header */}
@@ -4533,17 +4569,38 @@ export default function ApexAthletePage() {
                                   </button>
                                 </div>
                               </div>
-                              {/* Quick-add group buttons */}
+                              {/* Quick-add group buttons — gender-filtered */}
                               <div className="px-5 pb-5">
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap gap-2.5">
                                   {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => {
-                                    const groupAthletes = INITIAL_ROSTER.filter(a => a.group.toLowerCase().includes(g.id.toLowerCase()));
+                                    let groupAthletes = INITIAL_ROSTER.filter(a => a.group.toLowerCase().includes(g.id.toLowerCase()));
+                                    // Filter by event gender if specific
+                                    if (ev.gender === "M") groupAthletes = groupAthletes.filter(a => a.gender === "M");
+                                    if (ev.gender === "F") groupAthletes = groupAthletes.filter(a => a.gender === "F");
+                                    if (groupAthletes.length === 0) return null;
                                     const enteredFromGroup = groupAthletes.filter(a => ev.entries.some(e => e.athleteId === a.name)).length;
+                                    const allEntered = enteredFromGroup === groupAthletes.length;
                                     return (
-                                      <button key={g.id} onClick={() => enterGroupToEvent(editMeet.id, ev.id, g.id)}
-                                        className="text-base font-bold px-5 py-3.5 min-h-[52px] rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-[#a855f7]/15 hover:text-[#a855f7] hover:border-[#a855f7]/30 transition-all active:scale-[0.96]"
-                                        style={{ color: g.color + "90" }}>
-                                        + {g.name} {enteredFromGroup > 0 && <span className="text-xs opacity-60">({enteredFromGroup})</span>}
+                                      <button key={g.id} onClick={() => {
+                                        // Enter only gender-matched athletes from this group
+                                        const toEnter = groupAthletes.filter(a => !ev.entries.some(e => e.athleteId === a.name));
+                                        if (toEnter.length === 0) return;
+                                        saveMeets(meets.map(m => {
+                                          if (m.id !== editMeet.id) return m;
+                                          return { ...m, events: m.events.map(e => {
+                                            if (e.id !== ev.id) return e;
+                                            return { ...e, entries: [...e.entries, ...toEnter.map(a => ({ athleteId: a.name, seedTime: "" }))] };
+                                          })};
+                                        }));
+                                      }}
+                                        className={`text-lg font-bold px-6 py-4 min-h-[56px] rounded-2xl border-2 transition-all active:scale-[0.96] ${
+                                          allEntered
+                                            ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-400/70"
+                                            : "bg-white/[0.03] border-white/[0.08] hover:bg-[#a855f7]/15 hover:text-[#a855f7] hover:border-[#a855f7]/30"
+                                        }`}
+                                        style={!allEntered ? { color: g.color + "90" } : undefined}>
+                                        {allEntered ? "✓ " : "+ "}{g.name}
+                                        <span className="text-sm opacity-60 ml-1.5">{enteredFromGroup}/{groupAthletes.length}</span>
                                       </button>
                                     );
                                   })}
@@ -4553,7 +4610,7 @@ export default function ApexAthletePage() {
                                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
                                     {ev.entries.map(e => (
                                       <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
-                                        className="text-base font-semibold px-4 py-3 min-h-[48px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
+                                        className="text-base font-semibold px-4 py-3.5 min-h-[50px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
                                         {e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}
                                       </button>
                                     ))}
