@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 /* ── SwimCloud Best Times Scraper ─────────────────────────────
    Fetches best times for an athlete from SwimCloud.com
-   Input: POST { name: string, usaSwimmingId?: string }
-   Output: { times: BestTimeEntry[], source: "swimcloud" }
+   Step 1: /api/search/?q=NAME → JSON array of {name, url, team}
+   Step 2: /swimmer/ID/ → HTML profile with embedded times table
    ────────────────────────────────────────────────────────────── */
 
 interface BestTimeEntry {
@@ -12,24 +12,28 @@ interface BestTimeEntry {
   time: string;        // "52.34"
   seconds: number;     // 52.34
   course: "SCY" | "SCM" | "LCM";
-  meet: string;        // "NCSA Spring Championships"
-  date: string;        // "2026-03-17"
+  meet: string;
+  date: string;
   source: "swimcloud";
 }
 
-// Parse time string (M:SS.hh or SS.hh) to seconds
+interface SearchResult {
+  id: string;
+  name: string;
+  url: string;          // "/swimmer/2429607"
+  team: string;
+  location: string;
+}
+
 function parseTime(t: string): number {
   if (!t) return 0;
   const clean = t.replace(/[^0-9:.]/g, "").trim();
   if (!clean) return 0;
   const parts = clean.split(":");
-  if (parts.length === 2) {
-    return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
-  }
+  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
   return parseFloat(clean) || 0;
 }
 
-// Normalize stroke name
 function normalizeStroke(s: string): string {
   const lower = s.toLowerCase().trim();
   if (lower.includes("free")) return "Freestyle";
@@ -40,221 +44,151 @@ function normalizeStroke(s: string): string {
   return s;
 }
 
-// Normalize distance
-function normalizeDistance(d: string): string {
-  const num = d.replace(/[^0-9]/g, "");
-  return num || d;
-}
-
-// Normalize course
 function normalizeCourse(c: string): "SCY" | "SCM" | "LCM" {
   const lower = c.toLowerCase();
-  if (lower.includes("lcm") || lower.includes("long course meter") || lower === "l") return "LCM";
-  if (lower.includes("scm") || lower.includes("short course meter") || lower === "s") return "SCM";
+  if (lower === "l" || lower.includes("lcm") || lower.includes("long")) return "LCM";
+  if (lower === "s" || lower.includes("scm") || lower.includes("short course m")) return "SCM";
   return "SCY";
 }
+
+const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { name, usaSwimmingId } = body;
+    const { name } = body;
 
-    if (!name && !usaSwimmingId) {
-      return NextResponse.json({ error: "Name or USA Swimming ID required" }, { status: 400 });
+    if (!name) {
+      return NextResponse.json({ error: "Name required" }, { status: 400 });
     }
 
-    // Strategy 1: Search SwimCloud by name
-    const searchName = name?.trim().replace(/\s+/g, "+") || "";
-    const searchUrl = `https://www.swimcloud.com/swimmer/search/?q=${encodeURIComponent(searchName)}`;
+    // Step 1: Search via JSON API
+    const searchUrl = `https://www.swimcloud.com/api/search/?q=${encodeURIComponent(name.trim())}`;
+    const searchRes = await fetch(searchUrl, {
+      headers: { "User-Agent": UA, "Accept": "application/json" },
+    });
 
-    let times: BestTimeEntry[] = [];
-    let swimmerUrl = "";
-    let swimmerName = "";
+    if (!searchRes.ok) {
+      return NextResponse.json({
+        times: [], error: "SwimCloud search unavailable", source: "swimcloud",
+      });
+    }
 
+    let searchResults: SearchResult[];
     try {
-      // Step 1: Search for the swimmer
-      const searchRes = await fetch(searchUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
+      searchResults = await searchRes.json();
+    } catch {
+      return NextResponse.json({
+        times: [], error: "Invalid search response from SwimCloud", source: "swimcloud",
       });
+    }
 
-      if (!searchRes.ok) {
-        // Fallback: try USA Swimming Times Search
-        return NextResponse.json({
-          times: [],
-          error: "SwimCloud search unavailable. Try entering times manually.",
-          source: "swimcloud",
-        });
-      }
-
-      const searchHtml = await searchRes.text();
-
-      // Parse search results — look for swimmer links
-      // SwimCloud search results have links like /swimmer/123456/
-      const swimmerLinkRegex = /href="(\/swimmer\/\d+\/)"/g;
-      const nameRegex = /<a[^>]*href="\/swimmer\/\d+\/"[^>]*>([^<]+)<\/a>/gi;
-
-      const links: string[] = [];
-      let match;
-      while ((match = swimmerLinkRegex.exec(searchHtml)) !== null) {
-        if (!links.includes(match[1])) links.push(match[1]);
-      }
-
-      // Extract names to find best match
-      const names: string[] = [];
-      while ((match = nameRegex.exec(searchHtml)) !== null) {
-        names.push(match[1].trim());
-      }
-
-      if (links.length === 0) {
-        return NextResponse.json({
-          times: [],
-          message: `No swimmer found for "${name}". They may not have USA Swimming registered times yet.`,
-          source: "swimcloud",
-        });
-      }
-
-      // Use first match (or try to find exact name match)
-      let bestIdx = 0;
-      if (name) {
-        const target = name.toLowerCase();
-        for (let i = 0; i < names.length; i++) {
-          if (names[i].toLowerCase() === target) { bestIdx = i; break; }
-          if (names[i].toLowerCase().includes(target) || target.includes(names[i].toLowerCase())) {
-            bestIdx = i;
-          }
-        }
-      }
-
-      swimmerUrl = links[bestIdx] || links[0];
-      swimmerName = names[bestIdx] || name;
-
-      // Step 2: Fetch swimmer's best times page
-      const timesUrl = `https://www.swimcloud.com${swimmerUrl}times/`;
-      const timesRes = await fetch(timesUrl, {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml",
-          "Accept-Language": "en-US,en;q=0.9",
-        },
-      });
-
-      if (!timesRes.ok) {
-        return NextResponse.json({
-          times: [],
-          error: `Could not fetch times for ${swimmerName}`,
-          source: "swimcloud",
-        });
-      }
-
-      const timesHtml = await timesRes.text();
-
-      // Parse best times from the HTML
-      // SwimCloud times pages have tables with event, time, meet, date
-      // Pattern: <td> with event name, time, meet name, date
-
-      // Look for structured time data in the page
-      // SwimCloud uses a table structure with classes like "c-table-clean"
-      const tableRegex = /<tr[^>]*>[\s\S]*?<\/tr>/gi;
-      const rows = timesHtml.match(tableRegex) || [];
-
-      for (const row of rows) {
-        // Skip header rows
-        if (row.includes("<th")) continue;
-
-        // Extract cells
-        const cellRegex = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-        const cells: string[] = [];
-        let cellMatch;
-        while ((cellMatch = cellRegex.exec(row)) !== null) {
-          // Strip HTML tags and trim
-          cells.push(cellMatch[1].replace(/<[^>]+>/g, "").trim());
-        }
-
-        // We need at least 3 cells: event, time, and either meet or date
-        if (cells.length < 3) continue;
-
-        // Try to identify which cells contain what
-        // Typical patterns: Event | Time | Meet | Date | Course
-        const timePattern = /^\d{1,2}:\d{2}\.\d{2}$|^\d{2}\.\d{2}$/;
-        const datePattern = /^\d{2}\/\d{2}\/\d{4}$|^\d{4}-\d{2}-\d{2}$|^[A-Z][a-z]+ \d+, \d{4}$/;
-
-        let eventCell = "";
-        let timeCell = "";
-        let meetCell = "";
-        let dateCell = "";
-        let courseCell = "SCY";
-
-        for (const cell of cells) {
-          if (timePattern.test(cell) && !timeCell) {
-            timeCell = cell;
-          } else if (datePattern.test(cell) && !dateCell) {
-            dateCell = cell;
-          } else if ((cell.includes("Free") || cell.includes("Back") || cell.includes("Breast") || cell.includes("Fly") || cell.includes("IM") || cell.includes("Medley")) && !eventCell) {
-            eventCell = cell;
-          } else if ((cell.includes("SCY") || cell.includes("LCM") || cell.includes("SCM")) && !courseCell) {
-            courseCell = cell;
-          } else if (cell.length > 5 && !meetCell) {
-            meetCell = cell;
-          }
-        }
-
-        if (!eventCell || !timeCell) continue;
-
-        // Parse event: "100 Freestyle" → distance "100", stroke "Freestyle"
-        const eventParts = eventCell.match(/(\d+)\s*(.+)/);
-        if (!eventParts) continue;
-
-        const distance = normalizeDistance(eventParts[1]);
-        const stroke = normalizeStroke(eventParts[2]);
-        const seconds = parseTime(timeCell);
-
-        if (seconds <= 0) continue;
-
-        times.push({
-          event: distance,
-          stroke,
-          time: timeCell,
-          seconds,
-          course: normalizeCourse(courseCell),
-          meet: meetCell || "Unknown",
-          date: dateCell || new Date().toISOString().slice(0, 10),
-          source: "swimcloud",
-        });
-      }
-
-      // Deduplicate — keep best time per event/stroke/course combo
-      const bestMap = new Map<string, BestTimeEntry>();
-      for (const t of times) {
-        const key = `${t.event}-${t.stroke}-${t.course}`;
-        const existing = bestMap.get(key);
-        if (!existing || t.seconds < existing.seconds) {
-          bestMap.set(key, t);
-        }
-      }
-      times = Array.from(bestMap.values()).sort((a, b) => {
-        const distA = parseInt(a.event) || 0;
-        const distB = parseInt(b.event) || 0;
-        if (distA !== distB) return distA - distB;
-        return a.stroke.localeCompare(b.stroke);
-      });
-
-    } catch (fetchErr) {
-      console.error("SwimCloud fetch error:", fetchErr);
+    if (!Array.isArray(searchResults) || searchResults.length === 0) {
       return NextResponse.json({
         times: [],
-        error: "Network error fetching SwimCloud data. Check server connectivity.",
+        message: `No swimmer found for "${name}". They may not have USA Swimming registered times yet.`,
         source: "swimcloud",
       });
     }
 
+    // Pick best match — prefer exact name match, then partial
+    let best = searchResults[0];
+    const target = name.toLowerCase().trim();
+    for (const r of searchResults) {
+      if (r.name.toLowerCase().trim() === target) { best = r; break; }
+    }
+
+    const swimmerUrl = best.url; // e.g. "/swimmer/2429607"
+
+    // Step 2: Fetch swimmer profile page (has latest times embedded)
+    const profileUrl = `https://www.swimcloud.com${swimmerUrl}`;
+    const profileRes = await fetch(profileUrl, {
+      headers: { "User-Agent": UA, "Accept": "text/html" },
+    });
+
+    if (!profileRes.ok) {
+      return NextResponse.json({
+        times: [], error: `Could not fetch profile for ${best.name}`, source: "swimcloud",
+      });
+    }
+
+    const html = await profileRes.text();
+
+    // Parse times from HTML tables
+    // Pattern: <strong>50 Y Free</strong> ... <a href="/results/...">26.96</a>
+    // Each <tr> has: event cell (with <strong>EVENT</strong>), time cell (with <a>TIME</a>), improvement, place
+    let times: BestTimeEntry[] = [];
+
+    // Extract all <tr> blocks
+    const rowRegex = /<tr[\s\S]*?<\/tr>/gi;
+    const rows = html.match(rowRegex) || [];
+
+    for (const row of rows) {
+      // Skip header rows and rows without event data
+      if (row.includes("<th")) continue;
+
+      // Extract event name: <strong>50 Y Free</strong> or <strong>100 L Fly</strong>
+      const eventMatch = row.match(/<strong>(\d+\s+[A-Z]?\s*\w[\w\s()]*)<\/strong>/i);
+      if (!eventMatch) continue;
+
+      const eventRaw = eventMatch[1].trim();
+
+      // Skip relay splits — they contain "(Split)" in the event name
+      if (eventRaw.includes("Relay") || eventRaw.includes("Split")) continue;
+
+      // Extract time: <a href="/results/...">26.96</a> or <a ...>2:03.76</a>
+      const timeMatch = row.match(/<a\s+href="\/results\/[^"]*">(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})<\/a>/);
+      if (!timeMatch) continue;
+
+      const timeStr = timeMatch[1];
+      const seconds = parseTime(timeStr);
+      if (seconds <= 0) continue;
+
+      // Parse event: "50 Y Free" → distance=50, course=Y(SCY), stroke=Free
+      // Formats: "100 Y Free", "200 L IM", "100 Y Breast", "50 Y Fly"
+      const eventParts = eventRaw.match(/^(\d+)\s+([YLS])?\s*(.+)$/i);
+      if (!eventParts) continue;
+
+      const distance = eventParts[1];
+      const courseChar = (eventParts[2] || "Y").toUpperCase();
+      const strokeRaw = eventParts[3].trim();
+
+      const course = courseChar === "L" ? "LCM" : courseChar === "S" ? "SCM" : "SCY";
+      const stroke = normalizeStroke(strokeRaw);
+
+      times.push({
+        event: distance,
+        stroke,
+        time: timeStr,
+        seconds,
+        course,
+        meet: "",
+        date: "",
+        source: "swimcloud",
+      });
+    }
+
+    // Deduplicate — keep best (fastest) time per event/stroke/course
+    const bestMap = new Map<string, BestTimeEntry>();
+    for (const t of times) {
+      const key = `${t.event}-${t.stroke}-${t.course}`;
+      const existing = bestMap.get(key);
+      if (!existing || t.seconds < existing.seconds) {
+        bestMap.set(key, t);
+      }
+    }
+    times = Array.from(bestMap.values()).sort((a, b) => {
+      const distA = parseInt(a.event) || 0;
+      const distB = parseInt(b.event) || 0;
+      if (distA !== distB) return distA - distB;
+      return a.stroke.localeCompare(b.stroke);
+    });
+
     return NextResponse.json({
       times,
-      swimmer: swimmerName,
-      swimmerUrl: swimmerUrl ? `https://www.swimcloud.com${swimmerUrl}` : null,
+      swimmer: best.name,
+      team: best.team,
+      swimmerUrl: `https://www.swimcloud.com${swimmerUrl}`,
       count: times.length,
       source: "swimcloud",
     });
