@@ -70,6 +70,8 @@ interface Athlete {
   birthday?: string;
   parentCode?: string;
   parentEmail?: string;
+  bestTimes?: { event: string; stroke: string; course: string; time: string; date?: string; source: string }[];
+  bestTimesUpdated?: string;
 }
 
 // Practice sessions per week by roster group (from real schedules)
@@ -1612,6 +1614,38 @@ export default function AthletePortal() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Best Times (USA Swimming / SwimCloud) */}
+            {athlete?.bestTimes && athlete.bestTimes.length > 0 && (
+              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider flex items-center gap-2">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                    USA SWIMMING BEST TIMES
+                  </h3>
+                  {athlete.bestTimesUpdated && (
+                    <span className="text-white/30 text-xs">Updated {athlete.bestTimesUpdated}</span>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {athlete.bestTimes.map((bt, i) => {
+                    const strokeNames: Record<string, string> = { Free: "Freestyle", Back: "Backstroke", Breast: "Breaststroke", Fly: "Butterfly", IM: "Individual Medley" };
+                    return (
+                      <div key={`bt-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/5">
+                        <div>
+                          <span className="text-white text-sm font-bold">{bt.event} {strokeNames[bt.stroke] || bt.stroke}</span>
+                          <span className="text-white/40 text-xs ml-2">{bt.course}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[#00f0ff] font-mono font-bold text-base">{bt.time}</span>
+                          {bt.date && <span className="text-white/40 text-xs block">{bt.date}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
