@@ -181,6 +181,7 @@ interface SwimMeet {
   events: MeetEvent[]; rsvps: Record<string, "committed" | "declined" | "pending">;
   broadcasts: MeetBroadcast[]; status: "upcoming" | "active" | "completed" | "finalized";
   files?: MeetFile[];
+  parserVersion?: number;
 }
 
 // ── Coach Access types ────────────────────────────────────────
@@ -1083,6 +1084,7 @@ export default function ApexAthletePage() {
     // Load meets + comms
     // Load meets + auto-migrate broken event data from old parser
     const loadedMeets = load<SwimMeet[]>(K.MEETS, []);
+    const CURRENT_PARSER_VERSION = 3;
     const migratedMeets = loadedMeets.map(m => {
       // Check if events have broken data: no distance, all same stroke, all "Mixed" gender, or generic "Free" names
       const hasBrokenEvents = m.events.length > 3 && (
@@ -1090,7 +1092,9 @@ export default function ApexAthletePage() {
         m.events.every(ev => ev.gender === "Mixed") ||
         m.events.filter(ev => ev.stroke === "Free" || !ev.stroke).length > m.events.length * 0.8
       );
-      if (!hasBrokenEvents) return m;
+      // Version check: force re-parse if parsed with older version
+      const needsVersionUpgrade = m.parserVersion !== CURRENT_PARSER_VERSION && m.events.length > 0;
+      if (!hasBrokenEvents && !needsVersionUpgrade) return m;
       // Try to re-parse from stored source file
       const sourceFile = (m.files || []).find(f => /\.(hy3|ev3|hyv|cl2|sd3)$/i.test(f.name) || f.name.startsWith("file_"));
       if (!sourceFile || !sourceFile.dataUrl) return m;
@@ -1141,7 +1145,8 @@ export default function ApexAthletePage() {
             isRelay = (r[4] || "").toUpperCase().trim() === "R";
             strokeName = isRelay ? (sc === "A" ? "Free Relay" : "Medley Relay") : (sMap[sc] || "Free");
             gender = gc === "M" ? "M" : (gc === "W" || gc === "F") ? "F" : "Mixed";
-            qualTime = (r[20] || "").trim(); cutTimeV = (r[15] || "").trim() || (r[16] || "").trim();
+            qualTime = (r[16] || "").trim() || (r[15] || "").trim() || (r[17] || "").trim();
+            cutTimeV = (r[20] || "").trim() || (r[21] || "").trim() || (r[19] || "").trim();
             dayNum = parseInt(r[23] || "") || undefined;
           }
           const gLabel = gender === "F" ? "Girls" : gender === "M" ? "Boys" : "";
@@ -1159,7 +1164,7 @@ export default function ApexAthletePage() {
             dayNumber: dayNum, entries: oldEv?.entries || [],
           });
         }
-        if (newEvents.length > 0) return { ...m, events: newEvents };
+        if (newEvents.length > 0) return { ...m, events: newEvents, parserVersion: CURRENT_PARSER_VERSION };
       } catch { /* migration failed, keep original */ }
       return m;
     });
@@ -3648,6 +3653,7 @@ export default function ApexAthletePage() {
   // ── MEETS VIEW ──────────────────────────────────────────
   if (view === "meets") {
     const saveMeets = (m: SwimMeet[]) => { setMeets(m); save(K.MEETS, m); };
+    const clearAllMeets = () => { saveMeets([]); setEditingMeetId(null); setImportStatus({ type: "success", message: "All meets cleared. Import a fresh file to start over." }); };
     const createMeet = () => {
       if (!newMeetName || !newMeetDate) return;
       const m: SwimMeet = {
@@ -3658,6 +3664,12 @@ export default function ApexAthletePage() {
       };
       saveMeets([...meets, m]);
       setNewMeetName(""); setNewMeetDate(""); setNewMeetLocation(""); setNewMeetDeadline("");
+    };
+    // Helper: days until meet
+    const daysUntil = (dateStr: string) => {
+      const d = new Date(dateStr + "T12:00:00");
+      const now = new Date();
+      return Math.ceil((d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     };
     // ── HY3/HYV/EV3/SD3 Meet File Parser ──────────────────────────────
     const parseMeetFile = (text: string, filename: string): Partial<SwimMeet> | null => {
@@ -3807,9 +3819,9 @@ export default function ApexAthletePage() {
               ? (strokeCode === "A" ? "Free Relay" : "Medley Relay")
               : (strokeMap[strokeCode] || "Free");
             gender = genderCode === "M" ? "M" : (genderCode === "W" || genderCode === "F") ? "F" : "Mixed";
-            // HY3: QT can be at index 20, cut time at 15/16. Search broadly for valid times.
-            qualTime = findHy3Time(row, [20, 21, 19, 15, 16]);
-            cutTimeVal = findHy3Time(row, [15, 16, 20, 21]);
+            // HY3: QT is at index 16, cut time at index 20. Prioritize correctly.
+            qualTime = findHy3Time(row, [16, 15, 17]);
+            cutTimeVal = findHy3Time(row, [20, 21, 19]);
             if (cutTimeVal === qualTime) cutTimeVal = ""; // don't duplicate
             dayNum = parseInt(row[23] || "") || undefined;
           }
@@ -3996,7 +4008,7 @@ export default function ApexAthletePage() {
           if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
             let dataUrl = "";
             try { dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`; } catch { dataUrl = ""; }
-            // Check if a meet with same name already exists — replace it
+            // Always fully replace if a meet with same name exists — wipe old events/sessions completely
             const existingIdx = meets.findIndex(m => m.name === parsed.name);
             const newMeet: SwimMeet = {
               id: existingIdx >= 0 ? meets[existingIdx].id : `meet-${Date.now()}`,
@@ -4009,24 +4021,35 @@ export default function ApexAthletePage() {
               description: `Imported from ${file.name}`,
               sessions: parsed.sessions || [],
               events: parsed.events || [],
-              rsvps: existingIdx >= 0 ? meets[existingIdx].rsvps : {},
+              rsvps: {},
               broadcasts: existingIdx >= 0 ? meets[existingIdx].broadcasts : [],
               status: "upcoming",
               files: dataUrl ? [{ id: `f-${Date.now()}`, name: file.name, dataUrl, uploadedAt: Date.now() }] : [],
+              parserVersion: 3,
             };
+            // Delete old meet fully and insert fresh — prevents stale localStorage data
             const updated = existingIdx >= 0
               ? meets.map((m, i) => i === existingIdx ? newMeet : m)
               : [...meets, newMeet];
             saveMeets(updated);
-            // Show detailed import summary
+            // Detect format for display
+            const detectedExt = file.name.toLowerCase().split(".").pop() || "auto";
+            const formatLabel = detectedExt === "hy3" ? "HY3 (Hy-Tek)" : detectedExt === "ev3" ? "EV3 (Hy-Tek)" : detectedExt === "sd3" ? "SD3 (SDIF)" : `auto-detected`;
+            // Show detailed import summary with qualifying times to prove parsing worked
             const evCount = parsed.events?.length || 0;
-            const sampleEvents = (parsed.events || []).slice(0, 5).map(e => e.name).join("\n• ");
-            const moreText = evCount > 5 ? `\n+ ${evCount - 5} more events` : "";
-            const replacedText = existingIdx >= 0 ? " (replaced existing)" : "";
-            setImportStatus({ type: "success", message: `Imported "${parsed.name}"${replacedText}\n${evCount} events · ${parsed.course || "SCY"}\n• ${sampleEvents}${moreText}\n${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "TBD"} at ${parsed.location || "TBD"}` });
-            setTimeout(() => setEditingMeetId(newMeet.id), 1500);
+            const sampleEvents = (parsed.events || []).slice(0, 6).map(e => {
+              const qt = e.qualifyingTime ? ` QT: ${e.qualifyingTime}` : "";
+              return `${e.name}${qt}`;
+            }).join("\n  ");
+            const moreText = evCount > 6 ? `\n  + ${evCount - 6} more events` : "";
+            const replacedText = existingIdx >= 0 ? " (REPLACED old data)" : "";
+            const dateStr = parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "TBD";
+            setImportStatus({ type: "success", message: `Imported "${parsed.name}"${replacedText}\nFormat: ${formatLabel} | ${evCount} events | ${parsed.course || "SCY"}\n  ${sampleEvents}${moreText}\n${dateStr} at ${parsed.location || "TBD"}` });
+            setTimeout(() => setEditingMeetId(newMeet.id), 1200);
           } else {
-            setImportStatus({ type: "error", message: `Could not parse "${shortName}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
+            const lineCount = text.split(/\r?\n/).length;
+            const firstLine = text.split(/\r?\n/)[0]?.slice(0, 80) || "(empty)";
+            setImportStatus({ type: "error", message: `Could not parse "${shortName}"\n${text.length} chars, ${lineCount} lines\nFirst line: ${firstLine}\n\nTry a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
           }
         } catch (err) {
           setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown"}` });
@@ -4303,31 +4326,88 @@ export default function ApexAthletePage() {
                 <div className="flex gap-2 mt-4">
                   {editMeet.status === "finalized" ? (
                     <button onClick={() => unfinalizeMeet(editMeet.id)}
-                      className="flex-1 game-btn py-3 text-sm font-bold text-[#f59e0b] border border-[#f59e0b]/20 rounded-lg hover:bg-[#f59e0b]/10 transition-all">
+                      className="flex-1 game-btn py-3.5 text-base font-bold text-[#f59e0b] border border-[#f59e0b]/20 rounded-lg hover:bg-[#f59e0b]/10 transition-all min-h-[48px]">
                       Unlock Entries
                     </button>
                   ) : (
                     <button onClick={() => finalizeMeet(editMeet.id)}
                       disabled={editMeet.events.length === 0 || editMeet.events.every(e => e.entries.length === 0)}
-                      className="flex-1 game-btn py-3 text-sm font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 disabled:opacity-30 transition-all">
+                      className="flex-1 game-btn py-3.5 text-base font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 disabled:opacity-30 transition-all min-h-[48px]">
                       Finalize Entries
                     </button>
                   )}
                   <button onClick={() => exportMeetCSV(editMeet)}
                     disabled={editMeet.events.every(e => e.entries.length === 0)}
-                    className="game-btn py-3 px-5 text-sm font-bold text-[#00f0ff]/60 border border-[#00f0ff]/15 rounded-lg hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] disabled:opacity-30 transition-all">
+                    className="game-btn py-3.5 px-5 text-base font-bold text-[#00f0ff]/60 border border-[#00f0ff]/15 rounded-lg hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] disabled:opacity-30 transition-all min-h-[48px]">
                     CSV
                   </button>
                   <button onClick={() => exportMeetSD3(editMeet)}
                     disabled={editMeet.events.every(e => e.entries.length === 0)}
-                    className="game-btn py-3 px-5 text-sm font-bold text-[#a855f7]/60 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] disabled:opacity-30 transition-all">
+                    className="game-btn py-3.5 px-5 text-base font-bold text-[#a855f7]/60 border border-[#a855f7]/15 rounded-lg hover:bg-[#a855f7]/10 hover:text-[#a855f7] disabled:opacity-30 transition-all min-h-[48px]">
                     SD3
                   </button>
                 </div>
                 {editMeet.status === "finalized" && (
-                  <div className="mt-2 text-center text-xs text-emerald-400/60 font-mono uppercase">Entries locked — export ready for meet host</div>
+                  <div className="mt-2 text-center text-xs text-emerald-400/60 font-mono uppercase">Entries locked -- export ready for meet host</div>
                 )}
               </Card>
+
+              {/* Clear & Re-import button — escape hatch for broken imports */}
+              <div className="mb-4">
+                <label className="flex items-center justify-center gap-3 cursor-pointer w-full py-4 min-h-[56px] bg-[#f59e0b]/[0.06] text-[#f59e0b] font-bold text-base rounded-xl border-2 border-dashed border-[#f59e0b]/25 hover:bg-[#f59e0b]/15 transition-all active:scale-[0.98]">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                  Clear Events & Re-import File
+                  <input type="file" className="hidden" onChange={e => {
+                    const f = e.target.files;
+                    if (f && f.length > 0) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const text = reader.result as string || "";
+                        if (text.length < 10) { setImportStatus({ type: "error", message: "File appears empty" }); return; }
+                        const parsed = parseMeetFile(text, f[0].name);
+                        if (parsed && parsed.events && parsed.events.length > 0) {
+                          let dataUrl = "";
+                          try { dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`; } catch { dataUrl = ""; }
+                          // Completely replace ALL meet data — fresh import
+                          saveMeets(meets.map(m => m.id === editMeet.id ? ({
+                            ...m,
+                            name: parsed.name || m.name,
+                            date: parsed.date || m.date,
+                            endDate: parsed.endDate ?? m.endDate,
+                            location: parsed.location || m.location,
+                            course: parsed.course || m.course,
+                            events: parsed.events || [],
+                            sessions: parsed.sessions || [],
+                            files: dataUrl ? [{ id: `f-${Date.now()}`, name: f[0].name, dataUrl, uploadedAt: Date.now() }] : m.files,
+                            parserVersion: 3,
+                          } as SwimMeet) : m));
+                          const sampleEvs = (parsed.events || []).slice(0, 4).map(ev => {
+                            const qt = ev.qualifyingTime ? ` QT: ${ev.qualifyingTime}` : "";
+                            return `${ev.name}${qt}`;
+                          }).join(", ");
+                          setImportStatus({ type: "success", message: `Re-imported ${parsed.events.length} events (old events cleared)\n${sampleEvs}${parsed.events.length > 4 ? ` +${parsed.events.length - 4} more` : ""}` });
+                        } else {
+                          setImportStatus({ type: "error", message: `Could not parse file. Try a .hy3 or .ev3 file.` });
+                        }
+                      };
+                      reader.readAsText(f[0], "utf-8");
+                    }
+                    e.target.value = "";
+                  }} accept="*/*" />
+                </label>
+                {importStatus && (
+                  <div className={`mt-3 px-5 py-4 rounded-xl border ${importStatus.type === "success" ? "bg-green-500/10 border-green-500/30" : "bg-red-500/10 border-red-500/30"}`}
+                    onClick={() => setImportStatus(null)}>
+                    <div className={`text-base font-bold mb-1 ${importStatus.type === "success" ? "text-green-400" : "text-red-400"}`}>
+                      {importStatus.type === "success" ? "Import OK" : "Import Failed"}
+                    </div>
+                    <div className={`text-sm whitespace-pre-wrap ${importStatus.type === "success" ? "text-green-300/70" : "text-red-300/70"}`}>
+                      {importStatus.message}
+                    </div>
+                    <span className="block text-xs opacity-40 mt-1">tap to dismiss</span>
+                  </div>
+                )}
+              </div>
 
               {/* Tab navigation — like Team Unify: Info / Event Order / Member Entry */}
               <div className="flex gap-1 mb-4 bg-white/[0.02] rounded-xl p-1.5 border border-white/[0.05]">
@@ -4446,6 +4526,7 @@ export default function ApexAthletePage() {
                                       course: parsed.course || m.course,
                                       events: parsed.events ?? m.events,
                                       files: dataUrl ? [{ id: `f-${Date.now()}`, name: f[0].name, dataUrl, uploadedAt: Date.now() }, ...(m.files || []).filter(mf => !mf.name.startsWith("file_"))] : m.files,
+                                      parserVersion: 3,
                                     } as SwimMeet) : m));
                                     setImportStatus({ type: "success", message: `Re-imported ${parsed.events.length} events successfully` });
                                   }
@@ -4523,8 +4604,12 @@ export default function ApexAthletePage() {
                           const strokeLabel = ev.stroke || "";
                           const sessionLabel = ev.sessionType === "P" ? "Prelims" : ev.sessionType === "F" ? "Finals" : "";
                           const hasStructured = ev.distance || ev.stroke;
+                          // Build a full display name: "Girls 1650 Free" when structured data exists
+                          const fullEventName = hasStructured
+                            ? `${genderLabel !== "Mixed" ? genderLabel + " " : ""}${distLabel ? distLabel + " " : ""}${strokeLabel}`.trim()
+                            : ev.name;
                           return (
-                            <div key={ev.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+                            <div key={ev.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden" style={{ borderLeft: `4px solid ${color}40` }}>
                               {/* Main event row */}
                               <div className="flex items-center gap-4 px-5 py-5 min-h-[88px]">
                                 {/* Event number badge */}
@@ -4533,29 +4618,28 @@ export default function ApexAthletePage() {
                                 </div>
                                 {/* Event details */}
                                 <div className="flex-1 min-w-0">
-                                  {hasStructured ? (
-                                    <>
-                                      <div className="text-xl font-black text-white tracking-tight leading-tight">
-                                        {distLabel} {strokeLabel}
-                                      </div>
-                                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                                        <span className="text-sm font-bold px-3 py-1 rounded-full" style={{ backgroundColor: `${genderColor}15`, color: genderColor }}>
-                                          {genderLabel}
-                                        </span>
-                                        {sessionLabel && (
-                                          <span className={`text-sm font-bold px-3 py-1 rounded-full ${sessionLabel === "Finals" ? "bg-[#f59e0b]/15 text-[#f59e0b]" : "bg-white/[0.06] text-white/60"}`}>
-                                            {sessionLabel}
-                                          </span>
-                                        )}
-                                        {ev.isRelay && <span className="text-sm font-bold px-3 py-1 rounded-full bg-[#a855f7]/15 text-[#a855f7]">Relay</span>}
-                                      </div>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <div className="text-xl font-black text-white tracking-tight leading-tight">{ev.name}</div>
-                                      {ev.qualifyingTime && <span className="text-sm font-mono text-[#f59e0b]/80 font-bold mt-1 block">QT {ev.qualifyingTime}</span>}
-                                    </>
-                                  )}
+                                  <div className="text-xl font-black text-white tracking-tight leading-tight">
+                                    {fullEventName}
+                                  </div>
+                                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                    {hasStructured && (
+                                      <span className="text-sm font-bold px-3 py-1 rounded-full" style={{ backgroundColor: `${genderColor}15`, color: genderColor }}>
+                                        {genderLabel}
+                                      </span>
+                                    )}
+                                    {sessionLabel && (
+                                      <span className={`text-sm font-bold px-3 py-1 rounded-full ${sessionLabel === "Finals" ? "bg-[#f59e0b]/15 text-[#f59e0b]" : "bg-white/[0.06] text-white/60"}`}>
+                                        {sessionLabel}
+                                      </span>
+                                    )}
+                                    {ev.isRelay && <span className="text-sm font-bold px-3 py-1 rounded-full bg-[#a855f7]/15 text-[#a855f7]">Relay</span>}
+                                    {ev.qualifyingTime && (
+                                      <span className="text-sm font-mono font-bold px-3 py-1 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]">QT {ev.qualifyingTime}</span>
+                                    )}
+                                    {ev.cutTime && (
+                                      <span className="text-sm font-mono font-bold px-3 py-1 rounded-full bg-white/[0.04] text-white/50">Cut {ev.cutTime}</span>
+                                    )}
+                                  </div>
                                 </div>
                                 {/* Entry count + actions */}
                                 <div className="flex items-center gap-3 shrink-0">
@@ -4610,7 +4694,7 @@ export default function ApexAthletePage() {
                                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
                                     {ev.entries.map(e => (
                                       <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
-                                        className="text-base font-semibold px-4 py-3.5 min-h-[50px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
+                                        className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
                                         {e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}
                                       </button>
                                     ))}
@@ -4692,13 +4776,13 @@ export default function ApexAthletePage() {
                                 {a.name.charAt(0)}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-lg font-bold text-white truncate">{a.name}</div>
+                                <div className="text-xl font-bold text-white truncate">{a.name}</div>
                                 <div className="text-base text-white/40">{a.group}{a.age ? ` · ${a.age}` : ""}</div>
                               </div>
                               <div className="text-right shrink-0">
                                 {entryCount > 0 ? (
                                   <div>
-                                    <span className="text-xl font-black text-[#00f0ff]">{entryCount}</span>
+                                    <span className="text-2xl font-black text-[#00f0ff]">{entryCount}</span>
                                     <span className="text-sm text-white/30 block">events</span>
                                   </div>
                                 ) : (
