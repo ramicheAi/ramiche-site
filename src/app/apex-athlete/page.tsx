@@ -3833,6 +3833,69 @@ export default function ApexAthletePage() {
 
       if (!meetName && events.length === 0) return null;
 
+      // Validate output quality — if all events look broken, retry with opposite format
+      if (isSemicolon && events.length > 3) {
+        const allMixed = events.every(e => e.gender === "Mixed");
+        const allFree = events.filter(e => e.stroke === "Free" || !e.stroke).length > events.length * 0.8;
+        const noDistances = events.every(e => !e.distance || e.distance === 0);
+        if ((allMixed && noDistances) || (allMixed && allFree)) {
+          // Likely wrong format detection — retry with opposite
+          const retryExt = ext === "ev3" ? "hy3" : "ev3";
+          const retryEvents: MeetEvent[] = [];
+          for (let i = 1; i < lines.length; i++) {
+            const row = lines[i].split(";");
+            if (row.length < 7) continue;
+            const evNum = parseInt(row[0]) || i;
+            let rDist = ""; let rStroke = ""; let rGender: "M" | "F" | "Mixed" = "Mixed";
+            let rSession = ""; let rRelay = false; let rQT = ""; let rCut = ""; let rDay: number | undefined;
+            if (retryExt === "ev3") {
+              rDist = (row[6] || "").trim();
+              const sn = (row[7] || "1").trim();
+              const gc = (row[2] || "").toUpperCase().trim();
+              rSession = (row[1] || "").toUpperCase().trim();
+              rRelay = (row[3] || "").toUpperCase().trim() === "R";
+              rStroke = rRelay ? (sn === "1" || sn === "6" ? "Free Relay" : "Medley Relay") : (strokeMapNum[sn] || "Free");
+              rGender = gc === "M" ? "M" : gc === "F" ? "F" : "Mixed";
+              rQT = (row[9] || "").trim();
+            } else {
+              rDist = (row[8] || "").trim();
+              const sc = (row[9] || "A").trim().toUpperCase();
+              const gc = (row[5] || "").toUpperCase().trim();
+              rSession = (row[2] || "").toUpperCase().trim();
+              rRelay = (row[4] || "").toUpperCase().trim() === "R";
+              rStroke = rRelay ? (sc === "A" ? "Free Relay" : "Medley Relay") : (strokeMap[sc] || "Free");
+              rGender = gc === "M" ? "M" : (gc === "W" || gc === "F") ? "F" : "Mixed";
+              rQT = (row[20] || "").trim();
+              rCut = (row[15] || "").trim() || (row[16] || "").trim();
+              rDay = parseInt(row[23] || "") || undefined;
+            }
+            const rGL = rGender === "F" ? "Girls" : rGender === "M" ? "Boys" : "";
+            const rSL = rSession === "P" ? "Prelims" : rSession === "F" ? "Finals" : "";
+            const rDS = rDist && rDist !== "0" ? `${rDist} ` : "";
+            const rName = `${rGL ? rGL + " " : ""}${rDS}${rStroke}${rSL ? " (" + rSL + ")" : ""}`.trim();
+            retryEvents.push({
+              id: `ev-import-${evNum}`, name: rName || `Event ${evNum}`, eventNum: evNum, gender: rGender,
+              distance: parseInt(rDist) || undefined, stroke: rStroke,
+              sessionType: (rSession === "P" || rSession === "F") ? rSession as "P" | "F" : undefined,
+              isRelay: rRelay, qualifyingTime: rQT || rCut || undefined,
+              cutTime: rCut && rQT && rCut !== rQT ? rCut : undefined, dayNumber: rDay, entries: [],
+            });
+          }
+          // Check if retry is better
+          const retryAllMixed = retryEvents.every(e => e.gender === "Mixed");
+          const retryNoDist = retryEvents.every(e => !e.distance || e.distance === 0);
+          if (!retryAllMixed || !retryNoDist) {
+            // Retry is better — use it
+            return {
+              name: meetName || filename.replace(/\.(hy3|hyv|cl2|sd3|ev3)$/i, ""),
+              date: meetDate || new Date().toISOString().slice(0, 10),
+              endDate: meetEndDate || undefined,
+              location: facility, course, events: retryEvents, sessions,
+            };
+          }
+        }
+      }
+
       return {
         name: meetName || filename.replace(/\.(hy3|hyv|cl2|sd3|ev3)$/i, ""),
         date: meetDate || new Date().toISOString().slice(0, 10),
@@ -3899,8 +3962,10 @@ export default function ApexAthletePage() {
           if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
             let dataUrl = "";
             try { dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`; } catch { dataUrl = ""; }
+            // Check if a meet with same name already exists — replace it
+            const existingIdx = meets.findIndex(m => m.name === parsed.name);
             const newMeet: SwimMeet = {
-              id: `meet-${Date.now()}`,
+              id: existingIdx >= 0 ? meets[existingIdx].id : `meet-${Date.now()}`,
               name: parsed.name || file.name,
               date: parsed.date || new Date().toISOString().slice(0, 10),
               endDate: parsed.endDate,
@@ -3910,18 +3975,21 @@ export default function ApexAthletePage() {
               description: `Imported from ${file.name}`,
               sessions: parsed.sessions || [],
               events: parsed.events || [],
-              rsvps: {},
-              broadcasts: [],
+              rsvps: existingIdx >= 0 ? meets[existingIdx].rsvps : {},
+              broadcasts: existingIdx >= 0 ? meets[existingIdx].broadcasts : [],
               status: "upcoming",
               files: dataUrl ? [{ id: `f-${Date.now()}`, name: file.name, dataUrl, uploadedAt: Date.now() }] : [],
             };
-            const updated = [...meets, newMeet];
+            const updated = existingIdx >= 0
+              ? meets.map((m, i) => i === existingIdx ? newMeet : m)
+              : [...meets, newMeet];
             saveMeets(updated);
-            // Show detailed import summary with first few event names
+            // Show detailed import summary
             const evCount = parsed.events?.length || 0;
-            const sampleEvents = (parsed.events || []).slice(0, 3).map(e => e.name).join(", ");
-            const moreText = evCount > 3 ? ` + ${evCount - 3} more` : "";
-            setImportStatus({ type: "success", message: `Imported "${parsed.name}" — ${evCount} events (${parsed.course || "SCY"})\n${sampleEvents}${moreText}\n${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "TBD"} at ${parsed.location || "TBD"}` });
+            const sampleEvents = (parsed.events || []).slice(0, 5).map(e => e.name).join("\n• ");
+            const moreText = evCount > 5 ? `\n+ ${evCount - 5} more events` : "";
+            const replacedText = existingIdx >= 0 ? " (replaced existing)" : "";
+            setImportStatus({ type: "success", message: `Imported "${parsed.name}"${replacedText}\n${evCount} events · ${parsed.course || "SCY"}\n• ${sampleEvents}${moreText}\n${parsed.date ? new Date(parsed.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" }) : "TBD"} at ${parsed.location || "TBD"}` });
             setTimeout(() => setEditingMeetId(newMeet.id), 1500);
           } else {
             setImportStatus({ type: "error", message: `Could not parse "${shortName}" (${text.length} chars, ${text.split(/\r?\n/).length} lines). Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
