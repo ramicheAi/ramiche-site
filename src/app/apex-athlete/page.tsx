@@ -165,6 +165,20 @@ interface Athlete {
   parentPhone?: string;
   sport?: "swimming" | "diving" | "waterpolo";
   present?: boolean;
+  // v7 — best times from SwimCloud / manual entry
+  bestTimes?: BestTime[];
+  bestTimesUpdated?: string; // ISO date of last fetch
+}
+
+interface BestTime {
+  event: string;       // "100"
+  stroke: string;      // "Freestyle"
+  time: string;        // "52.34"
+  seconds: number;     // 52.34
+  course: "SCY" | "SCM" | "LCM";
+  meet?: string;
+  date?: string;
+  source: "swimcloud" | "manual" | "import";
 }
 
 // ── meet entry types ────────────────────────────────────────
@@ -962,6 +976,96 @@ export default function ApexAthletePage() {
   const [commsMsg, setCommsMsg] = useState("");
   const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
   const [absenceReports, setAbsenceReports] = useState<{ id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[]>([]);
+
+  // ── best times state ──
+  const [fetchingTimes, setFetchingTimes] = useState<string | null>(null); // athleteId currently fetching
+  const [fetchingTimesAll, setFetchingTimesAll] = useState(false);
+  const [bestTimesStatus, setBestTimesStatus] = useState<string | null>(null);
+
+  // Helper: get best time for a specific athlete/event/stroke/course
+  const getAthletesBestTime = useCallback((athleteId: string, event: string, stroke: string, course: "SCY" | "SCM" | "LCM" = "SCY"): BestTime | null => {
+    const athlete = roster.find(a => a.name === athleteId || a.id === athleteId);
+    if (!athlete?.bestTimes) return null;
+    return athlete.bestTimes.find(t => t.event === event && t.stroke === stroke && t.course === course) || null;
+  }, [roster]);
+
+  // Helper: parse time string to seconds
+  const parseTimeToSecs = (t: string): number => {
+    if (!t) return 0;
+    const clean = t.replace(/[^0-9:.]/g, "").trim();
+    const parts = clean.split(":");
+    if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+    return parseFloat(clean) || 0;
+  };
+
+  // Fetch best times from SwimCloud for a single athlete
+  const fetchBestTimes = useCallback(async (athlete: Athlete) => {
+    if (!athlete.name) return;
+    setFetchingTimes(athlete.id);
+    try {
+      const res = await fetch("/api/swimcloud", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: athlete.name, usaSwimmingId: athlete.usaSwimmingId }),
+      });
+      const data = await res.json();
+      if (data.times && data.times.length > 0) {
+        const updated = roster.map(a => {
+          if (a.id !== athlete.id) return a;
+          return { ...a, bestTimes: data.times, bestTimesUpdated: new Date().toISOString().slice(0, 10) };
+        });
+        setRoster(updated);
+        save(K.ROSTER, updated);
+        syncSaveRoster(K.ROSTER, selectedGroup, updated);
+        setBestTimesStatus(`${data.times.length} times found for ${athlete.name}`);
+      } else {
+        setBestTimesStatus(data.message || `No times found for ${athlete.name}`);
+      }
+    } catch {
+      setBestTimesStatus(`Error fetching times for ${athlete.name}`);
+    } finally {
+      setFetchingTimes(null);
+      setTimeout(() => setBestTimesStatus(null), 4000);
+    }
+  }, [roster]);
+
+  // Fetch best times for all athletes in the current group
+  const fetchAllBestTimes = useCallback(async () => {
+    setFetchingTimesAll(true);
+    setBestTimesStatus("Fetching times for all athletes...");
+    let found = 0;
+    let failed = 0;
+    const athletes = roster.filter(a => a.group === selectedGroup && a.sport !== "diving" && a.sport !== "waterpolo");
+    for (const athlete of athletes) {
+      try {
+        const res = await fetch("/api/swimcloud", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: athlete.name, usaSwimmingId: athlete.usaSwimmingId }),
+        });
+        const data = await res.json();
+        if (data.times && data.times.length > 0) {
+          found++;
+          setRoster(prev => {
+            const updated = prev.map(a => a.id !== athlete.id ? a : { ...a, bestTimes: data.times, bestTimesUpdated: new Date().toISOString().slice(0, 10) });
+            save(K.ROSTER, updated);
+            syncSaveRoster(K.ROSTER, selectedGroup, updated);
+            return updated;
+          });
+        } else {
+          failed++;
+        }
+        setBestTimesStatus(`Fetching... ${found + failed}/${athletes.length} (${found} found)`);
+        // Rate limit — don't hammer SwimCloud
+        await new Promise(r => setTimeout(r, 800));
+      } catch {
+        failed++;
+      }
+    }
+    setBestTimesStatus(`Done! ${found} athletes with times, ${failed} not found`);
+    setFetchingTimesAll(false);
+    setTimeout(() => setBestTimesStatus(null), 6000);
+  }, [roster, selectedGroup]);
 
   const saveCoaches = useCallback((c: CoachAccess[]) => { setCoaches(c); save(K.COACHES, c); }, []);
   const addCoach = useCallback(() => {
@@ -4125,12 +4229,22 @@ export default function ApexAthletePage() {
     };
     const enterGroupToEvent = (meetId: string, eventId: string, groupId: string) => {
       const groupAthletes = INITIAL_ROSTER.filter(a => a.group.toLowerCase().includes(groupId.toLowerCase()));
+      const meet = meets.find(m => m.id === meetId);
       saveMeets(meets.map(m => {
         if (m.id !== meetId) return m;
         return { ...m, events: m.events.map(ev => {
           if (ev.id !== eventId) return ev;
           const existing = new Set(ev.entries.map(e => e.athleteId));
-          const newEntries = groupAthletes.filter(a => !existing.has(a.name)).map(a => ({ athleteId: a.name, seedTime: "" }));
+          const newEntries = groupAthletes.filter(a => !existing.has(a.name)).map(a => {
+            // Auto-populate seed time from best times
+            const rosterAthlete = roster.find(r => r.name === a.name);
+            let seedTime = "";
+            if (rosterAthlete?.bestTimes && ev.distance && ev.stroke) {
+              const bt = rosterAthlete.bestTimes.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (meet?.course || "SCY"));
+              if (bt) seedTime = bt.time;
+            }
+            return { athleteId: a.name, seedTime };
+          });
           return { ...ev, entries: [...ev.entries, ...newEntries] };
         })};
       }));
@@ -4143,13 +4257,21 @@ export default function ApexAthletePage() {
       saveMeets(meets.map(m => m.id === meetId ? { ...m, events: m.events.filter(e => e.id !== eventId) } : m));
     };
     const toggleAthleteEntry = (meetId: string, eventId: string, athleteId: string) => {
+      const meet = meets.find(m => m.id === meetId);
       saveMeets(meets.map(m => {
         if (m.id !== meetId) return m;
         return { ...m, events: m.events.map(ev => {
           if (ev.id !== eventId) return ev;
           const exists = ev.entries.find(e => e.athleteId === athleteId);
           if (exists) return { ...ev, entries: ev.entries.filter(e => e.athleteId !== athleteId) };
-          return { ...ev, entries: [...ev.entries, { athleteId, seedTime: "" }] };
+          // Auto-populate seed time from best times
+          let seedTime = "";
+          const rosterAthlete = roster.find(r => r.name === athleteId);
+          if (rosterAthlete?.bestTimes && ev.distance && ev.stroke) {
+            const bt = rosterAthlete.bestTimes.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (meet?.course || "SCY"));
+            if (bt) seedTime = bt.time;
+          }
+          return { ...ev, entries: [...ev.entries, { athleteId, seedTime }] };
         })};
       }));
     };
@@ -4545,6 +4667,43 @@ export default function ApexAthletePage() {
                     </label>
                   </Card>
 
+                  {/* Fetch Best Times from SwimCloud */}
+                  <Card className="p-4">
+                    <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-2">Best Times (SwimCloud)</h4>
+                    <p className="text-xs text-white/40 mb-3">Auto-fetch best times from USA Swimming records. Times auto-populate as seed times for event entry and filter athletes by qualifying standards.</p>
+                    <div className="flex gap-2">
+                      <button onClick={fetchAllBestTimes} disabled={fetchingTimesAll}
+                        className={`flex-1 flex items-center justify-center gap-2 py-4 px-4 rounded-xl text-base font-bold transition-all min-h-[56px] active:scale-[0.97] ${
+                          fetchingTimesAll
+                            ? "bg-[#00f0ff]/10 text-[#00f0ff]/50 cursor-wait"
+                            : "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/25 hover:bg-[#00f0ff]/25"
+                        }`}>
+                        <svg className={`w-5 h-5 ${fetchingTimesAll ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {fetchingTimesAll ? "Fetching..." : "Fetch All Best Times"}
+                      </button>
+                    </div>
+                    {bestTimesStatus && (
+                      <p className={`text-sm mt-2 ${bestTimesStatus.includes("Error") || bestTimesStatus.includes("not found") ? "text-red-400/70" : "text-emerald-400/70"}`}>
+                        {bestTimesStatus}
+                      </p>
+                    )}
+                    {/* Show athletes with/without times */}
+                    {(() => {
+                      const withTimes = filteredRoster.filter(a => a.bestTimes && a.bestTimes.length > 0).length;
+                      const total = filteredRoster.length;
+                      return withTimes > 0 && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="flex-1 h-2 bg-white/[0.06] rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-400 rounded-full transition-all" style={{ width: `${(withTimes / total) * 100}%` }} />
+                          </div>
+                          <span className="text-sm font-bold text-white/50">{withTimes}/{total} with times</span>
+                        </div>
+                      );
+                    })()}
+                  </Card>
+
                   {/* Message Parents */}
                   <Card className="p-4">
                     <h4 className="text-sm font-bold text-white/60 uppercase tracking-wider mb-2">Message Parents</h4>
@@ -4734,27 +4893,57 @@ export default function ApexAthletePage() {
                                   </button>
                                 </div>
                               </div>
-                              {/* Quick-add group buttons — gender-filtered */}
+                              {/* Quick-add group buttons — gender-filtered + QT-aware */}
                               <div className="px-5 pb-5">
+                                {/* QT filter indicator */}
+                                {ev.qualifyingTime && ev.distance && ev.stroke && (
+                                  <div className="flex items-center gap-2 mb-3 px-1">
+                                    <span className="text-xs font-bold text-[#f59e0b]/70 uppercase tracking-wider">Auto-filtering by QT {ev.qualifyingTime}</span>
+                                    <span className="text-xs text-white/30">— only athletes with qualifying times shown</span>
+                                  </div>
+                                )}
                                 <div className="flex flex-wrap gap-2.5">
                                   {ROSTER_GROUPS.filter(g => g.id !== "diving" && g.id !== "waterpolo").map(g => {
                                     let groupAthletes = INITIAL_ROSTER.filter(a => a.group.toLowerCase().includes(g.id.toLowerCase()));
                                     // Filter by event gender if specific
                                     if (ev.gender === "M") groupAthletes = groupAthletes.filter(a => a.gender === "M");
                                     if (ev.gender === "F") groupAthletes = groupAthletes.filter(a => a.gender === "F");
+                                    // Count how many qualify based on best times vs QT
+                                    let qualifiedCount = 0;
+                                    if (ev.qualifyingTime && ev.distance && ev.stroke) {
+                                      const qtSecs = parseTimeToSecs(ev.qualifyingTime);
+                                      groupAthletes.forEach(a => {
+                                        const ra = roster.find(r => r.name === a.name);
+                                        const bt = ra?.bestTimes?.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (editMeet.course || "SCY"));
+                                        if (bt && bt.seconds <= qtSecs) qualifiedCount++;
+                                      });
+                                    }
                                     if (groupAthletes.length === 0) return null;
                                     const enteredFromGroup = groupAthletes.filter(a => ev.entries.some(e => e.athleteId === a.name)).length;
                                     const allEntered = enteredFromGroup === groupAthletes.length;
                                     return (
                                       <button key={g.id} onClick={() => {
-                                        // Enter only gender-matched athletes from this group
-                                        const toEnter = groupAthletes.filter(a => !ev.entries.some(e => e.athleteId === a.name));
+                                        // Enter only gender-matched athletes from this group — auto-populate seed times
+                                        let toEnter = groupAthletes.filter(a => !ev.entries.some(e => e.athleteId === a.name));
+                                        // If QT exists, only enter athletes who qualify
+                                        if (ev.qualifyingTime && ev.distance && ev.stroke) {
+                                          const qtSecs = parseTimeToSecs(ev.qualifyingTime);
+                                          toEnter = toEnter.filter(a => {
+                                            const ra = roster.find(r => r.name === a.name);
+                                            const bt = ra?.bestTimes?.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (editMeet.course || "SCY"));
+                                            return bt && bt.seconds <= qtSecs;
+                                          });
+                                        }
                                         if (toEnter.length === 0) return;
                                         saveMeets(meets.map(m => {
                                           if (m.id !== editMeet.id) return m;
                                           return { ...m, events: m.events.map(e => {
                                             if (e.id !== ev.id) return e;
-                                            return { ...e, entries: [...e.entries, ...toEnter.map(a => ({ athleteId: a.name, seedTime: "" }))] };
+                                            return { ...e, entries: [...e.entries, ...toEnter.map(a => {
+                                              const ra = roster.find(r => r.name === a.name);
+                                              const bt = ra?.bestTimes?.find(t => t.event === String(ev.distance) && t.stroke === ev.stroke && t.course === (editMeet.course || "SCY"));
+                                              return { athleteId: a.name, seedTime: bt?.time || "" };
+                                            })] };
                                           })};
                                         }));
                                       }}
@@ -4766,17 +4955,21 @@ export default function ApexAthletePage() {
                                         style={!allEntered ? { color: g.color + "90" } : undefined}>
                                         {allEntered ? "✓ " : "+ "}{g.name}
                                         <span className="text-sm opacity-60 ml-1.5">{enteredFromGroup}/{groupAthletes.length}</span>
+                                        {ev.qualifyingTime && qualifiedCount > 0 && (
+                                          <span className="text-xs ml-1 text-[#f59e0b]">({qualifiedCount} qualify)</span>
+                                        )}
                                       </button>
                                     );
                                   })}
                                 </div>
-                                {/* Entered athletes */}
+                                {/* Entered athletes — show seed times */}
                                 {entryCount > 0 && (
                                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
                                     {ev.entries.map(e => (
                                       <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
                                         className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl bg-[#00f0ff]/10 text-[#00f0ff]/70 border border-[#00f0ff]/20 hover:bg-red-500/15 hover:text-red-400 hover:border-red-400/25 transition-all active:scale-[0.96]">
-                                        {e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}
+                                        <span>{e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}</span>
+                                        {e.seedTime && <span className="text-sm font-mono ml-2 text-emerald-400">{e.seedTime}</span>}
                                       </button>
                                     ))}
                                   </div>
