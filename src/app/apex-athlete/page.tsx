@@ -3973,10 +3973,18 @@ export default function ApexAthletePage() {
               : (strokeMapNum[strokeNum] || "Free");
             gender = genderCode === "M" ? "M" : genderCode === "F" ? "F" : "Mixed";
             const rawQT = (row[9] || "").trim();
-            qualTime = isValidTime(rawQT) ? rawQT : "";
-            // Also check index 13 for cut time
             const rawCut = (row[13] || "").trim();
-            if (isValidTime(rawCut)) cutTimeVal = rawCut;
+            const ev3TimeA = isValidTime(rawQT) ? rawQT : "";
+            const ev3TimeB = isValidTime(rawCut) ? rawCut : "";
+            if (ev3TimeA && ev3TimeB && ev3TimeA !== ev3TimeB) {
+              const secsA = parseTimeToSecs(ev3TimeA);
+              const secsB = parseTimeToSecs(ev3TimeB);
+              qualTime = secsA < secsB ? ev3TimeA : ev3TimeB; // faster = qualifying standard
+              cutTimeVal = secsA < secsB ? ev3TimeB : ev3TimeA; // slower = consideration
+            } else {
+              qualTime = ev3TimeA || ev3TimeB;
+              cutTimeVal = "";
+            }
           } else {
             // HY3 row: evNum;evNum;sessionType;session;I/R;gender(W/M);0;109;distance;strokeCode;...
             dist = (row[8] || "").trim();
@@ -3988,10 +3996,19 @@ export default function ApexAthletePage() {
               ? (strokeCode === "A" ? "Free Relay" : "Medley Relay")
               : (strokeMap[strokeCode] || "Free");
             gender = genderCode === "M" ? "M" : (genderCode === "W" || genderCode === "F") ? "F" : "Mixed";
-            // HY3: QT is at index 16, cut time at index 20. Prioritize correctly.
-            qualTime = findHy3Time(row, [16, 15, 17]);
-            cutTimeVal = findHy3Time(row, [20, 21, 19]);
-            if (cutTimeVal === qualTime) cutTimeVal = ""; // don't duplicate
+            // HY3: index 16 = bonus/consideration time (slower), index 20 = qualifying standard (faster)
+            // For filtering, qualifyingTime should be the actual standard (faster)
+            const timeA = findHy3Time(row, [16, 15, 17]);
+            const timeB = findHy3Time(row, [20, 21, 19]);
+            if (timeA && timeB && timeA !== timeB) {
+              const secsA = parseTimeToSecs(timeA);
+              const secsB = parseTimeToSecs(timeB);
+              qualTime = secsA < secsB ? timeA : timeB; // faster = qualifying standard
+              cutTimeVal = secsA < secsB ? timeB : timeA; // slower = consideration/bonus
+            } else {
+              qualTime = timeA || timeB;
+              cutTimeVal = "";
+            }
             dayNum = parseInt(row[23] || "") || undefined;
           }
 
@@ -4940,7 +4957,7 @@ export default function ApexAthletePage() {
                                       <span className="text-sm font-mono font-bold px-3 py-1 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]">QT {ev.qualifyingTime}</span>
                                     )}
                                     {ev.cutTime && (
-                                      <span className="text-sm font-mono font-bold px-3 py-1 rounded-full bg-white/[0.04] text-white/50">Cut {ev.cutTime}</span>
+                                      <span className="text-sm font-mono font-bold px-3 py-1 rounded-full bg-white/[0.04] text-white/50">Bonus {ev.cutTime}</span>
                                     )}
                                   </div>
                                 </div>
@@ -4960,9 +4977,10 @@ export default function ApexAthletePage() {
                               <div className="px-5 pb-5">
                                 {/* QT filter indicator */}
                                 {ev.qualifyingTime && ev.distance && ev.stroke && (
-                                  <div className="flex items-center gap-2 mb-3 px-1">
+                                  <div className="flex items-center gap-2 mb-3 px-1 flex-wrap">
                                     <span className="text-xs font-bold text-[#f59e0b]/70 uppercase tracking-wider">QT {ev.qualifyingTime}</span>
-                                    <span className="text-xs text-white/30">— athletes with times shown. Green = qualifies, Amber = close, Red = needs work</span>
+                                    {ev.cutTime && <span className="text-xs text-white/30">Bonus {ev.cutTime}</span>}
+                                    <span className="text-xs text-white/20">— Green = qualifies, Amber = close</span>
                                   </div>
                                 )}
                                 <div className="flex flex-wrap gap-2.5">
