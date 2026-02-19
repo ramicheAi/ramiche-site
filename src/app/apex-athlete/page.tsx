@@ -228,7 +228,7 @@ interface SessionRecord {
   id: string;
   date: string; // YYYY-MM-DD
   group: string;
-  sessionTime: "am" | "pm";
+  sessionTime: "am" | "pm" | "auto" | "manual";
   sessionMode: "pool" | "weight" | "meet";
   startedAt: number; // timestamp
   endedAt: number; // timestamp when auto-saved
@@ -806,6 +806,7 @@ const K = {
   MEETS: "apex-meets-v1",
   SESSION_HISTORY: "apex-session-history-v1",
   LAST_SESSION_ID: "apex-last-session-id",
+  LAST_ACTIVITY_TS: "apex-last-activity-ts",
 };
 
 const STANDARD_SWIM_EVENTS: { name: string; courses: ("SCY" | "SCM" | "LCM")[] }[] = [
@@ -1435,110 +1436,79 @@ export default function ApexAthletePage() {
     return () => clearInterval(iv);
   }, [mounted, autoSession, schedules, selectedGroup]);
 
-  // ── auto-reset between sessions ─────────────────────────
-  // When a new scheduled session starts (or 3 hours after the last one ended),
-  // snapshot the current session data and clear checkpoints for a fresh slate.
+  // ── auto-reset between sessions (simplified) ───────────
+  // On load: if check-in data exists and either (a) date changed or (b) 3+ hours
+  // since last activity, snapshot it and clear for a fresh slate. No schedule dependency.
+  const autoResetRanRef = useRef(false);
   useEffect(() => {
-    if (!mounted || roster.length === 0 || schedules.length === 0) return;
-    const checkAutoReset = () => {
-      const now = new Date();
-      const dayMap: Record<number, DayOfWeek> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
-      const dayKey = dayMap[now.getDay()];
-      const groupSched = schedules.find(s => s.groupId === selectedGroup);
-      if (!groupSched) return;
-      const daySched = groupSched.weekSchedule[dayKey];
-      if (!daySched || daySched.sessions.length === 0) return;
-      const nowMins = now.getHours() * 60 + now.getMinutes();
+    if (!mounted || roster.length === 0 || autoResetRanRef.current) return;
+    autoResetRanRef.current = true; // run once per mount
 
-      // Build a session ID from today's date + the closest session start time
-      // This changes when a new practice window begins
-      let currentSessionId = "";
-      for (const sess of daySched.sessions) {
-        const [sh, sm] = sess.startTime.split(":").map(Number);
-        const [eh, em] = sess.endTime.split(":").map(Number);
-        const startMins = sh * 60 + sm;
-        const endMins = eh * 60 + em;
-        // Within session window (30 min before start to 3 hours after end)
-        if (nowMins >= startMins - 30 && nowMins <= endMins + 180) {
-          currentSessionId = `${today()}-${sess.startTime}-${selectedGroup}`;
-          break;
-        }
-      }
-      // If no session window matched, check if we're before the first session of the day
-      if (!currentSessionId && daySched.sessions.length > 0) {
-        const firstStart = daySched.sessions[0].startTime.split(":").map(Number);
-        const firstMins = firstStart[0] * 60 + firstStart[1];
-        if (nowMins < firstMins) {
-          currentSessionId = `${today()}-${daySched.sessions[0].startTime}-${selectedGroup}-pre`;
-        }
-      }
+    const groupAthletes = roster.filter(a => a.group === selectedGroup);
+    const hasAnyCheckins = groupAthletes.some(a =>
+      a.present ||
+      Object.values(a.checkpoints).some(Boolean) ||
+      Object.values(a.weightCheckpoints).some(Boolean) ||
+      Object.values(a.meetCheckpoints).some(Boolean)
+    );
+    if (!hasAnyCheckins) return; // nothing to reset
 
-      if (!currentSessionId) return; // Outside any session window
+    const lastActivityTs = load<number>(K.LAST_ACTIVITY_TS, 0);
+    const lastSessionId = load<string>(K.LAST_SESSION_ID, "");
+    const now = Date.now();
+    const hoursSinceActivity = lastActivityTs > 0 ? (now - lastActivityTs) / 3600000 : 999;
+    const lastDate = lastSessionId ? lastSessionId.slice(0, 10) : "";
+    const todayStr = today();
+    const dateChanged = lastDate !== "" && lastDate !== todayStr;
+    const stale = hoursSinceActivity >= 3;
 
-      const lastId = lastSessionIdRef.current;
-      if (lastId && lastId !== currentSessionId) {
-        // Session changed! Snapshot the old session and clear checkpoints
-        const groupAthletes = roster.filter(a => a.group === selectedGroup);
-        const hasAnyCheckins = groupAthletes.some(a =>
-          Object.values(a.checkpoints).some(Boolean) ||
-          Object.values(a.weightCheckpoints).some(Boolean) ||
-          Object.values(a.meetCheckpoints).some(Boolean) ||
-          a.present
-        );
+    if (!dateChanged && !stale) return; // same session, still fresh
 
-        if (hasAnyCheckins) {
-          // Save session record before clearing
-          const sessionRecord: SessionRecord = {
-            id: lastId,
-            date: lastId.split("-").slice(0, 3).join("-"), // YYYY-MM-DD
-            group: selectedGroup,
-            sessionTime: lastId.includes("-pre") ? "am" : (parseInt(lastId.split("-")[3]?.split(":")[0] || "12") < 12 ? "am" : "pm"),
-            sessionMode: sessionMode,
-            startedAt: Date.now() - 180 * 60000, // approximate
-            endedAt: Date.now(),
-            presentAthletes: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).map(a => a.id),
-            checkpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.checkpoints }])),
-            weightCheckpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.weightCheckpoints }])),
-            xpAwarded: Object.fromEntries(groupAthletes.map(a => [a.id, a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
-            totalAttendance: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).length,
-            totalAthletes: groupAthletes.length,
-            notes: "",
-          };
-
-          setSessionHistory(prev => {
-            const updated = [...prev.filter(s => s.id !== lastId), sessionRecord].slice(-200); // keep last 200 sessions
-            save(K.SESSION_HISTORY, updated);
-            return updated;
-          });
-
-          // Clear checkpoints for this group — fresh slate
-          const cleared = roster.map(a => {
-            if (a.group !== selectedGroup) return a;
-            return {
-              ...a,
-              present: false,
-              checkpoints: {} as Record<string, boolean>,
-              weightCheckpoints: {} as Record<string, boolean>,
-              meetCheckpoints: {} as Record<string, boolean>,
-            };
-          });
-          setRoster(cleared);
-          save(K.ROSTER, cleared);
-          syncSaveRoster(K.ROSTER, selectedGroup, cleared);
-        }
-      }
-
-      // Update the current session ID
-      if (currentSessionId !== lastSessionIdRef.current) {
-        lastSessionIdRef.current = currentSessionId;
-        save(K.LAST_SESSION_ID, currentSessionId);
-      }
+    // Snapshot the stale session before clearing
+    const sessionId = lastSessionId || `${todayStr}-unknown-${selectedGroup}`;
+    const sessionRecord: SessionRecord = {
+      id: sessionId,
+      date: lastDate || todayStr,
+      group: selectedGroup,
+      sessionTime: "auto",
+      sessionMode: sessionMode,
+      startedAt: lastActivityTs || now - 7200000,
+      endedAt: lastActivityTs || now,
+      presentAthletes: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).map(a => a.id),
+      checkpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.checkpoints }])),
+      weightCheckpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.weightCheckpoints }])),
+      xpAwarded: Object.fromEntries(groupAthletes.map(a => [a.id, a.dailyXP.date === todayStr ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
+      totalAttendance: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).length,
+      totalAthletes: groupAthletes.length,
+      notes: "",
     };
 
-    checkAutoReset();
-    const iv = setInterval(checkAutoReset, 60000); // check every minute
-    return () => clearInterval(iv);
-  }, [mounted, roster, schedules, selectedGroup, sessionMode]);
+    setSessionHistory(prev => {
+      const updated = [...prev.filter(s => s.id !== sessionId), sessionRecord].slice(-200);
+      save(K.SESSION_HISTORY, updated);
+      return updated;
+    });
+
+    // Clear checkpoints for this group — fresh slate
+    const cleared = roster.map(a => {
+      if (a.group !== selectedGroup) return a;
+      return {
+        ...a,
+        present: false,
+        checkpoints: {} as Record<string, boolean>,
+        weightCheckpoints: {} as Record<string, boolean>,
+        meetCheckpoints: {} as Record<string, boolean>,
+      };
+    });
+    setRoster(cleared);
+    save(K.ROSTER, cleared);
+    syncSaveRoster(K.ROSTER, selectedGroup, cleared);
+    // Set new session ID for today
+    const newId = `${todayStr}-${new Date().getHours().toString().padStart(2, "0")}:${new Date().getMinutes().toString().padStart(2, "0")}-${selectedGroup}`;
+    lastSessionIdRef.current = newId;
+    save(K.LAST_SESSION_ID, newId);
+    save(K.LAST_ACTIVITY_TS, now);
+  }, [mounted, roster, selectedGroup, sessionMode]);
 
   // ── auto-snapshot ────────────────────────────────────────
   useEffect(() => {
@@ -1673,7 +1643,11 @@ export default function ApexAthletePage() {
       }
       addAudit(final.id, final.name, `Checked: ${cpId}`, awarded);
       if (e) spawnXpFloat(awarded, e);
-      const r = [...prev]; r[idx] = final; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r); return r;
+      const r = [...prev]; r[idx] = final; save(K.ROSTER, r); syncSaveRoster(K.ROSTER, selectedGroup, r);
+      save(K.LAST_ACTIVITY_TS, Date.now()); // track activity for auto-reset
+      const sid = `${today()}-${new Date().getHours().toString().padStart(2, "0")}:${new Date().getMinutes().toString().padStart(2, "0")}-${selectedGroup}`;
+      if (!lastSessionIdRef.current || !lastSessionIdRef.current.startsWith(today())) { lastSessionIdRef.current = sid; save(K.LAST_SESSION_ID, sid); }
+      return r;
     });
   }, [awardXP, addAudit, spawnXpFloat, selectedGroup]);
 
@@ -5792,6 +5766,20 @@ export default function ApexAthletePage() {
                     <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                     <div className="absolute right-0 top-full mt-1 z-50 bg-[#0a0315]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] py-1 min-w-[160px]">
                       <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
+                      <button onClick={() => {
+                        setShowMoreMenu(false);
+                        // End session: snapshot current check-ins + clear for fresh slate
+                        const groupAthletes = roster.filter(a => a.group === selectedGroup);
+                        const hasCheckins = groupAthletes.some(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean) || Object.values(a.meetCheckpoints).some(Boolean));
+                        if (!hasCheckins) return;
+                        const sid = lastSessionIdRef.current || `${today()}-manual-${selectedGroup}`;
+                        const rec: SessionRecord = { id: sid, date: today(), group: selectedGroup, sessionTime: "manual", sessionMode, startedAt: load<number>(K.LAST_ACTIVITY_TS, Date.now()), endedAt: Date.now(), presentAthletes: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).map(a => a.id), checkpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.checkpoints }])), weightCheckpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.weightCheckpoints }])), xpAwarded: Object.fromEntries(groupAthletes.map(a => [a.id, a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])), totalAttendance: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).length, totalAthletes: groupAthletes.length, notes: "" };
+                        setSessionHistory(prev => { const u = [...prev.filter(s => s.id !== sid), rec].slice(-200); save(K.SESSION_HISTORY, u); return u; });
+                        const cleared = roster.map(a => a.group !== selectedGroup ? a : { ...a, present: false, checkpoints: {} as Record<string, boolean>, weightCheckpoints: {} as Record<string, boolean>, meetCheckpoints: {} as Record<string, boolean> });
+                        setRoster(cleared); save(K.ROSTER, cleared); syncSaveRoster(K.ROSTER, selectedGroup, cleared);
+                        const newSid = `${today()}-${new Date().getHours().toString().padStart(2, "0")}:${new Date().getMinutes().toString().padStart(2, "0")}-${selectedGroup}-new`;
+                        lastSessionIdRef.current = newSid; save(K.LAST_SESSION_ID, newSid); save(K.LAST_ACTIVITY_TS, Date.now());
+                      }} className="w-full text-left px-4 py-3 text-[#22d3ee] text-xs font-mono font-bold hover:bg-[#22d3ee]/10 transition-colors">End Session + Save</button>
                       <button onClick={() => { setShowMoreMenu(false); setViewingSession(sessionHistory.filter(s => s.group === selectedGroup).slice(-1)[0] || null); }} className="w-full text-left px-4 py-3 text-[#22d3ee]/60 text-xs font-mono hover:bg-[#22d3ee]/10 hover:text-[#22d3ee]/80 transition-colors">Session History ({sessionHistory.filter(s => s.group === selectedGroup).length})</button>
                       <div className="border-t border-white/[0.06] my-1" />
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
