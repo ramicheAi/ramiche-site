@@ -732,7 +732,69 @@ const K = {
   WELLNESS: "apex-athlete-wellness-v1",
   MEETS: "apex-meets-v1",
   LAST_SESSION: "apex-athlete-last-session-v1",
+  SESSION_HISTORY: "apex-athlete-session-history-v1",
+  ACTIVE_SESSION: "apex-athlete-active-session-v1",
 };
+
+interface SessionRecord {
+  id: string;
+  date: string;
+  group: string;
+  startTime: string;
+  endTime: string;
+  sessionType: "am" | "pm";
+  attendance: { id: string; name: string; present: boolean; checkpoints: Record<string, boolean>; weightCheckpoints: Record<string, boolean>; }[];
+  totalPresent: number;
+  totalAthletes: number;
+  locked: boolean;
+}
+
+// Get the current scheduled practice session for a group, or null if none
+function getCurrentScheduledSession(group: string): { startTime: string; endTime: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const schedules = JSON.parse(localStorage.getItem("apex-athlete-schedules-v1") || "[]");
+    const now = new Date();
+    const dayMap: Record<number, string> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
+    const dayKey = dayMap[now.getDay()];
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    for (const gs of schedules) {
+      if (gs.groupId !== group) continue;
+      const day = gs.weekSchedule?.[dayKey];
+      if (!day?.sessions?.length) continue;
+      for (const sess of day.sessions) {
+        const [sh, sm] = sess.startTime.split(":").map(Number);
+        const [eh, em] = sess.endTime.split(":").map(Number);
+        const startMins = sh * 60 + sm;
+        const endMins = eh * 60 + em;
+        // Within session window (30 min before start to 3 hours after end)
+        if (nowMins >= startMins - 30 && nowMins <= endMins + 180) {
+          return { startTime: sess.startTime, endTime: sess.endTime };
+        }
+      }
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+// Check if the current practice session has ended (3 hours past end time)
+function isSessionExpired(group: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    const active = JSON.parse(localStorage.getItem("apex-athlete-active-session-v1") || "null");
+    if (!active || active.group !== group) return false;
+    const now = new Date();
+    const [eh, em] = (active.endTime || "18:00").split(":").map(Number);
+    const endMins = eh * 60 + em;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const activeDate = active.date || "";
+    const todayStr = now.toISOString().slice(0, 10);
+    // If the active session is from a previous day, it's expired
+    if (activeDate < todayStr) return true;
+    // If 3 hours past end time, it's expired
+    return nowMins > endMins + 180;
+  } catch { return false; }
+}
 
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -1005,41 +1067,129 @@ export default function ApexAthletePage() {
     }
   }, []);
 
-  // ── auto-session detection: reset check-ins for new practice ──
+  // ── session history state ──
+  const [sessionHistory, setSessionHistory] = useState<SessionRecord[]>([]);
+  const [showSessionHistory, setShowSessionHistory] = useState(false);
+  const [editingHistorySession, setEditingHistorySession] = useState<string | null>(null);
+
+  // Load session history on mount
+  useEffect(() => {
+    if (!mounted) return;
+    setSessionHistory(load<SessionRecord[]>(K.SESSION_HISTORY, []));
+  }, [mounted]);
+
+  // Save a session to history and clear current attendance
+  const endCurrentSession = useCallback(() => {
+    const groupRoster = roster.filter(a => a.group === selectedGroup);
+    const hadCheckins = groupRoster.some(a => a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean));
+    if (!hadCheckins) return; // Nothing to save
+
+    const sessionId = `${today()}-${sessionTime}-${selectedGroup}-${Date.now()}`;
+    const record: SessionRecord = {
+      id: sessionId,
+      date: today(),
+      group: selectedGroup,
+      startTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      endTime: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+      sessionType: sessionTime,
+      attendance: groupRoster.map(a => ({
+        id: a.id, name: a.name, present: a.present ?? false,
+        checkpoints: a.checkpoints || {}, weightCheckpoints: a.weightCheckpoints || {},
+      })),
+      totalPresent: groupRoster.filter(a => a.present).length,
+      totalAthletes: groupRoster.length,
+      locked: false,
+    };
+
+    // Save to history
+    const history = load<SessionRecord[]>(K.SESSION_HISTORY, []);
+    history.unshift(record);
+    // Keep last 100 sessions
+    const trimmed = history.slice(0, 100);
+    save(K.SESSION_HISTORY, trimmed);
+    setSessionHistory(trimmed);
+
+    // Also save DailySnapshot for analytics
+    const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
+    const att = groupRoster.filter(a => a.present).length;
+    snaps.push({
+      date: today(), attendance: att, totalAthletes: groupRoster.length,
+      totalXPAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
+      poolCheckins: groupRoster.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
+      weightCheckins: groupRoster.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
+      meetCheckins: groupRoster.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+      questsCompleted: 0, challengesCompleted: 0,
+      athleteXPs: Object.fromEntries(groupRoster.map(a => [a.id, a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
+      athleteStreaks: Object.fromEntries(groupRoster.map(a => [a.id, a.streak || 0])),
+    });
+    save(K.SNAPSHOTS, snaps);
+
+    // Clear current session — fresh slate
+    const cleared = roster.map(a => a.group !== selectedGroup ? a : ({
+      ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
+    }));
+    setRoster(cleared);
+    save(K.ROSTER, cleared);
+
+    // Clear active session marker
+    save(K.ACTIVE_SESSION, null);
+  }, [roster, selectedGroup, sessionTime]);
+
+  // ── auto-session detection: schedule-based + timer ──
   useEffect(() => {
     if (!mounted || roster.length === 0) return;
-    const sessionKey = `${today()}-${sessionTime}-${selectedGroup}`;
-    const lastSession = load<string>(K.LAST_SESSION, "");
-    if (lastSession && lastSession !== sessionKey) {
-      // New session detected — snapshot old data, then clear present + checkpoints for this group
-      const groupRoster = roster.filter(a => a.group === selectedGroup);
-      const hadCheckins = groupRoster.some(a => a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean));
-      if (hadCheckins) {
-        // Save snapshot before clearing
-        const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
-        const prevDate = lastSession.split("-").slice(0, 3).join("-") || today();
-        if (!snaps.some(s => s.date === prevDate)) {
-          const att = groupRoster.filter(a => a.present).length;
-          snaps.push({
-            date: prevDate, attendance: att, totalAthletes: groupRoster.length,
-            totalXPAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
-            poolCheckins: groupRoster.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
-            weightCheckins: groupRoster.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
-            meetCheckins: groupRoster.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
-            questsCompleted: 0, challengesCompleted: 0,
-            athleteXPs: Object.fromEntries(groupRoster.map(a => [a.id, a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
-            athleteStreaks: Object.fromEntries(groupRoster.map(a => [a.id, a.streak || 0])),
-          });
-          save(K.SNAPSHOTS, snaps);
-        }
+
+    // Check every 60 seconds if the session has expired
+    const checkExpiry = () => {
+      const active = load<{ date: string; group: string; endTime: string; sessionKey: string } | null>(K.ACTIVE_SESSION, null);
+      if (!active || active.group !== selectedGroup) return;
+
+      const now = new Date();
+      const todayStr = today();
+
+      // If active session is from a previous day, auto-end it
+      if (active.date < todayStr) {
+        endCurrentSession();
+        return;
       }
-      const cleared = roster.map(a => a.group !== selectedGroup ? a : ({
-        ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
-      }));
-      saveRoster(cleared);
+
+      // If 3 hours past the scheduled end time, auto-end
+      const [eh, em] = (active.endTime || "18:00").split(":").map(Number);
+      const endMins = eh * 60 + em;
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+      if (nowMins > endMins + 180) {
+        endCurrentSession();
+      }
+    };
+
+    // On page load, check if we need to auto-end a stale session
+    checkExpiry();
+
+    // Also set up a periodic check
+    const interval = setInterval(checkExpiry, 60000);
+    return () => clearInterval(interval);
+  }, [mounted, roster.length, selectedGroup, endCurrentSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── mark session as active when first check-in happens ──
+  useEffect(() => {
+    if (!mounted || roster.length === 0) return;
+    const groupRoster = roster.filter(a => a.group === selectedGroup);
+    const hasCheckins = groupRoster.some(a => a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean));
+    if (hasCheckins) {
+      const active = load<{ date: string; group: string } | null>(K.ACTIVE_SESSION, null);
+      if (!active || active.group !== selectedGroup || active.date !== today()) {
+        // Mark this as an active session
+        const sched = getCurrentScheduledSession(selectedGroup);
+        save(K.ACTIVE_SESSION, {
+          date: today(),
+          group: selectedGroup,
+          startTime: sched?.startTime || (sessionTime === "am" ? "06:00" : "15:00"),
+          endTime: sched?.endTime || (sessionTime === "am" ? "08:00" : "18:00"),
+          sessionKey: `${today()}-${sessionTime}-${selectedGroup}`,
+        });
+      }
     }
-    save(K.LAST_SESSION, sessionKey);
-  }, [mounted, sessionTime, selectedGroup]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mounted, roster, selectedGroup, sessionTime]);
 
   // ── auto-snapshot ────────────────────────────────────────
   useEffect(() => {
@@ -3389,6 +3539,8 @@ export default function ApexAthletePage() {
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                     <div className="absolute right-0 top-full mt-1 z-50 bg-[#0a0315]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] py-1 min-w-[160px]">
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "End current session? Attendance will be saved and a fresh slate will load.", action: endCurrentSession }); }} className="w-full text-left px-4 py-3 text-[#00f0ff]/80 text-xs font-mono hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] transition-colors font-semibold">End Session + Save</button>
+                      <button onClick={() => { setShowMoreMenu(false); setShowSessionHistory(true); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Session History</button>
                       <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
                       <div className="border-t border-white/[0.06] my-1" />
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
@@ -3415,6 +3567,68 @@ export default function ApexAthletePage() {
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
                   <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
+                </div>
+              </div>
+            )}
+
+            {/* Session History modal */}
+            {showSessionHistory && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); }}>
+                <div className="bg-[#0a0315] border border-white/10 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-white font-bold text-lg font-mono">Session History</h3>
+                    <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); }} className="text-white/40 hover:text-white text-2xl">&times;</button>
+                  </div>
+                  {sessionHistory.filter(s => s.group === selectedGroup).length === 0 ? (
+                    <p className="text-white/30 text-sm font-mono text-center py-8">No saved sessions yet. Tap &ldquo;End Session + Save&rdquo; after practice to create history.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {sessionHistory.filter(s => s.group === selectedGroup).slice(0, 20).map(session => (
+                        <div key={session.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <span className="text-white font-mono text-sm font-bold">{session.date}</span>
+                              <span className="text-white/40 font-mono text-xs ml-2">{session.sessionType.toUpperCase()} &middot; {session.startTime}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#00f0ff] font-mono text-sm font-bold">{session.totalPresent}/{session.totalAthletes}</span>
+                              <button
+                                onClick={() => setEditingHistorySession(editingHistorySession === session.id ? null : session.id)}
+                                className="text-white/30 hover:text-white/60 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors"
+                              >
+                                {editingHistorySession === session.id ? "Close" : "Edit"}
+                              </button>
+                            </div>
+                          </div>
+                          {editingHistorySession === session.id && (
+                            <div className="mt-3 space-y-1 border-t border-white/[0.06] pt-3">
+                              {session.attendance.map(a => (
+                                <div key={a.id} className="flex items-center justify-between py-1.5">
+                                  <span className="text-white/70 text-xs font-mono">{a.name}</span>
+                                  <button
+                                    onClick={() => {
+                                      const updated = sessionHistory.map(s => {
+                                        if (s.id !== session.id) return s;
+                                        const newAtt = s.attendance.map(att => att.id === a.id ? { ...att, present: !att.present } : att);
+                                        return { ...s, attendance: newAtt, totalPresent: newAtt.filter(x => x.present).length };
+                                      });
+                                      save(K.SESSION_HISTORY, updated);
+                                      setSessionHistory(updated);
+                                    }}
+                                    className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all min-w-[60px] ${
+                                      a.present ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-white/[0.03] text-white/30 border border-white/[0.06]"
+                                    }`}
+                                  >
+                                    {a.present ? "Present" : "Absent"}
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

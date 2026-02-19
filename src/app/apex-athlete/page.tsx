@@ -224,6 +224,23 @@ interface DailySnapshot {
   athleteXPs: Record<string, number>; athleteStreaks: Record<string, number>;
 }
 
+interface SessionRecord {
+  id: string;
+  date: string; // YYYY-MM-DD
+  group: string;
+  sessionTime: "am" | "pm";
+  sessionMode: "pool" | "weight" | "meet";
+  startedAt: number; // timestamp
+  endedAt: number; // timestamp when auto-saved
+  presentAthletes: string[]; // athlete IDs
+  checkpoints: Record<string, Record<string, boolean>>; // athleteId -> checkpoint -> checked
+  weightCheckpoints: Record<string, Record<string, boolean>>;
+  xpAwarded: Record<string, number>; // athleteId -> XP earned this session
+  totalAttendance: number;
+  totalAthletes: number;
+  notes: string;
+}
+
 interface TeamCulture {
   teamName: string; mission: string; seasonalGoal: string;
   goalTarget: number; goalCurrent: number; weeklyQuote: string;
@@ -787,6 +804,8 @@ const K = {
   SCHEDULES: "apex-athlete-schedules-v2",
   WELLNESS: "apex-athlete-wellness-v1",
   MEETS: "apex-meets-v1",
+  SESSION_HISTORY: "apex-session-history-v1",
+  LAST_SESSION_ID: "apex-last-session-id",
 };
 
 const STANDARD_SWIM_EVENTS: { name: string; courses: ("SCY" | "SCM" | "LCM")[] }[] = [
@@ -914,6 +933,9 @@ export default function ApexAthletePage() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
+  const [sessionHistory, setSessionHistory] = useState<SessionRecord[]>([]);
+  const [viewingSession, setViewingSession] = useState<SessionRecord | null>(null);
+  const lastSessionIdRef = useRef<string>("");
   const [culture, setCulture] = useState<TeamCulture>(DEFAULT_CULTURE);
   const [editingCulture, setEditingCulture] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
@@ -1236,6 +1258,8 @@ export default function ApexAthletePage() {
     setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
     setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
     setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
+    setSessionHistory(load<SessionRecord[]>(K.SESSION_HISTORY, []));
+    lastSessionIdRef.current = load<string>(K.LAST_SESSION_ID, "");
     setCulture(load<TeamCulture>(K.CULTURE, DEFAULT_CULTURE));
     // Load schedules
     let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
@@ -1410,6 +1434,111 @@ export default function ApexAthletePage() {
     const iv = setInterval(detect, 60000); // re-check every minute
     return () => clearInterval(iv);
   }, [mounted, autoSession, schedules, selectedGroup]);
+
+  // ── auto-reset between sessions ─────────────────────────
+  // When a new scheduled session starts (or 3 hours after the last one ended),
+  // snapshot the current session data and clear checkpoints for a fresh slate.
+  useEffect(() => {
+    if (!mounted || roster.length === 0 || schedules.length === 0) return;
+    const checkAutoReset = () => {
+      const now = new Date();
+      const dayMap: Record<number, DayOfWeek> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
+      const dayKey = dayMap[now.getDay()];
+      const groupSched = schedules.find(s => s.groupId === selectedGroup);
+      if (!groupSched) return;
+      const daySched = groupSched.weekSchedule[dayKey];
+      if (!daySched || daySched.sessions.length === 0) return;
+      const nowMins = now.getHours() * 60 + now.getMinutes();
+
+      // Build a session ID from today's date + the closest session start time
+      // This changes when a new practice window begins
+      let currentSessionId = "";
+      for (const sess of daySched.sessions) {
+        const [sh, sm] = sess.startTime.split(":").map(Number);
+        const [eh, em] = sess.endTime.split(":").map(Number);
+        const startMins = sh * 60 + sm;
+        const endMins = eh * 60 + em;
+        // Within session window (30 min before start to 3 hours after end)
+        if (nowMins >= startMins - 30 && nowMins <= endMins + 180) {
+          currentSessionId = `${today()}-${sess.startTime}-${selectedGroup}`;
+          break;
+        }
+      }
+      // If no session window matched, check if we're before the first session of the day
+      if (!currentSessionId && daySched.sessions.length > 0) {
+        const firstStart = daySched.sessions[0].startTime.split(":").map(Number);
+        const firstMins = firstStart[0] * 60 + firstStart[1];
+        if (nowMins < firstMins) {
+          currentSessionId = `${today()}-${daySched.sessions[0].startTime}-${selectedGroup}-pre`;
+        }
+      }
+
+      if (!currentSessionId) return; // Outside any session window
+
+      const lastId = lastSessionIdRef.current;
+      if (lastId && lastId !== currentSessionId) {
+        // Session changed! Snapshot the old session and clear checkpoints
+        const groupAthletes = roster.filter(a => a.group === selectedGroup);
+        const hasAnyCheckins = groupAthletes.some(a =>
+          Object.values(a.checkpoints).some(Boolean) ||
+          Object.values(a.weightCheckpoints).some(Boolean) ||
+          Object.values(a.meetCheckpoints).some(Boolean) ||
+          a.present
+        );
+
+        if (hasAnyCheckins) {
+          // Save session record before clearing
+          const sessionRecord: SessionRecord = {
+            id: lastId,
+            date: lastId.split("-").slice(0, 3).join("-"), // YYYY-MM-DD
+            group: selectedGroup,
+            sessionTime: lastId.includes("-pre") ? "am" : (parseInt(lastId.split("-")[3]?.split(":")[0] || "12") < 12 ? "am" : "pm"),
+            sessionMode: sessionMode,
+            startedAt: Date.now() - 180 * 60000, // approximate
+            endedAt: Date.now(),
+            presentAthletes: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).map(a => a.id),
+            checkpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.checkpoints }])),
+            weightCheckpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.weightCheckpoints }])),
+            xpAwarded: Object.fromEntries(groupAthletes.map(a => [a.id, a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
+            totalAttendance: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).length,
+            totalAthletes: groupAthletes.length,
+            notes: "",
+          };
+
+          setSessionHistory(prev => {
+            const updated = [...prev.filter(s => s.id !== lastId), sessionRecord].slice(-200); // keep last 200 sessions
+            save(K.SESSION_HISTORY, updated);
+            return updated;
+          });
+
+          // Clear checkpoints for this group — fresh slate
+          const cleared = roster.map(a => {
+            if (a.group !== selectedGroup) return a;
+            return {
+              ...a,
+              present: false,
+              checkpoints: {} as Record<string, boolean>,
+              weightCheckpoints: {} as Record<string, boolean>,
+              meetCheckpoints: {} as Record<string, boolean>,
+            };
+          });
+          setRoster(cleared);
+          save(K.ROSTER, cleared);
+          syncSaveRoster(K.ROSTER, selectedGroup, cleared);
+        }
+      }
+
+      // Update the current session ID
+      if (currentSessionId !== lastSessionIdRef.current) {
+        lastSessionIdRef.current = currentSessionId;
+        save(K.LAST_SESSION_ID, currentSessionId);
+      }
+    };
+
+    checkAutoReset();
+    const iv = setInterval(checkAutoReset, 60000); // check every minute
+    return () => clearInterval(iv);
+  }, [mounted, roster, schedules, selectedGroup, sessionMode]);
 
   // ── auto-snapshot ────────────────────────────────────────
   useEffect(() => {
@@ -5663,6 +5792,7 @@ export default function ApexAthletePage() {
                     <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                     <div className="absolute right-0 top-full mt-1 z-50 bg-[#0a0315]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] py-1 min-w-[160px]">
                       <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
+                      <button onClick={() => { setShowMoreMenu(false); setViewingSession(sessionHistory.filter(s => s.group === selectedGroup).slice(-1)[0] || null); }} className="w-full text-left px-4 py-3 text-[#22d3ee]/60 text-xs font-mono hover:bg-[#22d3ee]/10 hover:text-[#22d3ee]/80 transition-colors">Session History ({sessionHistory.filter(s => s.group === selectedGroup).length})</button>
                       <div className="border-t border-white/[0.06] my-1" />
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset this week's sessions and check-ins?", action: resetWeek }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Week</button>
@@ -5686,6 +5816,87 @@ export default function ApexAthletePage() {
                 <div className="flex gap-2 shrink-0">
                   <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
                   <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
+                </div>
+              </div>
+            )}
+
+            {/* Session History overlay */}
+            {viewingSession && (
+              <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setViewingSession(null)}>
+                <div className="bg-[#0a0315] border border-white/10 rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                  <div className="sticky top-0 bg-[#0a0315] border-b border-white/10 p-4 flex items-center justify-between">
+                    <h3 className="text-white font-bold text-lg">Session History</h3>
+                    <button onClick={() => setViewingSession(null)} className="text-white/40 hover:text-white/80 text-2xl leading-none">&times;</button>
+                  </div>
+                  {/* Session list */}
+                  <div className="p-4 space-y-2">
+                    {sessionHistory.filter(s => s.group === selectedGroup).reverse().map(sess => (
+                      <button key={sess.id} onClick={() => setViewingSession(sess)}
+                        className={`w-full text-left p-4 rounded-xl border transition-all min-h-[56px] ${
+                          viewingSession.id === sess.id
+                            ? "bg-[#22d3ee]/10 border-[#22d3ee]/30"
+                            : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]"
+                        }`}>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-white/80 font-mono text-sm">{new Date(sess.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                            <span className="text-white/40 font-mono text-xs ml-2">{sess.sessionTime.toUpperCase()} {sess.sessionMode.toUpperCase()}</span>
+                          </div>
+                          <span className="text-[#22d3ee]/60 font-mono text-sm">{sess.totalAttendance}/{sess.totalAthletes}</span>
+                        </div>
+                      </button>
+                    ))}
+                    {sessionHistory.filter(s => s.group === selectedGroup).length === 0 && (
+                      <div className="text-center text-white/30 font-mono text-sm py-8">No session history yet. Sessions are auto-saved when a new practice starts.</div>
+                    )}
+                  </div>
+                  {/* Session detail */}
+                  {viewingSession && viewingSession.presentAthletes.length > 0 && (
+                    <div className="border-t border-white/10 p-4">
+                      <h4 className="text-white/60 font-mono text-xs uppercase mb-3 tracking-wider">
+                        {new Date(viewingSession.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} — {viewingSession.sessionTime.toUpperCase()} {viewingSession.sessionMode.toUpperCase()}
+                      </h4>
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        <div className="bg-[#22d3ee]/5 rounded-lg p-3 text-center">
+                          <div className="text-[#22d3ee] font-bold text-xl">{viewingSession.totalAttendance}</div>
+                          <div className="text-white/40 text-xs font-mono">PRESENT</div>
+                        </div>
+                        <div className="bg-[#a855f7]/5 rounded-lg p-3 text-center">
+                          <div className="text-[#a855f7] font-bold text-xl">{Object.values(viewingSession.xpAwarded).reduce((s, v) => s + v, 0)}</div>
+                          <div className="text-white/40 text-xs font-mono">TOTAL XP</div>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-white/40 font-mono text-xs uppercase mb-2">Athletes Present</div>
+                        {viewingSession.presentAthletes.map(id => {
+                          const ath = roster.find(a => a.id === id);
+                          return ath ? (
+                            <div key={id} className="flex items-center justify-between px-3 py-2 bg-white/[0.02] rounded-lg">
+                              <span className="text-white/70 text-sm">{ath.name}</span>
+                              <span className="text-[#f59e0b]/60 font-mono text-xs">+{viewingSession.xpAwarded[id] || 0} XP</span>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                      {/* Restore session button */}
+                      <button onClick={() => {
+                        // Restore this session's checkpoints to the roster (for editing)
+                        const restored = roster.map(a => {
+                          if (a.group !== selectedGroup) return a;
+                          const cp = viewingSession.checkpoints[a.id] || {};
+                          const wcp = viewingSession.weightCheckpoints[a.id] || {};
+                          const wasPresent = viewingSession.presentAthletes.includes(a.id);
+                          return { ...a, present: wasPresent, checkpoints: cp, weightCheckpoints: wcp };
+                        });
+                        setRoster(restored);
+                        save(K.ROSTER, restored);
+                        syncSaveRoster(K.ROSTER, selectedGroup, restored);
+                        setViewingSession(null);
+                      }} className="w-full mt-4 py-3 bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b]/80 font-mono text-xs rounded-xl hover:bg-[#f59e0b]/20 transition-all active:scale-[0.98] min-h-[48px]">
+                        Restore This Session (Edit)
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
