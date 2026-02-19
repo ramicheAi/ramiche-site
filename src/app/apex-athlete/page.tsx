@@ -1483,7 +1483,12 @@ export default function ApexAthletePage() {
     };
 
     setSessionHistory(prev => {
-      const updated = [...prev.filter(s => s.id !== sessionId), sessionRecord].slice(-200);
+      // Merge by date + group + AM/PM — one session per practice slot, always overrides
+      const slotKey = `${sessionRecord.date}-${sessionRecord.group}-${sessionRecord.sessionTime}`;
+      const updated = [...prev.filter(s => {
+        const sSlot = `${s.date}-${s.group}-${s.sessionTime}`;
+        return sSlot !== slotKey;
+      }), sessionRecord].slice(-200);
       save(K.SESSION_HISTORY, updated);
       return updated;
     });
@@ -1521,7 +1526,11 @@ export default function ApexAthletePage() {
     const manualStartTs = load<number>(K.LAST_ACTIVITY_TS, Date.now());
     const manualAmPm: "am" | "pm" = new Date(manualStartTs).getHours() < 12 ? "am" : "pm";
     const rec: SessionRecord = { id: sid, date: todayStr, group: selectedGroup, sessionTime: manualAmPm, sessionMode, startedAt: manualStartTs, endedAt: Date.now(), presentAthletes: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).map(a => a.id), checkpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.checkpoints }])), weightCheckpoints: Object.fromEntries(groupAthletes.map(a => [a.id, { ...a.weightCheckpoints }])), xpAwarded: Object.fromEntries(groupAthletes.map(a => [a.id, a.dailyXP.date === todayStr ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])), totalAttendance: groupAthletes.filter(a => a.present || Object.values(a.checkpoints).some(Boolean)).length, totalAthletes: groupAthletes.length, notes: "" };
-    setSessionHistory(prev => { const u = [...prev.filter(s => s.id !== sid), rec].slice(-200); save(K.SESSION_HISTORY, u); return u; });
+    setSessionHistory(prev => {
+      const slotKey = `${rec.date}-${rec.group}-${rec.sessionTime}`;
+      const u = [...prev.filter(s => { const k = `${s.date}-${s.group}-${s.sessionTime}`; return k !== slotKey; }), rec].slice(-200);
+      save(K.SESSION_HISTORY, u); return u;
+    });
     const cleared = roster.map(a => a.group !== selectedGroup ? a : { ...a, present: false, checkpoints: {} as Record<string, boolean>, weightCheckpoints: {} as Record<string, boolean>, meetCheckpoints: {} as Record<string, boolean> });
     setRoster(cleared); save(K.ROSTER, cleared); syncSaveRoster(K.ROSTER, selectedGroup, cleared);
     const newSid = `${todayStr}-${new Date().getHours().toString().padStart(2, "0")}:${new Date().getMinutes().toString().padStart(2, "0")}-${selectedGroup}-new`;
@@ -5854,11 +5863,15 @@ export default function ApexAthletePage() {
                         <div className="flex items-center justify-between">
                           <div>
                             <span className="text-white/80 font-mono text-sm">{new Date(sess.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-                            <span className="text-white/40 font-mono text-xs ml-2">
+                            <span className={`font-mono text-xs font-bold ml-2 ${(sess.sessionTime === "pm" || (!sess.sessionTime && sess.startedAt > 0 && new Date(sess.startedAt).getHours() >= 12)) ? "text-[#a855f7]" : "text-[#f59e0b]"}`}>
                               {(sess.sessionTime === "am" || sess.sessionTime === "pm") ? sess.sessionTime.toUpperCase() : new Date(sess.startedAt).getHours() < 12 ? "AM" : "PM"}
-                              {" "}{sess.sessionMode.toUpperCase()}
-                              {sess.startedAt > 0 && <span className="ml-1 text-white/25">{new Date(sess.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}</span>}
                             </span>
+                            {sess.startedAt > 0 && (
+                              <span className="text-white/30 font-mono text-xs ml-1">
+                                {new Date(sess.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                {sess.endedAt > sess.startedAt && ` – ${new Date(sess.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+                              </span>
+                            )}
                           </div>
                           <span className="text-[#22d3ee]/60 font-mono text-sm">{sess.totalAttendance}/{sess.totalAthletes}</span>
                         </div>
@@ -5872,7 +5885,7 @@ export default function ApexAthletePage() {
                   {viewingSession && viewingSession.presentAthletes.length > 0 && (
                     <div className="border-t border-white/10 p-4">
                       <h4 className="text-white/60 font-mono text-xs uppercase mb-3 tracking-wider">
-                        {new Date(viewingSession.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} — {(viewingSession.sessionTime === "am" || viewingSession.sessionTime === "pm") ? viewingSession.sessionTime.toUpperCase() : new Date(viewingSession.startedAt).getHours() < 12 ? "AM" : "PM"} {viewingSession.sessionMode.toUpperCase()}
+                        {new Date(viewingSession.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })} — {(viewingSession.sessionTime === "am" || viewingSession.sessionTime === "pm") ? viewingSession.sessionTime.toUpperCase() : new Date(viewingSession.startedAt).getHours() < 12 ? "AM" : "PM"} PRACTICE
                         {viewingSession.startedAt > 0 && <span className="ml-1 text-white/30">({new Date(viewingSession.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })} – {new Date(viewingSession.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })})</span>}
                       </h4>
                       <div className="grid grid-cols-2 gap-2 mb-4">
