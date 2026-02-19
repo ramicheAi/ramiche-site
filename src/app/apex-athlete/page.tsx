@@ -1501,13 +1501,14 @@ export default function ApexAthletePage() {
     save(K.LAST_ACTIVITY_TS, now);
   }, [roster, selectedGroup, sessionMode]);
 
-  // Run reset check on mount + every 2 min (catches stale sessions even if page stays open)
-  const autoResetRanRef = useRef(false);
+  // Run reset check on mount, every 2 min, AND when page becomes visible (iOS background tab)
   useEffect(() => {
     if (!mounted || roster.length === 0) return;
-    if (!autoResetRanRef.current) { autoResetRanRef.current = true; doSessionReset(); }
+    doSessionReset(); // run immediately on mount
     const iv = setInterval(doSessionReset, 120000);
-    return () => clearInterval(iv);
+    const onVisible = () => { if (document.visibilityState === "visible") doSessionReset(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(iv); document.removeEventListener("visibilitychange", onVisible); };
   }, [mounted, roster, doSessionReset]);
 
   // ── manual end session (used by prominent button + menu) ──
