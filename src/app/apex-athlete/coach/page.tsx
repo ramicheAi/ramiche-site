@@ -849,28 +849,32 @@ export default function ApexAthletePage() {
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">(() => {
-    if (typeof window === "undefined") return "pool";
-    const saved = localStorage.getItem(K.SESSION_MODE);
-    if (saved === '"weight"' || saved === '"pool"' || saved === '"meet"') {
-      try { return JSON.parse(saved); } catch { return "pool"; }
-    }
-    return "pool";
-  });
+  // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
+  const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
   // Wrap setSessionMode to persist and debounce rapid switches (prevents phantom touch events on mobile)
   const lastModeSwitch = useRef(0);
   const setSessionMode = useCallback((m: "pool" | "weight" | "meet") => {
     const now = Date.now();
-    if (now - lastModeSwitch.current < 300) return; // Debounce: ignore switches within 300ms
+    if (now - lastModeSwitch.current < 600) return; // Debounce: ignore switches within 600ms (mobile phantom taps)
     lastModeSwitch.current = now;
-    setSessionModeRaw(m);
-    save(K.SESSION_MODE, m);
+    setSessionModeRaw(prev => {
+      if (prev === m) return prev; // No-op if already on this mode
+      save(K.SESSION_MODE, m);
+      return m;
+    });
   }, []);
 
-  // Always compute AM/PM from real clock time — never stale
+  // Always compute AM/PM from real clock time — never stale. Check manual override for today only.
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
     if (typeof window === "undefined") return "am";
-    return new Date().getHours() < 12 ? "am" : "pm";
+    const realTime = new Date().getHours() < 12 ? "am" : "pm";
+    // If coach manually toggled TODAY, respect that choice
+    const manualOverride = localStorage.getItem("apex_session_time_manual");
+    if (manualOverride === today()) {
+      const saved = localStorage.getItem("apex_session_time_value");
+      if (saved === "am" || saved === "pm") return saved;
+    }
+    return realTime;
   });
   // AM/PM is set once on load — coach can manually toggle but we never auto-override their choice
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
@@ -901,14 +905,15 @@ export default function ApexAthletePage() {
     const syncTime = () => {
       const now = new Date();
       const correctTime = now.getHours() < 12 ? "am" : "pm";
-      setSessionTime(prev => {
-        // Only auto-correct if user hasn't manually toggled TODAY
+      setSessionTime(() => {
+        // If coach manually toggled TODAY, restore their explicit choice
         const manualOverride = localStorage.getItem("apex_session_time_manual");
-        if (manualOverride === today()) return prev; // User toggled today, respect it
-        if (prev !== correctTime) {
-          return correctTime;
+        if (manualOverride === today()) {
+          const saved = localStorage.getItem("apex_session_time_value");
+          if (saved === "am" || saved === "pm") return saved;
         }
-        return prev;
+        // Otherwise, always use real clock time
+        return correctTime;
       });
     };
     // Run immediately on mount to catch stale state
@@ -3567,7 +3572,7 @@ export default function ApexAthletePage() {
                 })}
               </div>
               <button
-                onClick={() => { setSessionTime(sessionTime === "am" ? "pm" : "am"); localStorage.setItem("apex_session_time_manual", today()); }}
+                onClick={() => { const next = sessionTime === "am" ? "pm" : "am"; setSessionTime(next); localStorage.setItem("apex_session_time_manual", today()); localStorage.setItem("apex_session_time_value", next); }}
                 className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
                   sessionTime === "am"
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
