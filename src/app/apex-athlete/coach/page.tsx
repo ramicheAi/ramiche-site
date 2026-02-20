@@ -849,7 +849,14 @@ export default function ApexAthletePage() {
   const [unlocked, setUnlocked] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
-  const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
+  const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => new Date().getHours() < 12 ? "am" : "pm");
+  // Re-sync AM/PM on visibility change (e.g. phone wakes from sleep, tab refocus)
+  useEffect(() => {
+    const sync = () => setSessionTime(new Date().getHours() < 12 ? "am" : "pm");
+    const onVis = () => { if (document.visibilityState === "visible") sync(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -869,6 +876,7 @@ export default function ApexAthletePage() {
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
+  const touchMovedRef = useRef(false);
   const floatCounter = useRef(0);
 
   // ── bulk undo state ────────────────────────────────────
@@ -3501,7 +3509,10 @@ export default function ApexAthletePage() {
                     return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
                   };
                   return (
-                    <button key={m} onClick={() => setSessionMode(m)}
+                    <button key={m}
+                      onTouchStart={() => { touchMovedRef.current = false; }}
+                      onTouchMove={() => { touchMovedRef.current = true; }}
+                      onClick={() => { if (!touchMovedRef.current) setSessionMode(m); }}
                       className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
@@ -3512,7 +3523,10 @@ export default function ApexAthletePage() {
                   );
                 })}
               </div>
-              <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+              <button
+                onTouchStart={() => { touchMovedRef.current = false; }}
+                onTouchMove={() => { touchMovedRef.current = true; }}
+                onClick={() => { if (!touchMovedRef.current) setSessionTime(sessionTime === "am" ? "pm" : "am"); }}
                 className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
                   sessionTime === "am"
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
