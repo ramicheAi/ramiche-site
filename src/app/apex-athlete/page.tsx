@@ -1388,6 +1388,16 @@ export default function ApexAthletePage() {
   useEffect(() => {
     if (!mounted || !autoSession || schedules.length === 0) return;
     const detect = () => {
+      // Don't auto-switch if athletes are already checked in — coach is in an active session
+      const ga = roster.filter(a => a.group === selectedGroup);
+      const hasActiveCheckins = ga.some(a =>
+        a.present ||
+        Object.values(a.checkpoints).some(Boolean) ||
+        Object.values(a.weightCheckpoints).some(Boolean) ||
+        Object.values(a.meetCheckpoints).some(Boolean)
+      );
+      if (hasActiveCheckins) return; // respect the coach's current session
+
       const now = new Date();
       const dayMap: Record<number, DayOfWeek> = { 0: "Sun", 1: "Mon", 2: "Tue", 3: "Wed", 4: "Thu", 5: "Fri", 6: "Sat" };
       const dayKey = dayMap[now.getDay()];
@@ -1410,12 +1420,12 @@ export default function ApexAthletePage() {
           if (dist < bestDist) { best = sess; bestDist = dist; }
         }
       }
-      // If no active session, pick the next upcoming one
+      // If no active session, pick the next upcoming one ONLY if within 60 min
       if (!best) {
         for (const sess of daySched.sessions) {
           const [sh, sm] = sess.startTime.split(":").map(Number);
           const startMins = sh * 60 + sm;
-          if (startMins > nowMins) {
+          if (startMins > nowMins && startMins - nowMins <= 60) {
             const dist = startMins - nowMins;
             if (dist < bestDist) { best = sess; bestDist = dist; }
           }
@@ -1427,14 +1437,14 @@ export default function ApexAthletePage() {
         if (best.type === "pool" || best.type === "dryland") setSessionMode("pool");
         else if (best.type === "weight") setSessionMode("weight");
       } else {
-        // No sessions today or all passed — default by time
+        // No sessions active or upcoming soon — default by current time of day
         setSessionTime(now.getHours() < 12 ? "am" : "pm");
       }
     };
     detect();
     const iv = setInterval(detect, 60000); // re-check every minute
     return () => clearInterval(iv);
-  }, [mounted, autoSession, schedules, selectedGroup]);
+  }, [mounted, autoSession, schedules, selectedGroup, roster]);
 
   // ── auto-reset between sessions ───────────
   // Checks on load AND every 2 min: if check-in data exists and either
