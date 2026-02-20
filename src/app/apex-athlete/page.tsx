@@ -73,7 +73,10 @@ function fmtWStreak(s: number) {
 const DAILY_XP_CAP = 150;
 const PRESENT_XP = 5; // Base XP for showing up
 const SHOUTOUT_XP = 25; // MVP/Shoutout bonus XP
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 // ── checkpoint & quest definitions ───────────────────────────
 

@@ -416,7 +416,7 @@ function getAchievements(a: Athlete) {
 // Growth trend — simple XP per week estimate
 function getGrowthTrend(a: Athlete, snapshots: DailySnapshot[]) {
   const now = new Date();
-  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const weekAgo = (() => { const d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
   const recentSnaps = snapshots.filter(s => s.date >= weekAgo);
   const weekXP = recentSnaps.reduce((sum, s) => sum + (s.athleteXPs?.[a.id] || 0), 0);
   const avgDaily = recentSnaps.length > 0 ? Math.round(weekXP / recentSnaps.length) : 0;
@@ -429,7 +429,7 @@ function getLast7DaysXP(athleteId: string, snapshots: DailySnapshot[]) {
   const days: { date: string; xp: number; label: string }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-    const dateStr = d.toISOString().slice(0, 10);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const dayLabel = d.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2);
     const snap = snapshots.find(s => s.date === dateStr);
     days.push({ date: dateStr, xp: snap?.athleteXPs?.[athleteId] || 0, label: dayLabel });
@@ -1141,7 +1141,7 @@ export default function ParentPortal() {
     const start = new Date(absenceDateStart);
     const end = absenceDateEnd ? new Date(absenceDateEnd) : start;
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      dates.push(d.toISOString().slice(0, 10));
+      dates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
     }
     const report: AbsenceReport = {
       id: `abs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -1166,7 +1166,7 @@ export default function ParentPortal() {
   // ── Computed: upcoming meets for this athlete ──
   const upcomingMeets = useMemo(() => {
     if (!athlete) return [];
-    const today = new Date().toISOString().slice(0, 10);
+    const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
     return meets
       .filter(m => m.date >= today)
       .sort((a, b) => a.date.localeCompare(b.date));

@@ -56,7 +56,10 @@ function fmtWStreak(s: number) {
 const DAILY_XP_CAP = 150;
 const PRESENT_XP = 5; // Base XP just for showing up
 const SHOUTOUT_XP = 25; // MVP/Shoutout bonus XP
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 // ── checkpoint & quest definitions ───────────────────────────
 
@@ -789,7 +792,7 @@ function isSessionExpired(group: string): boolean {
     const endMins = eh * 60 + em;
     const nowMins = now.getHours() * 60 + now.getMinutes();
     const activeDate = active.date || "";
-    const todayStr = now.toISOString().slice(0, 10);
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
     // If the active session is from a previous day, it's expired
     if (activeDate < todayStr) return true;
     // If 3 hours past end time, it's expired
@@ -854,12 +857,16 @@ export default function ApexAthletePage() {
   // Wrap setSessionMode to persist and debounce rapid switches (prevents phantom touch events on mobile)
   const lastModeSwitch = useRef(0);
   const setSessionMode = useCallback((m: "pool" | "weight" | "meet") => {
+    // Block if user is scrolling or just finished scrolling (phantom tap guard)
+    if (isScrollingRef.current) return;
     const now = Date.now();
-    if (now - lastModeSwitch.current < 600) return; // Debounce: ignore switches within 600ms (mobile phantom taps)
+    // Block rapid switches (debounce 800ms)
+    if (now - lastModeSwitch.current < 800) return;
+    // Block taps that arrive too soon after touchend (ghost tap from scroll momentum)
+    if (now - lastTouchEndRef.current < 100) return;
     lastModeSwitch.current = now;
     setSessionModeRaw(prev => {
-      if (prev === m) return prev; // No-op if already on this mode
-      save(K.SESSION_MODE, m);
+      if (prev === m) return prev;
       return m;
     });
   }, []);
@@ -896,19 +903,50 @@ export default function ApexAthletePage() {
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
-  const touchMovedRef = useRef(false);
-  const touchStartY = useRef(0);
-  const touchStartTime = useRef(0);
+  // ── scroll guard: prevent phantom taps on mobile during/after scroll ──
+  const isScrollingRef = useRef(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const lastTouchEndRef = useRef(0);
+  useEffect(() => {
+    const markScrolling = () => {
+      isScrollingRef.current = true;
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = setTimeout(() => { isScrollingRef.current = false; }, 800);
+    };
+    const onTouchStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (t) touchStartRef.current = { x: t.clientX, y: t.clientY, t: Date.now() };
+    };
+    const onTouchEnd = () => { lastTouchEndRef.current = Date.now(); };
+    window.addEventListener("scroll", markScrolling, { passive: true });
+    window.addEventListener("touchmove", markScrolling, { passive: true });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", markScrolling);
+      window.removeEventListener("touchmove", markScrolling);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchend", onTouchEnd);
+      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+    };
+  }, []);
 
   // Re-detect AM/PM when the page regains focus (handles overnight cache / sleep-wake)
   useEffect(() => {
     const syncTime = () => {
       const now = new Date();
       const correctTime = now.getHours() < 12 ? "am" : "pm";
+      const todayLocal = today();
+      // Clear stale manual overrides from previous days
+      const manualOverride = localStorage.getItem("apex_session_time_manual");
+      if (manualOverride && manualOverride !== todayLocal) {
+        localStorage.removeItem("apex_session_time_manual");
+        localStorage.removeItem("apex_session_time_value");
+      }
       setSessionTime(() => {
-        // If coach manually toggled TODAY, restore their explicit choice
-        const manualOverride = localStorage.getItem("apex_session_time_manual");
-        if (manualOverride === today()) {
+        // If coach manually toggled TODAY (local date), restore their explicit choice
+        if (manualOverride === todayLocal) {
           const saved = localStorage.getItem("apex_session_time_value");
           if (saved === "am" || saved === "pm") return saved;
         }
@@ -3261,7 +3299,7 @@ export default function ApexAthletePage() {
             <div className="flex flex-wrap gap-1.5">
               {Array.from({ length: 30 }, (_, i) => {
                 const d = new Date(); d.setDate(d.getDate() - 29 + i);
-                const ds = d.toISOString().slice(0, 10);
+                const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                 const snap = calendarData[ds];
                 const intensity = snap ? Math.min(1, snap.totalXPAwarded / 500) : 0;
                 const isSel = selectedDay === ds;
@@ -3572,8 +3610,8 @@ export default function ApexAthletePage() {
                 })}
               </div>
               <button
-                onClick={() => { const next = sessionTime === "am" ? "pm" : "am"; setSessionTime(next); localStorage.setItem("apex_session_time_manual", today()); localStorage.setItem("apex_session_time_value", next); }}
-                className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
+                onClick={() => { if (isScrollingRef.current) return; const next = sessionTime === "am" ? "pm" : "am"; setSessionTime(next); localStorage.setItem("apex_session_time_manual", today()); localStorage.setItem("apex_session_time_value", next); }}
+                className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] touch-manipulation ${
                   sessionTime === "am"
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                     : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"

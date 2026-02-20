@@ -788,7 +788,7 @@ export default function AthletePortal() {
   const progress = athlete ? getLevelProgress(athlete.xp) : { percent: 0, remaining: 300 };
   const streak = athlete ? fmtStreak(athlete.streak) : fmtStreak(0);
   const streakMult = athlete ? getStreakMult(athlete.streak) : 1;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
 
   const saveJournalEntry = () => {
     if (!athlete) return;
@@ -1526,7 +1526,7 @@ export default function AthletePortal() {
                   for (let i = 0; i < 28; i++) {
                     const d = new Date(start);
                     d.setDate(d.getDate() + i);
-                    const dateStr = d.toISOString().slice(0, 10);
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                     // Check if athlete practiced on this day (check journal or daily XP)
                     const hadPractice = journal.some(j => j.date === dateStr) ||
                       (athlete.dailyXP?.date === dateStr && (athlete.dailyXP.pool + athlete.dailyXP.weight + athlete.dailyXP.meet) > 0) ||
