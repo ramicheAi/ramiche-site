@@ -734,6 +734,7 @@ const K = {
   LAST_SESSION: "apex-athlete-last-session-v1",
   SESSION_HISTORY: "apex-athlete-session-history-v1",
   ACTIVE_SESSION: "apex-athlete-active-session-v1",
+  SESSION_MODE: "apex-athlete-session-mode-v1",
 };
 
 interface SessionRecord {
@@ -848,8 +849,29 @@ export default function ApexAthletePage() {
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
-  const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => new Date().getHours() < 12 ? "am" : "pm");
+  const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">(() => {
+    if (typeof window === "undefined") return "pool";
+    const saved = localStorage.getItem(K.SESSION_MODE);
+    if (saved === '"weight"' || saved === '"pool"' || saved === '"meet"') {
+      try { return JSON.parse(saved); } catch { return "pool"; }
+    }
+    return "pool";
+  });
+  // Wrap setSessionMode to persist and debounce rapid switches (prevents phantom touch events on mobile)
+  const lastModeSwitch = useRef(0);
+  const setSessionMode = useCallback((m: "pool" | "weight" | "meet") => {
+    const now = Date.now();
+    if (now - lastModeSwitch.current < 300) return; // Debounce: ignore switches within 300ms
+    lastModeSwitch.current = now;
+    setSessionModeRaw(m);
+    save(K.SESSION_MODE, m);
+  }, []);
+
+  // Always compute AM/PM from real clock time — never stale
+  const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
+    if (typeof window === "undefined") return "am";
+    return new Date().getHours() < 12 ? "am" : "pm";
+  });
   // AM/PM is set once on load — coach can manually toggle but we never auto-override their choice
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms">("coach");
@@ -877,19 +899,27 @@ export default function ApexAthletePage() {
   // Re-detect AM/PM when the page regains focus (handles overnight cache / sleep-wake)
   useEffect(() => {
     const syncTime = () => {
-      const correctTime = new Date().getHours() < 12 ? "am" : "pm";
+      const now = new Date();
+      const correctTime = now.getHours() < 12 ? "am" : "pm";
       setSessionTime(prev => {
-        // Only auto-correct if user hasn't manually toggled (check localStorage)
+        // Only auto-correct if user hasn't manually toggled TODAY
         const manualOverride = localStorage.getItem("apex_session_time_manual");
         if (manualOverride === today()) return prev; // User toggled today, respect it
-        return correctTime;
+        if (prev !== correctTime) {
+          return correctTime;
+        }
+        return prev;
       });
     };
-    window.addEventListener("focus", syncTime);
-    window.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncTime(); });
+    // Run immediately on mount to catch stale state
+    syncTime();
+    const onFocus = () => syncTime();
+    const onVisible = () => { if (document.visibilityState === "visible") syncTime(); };
+    window.addEventListener("focus", onFocus);
+    window.addEventListener("visibilitychange", onVisible);
     return () => {
-      window.removeEventListener("focus", syncTime);
-      window.removeEventListener("visibilitychange", syncTime);
+      window.removeEventListener("focus", onFocus);
+      window.removeEventListener("visibilitychange", onVisible);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const floatCounter = useRef(0);
