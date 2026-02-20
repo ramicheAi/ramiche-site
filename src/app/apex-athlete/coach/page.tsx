@@ -854,16 +854,35 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
-  // Wrap setSessionMode to persist and debounce rapid switches (prevents phantom touch events on mobile)
+  // Wrap setSessionMode with strict guards to prevent phantom/ghost tab switches on mobile
   const lastModeSwitch = useRef(0);
-  const setSessionMode = useCallback((m: "pool" | "weight" | "meet") => {
-    // Block if user is scrolling or just finished scrolling (phantom tap guard)
+  // Track pointer lifecycle: down position + timestamp on a specific tab
+  const modePointerState = useRef<{ mode: string; startTime: number; startX: number; startY: number } | null>(null);
+  const handleModePointerDown = useCallback((m: string, e: React.PointerEvent) => {
     if (isScrollingRef.current) return;
+    modePointerState.current = { mode: m, startTime: Date.now(), startX: e.clientX, startY: e.clientY };
+  }, []);
+  const handleModePointerUp = useCallback((m: "pool" | "weight" | "meet", e: React.PointerEvent) => {
+    const state = modePointerState.current;
+    modePointerState.current = null;
+    // Must have a matching pointerdown on the SAME tab
+    if (!state || state.mode !== m) return;
+    // Block programmatic or non-user-initiated events
+    if (!e.isTrusted) return;
+    // Block if scrolling
+    if (isScrollingRef.current) return;
+    // Require minimum 80ms hold (ghost taps are <50ms)
+    const elapsed = Date.now() - state.startTime;
+    if (elapsed < 80) return;
+    // Block if finger moved too far (indicates scroll gesture, not tap)
+    const dx = Math.abs(e.clientX - state.startX);
+    const dy = Math.abs(e.clientY - state.startY);
+    if (dx > 15 || dy > 15) return;
+    // Debounce 2000ms between mode switches
     const now = Date.now();
-    // Block rapid switches (debounce 800ms)
-    if (now - lastModeSwitch.current < 800) return;
+    if (now - lastModeSwitch.current < 2000) return;
     // Block taps that arrive too soon after touchend (ghost tap from scroll momentum)
-    if (now - lastTouchEndRef.current < 100) return;
+    if (now - lastTouchEndRef.current < 500) return;
     lastModeSwitch.current = now;
     setSessionModeRaw(prev => {
       if (prev === m) return prev;
@@ -871,16 +890,24 @@ export default function ApexAthletePage() {
     });
   }, []);
 
-  // Always compute AM/PM from real clock time — never stale. Check manual override for today only.
+  // Always compute AM/PM from real clock time on page load. Manual toggle is session-only (sessionStorage).
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
     if (typeof window === "undefined") return "am";
     const realTime = new Date().getHours() < 12 ? "am" : "pm";
-    // If coach manually toggled TODAY, respect that choice
-    const manualOverride = localStorage.getItem("apex_session_time_manual");
-    if (manualOverride === today()) {
-      const saved = localStorage.getItem("apex_session_time_value");
+    // Check if coach manually toggled in THIS browser session (survives soft navigations, not hard refresh)
+    const manualDate = sessionStorage.getItem("apex_session_time_manual");
+    if (manualDate === today()) {
+      const saved = sessionStorage.getItem("apex_session_time_value");
       if (saved === "am" || saved === "pm") return saved;
     }
+    // Clean up any stale sessionStorage
+    if (manualDate && manualDate !== today()) {
+      sessionStorage.removeItem("apex_session_time_manual");
+      sessionStorage.removeItem("apex_session_time_value");
+    }
+    // Also clean up old localStorage overrides (migration from previous version)
+    localStorage.removeItem("apex_session_time_manual");
+    localStorage.removeItem("apex_session_time_value");
     return realTime;
   });
   // AM/PM is set once on load — coach can manually toggle but we never auto-override their choice
@@ -932,37 +959,39 @@ export default function ApexAthletePage() {
     };
   }, []);
 
-  // Re-detect AM/PM when the page regains focus (handles overnight cache / sleep-wake)
+  // Re-detect AM/PM ONLY on initial mount and focus-regain (NOT on a timer).
+  // Once the coach is actively using the page, NEVER auto-switch AM/PM out from under them.
   useEffect(() => {
     const syncTime = () => {
       const now = new Date();
       const correctTime = now.getHours() < 12 ? "am" : "pm";
       const todayLocal = today();
-      // Clear stale manual overrides from previous days
-      const manualOverride = localStorage.getItem("apex_session_time_manual");
-      if (manualOverride && manualOverride !== todayLocal) {
-        localStorage.removeItem("apex_session_time_manual");
-        localStorage.removeItem("apex_session_time_value");
+      // Check sessionStorage for manual override in this browser session
+      const manualDate = sessionStorage.getItem("apex_session_time_manual");
+      if (manualDate && manualDate !== todayLocal) {
+        // Stale override from a previous day — clear it
+        sessionStorage.removeItem("apex_session_time_manual");
+        sessionStorage.removeItem("apex_session_time_value");
+        setSessionTime(correctTime);
+        return;
       }
-      setSessionTime(() => {
-        // If coach manually toggled TODAY (local date), restore their explicit choice
-        if (manualOverride === todayLocal) {
-          const saved = localStorage.getItem("apex_session_time_value");
-          if (saved === "am" || saved === "pm") return saved;
+      if (manualDate === todayLocal) {
+        const saved = sessionStorage.getItem("apex_session_time_value");
+        if (saved === "am" || saved === "pm") {
+          setSessionTime(saved);
+          return;
         }
-        // Otherwise, always use real clock time
-        return correctTime;
-      });
+      }
+      // No manual override — use real clock time
+      setSessionTime(correctTime);
     };
-    // Run immediately on mount to catch stale state
+    // Run once on mount to set correct initial value
     syncTime();
-    const onFocus = () => syncTime();
+    // Only re-sync when page regains visibility after being backgrounded (e.g. overnight)
     const onVisible = () => { if (document.visibilityState === "visible") syncTime(); };
-    window.addEventListener("focus", onFocus);
-    window.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      window.removeEventListener("focus", onFocus);
-      window.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const floatCounter = useRef(0);
@@ -3598,8 +3627,9 @@ export default function ApexAthletePage() {
                   };
                   return (
                     <button key={m}
-                      onClick={() => setSessionMode(m)}
-                      className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 touch-manipulation ${
+                      onPointerDown={(e) => handleModePointerDown(m, e)}
+                      onPointerUp={(e) => handleModePointerUp(m, e)}
+                      className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 touch-manipulation select-none ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
                           : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
@@ -3610,7 +3640,7 @@ export default function ApexAthletePage() {
                 })}
               </div>
               <button
-                onClick={() => { if (isScrollingRef.current) return; const next = sessionTime === "am" ? "pm" : "am"; setSessionTime(next); localStorage.setItem("apex_session_time_manual", today()); localStorage.setItem("apex_session_time_value", next); }}
+                onClick={() => { if (isScrollingRef.current) return; const next = sessionTime === "am" ? "pm" : "am"; setSessionTime(next); sessionStorage.setItem("apex_session_time_manual", today()); sessionStorage.setItem("apex_session_time_value", next); }}
                 className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] touch-manipulation ${
                   sessionTime === "am"
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
