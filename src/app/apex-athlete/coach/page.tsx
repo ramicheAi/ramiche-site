@@ -854,35 +854,23 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
-  // Wrap setSessionMode with strict guards to prevent phantom/ghost tab switches on mobile
+  // Guard: only switch mode via deliberate onClick with strict debounce + scroll/touch guards
   const lastModeSwitch = useRef(0);
-  // Track pointer lifecycle: down position + timestamp on a specific tab
-  const modePointerState = useRef<{ mode: string; startTime: number; startX: number; startY: number } | null>(null);
-  const handleModePointerDown = useCallback((m: string, e: React.PointerEvent) => {
-    if (isScrollingRef.current) return;
-    modePointerState.current = { mode: m, startTime: Date.now(), startX: e.clientX, startY: e.clientY };
-  }, []);
-  const handleModePointerUp = useCallback((m: "pool" | "weight" | "meet", e: React.PointerEvent) => {
-    const state = modePointerState.current;
-    modePointerState.current = null;
-    // Must have a matching pointerdown on the SAME tab
-    if (!state || state.mode !== m) return;
-    // Block programmatic or non-user-initiated events
+  const modeSwitchLocked = useRef(false);
+  const handleModeClick = useCallback((m: "pool" | "weight" | "meet", e: React.MouseEvent) => {
+    // Block all non-user-initiated events
     if (!e.isTrusted) return;
-    // Block if scrolling
+    // Block if scrolling or just finished scrolling
     if (isScrollingRef.current) return;
-    // Require minimum 80ms hold (ghost taps are <50ms)
-    const elapsed = Date.now() - state.startTime;
-    if (elapsed < 80) return;
-    // Block if finger moved too far (indicates scroll gesture, not tap)
-    const dx = Math.abs(e.clientX - state.startX);
-    const dy = Math.abs(e.clientY - state.startY);
-    if (dx > 15 || dy > 15) return;
-    // Debounce 2000ms between mode switches
+    // Block taps too soon after a touch end (ghost taps from scroll momentum)
     const now = Date.now();
-    if (now - lastModeSwitch.current < 2000) return;
-    // Block taps that arrive too soon after touchend (ghost tap from scroll momentum)
-    if (now - lastTouchEndRef.current < 500) return;
+    if (now - lastTouchEndRef.current < 400) return;
+    // Hard debounce: 3 seconds between mode switches (prevents double-taps and phantom switches)
+    if (now - lastModeSwitch.current < 3000) return;
+    // Prevent concurrent switches
+    if (modeSwitchLocked.current) return;
+    modeSwitchLocked.current = true;
+    setTimeout(() => { modeSwitchLocked.current = false; }, 3000);
     lastModeSwitch.current = now;
     setSessionModeRaw(prev => {
       if (prev === m) return prev;
@@ -959,41 +947,10 @@ export default function ApexAthletePage() {
     };
   }, []);
 
-  // Re-detect AM/PM ONLY on initial mount and focus-regain (NOT on a timer).
-  // Once the coach is actively using the page, NEVER auto-switch AM/PM out from under them.
-  useEffect(() => {
-    const syncTime = () => {
-      const now = new Date();
-      const correctTime = now.getHours() < 12 ? "am" : "pm";
-      const todayLocal = today();
-      // Check sessionStorage for manual override in this browser session
-      const manualDate = sessionStorage.getItem("apex_session_time_manual");
-      if (manualDate && manualDate !== todayLocal) {
-        // Stale override from a previous day — clear it
-        sessionStorage.removeItem("apex_session_time_manual");
-        sessionStorage.removeItem("apex_session_time_value");
-        setSessionTime(correctTime);
-        return;
-      }
-      if (manualDate === todayLocal) {
-        const saved = sessionStorage.getItem("apex_session_time_value");
-        if (saved === "am" || saved === "pm") {
-          setSessionTime(saved);
-          return;
-        }
-      }
-      // No manual override — use real clock time
-      setSessionTime(correctTime);
-    };
-    // Run once on mount to set correct initial value
-    syncTime();
-    // Only re-sync when page regains visibility after being backgrounded (e.g. overnight)
-    const onVisible = () => { if (document.visibilityState === "visible") syncTime(); };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // AM/PM is set ONCE on page load from real clock time (see useState initializer above).
+  // NO auto-switching after that — the coach has a manual toggle button if needed.
+  // Previous visibilitychange listener was causing phantom PM switches mid-morning session.
+  // Removed entirely: the initial load value is correct, and the coach can override manually.
   const floatCounter = useRef(0);
 
   // ── bulk undo state ────────────────────────────────────
@@ -3627,8 +3584,7 @@ export default function ApexAthletePage() {
                   };
                   return (
                     <button key={m}
-                      onPointerDown={(e) => handleModePointerDown(m, e)}
-                      onPointerUp={(e) => handleModePointerUp(m, e)}
+                      onClick={(e) => handleModeClick(m, e)}
                       className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 touch-manipulation select-none ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
