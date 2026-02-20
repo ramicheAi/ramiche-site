@@ -850,13 +850,7 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => new Date().getHours() < 12 ? "am" : "pm");
-  // Re-sync AM/PM on visibility change (e.g. phone wakes from sleep, tab refocus)
-  useEffect(() => {
-    const sync = () => setSessionTime(new Date().getHours() < 12 ? "am" : "pm");
-    const onVis = () => { if (document.visibilityState === "visible") sync(); };
-    document.addEventListener("visibilitychange", onVis);
-    return () => document.removeEventListener("visibilitychange", onVis);
-  }, []);
+  // AM/PM is set once on load — coach can manually toggle but we never auto-override their choice
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -877,6 +871,8 @@ export default function ApexAthletePage() {
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
   const touchMovedRef = useRef(false);
+  const touchStartY = useRef(0);
+  const touchStartTime = useRef(0);
   const floatCounter = useRef(0);
 
   // ── bulk undo state ────────────────────────────────────
@@ -3510,9 +3506,9 @@ export default function ApexAthletePage() {
                   };
                   return (
                     <button key={m}
-                      onTouchStart={() => { touchMovedRef.current = false; }}
-                      onTouchMove={() => { touchMovedRef.current = true; }}
-                      onClick={() => { if (!touchMovedRef.current) setSessionMode(m); }}
+                      onTouchStart={(e) => { touchMovedRef.current = false; touchStartY.current = e.touches[0].clientY; touchStartTime.current = Date.now(); }}
+                      onTouchMove={(e) => { if (Math.abs(e.touches[0].clientY - touchStartY.current) > 8) touchMovedRef.current = true; }}
+                      onClick={() => { if (!touchMovedRef.current && (Date.now() - touchStartTime.current) < 300) setSessionMode(m); }}
                       className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
@@ -3524,9 +3520,9 @@ export default function ApexAthletePage() {
                 })}
               </div>
               <button
-                onTouchStart={() => { touchMovedRef.current = false; }}
-                onTouchMove={() => { touchMovedRef.current = true; }}
-                onClick={() => { if (!touchMovedRef.current) setSessionTime(sessionTime === "am" ? "pm" : "am"); }}
+                onTouchStart={(e) => { touchMovedRef.current = false; touchStartY.current = e.touches[0].clientY; touchStartTime.current = Date.now(); }}
+                onTouchMove={(e) => { if (Math.abs(e.touches[0].clientY - touchStartY.current) > 8) touchMovedRef.current = true; }}
+                onClick={() => { if (!touchMovedRef.current && (Date.now() - touchStartTime.current) < 300) setSessionTime(sessionTime === "am" ? "pm" : "am"); }}
                 className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
                   sessionTime === "am"
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
