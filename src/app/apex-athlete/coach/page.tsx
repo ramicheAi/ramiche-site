@@ -873,6 +873,25 @@ export default function ApexAthletePage() {
   const touchMovedRef = useRef(false);
   const touchStartY = useRef(0);
   const touchStartTime = useRef(0);
+
+  // Re-detect AM/PM when the page regains focus (handles overnight cache / sleep-wake)
+  useEffect(() => {
+    const syncTime = () => {
+      const correctTime = new Date().getHours() < 12 ? "am" : "pm";
+      setSessionTime(prev => {
+        // Only auto-correct if user hasn't manually toggled (check localStorage)
+        const manualOverride = localStorage.getItem("apex_session_time_manual");
+        if (manualOverride === today()) return prev; // User toggled today, respect it
+        return correctTime;
+      });
+    };
+    window.addEventListener("focus", syncTime);
+    window.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") syncTime(); });
+    return () => {
+      window.removeEventListener("focus", syncTime);
+      window.removeEventListener("visibilitychange", syncTime);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const floatCounter = useRef(0);
 
   // ── bulk undo state ────────────────────────────────────
@@ -3506,10 +3525,8 @@ export default function ApexAthletePage() {
                   };
                   return (
                     <button key={m}
-                      onTouchStart={(e) => { touchMovedRef.current = false; touchStartY.current = e.touches[0].clientY; touchStartTime.current = Date.now(); }}
-                      onTouchMove={(e) => { if (Math.abs(e.touches[0].clientY - touchStartY.current) > 8) touchMovedRef.current = true; }}
-                      onClick={() => { if (!touchMovedRef.current && (Date.now() - touchStartTime.current) < 300) setSessionMode(m); }}
-                      className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 ${
+                      onClick={() => setSessionMode(m)}
+                      className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 touch-manipulation ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
                           : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
@@ -3520,9 +3537,7 @@ export default function ApexAthletePage() {
                 })}
               </div>
               <button
-                onTouchStart={(e) => { touchMovedRef.current = false; touchStartY.current = e.touches[0].clientY; touchStartTime.current = Date.now(); }}
-                onTouchMove={(e) => { if (Math.abs(e.touches[0].clientY - touchStartY.current) > 8) touchMovedRef.current = true; }}
-                onClick={() => { if (!touchMovedRef.current && (Date.now() - touchStartTime.current) < 300) setSessionTime(sessionTime === "am" ? "pm" : "am"); }}
+                onClick={() => { setSessionTime(sessionTime === "am" ? "pm" : "am"); localStorage.setItem("apex_session_time_manual", today()); }}
                 className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] ${
                   sessionTime === "am"
                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
