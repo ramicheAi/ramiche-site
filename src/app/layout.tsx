@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Ramiche Operations",
+  title: "Parallax Operations",
   description: "Automation dock — all projects, all signals, one view",
 };
 

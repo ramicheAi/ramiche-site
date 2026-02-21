@@ -30,7 +30,7 @@
   "projects": [
     { "name": "Apex Athlete", "status": "active", "priority": "CRITICAL", "progress": 84, "accent": "#f59e0b", "blockers": ["Quest flow UX polish", "Firebase v2 deploy"] },
     { "name": "Galactik Antics", "status": "active", "priority": "HIGH", "progress": 48, "accent": "#00f0ff", "blockers": ["Shopify API token needed", "Weavy product renders pending"] },
-    { "name": "Ramiche Studio", "status": "active", "priority": "HIGH", "progress": 40, "accent": "#a855f7", "blockers": ["Portfolio + case studies needed"] },
+    { "name": "Parallax Studio", "status": "active", "priority": "HIGH", "progress": 40, "accent": "#a855f7", "blockers": ["Portfolio + case studies needed"] },
     { "name": "SCOWW", "status": "active", "priority": "HIGH", "progress": 55, "accent": "#22d3ee", "blockers": ["Event logistics finalization", "Registration page"] },
     { "name": "The Baba Studio", "status": "blocked", "priority": "MED", "progress": 15, "accent": "#e879f9", "blockers": ["Needs release timeline from Ramon"] },
     { "name": "Parallax", "status": "active", "priority": "MED", "progress": 15, "accent": "#e879f9", "blockers": ["Artist roster page", "Distribution pipeline"] }
@@ -93,7 +93,7 @@
         ]
       },
       {
-        "name": "Ramiche Studio", "accent": "#a855f7", "icon": "\u2662",
+        "name": "Parallax Studio", "accent": "#a855f7", "icon": "\u2662",
         "streams": [
           { "name": "48h Sprint ($300\u2013$500)", "status": "active", "monthly": "\u2014", "potential": "$3K\u2013$10K/mo" },
           { "name": "AI Agent Setup ($1K\u2013$3K)", "status": "soon", "monthly": "\u2014", "potential": "$5K\u2013$15K/mo" },

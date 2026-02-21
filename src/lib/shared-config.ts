@@ -72,10 +72,10 @@ export const APEX_PROJECTIONS = [
 
 export const BRANDS = [
   { name: "Parallax", role: "Parent Company", accent: "#e879f9" },
-  { name: "RAMICHE", role: "Operations HQ", accent: "#fcd34d" },
+  { name: "PARALLAX", role: "Operations HQ", accent: "#fcd34d" },
   { name: "Apex Athlete", role: "SaaS Platform", accent: "#f59e0b" },
   { name: "Galactik Antics", role: "AI Art + Merch", accent: "#00f0ff" },
-  { name: "Ramiche Studio", role: "Creative Services", accent: "#a855f7" },
+  { name: "Parallax Studio", role: "Creative Services", accent: "#a855f7" },
   { name: "The Baba Studio", role: "Audio Division", accent: "#e879f9" },
 ] as const;
 

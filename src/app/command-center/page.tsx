@@ -171,7 +171,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Apex Athlete", role: "Lead architect + game engine", status: "active" },
     { project: "Command Center", role: "Design + build", status: "active" },
     { project: "Galactik Antics", role: "Store pipeline + copy", status: "active" },
-    { project: "Ramiche Studio", role: "Landing page + outreach", status: "idle" },
+    { project: "Parallax Studio", role: "Landing page + outreach", status: "idle" },
   ],
   TheMAESTRO: [
     { project: "Music Pipeline", role: "Production direction + sound design", status: "idle" },
@@ -200,7 +200,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
   ],
   Vee: [
     { project: "Galactik Antics", role: "Brand voice + launch marketing", status: "active" },
-    { project: "Ramiche Studio", role: "Client acquisition + positioning", status: "idle" },
+    { project: "Parallax Studio", role: "Client acquisition + positioning", status: "idle" },
     { project: "SCOWW", role: "Event marketing + social strategy", status: "idle" },
   ],
   Aetherion: [
@@ -223,7 +223,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Personal Growth", role: "Ramon's peak performance + mindset coaching", status: "idle" },
   ],
   MERCURY: [
-    { project: "Ramiche Studio", role: "Client acquisition + deals", status: "idle" },
+    { project: "Parallax Studio", role: "Client acquisition + deals", status: "idle" },
     { project: "Revenue Ops", role: "Pipeline + pricing strategy", status: "idle" },
   ],
   ECHO: [
@@ -287,7 +287,7 @@ const MISSIONS = [
     link: { label: "Open App", href: "/apex-athlete" },
   },
   {
-    name: "Ramiche Studio", accent: "#a855f7", status: "active" as const,
+    name: "Parallax Studio", accent: "#a855f7", status: "active" as const,
     desc: "Creative Services \u2014 48h Sprint $300-500", priority: "HIGH",
     tasks: [
       { t: "Landing page live", done: true },
@@ -1056,7 +1056,7 @@ export default function CommandCenter() {
               </div>
               <div>
                 <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.5em] text-[#00f0ff]/30 font-mono mb-1">
-                  RAMICHE OPS // MISSION CONTROL
+                  PARALLAX OPS // MISSION CONTROL
                 </div>
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-none">
                   <span className="bg-gradient-to-r from-[#00f0ff] via-[#a855f7] to-[#e879f9] bg-clip-text text-transparent bg-[length:200%_200%] animated-gradient-text">
@@ -2270,7 +2270,7 @@ export default function CommandCenter() {
           {/* ═══════ FOOTER ═══════ */}
           <footer className="text-center py-8 border-t border-white/[0.03]">
             <div className="text-[9px] font-mono text-white/10 tracking-[0.4em] uppercase">
-              COMMAND CENTER v6 // RAMICHE OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
+              COMMAND CENTER v6 // PARALLAX OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
             </div>
           </footer>
 

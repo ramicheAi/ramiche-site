@@ -854,6 +854,9 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
+  // Pending mode switch — requires confirmation tap to actually switch
+  const [pendingMode, setPendingMode] = useState<"pool" | "weight" | "meet" | null>(null);
+  const pendingModeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guard: only switch mode via deliberate onClick with strict debounce + scroll/touch guards
   const lastModeSwitch = useRef(0);
   const modeSwitchLocked = useRef(false);
@@ -864,19 +867,38 @@ export default function ApexAthletePage() {
     if (isScrollingRef.current) return;
     // Block taps too soon after a touch end (ghost taps from scroll momentum)
     const now = Date.now();
-    if (now - lastTouchEndRef.current < 400) return;
+    if (now - lastTouchEndRef.current < 600) return;
     // Hard debounce: 3 seconds between mode switches (prevents double-taps and phantom switches)
     if (now - lastModeSwitch.current < 3000) return;
     // Prevent concurrent switches
     if (modeSwitchLocked.current) return;
-    modeSwitchLocked.current = true;
-    setTimeout(() => { modeSwitchLocked.current = false; }, 3000);
-    lastModeSwitch.current = now;
-    setSessionModeRaw(prev => {
-      if (prev === m) return prev;
-      return m;
-    });
-  }, []);
+    // Validate touch distance — if touch moved more than 15px, it was a scroll not a tap
+    if (touchStartRef.current) {
+      const touch = e.nativeEvent as unknown as { clientX?: number; clientY?: number };
+      if (touch.clientX !== undefined && touch.clientY !== undefined) {
+        const dx = Math.abs(touch.clientX - touchStartRef.current.x);
+        const dy = Math.abs(touch.clientY - touchStartRef.current.y);
+        if (dx > 15 || dy > 15) return;
+      }
+    }
+    // If already on this mode, ignore
+    if (sessionMode === m) { setPendingMode(null); return; }
+    // Two-tap confirmation: first tap shows "Tap again to confirm", second tap switches
+    if (pendingMode === m) {
+      // Confirmed — actually switch
+      if (pendingModeTimer.current) clearTimeout(pendingModeTimer.current);
+      setPendingMode(null);
+      modeSwitchLocked.current = true;
+      setTimeout(() => { modeSwitchLocked.current = false; }, 3000);
+      lastModeSwitch.current = now;
+      setSessionModeRaw(m);
+    } else {
+      // First tap — set pending, auto-cancel after 3 seconds
+      setPendingMode(m);
+      if (pendingModeTimer.current) clearTimeout(pendingModeTimer.current);
+      pendingModeTimer.current = setTimeout(() => setPendingMode(null), 3000);
+    }
+  }, [sessionMode, pendingMode]);
 
   // Always compute AM/PM from real clock time on page load. Manual toggle is session-only (sessionStorage).
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
@@ -899,6 +921,9 @@ export default function ApexAthletePage() {
     return realTime;
   });
   // AM/PM is set once on load — coach can manually toggle but we never auto-override their choice
+  // Two-tap confirmation for AM/PM toggle to prevent phantom switches
+  const [pendingAmPm, setPendingAmPm] = useState(false);
+  const pendingAmPmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
@@ -3582,27 +3607,61 @@ export default function ApexAthletePage() {
                     if (m === "weight") return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><rect x="2" y="9" width="4" height="6" rx="1"/><rect x="18" y="9" width="4" height="6" rx="1"/><path d="M6 12h12"/><rect x="6" y="7" width="3" height="10" rx="1"/><rect x="15" y="7" width="3" height="10" rx="1"/></svg>;
                     return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>;
                   };
+                  const isPending = pendingMode === m && sessionMode !== m;
                   return (
                     <button key={m}
                       onClick={(e) => handleModeClick(m, e)}
                       className={`w-full py-4 text-sm font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[60px] flex flex-col items-center justify-center gap-1.5 touch-manipulation select-none ${
                         sessionMode === m
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
-                          : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
+                          : isPending
+                            ? "bg-amber-500/20 text-amber-300 border-2 border-amber-500/50 animate-pulse"
+                            : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
                       }`}>
-                      <ModeIcon /><span className="text-[11px]">{labels[m]}</span>
+                      <ModeIcon /><span className="text-[11px]">{isPending ? "Tap to confirm" : labels[m]}</span>
                     </button>
                   );
                 })}
               </div>
               <button
-                onClick={() => { if (isScrollingRef.current) return; const next = sessionTime === "am" ? "pm" : "am"; setSessionTime(next); sessionStorage.setItem("apex_session_time_manual", today()); sessionStorage.setItem("apex_session_time_value", next); }}
-                className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] touch-manipulation ${
-                  sessionTime === "am"
-                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                    : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
+                onClick={(e) => {
+                  if (!e.isTrusted) return;
+                  if (isScrollingRef.current) return;
+                  const now = Date.now();
+                  if (now - lastTouchEndRef.current < 600) return;
+                  // Validate touch didn't move (scroll guard)
+                  if (touchStartRef.current) {
+                    const touch = e.nativeEvent as unknown as { clientX?: number; clientY?: number };
+                    if (touch.clientX !== undefined && touch.clientY !== undefined) {
+                      const dx = Math.abs(touch.clientX - touchStartRef.current.x);
+                      const dy = Math.abs(touch.clientY - touchStartRef.current.y);
+                      if (dx > 15 || dy > 15) return;
+                    }
+                  }
+                  // Two-tap confirmation for AM/PM switch
+                  if (pendingAmPm) {
+                    // Confirmed — switch
+                    setPendingAmPm(false);
+                    if (pendingAmPmTimer.current) clearTimeout(pendingAmPmTimer.current);
+                    const next = sessionTime === "am" ? "pm" : "am";
+                    setSessionTime(next);
+                    sessionStorage.setItem("apex_session_time_manual", today());
+                    sessionStorage.setItem("apex_session_time_value", next);
+                  } else {
+                    // First tap — show confirmation
+                    setPendingAmPm(true);
+                    if (pendingAmPmTimer.current) clearTimeout(pendingAmPmTimer.current);
+                    pendingAmPmTimer.current = setTimeout(() => setPendingAmPm(false), 3000);
+                  }
+                }}
+                className={`w-full text-xs font-bold font-mono tracking-wider transition-all duration-200 rounded-xl min-h-[44px] touch-manipulation select-none ${
+                  pendingAmPm
+                    ? "bg-amber-500/20 text-amber-300 border-2 border-amber-500/50 animate-pulse"
+                    : sessionTime === "am"
+                      ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                      : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/30"
                 }`}>
-                {sessionTime === "am" ? "☀ AM" : "☽ PM"}
+                {pendingAmPm ? `Tap to switch to ${sessionTime === "am" ? "PM" : "AM"}` : sessionTime === "am" ? "☀ AM" : "☽ PM"}
               </button>
             </div>
 

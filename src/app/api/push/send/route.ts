@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // Lazy-load to avoid build-time execution
     const webpush = (await import("web-push")).default;
-    webpush.setVapidDetails("mailto:ramichehq@gmail.com", VAPID_PUBLIC, VAPID_PRIVATE);
+    webpush.setVapidDetails("mailto:hello@parallax.so", VAPID_PUBLIC, VAPID_PRIVATE);
 
     const { getApps, initializeApp, cert } = await import("firebase-admin/app");
     const { getFirestore } = await import("firebase-admin/firestore");

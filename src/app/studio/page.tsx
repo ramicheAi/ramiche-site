@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, FormEvent } from "react";
 
 /* ══════════════════════════════════════════════════════════════
-   RAMICHE STUDIO — Creative Direction Service
+   PARALLAX STUDIO — Creative Direction Service
    Dark sci-fi game UI · Tailwind inline classes
    v3: + inline inquiry form, social proof, why section, 3D studio
    ══════════════════════════════════════════════════════════════ */
@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { label: "Apex Athlete", href: "/apex-athlete", active: false },
   { label: "Financial", href: "/financial", active: false },
   { label: "Studio", href: "/studio", active: true },
+  { label: "Agents", href: "/agents", active: false },
 ];
 
 const SPRINT_DELIVERABLES = [
@@ -455,7 +456,7 @@ export default function StudioPage() {
         <nav className="w-full border-b border-white/[0.06] bg-[#06020f]/80 backdrop-blur-md">
           <div className="mx-auto max-w-[2000px] flex items-center justify-between px-4 sm:px-6 lg:px-10 xl:px-16 py-3">
             <span className="text-xs sm:text-sm tracking-[0.25em] uppercase text-white/30 font-mono">
-              Ramiche // Studio
+              Parallax // Studio
             </span>
             <div className="flex gap-1 sm:gap-2 overflow-x-auto scrollbar-hide">
               {NAV_LINKS.map((link) => (
@@ -496,7 +497,7 @@ export default function StudioPage() {
                 backgroundSize: "200% 200%",
               }}
             >
-              RAMICHE
+              PARALLAX
               <br />
               STUDIO
             </h1>
@@ -545,7 +546,7 @@ export default function StudioPage() {
           </div>
         </section>
 
-        {/* ── why ramiche section ──────────────────────────────── */}
+        {/* ── why parallax section ─────────────────────────────── */}
         <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
           <div className="mx-auto max-w-[2000px]">
             <div className="text-center mb-12">
@@ -553,7 +554,7 @@ export default function StudioPage() {
                 The Difference
               </span>
               <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white/90">
-                Why Ramiche
+                Why Parallax
               </h2>
               <div className="mt-4 mx-auto w-16 h-[2px] bg-gradient-to-r from-[#a855f7]/0 via-[#a855f7]/60 to-[#a855f7]/0" />
             </div>
@@ -936,15 +937,15 @@ export default function StudioPage() {
         <footer className="border-t border-white/[0.06] py-8 px-4 sm:px-6 lg:px-10 xl:px-16">
           <div className="mx-auto max-w-[2000px] flex flex-col sm:flex-row items-center justify-between gap-4">
             <span className="text-white/20 text-xs font-mono tracking-wider">
-              &copy; 2026 Ramiche Studio
+              &copy; 2026 Parallax Studio
             </span>
             <div className="flex items-center gap-4">
-              <a href="https://instagram.com/ramiche" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
+              <a href="https://instagram.com/parallaxhq" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
                 Instagram
               </a>
               <span className="text-white/10 text-[6px]">{"\u25C6"}</span>
-              <a href="mailto:studio@ramiche.com" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
-                studio@ramiche.com
+              <a href="mailto:studio@parallax.com" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
+                studio@parallax.com
               </a>
             </div>
           </div>

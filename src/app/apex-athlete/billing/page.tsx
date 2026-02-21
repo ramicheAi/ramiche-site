@@ -562,7 +562,7 @@ function EnterpriseCard() {
           {/* Right side */}
           <div className="shrink-0">
             <a
-              href="mailto:ramichehq@gmail.com?subject=Apex%20Enterprise%20Inquiry"
+              href="mailto:hello@parallax.so?subject=Apex%20Enterprise%20Inquiry"
               className="inline-flex items-center gap-2 px-8 py-3.5 text-sm font-bold font-mono tracking-[0.2em] uppercase transition-all duration-300 hover:brightness-125"
               style={{
                 background: "linear-gradient(135deg, #f59e0b30, #f59e0b15)",

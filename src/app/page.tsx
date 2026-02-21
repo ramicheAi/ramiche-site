@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   RAMICHE HQ — LIVE OPERATIONS DASHBOARD
+   PARALLAX HQ — LIVE OPERATIONS DASHBOARD
    Auto-refreshes every 30 seconds from /status.json
    ══════════════════════════════════════════════════════════════════════════════ */
 
@@ -60,12 +60,12 @@ export default function Home() {
     { title: "Command Center", description: "Mission control for all operations", href: "/command-center", accent: "cyan" as const, icon: "◈", status: "ONLINE" },
     { title: "Apex Athlete", description: "Athlete engagement & performance platform", href: "/apex-athlete", accent: "purple" as const, icon: "✦", status: "ACTIVE" },
     { title: "Financial", description: "ORACLE — Revenue & growth metrics", href: "/financial", accent: "gold" as const, icon: "◉", status: "LIVE" },
-    { title: "Ramiche Studio", description: "Creative direction for the bold", href: "/studio", accent: "cyan" as const, icon: "♢", status: "LIVE" },
+    { title: "Parallax Studio", description: "Creative direction for the bold", href: "/studio", accent: "cyan" as const, icon: "♢", status: "LIVE" },
   ];
 
   const brands = [
     { name: "Parallax", role: "Parent Company" },
-    { name: "RAMICHE", role: "Operations HQ" },
+    { name: "PARALLAX", role: "Operations HQ" },
     { name: "Galactik Antics", role: "Product Line" },
     { name: "The Baba Studio", role: "Audio Division" },
     { name: "Apex Athlete", role: "SaaS Platform" },
@@ -130,7 +130,7 @@ export default function Home() {
         <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
           <div className="flex items-center justify-between h-14">
             <div className="flex items-center gap-2">
-              <span className="neon-text-cyan text-sm font-bold tracking-widest">RAMICHE</span>
+              <span className="neon-text-cyan text-sm font-bold tracking-widest">PARALLAX</span>
               <span className="text-white/20 text-xs">|</span>
               <span className="text-white/30 text-[10px] tracking-wider uppercase">Systems HQ</span>
             </div>
@@ -155,7 +155,7 @@ export default function Home() {
         </div>
         <h1 className="animated-gradient-text text-5xl sm:text-8xl md:text-9xl font-black tracking-tight text-center leading-none bg-clip-text text-transparent select-none"
           style={{ backgroundImage: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #f59e0b 70%, #00f0ff 100%)", backgroundSize: "200% 200%", WebkitBackgroundClip: "text", filter: "drop-shadow(0 0 40px rgba(0,240,255,0.2))" }}>
-          RAMICHE
+          PARALLAX
         </h1>
         <p className="mt-4 text-lg sm:text-xl text-white/50 tracking-wide text-center font-light">Systems builder. Culture creator.</p>
 
@@ -403,7 +403,7 @@ export default function Home() {
         <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 py-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <span className="neon-text-cyan text-xs font-bold tracking-widest">RAMICHE</span>
+              <span className="neon-text-cyan text-xs font-bold tracking-widest">PARALLAX</span>
               <span className="text-white/10">|</span>
               <span className="text-white/20 text-[10px] tracking-wider">Operations Hub</span>
             </div>
@@ -415,7 +415,7 @@ export default function Home() {
             </div>
           </div>
           <div className="mt-6 pt-4 border-t border-white/5 text-center">
-            <p className="text-[10px] text-white/15 tracking-widest uppercase">&copy; 2026 Ramiche Operations &middot; Auto-refreshes every 10s</p>
+            <p className="text-[10px] text-white/15 tracking-widest uppercase">&copy; 2026 Parallax Operations &middot; Auto-refreshes every 10s</p>
           </div>
         </div>
       </footer>

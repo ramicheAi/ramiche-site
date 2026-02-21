@@ -43,7 +43,7 @@ const BRANDS = [
     ],
   },
   {
-    name: "Ramiche Studio", accent: "#a855f7", icon: "\u2662",
+    name: "Parallax Studio", accent: "#a855f7", icon: "\u2662",
     streams: [
       { name: "48h Sprint ($300\u2013$500)", status: "active", monthly: "\u2014", potential: "$3K\u2013$10K/mo" },
       { name: "AI Agent Setup ($1K\u2013$3K)", status: "soon", monthly: "\u2014", potential: "$5K\u2013$15K/mo" },
@@ -345,7 +345,7 @@ export default function FinancialDashboard() {
         {/* Footer */}
         <div className="border-t border-white/5 pt-6 pb-4 text-center">
           <p className="text-[10px] text-white/15 tracking-widest uppercase">
-            ORACLE Financial Dashboard \u2014 KIYOSAKI Agent \u2014 RAMICHE HQ \u2014 {new Date().getFullYear()}
+            ORACLE Financial Dashboard \u2014 KIYOSAKI Agent \u2014 PARALLAX HQ \u2014 {new Date().getFullYear()}
           </p>
         </div>
       </div>
