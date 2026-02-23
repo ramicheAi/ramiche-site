@@ -3350,6 +3350,56 @@ export default function ApexAthletePage() {
                   </div>
                 )}
 
+                {/* Meet Summary Report — shown when meet is completed */}
+                {editMeet.status === "completed" && (() => {
+                  const allEntries = editMeet.events.flatMap(ev => ev.entries.map(e => ({ ...e, event: ev.name })));
+                  const withResults = allEntries.filter(e => e.finalTime && !e.dq);
+                  const dqCount = allEntries.filter(e => e.dq).length;
+                  const improvements = withResults.map(e => ({ ...e, imp: calcImprovement(e.seedTime, e.finalTime!) })).filter(e => e.imp !== undefined);
+                  const bestDrops = improvements.filter(e => (e.imp ?? 0) > 0).sort((a, b) => (b.imp ?? 0) - (a.imp ?? 0)).slice(0, 5);
+                  const uniqueAthletes = new Set(allEntries.map(e => e.athleteId)).size;
+                  const prs = improvements.filter(e => (e.imp ?? 0) > 0).length;
+                  return (
+                    <div className="border-t border-emerald-400/10 pt-4 mb-4">
+                      <h4 className="text-xs font-bold text-emerald-400/60 uppercase tracking-wider mb-3">Meet Summary</h4>
+                      <div className="grid grid-cols-4 gap-3 mb-4">
+                        <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+                          <div className="text-xl font-black text-white">{uniqueAthletes}</div>
+                          <div className="text-[10px] text-white/40 uppercase">Athletes</div>
+                        </div>
+                        <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+                          <div className="text-xl font-black text-[#a855f7]">{editMeet.events.length}</div>
+                          <div className="text-[10px] text-white/40 uppercase">Events</div>
+                        </div>
+                        <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+                          <div className="text-xl font-black text-emerald-400">{prs}</div>
+                          <div className="text-[10px] text-white/40 uppercase">PRs</div>
+                        </div>
+                        <div className="bg-white/[0.03] rounded-xl p-3 text-center">
+                          <div className="text-xl font-black text-red-400">{dqCount}</div>
+                          <div className="text-[10px] text-white/40 uppercase">DQs</div>
+                        </div>
+                      </div>
+                      {bestDrops.length > 0 && (
+                        <div className="bg-white/[0.02] border border-emerald-400/10 rounded-xl p-4">
+                          <h5 className="text-[10px] font-bold text-emerald-400/50 uppercase tracking-wider mb-2">Top Time Drops</h5>
+                          <div className="space-y-1.5">
+                            {bestDrops.map((d, i) => {
+                              const ath = roster.find(a => a.id === d.athleteId);
+                              return (
+                                <div key={i} className="flex items-center justify-between">
+                                  <span className="text-xs text-white/70">{ath?.name || "Unknown"} — {d.event}</span>
+                                  <span className="text-xs font-mono font-bold text-emerald-400">−{(d.imp ?? 0).toFixed(2)}s</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Broadcast to parents about this meet */}
                 <div className="border-t border-white/[0.06] pt-3">
                   <h4 className="text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Message Parents</h4>
