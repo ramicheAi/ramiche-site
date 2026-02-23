@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#0088AA" stop-opacity="1"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="100%" stop-color="#FFB347"/>
+    </linearGradient>
+  </defs>
+  <!-- Outer hexagon -->
+  <polygon points="64,4 120,32 120,88 64,124 8,88 8,32" fill="none" stroke="url(#glow)" stroke-width="3" stroke-linejoin="miter"/>
+  <!-- Inner hexagon (subtle) -->
+  <polygon points="64,14 112,38 112,84 64,114 16,84 16,38" fill="none" stroke="#00F0FF" stroke-width="0.8" stroke-linejoin="miter" opacity="0.2"/>
+  <!-- M letterform — bold, angular -->
+  <path d="M32,92 L32,44 L48,68 L64,36 L80,68 L96,44 L96,92" fill="none" stroke="#00F0FF" stroke-width="5" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- Flame crown -->
+  <polygon points="56,30 64,14 72,30" fill="url(#flame)"/>
+  <line x1="64" y1="36" x2="64" y2="30" stroke="#FF6B35" stroke-width="3" stroke-linecap="square"/>
+</svg>

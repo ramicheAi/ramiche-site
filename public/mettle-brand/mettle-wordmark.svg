@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" width="360" height="64">
+  <defs>
+    <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="100%" stop-color="#00D4E0"/>
+    </linearGradient>
+  </defs>
+  <!-- M -->
+  <path d="M4,56 L4,8 L4,8 L20,34 L36,8 L36,56 M4,8 L20,34 L36,8" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- E -->
+  <path d="M56,8 L56,56 M56,8 L84,8 M56,32 L80,32 M56,56 L84,56" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- T (first) -->
+  <path d="M100,8 L136,8 M118,8 L118,56" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- T (second) -->
+  <path d="M152,8 L188,8 M170,8 L170,56" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- L -->
+  <path d="M204,8 L204,56 L234,56" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- E -->
+  <path d="M250,8 L250,56 M250,8 L278,8 M250,32 L274,32 M250,56 L278,56" fill="none" stroke="url(#wg)" stroke-width="6" stroke-linejoin="miter" stroke-linecap="square"/>
+  <!-- Accent line -->
+  <line x1="4" y1="62" x2="278" y2="62" stroke="#FF6B35" stroke-width="1.5" opacity="0.6"/>
+</svg>
