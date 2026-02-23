@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { writeFile, readFile, mkdir } from "fs/promises";
 import path from "path";
+import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const INQUIRIES_FILE = path.join(DATA_DIR, "studio-inquiries.json");
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = rateLimit(`studio-inquiry:${ip}`, 5, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   try {
     const body = await req.json();
 

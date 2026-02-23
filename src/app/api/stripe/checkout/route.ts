@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT SESSION — API Route
@@ -27,6 +28,10 @@ function getStripe(): Stripe {
 }
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = rateLimit(`checkout:${ip}`, 10, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   try {
     const body = await req.json();
     const { priceId, planId } = body;
