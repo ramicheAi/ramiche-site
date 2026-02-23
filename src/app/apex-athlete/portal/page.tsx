@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════
@@ -44,16 +44,17 @@ const PORTALS = [
   },
 ] as const;
 
+const emptySubscribe = () => () => {};
+
 export default function PortalSelector() {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [hovered, setHovered] = useState<string | null>(null);
   const [rosterCount, setRosterCount] = useState(0);
 
   useEffect(() => {
-    setMounted(true);
     try {
       const roster = JSON.parse(localStorage.getItem("apex_roster") || "[]");
-      setRosterCount(Array.isArray(roster) ? roster.length : 0);
+      setRosterCount(Array.isArray(roster) ? roster.length : 0); // eslint-disable-line react-hooks/set-state-in-effect -- localStorage read on mount
     } catch { setRosterCount(0); }
   }, []);
 

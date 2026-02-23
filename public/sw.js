@@ -4,7 +4,7 @@ self.addEventListener("push", (event) => {
   let data = { title: "Apex Athlete", body: "New notification", icon: "/agents/apex-icon-192.png" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
-  } catch (e) {
+  } catch {
     if (event.data) data.body = event.data.text();
   }
   event.waitUntil(
