@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="steelGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="100%" stop-color="#006688"/>
+    </linearGradient>
+    <linearGradient id="sparkGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="100%" stop-color="#FFDD57"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Anvil shape - where mettle is forged -->
+  <!-- Top face -->
+  <path d="M100 220 L300 220 L320 240 L310 260 L90 260 L80 240 Z" fill="url(#steelGrad)"/>
+  <!-- Body -->
+  <path d="M110 260 L290 260 L270 340 L130 340 Z" fill="#005577"/>
+  <!-- Base -->
+  <path d="M100 340 L300 340 L320 360 L80 360 Z" fill="#004466"/>
+  <!-- Horn (left) -->
+  <path d="M100 220 L40 210 L35 225 L80 240 Z" fill="url(#steelGrad)"/>
+
+  <!-- Spark/impact point above anvil — the moment of forging -->
+  <circle cx="200" cy="180" r="8" fill="#FFDD57" opacity="0.9"/>
+  <circle cx="200" cy="180" r="20" fill="#FFB347" opacity="0.2"/>
+
+  <!-- Sparks flying -->
+  <line x1="200" y1="180" x2="160" y2="140" stroke="url(#sparkGrad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="200" y1="180" x2="240" y2="130" stroke="url(#sparkGrad)" stroke-width="2" stroke-linecap="round"/>
+  <line x1="200" y1="180" x2="170" y2="120" stroke="url(#sparkGrad)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="200" y1="180" x2="235" y2="145" stroke="url(#sparkGrad)" stroke-width="1.5" stroke-linecap="round"/>
+  <line x1="200" y1="180" x2="150" y2="155" stroke="url(#sparkGrad)" stroke-width="1" stroke-linecap="round"/>
+  <line x1="200" y1="180" x2="250" y2="155" stroke="url(#sparkGrad)" stroke-width="1" stroke-linecap="round"/>
+
+  <!-- Small spark dots -->
+  <circle cx="155" cy="135" r="3" fill="#FFDD57"/>
+  <circle cx="245" cy="125" r="2.5" fill="#FFDD57"/>
+  <circle cx="165" cy="115" r="2" fill="#FFB347"/>
+  <circle cx="240" cy="140" r="2" fill="#FFB347"/>
+  <circle cx="145" cy="150" r="1.5" fill="#FF6B35"/>
+  <circle cx="255" cy="150" r="1.5" fill="#FF6B35"/>
+
+  <!-- METTLE wordmark -->
+  <text x="200" y="430"
+        font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+        font-size="52" font-weight="900" letter-spacing="18"
+        fill="#00F0FF" text-anchor="middle">METTLE</text>
+
+  <!-- Tagline -->
+  <text x="200" y="468"
+        font-family="'Inter','Helvetica Neue',sans-serif"
+        font-size="13" font-weight="400" letter-spacing="5"
+        fill="#94A3B8" text-anchor="middle">FORGED FROM WITHIN</text>
+</svg>

@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 480" width="400" height="480">
+  <defs>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF"/>
+      <stop offset="100%" stop-color="#0066AA"/>
+    </linearGradient>
+    <linearGradient id="flameGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="40%" stop-color="#FFB347"/>
+      <stop offset="100%" stop-color="#FFDD57"/>
+    </linearGradient>
+    <linearGradient id="innerGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00F0FF" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00F0FF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield shape - pointed bottom, flat top with subtle curve -->
+  <path d="M200 10 L370 60 L370 220 C370 320 290 400 200 460 C110 400 30 320 30 220 L30 60 Z"
+        fill="none" stroke="url(#shieldGrad)" stroke-width="6"/>
+
+  <!-- Inner shield fill - very subtle -->
+  <path d="M200 20 L360 66 L360 220 C360 315 283 392 200 448 C117 392 40 315 40 220 L40 66 Z"
+        fill="url(#innerGlow)"/>
+
+  <!-- Flame/torch rising from center - the inner fire -->
+  <path d="M200 320
+           C200 320 170 280 175 250
+           C178 230 190 220 195 200
+           C197 185 192 170 195 155
+           C198 140 200 120 200 120
+           C200 120 202 140 205 155
+           C208 170 203 185 205 200
+           C210 220 222 230 225 250
+           C230 280 200 320 200 320 Z"
+        fill="url(#flameGrad)" opacity="0.95"/>
+
+  <!-- Flame inner highlight -->
+  <path d="M200 300
+           C200 300 185 270 188 250
+           C190 238 196 228 198 215
+           C199 205 198 190 200 175
+           C202 190 201 205 202 215
+           C204 228 210 238 212 250
+           C215 270 200 300 200 300 Z"
+        fill="#FFFFFF" opacity="0.4"/>
+
+  <!-- M letterform - bold, angular, integrated into shield -->
+  <text x="200" y="420"
+        font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+        font-size="42" font-weight="900" letter-spacing="16"
+        fill="#00F0FF" text-anchor="middle">METTLE</text>
+</svg>

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500" width="400" height="500">
+  <defs>
+    <linearGradient id="mGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#00AADD"/>
+      <stop offset="100%" stop-color="#00F0FF"/>
+    </linearGradient>
+    <linearGradient id="fireGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="50%" stop-color="#FFB347"/>
+      <stop offset="100%" stop-color="#FFDD57"/>
+    </linearGradient>
+    <linearGradient id="fireGrad2" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FF6B35"/>
+      <stop offset="100%" stop-color="#FFB347"/>
+    </linearGradient>
+  </defs>
+
+  <!-- The M — massive, bold, the foundation -->
+  <path d="M40 360 L40 100 L120 100 L200 220 L280 100 L360 100 L360 360 L300 360 L300 200 L220 310 L180 310 L100 200 L100 360 Z"
+        fill="url(#mGrad)"/>
+
+  <!-- Flame rising from the M's center valley — the greatness within -->
+  <path d="M200 220
+           C200 220 165 170 170 130
+           C173 108 185 95 190 70
+           C193 50 188 30 192 15
+           C196 -5 200 -20 200 -20
+           C200 -20 204 -5 208 15
+           C212 30 207 50 210 70
+           C215 95 227 108 230 130
+           C235 170 200 220 200 220 Z"
+        fill="url(#fireGrad)" opacity="0.95"/>
+
+  <!-- Inner flame core -->
+  <path d="M200 200
+           C200 200 180 160 184 130
+           C186 115 194 105 196 85
+           C197 70 196 55 200 35
+           C204 55 203 70 204 85
+           C206 105 214 115 216 130
+           C220 160 200 200 200 200 Z"
+        fill="#FFFFFF" opacity="0.35"/>
+
+  <!-- METTLE wordmark below -->
+  <text x="200" y="440"
+        font-family="'Impact','Arial Black','Helvetica Neue',sans-serif"
+        font-size="52" font-weight="900" letter-spacing="18"
+        fill="#00F0FF" text-anchor="middle">METTLE</text>
+
+  <!-- Tagline -->
+  <text x="200" y="475"
+        font-family="'Inter','Helvetica Neue',sans-serif"
+        font-size="14" font-weight="400" letter-spacing="4"
+        fill="#94A3B8" text-anchor="middle">UNLOCKING GREATNESS</text>
+</svg>
