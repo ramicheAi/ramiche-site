@@ -963,6 +963,8 @@ export default function ApexAthletePage() {
   const [pasteText, setPasteText] = useState("");
   const [meetDescription, setMeetDescription] = useState("");
   const [viewingAthleteEntries, setViewingAthleteEntries] = useState<string | null>(null);
+  const [editingSeedTime, setEditingSeedTime] = useState<{ meetId: string; eventId: string; athleteId: string } | null>(null);
+  const [seedTimeInput, setSeedTimeInput] = useState("");
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
   const [commsMsg, setCommsMsg] = useState("");
   const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
@@ -4328,6 +4330,15 @@ export default function ApexAthletePage() {
         })};
       }));
     };
+    const updateSeedTime = (meetId: string, eventId: string, athleteId: string, newTime: string) => {
+      saveMeets(meets.map(m => {
+        if (m.id !== meetId) return m;
+        return { ...m, events: m.events.map(ev => {
+          if (ev.id !== eventId) return ev;
+          return { ...ev, entries: ev.entries.map(e => e.athleteId === athleteId ? { ...e, seedTime: newTime } : e) };
+        })};
+      }));
+    };
     const sendMeetBroadcast = (meetId: string) => {
       if (!broadcastMsg.trim()) return;
       const bc: MeetBroadcast = { id: `bc-${Date.now()}`, message: broadcastMsg, timestamp: Date.now(), sentBy: "Coach" };
@@ -5020,7 +5031,7 @@ export default function ApexAthletePage() {
                                     );
                                   })}
                                 </div>
-                                {/* Entered athletes — show seed times + QT comparison */}
+                                {/* Entered athletes — show seed times + QT comparison + edit */}
                                 {entryCount > 0 && (
                                   <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-white/[0.05]">
                                     {ev.entries.map(e => {
@@ -5031,18 +5042,41 @@ export default function ApexAthletePage() {
                                       const meetsBonus = !qualifies && seedSecs > 0 && evBonusSecs > 0 && seedSecs <= evBonusSecs;
                                       const gap = seedSecs > 0 && evQtSecs > 0 ? seedSecs - evQtSecs : 0;
                                       const borderColor = !e.seedTime ? "#00f0ff" : qualifies ? "#22c55e" : meetsBonus ? "#f59e0b" : gap > 0 && gap < 10 ? "#f59e0b" : "#ef4444";
+                                      const isEditing = editingSeedTime?.meetId === editMeet.id && editingSeedTime?.eventId === ev.id && editingSeedTime?.athleteId === e.athleteId;
+                                      if (isEditing) {
+                                        return (
+                                          <div key={e.athleteId} className="flex items-center gap-2 rounded-xl px-4 py-3 min-h-[56px]" style={{ background: borderColor + "10", border: `2px solid ${borderColor}50` }}>
+                                            <span className="text-base font-semibold text-white/80">{e.athleteId.split(" ")[0]}</span>
+                                            <input type="text" value={seedTimeInput} onChange={ev2 => setSeedTimeInput(ev2.target.value)}
+                                              placeholder="M:SS.hh" autoFocus
+                                              onKeyDown={ev2 => { if (ev2.key === "Enter") { updateSeedTime(editMeet.id, ev.id, e.athleteId, seedTimeInput); setEditingSeedTime(null); } if (ev2.key === "Escape") setEditingSeedTime(null); }}
+                                              className="w-24 bg-white/10 border border-white/20 rounded-lg px-2 py-1.5 text-base font-mono text-white text-center placeholder:text-white/30 focus:outline-none focus:border-[#00f0ff]/50" style={{ fontSize: "16px" }} />
+                                            <button onClick={() => { updateSeedTime(editMeet.id, ev.id, e.athleteId, seedTimeInput); setEditingSeedTime(null); }}
+                                              className="text-emerald-400 font-bold text-sm px-2 py-1 rounded hover:bg-emerald-400/10">Save</button>
+                                            <button onClick={() => setEditingSeedTime(null)}
+                                              className="text-white/40 text-sm px-2 py-1 rounded hover:bg-white/10">Cancel</button>
+                                          </div>
+                                        );
+                                      }
                                       return (
-                                        <button key={e.athleteId} onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
-                                          className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl transition-all active:scale-[0.96] hover:opacity-80"
-                                          style={{ background: borderColor + "10", color: borderColor + "cc", border: `1px solid ${borderColor}30` }}>
-                                          <span>{e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}</span>
-                                          {e.seedTime && <span className="text-sm font-mono ml-2" style={{ color: qualifies ? "#22c55e" : meetsBonus ? "#f59e0b" : "#ef4444" }}>{e.seedTime}</span>}
-                                          {e.seedTime && evQtSecs > 0 && !qualifies && gap > 0 && (
-                                            <span className="text-xs ml-1 opacity-60">+{gap.toFixed(1)}s</span>
-                                          )}
-                                          {qualifies && <span className="text-xs ml-1 text-emerald-400">QT</span>}
-                                          {meetsBonus && <span className="text-xs ml-1 text-[#f59e0b]">BONUS</span>}
-                                        </button>
+                                        <div key={e.athleteId} className="flex items-center gap-1">
+                                          <button onClick={() => { setEditingSeedTime({ meetId: editMeet.id, eventId: ev.id, athleteId: e.athleteId }); setSeedTimeInput(e.seedTime || ""); }}
+                                            className="text-lg font-semibold px-5 py-4 min-h-[56px] rounded-xl transition-all active:scale-[0.96] hover:opacity-80"
+                                            style={{ background: borderColor + "10", color: borderColor + "cc", border: `1px solid ${borderColor}30` }}>
+                                            <span>{e.athleteId.split(" ")[0]} {e.athleteId.split(" ").slice(1).map(w => w[0]).join("")}</span>
+                                            {e.seedTime && <span className="text-sm font-mono ml-2" style={{ color: qualifies ? "#22c55e" : meetsBonus ? "#f59e0b" : "#ef4444" }}>{e.seedTime}</span>}
+                                            {!e.seedTime && <span className="text-xs ml-1 text-white/30 italic">NT</span>}
+                                            {e.seedTime && evQtSecs > 0 && !qualifies && gap > 0 && (
+                                              <span className="text-xs ml-1 opacity-60">+{gap.toFixed(1)}s</span>
+                                            )}
+                                            {qualifies && <span className="text-xs ml-1 text-emerald-400">QT</span>}
+                                            {meetsBonus && <span className="text-xs ml-1 text-[#f59e0b]">BONUS</span>}
+                                          </button>
+                                          <button onClick={() => toggleAthleteEntry(editMeet.id, ev.id, e.athleteId)}
+                                            className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400/20 hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                          </button>
+                                        </div>
                                       );
                                     })}
                                   </div>
