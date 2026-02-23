@@ -198,6 +198,12 @@ interface WellnessData {
 interface MeetEventEntry {
   athleteId: string;
   seedTime: string;
+  finalTime?: string;
+  place?: number;
+  splits?: string[];
+  dq?: boolean;
+  dqReason?: string;
+  improvement?: number;
 }
 
 interface MeetEvent {
@@ -2906,6 +2912,30 @@ export default function ApexAthletePage() {
         })};
       }));
     };
+    const updateEntryField = (meetId: string, eventId: string, athleteId: string, field: keyof MeetEventEntry, value: string | number | boolean | string[]) => {
+      saveMeets(meets.map(m => {
+        if (m.id !== meetId) return m;
+        return { ...m, events: m.events.map(ev => {
+          if (ev.id !== eventId) return ev;
+          return { ...ev, entries: ev.entries.map(e => e.athleteId !== athleteId ? e : { ...e, [field]: value }) };
+        })};
+      }));
+    };
+    const parseTime = (t: string): number | null => {
+      if (!t) return null;
+      const parts = t.replace(/[^0-9.:]/g, "").split(/[:.]/);
+      if (parts.length === 3) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]) + parseFloat(parts[2]) / 100;
+      if (parts.length === 2) return parseFloat(parts[0]) + parseFloat(parts[1]) / 100;
+      return null;
+    };
+    const calcImprovement = (seed: string, final: string): number | undefined => {
+      const s = parseTime(seed), f = parseTime(final);
+      if (s === null || f === null || s === 0) return undefined;
+      return Math.round((s - f) * 100) / 100;
+    };
+    const setMeetStatus = (meetId: string, status: SwimMeet["status"]) => {
+      saveMeets(meets.map(m => m.id === meetId ? { ...m, status } : m));
+    };
     const sendMeetBroadcast = (meetId: string) => {
       if (!broadcastMsg.trim()) return;
       const bc: MeetBroadcast = { id: `bc-${Date.now()}`, message: broadcastMsg, timestamp: Date.now(), sentBy: "Coach" };
@@ -3113,6 +3143,82 @@ export default function ApexAthletePage() {
                     </div>
                   </div>
                 ); })()}
+
+                {/* Meet status toggle */}
+                <div className="flex gap-2 mb-4">
+                  {(["upcoming", "active", "completed"] as const).map(s => (
+                    <button key={s} onClick={() => setMeetStatus(editMeet.id, s)}
+                      className={`flex-1 py-2 text-xs font-bold uppercase rounded-lg transition-all active:scale-95 ${
+                        editMeet.status === s
+                          ? s === "upcoming" ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                            : s === "active" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30"
+                            : "bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/30"
+                          : "bg-white/[0.03] text-white/40 border border-white/[0.06] hover:text-white/60"
+                      }`}>{s}</button>
+                  ))}
+                </div>
+
+                {/* Results entry — shown when meet is active or completed */}
+                {(editMeet.status === "active" || editMeet.status === "completed") && editMeet.events.length > 0 && (
+                  <div className="border-t border-white/[0.06] pt-4 mb-4">
+                    <h4 className="text-xs font-bold text-[#a855f7]/60 uppercase tracking-wider mb-3">Results Entry</h4>
+                    <div className="space-y-4">
+                      {editMeet.events.map((ev, idx) => (
+                        ev.entries.length > 0 && (
+                          <div key={ev.id} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
+                            <h5 className="text-sm font-bold text-white mb-3">#{ev.eventNum || idx + 1} {ev.name}</h5>
+                            <div className="space-y-2">
+                              {ev.entries.map(entry => {
+                                const ath = roster.find(a => a.id === entry.athleteId);
+                                const imp = entry.finalTime ? calcImprovement(entry.seedTime, entry.finalTime) : undefined;
+                                return (
+                                  <div key={entry.athleteId} className="bg-white/[0.02] rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-medium text-white">{ath?.name || "Unknown"}</span>
+                                      {entry.dq && <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold">DQ</span>}
+                                      {imp !== undefined && !entry.dq && (
+                                        <span className={`text-xs font-mono font-bold ${imp > 0 ? "text-emerald-400" : imp < 0 ? "text-red-400" : "text-white/50"}`}>
+                                          {imp > 0 ? `−${imp.toFixed(2)}` : imp < 0 ? `+${Math.abs(imp).toFixed(2)}` : "="}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                      <div>
+                                        <label className="text-[10px] text-white/40 uppercase block mb-0.5">Seed</label>
+                                        <input value={entry.seedTime} onChange={e => updateEntryField(editMeet.id, ev.id, entry.athleteId, "seedTime", e.target.value)}
+                                          placeholder="0:00.00" className="w-full bg-white/[0.04] border border-white/[0.06] rounded px-2 py-1.5 text-xs text-white/70 font-mono focus:outline-none focus:border-[#00f0ff]/30" style={{ fontSize: "16px" }} />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-white/40 uppercase block mb-0.5">Final</label>
+                                        <input value={entry.finalTime || ""} onChange={e => updateEntryField(editMeet.id, ev.id, entry.athleteId, "finalTime", e.target.value)}
+                                          placeholder="0:00.00" className="w-full bg-white/[0.04] border border-[#a855f7]/20 rounded px-2 py-1.5 text-xs text-white font-mono font-bold focus:outline-none focus:border-[#a855f7]/50" style={{ fontSize: "16px" }} />
+                                      </div>
+                                      <div>
+                                        <label className="text-[10px] text-white/40 uppercase block mb-0.5">Place</label>
+                                        <input type="number" min="1" value={entry.place || ""} onChange={e => updateEntryField(editMeet.id, ev.id, entry.athleteId, "place", e.target.value ? parseInt(e.target.value) : 0)}
+                                          placeholder="#" className="w-full bg-white/[0.04] border border-white/[0.06] rounded px-2 py-1.5 text-xs text-white/70 font-mono focus:outline-none focus:border-[#00f0ff]/30" style={{ fontSize: "16px" }} />
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center gap-3 mt-2">
+                                      <button onClick={() => updateEntryField(editMeet.id, ev.id, entry.athleteId, "dq", !entry.dq)}
+                                        className={`text-xs px-3 py-1 rounded-lg font-bold transition-all ${entry.dq ? "bg-red-500/20 text-red-400 border border-red-500/30" : "bg-white/[0.03] text-white/30 border border-white/[0.06] hover:text-white/50"}`}>
+                                        DQ
+                                      </button>
+                                      {entry.dq && (
+                                        <input value={entry.dqReason || ""} onChange={e => updateEntryField(editMeet.id, ev.id, entry.athleteId, "dqReason", e.target.value)}
+                                          placeholder="Reason..." className="flex-1 bg-white/[0.04] border border-red-500/10 rounded px-2 py-1 text-xs text-white/60 focus:outline-none" style={{ fontSize: "16px" }} />
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Broadcast to parents about this meet */}
                 <div className="border-t border-white/[0.06] pt-3">
