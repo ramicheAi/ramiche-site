@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { MASTER_PIN } from "../auth";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Parent Portal (Read-Only)
@@ -1024,7 +1025,7 @@ export default function ParentPortal() {
   }, []);
 
   const handlePin = () => {
-    if (pinInput === "2451") { setUnlocked(true); setPinError(false); return; }
+    if (pinInput === MASTER_PIN) { setUnlocked(true); setPinError(false); return; }
     let stored = "";
     if (typeof window !== "undefined") {
       const raw = localStorage.getItem("apex-athlete-pin");

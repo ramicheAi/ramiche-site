@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { MASTER_PIN } from "../auth";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -1026,7 +1027,7 @@ export default function ApexAthletePage() {
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
-    if (!pin || pin === "1234") { setCoachPin("2451"); save(K.PIN, "2451"); } else { setCoachPin(pin); }
+    if (!pin || pin === "1234") { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); } else { setCoachPin(pin); }
     // Load selected group
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
@@ -1946,7 +1947,7 @@ export default function ApexAthletePage() {
     if (matchedCoach) { setUnlocked(true); setPinError(false); return; }
     setPinError(true);
   };
-  const resetPin = () => { setCoachPin("2451"); save(K.PIN, "2451"); setPinInput(""); setPinError(false); };
+  const resetPin = () => { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); setPinInput(""); setPinError(false); };
 
   if (!unlocked && (view === "coach" || view === "schedule" || view === "staff")) {
     return (
@@ -1969,7 +1970,7 @@ export default function ApexAthletePage() {
                 className={`w-full text-center text-2xl tracking-[0.5em] py-4 bg-[#06020f]/80 backdrop-blur-xl border-2 text-[#00f0ff] placeholder:text-[#00f0ff]/15 focus:outline-none transition-all font-mono game-panel-sm ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#00f0ff]/20 focus:border-[#00f0ff]/50 focus:shadow-[0_0_30px_rgba(0,240,255,0.2)]"}`}
               />
             </div>
-            {pinError && <p className="text-red-400 text-xs -mt-2 font-mono">ACCESS DENIED. Default: 2451.</p>}
+            {pinError && <p className="text-red-400 text-xs -mt-2 font-mono">ACCESS DENIED. Default: {MASTER_PIN}.</p>}
             <button onClick={tryUnlock}
               className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]">
               Authenticate
@@ -1980,7 +1981,7 @@ export default function ApexAthletePage() {
             </a>
             {pinError && (
               <button onClick={resetPin} className="text-white/50 text-xs hover:text-white/60 transition-colors font-mono">
-                RESET PIN → 2451
+                RESET PIN → {MASTER_PIN}
               </button>
             )}
           </div>
