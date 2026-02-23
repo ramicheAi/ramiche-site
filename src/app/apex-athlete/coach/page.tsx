@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MASTER_PIN } from "../auth";
+import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -987,6 +988,37 @@ export default function ApexAthletePage() {
   // ── more menu & confirm dialog ─────────────────────────
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => void } | null>(null);
+
+  // ── invite system ─────────────────────────────────────
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteList, setInviteList] = useState<Invite[]>([]);
+  const [newInviteRole, setNewInviteRole] = useState<InviteRole>("athlete");
+  const [newInviteLabel, setNewInviteLabel] = useState("");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const refreshInvites = useCallback(() => {
+    setInviteList(getInvites());
+  }, []);
+
+  const handleCreateInvite = () => {
+    const label = newInviteLabel.trim() || `${newInviteRole.charAt(0).toUpperCase() + newInviteRole.slice(1)} Invite`;
+    createInvite(newInviteRole, label, { expiresInDays: 30 });
+    setNewInviteLabel("");
+    refreshInvites();
+  };
+
+  const handleCopyLink = (token: string) => {
+    const url = getInviteUrl(token);
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    });
+  };
+
+  const handleDeactivate = (token: string) => {
+    deactivateInvite(token);
+    refreshInvites();
+  };
 
   // ── schedule state ──────────────────────────────────────
   const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
@@ -3730,6 +3762,7 @@ export default function ApexAthletePage() {
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "End current session? Attendance will be saved and a fresh slate will load.", action: endCurrentSession }); }} className="w-full text-left px-4 py-3 text-[#00f0ff]/80 text-xs font-mono hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] transition-colors font-semibold">End Session + Save</button>
                       <button onClick={() => { setShowMoreMenu(false); setShowSessionHistory(true); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Session History</button>
                       <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
+                      <button onClick={() => { setShowMoreMenu(false); refreshInvites(); setShowInviteModal(true); }} className="w-full text-left px-4 py-3 text-[#a855f7]/70 text-xs font-mono hover:bg-[#a855f7]/10 hover:text-[#a855f7] transition-colors">Invite Links</button>
                       <div className="border-t border-white/[0.06] my-1" />
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset this week's sessions and check-ins?", action: resetWeek }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Week</button>
@@ -3931,6 +3964,100 @@ export default function ApexAthletePage() {
             </div>
           </div>
         </div>
+
+        {/* ── Invite Links Modal ── */}
+        {showInviteModal && (
+          <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowInviteModal(false)}>
+            <div className="bg-[#0a0315] border border-[#a855f7]/20 rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-white font-bold text-lg font-mono">Invite Links</h3>
+                <button onClick={() => setShowInviteModal(false)} className="text-white/40 hover:text-white text-2xl leading-none">&times;</button>
+              </div>
+
+              {/* Create new invite */}
+              <div className="bg-[#a855f7]/5 border border-[#a855f7]/15 rounded-xl p-4 mb-5">
+                <p className="text-white/50 text-xs font-mono mb-3">Create a shareable link — no PIN needed</p>
+                <div className="flex gap-2 mb-3">
+                  {(["athlete", "parent", "coach"] as InviteRole[]).map(r => (
+                    <button key={r} onClick={() => setNewInviteRole(r)}
+                      className={`flex-1 py-2 text-xs font-mono font-bold uppercase tracking-wider rounded-lg transition-all ${
+                        newInviteRole === r
+                          ? r === "athlete" ? "bg-[#a855f7]/20 text-[#a855f7] border border-[#a855f7]/40"
+                          : r === "parent" ? "bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40"
+                          : "bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40"
+                          : "bg-white/[0.03] text-white/30 border border-white/[0.06]"
+                      }`}>
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newInviteLabel}
+                    onChange={e => setNewInviteLabel(e.target.value)}
+                    placeholder={`e.g. "Gold Group Athletes"`}
+                    className="flex-1 px-3 py-2.5 bg-[#06020f]/80 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/40"
+                  />
+                  <button onClick={handleCreateInvite}
+                    className="px-4 py-2.5 bg-[#a855f7]/20 text-[#a855f7] text-xs font-bold font-mono rounded-lg border border-[#a855f7]/30 hover:bg-[#a855f7]/30 transition-all active:scale-[0.97]">
+                    Create
+                  </button>
+                </div>
+              </div>
+
+              {/* Active invites */}
+              <div className="space-y-2">
+                {inviteList.length === 0 ? (
+                  <p className="text-white/20 text-sm font-mono text-center py-6">No invite links yet. Create one above.</p>
+                ) : (
+                  inviteList.slice().reverse().map(inv => {
+                    const isExpired = inv.expiresAt > 0 && Date.now() > inv.expiresAt;
+                    const isMaxed = inv.maxUses > 0 && inv.useCount >= inv.maxUses;
+                    const isActive = inv.active && !isExpired && !isMaxed;
+                    const roleColor = inv.role === "athlete" ? "#a855f7" : inv.role === "parent" ? "#f59e0b" : "#00f0ff";
+                    return (
+                      <div key={inv.token} className={`border rounded-xl p-3 ${isActive ? "border-white/10 bg-white/[0.02]" : "border-white/[0.04] bg-white/[0.01] opacity-50"}`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: roleColor, background: `${roleColor}15`, border: `1px solid ${roleColor}25` }}>
+                              {inv.role}
+                            </span>
+                            <span className="text-white/60 text-sm">{inv.label}</span>
+                          </div>
+                          <span className="text-white/20 text-[10px] font-mono">{inv.useCount} used</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {isActive && (
+                            <button onClick={() => handleCopyLink(inv.token)}
+                              className={`flex-1 py-2 text-xs font-mono rounded-lg border transition-all active:scale-[0.97] ${
+                                copiedToken === inv.token
+                                  ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
+                                  : "bg-white/[0.03] text-white/50 border-white/[0.06] hover:text-white/70"
+                              }`}>
+                              {copiedToken === inv.token ? "Copied!" : "Copy Link"}
+                            </button>
+                          )}
+                          {isActive && (
+                            <button onClick={() => handleDeactivate(inv.token)}
+                              className="py-2 px-3 text-xs font-mono text-red-400/50 rounded-lg border border-white/[0.04] hover:bg-red-500/10 hover:text-red-400 transition-all">
+                              Disable
+                            </button>
+                          )}
+                          {!isActive && (
+                            <span className="text-xs font-mono text-white/20">
+                              {!inv.active ? "Disabled" : isExpired ? "Expired" : "Max uses reached"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Privacy footer */}
         <div className="text-center text-white/[0.05] text-xs py-10 space-y-1">
