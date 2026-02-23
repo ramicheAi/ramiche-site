@@ -1731,6 +1731,46 @@ export default function ApexAthletePage() {
     link.click(); URL.revokeObjectURL(url);
   }, [roster]);
 
+  const importCSV = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      if (!text) return;
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) return;
+      const header = lines[0].toLowerCase();
+      const cols = header.split(",").map(c => c.trim());
+      const nameIdx = cols.findIndex(c => c === "name");
+      const ageIdx = cols.findIndex(c => c === "age");
+      const genderIdx = cols.findIndex(c => c === "gender" || c === "sex");
+      const groupIdx = cols.findIndex(c => c === "group");
+      if (nameIdx === -1) { alert("CSV must have a 'Name' column"); return; }
+      const newAthletes: Athlete[] = [];
+      const existingNames = new Set(roster.map(a => a.name.toLowerCase()));
+      for (let i = 1; i < lines.length; i++) {
+        const vals = lines[i].split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+        const name = vals[nameIdx];
+        if (!name) continue;
+        if (existingNames.has(name.toLowerCase())) continue;
+        const age = ageIdx >= 0 ? parseInt(vals[ageIdx]) || 12 : 12;
+        const gRaw = genderIdx >= 0 ? vals[genderIdx]?.toUpperCase() : "M";
+        const gender: "M" | "F" = gRaw === "F" || gRaw === "FEMALE" ? "F" : "M";
+        const groupRaw = groupIdx >= 0 ? vals[groupIdx]?.toLowerCase() : selectedGroup;
+        const group = ROSTER_GROUPS.find(g => g.id === groupRaw || g.name.toLowerCase() === groupRaw)?.id || selectedGroup;
+        newAthletes.push(makeAthlete({ name, age, gender, group }));
+        existingNames.add(name.toLowerCase());
+      }
+      if (newAthletes.length === 0) { alert("No new athletes found in CSV (all duplicates or empty)"); return; }
+      saveRoster([...roster, ...newAthletes]);
+      addAudit("system", "CSV Import", `Imported ${newAthletes.length} athletes`, 0);
+      alert(`Imported ${newAthletes.length} athlete${newAthletes.length > 1 ? "s" : ""}!`);
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }, [roster, saveRoster, addAudit, selectedGroup]);
+
   const currentSport = currentGroupDef.sport;
   const currentCPs = getCPsForSport(currentSport);
   const filteredRoster = useMemo(() => roster.filter(a => a.group === selectedGroup), [roster, selectedGroup]);
@@ -3667,11 +3707,15 @@ export default function ApexAthletePage() {
             </div>
 
             {/* Quick actions — full-width toolbar */}
-            <div className="grid grid-cols-4 gap-2 mb-3">
+            <div className="grid grid-cols-5 gap-2 mb-3">
               <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                 Bulk
               </button>
               <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
+              <label className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#34d399]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px] flex items-center justify-center cursor-pointer">
+                Import
+                <input type="file" accept=".csv,.txt" onChange={importCSV} className="hidden" />
+              </label>
               <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                 {addAthleteOpen ? "Cancel" : "+ Add"}
               </button>
