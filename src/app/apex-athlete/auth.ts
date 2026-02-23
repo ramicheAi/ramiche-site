@@ -16,7 +16,7 @@ export interface AuthSession {
 
 export interface StoredCoachAccount {
   email: string;
-  password: string; // plaintext for localStorage demo; hash in production
+  password: string; // SHA-256 hashed (prefixed $sha256$); legacy plaintext auto-migrated on login
   name: string;
   role: "head" | "assistant" | "guest";
   groups: string[];
@@ -53,6 +53,30 @@ function loadJSON<T>(key: string, fallback: T): T {
 function saveJSON(key: string, val: unknown): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(key, JSON.stringify(val));
+}
+
+// ── Password Hashing (Web Crypto API) ───────────────────────
+const HASH_PREFIX = "$sha256$";
+
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+  return HASH_PREFIX + hashHex;
+}
+
+async function verifyPassword(password: string, stored: string): Promise<boolean> {
+  if (stored.startsWith(HASH_PREFIX)) {
+    const hashed = await hashPassword(password);
+    return hashed === stored;
+  }
+  return password === stored;
+}
+
+function isHashed(stored: string): boolean {
+  return stored.startsWith(HASH_PREFIX);
 }
 
 // ── Session Management ──────────────────────────────────────
@@ -106,12 +130,13 @@ export function saveCoachAccounts(accounts: StoredCoachAccount[]): void {
   saveJSON(COACH_ACCOUNTS_KEY, accounts);
 }
 
-export function registerCoach(email: string, password: string, name: string, role: "head" | "assistant" | "guest" = "assistant", groups: string[] = ["all"]): { success: boolean; error?: string } {
+export async function registerCoach(email: string, password: string, name: string, role: "head" | "assistant" | "guest" = "assistant", groups: string[] = ["all"]): Promise<{ success: boolean; error?: string }> {
   const accounts = getCoachAccounts();
   if (accounts.find(a => a.email.toLowerCase() === email.toLowerCase())) {
     return { success: false, error: "An account with this email already exists." };
   }
-  accounts.push({ email: email.toLowerCase(), password, name, role, groups, createdAt: Date.now() });
+  const hashed = await hashPassword(password);
+  accounts.push({ email: email.toLowerCase(), password: hashed, name, role, groups, createdAt: Date.now() });
   saveCoachAccounts(accounts);
   return { success: true };
 }
@@ -170,7 +195,7 @@ export function loginWithPin(pin: string): { success: boolean; session?: AuthSes
   return { success: false, error: "Invalid PIN." };
 }
 
-export function loginCoach(email: string, password: string): { success: boolean; session?: AuthSession; error?: string } {
+export async function loginCoach(email: string, password: string): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
   // Check for admin email
   if (email.toLowerCase() === "admin@apexathlete.local" && password === MASTER_PIN) {
     const session: AuthSession = {
@@ -185,7 +210,13 @@ export function loginCoach(email: string, password: string): { success: boolean;
   const accounts = getCoachAccounts();
   const account = accounts.find(a => a.email.toLowerCase() === email.toLowerCase());
   if (!account) return { success: false, error: "No account found with this email." };
-  if (account.password !== password) return { success: false, error: "Incorrect password." };
+  const passwordValid = await verifyPassword(password, account.password);
+  if (!passwordValid) return { success: false, error: "Incorrect password." };
+  // Migrate legacy plaintext password to hashed on successful login
+  if (!isHashed(account.password)) {
+    account.password = await hashPassword(password);
+    saveCoachAccounts(accounts);
+  }
   const session: AuthSession = {
     role: account.role === "head" ? "admin" : "coach",
     name: account.name,

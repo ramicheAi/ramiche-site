@@ -146,21 +146,18 @@ export default function LoginPage() {
 
   // ── Handlers ────────────────────────────────────────────
 
-  const handleCoachLogin = () => {
+  const handleCoachLogin = async () => {
     setError("");
     if (!email.trim()) { setError("Email is required."); return; }
     if (!password.trim()) { setError("Password is required."); return; }
     setLoading(true);
-    // Simulate async for UX
-    setTimeout(() => {
-      const result = loginCoach(email.trim(), password);
-      setLoading(false);
-      if (result.success && result.session) {
-        window.location.href = getRedirectForRole(result.session.role);
-      } else {
-        setError(result.error || "Login failed.");
-      }
-    }, 400);
+    const result = await loginCoach(email.trim(), password);
+    setLoading(false);
+    if (result.success && result.session) {
+      window.location.href = getRedirectForRole(result.session.role);
+    } else {
+      setError(result.error || "Login failed.");
+    }
   };
 
   const handleParentLogin = () => {
@@ -194,13 +191,13 @@ export default function LoginPage() {
     }, 400);
   };
 
-  const handleCoachRegister = () => {
+  const handleCoachRegister = async () => {
     setError("");
     setSuccess("");
     if (!name.trim()) { setError("Name is required."); return; }
     if (!email.trim()) { setError("Email is required."); return; }
     if (!password.trim() || password.length < 4) { setError("Password must be at least 4 characters."); return; }
-    const result = registerCoach(email.trim(), password, name.trim());
+    const result = await registerCoach(email.trim(), password, name.trim());
     if (result.success) {
       setSuccess("Account created! You can now sign in.");
       setTimeout(() => switchMode("coach"), 1500);
