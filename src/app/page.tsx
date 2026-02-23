@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PARALLAX HQ — LIVE OPERATIONS DASHBOARD
@@ -17,9 +17,11 @@ interface StatusData {
   financial: { apexARR: string; apexTarget: string; gaProducts: number; studioRevenue: string; investmentReadiness: string };
 }
 
+const emptySubscribe = () => () => {};
+
 export default function Home() {
   const [data, setData] = useState<StatusData | null>(null);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [time, setTime] = useState("");
   const [lastRefresh, setLastRefresh] = useState("");
 
@@ -32,7 +34,7 @@ export default function Home() {
     } catch {}
   }, []);
 
-  useEffect(() => { setMounted(true); fetchStatus(); }, [fetchStatus]);
+  useEffect(() => { fetchStatus(); }, [fetchStatus]); // eslint-disable-line react-hooks/set-state-in-effect -- data fetch on mount
 
   // Auto-refresh every 10 seconds for near real-time updates
   useEffect(() => {

@@ -1,4 +1,3 @@
-/* eslint-disable no-undef */
 // Firebase Cloud Messaging Service Worker
 // This file MUST live at the root of the public directory
 

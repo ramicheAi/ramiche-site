@@ -9,11 +9,6 @@ import {
   syncSaveAudit,
   syncSaveSnapshot,
   syncSaveFeedback,
-  syncLoad,
-  syncLoadRoster,
-  syncLoadConfig,
-  syncListenRoster,
-  syncListenConfig,
   syncPushAllToFirebase,
   firebaseConnected,
 } from "@/lib/apex-sync";
@@ -247,26 +242,6 @@ interface SessionRecord {
 interface TeamCulture {
   teamName: string; mission: string; seasonalGoal: string;
   goalTarget: number; goalCurrent: number; weeklyQuote: string;
-}
-
-// ── SELAH Wellness types ────────────────────────────────────
-interface MentalReadiness {
-  date: string; focus: number; energy: number; confidence: number; motivation: number;
-}
-interface BreathworkSession {
-  date: string; completedAt: number; rounds: number;
-}
-interface JournalEntry {
-  date: string; wentWell: string; challenging: string; improve: string; completedAt: number;
-}
-interface RecoveryLog {
-  date: string; sleepQuality: number; sorenessLevel: number; hydrationGlasses: number;
-}
-interface WellnessData {
-  mentalReadiness: MentalReadiness[];
-  breathworkSessions: BreathworkSession[];
-  journalEntries: JournalEntry[];
-  recoveryLogs: RecoveryLog[];
 }
 
 // ── notification types ──────────────────────────────────────
@@ -788,13 +763,6 @@ function generateParentCode(): string {
 
 // ── storage ──────────────────────────────────────────────────
 
-interface CoachProfile {
-  name: string;
-  pin: string;
-  groups: string[]; // which groups this coach can access ("all" or specific group ids)
-  role: "head" | "assistant";
-}
-
 const K = {
   ROSTER: "apex-athlete-roster-v5",
   PIN: "apex-athlete-pin",
@@ -909,7 +877,7 @@ export default function ApexAthletePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
-  const [autoSession, setAutoSession] = useState(true); // auto-detect from schedule
+  const [autoSession] = useState(true); // auto-detect from schedule
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy" | "meets" | "comms">("coach");
   const [activeCoach, setActiveCoach] = useState<string>("Coach");
@@ -951,8 +919,6 @@ export default function ApexAthletePage() {
   const [newAthleteGender, setNewAthleteGender] = useState<"M" | "F">("M");
   const [newAthleteUSAId, setNewAthleteUSAId] = useState("");
   const [newAthleteParentEmail, setNewAthleteParentEmail] = useState("");
-  const [editingAthleteProfile, setEditingAthleteProfile] = useState<string | null>(null);
-  const [coachInviteOpen, setCoachInviteOpen] = useState(false);
   const [coaches, setCoaches] = useState<CoachAccess[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<GroupId>("platinum");
   const [meetGroupFilter, setMeetGroupFilter] = useState<GroupId | "all">("all");
@@ -974,12 +940,11 @@ export default function ApexAthletePage() {
 
   // ── Sync status state ──
   const [syncBusy, setSyncBusy] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState<number | null>(null);
-  const [lastSyncResult, setLastSyncResult] = useState<{ synced: number; errors: number } | null>(null);
+  const [, setLastSyncTime] = useState<number | null>(null);
+  const [, setLastSyncResult] = useState<{ synced: number; errors: number } | null>(null);
 
   // ── Invite link state ──
   const [inviteCoachName, setInviteCoachName] = useState<string | null>(null);
-  const [inviteCopied, setInviteCopied] = useState(false);
 
   // ── meets & comms state ─────────────────────────────────
   const [meets, setMeets] = useState<SwimMeet[]>([]);
@@ -995,7 +960,6 @@ export default function ApexAthletePage() {
   const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [showPasteImport, setShowPasteImport] = useState(false);
   const [pasteText, setPasteText] = useState("");
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [meetDescription, setMeetDescription] = useState("");
   const [viewingAthleteEntries, setViewingAthleteEntries] = useState<string | null>(null);
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
@@ -1004,16 +968,8 @@ export default function ApexAthletePage() {
   const [absenceReports, setAbsenceReports] = useState<{ id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[]>([]);
 
   // ── best times state ──
-  const [fetchingTimes, setFetchingTimes] = useState<string | null>(null); // athleteId currently fetching
   const [fetchingTimesAll, setFetchingTimesAll] = useState(false);
   const [bestTimesStatus, setBestTimesStatus] = useState<string | null>(null);
-
-  // Helper: get best time for a specific athlete/event/stroke/course
-  const getAthletesBestTime = useCallback((athleteId: string, event: string, stroke: string, course: "SCY" | "SCM" | "LCM" = "SCY"): BestTime | null => {
-    const athlete = roster.find(a => a.name === athleteId || a.id === athleteId);
-    if (!athlete?.bestTimes) return null;
-    return athlete.bestTimes.find(t => t.event === event && t.stroke === stroke && t.course === course) || null;
-  }, [roster]);
 
   // Helper: parse time string to seconds
   const parseTimeToSecs = (t: string): number => {
@@ -1087,37 +1043,6 @@ export default function ApexAthletePage() {
     return converted[0] || null;
   };
 
-  // Fetch best times from SwimCloud for a single athlete
-  const fetchBestTimes = useCallback(async (athlete: Athlete) => {
-    if (!athlete.name) return;
-    setFetchingTimes(athlete.id);
-    try {
-      const res = await fetch("/api/swimcloud", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: athlete.name, usaSwimmingId: athlete.usaSwimmingId }),
-      });
-      const data = await res.json();
-      if (data.times && data.times.length > 0) {
-        const updated = roster.map(a => {
-          if (a.id !== athlete.id) return a;
-          return { ...a, bestTimes: data.times, bestTimesUpdated: new Date().toISOString().slice(0, 10) };
-        });
-        setRoster(updated);
-        save(K.ROSTER, updated);
-        syncSaveRoster(K.ROSTER, selectedGroup, updated);
-        setBestTimesStatus(`${data.times.length} times found for ${athlete.name}`);
-      } else {
-        setBestTimesStatus(data.message || `No times found for ${athlete.name}`);
-      }
-    } catch {
-      setBestTimesStatus(`Error fetching times for ${athlete.name}`);
-    } finally {
-      setFetchingTimes(null);
-      setTimeout(() => setBestTimesStatus(null), 4000);
-    }
-  }, [roster]);
-
   // Fetch best times for all athletes in the current group
   const fetchAllBestTimes = useCallback(async () => {
     setFetchingTimesAll(true);
@@ -1190,13 +1115,11 @@ export default function ApexAthletePage() {
   };
 
   // ── notification state ──────────────────────────────────
-  const [notifPanelOpen, setNotifPanelOpen] = useState(false);
-  const [dismissedNotifs, setDismissedNotifs] = useState<Set<string>>(new Set());
+  const [dismissedNotifs] = useState<Set<string>>(new Set());
 
   // ── schedule state ──────────────────────────────────────
   const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
   const [scheduleGroup, setScheduleGroup] = useState<GroupId>("platinum");
-  const [editingSession, setEditingSession] = useState<{ day: DayOfWeek; sessionIdx: number } | null>(null);
   const [scheduleEditMode, setScheduleEditMode] = useState(false);
   const [calendarView, setCalendarView] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
@@ -1626,7 +1549,7 @@ export default function ApexAthletePage() {
 
   // ── XP award (cap-aware) ─────────────────────────────────
   const awardXP = useCallback((athlete: Athlete, xpBase: number, category: "pool" | "weight" | "meet"): { newAthlete: Athlete; awarded: number } => {
-    let a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
+    const a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
     if (a.dailyXP.date !== today()) a.dailyXP = { date: today(), pool: 0, weight: 0, meet: 0 };
     const used = a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet;
     const room = Math.max(0, DAILY_XP_CAP - used);
@@ -1778,7 +1701,7 @@ export default function ApexAthletePage() {
       let a = { ...prev[idx] };
       if (!wasPresent) {
         a.present = true;
-        const newCPs: Record<string, boolean> = { ...(a as any)[cpMapKey] };
+        const newCPs: Record<string, boolean> = { ...(a[cpMapKey as keyof Pick<Athlete, "checkpoints" | "weightCheckpoints" | "meetCheckpoints">]) };
         let totalAwarded = 0;
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(a, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
         a = { ...a1 };
@@ -1801,7 +1724,7 @@ export default function ApexAthletePage() {
       } else {
         // MARKING ABSENT → uncheck ALL checkpoints (Tier 1 + any manual Tier 2) + revert XP
         a.present = false;
-        const oldCPs: Record<string, boolean> = { ...(a as any)[cpMapKey] };
+        const oldCPs: Record<string, boolean> = { ...(a[cpMapKey as keyof Pick<Athlete, "checkpoints" | "weightCheckpoints" | "meetCheckpoints">]) };
         const mult = sessionMode === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
         let totalReverted = 0;
         for (const cp of sportCPs) {
@@ -1816,7 +1739,7 @@ export default function ApexAthletePage() {
         a.xp = Math.max(0, a.xp - baseReverted);
         if (a.dailyXP.date === today()) {
           const sport = sessionMode === "meet" ? "meet" : sessionMode;
-          a.dailyXP = { ...a.dailyXP, [sport]: Math.max(0, (a.dailyXP as any)[sport] - (baseReverted + totalReverted)) };
+          a.dailyXP = { ...a.dailyXP, [sport]: Math.max(0, (a.dailyXP[sport as keyof DailyXP] as number) - (baseReverted + totalReverted)) };
         }
         a = { ...a, [cpMapKey]: oldCPs };
         addAudit(a.id, a.name, `Absent (undone)`, -(baseReverted + totalReverted));
@@ -1852,7 +1775,7 @@ export default function ApexAthletePage() {
         if (a.group !== selectedGroup) return a;
         let athlete = { ...a };
         athlete.present = true;
-        const newCPs: Record<string, boolean> = { ...(athlete as any)[cpMapKey] };
+        const newCPs: Record<string, boolean> = { ...(athlete[cpMapKey as keyof Pick<Athlete, "checkpoints" | "weightCheckpoints" | "meetCheckpoints">]) };
         let totalAwarded = 0;
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(athlete, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
         athlete = { ...a1 };
@@ -1935,20 +1858,6 @@ export default function ApexAthletePage() {
     setNewAthleteName(""); setNewAthleteAge(""); setNewAthleteUSAId(""); setNewAthleteParentEmail(""); setAddAthleteOpen(false);
     addAudit(a.id, a.name, `Added to ${currentGroupDef.name}`, 0);
   }, [newAthleteName, newAthleteAge, newAthleteGender, newAthleteUSAId, newAthleteParentEmail, roster, saveRoster, addAudit, selectedGroup, currentGroupDef]);
-
-  const updateAthleteProfile = useCallback((athleteId: string, updates: Partial<Pick<Athlete, "birthday" | "usaSwimmingId" | "parentName" | "parentEmail" | "parentPhone" | "parentCode">>) => {
-    setRoster(prev => {
-      const next = prev.map(a => a.id === athleteId ? { ...a, ...updates } : a);
-      save(K.ROSTER, next);
-      syncSaveRoster(K.ROSTER, selectedGroup, next);
-      return next;
-    });
-  }, [selectedGroup]);
-
-  const addCoachAccess = useCallback((name: string, pin: string, role: "head" | "assistant" | "guest", groups: string[]) => {
-    const c: CoachAccess = { id: `coach-${Date.now()}`, name, pin, role, groups, createdAt: Date.now() };
-    setCoaches(prev => { const next = [...prev, c]; save(K.COACHES, next); return next; });
-  }, []);
 
   const removeAthlete = useCallback((id: string) => {
     const a = roster.find(x => x.id === id);
@@ -2107,10 +2016,6 @@ export default function ApexAthletePage() {
       .sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority] || b.timestamp - a.timestamp),
     [notifications, dismissedNotifs]
   );
-
-  const dismissNotification = useCallback((id: string) => {
-    setDismissedNotifs(prev => new Set([...prev, id]));
-  }, []);
 
   // ── bridge: sync computed notifications into shared localStorage system ──
   const prevNotifIdsRef = useRef<Set<string>>(new Set());
@@ -2335,7 +2240,7 @@ export default function ApexAthletePage() {
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
             <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
-            <div className="text-[#a855f7]/60 text-sm tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
+            <div className="text-[#a855f7]/60 text-sm tracking-[0.3em] uppercase font-mono mb-8">{"// COACH ACCESS TERMINAL"}</div>
           </div>
           {inviteCoachName && (
             <div className="game-panel bg-[#a855f7]/[0.06] border border-[#a855f7]/20 px-4 py-3 mb-4 text-center">
@@ -2523,58 +2428,6 @@ export default function ApexAthletePage() {
       </div>
     );
   };
-
-  // ── culture header ──────────────────────────────────────
-  const CultureHeader = () => (
-    <Card className="p-6 mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-white font-bold text-lg">Saint Andrew&apos;s Aquatics — {currentGroupDef.icon} {currentGroupDef.name}</h2>
-          {editingCulture ? (
-            <input value={culture.mission} onChange={e => setCulture({ ...culture, mission: e.target.value })}
-              className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1 text-[#f59e0b] text-sm mt-1 w-full focus:outline-none" />
-          ) : (
-            <p className="text-[#f59e0b] text-sm mt-1">{culture.mission}</p>
-          )}
-        </div>
-        {view === "coach" && (
-          <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-            className="text-white/50 text-sm hover:text-white/70 px-3 py-2 rounded-lg border border-white/[0.08] transition-colors min-h-[44px]">
-            {editingCulture ? "Save" : "Edit"}
-          </button>
-        )}
-      </div>
-      <div className="mb-3">
-        <div className="flex items-center justify-between text-sm mb-1.5">
-          <span className="text-white/60">
-            {editingCulture ? (
-              <input value={culture.seasonalGoal} onChange={e => setCulture({ ...culture, seasonalGoal: e.target.value })}
-                className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-0.5 text-white/50 w-52 focus:outline-none" />
-            ) : culture.seasonalGoal}
-          </span>
-          <span className="text-[#f59e0b] font-bold">{culture.goalCurrent}%<span className="text-white/50">/{culture.goalTarget}%</span></span>
-        </div>
-        <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
-          <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
-        </div>
-      </div>
-      <div className="border-t border-white/[0.04] pt-3">
-        {editingCulture ? (
-          <input value={culture.weeklyQuote} onChange={e => setCulture({ ...culture, weeklyQuote: e.target.value })}
-            className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-white/60 text-sm italic w-full focus:outline-none" />
-        ) : (
-          <p className="text-white/50 text-sm italic text-center">&ldquo;{culture.weeklyQuote}&rdquo;</p>
-        )}
-      </div>
-      {editingCulture && (
-        <div className="mt-3 flex gap-3 text-xs items-center">
-          <label className="text-white/60">Goal %: <input type="number" value={culture.goalTarget}
-            onChange={e => setCulture({ ...culture, goalTarget: parseInt(e.target.value) || 0 })}
-            className="ml-1 w-16 bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-white/50 focus:outline-none" /></label>
-        </div>
-      )}
-    </Card>
-  );
 
   // ── expanded athlete detail ─────────────────────────────
   const AthleteExpanded = ({ athlete }: { athlete: Athlete }) => {
@@ -3965,7 +3818,6 @@ export default function ApexAthletePage() {
   // ── MEETS VIEW ──────────────────────────────────────────
   if (view === "meets") {
     const saveMeets = (m: SwimMeet[]) => { setMeets(m); save(K.MEETS, m); };
-    const clearAllMeets = () => { saveMeets([]); setEditingMeetId(null); setImportStatus({ type: "success", message: "All meets cleared. Import a fresh file to start over." }); };
     const createMeet = () => {
       if (!newMeetName || !newMeetDate) return;
       const m: SwimMeet = {
@@ -4450,29 +4302,6 @@ export default function ApexAthletePage() {
     const removeMeetFile = (meetId: string, fileId: string) => {
       saveMeets(meets.map(m => m.id === meetId ? { ...m, files: (m.files || []).filter(f => f.id !== fileId) } : m));
     };
-    const enterGroupToEvent = (meetId: string, eventId: string, groupId: string) => {
-      const groupAthletes = INITIAL_ROSTER.filter(a => a.group.toLowerCase().includes(groupId.toLowerCase()));
-      const meet = meets.find(m => m.id === meetId);
-      saveMeets(meets.map(m => {
-        if (m.id !== meetId) return m;
-        return { ...m, events: m.events.map(ev => {
-          if (ev.id !== eventId) return ev;
-          const existing = new Set(ev.entries.map(e => e.athleteId));
-          const newEntries = groupAthletes.filter(a => !existing.has(a.name)).map(a => {
-            // Auto-populate seed time from best times
-            const rosterAthlete = roster.find(r => r.name === a.name);
-            let seedTime = "";
-            if (rosterAthlete?.bestTimes && ev.distance && ev.stroke) {
-              const bt = findMatchingBestTime(rosterAthlete.bestTimes, ev.distance, ev.stroke, meet?.course || "SCY");
-              if (bt) seedTime = bt.time;
-            }
-            return { athleteId: a.name, seedTime };
-          });
-          return { ...ev, entries: [...ev.entries, ...newEntries] };
-        })};
-      }));
-    };
-    const deleteMeet = (id: string) => saveMeets(meets.filter(m => m.id !== id));
     const addEventToMeet = (meetId: string, eventName: string) => {
       saveMeets(meets.map(m => m.id === meetId ? { ...m, events: [...m.events, { id: `ev-${Date.now()}`, name: eventName, entries: [] }] } : m));
     };
@@ -5433,7 +5262,6 @@ export default function ApexAthletePage() {
   // ── COMMS VIEW (Broadcast to Parents) ──────────────────────
   if (view === "comms") {
     const BROADCAST_KEY = "apex-broadcasts-v1";
-    const ABSENCE_KEY = "apex-absences-v1";
 
     const sendBroadcast = () => {
       if (!commsMsg.trim()) return;
@@ -5523,9 +5351,6 @@ export default function ApexAthletePage() {
   /* ════════════════════════════════════════════════════════════
      COACH MAIN VIEW — LEADERBOARD-FIRST LAYOUT
      ════════════════════════════════════════════════════════════ */
-
-  const present = filteredRoster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
-  const totalXpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
 
   return (
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
@@ -5643,13 +5468,8 @@ export default function ApexAthletePage() {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp);
                     const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
-                    const medals = [<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>];
+                    const medals = [<svg key="medal-gold" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg key="medal-silver" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg key="medal-bronze" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
-                    const glowColors = [
-                      "shadow-[0_0_50px_rgba(245,158,11,0.3),0_0_100px_rgba(245,158,11,0.1)]",
-                      "shadow-[0_0_30px_rgba(192,192,210,0.15)]",
-                      "shadow-[0_0_30px_rgba(205,127,50,0.15)]",
-                    ];
                     const cardBgs = [
                       "bg-gradient-to-b from-[#f59e0b]/10 via-[#06020f]/80 to-[#06020f] neon-pulse-gold",
                       "bg-gradient-to-b from-[#00f0ff]/5 via-[#06020f]/80 to-[#06020f] neon-pulse",
@@ -5684,13 +5504,12 @@ export default function ApexAthletePage() {
 
             {/* Top 10 ranked list */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono">// Top 10 Rankings</h3>
+              <h3 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono">{"// Top 10 Rankings"}</h3>
               <span className="text-[#00f0ff]/20 text-xs font-mono">{Math.min(10, sorted.length)} of {sorted.length}</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
               {sorted.slice(0, 10).map((a, i) => {
                 const lv = getLevel(a.xp);
-                const sk = fmtStreak(a.streak);
                 const rank = i + 1;
                 const medalEmoji = rank === 1 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : rank === 2 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : rank === 3 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : null;
                 return (
@@ -5716,7 +5535,7 @@ export default function ApexAthletePage() {
         {/* ═══════ TEAM CHALLENGES ═══════ */}
         {view === "coach" && (
           <div className="w-full py-4">
-            <h3 className="text-[#f59e0b]/50 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-3">// Team Challenges</h3>
+            <h3 className="text-[#f59e0b]/50 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-3">{"// Team Challenges"}</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {[
                 { id: "attendance-war", name: "Attendance War", desc: "Which group has the highest attendance % this week?", metric: "GROUP ATTENDANCE", icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 17.5L3 6V3h3l11.5 11.5M13 7l4-4 4 4-4 4M3 11l4 4"/></svg>, color: "#ef4444" },
@@ -5964,7 +5783,7 @@ export default function ApexAthletePage() {
                 <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
                 <div className="relative w-full max-w-md max-h-[85vh] overflow-y-auto rounded-2xl bg-[#0a0518] border border-[#00f0ff]/20 p-5 shadow-[0_0_60px_rgba(0,240,255,0.1)]" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-[#00f0ff]/60 text-xs uppercase tracking-[0.2em] font-bold font-mono">// Coach Profiles</h4>
+                    <h4 className="text-[#00f0ff]/60 text-xs uppercase tracking-[0.2em] font-bold font-mono">{"// Coach Profiles"}</h4>
                     <button onClick={() => setManageCoaches(false)} className="text-white/60 hover:text-white/60 transition-colors text-lg leading-none">&times;</button>
                   </div>
                   <div className="space-y-2 mb-4">
@@ -6031,7 +5850,7 @@ export default function ApexAthletePage() {
                     </button>
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/[0.06]">
-                    <h5 className="text-[#a855f7]/40 text-xs uppercase tracking-[0.2em] font-bold mb-2 font-mono">// Quick Invite</h5>
+                    <h5 className="text-[#a855f7]/40 text-xs uppercase tracking-[0.2em] font-bold mb-2 font-mono">{"// Quick Invite"}</h5>
                     <p className="text-white/50 text-sm mb-2 font-mono">Share this link — coaches log in with their own PIN:</p>
                     <div className="flex gap-2 items-center">
                       <code className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-lg px-3 py-2 text-[#00f0ff]/60 text-xs font-mono truncate">
@@ -6077,7 +5896,7 @@ export default function ApexAthletePage() {
             </div>
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
+            <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Roster Check-In"}</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-10">
               {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
@@ -6147,7 +5966,7 @@ export default function ApexAthletePage() {
 
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
-              <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Team Challenges</h3>
+              <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Team Challenges"}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
