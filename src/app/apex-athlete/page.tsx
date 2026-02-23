@@ -181,7 +181,7 @@ interface BestTime {
 }
 
 // ── meet entry types ────────────────────────────────────────
-interface MeetEventEntry { athleteId: string; seedTime: string; }
+interface MeetEventEntry { athleteId: string; seedTime: string; finalTime?: string; place?: number; splits?: string[]; dq?: boolean; dqReason?: string; }
 interface MeetEvent { id: string; name: string; eventNum?: number; ageGroup?: string; gender?: "M" | "F" | "Mixed"; distance?: number; stroke?: string; sessionType?: "P" | "F"; isRelay?: boolean; qualifyingTime?: string; cutTime?: string; dayNumber?: number; entries: MeetEventEntry[]; }
 interface MeetSession { id: string; day: string; sessionNum: number; warmupTime?: string; startTime?: string; events: MeetEvent[]; }
 interface MeetBroadcast { id: string; message: string; timestamp: number; sentBy: string; }
@@ -917,6 +917,12 @@ export default function ApexAthletePage() {
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
   const [newAthleteName, setNewAthleteName] = useState("");
   const [newAthleteAge, setNewAthleteAge] = useState("");
+
+  // ── Setup Wizard state ──
+  const [setupStep, setSetupStep] = useState(0);
+  const [setupTeamName, setSetupTeamName] = useState("");
+  const [setupCsvText, setSetupCsvText] = useState("");
+  const setupDismissed = useRef(false);
   const [newAthleteGender, setNewAthleteGender] = useState<"M" | "F">("M");
   const [newAthleteUSAId, setNewAthleteUSAId] = useState("");
   const [newAthleteParentEmail, setNewAthleteParentEmail] = useState("");
@@ -957,7 +963,10 @@ export default function ApexAthletePage() {
   const [newMeetDeadline, setNewMeetDeadline] = useState("");
   const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
   const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
-  const [meetView, setMeetView] = useState<"overview" | "sessions" | "entries" | "info">("overview");
+  const [meetView, setMeetView] = useState<"overview" | "sessions" | "entries" | "info" | "results">("overview");
+  const [editingResult, setEditingResult] = useState<{ eventId: string; athleteId: string } | null>(null);
+  const [resultTimeInput, setResultTimeInput] = useState("");
+  const [resultPlaceInput, setResultPlaceInput] = useState("");
   const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [showPasteImport, setShowPasteImport] = useState(false);
   const [pasteText, setPasteText] = useState("");
@@ -4349,6 +4358,15 @@ export default function ApexAthletePage() {
       const vals = Object.values(m.rsvps);
       return { committed: vals.filter(v => v === "committed").length, declined: vals.filter(v => v === "declined").length, pending: filteredRoster.length - vals.length };
     };
+    const updateEntryResult = (meetId: string, eventId: string, athleteId: string, updates: Partial<MeetEventEntry>) => {
+      saveMeets(meets.map(m => {
+        if (m.id !== meetId) return m;
+        return { ...m, events: m.events.map(ev => {
+          if (ev.id !== eventId) return ev;
+          return { ...ev, entries: ev.entries.map(e => e.athleteId === athleteId ? { ...e, ...updates } : e) };
+        })};
+      }));
+    };
     const finalizeMeet = (meetId: string) => {
       saveMeets(meets.map(m => m.id === meetId ? { ...m, status: "finalized" as const } : m));
     };
@@ -4678,16 +4696,18 @@ export default function ApexAthletePage() {
 
               {/* Tab navigation — like Team Unify: Info / Event Order / Member Entry */}
               <div className="flex gap-1 mb-4 bg-white/[0.02] rounded-xl p-1.5 border border-white/[0.05]">
-                {(["info", "events", "members"] as const).map(tab => (
-                  <button key={tab} onClick={() => { setMeetView(tab === "events" ? "overview" : tab === "members" ? "entries" : "info"); setViewingAthleteEntries(null); }}
-                    className={`flex-1 py-4 text-base font-bold rounded-lg transition-all uppercase tracking-wider ${
-                      (tab === "info" && meetView === "info") || (tab === "events" && meetView === "overview") || (tab === "members" && meetView === "entries")
-                        ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/20"
-                        : "text-white/25 hover:text-white/60"
-                    }`}>
-                    {tab === "info" ? "Info" : tab === "events" ? "Event Order" : "Member Entry"}
-                  </button>
-                ))}
+                {(["info", "events", "members", "results"] as const).map(tab => {
+                  const viewMap: Record<string, typeof meetView> = { info: "info", events: "overview", members: "entries", results: "results" };
+                  const isActive = meetView === viewMap[tab];
+                  return (
+                    <button key={tab} onClick={() => { setMeetView(viewMap[tab]); setViewingAthleteEntries(null); setEditingResult(null); }}
+                      className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all uppercase tracking-wider ${
+                        isActive ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/20" : "text-white/25 hover:text-white/60"
+                      }`}>
+                      {tab === "info" ? "Info" : tab === "events" ? "Events" : tab === "members" ? "Entries" : "Results"}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* ── INFO TAB ── */}
@@ -5395,6 +5415,127 @@ export default function ApexAthletePage() {
       <div className="relative z-10 w-full max-w-[1920px] mx-auto px-5 sm:px-8 lg:px-12 xl:px-16">
         <div className="w-full">
           <GameHUDHeader />
+
+        {/* ══════════════════════════════════════════════════════
+           SETUP WIZARD — FIRST-TIME COACH ONBOARDING
+           ══════════════════════════════════════════════════════ */}
+        {roster.length === 0 && !setupDismissed.current && view === "coach" && (
+          <div className="fixed inset-0 z-50 bg-[#06020f]/95 backdrop-blur-xl flex items-center justify-center p-6">
+            <div className="w-full max-w-md">
+              {/* Progress indicator */}
+              <div className="flex items-center gap-2 mb-8 justify-center">
+                {[0, 1, 2].map(i => (
+                  <div key={i} className={`h-1 rounded-full transition-all duration-300 ${i <= setupStep ? "bg-[#00f0ff] w-12" : "bg-white/10 w-8"}`} />
+                ))}
+              </div>
+
+              {/* Step 0: Welcome + Team Name */}
+              {setupStep === 0 && (
+                <div className="game-panel game-panel-border bg-[#06020f]/90 p-8 text-center">
+                  <div className="text-5xl mb-4">🏊</div>
+                  <h2 className="text-2xl font-black text-[#00f0ff] mb-2 tracking-tight">Welcome to METTLE</h2>
+                  <p className="text-white/50 text-sm mb-6">Let&apos;s set up your team in 60 seconds.</p>
+                  <input
+                    type="text"
+                    value={setupTeamName}
+                    onChange={e => setSetupTeamName(e.target.value)}
+                    placeholder="Your team name..."
+                    className="w-full px-4 py-3 bg-[#06020f]/80 border border-[#00f0ff]/20 rounded-xl text-white text-center text-lg font-bold placeholder:text-white/20 focus:outline-none focus:border-[#00f0ff]/50 mb-4"
+                  />
+                  <button
+                    onClick={() => {
+                      if (setupTeamName.trim()) {
+                        const updated = { ...culture, teamName: setupTeamName.trim() };
+                        setCulture(updated);
+                        saveCulture(updated);
+                      }
+                      setSetupStep(1);
+                    }}
+                    className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+
+              {/* Step 1: Import Roster */}
+              {setupStep === 1 && (
+                <div className="game-panel game-panel-border bg-[#06020f]/90 p-8">
+                  <h2 className="text-xl font-black text-[#00f0ff] mb-2 text-center tracking-tight">Import Your Athletes</h2>
+                  <p className="text-white/40 text-sm mb-4 text-center">Paste CSV with columns: Name, Age, Gender, Group</p>
+                  <textarea
+                    value={setupCsvText}
+                    onChange={e => setSetupCsvText(e.target.value)}
+                    placeholder={"Name,Age,Gender,Group\nJohn Smith,14,M,Gold\nJane Doe,13,F,Silver"}
+                    rows={6}
+                    className="w-full px-4 py-3 bg-[#06020f]/80 border border-[#00f0ff]/20 rounded-xl text-white/80 text-sm font-mono placeholder:text-white/15 focus:outline-none focus:border-[#00f0ff]/50 mb-4 resize-none"
+                  />
+                  <div className="flex gap-3">
+                    <button onClick={() => setSetupStep(0)} className="game-btn px-4 py-3 text-white/40 border border-white/10 text-sm font-bold tracking-wider uppercase min-h-[48px]">Back</button>
+                    <button
+                      onClick={() => {
+                        if (setupCsvText.trim()) {
+                          const lines = setupCsvText.trim().split("\n");
+                          const hasHeader = lines[0]?.toLowerCase().includes("name");
+                          const dataLines = hasHeader ? lines.slice(1) : lines;
+                          const newAthletes: Athlete[] = [];
+                          for (const line of dataLines) {
+                            const cols = line.split(",").map(c => c.trim());
+                            if (!cols[0]) continue;
+                            const existing = roster.find(a => a.name.toLowerCase() === cols[0].toLowerCase());
+                            if (existing) continue;
+                            const groupMap: Record<string, GroupId> = Object.fromEntries(ROSTER_GROUPS.map(g => [g.name.toLowerCase(), g.id]));
+                            const gid = cols[3] ? (groupMap[cols[3].toLowerCase()] ?? "platinum") : "platinum";
+                            newAthletes.push(makeAthlete({ name: cols[0], age: cols[1] ? parseInt(cols[1]) : 14, gender: (cols[2]?.toUpperCase() === "F" ? "F" : "M") as "M" | "F", group: gid }));
+                          }
+                          if (newAthletes.length > 0) {
+                            const updated = [...roster, ...newAthletes];
+                            setRoster(updated);
+                            save("apex-roster", updated);
+                          }
+                        }
+                        setSetupStep(2);
+                      }}
+                      className="game-btn flex-1 py-3 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[48px]"
+                    >
+                      {setupCsvText.trim() ? "Import & Next" : "Skip"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 2: Done */}
+              {setupStep === 2 && (
+                <div className="game-panel game-panel-border bg-[#06020f]/90 p-8 text-center">
+                  <div className="text-5xl mb-4">🎯</div>
+                  <h2 className="text-2xl font-black text-[#00f0ff] mb-2 tracking-tight">You&apos;re Ready</h2>
+                  <p className="text-white/50 text-sm mb-2">
+                    {roster.length > 0
+                      ? `${roster.length} athletes loaded. Start your first practice check-in!`
+                      : "Add athletes anytime from the roster section below."}
+                  </p>
+                  <p className="text-white/30 text-xs mb-6">Tip: Use the Schedule tab to set up practice days & times.</p>
+                  <button
+                    onClick={() => { setupDismissed.current = true; setSetupStep(0); }}
+                    className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]"
+                  >
+                    Let&apos;s Go
+                  </button>
+                </div>
+              )}
+
+              {/* Skip link */}
+              {setupStep < 2 && (
+                <button
+                  onClick={() => { setupDismissed.current = true; }}
+                  className="w-full mt-4 text-white/20 text-xs font-mono tracking-wider uppercase hover:text-white/40 transition-colors min-h-[44px]"
+                >
+                  Skip Setup
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ══════════════════════════════════════════════════════
            GROUP SELECTOR — SWITCH ROSTER GROUPS
