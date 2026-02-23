@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!--
+    METTLE Icon — Concept A: "The Prism M"
+    Modern, minimalistic. The M is built from two angled planes
+    creating a subtle 3D prism effect. One shade darker, one lighter.
+    Clean geometry, no ornaments.
+  -->
+  <!-- Left face of the prism M (darker) -->
+  <polygon points="20,100 38,100 60,30 42,30" fill="#0A1628"/>
+  <!-- Center valley (darkest — the depth) -->
+  <polygon points="38,100 60,65 82,100 60,100" fill="#060F1E"/>
+  <!-- Right face of the prism M (slightly lighter — catches light) -->
+  <polygon points="82,100 100,100 78,30 60,30" fill="#1A2E4D"/>
+  <!-- Left peak highlight -->
+  <polygon points="42,30 60,30 60,65 38,100 20,100 42,30" fill="#0D1F38" opacity="0.5"/>
+  <!-- Right peak highlight — 3D light catch -->
+  <polygon points="60,30 78,30 100,100 82,100 60,65" fill="#243B5E" opacity="0.4"/>
+</svg>

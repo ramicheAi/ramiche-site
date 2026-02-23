@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!--
+    METTLE Icon — Concept B: "The Faceted M"
+    Isometric/3D letterform. The M appears to fold out of the surface
+    like sheet metal being bent. Two tones create depth.
+    Minimal. Futuristic. Sophisticated.
+  -->
+  <!-- Left leg -->
+  <polygon points="15,100 30,100 30,25 15,35" fill="#0D1B2A"/>
+  <!-- Left diagonal -->
+  <polygon points="30,25 30,55 60,85 60,55" fill="#1B2D45"/>
+  <!-- Right diagonal -->
+  <polygon points="60,55 60,85 90,55 90,25" fill="#243B5E"/>
+  <!-- Right leg -->
+  <polygon points="90,25 90,100 105,100 105,35" fill="#0D1B2A"/>
+  <!-- Top left bevel (3D light) -->
+  <polygon points="15,35 30,25 30,25 15,35" fill="#3A5A8A" opacity="0.3"/>
+  <!-- Center valley shadow -->
+  <polygon points="30,55 60,85 90,55 60,55" fill="#06101C" opacity="0.4"/>
+</svg>

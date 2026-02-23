@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!--
+    METTLE Icon — Concept C: "The Monolith M"
+    Ultra-clean. Single letterform with a subtle shadow/offset
+    creating a 3D depth effect. Like the Parallax P but for M.
+    Deep navy, offset creates dimension.
+  -->
+  <!-- Shadow layer (offset down-right 4px) -->
+  <path d="M24,104 L24,24 L44,24 L60,60 L76,24 L96,24 L96,104 L80,104 L80,48 L64,84 L56,84 L40,48 L40,104 Z" fill="#0A1628" transform="translate(3,3)"/>
+  <!-- Main M letterform -->
+  <path d="M24,104 L24,24 L44,24 L60,60 L76,24 L96,24 L96,104 L80,104 L80,48 L64,84 L56,84 L40,48 L40,104 Z" fill="#1A2E4D"/>
+  <!-- Top edge highlight (subtle 3D bevel) -->
+  <path d="M24,24 L44,24 L60,60 L76,24 L96,24" stroke="#3A5A8A" stroke-width="1.5" fill="none" opacity="0.5"/>
+</svg>

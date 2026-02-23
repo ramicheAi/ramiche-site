@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 80" fill="none">
+  <!--
+    METTLE Wordmark — Clean, modern, minimal
+    Geometric sans-serif with subtle 3D shadow offset
+    Same DNA as the Parallax "P" — single color family, no gradients
+  -->
+  <!-- Shadow layer -->
+  <g transform="translate(2,2)" fill="#0A1628" opacity="0.6">
+    <!-- M -->
+    <path d="M0,70 L0,10 L16,10 L30,40 L44,10 L60,10 L60,70 L48,70 L48,30 L34,60 L26,60 L12,30 L12,70 Z"/>
+    <!-- E -->
+    <path d="M75,70 L75,10 L120,10 L120,22 L88,22 L88,34 L115,34 L115,46 L88,46 L88,58 L120,58 L120,70 Z"/>
+    <!-- T -->
+    <path d="M132,10 L180,10 L180,22 L163,22 L163,70 L150,70 L150,22 L132,22 Z"/>
+    <!-- T -->
+    <path d="M192,10 L240,10 L240,22 L223,22 L223,70 L210,70 L210,22 L192,22 Z"/>
+    <!-- L -->
+    <path d="M252,10 L265,10 L265,58 L300,58 L300,70 L252,70 Z"/>
+    <!-- E -->
+    <path d="M312,70 L312,10 L357,10 L357,22 L325,22 L325,34 L352,34 L352,46 L325,46 L325,58 L357,58 L357,70 Z"/>
+  </g>
+  <!-- Main letterforms -->
+  <g fill="#1A2E4D">
+    <!-- M -->
+    <path d="M0,70 L0,10 L16,10 L30,40 L44,10 L60,10 L60,70 L48,70 L48,30 L34,60 L26,60 L12,30 L12,70 Z"/>
+    <!-- E -->
+    <path d="M75,70 L75,10 L120,10 L120,22 L88,22 L88,34 L115,34 L115,46 L88,46 L88,58 L120,58 L120,70 Z"/>
+    <!-- T -->
+    <path d="M132,10 L180,10 L180,22 L163,22 L163,70 L150,70 L150,22 L132,22 Z"/>
+    <!-- T -->
+    <path d="M192,10 L240,10 L240,22 L223,22 L223,70 L210,70 L210,22 L192,22 Z"/>
+    <!-- L -->
+    <path d="M252,10 L265,10 L265,58 L300,58 L300,70 L252,70 Z"/>
+    <!-- E -->
+    <path d="M312,70 L312,10 L357,10 L357,22 L325,22 L325,34 L352,34 L352,46 L325,46 L325,58 L357,58 L357,70 Z"/>
+  </g>
+</svg>
