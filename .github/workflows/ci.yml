@@ -58,6 +58,9 @@ jobs:
       - name: npm audit (critical vulnerabilities)
         run: npm audit --audit-level=critical
 
-      - name: Check for known vulnerabilities in dependencies
-        if: github.event_name == 'pull_request'
-        uses: actions/dependency-review-action@v4
+      # dependency-review-action requires Dependency Graph enabled in repo settings
+      # Enable at: Settings > Security > Code security > Dependency graph
+      # Then uncomment the step below:
+      # - name: Check for known vulnerabilities in dependencies
+      #   if: github.event_name == 'pull_request'
+      #   uses: actions/dependency-review-action@v4
