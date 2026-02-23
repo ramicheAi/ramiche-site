@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 
 /* ── SwimCloud Best Times Scraper v2 ─────────────────────────
    Fetches best times for ALL courses (SCY, LCM, SCM).
@@ -61,6 +62,10 @@ function parseEventString(eventStr: string): { distance: string; course: "SCY" |
 const UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  const rl = rateLimit(`swimcloud:${ip}`, 15, 60_000);
+  if (!rl.allowed) return rateLimitResponse(rl);
+
   try {
     const body = await req.json();
     const { name } = body;
