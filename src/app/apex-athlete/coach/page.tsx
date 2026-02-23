@@ -2887,6 +2887,24 @@ export default function ApexAthletePage() {
   // ── MEETS VIEW ──────────────────────────────────────────
   if (view === "meets") {
     const saveMeets = (m: SwimMeet[]) => { setMeets(m); save(K.MEETS, m); };
+    const exportMeetResults = (meet: SwimMeet) => {
+      const rows: string[] = ["Event,Athlete,Seed Time,Final Time,Place,Improvement,Splits,DQ,DQ Reason"];
+      meet.events.forEach(ev => {
+        ev.entries.forEach(entry => {
+          const ath = roster.find(a => a.id === entry.athleteId);
+          const imp = entry.finalTime ? calcImprovement(entry.seedTime, entry.finalTime) : undefined;
+          rows.push([
+            `"${ev.name}"`, `"${ath?.name || "Unknown"}"`, entry.seedTime || "",
+            entry.finalTime || "", entry.place || "", imp !== undefined ? (imp > 0 ? `−${imp.toFixed(2)}` : imp < 0 ? `+${Math.abs(imp).toFixed(2)}` : "0.00") : "",
+            `"${(entry.splits || []).join(" / ")}"`, entry.dq ? "Yes" : "", `"${entry.dqReason || ""}"`
+          ].join(","));
+        });
+      });
+      const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a"); a.href = url; a.download = `${meet.name.replace(/\s+/g, "_")}_results.csv`; a.click();
+      URL.revokeObjectURL(url);
+    };
     const createMeet = () => {
       if (!newMeetName || !newMeetDate) return;
       const m: SwimMeet = {
@@ -3069,7 +3087,15 @@ export default function ApexAthletePage() {
               </button>
               <Card className="p-5 mb-4" neon>
                 <h3 className="font-bold text-white text-lg mb-1">{editMeet.name}</h3>
-                <p className="text-white/60 text-xs mb-4">{new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {editMeet.course} · {editMeet.location || "TBD"}</p>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-white/60 text-xs">{new Date(editMeet.date + "T12:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })} · {editMeet.course} · {editMeet.location || "TBD"}</p>
+                  {(editMeet.status === "active" || editMeet.status === "completed") && editMeet.events.some(ev => ev.entries.some(e => e.finalTime)) && (
+                    <button onClick={() => exportMeetResults(editMeet)}
+                      className="game-btn px-4 py-1.5 text-xs font-bold text-emerald-400 border border-emerald-400/20 rounded-lg hover:bg-emerald-400/10 transition-all">
+                      Export CSV
+                    </button>
+                  )}
+                </div>
 
                 {/* Add events */}
                 <div className="mb-4">
