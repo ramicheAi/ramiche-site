@@ -204,6 +204,8 @@ interface MeetEventEntry {
   dq?: boolean;
   dqReason?: string;
   improvement?: number;
+  heat?: number;
+  lane?: number;
 }
 
 interface MeetEvent {
@@ -213,6 +215,7 @@ interface MeetEvent {
   gender?: "M" | "F" | "Mixed";
   qualifyingTime?: string;
   entries: MeetEventEntry[];
+  lanesPerHeat?: number;
 }
 
 interface MeetBroadcast {
@@ -2936,6 +2939,33 @@ export default function ApexAthletePage() {
     const setMeetStatus = (meetId: string, status: SwimMeet["status"]) => {
       saveMeets(meets.map(m => m.id === meetId ? { ...m, status } : m));
     };
+    const LANE_ORDER_8 = [4, 5, 3, 6, 2, 7, 1, 8];
+    const LANE_ORDER_6 = [3, 4, 2, 5, 1, 6];
+    const autoSeedEvent = (meetId: string, eventId: string, lanes: number) => {
+      saveMeets(meets.map(m => {
+        if (m.id !== meetId) return m;
+        return { ...m, events: m.events.map(ev => {
+          if (ev.id !== eventId) return ev;
+          const sorted = [...ev.entries].sort((a, b) => {
+            const ta = parseTime(a.seedTime), tb = parseTime(b.seedTime);
+            if (ta === null && tb === null) return 0;
+            if (ta === null) return 1;
+            if (tb === null) return -1;
+            return ta - tb;
+          });
+          const laneOrder = lanes <= 6 ? LANE_ORDER_6 : LANE_ORDER_8;
+          const numHeats = Math.ceil(sorted.length / lanes);
+          const seeded = sorted.map((entry, i) => {
+            const heatFromEnd = Math.floor(i / lanes);
+            const heat = numHeats - heatFromEnd;
+            const posInHeat = i % lanes;
+            const lane = laneOrder[posInHeat] || posInHeat + 1;
+            return { ...entry, heat, lane };
+          });
+          return { ...ev, entries: seeded, lanesPerHeat: lanes };
+        })};
+      }));
+    };
     const sendMeetBroadcast = (meetId: string) => {
       if (!broadcastMsg.trim()) return;
       const bc: MeetBroadcast = { id: `bc-${Date.now()}`, message: broadcastMsg, timestamp: Date.now(), sentBy: "Coach" };
@@ -3097,6 +3127,48 @@ export default function ApexAthletePage() {
                               );
                             })}
                           </div>
+                          {/* Auto-seed & Heat sheet */}
+                          {ev.entries.length >= 2 && (
+                            <div className="mt-3 border-t border-white/[0.04] pt-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <button onClick={() => autoSeedEvent(editMeet.id, ev.id, 8)}
+                                  className="text-xs px-3 py-1.5 rounded-lg font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95">
+                                  Seed 8-Lane
+                                </button>
+                                <button onClick={() => autoSeedEvent(editMeet.id, ev.id, 6)}
+                                  className="text-xs px-3 py-1.5 rounded-lg font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95">
+                                  Seed 6-Lane
+                                </button>
+                              </div>
+                              {ev.entries.some(e => e.heat) && (() => {
+                                const maxHeat = Math.max(...ev.entries.map(e => e.heat || 0));
+                                return (
+                                  <div className="space-y-2">
+                                    {Array.from({ length: maxHeat }, (_, i) => i + 1).map(h => {
+                                      const heatEntries = ev.entries.filter(e => e.heat === h).sort((a, b) => (a.lane || 0) - (b.lane || 0));
+                                      return (
+                                        <div key={h} className="bg-white/[0.02] rounded-lg p-2">
+                                          <div className="text-[10px] text-white/40 uppercase font-bold mb-1">Heat {h}{h === maxHeat ? " (Fast)" : ""}</div>
+                                          <div className="grid grid-cols-2 gap-1">
+                                            {heatEntries.map(e => {
+                                              const ath = roster.find(a => a.id === e.athleteId);
+                                              return (
+                                                <div key={e.athleteId} className="flex items-center gap-2 text-xs">
+                                                  <span className="text-[#00f0ff]/50 font-mono w-5 text-right">L{e.lane}</span>
+                                                  <span className="text-white/80 truncate">{ath?.name || "?"}</span>
+                                                  <span className="text-white/40 font-mono ml-auto">{e.seedTime || "NT"}</span>
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -3209,6 +3281,38 @@ export default function ApexAthletePage() {
                                           placeholder="Reason..." className="flex-1 bg-white/[0.04] border border-red-500/10 rounded px-2 py-1 text-xs text-white/60 focus:outline-none" style={{ fontSize: "16px" }} />
                                       )}
                                     </div>
+                                    {/* Splits entry */}
+                                    {entry.finalTime && !entry.dq && (
+                                      <div className="mt-2">
+                                        <div className="flex items-center justify-between mb-1">
+                                          <label className="text-[10px] text-white/40 uppercase">Splits</label>
+                                          <button onClick={() => {
+                                            const current = entry.splits || [];
+                                            updateEntryField(editMeet.id, ev.id, entry.athleteId, "splits", [...current, ""]);
+                                          }} className="text-[10px] text-[#00f0ff]/60 hover:text-[#00f0ff] transition-colors">+ Add Split</button>
+                                        </div>
+                                        {(entry.splits || []).length > 0 && (
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {(entry.splits || []).map((sp, si) => (
+                                              <div key={si} className="flex items-center gap-1">
+                                                <span className="text-[9px] text-white/30 font-mono w-3">{si + 1}</span>
+                                                <input value={sp} onChange={e => {
+                                                  const updated = [...(entry.splits || [])];
+                                                  updated[si] = e.target.value;
+                                                  updateEntryField(editMeet.id, ev.id, entry.athleteId, "splits", updated);
+                                                }} placeholder="0:00.00"
+                                                  className="w-20 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-1 text-[11px] text-white/70 font-mono focus:outline-none focus:border-[#00f0ff]/30"
+                                                  style={{ fontSize: "16px" }} />
+                                                <button onClick={() => {
+                                                  const updated = (entry.splits || []).filter((_, i) => i !== si);
+                                                  updateEntryField(editMeet.id, ev.id, entry.athleteId, "splits", updated);
+                                                }} className="text-white/20 hover:text-red-400 text-xs transition-colors">&times;</button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 );
                               })}
