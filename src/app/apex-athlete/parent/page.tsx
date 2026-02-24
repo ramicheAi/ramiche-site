@@ -1411,7 +1411,7 @@ export default function ParentPortal() {
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10">
         <div>
         {/* Level Progress — animated ring */}
-        <div className="mb-6 p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 text-center relative overflow-hidden">
+        <div className="mb-6 p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 text-center relative overflow-hidden" style={{ animation: "aa-glow-pulse 4s ease-in-out infinite" }}>
           {/* Subtle orbit decoration */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.06 }}>
             <div className="w-48 h-48 rounded-full border border-current" style={{ color: level.color, animation: "aa-orbit 20s linear infinite" }}>
