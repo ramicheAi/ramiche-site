@@ -198,7 +198,7 @@ export default function MettleLanding() {
       <div className="relative z-10 flex flex-col min-h-screen">
 
         {/* ━━━ NAV ━━━ */}
-        <nav className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-5 lg:py-6 flex items-center justify-between reveal">
+        <nav className="w-full max-w-[1600px] mx-auto px-6 lg:px-16 xl:px-24 py-5 lg:py-6 flex items-center justify-between reveal">
           <div className="flex items-center gap-3">
             <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9 lg:w-11 lg:h-11" />
             <span className="text-sm lg:text-base font-bold tracking-[0.25em] uppercase" style={{ color: C.gold }}>
@@ -219,7 +219,7 @@ export default function MettleLanding() {
         </nav>
 
         {/* ━━━ HERO — takes full viewport on desktop ━━━ */}
-        <section className="flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-6 lg:px-12 pt-12 sm:pt-20 lg:pt-0 pb-10 sm:pb-16 lg:pb-0 text-center">
+        <section className="flex-1 flex flex-col items-center justify-center w-full max-w-[1600px] mx-auto px-6 lg:px-16 xl:px-24 pt-12 sm:pt-20 lg:pt-0 pb-10 sm:pb-16 lg:pb-0 text-center">
           {/* Logo with glow ring */}
           <div className="mb-10 lg:mb-14 float-gentle reveal reveal-d1 relative inline-block">
             <div className="absolute inset-[-20px] rounded-full glow-ring"
@@ -271,8 +271,8 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section className="w-full max-w-7xl mx-auto px-6 lg:px-12 pb-20 sm:pb-28 lg:pb-32">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-10">
+        <section className="w-full max-w-[1600px] mx-auto px-6 lg:px-16 xl:px-24 pb-20 sm:pb-28 lg:pb-32">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-10 xl:gap-14">
             {portals.map((p, i) => (
               <Link
                 key={p.title}
@@ -320,8 +320,8 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ MISSION — one powerful line ━━━ */}
-        <section className="py-16 sm:py-24 lg:py-32 text-center px-6 lg:px-12">
-          <div className="max-w-xl lg:max-w-3xl mx-auto">
+        <section className="py-16 sm:py-24 lg:py-32 text-center px-6 lg:px-16 xl:px-24">
+          <div className="max-w-xl lg:max-w-4xl mx-auto">
             <div className="flex items-center justify-center gap-4 mb-8 lg:mb-12">
               <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
               <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-8 h-8 lg:w-12 lg:h-12 opacity-40" />
@@ -335,7 +335,7 @@ export default function MettleLanding() {
 
         {/* ━━━ WAITLIST — compact, glowing ━━━ */}
         <section id="waitlist" className="pb-24 sm:pb-32 lg:pb-40">
-          <div className="max-w-md lg:max-w-xl mx-auto px-6 lg:px-12 text-center">
+          <div className="max-w-md lg:max-w-2xl mx-auto px-6 lg:px-12 text-center">
             <h2 className="text-2xl lg:text-3xl font-black tracking-tight mb-3 lg:mb-4 text-white">
               Ready to compete?
             </h2>
