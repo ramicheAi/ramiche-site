@@ -5639,11 +5639,11 @@ export default function ApexAthletePage() {
               <div className="relative mb-10">
                 {/* Podium glow backdrop */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
-                <div className="grid grid-cols-3 gap-3 sm:gap-5 lg:gap-8 max-w-[800px] lg:max-w-[1100px] xl:max-w-[1400px] mx-auto items-end">
+                <div className="grid grid-cols-3 gap-3 sm:gap-5 lg:gap-10 xl:gap-14 max-w-none mx-auto items-end">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp);
-                    const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
+                    const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 text-xl sm:text-2xl lg:text-4xl", "w-16 h-16 sm:w-18 sm:h-18 lg:w-24 lg:h-24 text-base sm:text-lg lg:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 lg:w-24 lg:h-24 text-base sm:text-lg lg:text-2xl"];
                     const medals = [<svg key="medal-gold" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg key="medal-silver" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>, <svg key="medal-bronze" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg>];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
                     const cardBgs = [
@@ -5660,13 +5660,13 @@ export default function ApexAthletePage() {
                           style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": rank === 0 ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
-                        <div className={`text-base sm:text-lg font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-white"}`}>{a.name.split(" ")[0]}</div>
-                        <div className="text-[#00f0ff]/20 text-xs truncate w-full font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
+                        <div className={`text-base sm:text-lg lg:text-2xl xl:text-3xl font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-white"}`}>{a.name.split(" ")[0]}</div>
+                        <div className="text-[#00f0ff]/20 text-xs lg:text-sm truncate w-full font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
                         <div className="rank-badge text-xs font-bold mt-3 px-4 py-1.5 inline-flex items-center gap-1.5 font-mono" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
                           {lv.icon} {lv.name}
                         </div>
-                        <div className="neon-text-gold text-2xl sm:text-3xl font-black mt-3 tracking-tight font-mono tabular-nums whitespace-nowrap">
-                          {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
+                        <div className="neon-text-gold text-2xl sm:text-3xl lg:text-5xl xl:text-6xl font-black mt-3 tracking-tight font-mono tabular-nums whitespace-nowrap">
+                          {a.xp}<span className="text-xs lg:text-base text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
                           <div className="text-white/50 text-sm mt-1 font-bold inline-flex items-center gap-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d streak</div>
