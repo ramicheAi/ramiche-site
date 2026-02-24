@@ -261,6 +261,21 @@ const STYLE_TAG = (
       50% { background-position: 100% 50%; }
       100% { background-position: 0% 50%; }
     }
+    @keyframes aa-glow-breathe {
+      0%, 100% { box-shadow: 0 0 15px rgba(245,158,11,0.05); }
+      50% { box-shadow: 0 0 25px rgba(245,158,11,0.12); }
+    }
+    @keyframes aa-subtle-float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-3px); }
+    }
+    @keyframes aa-status-dot {
+      0%, 100% { opacity: 0.4; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.3); }
+    }
+    .aa-breathe { animation: aa-glow-breathe 4s ease-in-out infinite; }
+    .aa-float { animation: aa-subtle-float 6s ease-in-out infinite; }
+    .aa-dot-pulse { animation: aa-status-dot 2s ease-in-out infinite; }
     @keyframes aa-value-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.75; }
@@ -1451,20 +1466,20 @@ export default function ParentPortal() {
         </div>
 
         {/* Highlights Row — pulse on non-zero */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
+        <div className="grid grid-cols-3 gap-3 lg:gap-4 mb-6">
+          <div className={`p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
             style={athlete.streak > 0 ? { borderColor: `${streak.color}25` } : {}}>
             <div className="text-3xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm">day streak</div>
           </div>
-          <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
+          <div className={`p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
             style={athlete.totalPractices > 0 ? { borderColor: "rgba(96,165,250,0.15)", animationDelay: "0.3s" } : {}}>
             <div className="text-3xl font-black text-white">{athlete.totalPractices}</div>
             <div className="text-white/60 text-sm font-mono tracking-wider">PRACTICES</div>
             <div className="text-white/50 text-sm">total</div>
           </div>
-          <div className={`p-4 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
+          <div className={`p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
             style={earnedCount > 0 ? { borderColor: "rgba(245,158,11,0.15)", animationDelay: "0.6s" } : {}}>
             <div className="text-3xl font-black text-white">{earnedCount}</div>
             <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider">BADGES</div>
@@ -1474,7 +1489,7 @@ export default function ParentPortal() {
 
         {/* Weekly Growth Trend */}
         {growth && (
-          <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10">
+          <div className="mb-6 p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10 aa-breathe" style={{ animationDelay: "1s" }}>
             <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">THIS WEEK&apos;S GROWTH</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1505,9 +1520,9 @@ export default function ParentPortal() {
         {/* Right column on desktop */}
         <div>
         {/* Achievement Badges */}
-        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
+        <div className="mb-6 p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10 aa-breathe" style={{ animationDelay: "2s" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-4">ACHIEVEMENTS</h3>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 lg:gap-4">
             {achievements.map((badge, i) => (
               <div key={i} className={`text-center transition-all ${badge.earned ? "aa-badge-pop" : "opacity-25"}`}
                 style={badge.earned ? { animationDelay: `${i * 0.05}s` } : {}}>
@@ -1535,8 +1550,8 @@ export default function ParentPortal() {
         </div>
 
         {/* Encouragement Section — animated gradient */}
-        <div className="p-4 rounded-xl border border-[#f59e0b]/10 aa-gradient-bg"
-          style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
+        <div className="p-4 lg:p-5 rounded-xl border border-[#f59e0b]/10 aa-gradient-bg aa-breathe"
+          style={{ animationDelay: "3s", background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">HIGHLIGHTS</h3>
           <div className="space-y-2">
             {athlete.streak >= 7 && (
