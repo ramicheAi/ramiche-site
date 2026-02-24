@@ -133,6 +133,57 @@ export function generateApiKeyPair(): { keyId: string; secretKey: string } {
   return { keyId, secretKey };
 }
 
+// ── Encryption at Rest ──────────────────────────────────────────
+// AES-256-GCM encryption for API keys stored in Firestore
+
+const ENCRYPTION_KEY_ENV = "API_KEY_ENCRYPTION_SECRET";
+
+async function getEncryptionKey(): Promise<CryptoKey> {
+  const secret = process.env[ENCRYPTION_KEY_ENV] || "default-dev-key-change-in-production";
+  const encoder = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw", encoder.encode(secret).slice(0, 32).buffer as ArrayBuffer,
+    { name: "PBKDF2" }, false, ["deriveKey"]
+  );
+  return crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt: encoder.encode("mettle-api-keys"), iterations: 100_000, hash: "SHA-256" },
+    keyMaterial,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"]
+  );
+}
+
+/** Encrypt a secret key before storing in Firestore */
+export async function encryptSecret(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const encoder = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: "AES-GCM", iv },
+    key,
+    encoder.encode(plaintext)
+  );
+  const combined = new Uint8Array(iv.length + new Uint8Array(ciphertext).length);
+  combined.set(iv);
+  combined.set(new Uint8Array(ciphertext), iv.length);
+  return btoa(String.fromCharCode(...combined));
+}
+
+/** Decrypt a secret key retrieved from Firestore */
+export async function decryptSecret(encrypted: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const combined = Uint8Array.from(atob(encrypted), (c) => c.charCodeAt(0));
+  const iv = combined.slice(0, 12);
+  const ciphertext = combined.slice(12);
+  const plaintext = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv },
+    key,
+    ciphertext
+  );
+  return new TextDecoder().decode(plaintext);
+}
+
 // ── Error Responses ─────────────────────────────────────────────
 
 export function badRequest(message: string): NextResponse {
