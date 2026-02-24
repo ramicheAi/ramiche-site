@@ -185,29 +185,29 @@ export default function MettleLanding() {
         }
       `}</style>
 
-      {/* ── Ambient glow backdrop ── */}
+      {/* ── Ambient glow backdrop — scales for desktop ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[900px] h-[900px] opacity-25"
+        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[900px] lg:w-[1400px] h-[900px] lg:h-[1200px] opacity-25"
           style={{ background: `radial-gradient(ellipse, ${C.purpleDeep}60 0%, transparent 55%)` }} />
-        <div className="absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[400px] opacity-15"
+        <div className="absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[800px] lg:w-[1200px] h-[400px] lg:h-[600px] opacity-15"
           style={{ background: `radial-gradient(ellipse, ${C.gold}30 0%, transparent 60%)` }} />
-        <div className="absolute top-[40%] right-[-10%] w-[400px] h-[400px] opacity-10"
+        <div className="absolute top-[40%] right-[-10%] w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] opacity-10"
           style={{ background: `radial-gradient(ellipse, ${C.scarlet}30 0%, transparent 60%)` }} />
       </div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 flex flex-col min-h-screen">
 
         {/* ━━━ NAV ━━━ */}
-        <nav className="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between reveal">
+        <nav className="w-full max-w-7xl mx-auto px-6 lg:px-12 py-5 lg:py-6 flex items-center justify-between reveal">
           <div className="flex items-center gap-3">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9" />
-            <span className="text-sm font-bold tracking-[0.25em] uppercase" style={{ color: C.gold }}>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9 lg:w-11 lg:h-11" />
+            <span className="text-sm lg:text-base font-bold tracking-[0.25em] uppercase" style={{ color: C.gold }}>
               METTLE
             </span>
           </div>
           <Link
             href="/apex-athlete/login"
-            className="heartbeat-card px-6 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all duration-300 hover:scale-105 border-2"
+            className="heartbeat-card px-6 py-2.5 lg:px-8 lg:py-3 rounded-full text-xs lg:text-sm font-bold tracking-wider uppercase transition-all duration-300 hover:scale-105 border-2"
             style={{
               "--glow-color": C.gold,
               borderColor: `${C.gold}60`,
@@ -218,22 +218,22 @@ export default function MettleLanding() {
           </Link>
         </nav>
 
-        {/* ━━━ HERO ━━━ */}
-        <section className="max-w-5xl mx-auto px-5 pt-16 sm:pt-28 pb-10 sm:pb-16 text-center">
+        {/* ━━━ HERO — takes full viewport on desktop ━━━ */}
+        <section className="flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-6 lg:px-12 pt-12 sm:pt-20 lg:pt-0 pb-10 sm:pb-16 lg:pb-0 text-center">
           {/* Logo with glow ring */}
-          <div className="mb-12 float-gentle reveal reveal-d1 relative inline-block">
+          <div className="mb-10 lg:mb-14 float-gentle reveal reveal-d1 relative inline-block">
             <div className="absolute inset-[-20px] rounded-full glow-ring"
               style={{ background: `radial-gradient(circle, ${C.gold}15 0%, transparent 70%)` }} />
             <img
               src="/mettle-brand/v5/mettle-icon.svg"
               alt="METTLE"
-              className="w-28 h-28 sm:w-36 sm:h-36 mx-auto relative"
+              className="w-28 h-28 sm:w-36 sm:h-36 lg:w-44 lg:h-44 mx-auto relative"
               style={{ filter: `drop-shadow(0 0 50px ${C.gold}40)` }}
             />
           </div>
 
           {/* Headline */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.05] mb-6 reveal reveal-d2">
+          <h1 className="text-4xl sm:text-6xl lg:text-8xl xl:text-9xl font-black tracking-tight leading-[1.05] mb-6 lg:mb-8 reveal reveal-d2">
             <span className="block text-white">Become</span>
             <span className="shimmer-text inline-block" style={{
               background: `linear-gradient(90deg, ${C.goldDim}, ${C.goldBright}, ${C.gold}, ${C.goldBright}, ${C.goldDim})`,
@@ -245,7 +245,7 @@ export default function MettleLanding() {
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-white/50 max-w-lg mx-auto mb-16 font-light reveal reveal-d3">
+          <p className="text-lg sm:text-xl lg:text-2xl text-white/50 max-w-lg lg:max-w-2xl mx-auto mb-12 lg:mb-16 font-light reveal reveal-d3">
             The fire is already inside you. We just help you unleash it.
           </p>
 
@@ -253,7 +253,7 @@ export default function MettleLanding() {
           <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
               href="/apex-athlete/login"
-              className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-24 py-6 sm:py-7 rounded-2xl font-black text-xl sm:text-2xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08] border-3"
+              className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-24 lg:px-32 py-6 sm:py-7 lg:py-8 rounded-2xl font-black text-xl sm:text-2xl lg:text-3xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08] border-3"
               style={{
                 "--glow-color": C.goldBright,
                 background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
@@ -264,20 +264,20 @@ export default function MettleLanding() {
             >
               Get Started Free
             </Link>
-            <span className="text-xs text-white/20 tracking-[0.3em] uppercase font-medium">
+            <span className="text-xs lg:text-sm text-white/20 tracking-[0.3em] uppercase font-medium">
               Private Beta
             </span>
           </div>
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section className="max-w-4xl mx-auto px-5 pb-20 sm:pb-28">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <section className="w-full max-w-7xl mx-auto px-6 lg:px-12 pb-20 sm:pb-28 lg:pb-32">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-10">
             {portals.map((p, i) => (
               <Link
                 key={p.title}
                 href={p.href}
-                className="heartbeat-card group relative flex flex-col items-center rounded-3xl border-2 p-10 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer"
+                className="heartbeat-card group relative flex flex-col items-center rounded-3xl border-2 p-10 lg:p-14 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer"
                 style={{
                   "--glow-color": p.color,
                   background: `linear-gradient(180deg, ${p.color}0A 0%, ${C.darkCard} 40%, ${p.color}05 100%)`,
@@ -286,29 +286,33 @@ export default function MettleLanding() {
                 } as React.CSSProperties}
               >
                 {/* Status dot — racing heartbeat */}
-                <div className="absolute top-5 right-5 flex items-center gap-2">
+                <div className="absolute top-5 right-5 lg:top-7 lg:right-7 flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full pulse-dot" style={{ background: p.brightColor, animationDelay: `${i * 0.3}s` }} />
-                  <span className="text-[10px] tracking-[0.2em] uppercase font-bold" style={{ color: p.brightColor }}>LIVE</span>
+                  <span className="text-[10px] lg:text-xs tracking-[0.2em] uppercase font-bold" style={{ color: p.brightColor }}>LIVE</span>
                 </div>
 
                 {/* Icon — larger, colored */}
-                <div className="mb-6 transition-all duration-300 group-hover:scale-110" style={{ color: p.brightColor }}>
-                  {p.icon}
+                <div className="mb-6 lg:mb-8 transition-all duration-300 group-hover:scale-110" style={{ color: p.brightColor }}>
+                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-11 h-11 lg:w-16 lg:h-16">
+                    {p.title === "Coach" && <><path d="M12 2L15 8H9L12 2Z" /><circle cx="12" cy="14" r="4" /><path d="M6 22V20C6 17 9 15 12 15S18 17 18 20V22" /></>}
+                    {p.title === "Athlete" && <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />}
+                    {p.title === "Parent" && <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />}
+                  </svg>
                 </div>
 
                 {/* Title */}
-                <h3 className="text-2xl font-black tracking-wide mb-2" style={{ color: p.brightColor }}>
+                <h3 className="text-2xl lg:text-3xl font-black tracking-wide mb-2" style={{ color: p.brightColor }}>
                   {p.title}
                 </h3>
-                <p className="text-sm text-white/40 tracking-wider font-medium">
+                <p className="text-sm lg:text-base text-white/40 tracking-wider font-medium">
                   {p.sub}
                 </p>
 
                 {/* Enter arrow — always visible on mobile, hover on desktop */}
-                <div className="mt-8 flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="h-[2px] w-10 rounded-full" style={{ background: `${p.color}50` }} />
-                  <span className="text-sm font-bold tracking-widest uppercase" style={{ color: p.brightColor }}>Enter</span>
-                  <span className="text-base font-bold group-hover:translate-x-1 transition-transform" style={{ color: p.brightColor }}>&rarr;</span>
+                <div className="mt-8 lg:mt-10 flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="h-[2px] w-10 lg:w-14 rounded-full" style={{ background: `${p.color}50` }} />
+                  <span className="text-sm lg:text-base font-bold tracking-widest uppercase" style={{ color: p.brightColor }}>Enter</span>
+                  <span className="text-base lg:text-lg font-bold group-hover:translate-x-1 transition-transform" style={{ color: p.brightColor }}>&rarr;</span>
                 </div>
               </Link>
             ))}
@@ -316,36 +320,36 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ MISSION — one powerful line ━━━ */}
-        <section className="py-16 sm:py-24 text-center px-5">
-          <div className="max-w-xl mx-auto">
-            <div className="flex items-center justify-center gap-4 mb-8">
-              <div className="h-[2px] w-16 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-8 h-8 opacity-40" />
-              <div className="h-[2px] w-16 rounded-full" style={{ background: `linear-gradient(90deg, ${C.gold}40, transparent)` }} />
+        <section className="py-16 sm:py-24 lg:py-32 text-center px-6 lg:px-12">
+          <div className="max-w-xl lg:max-w-3xl mx-auto">
+            <div className="flex items-center justify-center gap-4 mb-8 lg:mb-12">
+              <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-8 h-8 lg:w-12 lg:h-12 opacity-40" />
+              <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, ${C.gold}40, transparent)` }} />
             </div>
-            <p className="text-2xl sm:text-3xl font-light leading-relaxed tracking-tight" style={{ color: `${C.gold}90` }}>
+            <p className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-light leading-relaxed tracking-tight" style={{ color: `${C.gold}90` }}>
               Unlocking the greatness already inside every athlete.
             </p>
           </div>
         </section>
 
         {/* ━━━ WAITLIST — compact, glowing ━━━ */}
-        <section id="waitlist" className="pb-24 sm:pb-32">
-          <div className="max-w-md mx-auto px-5 text-center">
-            <h2 className="text-2xl font-black tracking-tight mb-3 text-white">
+        <section id="waitlist" className="pb-24 sm:pb-32 lg:pb-40">
+          <div className="max-w-md lg:max-w-xl mx-auto px-6 lg:px-12 text-center">
+            <h2 className="text-2xl lg:text-3xl font-black tracking-tight mb-3 lg:mb-4 text-white">
               Ready to compete?
             </h2>
-            <p className="text-white/30 text-sm mb-10">
+            <p className="text-white/30 text-sm lg:text-base mb-10 lg:mb-12">
               Request early access for your team.
             </p>
 
             {submitted ? (
-              <div className="heartbeat-card rounded-2xl p-6 border-2" style={{
+              <div className="heartbeat-card rounded-2xl p-6 lg:p-8 border-2" style={{
                 "--glow-color": C.purple,
                 background: `${C.purple}0A`,
                 borderColor: `${C.purple}30`,
               } as React.CSSProperties}>
-                <p className="text-lg font-bold" style={{ color: C.purple }}>You&apos;re in. We&apos;ll be in touch.</p>
+                <p className="text-lg lg:text-xl font-bold" style={{ color: C.purple }}>You&apos;re in. We&apos;ll be in touch.</p>
               </div>
             ) : (
               <form
@@ -358,7 +362,7 @@ export default function MettleLanding() {
                     setSubmitted(true);
                   }
                 }}
-                className="flex gap-3"
+                className="flex gap-3 lg:gap-4"
               >
                 <input
                   type="email"
@@ -366,7 +370,7 @@ export default function MettleLanding() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="coach@team.com"
-                  className="flex-1 px-5 py-4 rounded-2xl text-white text-base placeholder:text-white/20 focus:outline-none transition-all"
+                  className="flex-1 px-5 py-4 lg:px-7 lg:py-5 rounded-2xl text-white text-base lg:text-lg placeholder:text-white/20 focus:outline-none transition-all"
                   style={{
                     background: C.darkCard,
                     border: `2px solid rgba(255,255,255,0.08)`,
@@ -374,7 +378,7 @@ export default function MettleLanding() {
                 />
                 <button
                   type="submit"
-                  className="heartbeat-cta px-12 py-5 rounded-2xl font-black text-lg tracking-[0.15em] uppercase border-2 transition-all duration-300 hover:scale-110"
+                  className="heartbeat-cta px-12 py-5 lg:px-16 lg:py-5 rounded-2xl font-black text-lg lg:text-xl tracking-[0.15em] uppercase border-2 transition-all duration-300 hover:scale-110"
                   style={{
                     "--glow-color": C.goldBright,
                     background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
@@ -391,12 +395,12 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ FOOTER ━━━ */}
-        <footer className="pb-10 text-center">
+        <footer className="pb-10 lg:pb-14 text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-5 h-5 opacity-20" />
-            <span className="text-xs tracking-[0.25em] uppercase text-white/15 font-bold">METTLE</span>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-5 h-5 lg:w-6 lg:h-6 opacity-20" />
+            <span className="text-xs lg:text-sm tracking-[0.25em] uppercase text-white/15 font-bold">METTLE</span>
           </div>
-          <p className="text-white/[0.08] text-[10px] tracking-wider">
+          <p className="text-white/[0.08] text-[10px] lg:text-xs tracking-wider">
             Parallax Ventures · {new Date().getFullYear()}
           </p>
         </footer>
