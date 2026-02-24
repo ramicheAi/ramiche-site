@@ -1,12 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
-  <!--
-    METTLE v5 — Single-color silhouette test
-    If it reads in one color at 100 yards, it's iconic.
-  -->
-  <polygon points="20,96 34,96 34,30 20,40" fill="#D4A843"/>
-  <polygon points="34,30 34,56 60,82 60,56" fill="#D4A843"/>
-  <polygon points="60,56 60,82 86,56 86,30" fill="#D4A843"/>
-  <polygon points="86,30 86,96 100,96 100,40" fill="#D4A843"/>
-  <!-- Forge spark -->
-  <polygon points="60,74 65,82 60,90 55,82" fill="#FFFBE6"/>
+  <polygon points="22,94 36,94 36,30 22,38" fill="#D4A843"/>
+  <polygon points="36,30 36,54 60,78 60,54" fill="#D4A843"/>
+  <polygon points="60,54 60,78 84,54 84,30" fill="#D4A843"/>
+  <polygon points="84,30 84,94 98,94 98,38" fill="#D4A843"/>
+  <polygon points="60,72 66,80 60,88 54,80" fill="#FFFBE6"/>
 </svg>

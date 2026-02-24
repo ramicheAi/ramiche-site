@@ -1,24 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 60" fill="none">
-  <!--
-    METTLE v5 Wordmark — Refined
-    Wide letter-spacing. Gold gradient. Clean underline. Sophisticated.
-  -->
   <defs>
     <linearGradient id="goldText" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#F0D478"/>
-      <stop offset="40%" stop-color="#D4A843"/>
-      <stop offset="100%" stop-color="#B8862A"/>
+      <stop offset="35%" stop-color="#D4A843"/>
+      <stop offset="100%" stop-color="#A67C28"/>
     </linearGradient>
   </defs>
-
-  <!-- Wordmark -->
   <text x="210" y="40" text-anchor="middle"
         font-family="'SF Pro Display','Helvetica Neue','Arial Black',Helvetica,Arial,sans-serif"
-        font-weight="800" font-size="42" letter-spacing="16"
+        font-weight="800" font-size="42" letter-spacing="18"
         fill="url(#goldText)">METTLE</text>
-
-  <!-- Gold underline — full width, thin and elegant -->
-  <line x1="40" y1="52" x2="380" y2="52" stroke="#D4A843" stroke-width="1.2" opacity="0.6"/>
-  <!-- Scarlet accent — center notch -->
-  <line x1="190" y1="52" x2="230" y2="52" stroke="#B8102A" stroke-width="1.5"/>
+  <line x1="42" y1="52" x2="378" y2="52" stroke="#D4A843" stroke-width="1" opacity="0.4"/>
 </svg>

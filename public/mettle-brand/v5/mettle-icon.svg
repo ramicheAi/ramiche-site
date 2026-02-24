@@ -1,65 +1,69 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
   <!--
-    METTLE v5 — "The Forged M"
-    Refined: full gold edge outline, cleaner facets, forge spark symbol.
-    Biblical palette: purple, scarlet, gold, blue.
-    Sophisticated. Medal-worthy. Stadium-wall iconic.
+    METTLE v5.1 — "The Forged M" (Refined)
+    Cleaner geometry, thicker gold outlines, refined forge spark,
+    subtle inner glow. More sophisticated, more iconic.
+    Biblical palette: navy, scarlet, purple, gold.
   -->
   <defs>
     <linearGradient id="goldEdge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#C9973A"/>
-      <stop offset="35%" stop-color="#F0D478"/>
-      <stop offset="65%" stop-color="#E8C36A"/>
-      <stop offset="100%" stop-color="#C9973A"/>
+      <stop offset="0%" stop-color="#B8862A"/>
+      <stop offset="25%" stop-color="#F0D478"/>
+      <stop offset="50%" stop-color="#FFFBE6"/>
+      <stop offset="75%" stop-color="#E8C36A"/>
+      <stop offset="100%" stop-color="#B8862A"/>
     </linearGradient>
-    <linearGradient id="purpleDeep" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3D1480"/>
-      <stop offset="100%" stop-color="#220B48"/>
+    <linearGradient id="purpleDeep" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#4A1A99"/>
+      <stop offset="100%" stop-color="#1E0940"/>
     </linearGradient>
-    <linearGradient id="scarletRich" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#B8102A"/>
-      <stop offset="100%" stop-color="#7A0818"/>
+    <linearGradient id="scarletRich" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#CC1230"/>
+      <stop offset="100%" stop-color="#6E0A1A"/>
     </linearGradient>
     <linearGradient id="navyDeep" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1C3564"/>
-      <stop offset="100%" stop-color="#0E1E3A"/>
+      <stop offset="0%" stop-color="#1E3A6E"/>
+      <stop offset="100%" stop-color="#0C1C38"/>
     </linearGradient>
     <linearGradient id="sparkGold" x1="0.5" y1="0" x2="0.5" y2="1">
       <stop offset="0%" stop-color="#FFFBE6"/>
+      <stop offset="50%" stop-color="#F0D478"/>
       <stop offset="100%" stop-color="#D4A843"/>
     </linearGradient>
+    <!-- Subtle inner glow -->
+    <radialGradient id="innerGlow" cx="0.5" cy="0.65" r="0.35">
+      <stop offset="0%" stop-color="#F0D478" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#F0D478" stop-opacity="0"/>
+    </radialGradient>
   </defs>
 
-  <!-- M BODY — clean 4-facet construction -->
-  <!-- Left leg — navy blue (truth) -->
-  <polygon points="20,96 34,96 34,30 20,40" fill="url(#navyDeep)"/>
+  <!-- Subtle background glow from forge spark area -->
+  <circle cx="60" cy="78" r="30" fill="url(#innerGlow)"/>
+
+  <!-- M BODY — clean 4-facet construction, tighter proportions -->
+  <!-- Left leg — navy (truth) -->
+  <polygon points="22,94 36,94 36,30 22,38" fill="url(#navyDeep)"/>
   <!-- Left diagonal — scarlet (strength) -->
-  <polygon points="34,30 34,56 60,82 60,56" fill="url(#scarletRich)"/>
+  <polygon points="36,30 36,54 60,78 60,54" fill="url(#scarletRich)"/>
   <!-- Right diagonal — purple (royalty) -->
-  <polygon points="60,56 60,82 86,56 86,30" fill="url(#purpleDeep)"/>
-  <!-- Right leg — navy blue (truth) -->
-  <polygon points="86,30 86,96 100,96 100,40" fill="url(#navyDeep)"/>
+  <polygon points="60,54 60,78 84,54 84,30" fill="url(#purpleDeep)"/>
+  <!-- Right leg — navy (truth) -->
+  <polygon points="84,30 84,94 98,94 98,38" fill="url(#navyDeep)"/>
 
-  <!-- GOLD OUTLINE — full perimeter, every edge -->
-  <!-- Outer silhouette -->
-  <polyline points="20,96 20,40 34,30 34,56 60,82 86,56 86,30 100,40 100,96"
-    stroke="url(#goldEdge)" stroke-width="2" stroke-linejoin="miter" fill="none"/>
+  <!-- GOLD OUTLINE — full perimeter, every edge, thicker for sophistication -->
+  <polyline points="22,94 22,38 36,30 36,54 60,78 84,54 84,30 98,38 98,94"
+    stroke="url(#goldEdge)" stroke-width="2.5" stroke-linejoin="miter" fill="none"/>
   <!-- Bottom feet -->
-  <line x1="20" y1="96" x2="34" y2="96" stroke="url(#goldEdge)" stroke-width="2"/>
-  <line x1="86" y1="96" x2="100" y2="96" stroke="url(#goldEdge)" stroke-width="2"/>
-  <!-- Inner fold seams — structural gold lines -->
-  <line x1="34" y1="30" x2="34" y2="96" stroke="#D4A843" stroke-width="1.2" opacity="0.6"/>
-  <line x1="86" y1="30" x2="86" y2="96" stroke="#D4A843" stroke-width="1.2" opacity="0.6"/>
-  <!-- Inner diagonals (valley lines) -->
-  <line x1="34" y1="56" x2="60" y2="82" stroke="#D4A843" stroke-width="1" opacity="0.4"/>
-  <line x1="86" y1="56" x2="60" y2="82" stroke="#D4A843" stroke-width="1" opacity="0.4"/>
+  <line x1="22" y1="94" x2="36" y2="94" stroke="url(#goldEdge)" stroke-width="2.5"/>
+  <line x1="84" y1="94" x2="98" y2="94" stroke="url(#goldEdge)" stroke-width="2.5"/>
+  <!-- Inner fold seams — subtle structural gold -->
+  <line x1="36" y1="30" x2="36" y2="94" stroke="#D4A843" stroke-width="1" opacity="0.35"/>
+  <line x1="84" y1="30" x2="84" y2="94" stroke="#D4A843" stroke-width="1" opacity="0.35"/>
 
-  <!-- FORGE SPARK — diamond at the M valley = the moment mettle is forged -->
-  <polygon points="60,74 65,82 60,90 55,82" fill="url(#sparkGold)"/>
-  <polygon points="60,77 63,82 60,87 57,82" fill="#FFFBE6" opacity="0.85"/>
+  <!-- FORGE SPARK — refined diamond, cleaner proportions -->
+  <polygon points="60,72 66,80 60,88 54,80" fill="url(#sparkGold)" opacity="0.9"/>
+  <polygon points="60,75 63.5,80 60,85 56.5,80" fill="#FFFBE6" opacity="0.8"/>
 
-  <!-- Subtle radiance from spark -->
-  <line x1="60" y1="72" x2="60" y2="68" stroke="#F0D478" stroke-width="0.8" opacity="0.5"/>
-  <line x1="53" y1="79" x2="50" y2="77" stroke="#F0D478" stroke-width="0.8" opacity="0.35"/>
-  <line x1="67" y1="79" x2="70" y2="77" stroke="#F0D478" stroke-width="0.8" opacity="0.35"/>
+  <!-- Minimal radiance — just two tiny lines, not busy -->
+  <line x1="60" y1="70" x2="60" y2="66" stroke="#F0D478" stroke-width="0.7" opacity="0.4" stroke-linecap="round"/>
 </svg>
