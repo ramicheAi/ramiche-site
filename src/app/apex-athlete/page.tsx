@@ -2266,10 +2266,12 @@ export default function ApexAthletePage() {
           {/* Left panel — branding */}
           <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
             <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(212,168,67,0.08) 0%, transparent 70%)'}} />
-            <div className="relative z-10 text-center max-w-lg">
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-48 xl:w-56 2xl:w-64 h-48 xl:h-56 2xl:h-64 mx-auto mb-10" style={{animation:'logoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(212,168,67,0.2))'}} />
-              <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #D4A843)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md mx-auto">Unlocking the greatness already inside every athlete.</p>
+            <div className="relative z-10 flex flex-col items-center max-w-lg">
+              <div className="flex flex-col items-center">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{animation:'logoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(212,168,67,0.2))'}} />
+                <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #D4A843)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
+              </div>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md text-center">Unlocking the greatness already inside every athlete.</p>
               <div className="flex items-center justify-center gap-3 text-[#D4A843]/40 text-sm font-mono tracking-wider">
                 <span className="w-8 h-px bg-[#D4A843]/20" />
                 COACH PORTAL
@@ -2278,8 +2280,8 @@ export default function ApexAthletePage() {
             </div>
           </div>
           {/* Right panel — PIN form */}
-          <div className="flex-1 flex items-center justify-center p-6 lg:p-12 xl:p-16">
-            <div className="w-full max-w-lg">
+          <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
+            <div className="w-full max-w-md">
               {/* Mobile-only branding */}
               <div className="lg:hidden text-center mb-8">
                 <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
@@ -2287,7 +2289,7 @@ export default function ApexAthletePage() {
                 <div className="text-[#D4A843]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
               </div>
               {/* Access card */}
-              <div className="bg-[#0a0518]/80 backdrop-blur-xl border border-[#D4A843]/15 rounded-2xl p-10 lg:p-12 xl:p-14" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border border-[#D4A843]/15 rounded-3xl p-8 sm:p-10 lg:p-12" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
                 <div className="text-center mb-10">
                   <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-3">{"// SECURE ACCESS"}</div>
                   <h2 className="text-white text-3xl xl:text-4xl font-bold">Coach Access</h2>
