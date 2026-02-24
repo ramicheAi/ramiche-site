@@ -183,6 +183,13 @@ export default function MettleLanding() {
         .glow-ring {
           animation: glow-ring 3s ease-in-out infinite;
         }
+        @keyframes live-pulse {
+          0%, 100% { box-shadow: 0 0 4px var(--dot-color); opacity: 0.6; }
+          50% { box-shadow: 0 0 12px var(--dot-color), 0 0 24px var(--dot-color); opacity: 1; }
+        }
+        .live-badge {
+          animation: live-pulse 1.5s ease-in-out infinite;
+        }
         .portal-grid {
           display: grid;
           grid-template-columns: 1fr;
@@ -286,7 +293,7 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "0 2rem 5rem" }}>
+        <section style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "4rem 2rem 5rem" }}>
           <div className="portal-grid">
             {portals.map((p, i) => (
               <Link
@@ -304,15 +311,15 @@ export default function MettleLanding() {
                   } as React.CSSProperties)
                 }}
               >
-                {/* Status dot — racing heartbeat */}
+                {/* Status dot — glowing live badge */}
                 <div className="absolute top-5 right-5 lg:top-7 lg:right-7 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full pulse-dot" style={{ background: p.brightColor, animationDelay: `${i * 0.3}s` }} />
+                  <div className="w-2.5 h-2.5 rounded-full live-badge" style={{ background: p.brightColor, "--dot-color": p.brightColor, animationDelay: `${i * 0.3}s` } as React.CSSProperties} />
                   <span className="text-[10px] lg:text-xs tracking-[0.2em] uppercase font-bold" style={{ color: p.brightColor }}>LIVE</span>
                 </div>
 
-                {/* Icon — larger, colored */}
-                <div className="mb-6 lg:mb-8 transition-all duration-300 group-hover:scale-110" style={{ color: p.brightColor }}>
-                  <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-11 h-11 lg:w-16 lg:h-16">
+                {/* Icon — large, glowing */}
+                <div className="mb-8 lg:mb-10 transition-all duration-300 group-hover:scale-110" style={{ color: p.brightColor, filter: `drop-shadow(0 0 20px ${p.color}60)` }}>
+                  <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-14 h-14 lg:w-20 lg:h-20">
                     {p.title === "Coach" && <><path d="M12 2L15 8H9L12 2Z" /><circle cx="12" cy="14" r="4" /><path d="M6 22V20C6 17 9 15 12 15S18 17 18 20V22" /></>}
                     {p.title === "Athlete" && <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />}
                     {p.title === "Parent" && <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />}
@@ -320,10 +327,10 @@ export default function MettleLanding() {
                 </div>
 
                 {/* Title */}
-                <h3 className="text-2xl lg:text-3xl font-black tracking-wide mb-2" style={{ color: p.brightColor }}>
+                <h3 className="text-3xl lg:text-4xl font-black tracking-wide mb-3" style={{ color: p.brightColor }}>
                   {p.title}
                 </h3>
-                <p className="text-sm lg:text-base text-white/40 tracking-wider font-medium">
+                <p className="text-base lg:text-lg text-white/40 tracking-wider font-medium">
                   {p.sub}
                 </p>
 
