@@ -41,7 +41,7 @@ export default function MettleLanding() {
     {
       title: "Coach",
       sub: "Command your team",
-      href: "/apex-athlete/login?role=coach",
+      href: "/apex-athlete",
       color: C.scarlet,
       brightColor: C.scarletBright,
       icon: (
