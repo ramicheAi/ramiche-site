@@ -4,14 +4,13 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════
-   METTLE — Landing Page v3
-   Apple-inspired. Premium. Inviting. Biblical palette.
-   Generous spacing, large typography, visual storytelling.
+   METTLE — Landing Page v4
+   Parallax-style glowing heartbeat cards. Minimal text.
+   Game HUD energy meets biblical colors. Converts.
    ══════════════════════════════════════════════════════════════ */
 
 const emptySubscribe = () => () => {};
 
-/* Biblical palette — refined for premium feel */
 const C = {
   gold: "#D4A843",
   goldLight: "#E8C97A",
@@ -22,8 +21,6 @@ const C = {
   blue: "#1E3A5F",
   dark: "#060410",
   darkCard: "#0D0919",
-  darkSurface: "#110E1D",
-  cream: "#FAF5EB",
 } as const;
 
 export default function MettleLanding() {
@@ -38,24 +35,98 @@ export default function MettleLanding() {
     </div>
   );
 
+  const portals = [
+    {
+      title: "Coach",
+      sub: "Command your team",
+      href: "/apex-athlete/portal",
+      color: C.scarlet,
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.scarlet} strokeWidth="1.5" strokeLinecap="round">
+          <path d="M12 2L15 8H9L12 2Z" /><circle cx="12" cy="14" r="4" /><path d="M6 22V20C6 17 9 15 12 15S18 17 18 20V22" />
+        </svg>
+      ),
+    },
+    {
+      title: "Athlete",
+      sub: "Own your journey",
+      href: "/apex-athlete/portal",
+      color: C.purple,
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="1.5" strokeLinecap="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />
+        </svg>
+      ),
+    },
+    {
+      title: "Parent",
+      sub: "Watch them rise",
+      href: "/apex-athlete/portal",
+      color: C.gold,
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.gold} strokeWidth="1.5" strokeLinecap="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
+        </svg>
+      ),
+    },
+  ];
+
   return (
     <div className="min-h-screen" style={{ background: C.dark, color: "#fff" }}>
 
-      {/* ── Ambient background ── */}
+      {/* ── Keyframes ── */}
+      <style jsx>{`
+        @keyframes heartbeat {
+          0%, 100% {
+            box-shadow: 0 0 8px var(--glow-color), 0 0 24px color-mix(in srgb, var(--glow-color) 40%, transparent),
+                        inset 0 0 6px color-mix(in srgb, var(--glow-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--glow-color) 35%, transparent);
+          }
+          50% {
+            box-shadow: 0 0 16px var(--glow-color), 0 0 48px color-mix(in srgb, var(--glow-color) 25%, transparent),
+                        inset 0 0 12px color-mix(in srgb, var(--glow-color) 12%, transparent);
+            border-color: color-mix(in srgb, var(--glow-color) 60%, transparent);
+          }
+        }
+        @keyframes float-up {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes pulse-dot {
+          0%, 100% { opacity: 0.4; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.3); }
+        }
+        .heartbeat-card {
+          animation: heartbeat 3s ease-in-out infinite;
+        }
+        .float-gentle {
+          animation: float-up 4s ease-in-out infinite;
+        }
+        .shimmer-text {
+          background-size: 200% 100%;
+          animation: shimmer 3s linear infinite;
+        }
+        .pulse-dot {
+          animation: pulse-dot 2s ease-in-out infinite;
+        }
+      `}</style>
+
+      {/* ── Ambient ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        {/* Top glow — purple haze */}
-        <div className="absolute top-[-40%] left-1/2 -translate-x-1/2 w-[900px] h-[900px] opacity-30"
-          style={{ background: `radial-gradient(ellipse, ${C.purpleDeep}40 0%, transparent 65%)` }} />
-        {/* Bottom gold warmth */}
-        <div className="absolute bottom-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[400px] opacity-15"
-          style={{ background: `radial-gradient(ellipse, ${C.gold}30 0%, transparent 70%)` }} />
+        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] opacity-20"
+          style={{ background: `radial-gradient(ellipse, ${C.purpleDeep}50 0%, transparent 60%)` }} />
+        <div className="absolute bottom-[-15%] left-1/2 -translate-x-1/2 w-[700px] h-[350px] opacity-12"
+          style={{ background: `radial-gradient(ellipse, ${C.gold}25 0%, transparent 65%)` }} />
       </div>
 
-      {/* ── Content ── */}
       <div className="relative z-10">
 
         {/* ━━━ NAV ━━━ */}
-        <nav className="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between">
+        <nav className="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-8 h-8" />
             <span className="text-sm font-semibold tracking-[0.2em] uppercase" style={{ color: C.gold }}>
@@ -65,31 +136,30 @@ export default function MettleLanding() {
           <Link
             href="/apex-athlete/portal"
             className="px-5 py-2 rounded-full text-xs font-semibold tracking-wider uppercase transition-all duration-300 hover:brightness-110"
-            style={{ border: `1px solid ${C.gold}35`, color: C.gold }}
+            style={{ border: `1px solid ${C.gold}40`, color: C.gold }}
           >
             Sign In
           </Link>
         </nav>
 
         {/* ━━━ HERO ━━━ */}
-        <section className="max-w-6xl mx-auto px-6 pt-16 sm:pt-28 pb-24 sm:pb-40 text-center">
-          {/* Logo — hero-sized */}
-          <div className="mb-12 sm:mb-16">
-            <div className="relative inline-block">
-              <img
-                src="/mettle-brand/v5/mettle-icon.svg"
-                alt="METTLE"
-                className="w-28 h-28 sm:w-40 sm:h-40 mx-auto"
-                style={{ filter: "drop-shadow(0 0 60px rgba(212,168,67,0.15))" }}
-              />
-            </div>
+        <section className="max-w-5xl mx-auto px-5 pt-14 sm:pt-24 pb-16 sm:pb-24 text-center">
+          {/* Logo — floating */}
+          <div className="mb-10 float-gentle">
+            <img
+              src="/mettle-brand/v5/mettle-icon.svg"
+              alt="METTLE"
+              className="w-24 h-24 sm:w-32 sm:h-32 mx-auto"
+              style={{ filter: "drop-shadow(0 0 40px rgba(212,168,67,0.2))" }}
+            />
           </div>
 
-          {/* Headline — Apple-sized, confident */}
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1] mb-6">
-            <span className="block text-white">Where athletes</span>
-            <span className="block" style={{
-              background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
+          {/* Headline — bold, minimal */}
+          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight leading-[1.1] mb-5">
+            <span className="text-white">Where athletes</span>{" "}
+            <span className="shimmer-text" style={{
+              background: `linear-gradient(90deg, ${C.goldDim}, ${C.goldLight}, ${C.gold}, ${C.goldLight}, ${C.goldDim})`,
+              backgroundSize: "200% 100%",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}>
@@ -97,171 +167,99 @@ export default function MettleLanding() {
             </span>
           </h1>
 
-          {/* Sub — warm and inviting */}
-          <p className="text-lg sm:text-xl text-white/50 max-w-xl mx-auto mb-12 leading-relaxed font-light">
-            The platform that transforms how teams train, compete, and grow — together.
+          <p className="text-base sm:text-lg text-white/40 max-w-md mx-auto mb-14 font-light">
+            Train. Compete. Level up. Together.
           </p>
 
-          {/* CTAs — prominent, warm */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* ━━━ PORTAL CARDS — glowing heartbeat ━━━ */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-3xl mx-auto mb-16">
+            {portals.map((p, i) => (
+              <Link
+                key={p.title}
+                href={p.href}
+                className="heartbeat-card group relative flex flex-col items-center rounded-2xl border p-8 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] cursor-pointer"
+                style={{
+                  "--glow-color": p.color,
+                  background: `linear-gradient(180deg, ${p.color}08 0%, ${C.darkCard} 100%)`,
+                  borderColor: `${p.color}25`,
+                  animationDelay: `${i * 0.5}s`,
+                } as React.CSSProperties}
+              >
+                {/* Status dot */}
+                <div className="absolute top-4 right-4 flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: p.color, animationDelay: `${i * 0.3}s` }} />
+                  <span className="text-[9px] tracking-widest uppercase font-bold" style={{ color: `${p.color}90` }}>LIVE</span>
+                </div>
+
+                {/* Icon */}
+                <div className="mb-5 opacity-80 group-hover:opacity-100 transition-opacity">
+                  {p.icon}
+                </div>
+
+                {/* Title */}
+                <h3 className="text-xl font-bold tracking-wide mb-1" style={{ color: p.color }}>
+                  {p.title}
+                </h3>
+                <p className="text-xs text-white/30 tracking-wider uppercase">
+                  {p.sub}
+                </p>
+
+                {/* Enter indicator */}
+                <div className="mt-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="h-[1px] w-8" style={{ background: `${p.color}40` }} />
+                  <span className="text-[10px] tracking-widest uppercase" style={{ color: `${p.color}70` }}>Enter</span>
+                  <span className="text-xs group-hover:translate-x-1 transition-transform" style={{ color: `${p.color}70` }}>&rarr;</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+
+          {/* CTA — glowing gold heartbeat button */}
+          <div className="flex flex-col items-center gap-4">
             <Link
               href="/apex-athlete/portal"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-10 py-4 rounded-full font-semibold text-sm tracking-wider transition-all duration-300 hover:scale-[1.03] hover:shadow-lg"
+              className="heartbeat-card inline-flex items-center justify-center gap-2 px-12 py-4 rounded-full font-bold text-sm tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.05] border"
               style={{
+                "--glow-color": C.gold,
                 background: `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`,
                 color: C.dark,
-                boxShadow: `0 8px 32px ${C.gold}25`,
-              }}
+                borderColor: `${C.gold}60`,
+              } as React.CSSProperties}
             >
               Get Started Free
             </Link>
-            <a
-              href="#waitlist"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-10 py-4 rounded-full font-semibold text-sm tracking-wider transition-all duration-300 hover:bg-white/[0.04]"
-              style={{ border: `1px solid rgba(255,255,255,0.1)`, color: "rgba(255,255,255,0.6)" }}
-            >
-              Learn More
-            </a>
-          </div>
-
-          {/* Trust signal — subtle */}
-          <div className="mt-14 flex items-center justify-center gap-6 text-[11px] font-medium tracking-wider uppercase text-white/20">
-            <span>Private Beta</span>
-            <span className="w-1 h-1 rounded-full bg-white/10" />
-            <span>By Invitation</span>
+            <span className="text-[10px] text-white/15 tracking-widest uppercase">Private Beta · By Invitation</span>
           </div>
         </section>
 
-        {/* ━━━ VALUE PROPOSITION — full-bleed sections ━━━ */}
-
-        {/* Section 1: Coach */}
-        <section className="relative py-24 sm:py-32 overflow-hidden">
-          <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 0%, ${C.darkSurface} 30%, ${C.darkSurface} 70%, transparent 100%)` }} />
-          <div className="relative z-10 max-w-5xl mx-auto px-6">
-            <div className="text-center mb-12 sm:mb-16">
-              {/* Icon */}
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6 transition-all"
-                style={{ background: `linear-gradient(135deg, ${C.scarlet}18, ${C.scarlet}08)`, border: `1px solid ${C.scarlet}15` }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.scarlet} strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M12 2L15 8H9L12 2Z" /><circle cx="12" cy="14" r="4" /><path d="M6 22V20C6 17 9 15 12 15S18 17 18 20V22" />
-                </svg>
-              </div>
-              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-4" style={{ color: C.scarlet }}>For Coaches</p>
-              <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-[1.15] mb-5">
-                <span className="text-white">Your team.</span><br />
-                <span className="text-white/40">Your system.</span>
-              </h2>
-              <p className="text-white/35 text-base sm:text-lg max-w-lg mx-auto leading-relaxed">
-                Run practice, manage meets, and watch every athlete level up — all from one dashboard built for the way you coach.
-              </p>
-            </div>
-
-            {/* Feature pills */}
-            <div className="flex flex-wrap justify-center gap-3">
-              {["Practice Check-In", "Meet Management", "Roster & Groups", "Analytics", "Quest Builder"].map((f) => (
-                <div key={f} className="px-5 py-2.5 rounded-full text-xs font-medium tracking-wide"
-                  style={{ background: `${C.scarlet}08`, border: `1px solid ${C.scarlet}12`, color: `${C.scarlet}CC` }}>
-                  {f}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Section 2: Athlete */}
-        <section className="relative py-24 sm:py-32 overflow-hidden">
-          <div className="relative z-10 max-w-5xl mx-auto px-6">
-            <div className="text-center mb-12 sm:mb-16">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6"
-                style={{ background: `linear-gradient(135deg, ${C.purple}18, ${C.purple}08)`, border: `1px solid ${C.purple}15` }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="1.5" strokeLinecap="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />
-                </svg>
-              </div>
-              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-4" style={{ color: C.purple }}>For Athletes</p>
-              <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-[1.15] mb-5">
-                <span className="text-white">Your journey.</span><br />
-                <span className="text-white/40">Your legacy.</span>
-              </h2>
-              <p className="text-white/35 text-base sm:text-lg max-w-lg mx-auto leading-relaxed">
-                Track your progress, earn your rank, complete challenges, and see exactly how far you&apos;ve come — every single day.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-3">
-              {["Personal Dashboard", "XP & Levels", "Race Prep", "Wellness Check-In", "Leaderboard"].map((f) => (
-                <div key={f} className="px-5 py-2.5 rounded-full text-xs font-medium tracking-wide"
-                  style={{ background: `${C.purple}08`, border: `1px solid ${C.purple}12`, color: `${C.purple}CC` }}>
-                  {f}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Section 3: Parent */}
-        <section className="relative py-24 sm:py-32 overflow-hidden">
-          <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, transparent 0%, ${C.darkSurface} 30%, ${C.darkSurface} 70%, transparent 100%)` }} />
-          <div className="relative z-10 max-w-5xl mx-auto px-6">
-            <div className="text-center mb-12 sm:mb-16">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-6"
-                style={{ background: `linear-gradient(135deg, ${C.gold}18, ${C.gold}08)`, border: `1px solid ${C.gold}15` }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.gold} strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
-                </svg>
-              </div>
-              <p className="text-xs font-semibold tracking-[0.3em] uppercase mb-4" style={{ color: C.gold }}>For Parents</p>
-              <h2 className="text-3xl sm:text-5xl font-bold tracking-tight leading-[1.15] mb-5">
-                <span className="text-white">Their growth.</span><br />
-                <span className="text-white/40">Your front row.</span>
-              </h2>
-              <p className="text-white/35 text-base sm:text-lg max-w-lg mx-auto leading-relaxed">
-                Stay connected to your child&apos;s athletic journey. See milestones, celebrate wins, and watch them become who they&apos;re meant to be.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-3">
-              {["Growth Trends", "Badge Gallery", "Encouragement", "Activity Feed", "Meet Results"].map((f) => (
-                <div key={f} className="px-5 py-2.5 rounded-full text-xs font-medium tracking-wide"
-                  style={{ background: `${C.gold}08`, border: `1px solid ${C.gold}12`, color: `${C.gold}CC` }}>
-                  {f}
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ━━━ MISSION — centered statement ━━━ */}
-        <section className="py-28 sm:py-40 text-center px-6">
-          <div className="max-w-3xl mx-auto">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-12 h-12 mx-auto mb-10 opacity-30" />
-            <blockquote className="text-2xl sm:text-3xl lg:text-4xl font-light text-white/70 leading-relaxed tracking-tight">
+        {/* ━━━ MISSION — minimal ━━━ */}
+        <section className="py-20 sm:py-28 text-center px-5">
+          <div className="max-w-2xl mx-auto">
+            <div className="w-10 h-[1px] mx-auto mb-10" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}30, transparent)` }} />
+            <p className="text-xl sm:text-2xl font-light text-white/50 leading-relaxed tracking-tight italic">
               &ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;
-            </blockquote>
+            </p>
+            <div className="w-10 h-[1px] mx-auto mt-10" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}30, transparent)` }} />
           </div>
         </section>
 
-        {/* ━━━ WAITLIST ━━━ */}
-        <section id="waitlist" className="py-24 sm:py-32">
-          <div className="max-w-md mx-auto px-6 text-center">
-            {/* Decorative line */}
-            <div className="w-12 h-[1px] mx-auto mb-10" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40, transparent)` }} />
-
-            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-3 text-white">
+        {/* ━━━ WAITLIST — compact ━━━ */}
+        <section id="waitlist" className="pb-24 sm:pb-32">
+          <div className="max-w-sm mx-auto px-5 text-center">
+            <h2 className="text-xl font-bold tracking-tight mb-2 text-white">
               Join the beta.
             </h2>
-            <p className="text-white/30 text-sm mb-10 leading-relaxed">
-              We&apos;re onboarding select teams for early access. Be one of the first.
+            <p className="text-white/25 text-xs mb-8 tracking-wide">
+              Early access for select teams.
             </p>
 
             {submitted ? (
-              <div className="rounded-2xl p-6" style={{ background: `${C.purple}08`, border: `1px solid ${C.purple}15` }}>
-                <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3" style={{ background: `${C.purple}15` }}>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="2" strokeLinecap="round">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <p className="text-sm font-medium" style={{ color: `${C.purple}BB` }}>You&apos;re on the list. We&apos;ll be in touch.</p>
+              <div className="heartbeat-card rounded-2xl p-5 border" style={{
+                "--glow-color": C.purple,
+                background: `${C.purple}08`,
+                borderColor: `${C.purple}20`,
+              } as React.CSSProperties}>
+                <p className="text-sm font-medium" style={{ color: `${C.purple}CC` }}>You&apos;re on the list.</p>
               </div>
             ) : (
               <form
@@ -274,15 +272,15 @@ export default function MettleLanding() {
                     setSubmitted(true);
                   }
                 }}
-                className="flex flex-col sm:flex-row gap-3"
+                className="flex gap-2"
               >
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="coach@yourteam.com"
-                  className="flex-1 px-5 py-4 rounded-2xl text-white text-sm placeholder:text-white/15 focus:outline-none focus:ring-1 transition-all"
+                  placeholder="coach@team.com"
+                  className="flex-1 px-4 py-3 rounded-xl text-white text-sm placeholder:text-white/15 focus:outline-none transition-all"
                   style={{
                     background: C.darkCard,
                     border: `1px solid rgba(255,255,255,0.06)`,
@@ -290,14 +288,15 @@ export default function MettleLanding() {
                 />
                 <button
                   type="submit"
-                  className="px-8 py-4 rounded-2xl font-semibold text-sm tracking-wider transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+                  className="heartbeat-card px-6 py-3 rounded-xl font-semibold text-xs tracking-wider border transition-all duration-300 hover:scale-[1.02]"
                   style={{
+                    "--glow-color": C.gold,
                     background: `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`,
                     color: C.dark,
-                    boxShadow: `0 4px 20px ${C.gold}20`,
-                  }}
+                    borderColor: `${C.gold}50`,
+                  } as React.CSSProperties}
                 >
-                  Request Access
+                  Join
                 </button>
               </form>
             )}
@@ -305,13 +304,12 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ FOOTER ━━━ */}
-        <footer className="pb-12 pt-8 text-center px-6">
-          <div className="w-20 h-[1px] mx-auto mb-8" style={{ background: `linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent)` }} />
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-5 h-5 opacity-20" />
-            <span className="text-[11px] font-medium tracking-[0.2em] uppercase text-white/15">METTLE</span>
+        <footer className="pb-10 text-center">
+          <div className="flex items-center justify-center gap-2 mb-3">
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-4 h-4 opacity-15" />
+            <span className="text-[10px] tracking-[0.2em] uppercase text-white/10">METTLE</span>
           </div>
-          <p className="text-white/[0.08] text-[10px] tracking-wider">
+          <p className="text-white/[0.06] text-[10px] tracking-wider">
             Parallax Ventures · {new Date().getFullYear()}
           </p>
         </footer>
