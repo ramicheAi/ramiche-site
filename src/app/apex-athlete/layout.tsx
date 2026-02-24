@@ -7,6 +7,22 @@ export const metadata: Metadata = {
     icon: "/mettle-brand/v5/mettle-icon.svg",
     apple: "/mettle-brand/v5/mettle-icon.svg",
   },
+  openGraph: {
+    title: "METTLE — Where Athletes Find Their Edge",
+    description: "Gamified training that transforms practice. Coach, athlete, and parent portals — all connected.",
+    siteName: "METTLE",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "METTLE — Where Athletes Find Their Edge",
+    description: "Gamified training that transforms practice. Coach, athlete, and parent portals — all connected.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function MettleLayout({
