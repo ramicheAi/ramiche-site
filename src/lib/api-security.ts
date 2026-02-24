@@ -71,6 +71,68 @@ export function generateNonce(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+// ── API Key Authentication ──────────────────────────────────
+// HMAC-SHA256 request signing for marketplace API consumers
+// Keys stored in Firestore: organizations/default/apikeys/{keyId}
+
+/** Verify an API key from the Authorization header */
+export function extractApiKey(req: Request): string | null {
+  const auth = req.headers.get("authorization") || "";
+  if (auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  if (auth.startsWith("Apikey ")) return auth.slice(7).trim();
+  return req.headers.get("x-api-key") || null;
+}
+
+/** Verify HMAC-SHA256 request signature */
+export async function verifyRequestSignature(
+  req: Request,
+  secretKey: string,
+  maxAgeMs = 300_000 // 5 min window
+): Promise<{ valid: boolean; reason?: string }> {
+  const signature = req.headers.get("x-signature") || "";
+  const timestamp = req.headers.get("x-timestamp") || "";
+  const nonce = req.headers.get("x-nonce") || "";
+
+  if (!signature || !timestamp || !nonce) {
+    return { valid: false, reason: "Missing signature headers (x-signature, x-timestamp, x-nonce)" };
+  }
+
+  // Check timestamp freshness (prevent replay attacks)
+  const ts = parseInt(timestamp, 10);
+  if (isNaN(ts) || Math.abs(Date.now() - ts) > maxAgeMs) {
+    return { valid: false, reason: "Request timestamp expired or invalid" };
+  }
+
+  // Build signing string: timestamp + nonce + method + path
+  const url = new URL(req.url);
+  const signingString = `${timestamp}:${nonce}:${req.method}:${url.pathname}`;
+
+  // Compute HMAC-SHA256
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secretKey),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(signingString));
+  const expected = Array.from(new Uint8Array(sig), (b) => b.toString(16).padStart(2, "0")).join("");
+
+  if (expected !== signature) {
+    return { valid: false, reason: "Invalid signature" };
+  }
+
+  return { valid: true };
+}
+
+/** Generate an API key pair (call server-side only) */
+export function generateApiKeyPair(): { keyId: string; secretKey: string } {
+  const keyId = `pk_${generateNonce()}`;
+  const secretKey = `sk_${generateNonce()}${generateNonce()}`;
+  return { keyId, secretKey };
+}
+
 // ── Error Responses ─────────────────────────────────────────────
 
 export function badRequest(message: string): NextResponse {
