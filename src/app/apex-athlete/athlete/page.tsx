@@ -1507,7 +1507,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ DASHBOARD TAB ══════════════ */}
         {tab === "dashboard" && attrs && (
-          <div className="xl:grid xl:grid-cols-3 lg:grid lg:grid-cols-2 gap-6 xl:gap-8 space-y-4 lg:space-y-0 w-full">
+          <div key="tab-dashboard" className="aa-tab-content xl:grid xl:grid-cols-3 lg:grid lg:grid-cols-2 gap-6 xl:gap-8 space-y-4 lg:space-y-0 w-full">
             {/* Column 1: Strengths radar */}
             <div className="w-full">
             <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 h-full flex flex-col" style={{ animation: "aa-glow-breathe 5s ease-in-out 0.5s infinite" }}>
@@ -1617,7 +1617,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ TIMES / PR TAB ══════════════ */}
         {tab === "times" && (
-          <div className="space-y-4 w-full lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 xl:gap-8 lg:space-y-0">
+          <div key="tab-times" className="aa-tab-content space-y-4 w-full lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 xl:gap-8 lg:space-y-0">
             {/* Log new time */}
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
               <h3 className="text-[#00f0ff] text-xs lg:text-sm xl:text-base font-mono tracking-wider mb-3 lg:mb-4 flex items-center gap-2">
@@ -1769,7 +1769,7 @@ export default function AthletePortal() {
         {tab === "standards" && athlete && (() => {
           const g = athlete.gender;
           return (
-            <div className="space-y-4 w-full">
+            <div key="tab-standards" className="aa-tab-content space-y-4 w-full">
               {/* Course selector */}
               <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ffd700]/10">
                 <h3 className="text-[#ffd700] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -1931,7 +1931,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ GOALS TAB ══════════════ */}
         {tab === "goals" && athlete && (
-          <div className="space-y-4 w-full lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+          <div key="tab-goals" className="aa-tab-content space-y-4 w-full lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
             {/* Event/Stroke selector */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#22c55e]/10">
               <h3 className="text-[#22c55e] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -2146,7 +2146,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ RACE PREP TAB ══════════════ */}
         {tab === "raceprep" && (
-          <div className="space-y-4 w-full">
+          <div key="tab-raceprep" className="aa-tab-content space-y-4 w-full">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ef4444]/10">
               <h3 className="text-[#ef4444] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
                 <TargetIcon active={true} /> RACE STRATEGY BUILDER
@@ -2241,7 +2241,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ QUESTS TAB ══════════════ */}
         {tab === "quests" && (
-          <div className="space-y-3 w-full">
+          <div key="tab-quests" className="aa-tab-content space-y-3 w-full">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">SIDE QUESTS</h3>
               <span className="text-white/25 text-xs font-mono">
@@ -2332,7 +2332,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ JOURNAL TAB ══════════════ */}
         {tab === "journal" && (
-          <div className="space-y-4 w-full">
+          <div key="tab-journal" className="aa-tab-content space-y-4 w-full">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">HOW&apos;D IT GO TODAY?</h3>
               <div className="flex items-center gap-1 mb-4 justify-center">
@@ -2393,7 +2393,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ COACH FEEDBACK TAB ══════════════ */}
         {tab === "feedback" && (
-          <div className="space-y-4 w-full">
+          <div key="tab-feedback" className="aa-tab-content space-y-4 w-full">
             <h3 className="text-[#f59e0b] text-xs font-mono tracking-wider mb-2 flex items-center gap-2">
               <MessageIcon active={true} /> COACH FEEDBACK
             </h3>
@@ -2444,7 +2444,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ LEADERBOARD TAB ══════════════ */}
         {tab === "leaderboard" && (
-          <div className="space-y-2 w-full">
+          <div key="tab-leaderboard" className="aa-tab-content space-y-2 w-full">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">{athlete.gender === "F" ? "GIRLS" : "BOYS"} LEADERBOARD</h3>
               <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
@@ -2481,7 +2481,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ WELLNESS TAB ══════════════ */}
         {tab === "wellness" && (
-          <div className="space-y-4 w-full">
+          <div key="tab-wellness" className="aa-tab-content space-y-4 w-full">
             {/* Pre/Post Check-In */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10">
               <h3 className="text-emerald-400/70 text-xs font-mono tracking-wider mb-3">PRE-PRACTICE CHECK-IN</h3>
@@ -2645,7 +2645,7 @@ export default function AthletePortal() {
           const allUpcoming = myMeets.length > 0 ? myMeets : myRsvpMeets;
 
           return (
-            <div className="space-y-4 w-full">
+            <div key="tab-meets" className="aa-tab-content space-y-4 w-full">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">YOUR UPCOMING MEETS</h3>
 
               {allUpcoming.length === 0 ? (
@@ -2781,6 +2781,13 @@ export default function AthletePortal() {
         @keyframes aa-subtle-pulse {
           0%, 100% { transform: scale(1); }
           50% { transform: scale(1.02); }
+        }
+        @keyframes aa-tab-enter {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .aa-tab-content {
+          animation: aa-tab-enter 0.3s ease-out;
         }
       `}</style>
     </div>
