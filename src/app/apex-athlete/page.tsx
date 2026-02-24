@@ -3044,7 +3044,7 @@ export default function ApexAthletePage() {
             </div>
 
             {/* Athlete selector */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div>
                 <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Athlete</label>
                 <select value={stratAthleteId} onChange={e => setStratAthleteId(e.target.value)}
@@ -3503,7 +3503,7 @@ export default function ApexAthletePage() {
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Read-only — athlete progress & growth</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {roster.sort((a, b) => a.name.localeCompare(b.name)).map(a => {
               const lv = getLevel(a.xp); const prog = getLevelProgress(a.xp); const growth = getPersonalGrowth(a);
               return (
@@ -6073,7 +6073,7 @@ export default function ApexAthletePage() {
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Roster Check-In"}</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mb-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 mb-10">
               {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
@@ -6143,7 +6143,7 @@ export default function ApexAthletePage() {
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
               <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Team Challenges"}</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
                   const done = tc.current >= tc.target;
