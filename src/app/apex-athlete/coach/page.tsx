@@ -837,7 +837,7 @@ const DEFAULT_CULTURE: TeamCulture = {
 /* ── standalone presentational components (outside main component to prevent re-render bugs) ── */
 
 const Card = ({ children, className = "", glow = false, neon = false }: { children: React.ReactNode; className?: string; glow?: boolean; neon?: boolean }) => (
-  <div className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
+  <div style={{animation: 'glowBreathe 4s ease-in-out infinite'}} className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
 );
 
 const BgOrbs = () => (
@@ -4351,6 +4351,31 @@ export default function ApexAthletePage() {
           <p>Coach manages all data. Parental consent required.</p>
         </div>
       </div>
+
+      {/* Living breathing animations */}
+      <style jsx>{`
+        @keyframes glowBreathe {
+          0%, 100% { box-shadow: 0 0 8px rgba(0, 240, 255, 0.05), inset 0 0 8px rgba(0, 240, 255, 0.02); }
+          50% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.12), inset 0 0 15px rgba(0, 240, 255, 0.04); }
+        }
+        @keyframes subtleFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.6; }
+          50% { opacity: 1; }
+        }
+        .glow-breathe {
+          animation: glowBreathe 4s ease-in-out infinite;
+        }
+        .subtle-float {
+          animation: subtleFloat 6s ease-in-out infinite;
+        }
+        .pulse-glow {
+          animation: pulseGlow 3s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }
