@@ -100,9 +100,9 @@ type LoginMode = "select" | "coach" | "parent" | "admin" | "register-coach" | "r
 
 const BgOrbs = () => (
   <div className="fixed inset-0 pointer-events-none overflow-hidden">
-    <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.06)_0%,transparent_60%)]" />
-    <div className="absolute bottom-[-15%] right-[-5%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.05)_0%,transparent_60%)]" />
-    <div className="absolute top-[30%] right-[15%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.04)_0%,transparent_60%)]" />
+    <div className="absolute top-[-20%] left-[-10%] w-[600px] lg:w-[900px] h-[600px] lg:h-[900px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.06)_0%,transparent_60%)]" />
+    <div className="absolute bottom-[-15%] right-[-5%] w-[500px] lg:w-[800px] h-[500px] lg:h-[800px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.05)_0%,transparent_60%)]" />
+    <div className="absolute top-[30%] right-[15%] w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.04)_0%,transparent_60%)]" />
   </div>
 );
 
@@ -239,7 +239,7 @@ export default function LoginPage() {
   // ── Shared UI helpers ───────────────────────────────────
 
   const inputClass = (hasError: boolean = false) =>
-    `w-full px-4 py-4 bg-[#0a0518]/80 backdrop-blur-xl border rounded-xl text-white text-base placeholder:text-white/25 focus:outline-none transition-all font-mono ${
+    `w-full px-4 py-4 lg:px-5 lg:py-5 bg-[#0a0518]/80 backdrop-blur-xl border rounded-xl text-white text-base lg:text-lg placeholder:text-white/25 focus:outline-none transition-all font-mono ${
       hasError
         ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
         : "border-white/10 focus:border-[#00f0ff]/40 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)]"
@@ -251,10 +251,10 @@ export default function LoginPage() {
   // ── Render ──────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 py-8">
+    <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 py-8 lg:px-12">
       <BgOrbs />
 
-      <div className="relative z-10 w-full max-w-sm">
+      <div className="relative z-10 w-full max-w-sm lg:max-w-md xl:max-w-lg">
 
         {/* ── Role Selection Screen ── */}
         {mode === "select" && (
@@ -262,13 +262,13 @@ export default function LoginPage() {
             {/* Logo + Title */}
             <div className="mb-8">
               <div className="flex justify-center mb-4">
-                <SvgShield size={56} color="#00f0ff" />
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-14 h-14 lg:w-20 lg:h-20" />
               </div>
               <div className="text-[10px] tracking-[0.5em] uppercase font-mono mb-2" style={{ color: "rgba(0,240,255,0.4)" }}>
                 AUTHENTICATION REQUIRED
               </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-2">
-                Apex Athlete
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-2">
+                METTLE
               </h1>
               <p className="text-white/25 text-sm font-mono">Select your access level to continue</p>
             </div>
@@ -702,7 +702,7 @@ export default function LoginPage() {
         {/* ── Footer ── */}
         <div className="text-center mt-10">
           <p className="text-white/[0.08] text-[10px] font-mono">
-            APEX ATHLETE v7.0 // Secure Access Terminal
+            METTLE · Athlete Relations Manager
           </p>
         </div>
       </div>

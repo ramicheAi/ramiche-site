@@ -771,7 +771,7 @@ function EnrollmentForm({ roster, onComplete }: {
         <div className="absolute bottom-0 left-1/4 w-[400px] h-[300px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.05)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 max-w-lg lg:max-w-2xl xl:max-w-3xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-14">
+      <div className="relative z-10 max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-14">
         {/* Welcome header */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center relative"
@@ -1288,7 +1288,7 @@ export default function ParentPortal() {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-md lg:max-w-lg mx-auto">
+        <div className="relative z-10 w-full max-w-md lg:max-w-xl xl:max-w-2xl mx-auto">
           {isCoach && (
             <div className="grid grid-cols-3 gap-2 mb-6">
               <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Coach</a>
@@ -1352,7 +1352,7 @@ export default function ParentPortal() {
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
       {/* Portal switcher — full-width grid */}
-      <div className="relative z-20 grid grid-cols-3 gap-2 px-4 pt-3 pb-2">
+      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-4xl xl:max-w-5xl 2xl:max-w-6xl lg:mx-auto">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
@@ -1381,10 +1381,10 @@ export default function ParentPortal() {
 
       <div className="relative z-10 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20 py-6 sm:py-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-6 lg:mb-10">
           <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors">← Switch</button>
           <div className="text-center">
-            <h2 className="text-white font-bold text-lg">{athlete.name}</h2>
+            <h2 className="text-white font-bold text-lg lg:text-2xl">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
               <span style={{ color: level.color }} className="text-sm font-bold flex items-center gap-1.5">
                 <LevelIcon name={level.name} size={14} color={level.color} />
@@ -1398,7 +1398,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Desktop 2-column layout */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-6">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10">
         <div>
         {/* Level Progress — animated ring */}
         <div className="mb-6 p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 text-center relative overflow-hidden">
