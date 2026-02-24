@@ -1879,14 +1879,20 @@ export default function ApexAthletePage() {
     addAudit(id, a.name, "Removed from roster", 0);
   }, [roster, saveRoster, addAudit]);
 
-  const exportCSV = useCallback(() => {
+  const anonymizeName = useCallback((name: string) => {
+    const parts = name.trim().split(" ");
+    if (parts.length <= 1) return parts[0]?.[0] + "***";
+    return parts[0] + " " + parts.slice(1).map(p => p[0] + ".").join("");
+  }, []);
+
+  const exportCSV = useCallback((anonymize = false) => {
     const header = "Name,Age,Gender,XP,Level,Streak,WeightStreak,TotalPractices\n";
-    const rows = roster.map(a => `${a.name},${a.age},${a.gender},${a.xp},${getLevel(a.xp).name},${a.streak},${a.weightStreak},${a.totalPractices}`).join("\n");
+    const rows = roster.map(a => `${anonymize ? anonymizeName(a.name) : a.name},${a.age},${a.gender},${a.xp},${getLevel(a.xp).name},${a.streak},${a.weightStreak},${a.totalPractices}`).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
-    const link = document.createElement("a"); link.href = url; link.download = `apex-athlete-${today()}.csv`;
+    const link = document.createElement("a"); link.href = url; link.download = `mettle-roster-${anonymize ? "anon-" : ""}${today()}.csv`;
     link.click(); URL.revokeObjectURL(url);
-  }, [roster]);
+  }, [roster, anonymizeName]);
 
   const currentSport = currentGroupDef.sport;
   const currentCPs = getCPsForSport(currentSport);
@@ -3871,10 +3877,17 @@ export default function ApexAthletePage() {
             )}
           </Card>
 
-          <button onClick={exportCSV}
-            className="game-btn px-5 py-3 bg-[#06020f]/60 text-[#00f0ff]/40 text-sm font-mono border border-[#00f0ff]/15 hover:text-[#00f0ff]/70 hover:border-[#00f0ff]/30 transition-all min-h-[44px]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1.5 -mt-0.5"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Export Full CSV
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => exportCSV(false)}
+              className="game-btn px-5 py-3 bg-[#06020f]/60 text-[#00f0ff]/40 text-sm font-mono border border-[#00f0ff]/15 hover:text-[#00f0ff]/70 hover:border-[#00f0ff]/30 transition-all min-h-[44px]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1.5 -mt-0.5"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>Export CSV
+            </button>
+            <button onClick={() => exportCSV(true)}
+              className="game-btn px-5 py-3 bg-[#06020f]/60 text-emerald-400/40 text-sm font-mono border border-emerald-400/15 hover:text-emerald-400/70 hover:border-emerald-400/30 transition-all min-h-[44px]"
+              title="COPPA-compliant: names anonymized to first name + last initial">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1.5 -mt-0.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Export Anonymized
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -5876,7 +5889,7 @@ export default function ApexAthletePage() {
               <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                 Bulk Check-In
               </button>
-              <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
+              <button onClick={() => exportCSV(false)} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
               <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                 {addAthleteOpen ? "Cancel" : "+ Athlete"}
               </button>
