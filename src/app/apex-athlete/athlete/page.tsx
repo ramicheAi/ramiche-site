@@ -1428,7 +1428,7 @@ export default function AthletePortal() {
         </div>
 
         {/* XP Bar */}
-        <div className="mb-4 lg:mb-8 p-3 lg:p-6 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
+        <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
             <span className="text-white/60 text-xs lg:text-base font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
@@ -1444,17 +1444,17 @@ export default function AthletePortal() {
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-3 gap-2 lg:gap-6 mb-4 lg:mb-8 w-full">
-          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
+        <div className="grid grid-cols-3 gap-3 lg:gap-6 mb-5 lg:mb-10 w-full">
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.streak}</div>
-            <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
+            <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>
-          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.totalPractices}</div>
-            <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1">PRACTICES</div>
+            <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2">PRACTICES</div>
           </div>
-          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
             <div className="text-white/60 text-xs lg:text-base xl:text-lg font-mono tracking-wider mt-1">
               {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
@@ -1464,7 +1464,7 @@ export default function AthletePortal() {
         </div>
 
         {/* Tab Navigation — two rows on mobile, single row on tablet+ */}
-        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] w-full xl:p-4" style={{ animation: "aa-glow-breathe 6s ease-in-out 0.5s infinite" }}>
+        <div className="mb-5 lg:mb-10 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border-2 border-white/[0.08] w-full xl:p-4" style={{ animation: "aa-glow-breathe 6s ease-in-out 0.5s infinite" }}>
           {/* Mobile: 2 rows */}
           <div className="md:hidden space-y-1.5">
             {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
@@ -1510,8 +1510,8 @@ export default function AthletePortal() {
           <div className="xl:grid xl:grid-cols-3 lg:grid lg:grid-cols-2 gap-6 xl:gap-8 space-y-4 lg:space-y-0 w-full">
             {/* Column 1: Strengths radar */}
             <div className="w-full">
-            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10 h-full flex flex-col" style={{ animation: "aa-glow-breathe 5s ease-in-out 0.5s infinite" }}>
-              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6 text-center">YOUR STRENGTHS</h3>
+            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 h-full flex flex-col" style={{ animation: "aa-glow-breathe 5s ease-in-out 0.5s infinite" }}>
+              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8 text-center">YOUR STRENGTHS</h3>
               <div className="flex-1 flex items-center justify-center" style={{ animation: "aa-subtle-float 6s ease-in-out infinite" }}>
                 <RadarChart values={attrs} />
               </div>
@@ -1528,8 +1528,8 @@ export default function AthletePortal() {
 
             {/* Column 2: Today's effort + streaks */}
             <div className="w-full space-y-4">
-            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5 flex-1">
-              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">TODAY&apos;S EFFORT</h3>
+            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#60a5fa]/20 flex-1" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
+              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8">TODAY&apos;S EFFORT</h3>
               <div className="grid grid-cols-3 gap-3 lg:gap-8">
                 <div className="text-center">
                   <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
@@ -1551,8 +1551,8 @@ export default function AthletePortal() {
             </div>
 
             {athlete.weightStreak > 0 && (
-              <div className="p-4 lg:p-6 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
-                <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">IRON DISCIPLINE</h3>
+              <div className="p-5 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#f59e0b]/20">
+                <h3 className="text-white/50 text-xs lg:text-sm font-mono tracking-wider mb-3">IRON DISCIPLINE</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-black text-[#f59e0b]">{athlete.weightStreak}</span>
                   <span className="text-white/60 text-xs">sessions · {athlete.weekWeightSessions} this week</span>
@@ -1564,8 +1564,8 @@ export default function AthletePortal() {
             {/* Column 3: Consistency calendar */}
             <div className="w-full xl:col-span-1 lg:col-span-2 xl:col-auto">
             {/* Attendance Calendar — last 28 days heatmap */}
-            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
-              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">YOUR CONSISTENCY — LAST 28 DAYS</h3>
+            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-white/10" style={{ animation: "aa-glow-breathe 5s ease-in-out 1.5s infinite" }}>
+              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8">YOUR CONSISTENCY — LAST 28 DAYS</h3>
               <div className="grid grid-cols-7 gap-1.5 lg:gap-3 xl:gap-4 w-full">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
                   <div key={i} className="text-center text-white/50 text-xs lg:text-base font-mono font-bold">{d}</div>
