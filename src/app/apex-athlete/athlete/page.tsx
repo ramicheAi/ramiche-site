@@ -1304,7 +1304,7 @@ export default function AthletePortal() {
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
       {/* Portal switcher — full-width grid */}
-      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-[1920px] lg:mx-auto">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
@@ -1377,7 +1377,7 @@ export default function AthletePortal() {
         </div>
 
         {/* XP Bar */}
-        <div className="mb-4 lg:mb-6 p-3 lg:p-5 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+        <div className="mb-4 lg:mb-6 p-3 lg:p-5 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 lg:max-w-[1920px] lg:mx-auto">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-white/60 text-xs font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
@@ -1393,7 +1393,7 @@ export default function AthletePortal() {
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-4 lg:mb-6 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+        <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-4 lg:mb-6 lg:max-w-[1920px] lg:mx-auto">
           <div className="p-2.5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
             <div className="text-xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
@@ -1413,7 +1413,7 @@ export default function AthletePortal() {
         </div>
 
         {/* Tab Navigation — two rows on mobile, single row on tablet+ */}
-        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto xl:p-4">
+        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] lg:max-w-[1920px] lg:mx-auto xl:p-4">
           {/* Mobile: 2 rows */}
           <div className="md:hidden space-y-1.5">
             {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
@@ -1456,7 +1456,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ DASHBOARD TAB ══════════════ */}
         {tab === "dashboard" && attrs && (
-          <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-4 lg:space-y-0 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-6 space-y-4 lg:space-y-0 lg:max-w-[1920px] lg:mx-auto">
             {/* Left column on desktop */}
             <div className="space-y-4">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
@@ -1560,7 +1560,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ TIMES / PR TAB ══════════════ */}
         {tab === "times" && (
-          <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
             {/* Log new time */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
               <h3 className="text-[#00f0ff] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -1712,7 +1712,7 @@ export default function AthletePortal() {
         {tab === "standards" && athlete && (() => {
           const g = athlete.gender;
           return (
-            <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+            <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
               {/* Course selector */}
               <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ffd700]/10">
                 <h3 className="text-[#ffd700] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -1874,7 +1874,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ GOALS TAB ══════════════ */}
         {tab === "goals" && athlete && (
-          <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
             {/* Event/Stroke selector */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#22c55e]/10">
               <h3 className="text-[#22c55e] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -2089,7 +2089,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ RACE PREP TAB ══════════════ */}
         {tab === "raceprep" && (
-          <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ef4444]/10">
               <h3 className="text-[#ef4444] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
                 <TargetIcon active={true} /> RACE STRATEGY BUILDER
@@ -2184,7 +2184,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ QUESTS TAB ══════════════ */}
         {tab === "quests" && (
-          <div className="space-y-3 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="space-y-3 lg:max-w-[1920px] lg:mx-auto">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">SIDE QUESTS</h3>
               <span className="text-white/25 text-xs font-mono">
@@ -2275,7 +2275,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ JOURNAL TAB ══════════════ */}
         {tab === "journal" && (
-          <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">HOW&apos;D IT GO TODAY?</h3>
               <div className="flex items-center gap-1 mb-4 justify-center">
@@ -2336,7 +2336,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ COACH FEEDBACK TAB ══════════════ */}
         {tab === "feedback" && (
-          <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
             <h3 className="text-[#f59e0b] text-xs font-mono tracking-wider mb-2 flex items-center gap-2">
               <MessageIcon active={true} /> COACH FEEDBACK
             </h3>
@@ -2387,7 +2387,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ LEADERBOARD TAB ══════════════ */}
         {tab === "leaderboard" && (
-          <div className="space-y-2 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="space-y-2 lg:max-w-[1920px] lg:mx-auto">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">{athlete.gender === "F" ? "GIRLS" : "BOYS"} LEADERBOARD</h3>
               <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
@@ -2424,7 +2424,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ WELLNESS TAB ══════════════ */}
         {tab === "wellness" && (
-          <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
             {/* Pre/Post Check-In */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10">
               <h3 className="text-emerald-400/70 text-xs font-mono tracking-wider mb-3">PRE-PRACTICE CHECK-IN</h3>
@@ -2588,7 +2588,7 @@ export default function AthletePortal() {
           const allUpcoming = myMeets.length > 0 ? myMeets : myRsvpMeets;
 
           return (
-            <div className="space-y-4 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+            <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">YOUR UPCOMING MEETS</h3>
 
               {allUpcoming.length === 0 ? (
