@@ -56,11 +56,13 @@ export default function Home() {
     { label: "METTLE", href: "/apex-athlete" },
     { label: "Financial", href: "/financial" },
     { label: "Studio", href: "/studio" },
+    { label: "ClawGuard", href: "/clawguard" },
   ];
 
   const portals = [
     { title: "Command Center", description: "Mission control for all operations", href: "/command-center", accent: "cyan" as const, icon: "◈", status: "ONLINE" },
     { title: "METTLE", description: "Athlete Relations Manager — gamified training", href: "/apex-athlete", accent: "purple" as const, icon: "✦", status: "ACTIVE" },
+    { title: "ClawGuard Pro", description: "Security scanner for AI deployments", href: "/clawguard", accent: "cyan" as const, icon: "⛨", status: "LIVE" },
     { title: "Financial", description: "ORACLE — Revenue & growth metrics", href: "/financial", accent: "gold" as const, icon: "◉", status: "LIVE" },
     { title: "Parallax Studio", description: "Creative direction for the bold", href: "/studio", accent: "cyan" as const, icon: "♢", status: "LIVE" },
   ];

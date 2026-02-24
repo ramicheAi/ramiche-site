@@ -35,6 +35,10 @@ const CATALOG: Record<string, { name: string; price: number; mode: "payment" | "
   "deploy_single": { name: "White-Glove — Single Agent Setup", price: 750, mode: "payment" },
   "deploy_bundle": { name: "White-Glove — Bundle Deployment", price: 2500, mode: "payment" },
   "deploy_ecosystem": { name: "White-Glove — Full Ecosystem", price: 7500, mode: "payment" },
+  // ClawGuard Pro — Security Scanner
+  "clawguard_pro": { name: "ClawGuard Pro — Security Scanner", price: 299, mode: "payment" },
+  "clawguard_team": { name: "ClawGuard Team — 5 Machines", price: 799, mode: "payment" },
+  "clawguard_enterprise": { name: "ClawGuard Enterprise — Unlimited", price: 1499, mode: "payment" },
 };
 
 function getStripe(): Stripe {
@@ -86,8 +90,8 @@ export const POST = withAudit("/api/stripe/agents-checkout", async function POST
           quantity: 1,
         },
       ],
-      success_url: `${origin}/agents?success=true&product=${productId}`,
-      cancel_url: `${origin}/agents?canceled=true`,
+      success_url: `${origin}/${productId.startsWith("clawguard") ? "clawguard" : "agents"}?success=true&product=${productId}`,
+      cancel_url: `${origin}/${productId.startsWith("clawguard") ? "clawguard" : "agents"}?canceled=true`,
       metadata: { productId, productName: product.name },
     };
 
