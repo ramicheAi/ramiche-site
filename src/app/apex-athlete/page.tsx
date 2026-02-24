@@ -2289,10 +2289,10 @@ export default function ApexAthletePage() {
                 <div className="text-[#D4A843]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
               </div>
               {/* Access card */}
-              <div className="bg-[#0a0518]/80 backdrop-blur-xl border border-[#D4A843]/15 rounded-3xl p-8 sm:p-10 lg:p-12" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
-                <div className="text-center mb-10">
-                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-3">{"// SECURE ACCESS"}</div>
-                  <h2 className="text-white text-3xl xl:text-4xl font-bold">Coach Access</h2>
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#D4A843]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
+                <div className="text-center mb-12">
+                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-4">{"// SECURE ACCESS"}</div>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Coach Access</h2>
                 </div>
                 {inviteCoachName && (
                   <div className="bg-[#a855f7]/[0.06] border border-[#a855f7]/20 rounded-xl px-5 py-4 mb-6 text-center">
@@ -2300,9 +2300,9 @@ export default function ApexAthletePage() {
                     <div className="text-[#a855f7] font-bold">{inviteCoachName}</div>
                   </div>
                 )}
-                <div className="flex flex-col gap-5">
+                <div className="flex flex-col gap-7">
                   <div>
-                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-2 block">Enter PIN</label>
+                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-3 block">Enter PIN</label>
                     <input
                       type="password" maxLength={4} value={pinInput}
                       onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
