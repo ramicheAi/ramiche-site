@@ -216,7 +216,7 @@ export default function MettleLanding() {
       <div className="relative z-10 flex flex-col items-center min-h-screen w-full">
 
         {/* ━━━ NAV ━━━ */}
-        <nav style={{ width: "100%", maxWidth: "1200px", padding: "1.25rem 2rem" }} className="mx-auto flex items-center justify-between reveal">
+        <nav style={{ width: "100%", padding: "1.25rem clamp(1.5rem, 3vw, 3rem)" }} className="mx-auto flex items-center justify-between reveal">
           <div className="flex items-center gap-3">
             <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9 lg:w-11 lg:h-11" />
             <span className="text-sm lg:text-base font-bold tracking-[0.25em] uppercase" style={{ color: C.gold }}>
@@ -237,7 +237,7 @@ export default function MettleLanding() {
         </nav>
 
         {/* ━━━ HERO — takes full viewport on desktop ━━━ */}
-        <section style={{ width: "100%", maxWidth: "1200px", padding: "3rem 2rem 2.5rem" }} className="flex-1 flex flex-col items-center justify-center mx-auto text-center">
+        <section style={{ width: "100%", padding: "3rem clamp(1.5rem, 3vw, 3rem) 2.5rem" }} className="flex-1 flex flex-col items-center justify-center mx-auto text-center">
           {/* Logo with glow ring */}
           <div className="mb-10 lg:mb-14 float-gentle reveal reveal-d1 relative inline-block">
             <div className="absolute inset-[-20px] rounded-full glow-ring"
@@ -293,7 +293,7 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "4rem 2rem 5rem" }}>
+        <section style={{ width: "100%", margin: "0 auto", padding: "4rem clamp(1.5rem, 3vw, 3rem) 5rem" }}>
           <div className="portal-grid">
             {portals.map((p, i) => (
               <Link
@@ -348,7 +348,7 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ MISSION — one powerful line ━━━ */}
-        <section style={{ width: "100%", maxWidth: "1200px", margin: "0 auto", padding: "5rem 2rem", textAlign: "center" }}>
+        <section style={{ width: "100%", margin: "0 auto", padding: "5rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
           <div style={{ maxWidth: "800px", margin: "0 auto" }}>
             <div className="flex items-center justify-center gap-4 mb-8 lg:mb-12">
               <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
