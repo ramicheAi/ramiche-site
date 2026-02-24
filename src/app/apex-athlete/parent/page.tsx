@@ -1441,8 +1441,8 @@ export default function ParentPortal() {
           <div className="w-14" />
         </div>
 
-        {/* Desktop 2-column layout */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10 aa-tab-transition">
+        {/* Desktop layout — 2 columns on lg, 3 columns on xl */}
+        <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-8 xl:gap-10 aa-tab-transition">
         <div>
         {/* Level Progress — animated ring */}
         <div className="mb-6 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center relative overflow-hidden" style={{ borderColor: "rgba(245,158,11,0.2)", animation: "aa-glow-pulse 4s ease-in-out infinite", boxShadow: "0 0 30px rgba(245,158,11,0.05)" }}>
