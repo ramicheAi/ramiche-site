@@ -2249,10 +2249,11 @@ export default function ApexAthletePage() {
       <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
         <BgOrbs />
         <div className="text-center max-w-xs w-full relative z-10">
-          {/* HUD access terminal */}
+          {/* METTLE branded access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
-            <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
-            <div className="text-[#a855f7]/60 text-sm tracking-[0.3em] uppercase font-mono mb-8">{"// COACH ACCESS TERMINAL"}</div>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" />
+            <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background: 'linear-gradient(135deg, #D4A843, #FFD700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>METTLE</h1>
+            <div className="text-[#D4A843]/50 text-sm tracking-[0.3em] uppercase font-mono mb-6">{"// COACH ACCESS"}</div>
           </div>
           {inviteCoachName && (
             <div className="game-panel bg-[#a855f7]/[0.06] border border-[#a855f7]/20 px-4 py-3 mb-4 text-center">
