@@ -3078,57 +3078,57 @@ export default function ApexAthletePage() {
         <div className="w-full mx-auto relative z-10 px-4 sm:px-6 lg:px-6 xl:px-8 2xl:px-10">
           <GameHUDHeader />
 
-          <Card className="p-6 mb-6" glow>
-            <div className="flex items-center gap-3 mb-6">
-              <span className="text-2xl"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2" style={{filter:'drop-shadow(0 0 8px rgba(0,240,255,0.4))'}}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+          <Card className="p-8 sm:p-10 lg:p-12 mb-8" glow>
+            <div className="flex items-center gap-4 mb-8">
+              <span className="text-2xl"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2" style={{filter:'drop-shadow(0 0 8px rgba(0,240,255,0.4))'}}><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
               <div>
-                <h2 className="text-xl font-black tracking-tight neon-text-cyan">Race Strategy AI</h2>
-                <p className="text-white/50 text-sm">Personal goal-focused race planning</p>
+                <h2 className="text-2xl font-black tracking-tight neon-text-cyan">Race Strategy AI</h2>
+                <p className="text-white/50 text-sm mt-1">Personal goal-focused race planning</p>
               </div>
-              <span className="ml-auto text-[#f59e0b] text-sm font-bold">+150 XP</span>
+              <span className="ml-auto text-[#f59e0b] text-base font-bold">+150 XP</span>
             </div>
 
             {/* Athlete selector */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <div>
                 <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Athlete</label>
                 <select value={stratAthleteId} onChange={e => setStratAthleteId(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px]">
+                  className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-white text-base focus:outline-none focus:border-[#00f0ff]/30 min-h-[48px]">
                   <option value="">Select athlete...</option>
                   {filteredRoster.map(a => <option key={a.id} value={a.id}>{a.name} — {getLevel(a.xp).name}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Stroke</label>
+                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-3">Stroke</label>
                 <select value={stratStroke} onChange={e => setStratStroke(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px]">
+                  className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-white text-base focus:outline-none focus:border-[#00f0ff]/30 min-h-[48px]">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
               <div>
-                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Event (meters)</label>
+                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-3">Event (meters)</label>
                 <select value={stratEvent} onChange={e => setStratEvent(e.target.value)}
-                  className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px]">
+                  className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-white text-base focus:outline-none focus:border-[#00f0ff]/30 min-h-[48px]">
                   {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Current Best (M:SS.hh)</label>
+                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-3">Current Best (M:SS.hh)</label>
                 <input type="text" value={stratCurrentTime} onChange={e => setStratCurrentTime(e.target.value)}
-                  placeholder="1:05.30" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/50" />
+                  placeholder="1:05.30" className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-white text-base focus:outline-none focus:border-[#00f0ff]/30 min-h-[48px] placeholder:text-white/50" />
               </div>
               <div>
-                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-2">Goal Time (M:SS.hh)</label>
+                <label className="text-white/60 text-sm uppercase tracking-wider font-bold block mb-3">Goal Time (M:SS.hh)</label>
                 <input type="text" value={stratGoalTime} onChange={e => setStratGoalTime(e.target.value)}
-                  placeholder="1:02.00" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#00f0ff]/30 min-h-[44px] placeholder:text-white/50" />
+                  placeholder="1:02.00" className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-white text-base focus:outline-none focus:border-[#00f0ff]/30 min-h-[48px] placeholder:text-white/50" />
               </div>
             </div>
 
             <button onClick={generateStrategy}
-              className="game-btn w-full py-4 bg-gradient-to-r from-[#6b21a8] to-[#00f0ff]/30 text-white font-bold text-sm tracking-wider uppercase border border-[#00f0ff]/20 hover:border-[#00f0ff]/40 hover:shadow-[0_0_30px_rgba(0,240,255,0.15)] transition-all min-h-[48px]">
+              className="game-btn w-full py-5 bg-gradient-to-r from-[#6b21a8] to-[#00f0ff]/30 text-white font-black text-base tracking-wider uppercase border-2 border-[#00f0ff]/25 rounded-xl hover:border-[#00f0ff]/40 hover:shadow-[0_0_30px_rgba(0,240,255,0.15)] transition-all min-h-[56px]">
               GENERATE RACE STRATEGY
             </button>
           </Card>
