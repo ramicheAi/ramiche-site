@@ -198,7 +198,7 @@ export default function MettleLanding() {
       <div className="relative z-10 flex flex-col min-h-screen">
 
         {/* ━━━ NAV ━━━ */}
-        <nav className="w-full max-w-[1400px] mx-auto px-6 lg:px-20 xl:px-24 py-5 lg:py-6 flex items-center justify-between reveal">
+        <nav className="w-full max-w-screen-2xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32 py-5 lg:py-6 flex items-center justify-between reveal">
           <div className="flex items-center gap-3">
             <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9 lg:w-11 lg:h-11" />
             <span className="text-sm lg:text-base font-bold tracking-[0.25em] uppercase" style={{ color: C.gold }}>
@@ -219,7 +219,7 @@ export default function MettleLanding() {
         </nav>
 
         {/* ━━━ HERO — takes full viewport on desktop ━━━ */}
-        <section className="flex-1 flex flex-col items-center justify-center w-full max-w-[1400px] mx-auto px-6 lg:px-20 xl:px-24 pt-12 sm:pt-20 lg:pt-0 pb-10 sm:pb-16 lg:pb-0 text-center">
+        <section className="flex-1 flex flex-col items-center justify-center w-full max-w-screen-2xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32 pt-12 sm:pt-20 lg:pt-0 pb-10 sm:pb-16 lg:pb-0 text-center">
           {/* Logo with glow ring */}
           <div className="mb-10 lg:mb-14 float-gentle reveal reveal-d1 relative inline-block">
             <div className="absolute inset-[-20px] rounded-full glow-ring"
@@ -271,13 +271,13 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section className="w-full max-w-[1400px] mx-auto px-6 lg:px-20 xl:px-24 pb-20 sm:pb-28 lg:pb-32">
+        <section className="w-full max-w-screen-2xl mx-auto px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32 pb-20 sm:pb-28 lg:pb-32">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 lg:gap-8 xl:gap-10">
             {portals.map((p, i) => (
               <Link
                 key={p.title}
                 href={p.href}
-                className="heartbeat-card group relative flex flex-col items-center justify-center rounded-3xl border-2 p-10 lg:p-16 xl:p-20 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer min-h-[260px] lg:min-h-[340px]"
+                className="heartbeat-card group relative flex flex-col items-center justify-center rounded-3xl border-2 p-10 lg:p-14 xl:p-16 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer min-h-[260px] lg:min-h-[380px] xl:min-h-[420px]"
                 style={{
                   "--glow-color": p.color,
                   background: `linear-gradient(180deg, ${p.color}0A 0%, ${C.darkCard} 40%, ${p.color}05 100%)`,
@@ -320,8 +320,8 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ MISSION — one powerful line ━━━ */}
-        <section className="w-full max-w-[1400px] mx-auto py-16 sm:py-24 lg:py-32 text-center px-6 lg:px-20 xl:px-24">
-          <div className="max-w-xl lg:max-w-3xl xl:max-w-4xl mx-auto">
+        <section className="w-full max-w-screen-2xl mx-auto py-16 sm:py-24 lg:py-32 text-center px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32">
+          <div className="max-w-xl lg:max-w-3xl xl:max-w-5xl mx-auto">
             <div className="flex items-center justify-center gap-4 mb-8 lg:mb-12">
               <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
               <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-8 h-8 lg:w-12 lg:h-12 opacity-40" />
@@ -334,8 +334,8 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ WAITLIST — compact, glowing ━━━ */}
-        <section id="waitlist" className="w-full max-w-[1400px] mx-auto pb-24 sm:pb-32 lg:pb-40 px-6 lg:px-20 xl:px-24">
-          <div className="max-w-md lg:max-w-xl xl:max-w-2xl mx-auto text-center">
+        <section id="waitlist" className="w-full max-w-screen-2xl mx-auto pb-24 sm:pb-32 lg:pb-40 px-6 sm:px-10 lg:px-16 xl:px-24 2xl:px-32">
+          <div className="max-w-md lg:max-w-2xl xl:max-w-3xl mx-auto text-center">
             <h2 className="text-2xl lg:text-3xl font-black tracking-tight mb-3 lg:mb-4 text-white">
               Ready to compete?
             </h2>
