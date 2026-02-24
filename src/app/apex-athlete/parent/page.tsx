@@ -771,7 +771,7 @@ function EnrollmentForm({ roster, onComplete }: {
         <div className="absolute bottom-0 left-1/4 w-[400px] h-[300px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.05)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 max-w-lg lg:max-w-2xl xl:max-w-4xl mx-auto px-5 sm:px-8 lg:px-12 xl:px-16 py-8 sm:py-14">
+      <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-8 sm:py-14">
         {/* Welcome header */}
         <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center relative"
@@ -1298,7 +1298,7 @@ export default function ParentPortal() {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-md lg:max-w-xl xl:max-w-2xl mx-auto">
+        <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           {isCoach && (
             <div className="grid grid-cols-3 gap-2 mb-6">
               <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Coach</a>
