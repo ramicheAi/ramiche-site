@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { withRetry } from "@/lib/retry";
 
 /* ── SwimCloud Best Times Scraper v2 ─────────────────────────
    Fetches best times for ALL courses (SCY, LCM, SCM).
@@ -74,13 +75,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Name required" }, { status: 400 });
     }
 
-    // Step 1: Search via JSON API
+    // Step 1: Search via JSON API (with retry)
     const searchUrl = `https://www.swimcloud.com/api/search/?q=${encodeURIComponent(name.trim())}`;
-    const searchRes = await fetch(searchUrl, {
-      headers: { "User-Agent": UA, "Accept": "application/json" },
-    });
+    const searchResult = await withRetry(
+      () => fetch(searchUrl, { headers: { "User-Agent": UA, "Accept": "application/json" } }),
+      { maxAttempts: 3, baseDelayMs: 500, shouldRetry: (_err, _attempt) => true }
+    );
 
-    if (!searchRes.ok) {
+    const searchRes = searchResult.data;
+    if (!searchRes || !searchRes.ok) {
       return NextResponse.json({
         times: [], error: "SwimCloud search unavailable", source: "swimcloud",
       });
@@ -112,13 +115,15 @@ export async function POST(req: Request) {
 
     const swimmerUrl = best.url; // e.g. "/swimmer/2429607"
 
-    // Step 2: Fetch swimmer profile page
+    // Step 2: Fetch swimmer profile page (with retry)
     const profileUrl = `https://www.swimcloud.com${swimmerUrl}`;
-    const profileRes = await fetch(profileUrl, {
-      headers: { "User-Agent": UA, "Accept": "text/html" },
-    });
+    const profileResult = await withRetry(
+      () => fetch(profileUrl, { headers: { "User-Agent": UA, "Accept": "text/html" } }),
+      { maxAttempts: 3, baseDelayMs: 500, shouldRetry: (_err, _attempt) => true }
+    );
 
-    if (!profileRes.ok) {
+    const profileRes = profileResult.data;
+    if (!profileRes || !profileRes.ok) {
       return NextResponse.json({
         times: [], error: `Could not fetch profile for ${best.name}`, source: "swimcloud",
       });
