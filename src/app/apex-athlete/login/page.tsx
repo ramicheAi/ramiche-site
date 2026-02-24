@@ -126,7 +126,14 @@ export default function LoginPage() {
     const session = getSession();
     if (session) {
       window.location.href = getRedirectForRole(session.role);
+      return;
     }
+    // Deep-link: ?role=coach|parent|admin skips the select screen
+    const params = new URLSearchParams(window.location.search);
+    const role = params.get("role");
+    if (role === "coach") setMode("coach");
+    else if (role === "parent") setMode("parent");
+    else if (role === "admin") setMode("admin");
   }, []);
 
   const clearForm = () => {

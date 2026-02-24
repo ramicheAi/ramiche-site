@@ -41,7 +41,7 @@ export default function MettleLanding() {
     {
       title: "Coach",
       sub: "Command your team",
-      href: "/apex-athlete/portal",
+      href: "/apex-athlete/login?role=coach",
       color: C.scarlet,
       brightColor: C.scarletBright,
       icon: (
@@ -53,7 +53,7 @@ export default function MettleLanding() {
     {
       title: "Athlete",
       sub: "Own your journey",
-      href: "/apex-athlete/portal",
+      href: "/apex-athlete/athlete",
       color: C.purple,
       brightColor: "#A78BFA",
       icon: (
@@ -65,7 +65,7 @@ export default function MettleLanding() {
     {
       title: "Parent",
       sub: "Watch them rise",
-      href: "/apex-athlete/portal",
+      href: "/apex-athlete/parent",
       color: C.gold,
       brightColor: C.goldBright,
       icon: (
@@ -206,7 +206,7 @@ export default function MettleLanding() {
             </span>
           </div>
           <Link
-            href="/apex-athlete/portal"
+            href="/apex-athlete/login"
             className="heartbeat-card px-6 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all duration-300 hover:scale-105 border-2"
             style={{
               "--glow-color": C.gold,
@@ -252,7 +252,7 @@ export default function MettleLanding() {
           {/* CTA — BIG, THICK, GLOWING like a heartbeat before a race */}
           <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
-              href="/apex-athlete/portal"
+              href="/apex-athlete/login"
               className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-24 py-6 sm:py-7 rounded-2xl font-black text-xl sm:text-2xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08] border-3"
               style={{
                 "--glow-color": C.goldBright,
