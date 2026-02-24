@@ -1231,28 +1231,25 @@ export default function ParentPortal() {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-xs text-center">
-          <svg className="w-16 h-16 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
-            <circle cx="32" cy="32" r="26" stroke="#f59e0b" strokeWidth="2" fill="rgba(245,158,11,0.06)"/>
-            <circle cx="32" cy="26" r="8" stroke="#f59e0b" strokeWidth="1.8" fill="rgba(245,158,11,0.1)"/>
-            <path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" fill="rgba(245,158,11,0.05)"/>
-            <path d="M44 18l4-4M20 18l-4-4" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-          <h1 className="text-2xl font-black text-white mb-2">Parent Portal</h1>
-          <p className="text-white/60 text-sm mb-6">Enter PIN to view your swimmer&apos;s growth</p>
-          <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
-            onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
-            onKeyDown={e => e.key === "Enter" && handlePin()}
-            className={`w-full px-5 py-4 bg-[#0a0518] border rounded-xl text-white text-center text-2xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50"}`}
-            placeholder="····" autoFocus />
-          <button onClick={handlePin}
-            className="w-full mt-4 py-3 rounded-xl bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b] font-bold hover:bg-[#f59e0b]/30 transition-all min-h-[44px]">
-            Unlock
-          </button>
-          {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-          <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6 min-h-[44px] flex items-center justify-center">
-            ← Back to Portal Selector
-          </Link>
+        <div className="relative z-10 w-full max-w-xs lg:max-w-lg xl:max-w-xl text-center">
+          <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 lg:w-24 lg:h-24 mx-auto mb-4 lg:mb-6" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
+          <h1 className="text-2xl lg:text-4xl font-black text-white mb-2 lg:mb-3">Parent Portal</h1>
+          <p className="text-white/60 text-sm lg:text-base mb-6 lg:mb-8">Enter PIN to view your swimmer&apos;s growth</p>
+          <div className="max-w-xs lg:max-w-sm mx-auto">
+            <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+              onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+              onKeyDown={e => e.key === "Enter" && handlePin()}
+              className={`w-full px-5 py-4 lg:py-5 bg-[#0a0518] border rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50"}`}
+              placeholder="····" autoFocus />
+            <button onClick={handlePin}
+              className="w-full mt-4 py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b] font-bold lg:text-lg hover:bg-[#f59e0b]/30 transition-all min-h-[44px]">
+              Unlock
+            </button>
+            {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
+            <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6 min-h-[44px] flex items-center justify-center">
+              ← Back to Portal Selector
+            </Link>
+          </div>
         </div>
       </div>
     );
