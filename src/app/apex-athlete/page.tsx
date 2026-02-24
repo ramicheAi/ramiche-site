@@ -880,6 +880,7 @@ export default function ApexAthletePage() {
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
   const [autoSession] = useState(true); // auto-detect from schedule
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
+  const [leaderboardVisible, setLeaderboardVisible] = useState(10);
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy" | "meets" | "comms">("coach");
   const [activeCoach, setActiveCoach] = useState<string>("Coach");
   const [activeCoachGroups, setActiveCoachGroups] = useState<string[]>(["all"]);
@@ -5654,7 +5655,7 @@ export default function ApexAthletePage() {
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight neon-text-cyan">Leaderboard</h2>
                 <div className="flex gap-1 bg-[#06020f]/60 p-1 border border-[#00f0ff]/15 game-panel-sm">
                   {(["all", "M", "F"] as const).map(t => (
-                    <button key={t} onClick={() => setLeaderTab(t)}
+                    <button key={t} onClick={() => { setLeaderTab(t); setLeaderboardVisible(10); }}
                       className={`game-btn px-4 py-2 text-xs font-bold transition-all min-h-[32px] font-mono tracking-wider ${
                         leaderTab === t ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.3)]" : "text-white/25 hover:text-[#00f0ff]/50 border border-transparent"
                       }`}>
@@ -5733,10 +5734,10 @@ export default function ApexAthletePage() {
             {/* Top 10 ranked list */}
             <div className="flex items-center justify-between mb-4 mt-2">
               <h3 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono">{"// Top 10 Rankings"}</h3>
-              <span className="text-[#00f0ff]/20 text-xs font-mono">{Math.min(10, sorted.length)} of {sorted.length}</span>
+              <span className="text-[#00f0ff]/20 text-xs font-mono">{Math.min(leaderboardVisible, sorted.length)} of {sorted.length}</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
-              {sorted.slice(0, 10).map((a, i) => {
+              {sorted.slice(0, leaderboardVisible).map((a, i) => {
                 const lv = getLevel(a.xp);
                 const rank = i + 1;
                 const medalEmoji = rank === 1 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#f59e0b22"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : rank === 2 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c0c0d2" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#c0c0d215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : rank === 3 ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#cd7f32" strokeWidth="2"><circle cx="12" cy="15" r="7" fill="#cd7f3215"/><path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.12"/></svg> : null;
@@ -5759,6 +5760,18 @@ export default function ApexAthletePage() {
                 );
               })}
             </div>
+            {sorted.length > leaderboardVisible && (
+              <button onClick={() => setLeaderboardVisible(v => Math.min(v + 10, sorted.length))}
+                className="w-full mt-3 py-4 text-sm font-bold text-[#00f0ff]/60 hover:text-[#00f0ff] bg-[#00f0ff]/5 hover:bg-[#00f0ff]/10 border-2 border-[#00f0ff]/10 hover:border-[#00f0ff]/25 rounded-xl transition-all duration-300 tracking-wider font-mono">
+                SHOW MORE ({Math.min(10, sorted.length - leaderboardVisible)} more)
+              </button>
+            )}
+            {leaderboardVisible > 10 && (
+              <button onClick={() => setLeaderboardVisible(10)}
+                className="w-full mt-2 py-3 text-xs font-bold text-white/20 hover:text-white/40 transition-all tracking-wider font-mono">
+                COLLAPSE
+              </button>
+            )}
           </div>
         </div>
 
