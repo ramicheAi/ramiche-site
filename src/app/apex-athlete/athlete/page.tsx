@@ -1357,7 +1357,7 @@ export default function AthletePortal() {
         </div>
       )}
 
-      <div className="relative z-10 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20 py-6 sm:py-10">
+      <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4 lg:mb-8">
           <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
@@ -1528,7 +1528,7 @@ export default function AthletePortal() {
             {/* Attendance Calendar — last 28 days heatmap */}
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">YOUR CONSISTENCY — LAST 28 DAYS</h3>
-              <div className="grid grid-cols-7 gap-1.5 lg:gap-3 xl:gap-4">
+              <div className="grid grid-cols-7 gap-1.5 lg:gap-3 xl:gap-4 w-full">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
                   <div key={i} className="text-center text-white/50 text-xs lg:text-base font-mono font-bold">{d}</div>
                 ))}
