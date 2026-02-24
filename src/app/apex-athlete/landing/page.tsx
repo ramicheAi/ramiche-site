@@ -303,11 +303,13 @@ export default function MettleLanding() {
                 style={{
                   ...({
                     "--glow-color": p.color,
-                    background: `linear-gradient(180deg, ${p.color}0A 0%, ${C.darkCard} 40%, ${p.color}05 100%)`,
-                    borderColor: `${p.color}30`,
+                    background: `linear-gradient(180deg, ${p.color}12 0%, ${C.darkCard} 35%, ${p.color}08 100%)`,
+                    borderColor: `${p.color}50`,
                     animationDelay: `${i * 0.4}s`,
                     padding: "clamp(2.5rem, 4vw, 5rem) clamp(2rem, 3vw, 3rem)",
-                    minHeight: "clamp(260px, 30vw, 480px)",
+                    minHeight: "clamp(280px, 32vw, 500px)",
+                    borderTopWidth: "4px",
+                    borderTopColor: p.brightColor,
                   } as React.CSSProperties)
                 }}
               >
