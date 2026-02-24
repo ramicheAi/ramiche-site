@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { parseBody, isValidEmail, isOneOf, sanitize, badRequest } from "@/lib/api-security";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT — White-Label Agent Marketplace
@@ -47,13 +48,21 @@ export async function POST(req: Request) {
   if (!rl.allowed) return rateLimitResponse(rl);
 
   try {
-    const body = await req.json();
-    const { productId, customerEmail } = body;
+    const { data: body, error: parseError } = await parseBody(req);
+    if (parseError || !body) return badRequest(parseError || "Invalid request");
+
+    const productId = sanitize(body.productId, 50);
+    const customerEmail = body.customerEmail ? sanitize(body.customerEmail, 254) : undefined;
+
+    if (!isOneOf(productId, Object.keys(CATALOG))) {
+      return badRequest("Invalid product ID");
+    }
+
+    if (customerEmail && !isValidEmail(customerEmail)) {
+      return badRequest("Invalid email address");
+    }
 
     const product = CATALOG[productId];
-    if (!product) {
-      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
-    }
 
     const origin =
       req.headers.get("origin") ||

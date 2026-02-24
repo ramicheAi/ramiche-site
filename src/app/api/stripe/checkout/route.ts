@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { parseBody, isOneOf, sanitize, badRequest } from "@/lib/api-security";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT SESSION — API Route
@@ -33,15 +34,14 @@ export async function POST(req: Request) {
   if (!rl.allowed) return rateLimitResponse(rl);
 
   try {
-    const body = await req.json();
-    const { priceId, planId } = body;
+    const { data: body, error: parseError } = await parseBody(req);
+    if (parseError || !body) return badRequest(parseError || "Invalid request");
 
-    // Validate the price ID
-    if (!priceId || !VALID_PRICES[priceId]) {
-      return NextResponse.json(
-        { error: "Invalid price ID" },
-        { status: 400 }
-      );
+    const priceId = sanitize(body.priceId, 100);
+    const planId = body.planId ? sanitize(body.planId, 50) : undefined;
+
+    if (!isOneOf(priceId, Object.keys(VALID_PRICES))) {
+      return badRequest("Invalid price ID");
     }
 
     // Determine base URL for redirects

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { writeFile, readFile, mkdir } from "fs/promises";
 import path from "path";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
+import { parseBody, isValidEmail, sanitize, badRequest } from "@/lib/api-security";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const INQUIRIES_FILE = path.join(DATA_DIR, "studio-inquiries.json");
@@ -12,12 +13,24 @@ export async function POST(req: Request) {
   if (!rl.allowed) return rateLimitResponse(rl);
 
   try {
-    const body = await req.json();
+    const { data: body, error: parseError } = await parseBody(req);
+    if (parseError || !body) return badRequest(parseError || "Invalid request");
 
-    // Basic validation
-    if (!body.email || !body.nameRole || !body.product) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const email = sanitize(body.email, 254);
+    const nameRole = sanitize(body.nameRole, 200);
+    const product = sanitize(body.product, 200);
+
+    if (!email || !nameRole || !product) {
+      return badRequest("Missing required fields");
     }
+    if (!isValidEmail(email)) {
+      return badRequest("Invalid email address");
+    }
+
+    // Sanitize all string fields
+    const sanitizedBody = Object.fromEntries(
+      Object.entries(body).map(([k, v]) => [k, typeof v === "string" ? sanitize(v, 500) : v])
+    );
 
     // Load existing inquiries
     let inquiries: unknown[] = [];
@@ -47,7 +60,7 @@ export async function POST(req: Request) {
     if (needsDiscovery) tags.push("needs-discovery");
 
     const inquiry = {
-      ...body,
+      ...sanitizedBody,
       tag,
       tags,
       submittedAt: new Date().toISOString(),
