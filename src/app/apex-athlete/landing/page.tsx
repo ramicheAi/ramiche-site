@@ -4,9 +4,9 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════
-   METTLE — Landing Page v4
-   Parallax-style glowing heartbeat cards. Minimal text.
-   Game HUD energy meets biblical colors. Converts.
+   METTLE — Landing Page v5
+   "Like a heartbeat getting ready for a race."
+   Game energy. Belief in self. Drive. Elevation.
    ══════════════════════════════════════════════════════════════ */
 
 const emptySubscribe = () => () => {};
@@ -14,10 +14,12 @@ const emptySubscribe = () => () => {};
 const C = {
   gold: "#D4A843",
   goldLight: "#E8C97A",
+  goldBright: "#FFD700",
   goldDim: "#A88430",
   purple: "#7C3AED",
   purpleDeep: "#4C1D95",
   scarlet: "#DC2626",
+  scarletBright: "#EF4444",
   blue: "#1E3A5F",
   dark: "#060410",
   darkCard: "#0D0919",
@@ -41,8 +43,9 @@ export default function MettleLanding() {
       sub: "Command your team",
       href: "/apex-athlete/portal",
       color: C.scarlet,
+      brightColor: C.scarletBright,
       icon: (
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.scarlet} strokeWidth="1.5" strokeLinecap="round">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
           <path d="M12 2L15 8H9L12 2Z" /><circle cx="12" cy="14" r="4" /><path d="M6 22V20C6 17 9 15 12 15S18 17 18 20V22" />
         </svg>
       ),
@@ -52,8 +55,9 @@ export default function MettleLanding() {
       sub: "Own your journey",
       href: "/apex-athlete/portal",
       color: C.purple,
+      brightColor: "#A78BFA",
       icon: (
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.purple} strokeWidth="1.5" strokeLinecap="round">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />
         </svg>
       ),
@@ -63,8 +67,9 @@ export default function MettleLanding() {
       sub: "Watch them rise",
       href: "/apex-athlete/portal",
       color: C.gold,
+      brightColor: C.goldBright,
       icon: (
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={C.gold} strokeWidth="1.5" strokeLinecap="round">
+        <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
           <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78z" />
         </svg>
       ),
@@ -72,194 +77,275 @@ export default function MettleLanding() {
   ];
 
   return (
-    <div className="min-h-screen" style={{ background: C.dark, color: "#fff" }}>
+    <div className="min-h-screen overflow-x-hidden" style={{ background: C.dark, color: "#fff" }}>
 
       {/* ── Keyframes ── */}
       <style jsx>{`
-        @keyframes heartbeat {
+        @keyframes heartbeat-intense {
           0%, 100% {
-            box-shadow: 0 0 8px var(--glow-color), 0 0 24px color-mix(in srgb, var(--glow-color) 40%, transparent),
-                        inset 0 0 6px color-mix(in srgb, var(--glow-color) 8%, transparent);
-            border-color: color-mix(in srgb, var(--glow-color) 35%, transparent);
+            box-shadow: 0 0 15px var(--glow-color),
+                        0 0 40px color-mix(in srgb, var(--glow-color) 30%, transparent),
+                        0 0 80px color-mix(in srgb, var(--glow-color) 10%, transparent),
+                        inset 0 0 15px color-mix(in srgb, var(--glow-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--glow-color) 50%, transparent);
+          }
+          25% {
+            box-shadow: 0 0 25px var(--glow-color),
+                        0 0 60px color-mix(in srgb, var(--glow-color) 40%, transparent),
+                        0 0 100px color-mix(in srgb, var(--glow-color) 15%, transparent),
+                        inset 0 0 25px color-mix(in srgb, var(--glow-color) 15%, transparent);
+            border-color: color-mix(in srgb, var(--glow-color) 80%, transparent);
           }
           50% {
-            box-shadow: 0 0 16px var(--glow-color), 0 0 48px color-mix(in srgb, var(--glow-color) 25%, transparent),
-                        inset 0 0 12px color-mix(in srgb, var(--glow-color) 12%, transparent);
-            border-color: color-mix(in srgb, var(--glow-color) 60%, transparent);
+            box-shadow: 0 0 15px var(--glow-color),
+                        0 0 40px color-mix(in srgb, var(--glow-color) 30%, transparent),
+                        0 0 80px color-mix(in srgb, var(--glow-color) 10%, transparent),
+                        inset 0 0 15px color-mix(in srgb, var(--glow-color) 8%, transparent);
+            border-color: color-mix(in srgb, var(--glow-color) 50%, transparent);
+          }
+          75% {
+            box-shadow: 0 0 30px var(--glow-color),
+                        0 0 70px color-mix(in srgb, var(--glow-color) 45%, transparent),
+                        0 0 120px color-mix(in srgb, var(--glow-color) 18%, transparent),
+                        inset 0 0 30px color-mix(in srgb, var(--glow-color) 18%, transparent);
+            border-color: var(--glow-color);
+          }
+        }
+        @keyframes heartbeat-cta {
+          0%, 100% {
+            box-shadow: 0 0 20px var(--glow-color),
+                        0 0 50px color-mix(in srgb, var(--glow-color) 40%, transparent),
+                        0 0 100px color-mix(in srgb, var(--glow-color) 15%, transparent);
+            transform: scale(1);
+          }
+          15% {
+            box-shadow: 0 0 35px var(--glow-color),
+                        0 0 80px color-mix(in srgb, var(--glow-color) 50%, transparent),
+                        0 0 140px color-mix(in srgb, var(--glow-color) 20%, transparent);
+            transform: scale(1.03);
+          }
+          30% {
+            box-shadow: 0 0 20px var(--glow-color),
+                        0 0 50px color-mix(in srgb, var(--glow-color) 40%, transparent),
+                        0 0 100px color-mix(in srgb, var(--glow-color) 15%, transparent);
+            transform: scale(1);
+          }
+          45% {
+            box-shadow: 0 0 40px var(--glow-color),
+                        0 0 90px color-mix(in srgb, var(--glow-color) 55%, transparent),
+                        0 0 160px color-mix(in srgb, var(--glow-color) 22%, transparent);
+            transform: scale(1.04);
           }
         }
         @keyframes float-up {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-6px); }
+          50% { transform: translateY(-8px); }
         }
-        @keyframes shimmer {
+        @keyframes shimmer-gold {
           0% { background-position: -200% 0; }
           100% { background-position: 200% 0; }
         }
         @keyframes pulse-dot {
-          0%, 100% { opacity: 0.4; transform: scale(1); }
-          50% { opacity: 1; transform: scale(1.3); }
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.6); }
+        }
+        @keyframes reveal {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes glow-ring {
+          0%, 100% { opacity: 0.15; transform: scale(1); }
+          50% { opacity: 0.4; transform: scale(1.08); }
         }
         .heartbeat-card {
-          animation: heartbeat 3s ease-in-out infinite;
+          animation: heartbeat-intense 2s ease-in-out infinite;
+        }
+        .heartbeat-cta {
+          animation: heartbeat-cta 2s ease-in-out infinite;
         }
         .float-gentle {
           animation: float-up 4s ease-in-out infinite;
         }
         .shimmer-text {
           background-size: 200% 100%;
-          animation: shimmer 3s linear infinite;
+          animation: shimmer-gold 3s linear infinite;
         }
         .pulse-dot {
-          animation: pulse-dot 2s ease-in-out infinite;
+          animation: pulse-dot 1.5s ease-in-out infinite;
+        }
+        .reveal {
+          animation: reveal 0.8s ease-out both;
+        }
+        .reveal-d1 { animation-delay: 0.1s; }
+        .reveal-d2 { animation-delay: 0.2s; }
+        .reveal-d3 { animation-delay: 0.35s; }
+        .reveal-d4 { animation-delay: 0.5s; }
+        .glow-ring {
+          animation: glow-ring 3s ease-in-out infinite;
         }
       `}</style>
 
-      {/* ── Ambient ── */}
+      {/* ── Ambient glow backdrop ── */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[800px] h-[800px] opacity-20"
-          style={{ background: `radial-gradient(ellipse, ${C.purpleDeep}50 0%, transparent 60%)` }} />
-        <div className="absolute bottom-[-15%] left-1/2 -translate-x-1/2 w-[700px] h-[350px] opacity-12"
-          style={{ background: `radial-gradient(ellipse, ${C.gold}25 0%, transparent 65%)` }} />
+        <div className="absolute top-[-30%] left-1/2 -translate-x-1/2 w-[900px] h-[900px] opacity-25"
+          style={{ background: `radial-gradient(ellipse, ${C.purpleDeep}60 0%, transparent 55%)` }} />
+        <div className="absolute bottom-[-10%] left-1/2 -translate-x-1/2 w-[800px] h-[400px] opacity-15"
+          style={{ background: `radial-gradient(ellipse, ${C.gold}30 0%, transparent 60%)` }} />
+        <div className="absolute top-[40%] right-[-10%] w-[400px] h-[400px] opacity-10"
+          style={{ background: `radial-gradient(ellipse, ${C.scarlet}30 0%, transparent 60%)` }} />
       </div>
 
       <div className="relative z-10">
 
         {/* ━━━ NAV ━━━ */}
-        <nav className="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between">
+        <nav className="max-w-5xl mx-auto px-5 py-5 flex items-center justify-between reveal">
           <div className="flex items-center gap-3">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-8 h-8" />
-            <span className="text-sm font-semibold tracking-[0.2em] uppercase" style={{ color: C.gold }}>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9" />
+            <span className="text-sm font-bold tracking-[0.25em] uppercase" style={{ color: C.gold }}>
               METTLE
             </span>
           </div>
           <Link
             href="/apex-athlete/portal"
-            className="px-5 py-2 rounded-full text-xs font-semibold tracking-wider uppercase transition-all duration-300 hover:brightness-110"
-            style={{ border: `1px solid ${C.gold}40`, color: C.gold }}
+            className="heartbeat-card px-6 py-2.5 rounded-full text-xs font-bold tracking-wider uppercase transition-all duration-300 hover:scale-105 border-2"
+            style={{
+              "--glow-color": C.gold,
+              borderColor: `${C.gold}60`,
+              color: C.gold,
+            } as React.CSSProperties}
           >
             Sign In
           </Link>
         </nav>
 
         {/* ━━━ HERO ━━━ */}
-        <section className="max-w-5xl mx-auto px-5 pt-14 sm:pt-24 pb-16 sm:pb-24 text-center">
-          {/* Logo — floating */}
-          <div className="mb-10 float-gentle">
+        <section className="max-w-5xl mx-auto px-5 pt-16 sm:pt-28 pb-10 sm:pb-16 text-center">
+          {/* Logo with glow ring */}
+          <div className="mb-12 float-gentle reveal reveal-d1 relative inline-block">
+            <div className="absolute inset-[-20px] rounded-full glow-ring"
+              style={{ background: `radial-gradient(circle, ${C.gold}15 0%, transparent 70%)` }} />
             <img
               src="/mettle-brand/v5/mettle-icon.svg"
               alt="METTLE"
-              className="w-24 h-24 sm:w-32 sm:h-32 mx-auto"
-              style={{ filter: "drop-shadow(0 0 40px rgba(212,168,67,0.2))" }}
+              className="w-28 h-28 sm:w-36 sm:h-36 mx-auto relative"
+              style={{ filter: `drop-shadow(0 0 50px ${C.gold}40)` }}
             />
           </div>
 
-          {/* Headline — bold, minimal */}
-          <h1 className="text-4xl sm:text-6xl font-bold tracking-tight leading-[1.1] mb-5">
-            <span className="text-white">Where athletes</span>{" "}
-            <span className="shimmer-text" style={{
-              background: `linear-gradient(90deg, ${C.goldDim}, ${C.goldLight}, ${C.gold}, ${C.goldLight}, ${C.goldDim})`,
+          {/* Headline */}
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.05] mb-6 reveal reveal-d2">
+            <span className="block text-white">Become</span>
+            <span className="shimmer-text inline-block" style={{
+              background: `linear-gradient(90deg, ${C.goldDim}, ${C.goldBright}, ${C.gold}, ${C.goldBright}, ${C.goldDim})`,
               backgroundSize: "200% 100%",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
             }}>
-              find their edge.
+              Unstoppable.
             </span>
           </h1>
 
-          <p className="text-base sm:text-lg text-white/40 max-w-md mx-auto mb-14 font-light">
-            Train. Compete. Level up. Together.
+          <p className="text-lg sm:text-xl text-white/50 max-w-lg mx-auto mb-16 font-light reveal reveal-d3">
+            The training platform that turns every practice into progress and every athlete into a competitor.
           </p>
 
-          {/* ━━━ PORTAL CARDS — glowing heartbeat ━━━ */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-3xl mx-auto mb-16">
-            {portals.map((p, i) => (
-              <Link
-                key={p.title}
-                href={p.href}
-                className="heartbeat-card group relative flex flex-col items-center rounded-2xl border p-8 transition-all duration-300 hover:-translate-y-2 hover:scale-[1.02] cursor-pointer"
-                style={{
-                  "--glow-color": p.color,
-                  background: `linear-gradient(180deg, ${p.color}08 0%, ${C.darkCard} 100%)`,
-                  borderColor: `${p.color}25`,
-                  animationDelay: `${i * 0.5}s`,
-                } as React.CSSProperties}
-              >
-                {/* Status dot */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5">
-                  <div className="w-1.5 h-1.5 rounded-full pulse-dot" style={{ background: p.color, animationDelay: `${i * 0.3}s` }} />
-                  <span className="text-[9px] tracking-widest uppercase font-bold" style={{ color: `${p.color}90` }}>LIVE</span>
-                </div>
-
-                {/* Icon */}
-                <div className="mb-5 opacity-80 group-hover:opacity-100 transition-opacity">
-                  {p.icon}
-                </div>
-
-                {/* Title */}
-                <h3 className="text-xl font-bold tracking-wide mb-1" style={{ color: p.color }}>
-                  {p.title}
-                </h3>
-                <p className="text-xs text-white/30 tracking-wider uppercase">
-                  {p.sub}
-                </p>
-
-                {/* Enter indicator */}
-                <div className="mt-6 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <div className="h-[1px] w-8" style={{ background: `${p.color}40` }} />
-                  <span className="text-[10px] tracking-widest uppercase" style={{ color: `${p.color}70` }}>Enter</span>
-                  <span className="text-xs group-hover:translate-x-1 transition-transform" style={{ color: `${p.color}70` }}>&rarr;</span>
-                </div>
-              </Link>
-            ))}
-          </div>
-
-          {/* CTA — glowing gold heartbeat button */}
-          <div className="flex flex-col items-center gap-4">
+          {/* CTA — BIG, THICK, GLOWING like a heartbeat before a race */}
+          <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
               href="/apex-athlete/portal"
-              className="heartbeat-card inline-flex items-center justify-center gap-2 px-12 py-4 rounded-full font-bold text-sm tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.05] border"
+              className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-20 py-5 sm:py-6 rounded-2xl font-black text-lg sm:text-xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.06] border-2"
               style={{
-                "--glow-color": C.gold,
-                background: `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`,
+                "--glow-color": C.goldBright,
+                background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
                 color: C.dark,
-                borderColor: `${C.gold}60`,
+                borderColor: C.goldLight,
+                minWidth: "280px",
               } as React.CSSProperties}
             >
               Get Started Free
             </Link>
-            <span className="text-[10px] text-white/15 tracking-widest uppercase">Private Beta · By Invitation</span>
+            <span className="text-xs text-white/20 tracking-[0.3em] uppercase font-medium">
+              Private Beta
+            </span>
           </div>
         </section>
 
-        {/* ━━━ MISSION — minimal ━━━ */}
-        <section className="py-20 sm:py-28 text-center px-5">
-          <div className="max-w-2xl mx-auto">
-            <div className="w-10 h-[1px] mx-auto mb-10" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}30, transparent)` }} />
-            <p className="text-xl sm:text-2xl font-light text-white/50 leading-relaxed tracking-tight italic">
-              &ldquo;Unlocking the greatness already inside every athlete — through the power of play.&rdquo;
+        {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
+        <section className="max-w-4xl mx-auto px-5 pb-20 sm:pb-28">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {portals.map((p, i) => (
+              <Link
+                key={p.title}
+                href={p.href}
+                className="heartbeat-card group relative flex flex-col items-center rounded-3xl border-2 p-10 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer"
+                style={{
+                  "--glow-color": p.color,
+                  background: `linear-gradient(180deg, ${p.color}0A 0%, ${C.darkCard} 40%, ${p.color}05 100%)`,
+                  borderColor: `${p.color}30`,
+                  animationDelay: `${i * 0.4}s`,
+                } as React.CSSProperties}
+              >
+                {/* Status dot — racing heartbeat */}
+                <div className="absolute top-5 right-5 flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full pulse-dot" style={{ background: p.brightColor, animationDelay: `${i * 0.3}s` }} />
+                  <span className="text-[10px] tracking-[0.2em] uppercase font-bold" style={{ color: p.brightColor }}>LIVE</span>
+                </div>
+
+                {/* Icon — larger, colored */}
+                <div className="mb-6 transition-all duration-300 group-hover:scale-110" style={{ color: p.brightColor }}>
+                  {p.icon}
+                </div>
+
+                {/* Title */}
+                <h3 className="text-2xl font-black tracking-wide mb-2" style={{ color: p.brightColor }}>
+                  {p.title}
+                </h3>
+                <p className="text-sm text-white/40 tracking-wider font-medium">
+                  {p.sub}
+                </p>
+
+                {/* Enter arrow — always visible on mobile, hover on desktop */}
+                <div className="mt-8 flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="h-[2px] w-10 rounded-full" style={{ background: `${p.color}50` }} />
+                  <span className="text-sm font-bold tracking-widest uppercase" style={{ color: p.brightColor }}>Enter</span>
+                  <span className="text-base font-bold group-hover:translate-x-1 transition-transform" style={{ color: p.brightColor }}>&rarr;</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* ━━━ MISSION — one powerful line ━━━ */}
+        <section className="py-16 sm:py-24 text-center px-5">
+          <div className="max-w-xl mx-auto">
+            <div className="flex items-center justify-center gap-4 mb-8">
+              <div className="h-[2px] w-16 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-8 h-8 opacity-40" />
+              <div className="h-[2px] w-16 rounded-full" style={{ background: `linear-gradient(90deg, ${C.gold}40, transparent)` }} />
+            </div>
+            <p className="text-2xl sm:text-3xl font-light leading-relaxed tracking-tight" style={{ color: `${C.gold}90` }}>
+              Unlocking the greatness already inside every athlete.
             </p>
-            <div className="w-10 h-[1px] mx-auto mt-10" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}30, transparent)` }} />
           </div>
         </section>
 
-        {/* ━━━ WAITLIST — compact ━━━ */}
+        {/* ━━━ WAITLIST — compact, glowing ━━━ */}
         <section id="waitlist" className="pb-24 sm:pb-32">
-          <div className="max-w-sm mx-auto px-5 text-center">
-            <h2 className="text-xl font-bold tracking-tight mb-2 text-white">
-              Join the beta.
+          <div className="max-w-md mx-auto px-5 text-center">
+            <h2 className="text-2xl font-black tracking-tight mb-3 text-white">
+              Ready to compete?
             </h2>
-            <p className="text-white/25 text-xs mb-8 tracking-wide">
-              Early access for select teams.
+            <p className="text-white/30 text-sm mb-10">
+              Request early access for your team.
             </p>
 
             {submitted ? (
-              <div className="heartbeat-card rounded-2xl p-5 border" style={{
+              <div className="heartbeat-card rounded-2xl p-6 border-2" style={{
                 "--glow-color": C.purple,
-                background: `${C.purple}08`,
-                borderColor: `${C.purple}20`,
+                background: `${C.purple}0A`,
+                borderColor: `${C.purple}30`,
               } as React.CSSProperties}>
-                <p className="text-sm font-medium" style={{ color: `${C.purple}CC` }}>You&apos;re on the list.</p>
+                <p className="text-lg font-bold" style={{ color: C.purple }}>You&apos;re in. We&apos;ll be in touch.</p>
               </div>
             ) : (
               <form
@@ -272,7 +358,7 @@ export default function MettleLanding() {
                     setSubmitted(true);
                   }
                 }}
-                className="flex gap-2"
+                className="flex gap-3"
               >
                 <input
                   type="email"
@@ -280,20 +366,20 @@ export default function MettleLanding() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="coach@team.com"
-                  className="flex-1 px-4 py-3 rounded-xl text-white text-sm placeholder:text-white/15 focus:outline-none transition-all"
+                  className="flex-1 px-5 py-4 rounded-2xl text-white text-base placeholder:text-white/20 focus:outline-none transition-all"
                   style={{
                     background: C.darkCard,
-                    border: `1px solid rgba(255,255,255,0.06)`,
+                    border: `2px solid rgba(255,255,255,0.08)`,
                   }}
                 />
                 <button
                   type="submit"
-                  className="heartbeat-card px-6 py-3 rounded-xl font-semibold text-xs tracking-wider border transition-all duration-300 hover:scale-[1.02]"
+                  className="heartbeat-cta px-8 py-4 rounded-2xl font-black text-base tracking-wider border-2 transition-all duration-300 hover:scale-105"
                   style={{
-                    "--glow-color": C.gold,
-                    background: `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`,
+                    "--glow-color": C.goldBright,
+                    background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold})`,
                     color: C.dark,
-                    borderColor: `${C.gold}50`,
+                    borderColor: C.goldLight,
                   } as React.CSSProperties}
                 >
                   Join
@@ -306,10 +392,10 @@ export default function MettleLanding() {
         {/* ━━━ FOOTER ━━━ */}
         <footer className="pb-10 text-center">
           <div className="flex items-center justify-center gap-2 mb-3">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-4 h-4 opacity-15" />
-            <span className="text-[10px] tracking-[0.2em] uppercase text-white/10">METTLE</span>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-5 h-5 opacity-20" />
+            <span className="text-xs tracking-[0.25em] uppercase text-white/15 font-bold">METTLE</span>
           </div>
-          <p className="text-white/[0.06] text-[10px] tracking-wider">
+          <p className="text-white/[0.08] text-[10px] tracking-wider">
             Parallax Ventures · {new Date().getFullYear()}
           </p>
         </footer>
