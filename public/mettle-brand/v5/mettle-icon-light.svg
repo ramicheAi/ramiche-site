@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!--
+    METTLE v5 — Light background variant
+    Same structure, adjusted opacity for light backgrounds
+  -->
+  <defs>
+    <linearGradient id="goldEdgeL" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#B8862A"/>
+      <stop offset="35%" stop-color="#D4A843"/>
+      <stop offset="65%" stop-color="#C9973A"/>
+      <stop offset="100%" stop-color="#B8862A"/>
+    </linearGradient>
+    <linearGradient id="purpleDeepL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3D1480"/>
+      <stop offset="100%" stop-color="#2A0E58"/>
+    </linearGradient>
+    <linearGradient id="scarletRichL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#B8102A"/>
+      <stop offset="100%" stop-color="#8B0A1E"/>
+    </linearGradient>
+    <linearGradient id="navyDeepL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1C3564"/>
+      <stop offset="100%" stop-color="#122240"/>
+    </linearGradient>
+    <linearGradient id="sparkGoldL" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#D4A843"/>
+      <stop offset="100%" stop-color="#B8862A"/>
+    </linearGradient>
+  </defs>
+
+  <polygon points="20,96 34,96 34,30 20,40" fill="url(#navyDeepL)"/>
+  <polygon points="34,30 34,56 60,82 60,56" fill="url(#scarletRichL)"/>
+  <polygon points="60,56 60,82 86,56 86,30" fill="url(#purpleDeepL)"/>
+  <polygon points="86,30 86,96 100,96 100,40" fill="url(#navyDeepL)"/>
+
+  <polyline points="20,96 20,40 34,30 34,56 60,82 86,56 86,30 100,40 100,96"
+    stroke="url(#goldEdgeL)" stroke-width="2.5" stroke-linejoin="miter" fill="none"/>
+  <line x1="20" y1="96" x2="34" y2="96" stroke="url(#goldEdgeL)" stroke-width="2.5"/>
+  <line x1="86" y1="96" x2="100" y2="96" stroke="url(#goldEdgeL)" stroke-width="2.5"/>
+  <line x1="34" y1="30" x2="34" y2="96" stroke="#B8862A" stroke-width="1.2" opacity="0.5"/>
+  <line x1="86" y1="30" x2="86" y2="96" stroke="#B8862A" stroke-width="1.2" opacity="0.5"/>
+  <line x1="34" y1="56" x2="60" y2="82" stroke="#B8862A" stroke-width="1" opacity="0.3"/>
+  <line x1="86" y1="56" x2="60" y2="82" stroke="#B8862A" stroke-width="1" opacity="0.3"/>
+
+  <polygon points="60,74 65,82 60,90 55,82" fill="url(#sparkGoldL)"/>
+  <polygon points="60,77 63,82 60,87 57,82" fill="#D4A843" opacity="0.9"/>
+
+  <line x1="60" y1="72" x2="60" y2="68" stroke="#C9973A" stroke-width="0.8" opacity="0.5"/>
+  <line x1="53" y1="79" x2="50" y2="77" stroke="#C9973A" stroke-width="0.8" opacity="0.35"/>
+  <line x1="67" y1="79" x2="70" y2="77" stroke="#C9973A" stroke-width="0.8" opacity="0.35"/>
+</svg>

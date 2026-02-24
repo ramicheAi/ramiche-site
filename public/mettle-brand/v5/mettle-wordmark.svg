@@ -1,24 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 60" fill="none">
   <!--
-    METTLE v5 Wordmark — wide geometric, engraved metal plate feel
-    Druk Wide Bold inspired. All caps. Wide kerning. Gold underline.
+    METTLE v5 Wordmark — Refined
+    Wide letter-spacing. Gold gradient. Clean underline. Sophisticated.
   -->
   <defs>
     <linearGradient id="goldText" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#E8C36A"/>
-      <stop offset="50%" stop-color="#D4A843"/>
-      <stop offset="100%" stop-color="#B8922E"/>
+      <stop offset="0%" stop-color="#F0D478"/>
+      <stop offset="40%" stop-color="#D4A843"/>
+      <stop offset="100%" stop-color="#B8862A"/>
     </linearGradient>
   </defs>
 
-  <!-- Wordmark text -->
-  <text x="200" y="38" text-anchor="middle"
-        font-family="'Helvetica Neue', 'Arial Black', Helvetica, Arial, sans-serif"
-        font-weight="900" font-size="40" letter-spacing="12"
+  <!-- Wordmark -->
+  <text x="210" y="40" text-anchor="middle"
+        font-family="'SF Pro Display','Helvetica Neue','Arial Black',Helvetica,Arial,sans-serif"
+        font-weight="800" font-size="42" letter-spacing="16"
         fill="url(#goldText)">METTLE</text>
 
-  <!-- Gold underline — thin structural accent -->
-  <line x1="60" y1="50" x2="340" y2="50" stroke="#D4A843" stroke-width="1.5"/>
-  <!-- Scarlet accent — thin dash at center -->
-  <line x1="180" y1="50" x2="220" y2="50" stroke="#B8001F" stroke-width="1.5"/>
+  <!-- Gold underline — full width, thin and elegant -->
+  <line x1="40" y1="52" x2="380" y2="52" stroke="#D4A843" stroke-width="1.2" opacity="0.6"/>
+  <!-- Scarlet accent — center notch -->
+  <line x1="190" y1="52" x2="230" y2="52" stroke="#B8102A" stroke-width="1.5"/>
 </svg>
