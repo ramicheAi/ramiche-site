@@ -336,8 +336,8 @@ export default function MettleLanding() {
                   {p.sub}
                 </p>
 
-                {/* Enter arrow — always visible on mobile, hover on desktop */}
-                <div className="mt-8 lg:mt-10 flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+                {/* Enter arrow — always visible */}
+                <div className="mt-8 lg:mt-10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-300">
                   <div className="h-[2px] w-10 lg:w-14 rounded-full" style={{ background: `${p.color}50` }} />
                   <span className="text-sm lg:text-base font-bold tracking-widest uppercase" style={{ color: p.brightColor }}>Enter</span>
                   <span className="text-base lg:text-lg font-bold group-hover:translate-x-1 transition-transform" style={{ color: p.brightColor }}>&rarr;</span>
