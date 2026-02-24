@@ -5381,35 +5381,35 @@ export default function ApexAthletePage() {
           <p className="text-[#00f0ff]/30 text-xs font-mono mb-6">Broadcast to parents · View absence reports</p>
 
           {/* Send broadcast */}
-          <Card className="p-5 mb-6" neon>
-            <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Send to Parents</h3>
-            <div className="flex gap-2 mb-3">
+          <Card className="p-8 sm:p-10 mb-8" neon>
+            <h3 className="text-base font-bold text-white/60 mb-5 uppercase tracking-wider">Send to Parents</h3>
+            <div className="flex gap-4 mb-5">
               <select value={commsGroup} onChange={e => setCommsGroup(e.target.value as "all" | GroupId)}
-                className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40">
+                className="bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white focus:outline-none focus:border-[#00f0ff]/40">
                 <option value="all">All Groups</option>
                 {ROSTER_GROUPS.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
               </select>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-4">
               <input value={commsMsg} onChange={e => setCommsMsg(e.target.value)} placeholder="Type a message for parents..."
-                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }}
+                className="flex-1 bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }}
                 onKeyDown={e => { if (e.key === "Enter") sendBroadcast(); }} />
               <button onClick={sendBroadcast} disabled={!commsMsg.trim()}
-                className="game-btn px-5 py-2.5 text-sm font-bold text-[#00f0ff] border border-[#00f0ff]/30 rounded-lg hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
+                className="game-btn px-8 py-3.5 text-base font-black text-[#00f0ff] border-2 border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/10 disabled:opacity-30 transition-all">
                 Send
               </button>
             </div>
           </Card>
 
           {/* Sent messages */}
-          <Card className="p-5 mb-6" neon>
-            <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Sent Messages</h3>
+          <Card className="p-8 sm:p-10 mb-8" neon>
+            <h3 className="text-base font-bold text-white/60 mb-5 uppercase tracking-wider">Sent Messages</h3>
             {allBroadcasts.length === 0 ? (
               <p className="text-white/50 text-sm text-center py-4">No messages sent yet</p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-3 max-h-80 overflow-y-auto">
                 {allBroadcasts.slice().reverse().map(bc => (
-                  <div key={bc.id} className="bg-white/[0.03] border border-white/[0.05] rounded-lg p-3">
+                  <div key={bc.id} className="bg-white/[0.03] border-2 border-white/[0.08] rounded-xl p-5">
                     <p className="text-sm text-white/70">{bc.message}</p>
                     <div className="flex items-center gap-2 mt-1.5 text-xs text-white/50">
                       <span>{new Date(bc.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
@@ -5423,14 +5423,14 @@ export default function ApexAthletePage() {
           </Card>
 
           {/* Absence reports from parents */}
-          <Card className="p-5" neon>
-            <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Absence Reports</h3>
+          <Card className="p-8 sm:p-10" neon>
+            <h3 className="text-base font-bold text-white/60 mb-5 uppercase tracking-wider">Absence Reports</h3>
             {absenceReports.length === 0 ? (
               <p className="text-white/50 text-sm text-center py-4">No absences reported</p>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-3 max-h-80 overflow-y-auto">
                 {absenceReports.slice().reverse().map(ab => (
-                  <div key={ab.id} className="bg-white/[0.03] border border-white/[0.05] rounded-lg p-3">
+                  <div key={ab.id} className="bg-white/[0.03] border-2 border-white/[0.08] rounded-xl p-5">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-sm font-medium text-white">{ab.athleteName}</span>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-red-400/10 text-red-400">{ab.reason}</span>
