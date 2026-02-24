@@ -1390,7 +1390,7 @@ export default function AthletePortal() {
         </div>
 
         {/* XP Bar */}
-        <div className="mb-4 lg:mb-8 p-3 lg:p-6 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 w-full">
+        <div className="mb-4 lg:mb-8 p-3 lg:p-6 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
             <span className="text-white/60 text-xs lg:text-base font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
@@ -1407,16 +1407,16 @@ export default function AthletePortal() {
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-3 gap-2 lg:gap-6 mb-4 lg:mb-8 w-full">
-          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>
-          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.totalPractices}</div>
             <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1">PRACTICES</div>
           </div>
-          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
             <div className="text-white/60 text-xs lg:text-base xl:text-lg font-mono tracking-wider mt-1">
               {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
@@ -1426,7 +1426,7 @@ export default function AthletePortal() {
         </div>
 
         {/* Tab Navigation — two rows on mobile, single row on tablet+ */}
-        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] w-full xl:p-4">
+        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] w-full xl:p-4" style={{ animation: "aa-glow-breathe 6s ease-in-out 0.5s infinite" }}>
           {/* Mobile: 2 rows */}
           <div className="md:hidden space-y-1.5">
             {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
@@ -1472,9 +1472,9 @@ export default function AthletePortal() {
           <div className="xl:grid xl:grid-cols-3 lg:grid lg:grid-cols-2 gap-6 xl:gap-8 space-y-4 lg:space-y-0 w-full">
             {/* Column 1: Strengths radar */}
             <div className="w-full">
-            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10 h-full flex flex-col">
+            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10 h-full flex flex-col" style={{ animation: "aa-glow-breathe 5s ease-in-out 0.5s infinite" }}>
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6 text-center">YOUR STRENGTHS</h3>
-              <div className="flex-1 flex items-center justify-center">
+              <div className="flex-1 flex items-center justify-center" style={{ animation: "aa-subtle-float 6s ease-in-out infinite" }}>
                 <RadarChart values={attrs} />
               </div>
               <div className="grid grid-cols-5 gap-1 mt-3">
@@ -2714,6 +2714,36 @@ export default function AthletePortal() {
       <style jsx>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Living, breathing animations */
+        @keyframes aa-gentle-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.85; }
+        }
+        @keyframes aa-glow-breathe {
+          0%, 100% { box-shadow: 0 0 8px rgba(168,85,247,0.15), inset 0 0 4px rgba(168,85,247,0.05); }
+          50% { box-shadow: 0 0 20px rgba(168,85,247,0.25), inset 0 0 8px rgba(168,85,247,0.08); }
+        }
+        @keyframes aa-subtle-float {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-2px); }
+        }
+        @keyframes aa-status-dot {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(0.85); }
+        }
+        @keyframes aa-welcome-in {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes aa-welcome-out {
+          from { opacity: 1; }
+          to { opacity: 0; }
+        }
+        @keyframes aa-subtle-pulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.02); }
+        }
       `}</style>
     </div>
   );
