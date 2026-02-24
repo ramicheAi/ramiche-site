@@ -990,9 +990,9 @@ export default function AthletePortal() {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-md">
+        <div className="relative z-10 w-full max-w-md lg:max-w-2xl xl:max-w-3xl">
           {/* Portal switcher — full-width grid */}
-          <div className="grid grid-cols-3 gap-2 mb-6">
+          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8">
             {[
               { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },

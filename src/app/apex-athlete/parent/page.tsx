@@ -679,9 +679,9 @@ function EnrollmentForm({ roster, onComplete }: {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
+        <div className="relative z-10 w-full max-w-md lg:max-w-2xl xl:max-w-3xl">
+          <div className="text-center mb-8 lg:mb-12">
+            <div className="w-16 h-16 lg:w-20 lg:h-20 mx-auto mb-4 lg:mb-6 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "rgba(52,211,153,0.1)", border: "2px solid rgba(52,211,153,0.3)" }}>
               <SvgCheckCircle size={32} color="#34d399" />
             </div>
