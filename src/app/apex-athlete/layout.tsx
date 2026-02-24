@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ErrorReporterInit from "@/components/ErrorReporterInit";
 
 export const metadata: Metadata = {
   title: "METTLE — Athlete Relations Manager",
@@ -30,5 +31,10 @@ export default function MettleLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return children;
+  return (
+    <>
+      <ErrorReporterInit />
+      {children}
+    </>
+  );
 }
