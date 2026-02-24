@@ -955,41 +955,79 @@ export default function AthletePortal() {
   // ── PIN screen ───────────────────────────────────────────
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 lg:px-0">
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
+        <style jsx>{`
+          @keyframes athletePinGlow {
+            0%, 100% { box-shadow: 0 0 40px rgba(168,85,247,0.15), 0 0 80px rgba(168,85,247,0.05); }
+            50% { box-shadow: 0 0 60px rgba(168,85,247,0.25), 0 0 120px rgba(168,85,247,0.1); }
+          }
+          @keyframes athleteBtnPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(168,85,247,0.3), 0 0 40px rgba(168,85,247,0.1); transform: scale(1); }
+            50% { box-shadow: 0 0 40px rgba(168,85,247,0.5), 0 0 80px rgba(168,85,247,0.2); transform: scale(1.02); }
+          }
+          @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+          }
+        `}</style>
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-xs lg:max-w-6xl lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-0">
-
-          {/* ── Desktop branding panel (hidden on mobile) ── */}
-          <div className="hidden lg:flex flex-col items-center justify-center px-16">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-32 h-32 mb-8" style={{ filter: "drop-shadow(0 0 60px rgba(168,85,247,0.4))" }} />
-            <h1 className="text-5xl xl:text-6xl font-black tracking-tight text-white mb-4">METTLE</h1>
-            <p className="text-lg text-white/30 text-center max-w-sm">Your journey. Your legacy.</p>
-          </div>
-
-          {/* ── Form panel ── */}
-          <div className="w-full max-w-xs mx-auto lg:max-w-md lg:pr-16 text-center">
-            {/* Mobile-only logo */}
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(168,85,247,0.3))" }} />
-            <h1 className="text-2xl lg:text-4xl font-black text-white mb-2 lg:mb-3">Athlete Portal</h1>
-            <p className="text-white/60 text-sm lg:text-base mb-6 lg:mb-8">Enter PIN to access your dashboard</p>
-            <div className="max-w-xs lg:max-w-sm mx-auto">
-              <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
-                onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
-                onKeyDown={e => e.key === "Enter" && handlePin()}
-                className={`w-full px-5 py-4 lg:py-5 bg-[#0a0518] border rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
-                placeholder="····" autoFocus />
-              <button onClick={handlePin}
-                className="w-full mt-4 py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold lg:text-lg hover:bg-[#a855f7]/30 transition-all min-h-[44px]">
-                Unlock
-              </button>
+        <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
+          {/* Left panel — branding */}
+          <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
+            <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(168,85,247,0.08) 0%, transparent 70%)'}} />
+            <div className="relative z-10 flex flex-col items-center max-w-lg">
+              <div className="flex flex-col items-center">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{animation:'logoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(168,85,247,0.3))'}} />
+                <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #a855f7, #c084fc, #a855f7)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
+              </div>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md text-center">Your journey. Your legacy.</p>
+              <div className="flex items-center justify-center gap-3 text-[#a855f7]/40 text-sm font-mono tracking-wider">
+                <span className="w-8 h-px bg-[#a855f7]/20" />
+                ATHLETE PORTAL
+                <span className="w-8 h-px bg-[#a855f7]/20" />
+              </div>
             </div>
-            {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-            <Link href="/apex-athlete/landing" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6">
-              ← Back
-            </Link>
+          </div>
+          {/* Right panel — PIN form */}
+          <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
+            <div className="w-full max-w-md">
+              {/* Mobile-only branding */}
+              <div className="lg:hidden text-center mb-8">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
+                <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #a855f7, #c084fc)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
+                <div className="text-[#a855f7]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">ATHLETE PORTAL</div>
+              </div>
+              {/* Access card */}
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#a855f7]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'athletePinGlow 3s ease-in-out infinite'}}>
+                <div className="text-center mb-12">
+                  <div className="text-[#a855f7]/50 text-xs tracking-[0.3em] uppercase font-mono mb-4">{"// SECURE ACCESS"}</div>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Athlete Access</h2>
+                </div>
+                <div className="flex flex-col gap-7">
+                  <div>
+                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-3 block">Enter PIN</label>
+                    <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+                      onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={e => e.key === "Enter" && handlePin()}
+                      className={`w-full text-center text-3xl tracking-[0.5em] py-5 bg-[#06020f]/60 border-2 rounded-xl text-[#a855f7] placeholder:text-[#a855f7]/15 focus:outline-none transition-all font-mono ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#a855f7]/20 focus:border-[#a855f7]/50 focus:shadow-[0_0_30px_rgba(168,85,247,0.2)]"}`}
+                      placeholder="_ _ _ _" autoFocus />
+                  </div>
+                  {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED</p>}
+                  <button onClick={handlePin}
+                    className="w-full py-6 rounded-xl font-black text-lg tracking-widest uppercase transition-all active:scale-[0.97] min-h-[70px]"
+                    style={{background:'linear-gradient(135deg, #a855f7, #c084fc, #7c3aed)',color:'#fff',animation:'athleteBtnPulse 2s ease-in-out infinite'}}>
+                    Authenticate
+                  </button>
+                </div>
+              </div>
+              <p className="text-white/20 text-xs text-center mt-6 font-mono">Secure • Encrypted • Private Beta</p>
+              <Link href="/apex-athlete/landing" className="text-white/30 text-sm hover:text-white/50 transition-colors block mt-4 text-center font-mono">
+                ← Back to Home
+              </Link>
+            </div>
           </div>
         </div>
       </div>
