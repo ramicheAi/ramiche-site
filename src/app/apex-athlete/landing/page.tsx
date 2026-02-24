@@ -67,14 +67,8 @@ export default function MettleLanding() {
         {/* Nav */}
         <nav className="flex items-center justify-between py-6">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/20 flex items-center justify-center">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <span className="text-white font-bold text-lg tracking-tight">METTLE</span>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-9 h-9" />
+            <img src="/mettle-brand/v5/mettle-wordmark.svg" alt="METTLE" className="h-5" />
             <span className="text-[#00f0ff]/40 text-[10px] font-mono tracking-widest border border-[#00f0ff]/15 px-2 py-0.5 rounded-full">BETA</span>
           </div>
           <Link

@@ -75,10 +75,11 @@ export default function PortalSelector() {
       <div className="relative z-10 max-w-4xl mx-auto px-5 sm:px-8 py-12 sm:py-20">
         {/* Header */}
         <div className="text-center mb-12 sm:mb-16">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#00f0ff]/5 border border-[#00f0ff]/10 mb-6">
-            <span className="text-[#00f0ff]/60 text-xs font-mono tracking-wider">APEX ATHLETE</span>
+          <div className="flex flex-col items-center gap-4 mb-2">
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16" />
+            <img src="/mettle-brand/v5/mettle-wordmark.svg" alt="METTLE" className="h-6" />
             {rosterCount > 0 && (
-              <span className="text-[#f59e0b]/50 text-xs font-mono">· {rosterCount} athletes</span>
+              <span className="text-[#F0D478]/40 text-xs font-mono">{rosterCount} athletes</span>
             )}
           </div>
           <h1 className="text-3xl sm:text-5xl font-black text-white mb-4 tracking-tight">
