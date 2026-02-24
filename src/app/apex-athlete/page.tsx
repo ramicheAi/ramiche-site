@@ -849,7 +849,7 @@ const DEFAULT_CULTURE: TeamCulture = {
 
 // ── reusable card component — sci-fi game panel (outside component to prevent remount on re-render) ─
 const Card = ({ children, className = "", glow = false, neon = false }: { children: React.ReactNode; className?: string; glow?: boolean; neon?: boolean }) => (
-  <div className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
+  <div className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border-2 border-[#00f0ff]/25 transition-all duration-300 hover:border-[#00f0ff]/40 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
 );
 
 // ── ambient background — sci-fi nebula + star field (stable across re-renders) ─
@@ -6120,7 +6120,7 @@ export default function ApexAthletePage() {
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Roster Check-In"}</h3>
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-2 mb-10">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-10">
               {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
@@ -6132,11 +6132,11 @@ export default function ApexAthletePage() {
                 return (
                   <div key={a.id} className={`relative overflow-hidden transition-all duration-200 game-card ${isExp ? "ambient-pulse" : ""}`}>
                     <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: `linear-gradient(180deg, ${hasCk ? "#00f0ff" : lv.color}${hasCk ? "80" : "25"}, transparent)`, boxShadow: hasCk ? `0 0 8px ${lv.color}40` : "none" }} />
-                    <div className={`game-panel-sm bg-[#06020f]/70 backdrop-blur-xl border transition-all duration-200 ${
-                      isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
-                    } hover:border-[#00f0ff]/25`}>
+                    <div className={`game-panel-sm bg-[#06020f]/70 backdrop-blur-xl border-2 transition-all duration-200 ${
+                      isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/20 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/10"
+                    } hover:border-[#00f0ff]/30`}>
                       <div
-                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
+                        className="flex items-center gap-4 p-4 sm:p-5 lg:p-6 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
                       >
                         {/* Present toggle — one tap, no expansion */}
                         <button
