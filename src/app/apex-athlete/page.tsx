@@ -4540,29 +4540,29 @@ export default function ApexAthletePage() {
               </div>
 
               {/* Create new meet */}
-              <Card className="p-5 mb-6" neon>
-                <h3 className="text-base font-bold text-white/60 mb-3 uppercase tracking-wider">New Meet</h3>
-                <div className="space-y-3">
+              <Card className="p-8 sm:p-10 mb-8" neon>
+                <h3 className="text-lg font-bold text-white/60 mb-5 uppercase tracking-wider">New Meet</h3>
+                <div className="space-y-5">
                   <input value={newMeetName} onChange={e => setNewMeetName(e.target.value)} placeholder="Meet name"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
-                  <div className="grid grid-cols-2 gap-3">
+                    className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                  <div className="grid grid-cols-2 gap-5">
                     <input type="date" value={newMeetDate} onChange={e => setNewMeetDate(e.target.value)}
-                      className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                      className="bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
                     <select value={newMeetCourse} onChange={e => setNewMeetCourse(e.target.value as "SCY" | "SCM" | "LCM")}
-                      className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40">
+                      className="bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white focus:outline-none focus:border-[#00f0ff]/40">
                       <option value="SCY">SCY</option><option value="SCM">SCM</option><option value="LCM">LCM</option>
                     </select>
                   </div>
                   <input value={newMeetLocation} onChange={e => setNewMeetLocation(e.target.value)} placeholder="Location"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
-                  <div className="flex items-center gap-3">
+                    className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                  <div className="flex items-center gap-5">
                     <div className="flex-1">
-                      <label className="text-xs text-white/50 uppercase mb-1 block">RSVP Deadline</label>
+                      <label className="text-sm text-white/50 uppercase mb-2 block font-bold">RSVP Deadline</label>
                       <input type="date" value={newMeetDeadline} onChange={e => setNewMeetDeadline(e.target.value)}
-                        className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
+                        className="w-full bg-white/[0.04] border-2 border-white/[0.12] rounded-xl px-5 py-3.5 text-base text-white focus:outline-none focus:border-[#00f0ff]/40" style={{ fontSize: "16px" }} />
                     </div>
                     <button onClick={createMeet} disabled={!newMeetName || !newMeetDate}
-                      className="mt-4 game-btn px-6 py-2.5 text-sm font-bold bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30 rounded-lg hover:bg-[#00f0ff]/20 disabled:opacity-30 transition-all">
+                      className="mt-6 game-btn px-8 py-3.5 text-base font-black bg-[#00f0ff]/10 text-[#00f0ff] border-2 border-[#00f0ff]/30 rounded-xl hover:bg-[#00f0ff]/20 disabled:opacity-30 transition-all">
                       Create
                     </button>
                   </div>
@@ -4580,7 +4580,7 @@ export default function ApexAthletePage() {
                     const totalEntries = m.events.reduce((sum, ev) => sum + ev.entries.length, 0);
                     return (
                       <button key={m.id} onClick={() => setEditingMeetId(m.id)}
-                        className="w-full text-left rounded-2xl border border-white/[0.08] bg-white/[0.02] overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.12] transition-all active:scale-[0.99]"
+                        className="w-full text-left rounded-2xl border-2 border-white/[0.12] bg-white/[0.02] overflow-hidden hover:bg-white/[0.04] hover:border-white/[0.18] transition-all active:scale-[0.99]"
                         style={{ borderLeft: `4px solid ${m.status === "finalized" ? "#10b981" : d <= 7 ? "#f59e0b" : "#00f0ff"}40` }}>
                         <div className="px-6 py-6">
                           <div className="flex items-start justify-between mb-2">
