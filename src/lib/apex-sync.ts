@@ -279,6 +279,69 @@ export function syncListenConfig<T>(
   });
 }
 
+// ── Team summary denormalization ──────────────────────────────────
+// Pre-compute aggregate stats at the team level for fast queries
+// Stored in Firestore as organizations/default/summaries/team
+// Avoids loading every athlete just to show team-level dashboards
+
+interface TeamSummary {
+  totalAthletes: number;
+  totalXP: number;
+  avgXP: number;
+  activeAthletes: number; // athletes with > 0 practices
+  topAthletes: Array<{ name: string; xp: number; level: string }>;
+  groupCounts: Record<string, number>;
+  lastUpdated: string;
+}
+
+interface SyncAthlete {
+  name?: string;
+  xp?: number;
+  level?: string;
+  totalPractices?: number;
+  group?: string;
+}
+
+export function computeTeamSummary(allAthletes: SyncAthlete[]): TeamSummary {
+  const totalAthletes = allAthletes.length;
+  const totalXP = allAthletes.reduce((sum, a) => sum + (a.xp || 0), 0);
+  const avgXP = totalAthletes > 0 ? Math.round(totalXP / totalAthletes) : 0;
+  const activeAthletes = allAthletes.filter((a) => (a.totalPractices || 0) > 0).length;
+  const sorted = [...allAthletes].sort((a, b) => (b.xp || 0) - (a.xp || 0));
+  const topAthletes = sorted.slice(0, 10).map((a) => ({
+    name: a.name || "Unknown",
+    xp: a.xp || 0,
+    level: a.level || "Rookie",
+  }));
+  const groupCounts: Record<string, number> = {};
+  for (const a of allAthletes) {
+    const g = a.group || "unassigned";
+    groupCounts[g] = (groupCounts[g] || 0) + 1;
+  }
+  return { totalAthletes, totalXP, avgXP, activeAthletes, topAthletes, groupCounts, lastUpdated: new Date().toISOString() };
+}
+
+export function syncSaveTeamSummary(allAthletes: SyncAthlete[]): void {
+  const summary = computeTeamSummary(allAthletes);
+  lsSet("apex-team-summary", summary);
+  if (hasConfig) {
+    fbSet("summaries/team", summary as unknown as Record<string, unknown>).catch(() => {});
+  }
+}
+
+export async function syncLoadTeamSummary(): Promise<TeamSummary | null> {
+  const local = lsGet<TeamSummary>("apex-team-summary");
+  if (local) return local;
+  if (hasConfig) {
+    const remote = await fbGet<TeamSummary>("summaries/team");
+    if (remote) {
+      lsSet("apex-team-summary", remote);
+      return remote;
+    }
+  }
+  return null;
+}
+
 // ── Batch sync: push all localStorage to Firebase ──────────────────
 
 export async function syncPushAllToFirebase(): Promise<{ synced: number; errors: number }> {
