@@ -1349,7 +1349,7 @@ export default function ParentPortal() {
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
       {/* Portal switcher — full-width grid */}
-      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-5xl xl:max-w-6xl 2xl:max-w-7xl lg:mx-auto">
+      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-[1920px] lg:mx-auto">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
