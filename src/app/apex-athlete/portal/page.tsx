@@ -134,7 +134,7 @@ export default function PortalSelector() {
       </div>
 
       {/* ── Content — centered vertically on desktop ── */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full max-w-7xl mx-auto px-6 lg:px-12 py-12 sm:py-16 lg:py-0">
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center w-full px-4 lg:px-8 xl:px-10 2xl:px-12 py-12 sm:py-16 lg:py-0">
 
         {/* Header */}
         <div className="text-center mb-10 lg:mb-16">
@@ -184,7 +184,7 @@ export default function PortalSelector() {
               </p>
 
               {/* Enter arrow */}
-              <div className="mt-6 lg:mt-10 flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-300">
+              <div className="mt-6 lg:mt-10 flex items-center gap-2 opacity-60 group-hover:opacity-100 transition-opacity duration-300">
                 <div className="h-[2px] w-10 lg:w-14 rounded-full" style={{ background: `${p.color}50` }} />
                 <span className="text-sm lg:text-base font-bold tracking-widest uppercase" style={{ color: p.brightColor }}>Enter</span>
                 <span className="text-base lg:text-lg font-bold group-hover:translate-x-1 transition-transform" style={{ color: p.brightColor }}>&rarr;</span>
