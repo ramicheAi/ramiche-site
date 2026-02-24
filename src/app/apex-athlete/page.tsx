@@ -3252,9 +3252,9 @@ export default function ApexAthletePage() {
               const isToday = new Date().toLocaleDateString("en-US", { weekday: "short" }) === day;
 
               return (
-                <div key={day} className={`rounded-2xl border p-3 transition-all ${
+                <div key={day} className={`rounded-2xl border-2 p-5 transition-all ${
                   isToday ? "border-[#00f0ff]/30 bg-[#00f0ff]/5 shadow-[0_0_20px_rgba(0,240,255,0.1)]"
-                    : "border-white/5 bg-[#0a0518]/50"
+                    : "border-white/10 bg-[#0a0518]/50"
                 }`}>
                   {/* Day header */}
                   <div className="text-center mb-3">
@@ -3270,10 +3270,10 @@ export default function ApexAthletePage() {
                   {/* Sessions */}
                   <div className="space-y-2">
                     {dayData?.sessions.map((session, si) => (
-                      <div key={session.id} className={`p-3.5 rounded-xl border transition-all ${
-                        session.type === "pool" ? "bg-[#60a5fa]/5 border-[#60a5fa]/15"
-                          : session.type === "weight" ? "bg-[#f59e0b]/5 border-[#f59e0b]/15"
-                          : "bg-[#34d399]/5 border-[#34d399]/15"
+                      <div key={session.id} className={`p-4 rounded-xl border-2 transition-all ${
+                        session.type === "pool" ? "bg-[#60a5fa]/5 border-[#60a5fa]/20"
+                          : session.type === "weight" ? "bg-[#f59e0b]/5 border-[#f59e0b]/20"
+                          : "bg-[#34d399]/5 border-[#34d399]/20"
                       }`}>
                         <div className="flex items-center justify-between">
                           <div className={`text-xs font-bold ${
