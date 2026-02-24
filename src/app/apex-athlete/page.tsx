@@ -2246,42 +2246,84 @@ export default function ApexAthletePage() {
 
   if (!unlocked && (view === "coach" || view === "schedule")) {
     return (
-      <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
         <BgOrbs />
-        <div className="text-center max-w-xs w-full relative z-10">
-          {/* METTLE branded access terminal */}
-          <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" />
-            <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background: 'linear-gradient(135deg, #D4A843, #FFD700)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>METTLE</h1>
-            <div className="text-[#D4A843]/50 text-sm tracking-[0.3em] uppercase font-mono mb-6">{"// COACH ACCESS"}</div>
+        <style jsx>{`
+          @keyframes coachPinGlow {
+            0%, 100% { box-shadow: 0 0 40px rgba(212,168,67,0.15), 0 0 80px rgba(212,168,67,0.05); }
+            50% { box-shadow: 0 0 60px rgba(212,168,67,0.25), 0 0 120px rgba(212,168,67,0.1); }
+          }
+          @keyframes coachBtnPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(212,168,67,0.3), 0 0 40px rgba(212,168,67,0.1); transform: scale(1); }
+            50% { box-shadow: 0 0 40px rgba(212,168,67,0.5), 0 0 80px rgba(212,168,67,0.2); transform: scale(1.02); }
+          }
+          @keyframes logoFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+          }
+        `}</style>
+        <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
+          {/* Left panel — branding */}
+          <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
+            <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(212,168,67,0.08) 0%, transparent 70%)'}} />
+            <div className="relative z-10 text-center max-w-lg">
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-32 xl:w-40 h-32 xl:h-40 mx-auto mb-8" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
+              <h1 className="text-5xl xl:text-6xl font-black mb-4 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #D4A843)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
+              <p className="text-white/60 text-lg xl:text-xl leading-relaxed mb-6">Unlocking the greatness already inside every athlete.</p>
+              <div className="flex items-center justify-center gap-3 text-[#D4A843]/40 text-sm font-mono tracking-wider">
+                <span className="w-8 h-px bg-[#D4A843]/20" />
+                COACH PORTAL
+                <span className="w-8 h-px bg-[#D4A843]/20" />
+              </div>
+            </div>
           </div>
-          {inviteCoachName && (
-            <div className="game-panel bg-[#a855f7]/[0.06] border border-[#a855f7]/20 px-4 py-3 mb-4 text-center">
-              <div className="text-xs text-[#a855f7]/40 font-mono tracking-wider uppercase mb-1">Invited by</div>
-              <div className="text-[#a855f7] font-bold text-sm">{inviteCoachName}</div>
-              <div className="text-white/50 text-sm font-mono mt-1">Enter your PIN to access the coach portal</div>
+          {/* Right panel — PIN form */}
+          <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+            <div className="w-full max-w-md">
+              {/* Mobile-only branding */}
+              <div className="lg:hidden text-center mb-8">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
+                <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
+                <div className="text-[#D4A843]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
+              </div>
+              {/* Access card */}
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border border-[#D4A843]/15 rounded-2xl p-8 lg:p-10" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
+                <div className="text-center mb-8">
+                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-2">{"// SECURE ACCESS"}</div>
+                  <h2 className="text-white text-2xl font-bold">Coach Access</h2>
+                </div>
+                {inviteCoachName && (
+                  <div className="bg-[#a855f7]/[0.06] border border-[#a855f7]/20 rounded-xl px-5 py-4 mb-6 text-center">
+                    <div className="text-xs text-[#a855f7]/40 font-mono tracking-wider uppercase mb-1">Invited by</div>
+                    <div className="text-[#a855f7] font-bold">{inviteCoachName}</div>
+                  </div>
+                )}
+                <div className="flex flex-col gap-5">
+                  <div>
+                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-2 block">Enter PIN</label>
+                    <input
+                      type="password" maxLength={4} value={pinInput}
+                      onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
+                      onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
+                      placeholder="_ _ _ _"
+                      className={`w-full text-center text-3xl tracking-[0.5em] py-5 bg-[#06020f]/60 border-2 rounded-xl text-[#D4A843] placeholder:text-[#D4A843]/15 focus:outline-none transition-all font-mono ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#D4A843]/20 focus:border-[#D4A843]/50 focus:shadow-[0_0_30px_rgba(212,168,67,0.2)]"}`}
+                    />
+                  </div>
+                  {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED. Default: {MASTER_PIN}.</p>}
+                  <button onClick={tryUnlock}
+                    className="w-full py-5 rounded-xl font-bold text-base tracking-widest uppercase transition-all active:scale-[0.97] min-h-[60px]"
+                    style={{background:'linear-gradient(135deg, #D4A843, #B8860B)',color:'#06020f',animation:'coachBtnPulse 2s ease-in-out infinite'}}>
+                    Authenticate
+                  </button>
+                  {pinError && (
+                    <button onClick={resetPin} className="text-white/40 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px] text-center">
+                      RESET PIN → {MASTER_PIN}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-white/20 text-xs text-center mt-6 font-mono">Secure • Encrypted • Private Beta</p>
             </div>
-          )}
-          <div className="flex flex-col gap-4">
-            <div className="relative">
-              <input
-                type="password" maxLength={4} value={pinInput}
-                onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
-                onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
-                placeholder="_ _ _ _"
-                className={`w-full text-center text-2xl tracking-[0.5em] py-4 bg-[#06020f]/80 backdrop-blur-xl border-2 text-[#00f0ff] placeholder:text-[#00f0ff]/15 focus:outline-none transition-all font-mono game-panel-sm ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#00f0ff]/20 focus:border-[#00f0ff]/50 focus:shadow-[0_0_30px_rgba(0,240,255,0.2)]"}`}
-              />
-            </div>
-            {pinError && <p className="text-red-400 text-sm -mt-2 font-mono">ACCESS DENIED. Default: {MASTER_PIN}.</p>}
-            <button onClick={tryUnlock}
-              className="game-btn w-full py-4 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_30px_rgba(0,240,255,0.3)] transition-all active:scale-[0.97] min-h-[52px]">
-              Authenticate
-            </button>
-            {pinError && (
-              <button onClick={resetPin} className="text-white/60 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px]">
-                RESET PIN → {MASTER_PIN}
-              </button>
-            )}
           </div>
         </div>
       </div>
