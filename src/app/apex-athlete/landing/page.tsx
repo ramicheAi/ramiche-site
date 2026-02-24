@@ -253,13 +253,17 @@ export default function MettleLanding() {
           <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
               href="/apex-athlete/login"
-              className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-24 lg:px-32 py-6 sm:py-7 lg:py-8 rounded-2xl font-black text-xl sm:text-2xl lg:text-3xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08] border-3"
+              className="heartbeat-cta inline-flex items-center justify-center rounded-2xl font-black tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08]"
               style={{
                 "--glow-color": C.goldBright,
                 background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
                 color: C.dark,
                 borderColor: C.goldLight,
-                minWidth: "280px",
+                borderWidth: "3px",
+                borderStyle: "solid",
+                padding: "clamp(1.5rem, 2.5vw, 2.5rem) clamp(4rem, 8vw, 10rem)",
+                fontSize: "clamp(1.25rem, 2vw, 2rem)",
+                minWidth: "clamp(280px, 40vw, 500px)",
               } as React.CSSProperties}
             >
               Get Started Free
@@ -271,19 +275,23 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section style={{ width: "100%", maxWidth: "100%", padding: "0 clamp(1.5rem, 5vw, 6rem) clamp(5rem, 8vw, 8rem)" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "clamp(1.5rem, 2.5vw, 2.5rem)" }}>
+        <section style={{ width: "100%", maxWidth: "1400px", margin: "0 auto", padding: "0 clamp(1.5rem, 5vw, 4rem) clamp(5rem, 8vw, 8rem)" }}>
+          <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: "clamp(1.5rem, 2.5vw, 2.5rem)" }}>
             {portals.map((p, i) => (
               <Link
                 key={p.title}
                 href={p.href}
-                className="heartbeat-card group relative flex flex-col items-center justify-center rounded-3xl border-2 p-10 lg:p-14 xl:p-16 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer min-h-[260px] lg:min-h-[380px] xl:min-h-[420px]"
+                className="heartbeat-card group relative flex flex-col items-center justify-center rounded-3xl border-2 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer"
                 style={{
-                  "--glow-color": p.color,
-                  background: `linear-gradient(180deg, ${p.color}0A 0%, ${C.darkCard} 40%, ${p.color}05 100%)`,
-                  borderColor: `${p.color}30`,
-                  animationDelay: `${i * 0.4}s`,
-                } as React.CSSProperties}
+                  ...({
+                    "--glow-color": p.color,
+                    background: `linear-gradient(180deg, ${p.color}0A 0%, ${C.darkCard} 40%, ${p.color}05 100%)`,
+                    borderColor: `${p.color}30`,
+                    animationDelay: `${i * 0.4}s`,
+                    padding: "clamp(2.5rem, 4vw, 5rem) clamp(2rem, 3vw, 3rem)",
+                    minHeight: "clamp(260px, 30vw, 480px)",
+                  } as React.CSSProperties)
+                }}
               >
                 {/* Status dot — racing heartbeat */}
                 <div className="absolute top-5 right-5 lg:top-7 lg:right-7 flex items-center gap-2">
@@ -320,8 +328,8 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ MISSION — one powerful line ━━━ */}
-        <section style={{ width: "100%", maxWidth: "100%", padding: "clamp(4rem, 6vw, 8rem) clamp(1.5rem, 5vw, 6rem)" }} className="text-center">
-          <div className="max-w-xl lg:max-w-3xl xl:max-w-5xl mx-auto">
+        <section style={{ width: "100%", maxWidth: "1400px", margin: "0 auto", padding: "clamp(4rem, 6vw, 8rem) clamp(1.5rem, 5vw, 4rem)", textAlign: "center" }}>
+          <div style={{ maxWidth: "900px", margin: "0 auto" }}>
             <div className="flex items-center justify-center gap-4 mb-8 lg:mb-12">
               <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
               <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-8 h-8 lg:w-12 lg:h-12 opacity-40" />
@@ -334,8 +342,8 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ WAITLIST — compact, glowing ━━━ */}
-        <section id="waitlist" style={{ width: "100%", maxWidth: "100%", padding: "0 clamp(1.5rem, 5vw, 6rem) clamp(6rem, 10vw, 10rem)" }}>
-          <div className="max-w-md lg:max-w-2xl xl:max-w-3xl mx-auto text-center">
+        <section id="waitlist" style={{ width: "100%", maxWidth: "800px", margin: "0 auto", padding: "0 clamp(1.5rem, 5vw, 4rem) clamp(6rem, 10vw, 10rem)", textAlign: "center" }}>
+          <div>
             <h2 className="text-2xl lg:text-3xl font-black tracking-tight mb-3 lg:mb-4 text-white">
               Ready to compete?
             </h2>
