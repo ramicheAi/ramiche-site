@@ -113,28 +113,28 @@ export default function MettleLanding() {
         }
         @keyframes heartbeat-cta {
           0%, 100% {
-            box-shadow: 0 0 20px var(--glow-color),
-                        0 0 50px color-mix(in srgb, var(--glow-color) 40%, transparent),
-                        0 0 100px color-mix(in srgb, var(--glow-color) 15%, transparent);
+            box-shadow: 0 0 25px var(--glow-color),
+                        0 0 60px color-mix(in srgb, var(--glow-color) 50%, transparent),
+                        0 0 120px color-mix(in srgb, var(--glow-color) 20%, transparent);
             transform: scale(1);
           }
-          15% {
-            box-shadow: 0 0 35px var(--glow-color),
-                        0 0 80px color-mix(in srgb, var(--glow-color) 50%, transparent),
-                        0 0 140px color-mix(in srgb, var(--glow-color) 20%, transparent);
-            transform: scale(1.03);
+          12% {
+            box-shadow: 0 0 50px var(--glow-color),
+                        0 0 100px color-mix(in srgb, var(--glow-color) 65%, transparent),
+                        0 0 180px color-mix(in srgb, var(--glow-color) 30%, transparent);
+            transform: scale(1.05);
           }
-          30% {
-            box-shadow: 0 0 20px var(--glow-color),
-                        0 0 50px color-mix(in srgb, var(--glow-color) 40%, transparent),
-                        0 0 100px color-mix(in srgb, var(--glow-color) 15%, transparent);
+          24% {
+            box-shadow: 0 0 25px var(--glow-color),
+                        0 0 60px color-mix(in srgb, var(--glow-color) 50%, transparent),
+                        0 0 120px color-mix(in srgb, var(--glow-color) 20%, transparent);
             transform: scale(1);
           }
-          45% {
-            box-shadow: 0 0 40px var(--glow-color),
-                        0 0 90px color-mix(in srgb, var(--glow-color) 55%, transparent),
-                        0 0 160px color-mix(in srgb, var(--glow-color) 22%, transparent);
-            transform: scale(1.04);
+          40% {
+            box-shadow: 0 0 60px var(--glow-color),
+                        0 0 120px color-mix(in srgb, var(--glow-color) 70%, transparent),
+                        0 0 200px color-mix(in srgb, var(--glow-color) 35%, transparent);
+            transform: scale(1.06);
           }
         }
         @keyframes float-up {
@@ -246,14 +246,14 @@ export default function MettleLanding() {
           </h1>
 
           <p className="text-lg sm:text-xl text-white/50 max-w-lg mx-auto mb-16 font-light reveal reveal-d3">
-            The training platform that turns every practice into progress and every athlete into a competitor.
+            The fire is already inside you. We just help you unleash it.
           </p>
 
           {/* CTA — BIG, THICK, GLOWING like a heartbeat before a race */}
           <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
               href="/apex-athlete/portal"
-              className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-20 py-5 sm:py-6 rounded-2xl font-black text-lg sm:text-xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.06] border-2"
+              className="heartbeat-cta inline-flex items-center justify-center px-16 sm:px-24 py-6 sm:py-7 rounded-2xl font-black text-xl sm:text-2xl tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08] border-3"
               style={{
                 "--glow-color": C.goldBright,
                 background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
@@ -374,12 +374,13 @@ export default function MettleLanding() {
                 />
                 <button
                   type="submit"
-                  className="heartbeat-cta px-8 py-4 rounded-2xl font-black text-base tracking-wider border-2 transition-all duration-300 hover:scale-105"
+                  className="heartbeat-cta px-12 py-5 rounded-2xl font-black text-lg tracking-[0.15em] uppercase border-2 transition-all duration-300 hover:scale-110"
                   style={{
                     "--glow-color": C.goldBright,
-                    background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold})`,
+                    background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
                     color: C.dark,
                     borderColor: C.goldLight,
+                    minWidth: "140px",
                   } as React.CSSProperties}
                 >
                   Join
