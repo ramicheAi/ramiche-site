@@ -1251,31 +1251,37 @@ export default function ParentPortal() {
 
           {/* ── Desktop branding panel (hidden on mobile) ── */}
           <div className="hidden lg:flex flex-col items-center justify-center px-16">
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-32 h-32 mb-8" style={{ filter: "drop-shadow(0 0 60px rgba(245,158,11,0.4))" }} />
-            <h1 className="text-5xl xl:text-6xl font-black tracking-tight text-white mb-4">METTLE</h1>
-            <p className="text-lg text-white/30 text-center max-w-sm">Their growth. Your front row.</p>
+            <div className="flex flex-col items-center">
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-44 h-44 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mb-8" style={{ filter: "drop-shadow(0 0 80px rgba(245,158,11,0.4))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
+              <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black tracking-tight mb-4" style={{ background: "linear-gradient(180deg, #fff 30%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
+            </div>
+            <p className="text-xl text-white/40 text-center max-w-md font-light">Their growth. Your front row.</p>
           </div>
 
           {/* ── Form panel ── */}
-          <div className="w-full max-w-xs mx-auto lg:max-w-md lg:pr-16 text-center">
-            {/* Mobile-only logo */}
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
-            <h1 className="text-2xl lg:text-4xl font-black text-white mb-2 lg:mb-3">Parent Portal</h1>
-            <p className="text-white/60 text-sm lg:text-base mb-6 lg:mb-8">Enter PIN to view your swimmer&apos;s growth</p>
-            <div className="max-w-xs lg:max-w-sm mx-auto">
-              <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
-                onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
-                onKeyDown={e => e.key === "Enter" && handlePin()}
-                className={`w-full px-5 py-4 lg:py-5 bg-[#0a0518] border rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50"}`}
-                placeholder="····" autoFocus />
-              <button onClick={handlePin}
-                className="w-full mt-4 py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b] font-bold lg:text-lg hover:bg-[#f59e0b]/30 transition-all min-h-[44px]">
-                Unlock
-              </button>
-              {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-              <Link href="/apex-athlete/landing" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6 min-h-[44px] flex items-center justify-center">
-                ← Back
-              </Link>
+          <div className="w-full flex items-center justify-center lg:px-12 xl:px-16">
+            <div className="w-full max-w-xs lg:max-w-md text-center p-8 lg:p-12 xl:p-14 rounded-2xl lg:rounded-3xl border-2 lg:border-[3px]" style={{ background: "rgba(10,5,24,0.7)", borderColor: "rgba(245,158,11,0.25)", boxShadow: "0 0 60px rgba(245,158,11,0.08), inset 0 1px 0 rgba(255,255,255,0.03)" }}>
+              {/* Mobile-only logo */}
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
+              <p className="text-white/30 text-xs font-mono tracking-[0.3em] uppercase mb-3 lg:mb-4">// Secure Access</p>
+              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-black text-white mb-2 lg:mb-3">Parent Portal</h1>
+              <p className="text-white/50 text-sm lg:text-base mb-8 lg:mb-10">Enter PIN to view your swimmer&apos;s growth</p>
+              <div className="space-y-5 lg:space-y-7">
+                <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+                  onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={e => e.key === "Enter" && handlePin()}
+                  className={`w-full px-5 py-4 lg:py-5 bg-[#06020f] border-2 rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/40 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-white/10 focus:border-[#f59e0b]/50"}`}
+                  placeholder="····" autoFocus />
+                <button onClick={handlePin}
+                  className="w-full py-4 lg:py-5 rounded-xl lg:rounded-2xl font-black text-lg lg:text-xl tracking-wide transition-all min-h-[56px]"
+                  style={{ background: "linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #f59e0b 100%)", color: "#06020f", boxShadow: "0 0 40px rgba(245,158,11,0.3)", animation: "aa-glow-pulse 2s ease-in-out infinite" }}>
+                  AUTHENTICATE
+                </button>
+                {pinError && <p className="text-red-400 text-sm mt-1">Incorrect PIN</p>}
+                <Link href="/apex-athlete/landing" className="text-white/40 text-sm hover:text-white/60 transition-colors block mt-2 min-h-[44px] flex items-center justify-center">
+                  ← Back to METTLE
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -1404,7 +1410,7 @@ export default function ParentPortal() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-6 xl:px-8 2xl:px-10 py-6 sm:py-10">
+      <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 lg:mb-10">
           <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors">← Switch</button>
@@ -1426,7 +1432,7 @@ export default function ParentPortal() {
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10">
         <div>
         {/* Level Progress — animated ring */}
-        <div className="mb-6 p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 text-center relative overflow-hidden" style={{ animation: "aa-glow-pulse 4s ease-in-out infinite" }}>
+        <div className="mb-6 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center relative overflow-hidden" style={{ borderColor: "rgba(245,158,11,0.2)", animation: "aa-glow-pulse 4s ease-in-out infinite", boxShadow: "0 0 30px rgba(245,158,11,0.05)" }}>
           {/* Subtle orbit decoration */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.06 }}>
             <div className="w-48 h-48 rounded-full border border-current" style={{ color: level.color, animation: "aa-orbit 20s linear infinite" }}>
@@ -1466,30 +1472,30 @@ export default function ParentPortal() {
         </div>
 
         {/* Highlights Row — pulse on non-zero */}
-        <div className="grid grid-cols-3 gap-3 lg:gap-4 mb-6">
-          <div className={`p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
-            style={athlete.streak > 0 ? { borderColor: `${streak.color}25` } : {}}>
-            <div className="text-3xl font-black text-white">{athlete.streak}</div>
-            <div className="text-sm font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
-            <div className="text-white/50 text-sm">day streak</div>
+        <div className="grid grid-cols-3 gap-3 lg:gap-5 mb-6">
+          <div className={`p-5 lg:p-6 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
+            style={{ borderColor: athlete.streak > 0 ? `${streak.color}30` : "rgba(255,255,255,0.08)", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
+            <div className="text-3xl lg:text-4xl font-black text-white">{athlete.streak}</div>
+            <div className="text-sm font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
+            <div className="text-white/50 text-sm mt-0.5">day streak</div>
           </div>
-          <div className={`p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
-            style={athlete.totalPractices > 0 ? { borderColor: "rgba(96,165,250,0.15)", animationDelay: "0.3s" } : {}}>
-            <div className="text-3xl font-black text-white">{athlete.totalPractices}</div>
-            <div className="text-white/60 text-sm font-mono tracking-wider">PRACTICES</div>
-            <div className="text-white/50 text-sm">total</div>
+          <div className={`p-5 lg:p-6 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
+            style={{ borderColor: athlete.totalPractices > 0 ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.08)", animationDelay: "0.3s", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
+            <div className="text-3xl lg:text-4xl font-black text-white">{athlete.totalPractices}</div>
+            <div className="text-white/60 text-sm font-mono tracking-wider mt-1">PRACTICES</div>
+            <div className="text-white/50 text-sm mt-0.5">total</div>
           </div>
-          <div className={`p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
-            style={earnedCount > 0 ? { borderColor: "rgba(245,158,11,0.15)", animationDelay: "0.6s" } : {}}>
-            <div className="text-3xl font-black text-white">{earnedCount}</div>
-            <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider">BADGES</div>
-            <div className="text-white/50 text-sm">earned</div>
+          <div className={`p-5 lg:p-6 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
+            style={{ borderColor: earnedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.08)", animationDelay: "0.6s", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
+            <div className="text-3xl lg:text-4xl font-black text-white">{earnedCount}</div>
+            <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider mt-1">BADGES</div>
+            <div className="text-white/50 text-sm mt-0.5">earned</div>
           </div>
         </div>
 
         {/* Weekly Growth Trend */}
         {growth && (
-          <div className="mb-6 p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10 aa-breathe" style={{ animationDelay: "1s" }}>
+          <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "1s" }}>
             <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">THIS WEEK&apos;S GROWTH</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -1520,7 +1526,7 @@ export default function ParentPortal() {
         {/* Right column on desktop */}
         <div>
         {/* Achievement Badges */}
-        <div className="mb-6 p-4 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10 aa-breathe" style={{ animationDelay: "2s" }}>
+        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "2s" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-4">ACHIEVEMENTS</h3>
           <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3 lg:gap-4">
             {achievements.map((badge, i) => (
@@ -1581,7 +1587,7 @@ export default function ParentPortal() {
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
+          <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
             <div className="flex items-center gap-2 mb-4">
               <SvgCalendar size={18} color="#f59e0b" />
               <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
@@ -1688,7 +1694,7 @@ export default function ParentPortal() {
 
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#60a5fa]/10">
+          <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
             <div className="flex items-center gap-2 mb-4">
               <SvgSwimWave size={18} color="#60a5fa" />
               <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
@@ -1724,7 +1730,7 @@ export default function ParentPortal() {
         )}
 
         {/* ── Absence Reporting ─────────────────────────────────── */}
-        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#f97316]/10">
+        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
           <div className="flex items-center gap-2 mb-3">
             <SvgClipboardX size={18} color="#f97316" />
             <h3 className="text-[#f97316]/90 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
@@ -1834,7 +1840,7 @@ export default function ParentPortal() {
         </div>
 
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
-        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
+        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
           <div className="flex items-center gap-2 mb-3">
             <SvgMegaphone size={18} color="#a855f7" />
             <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
@@ -1893,7 +1899,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Meet Day Guide */}
-        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-cyan-500/10">
+        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
           <h3 className="text-cyan-400/90 text-xs font-mono tracking-wider mb-3">MEET DAY GUIDE FOR PARENTS</h3>
           <div className="space-y-3">
             <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
@@ -1927,7 +1933,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Conversation Starters */}
-        <div className="mb-6 p-4 rounded-xl bg-[#0a0518]/80 border border-violet-500/10">
+        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
           <h3 className="text-violet-400/90 text-xs font-mono tracking-wider mb-3">CONVERSATION STARTERS</h3>
           <p className="text-white/50 text-sm mb-3">Great questions to ask your swimmer this week:</p>
           <div className="space-y-2">
