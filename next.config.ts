@@ -51,6 +51,16 @@ const nextConfig: NextConfig = {
         { key: "Expires", value: "0" },
       ],
     },
+    {
+      source: "/api/:path*",
+      headers: [
+        { key: "Access-Control-Allow-Origin", value: "https://ramiche-site.vercel.app" },
+        { key: "Access-Control-Allow-Methods", value: "GET, POST, OPTIONS" },
+        { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+        { key: "Access-Control-Max-Age", value: "86400" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+      ],
+    },
   ],
 };
 
