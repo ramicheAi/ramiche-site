@@ -293,6 +293,17 @@ const STYLE_TAG = (
       background-size: 200% 200%;
       animation: aa-gradient-shift 6s ease infinite;
     }
+    @keyframes aa-tab-in {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .aa-tab-transition {
+      animation: aa-tab-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+    .aa-collapsible-content {
+      overflow: hidden;
+      transition: max-height 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+    }
   `}</style>
 );
 
@@ -1016,6 +1027,8 @@ export default function ParentPortal() {
   });
 
   const [isCoach, setIsCoach] = useState(false);
+  const [meetGuideOpen, setMeetGuideOpen] = useState(false);
+  const [conversationOpen, setConversationOpen] = useState(false);
   useEffect(() => {
     setMounted(true);
     // Load enrollment data from localStorage
@@ -1429,7 +1442,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Desktop 2-column layout */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-10 aa-tab-transition">
         <div>
         {/* Level Progress — animated ring */}
         <div className="mb-6 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center relative overflow-hidden" style={{ borderColor: "rgba(245,158,11,0.2)", animation: "aa-glow-pulse 4s ease-in-out infinite", boxShadow: "0 0 30px rgba(245,158,11,0.05)" }}>
@@ -1898,57 +1911,69 @@ export default function ParentPortal() {
           )}
         </div>
 
-        {/* Meet Day Guide */}
-        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
-          <h3 className="text-cyan-400/90 text-xs font-mono tracking-wider mb-3">MEET DAY GUIDE FOR PARENTS</h3>
-          <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10">
-              <span className="text-emerald-400 text-xs font-bold block mb-1">BEFORE THE RACE</span>
-              <ul className="text-white/60 text-sm space-y-1">
-                <li>• &quot;Have fun out there&quot; — keep it simple</li>
-                <li>• Avoid talking about times or expectations</li>
-                <li>• Make sure they&apos;ve eaten and hydrated</li>
-                <li>• Trust their coach&apos;s race plan</li>
-              </ul>
-            </div>
-            <div className="p-3 rounded-lg bg-amber-500/5 border border-amber-500/10">
-              <span className="text-amber-400 text-xs font-bold block mb-1">AFTER THE RACE</span>
-              <ul className="text-white/60 text-sm space-y-1">
-                <li>• &quot;I love watching you swim&quot; — always works</li>
-                <li>• Ask how they FELT, not what their time was</li>
-                <li>• Let the coach handle technique talk</li>
-                <li>• Win or lose — celebrate the effort</li>
-              </ul>
-            </div>
-            <div className="p-3 rounded-lg bg-red-500/5 border border-red-500/10">
-              <span className="text-red-400/90 text-xs font-bold block mb-1">AVOID</span>
-              <ul className="text-white/60 text-sm space-y-1">
-                <li>• Coaching from the stands</li>
-                <li>• Comparing to other swimmers</li>
-                <li>• Discussing times in the car ride home</li>
-                <li>• Negative body language during races</li>
-              </ul>
+        {/* Meet Day Guide — collapsible */}
+        <div className="mb-6 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(6,182,212,0.15)" }}>
+          <button onClick={() => setMeetGuideOpen(!meetGuideOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors">
+            <h3 className="text-cyan-400/90 text-xs font-mono tracking-wider">MEET DAY GUIDE FOR PARENTS</h3>
+            <span className="text-white/40 text-lg transition-transform" style={{ transform: meetGuideOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>▾</span>
+          </button>
+          <div className="aa-collapsible-content" style={{ maxHeight: meetGuideOpen ? "600px" : "0", opacity: meetGuideOpen ? 1 : 0 }}>
+            <div className="px-5 pb-5 lg:px-7 lg:pb-7 space-y-3">
+              <div className="p-4 rounded-xl bg-emerald-500/5 border-2 border-emerald-500/10">
+                <span className="text-emerald-400 text-xs font-bold block mb-2">BEFORE THE RACE</span>
+                <ul className="text-white/60 text-sm space-y-1.5">
+                  <li>• &quot;Have fun out there&quot; — keep it simple</li>
+                  <li>• Avoid talking about times or expectations</li>
+                  <li>• Make sure they&apos;ve eaten and hydrated</li>
+                  <li>• Trust their coach&apos;s race plan</li>
+                </ul>
+              </div>
+              <div className="p-4 rounded-xl bg-amber-500/5 border-2 border-amber-500/10">
+                <span className="text-amber-400 text-xs font-bold block mb-2">AFTER THE RACE</span>
+                <ul className="text-white/60 text-sm space-y-1.5">
+                  <li>• &quot;I love watching you swim&quot; — always works</li>
+                  <li>• Ask how they FELT, not what their time was</li>
+                  <li>• Let the coach handle technique talk</li>
+                  <li>• Win or lose — celebrate the effort</li>
+                </ul>
+              </div>
+              <div className="p-4 rounded-xl bg-red-500/5 border-2 border-red-500/10">
+                <span className="text-red-400/90 text-xs font-bold block mb-2">AVOID</span>
+                <ul className="text-white/60 text-sm space-y-1.5">
+                  <li>• Coaching from the stands</li>
+                  <li>• Comparing to other swimmers</li>
+                  <li>• Discussing times in the car ride home</li>
+                  <li>• Negative body language during races</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Conversation Starters */}
-        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
-          <h3 className="text-violet-400/90 text-xs font-mono tracking-wider mb-3">CONVERSATION STARTERS</h3>
-          <p className="text-white/50 text-sm mb-3">Great questions to ask your swimmer this week:</p>
-          <div className="space-y-2">
-            {[
-              { q: "What was the best part of practice today?", why: "Opens positive reflection" },
-              { q: "Did you help a teammate with anything this week?", why: "Reinforces leadership" },
-              { q: "What's one thing you're working on improving?", why: "Shows you care about growth, not just results" },
-              { q: "Are you getting enough sleep before practice?", why: "Recovery matters — shows support" },
-              { q: "What do you like most about being on the team?", why: "Keeps the fun in focus" },
-            ].map((item, i) => (
-              <div key={i} className="p-3 rounded-lg bg-violet-500/5 border border-violet-500/10">
-                <span className="text-white/60 text-sm block">&quot;{item.q}&quot;</span>
-                <span className="text-violet-400/70 text-sm">{item.why}</span>
+        {/* Conversation Starters — collapsible */}
+        <div className="mb-6 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
+          <button onClick={() => setConversationOpen(!conversationOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors">
+            <h3 className="text-violet-400/90 text-xs font-mono tracking-wider">CONVERSATION STARTERS</h3>
+            <span className="text-white/40 text-lg transition-transform" style={{ transform: conversationOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>▾</span>
+          </button>
+          <div className="aa-collapsible-content" style={{ maxHeight: conversationOpen ? "500px" : "0", opacity: conversationOpen ? 1 : 0 }}>
+            <div className="px-5 pb-5 lg:px-7 lg:pb-7">
+              <p className="text-white/50 text-sm mb-3">Great questions to ask your swimmer this week:</p>
+              <div className="space-y-2">
+                {[
+                  { q: "What was the best part of practice today?", why: "Opens positive reflection" },
+                  { q: "Did you help a teammate with anything this week?", why: "Reinforces leadership" },
+                  { q: "What's one thing you're working on improving?", why: "Shows you care about growth, not just results" },
+                  { q: "Are you getting enough sleep before practice?", why: "Recovery matters — shows support" },
+                  { q: "What do you like most about being on the team?", why: "Keeps the fun in focus" },
+                ].map((item, i) => (
+                  <div key={i} className="p-4 rounded-xl bg-violet-500/5 border-2 border-violet-500/10">
+                    <span className="text-white/60 text-sm block">&quot;{item.q}&quot;</span>
+                    <span className="text-violet-400/70 text-sm">{item.why}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </div>
 

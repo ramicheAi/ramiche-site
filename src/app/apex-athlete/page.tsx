@@ -2261,6 +2261,13 @@ export default function ApexAthletePage() {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-8px); }
           }
+          @keyframes aa-tab-enter {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+          .aa-tab-content {
+            animation: aa-tab-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+          }
         `}</style>
         <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
           {/* Left panel — branding */}
