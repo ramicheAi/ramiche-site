@@ -955,29 +955,42 @@ export default function AthletePortal() {
   // ── PIN screen ───────────────────────────────────────────
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5">
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 lg:px-0">
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-xs lg:max-w-lg xl:max-w-xl text-center">
-          <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 lg:w-24 lg:h-24 mx-auto mb-4 lg:mb-6" style={{ filter: "drop-shadow(0 0 30px rgba(168,85,247,0.3))" }} />
-          <h1 className="text-2xl lg:text-4xl font-black text-white mb-2 lg:mb-3">Athlete Portal</h1>
-          <p className="text-white/60 text-sm lg:text-base mb-6 lg:mb-8">Enter PIN to access your dashboard</p>
-          <div className="max-w-xs lg:max-w-sm mx-auto">
-            <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
-              onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
-              onKeyDown={e => e.key === "Enter" && handlePin()}
-              className={`w-full px-5 py-4 lg:py-5 bg-[#0a0518] border rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
-              placeholder="····" autoFocus />
-            <button onClick={handlePin}
-              className="w-full mt-4 py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold lg:text-lg hover:bg-[#a855f7]/30 transition-all min-h-[44px]">
-              Unlock
-            </button>
+
+        <div className="relative z-10 w-full max-w-xs lg:max-w-6xl lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-0">
+
+          {/* ── Desktop branding panel (hidden on mobile) ── */}
+          <div className="hidden lg:flex flex-col items-center justify-center px-16">
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-32 h-32 mb-8" style={{ filter: "drop-shadow(0 0 60px rgba(168,85,247,0.4))" }} />
+            <h1 className="text-5xl xl:text-6xl font-black tracking-tight text-white mb-4">METTLE</h1>
+            <p className="text-lg text-white/30 text-center max-w-sm">Your journey. Your legacy.</p>
           </div>
-          {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
-          <Link href="/apex-athlete/portal" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6">
-            ← Back to Portal Selector
-          </Link>
+
+          {/* ── Form panel ── */}
+          <div className="w-full max-w-xs mx-auto lg:max-w-md lg:pr-16 text-center">
+            {/* Mobile-only logo */}
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(168,85,247,0.3))" }} />
+            <h1 className="text-2xl lg:text-4xl font-black text-white mb-2 lg:mb-3">Athlete Portal</h1>
+            <p className="text-white/60 text-sm lg:text-base mb-6 lg:mb-8">Enter PIN to access your dashboard</p>
+            <div className="max-w-xs lg:max-w-sm mx-auto">
+              <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+                onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={e => e.key === "Enter" && handlePin()}
+                className={`w-full px-5 py-4 lg:py-5 bg-[#0a0518] border rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/50 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/20 focus:border-[#a855f7]/50"}`}
+                placeholder="····" autoFocus />
+              <button onClick={handlePin}
+                className="w-full mt-4 py-3 lg:py-4 rounded-xl lg:rounded-2xl bg-[#a855f7]/20 border border-[#a855f7]/30 text-[#a855f7] font-bold lg:text-lg hover:bg-[#a855f7]/30 transition-all min-h-[44px]">
+                Unlock
+              </button>
+            </div>
+            {pinError && <p className="text-red-400 text-xs mt-3">Incorrect PIN</p>}
+            <Link href="/apex-athlete/landing" className="text-white/50 text-sm hover:text-white/60 transition-colors block mt-6">
+              ← Back
+            </Link>
+          </div>
         </div>
       </div>
     );
