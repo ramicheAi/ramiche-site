@@ -1362,7 +1362,7 @@ export default function ParentPortal() {
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
       {/* Portal switcher — full-width grid */}
-      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-[1920px] lg:mx-auto">
+      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-6 xl:px-8 2xl:px-10 pt-3 pb-2">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
@@ -1389,7 +1389,7 @@ export default function ParentPortal() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-12 xl:px-16 2xl:px-20 py-6 sm:py-10">
+      <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-6 xl:px-8 2xl:px-10 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 lg:mb-10">
           <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors">← Switch</button>
