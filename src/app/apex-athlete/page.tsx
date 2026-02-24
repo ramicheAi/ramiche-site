@@ -3681,7 +3681,7 @@ export default function ApexAthletePage() {
                 {atRiskAthletes.slice(0, 8).map(a => {
                   const lv = getLevel(a.xp);
                   return (
-                    <div key={a.id} className="flex items-center gap-4 py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-red-500/20 transition-all">
+                    <div key={a.id} className="flex items-center gap-4 py-4 px-5 rounded-xl bg-white/[0.02] border-2 border-white/[0.06] hover:border-red-500/25 transition-all">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `${lv.color}15`, border: `1px solid ${lv.color}30`, color: lv.color }}>
                         {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
