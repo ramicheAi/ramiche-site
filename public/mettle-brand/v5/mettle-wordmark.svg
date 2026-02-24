@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 60" fill="none">
+  <!--
+    METTLE v5 Wordmark — wide geometric, engraved metal plate feel
+    Druk Wide Bold inspired. All caps. Wide kerning. Gold underline.
+  -->
+  <defs>
+    <linearGradient id="goldText" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8C36A"/>
+      <stop offset="50%" stop-color="#D4A843"/>
+      <stop offset="100%" stop-color="#B8922E"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Wordmark text -->
+  <text x="200" y="38" text-anchor="middle"
+        font-family="'Helvetica Neue', 'Arial Black', Helvetica, Arial, sans-serif"
+        font-weight="900" font-size="40" letter-spacing="12"
+        fill="url(#goldText)">METTLE</text>
+
+  <!-- Gold underline — thin structural accent -->
+  <line x1="60" y1="50" x2="340" y2="50" stroke="#D4A843" stroke-width="1.5"/>
+  <!-- Scarlet accent — thin dash at center -->
+  <line x1="180" y1="50" x2="220" y2="50" stroke="#B8001F" stroke-width="1.5"/>
+</svg>

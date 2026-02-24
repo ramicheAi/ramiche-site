@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" fill="none">
+  <!--
+    METTLE v5 — Single-color silhouette test
+    If it reads in one color, it's iconic.
+  -->
+  <!-- Anvil -->
+  <polygon points="20,108 100,108 92,98 28,98" fill="#D4A843"/>
+  <polygon points="28,98 92,98 88,93 32,93" fill="#D4A843"/>
+  <!-- M -->
+  <polygon points="22,93 36,93 36,30 22,38" fill="#D4A843"/>
+  <polygon points="36,30 36,56 60,80 60,54" fill="#D4A843"/>
+  <polygon points="60,54 60,80 84,56 84,30" fill="#D4A843"/>
+  <polygon points="84,30 84,93 98,93 98,38" fill="#D4A843"/>
+  <!-- Flame tip -->
+  <polygon points="57,32 60,18 63,32" fill="#D4A843"/>
+</svg>
