@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!-- METTLE v6 — Single-color silhouette for embossing, watermarks, monochrome -->
+  <polygon points="22,98 22,42 28,22 36,32 36,58 60,84 84,58 84,32 92,22 98,42 98,98 84,98 84,32 60,58 36,32 36,98"
+    fill="#D4A843"/>
+  <!-- Crown center -->
+  <polygon points="53,32 60,14 67,32" fill="#D4A843"/>
+</svg>

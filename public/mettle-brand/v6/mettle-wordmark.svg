@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 60" fill="none">
+  <!--
+    METTLE v6 Wordmark — Cleaner, more sophisticated
+    Gold gradient text, thin scarlet accent line, wider kerning
+  -->
+  <defs>
+    <linearGradient id="goldW6" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F0D478"/>
+      <stop offset="35%" stop-color="#D4A843"/>
+      <stop offset="100%" stop-color="#B8862A"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Wordmark -->
+  <text x="220" y="40" text-anchor="middle"
+        font-family="'SF Pro Display','Helvetica Neue','Arial Black',Helvetica,Arial,sans-serif"
+        font-weight="900" font-size="44" letter-spacing="18"
+        fill="url(#goldW6)">METTLE</text>
+
+  <!-- Thin gold baseline -->
+  <line x1="30" y1="52" x2="410" y2="52" stroke="#D4A843" stroke-width="0.8" opacity="0.4"/>
+  <!-- Scarlet center accent — short, bold -->
+  <line x1="200" y1="52" x2="240" y2="52" stroke="#C41230" stroke-width="1.8"/>
+</svg>

@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <!--
+    METTLE v6 — Light background variant
+    Slightly deepened colors for contrast on white/cream
+  -->
+  <defs>
+    <linearGradient id="gold6l" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#B8862A"/>
+      <stop offset="40%" stop-color="#D4A843"/>
+      <stop offset="70%" stop-color="#C9973A"/>
+      <stop offset="100%" stop-color="#A07525"/>
+    </linearGradient>
+    <linearGradient id="purple6l" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3D1480"/>
+      <stop offset="100%" stop-color="#220B48"/>
+    </linearGradient>
+    <linearGradient id="scarlet6l" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#A81028"/>
+      <stop offset="100%" stop-color="#7A0818"/>
+    </linearGradient>
+    <linearGradient id="navy6l" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1A3060"/>
+      <stop offset="100%" stop-color="#0D1C38"/>
+    </linearGradient>
+  </defs>
+
+  <polygon points="22,98 36,98 36,32 22,42" fill="url(#navy6l)"/>
+  <polygon points="36,32 60,58 60,84 36,58" fill="url(#scarlet6l)"/>
+  <polygon points="60,58 60,84 84,58 84,32" fill="url(#purple6l)"/>
+  <polygon points="84,32 84,98 98,98 98,42" fill="url(#navy6l)"/>
+
+  <polygon points="22,42 28,22 36,32" fill="url(#gold6l)"/>
+  <polygon points="53,32 60,14 67,32" fill="url(#gold6l)"/>
+  <polygon points="84,32 92,22 98,42" fill="url(#gold6l)"/>
+
+  <polyline points="22,98 22,42 28,22 36,32 36,58 60,84 84,58 84,32 92,22 98,42 98,98"
+    stroke="url(#gold6l)" stroke-width="2.2" stroke-linejoin="miter" fill="none"/>
+  <line x1="22" y1="98" x2="36" y2="98" stroke="url(#gold6l)" stroke-width="2.2"/>
+  <line x1="84" y1="98" x2="98" y2="98" stroke="url(#gold6l)" stroke-width="2.2"/>
+  <polyline points="36,32 53,32 60,14 67,32 84,32"
+    stroke="url(#gold6l)" stroke-width="2.2" stroke-linejoin="miter" fill="none"/>
+
+  <line x1="36" y1="32" x2="36" y2="98" stroke="#B8862A" stroke-width="0.8" opacity="0.3"/>
+  <line x1="84" y1="32" x2="84" y2="98" stroke="#B8862A" stroke-width="0.8" opacity="0.3"/>
+
+  <circle cx="28" cy="22" r="2" fill="#D4A843" opacity="0.9"/>
+  <circle cx="60" cy="14" r="2.5" fill="#D4A843" opacity="0.95"/>
+  <circle cx="92" cy="22" r="2" fill="#D4A843" opacity="0.9"/>
+</svg>
