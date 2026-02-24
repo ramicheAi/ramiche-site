@@ -1041,9 +1041,9 @@ export default function AthletePortal() {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-md lg:max-w-2xl xl:max-w-3xl">
+        <div className="relative z-10 w-full px-4 lg:px-8 xl:px-10" style={{maxWidth:'100%'}}>
           {/* Portal switcher — full-width grid */}
-          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8">
+          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8 max-w-lg mx-auto">
             {[
               { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
@@ -1064,13 +1064,13 @@ export default function AthletePortal() {
               </Link>
             ))}
           </div>
-          <div className="text-center mb-6">
+          <div className="text-center mb-8">
             <div className="inline-block px-3 py-1 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-xs font-bold mb-3">COACH VIEW</div>
-            <h1 className="text-2xl font-black text-white">Select Athlete</h1>
-            <p className="text-white/60 text-sm mt-1">Browse any athlete&apos;s portal</p>
+            <h1 className="text-3xl lg:text-4xl font-black text-white">Select Athlete</h1>
+            <p className="text-white/60 text-sm lg:text-base mt-2">Browse any athlete&apos;s portal</p>
           </div>
           {/* Group filter for coaches — full-width grid */}
-          <div className="grid grid-cols-4 gap-2 mb-3">
+          <div className="grid grid-cols-4 lg:grid-cols-8 gap-2 lg:gap-3 mb-4">
             {["all", "platinum", "gold", "silver", "bronze1", "bronze2", "diving", "waterpolo"].map(g => {
               const isActive = g === "all" ? !coachGroup : coachGroup === g;
               return (
@@ -1088,19 +1088,19 @@ export default function AthletePortal() {
           </div>
           <input type="text" placeholder="Search by name..." value={nameInput}
             onChange={e => setNameInput(e.target.value)}
-            className="w-full px-4 py-3 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-3" autoFocus />
-          <div className="max-h-[50vh] overflow-y-auto space-y-2">
-            {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 30)).map(a => {
+            className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-4" autoFocus />
+          <div className="max-h-[60vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 40)).map(a => {
               const lv = getLevel(a.xp || 0);
               return (
                 <button key={a.id} onClick={() => loadAthleteData(a)}
-                  className="w-full text-left px-4 py-3 rounded-xl bg-[#0a0518]/80 border border-white/5 hover:border-[#a855f7]/30 transition-all flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold" style={{background:`${lv.color}20`,color:lv.color}}>{a.name[0]}</div>
+                  className="w-full text-left px-5 py-4 rounded-xl bg-[#0a0518]/80 border-2 border-white/10 hover:border-[#a855f7]/40 transition-all flex items-center gap-4 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold" style={{background:`${lv.color}20`,color:lv.color}}>{a.name[0]}</div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-white font-semibold text-sm truncate">{a.name}</div>
-                    <div className="text-white/60 text-xs">{lv.name} · {a.xp || 0} XP</div>
+                    <div className="text-white font-semibold text-sm lg:text-base truncate">{a.name}</div>
+                    <div className="text-white/60 text-xs lg:text-sm">{lv.name} · {a.xp || 0} XP</div>
                   </div>
-                  <div className="text-white/50 text-xs">{a.group}</div>
+                  <div className="text-white/50 text-xs lg:text-sm">{a.group}</div>
                 </button>
               );
             })}
