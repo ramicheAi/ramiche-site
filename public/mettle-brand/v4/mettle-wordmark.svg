@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 60" fill="none">
+  <!--
+    METTLE Wordmark — Biblical palette
+    Geometric sans-serif with gold shadow offset for 3D effect
+  -->
+  <defs>
+    <linearGradient id="textGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D4A843"/>
+      <stop offset="50%" stop-color="#E8C36A"/>
+      <stop offset="100%" stop-color="#D4A843"/>
+    </linearGradient>
+  </defs>
+  <!-- Shadow layer — deep purple offset -->
+  <text x="12" y="47" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="48" font-weight="800" letter-spacing="12" fill="#3A1078" opacity="0.4">METTLE</text>
+  <!-- Main text — gold gradient -->
+  <text x="10" y="45" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="48" font-weight="800" letter-spacing="12" fill="url(#textGrad)">METTLE</text>
+  <!-- Scarlet baseline accent -->
+  <rect x="10" y="50" width="340" height="2" rx="1" fill="#B8001F" opacity="0.6"/>
+</svg>

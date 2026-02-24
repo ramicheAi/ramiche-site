@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE Brand v4</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0A0612; color: #fff; font-family: -apple-system, system-ui, sans-serif; padding: 24px; }
+  h1 { font-size: 14px; text-transform: uppercase; letter-spacing: 4px; color: #D4A843; margin-bottom: 8px; text-align: center; }
+  .sub { text-align: center; color: #888; font-size: 11px; margin-bottom: 40px; letter-spacing: 1px; }
+  .concept { margin-bottom: 48px; border-bottom: 1px solid #1A0536; padding-bottom: 40px; }
+  .concept:last-child { border-bottom: none; }
+  .label { font-size: 12px; text-transform: uppercase; letter-spacing: 3px; color: #D4A843; margin-bottom: 8px; }
+  .desc { font-size: 13px; color: #999; margin-bottom: 20px; line-height: 1.5; }
+  .icon-row { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; }
+  .icon-box { width: 88px; height: 88px; border-radius: 18px; display: flex; align-items: center; justify-content: center; padding: 14px; }
+  .icon-box.dark { background: #0A0612; border: 1px solid #1A0536; }
+  .icon-box.light { background: #F5F0E8; }
+  .icon-box img { width: 100%; height: 100%; }
+  .wordmark-box { border-radius: 12px; padding: 28px 32px; display: flex; align-items: center; justify-content: center; }
+  .wordmark-box.dark { background: #0A0612; border: 1px solid #1A0536; }
+  .wordmark-box.light { background: #F5F0E8; }
+  .wordmark-box img { height: 44px; width: auto; }
+  .full-box { border-radius: 12px; padding: 28px 32px; display: flex; align-items: center; justify-content: center; }
+  .full-box.dark { background: #0A0612; border: 1px solid #1A0536; }
+  .full-box.light { background: #F5F0E8; }
+  .full-box img { height: 72px; width: auto; }
+  .palette { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .swatch { width: 60px; height: 60px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding: 4px; }
+  .swatch span { font-size: 8px; color: rgba(255,255,255,0.6); }
+  .swatch.lt span { color: rgba(0,0,0,0.5); }
+</style>
+</head>
+<body>
+
+<h1>METTLE — v4</h1>
+<p class="sub">Purple · Scarlet · Gold · Blue — Colors of covenant</p>
+
+<div class="concept">
+  <div class="label">Icon Mark</div>
+  <div class="desc">The Faceted M — isometric fold. Purple = royalty. Scarlet = strength. Gold edges = glory.</div>
+  <div class="icon-row">
+    <div class="icon-box dark"><img src="mettle-icon.svg" alt="Icon dark"></div>
+    <div class="icon-box light"><img src="mettle-icon-light.svg" alt="Icon light"></div>
+  </div>
+</div>
+
+<div class="concept">
+  <div class="label">Wordmark</div>
+  <div class="desc">Gold gradient text with purple depth shadow. Scarlet baseline accent.</div>
+  <div class="wordmark-box dark"><img src="mettle-wordmark.svg" alt="Wordmark dark"></div>
+  <div style="height:12px"></div>
+  <div class="wordmark-box light"><img src="mettle-wordmark.svg" alt="Wordmark light"></div>
+</div>
+
+<div class="concept">
+  <div class="label">Full Logo</div>
+  <div class="desc">Icon + wordmark combined. The complete brand mark.</div>
+  <div class="full-box dark"><img src="mettle-logo-full.svg" alt="Full logo dark"></div>
+  <div style="height:12px"></div>
+  <div class="full-box light"><img src="mettle-logo-full.svg" alt="Full logo light"></div>
+</div>
+
+<div class="concept">
+  <div class="label">Color Palette</div>
+  <div class="desc">The four biblical colors — each carries meaning.</div>
+  <div class="palette">
+    <div class="swatch" style="background:#3A1078;"><span>Purple</span><span>Royalty</span></div>
+    <div class="swatch" style="background:#4C1A8A;"><span>Violet</span><span>Majesty</span></div>
+    <div class="swatch" style="background:#B8001F;"><span>Scarlet</span><span>Strength</span></div>
+    <div class="swatch" style="background:#D4A843;"><span>Gold</span><span>Glory</span></div>
+    <div class="swatch" style="background:#E8C36A;"><span>Light Gold</span><span>Promise</span></div>
+    <div class="swatch" style="background:#1E3A6E;"><span>Blue</span><span>Truth</span></div>
+  </div>
+  <p style="font-size:11px;color:#555;margin-top:16px;font-style:italic;">"Purple and scarlet yarn, and fine linen... overlay it with pure gold" — Exodus 26</p>
+</div>
+
+</body>
+</html>

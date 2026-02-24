@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" fill="none">
+  <!--
+    METTLE Full Logo — Icon + Wordmark
+    Biblical palette: purple, scarlet, gold, blue
+  -->
+  <defs>
+    <linearGradient id="wordGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D4A843"/>
+      <stop offset="50%" stop-color="#E8C36A"/>
+      <stop offset="100%" stop-color="#D4A843"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Icon -->
+  <g transform="translate(10,10) scale(0.83)">
+    <polygon points="15,100 30,100 30,25 15,35" fill="#3A1078"/>
+    <polygon points="30,25 30,55 60,85 60,55" fill="#B8001F"/>
+    <polygon points="60,55 60,85 90,55 90,25" fill="#4C1A8A"/>
+    <polygon points="90,25 90,100 105,100 105,35" fill="#3A1078"/>
+    <polygon points="15,35 30,25 32,27 17,37" fill="#D4A843" opacity="0.7"/>
+    <polygon points="90,25 105,35 103,37 88,27" fill="#D4A843" opacity="0.7"/>
+    <polygon points="30,55 60,85 90,55 60,55" fill="#1A0536" opacity="0.5"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="122" y="77" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="48" font-weight="800" letter-spacing="10" fill="#3A1078" opacity="0.35">METTLE</text>
+  <text x="120" y="75" font-family="'SF Pro Display','Helvetica Neue',Arial,sans-serif" font-size="48" font-weight="800" letter-spacing="10" fill="url(#wordGrad)">METTLE</text>
+  <rect x="120" y="80" width="340" height="2" rx="1" fill="#B8001F" opacity="0.5"/>
+</svg>
