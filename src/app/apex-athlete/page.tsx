@@ -2267,9 +2267,9 @@ export default function ApexAthletePage() {
           <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
             <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(212,168,67,0.08) 0%, transparent 70%)'}} />
             <div className="relative z-10 text-center max-w-lg">
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-32 xl:w-40 h-32 xl:h-40 mx-auto mb-8" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
-              <h1 className="text-5xl xl:text-6xl font-black mb-4 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #D4A843)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-              <p className="text-white/60 text-lg xl:text-xl leading-relaxed mb-6">Unlocking the greatness already inside every athlete.</p>
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-48 xl:w-56 2xl:w-64 h-48 xl:h-56 2xl:h-64 mx-auto mb-10" style={{animation:'logoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(212,168,67,0.2))'}} />
+              <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #D4A843)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md mx-auto">Unlocking the greatness already inside every athlete.</p>
               <div className="flex items-center justify-center gap-3 text-[#D4A843]/40 text-sm font-mono tracking-wider">
                 <span className="w-8 h-px bg-[#D4A843]/20" />
                 COACH PORTAL
@@ -2278,8 +2278,8 @@ export default function ApexAthletePage() {
             </div>
           </div>
           {/* Right panel — PIN form */}
-          <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
-            <div className="w-full max-w-md">
+          <div className="flex-1 flex items-center justify-center p-6 lg:p-12 xl:p-16">
+            <div className="w-full max-w-lg">
               {/* Mobile-only branding */}
               <div className="lg:hidden text-center mb-8">
                 <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
@@ -2287,10 +2287,10 @@ export default function ApexAthletePage() {
                 <div className="text-[#D4A843]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
               </div>
               {/* Access card */}
-              <div className="bg-[#0a0518]/80 backdrop-blur-xl border border-[#D4A843]/15 rounded-2xl p-8 lg:p-10" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
-                <div className="text-center mb-8">
-                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-2">{"// SECURE ACCESS"}</div>
-                  <h2 className="text-white text-2xl font-bold">Coach Access</h2>
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border border-[#D4A843]/15 rounded-2xl p-10 lg:p-12 xl:p-14" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
+                <div className="text-center mb-10">
+                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-3">{"// SECURE ACCESS"}</div>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold">Coach Access</h2>
                 </div>
                 {inviteCoachName && (
                   <div className="bg-[#a855f7]/[0.06] border border-[#a855f7]/20 rounded-xl px-5 py-4 mb-6 text-center">
@@ -2311,8 +2311,8 @@ export default function ApexAthletePage() {
                   </div>
                   {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED. Default: {MASTER_PIN}.</p>}
                   <button onClick={tryUnlock}
-                    className="w-full py-5 rounded-xl font-bold text-base tracking-widest uppercase transition-all active:scale-[0.97] min-h-[60px]"
-                    style={{background:'linear-gradient(135deg, #D4A843, #B8860B)',color:'#06020f',animation:'coachBtnPulse 2s ease-in-out infinite'}}>
+                    className="w-full py-6 rounded-xl font-black text-lg tracking-widest uppercase transition-all active:scale-[0.97] min-h-[70px]"
+                    style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #B8860B)',color:'#06020f',animation:'coachBtnPulse 2s ease-in-out infinite'}}>
                     Authenticate
                   </button>
                   {pinError && (
