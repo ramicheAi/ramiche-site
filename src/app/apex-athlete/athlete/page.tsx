@@ -350,7 +350,7 @@ function RadarChart({ values }: { values: Record<string, number> }) {
 
   return (
     <div className="flex justify-center w-full py-6">
-      <svg viewBox="0 0 200 200" className="w-full max-w-[320px] lg:max-w-none" style={{ filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.25))' }}>
+      <svg viewBox="0 0 200 200" className="w-full max-w-[320px] lg:max-w-[500px] xl:max-w-[600px]" style={{ filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.25))' }}>
         {gridLevels.map(level => (
           <polygon key={level} points={points(r * level).map(p => p.join(",")).join(" ")}
             fill="none" stroke="rgba(168,85,247,0.25)" strokeWidth="1" />
@@ -1317,7 +1317,7 @@ export default function AthletePortal() {
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
       {/* Portal switcher — full-width grid */}
-      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 lg:max-w-[1920px] lg:mx-auto">
+      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 w-full">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
@@ -1390,7 +1390,7 @@ export default function AthletePortal() {
         </div>
 
         {/* XP Bar */}
-        <div className="mb-4 lg:mb-8 p-3 lg:p-6 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 lg:max-w-[1920px] lg:mx-auto">
+        <div className="mb-4 lg:mb-8 p-3 lg:p-6 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 w-full">
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
             <span className="text-white/60 text-xs lg:text-base font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
@@ -1406,7 +1406,7 @@ export default function AthletePortal() {
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-3 gap-2 lg:gap-6 mb-4 lg:mb-8 lg:max-w-[1920px] lg:mx-auto">
+        <div className="grid grid-cols-3 gap-2 lg:gap-6 mb-4 lg:mb-8 w-full">
           <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
@@ -1426,7 +1426,7 @@ export default function AthletePortal() {
         </div>
 
         {/* Tab Navigation — two rows on mobile, single row on tablet+ */}
-        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] lg:max-w-[1920px] lg:mx-auto xl:p-4">
+        <div className="mb-5 lg:mb-8 bg-[#0a0518]/60 p-2 lg:p-3 rounded-2xl border border-white/[0.06] w-full xl:p-4">
           {/* Mobile: 2 rows */}
           <div className="md:hidden space-y-1.5">
             {[TABS.slice(0, 6), TABS.slice(6)].map((row, ri) => (
@@ -1469,9 +1469,9 @@ export default function AthletePortal() {
 
         {/* ══════════════ DASHBOARD TAB ══════════════ */}
         {tab === "dashboard" && attrs && (
-          <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-12 space-y-4 lg:space-y-0 lg:max-w-[1920px] lg:mx-auto">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-12 space-y-4 lg:space-y-0 w-full">
             {/* Left column on desktop */}
-            <div className="space-y-4">
+            <div className="space-y-4 w-full">
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6 text-center">YOUR STRENGTHS</h3>
               <RadarChart values={attrs} />
@@ -1518,11 +1518,11 @@ export default function AthletePortal() {
             )}
             </div>
             {/* Right column on desktop */}
-            <div className="space-y-4">
+            <div className="space-y-4 w-full">
             {/* Attendance Calendar — last 28 days heatmap */}
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">YOUR CONSISTENCY — LAST 28 DAYS</h3>
-              <div className="grid grid-cols-7 gap-1.5 lg:gap-3">
+              <div className="grid grid-cols-7 gap-1.5 lg:gap-3 xl:gap-4">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
                   <div key={i} className="text-center text-white/50 text-xs lg:text-base font-mono font-bold">{d}</div>
                 ))}
@@ -1573,7 +1573,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ TIMES / PR TAB ══════════════ */}
         {tab === "times" && (
-          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 xl:gap-8 lg:space-y-0">
+          <div className="space-y-4 w-full lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-6 xl:gap-8 lg:space-y-0">
             {/* Log new time */}
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#00f0ff]/10">
               <h3 className="text-[#00f0ff] text-xs lg:text-sm xl:text-base font-mono tracking-wider mb-3 lg:mb-4 flex items-center gap-2">
@@ -1725,7 +1725,7 @@ export default function AthletePortal() {
         {tab === "standards" && athlete && (() => {
           const g = athlete.gender;
           return (
-            <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
+            <div className="space-y-4 w-full">
               {/* Course selector */}
               <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ffd700]/10">
                 <h3 className="text-[#ffd700] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -1887,7 +1887,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ GOALS TAB ══════════════ */}
         {tab === "goals" && athlete && (
-          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
+          <div className="space-y-4 w-full lg:grid lg:grid-cols-2 lg:gap-6 lg:space-y-0">
             {/* Event/Stroke selector */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#22c55e]/10">
               <h3 className="text-[#22c55e] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
@@ -2102,7 +2102,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ RACE PREP TAB ══════════════ */}
         {tab === "raceprep" && (
-          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
+          <div className="space-y-4 w-full">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#ef4444]/10">
               <h3 className="text-[#ef4444] text-xs font-mono tracking-wider mb-3 flex items-center gap-2">
                 <TargetIcon active={true} /> RACE STRATEGY BUILDER
@@ -2197,7 +2197,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ QUESTS TAB ══════════════ */}
         {tab === "quests" && (
-          <div className="space-y-3 lg:max-w-[1920px] lg:mx-auto">
+          <div className="space-y-3 w-full">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">SIDE QUESTS</h3>
               <span className="text-white/25 text-xs font-mono">
@@ -2288,7 +2288,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ JOURNAL TAB ══════════════ */}
         {tab === "journal" && (
-          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
+          <div className="space-y-4 w-full">
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
               <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">HOW&apos;D IT GO TODAY?</h3>
               <div className="flex items-center gap-1 mb-4 justify-center">
@@ -2349,7 +2349,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ COACH FEEDBACK TAB ══════════════ */}
         {tab === "feedback" && (
-          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
+          <div className="space-y-4 w-full">
             <h3 className="text-[#f59e0b] text-xs font-mono tracking-wider mb-2 flex items-center gap-2">
               <MessageIcon active={true} /> COACH FEEDBACK
             </h3>
@@ -2400,7 +2400,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ LEADERBOARD TAB ══════════════ */}
         {tab === "leaderboard" && (
-          <div className="space-y-2 lg:max-w-[1920px] lg:mx-auto">
+          <div className="space-y-2 w-full">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">{athlete.gender === "F" ? "GIRLS" : "BOYS"} LEADERBOARD</h3>
               <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
@@ -2437,7 +2437,7 @@ export default function AthletePortal() {
 
         {/* ══════════════ WELLNESS TAB ══════════════ */}
         {tab === "wellness" && (
-          <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
+          <div className="space-y-4 w-full">
             {/* Pre/Post Check-In */}
             <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-emerald-500/10">
               <h3 className="text-emerald-400/70 text-xs font-mono tracking-wider mb-3">PRE-PRACTICE CHECK-IN</h3>
@@ -2601,7 +2601,7 @@ export default function AthletePortal() {
           const allUpcoming = myMeets.length > 0 ? myMeets : myRsvpMeets;
 
           return (
-            <div className="space-y-4 lg:max-w-[1920px] lg:mx-auto">
+            <div className="space-y-4 w-full">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">YOUR UPCOMING MEETS</h3>
 
               {allUpcoming.length === 0 ? (
