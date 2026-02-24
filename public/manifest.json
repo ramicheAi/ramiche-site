@@ -1,12 +1,20 @@
 {
-  "name": "Apex Athlete",
-  "short_name": "Apex",
-  "description": "Gamified swim training - Unlock your greatness",
-  "start_url": "/apex-athlete",
+  "name": "METTLE — Athlete Relations Manager",
+  "short_name": "METTLE",
+  "description": "Unlocking the greatness already inside every athlete — through the power of play.",
+  "start_url": "/apex-athlete/landing",
   "display": "standalone",
   "background_color": "#06020f",
-  "theme_color": "#00f0ff",
+  "theme_color": "#C9A84C",
+  "orientation": "portrait-primary",
+  "categories": ["sports", "fitness", "education"],
   "icons": [
+    {
+      "src": "/mettle-brand/v5/mettle-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
     {
       "src": "/agents/apex-icon-192.png",
       "sizes": "192x192",
