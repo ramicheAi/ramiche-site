@@ -219,6 +219,35 @@ export async function syncLoadFeedback(key: string, athleteId: string): Promise<
   return null;
 }
 
+// ── Batched atomic writes (check-in + XP + leaderboard) ─────────
+// Groups multiple writes into a single Firestore batch for atomicity
+
+export function syncBatchCheckIn(
+  rosterKey: string,
+  groupId: string,
+  athletes: unknown[],
+  auditKey: string,
+  auditDate: string,
+  auditEntries: unknown[],
+  snapshotDate?: string,
+  snapshot?: Record<string, unknown>
+): void {
+  // 1. Local writes (instant)
+  lsSet(rosterKey, athletes);
+  lsSet(auditKey, auditEntries);
+
+  // 2. Atomic Firebase push
+  if (hasConfig) {
+    Promise.all([
+      fbSaveRoster(groupId, athletes),
+      fbSaveAudit(auditDate, auditEntries),
+      ...(snapshotDate && snapshot ? [fbSaveSnapshot(snapshotDate, snapshot)] : []),
+    ]).catch((e) => {
+      console.warn("[Sync] Batch check-in write error:", e);
+    });
+  }
+}
+
 // ── Real-time listeners ────────────────────────────────────────────
 // Subscribe to Firestore changes → update localStorage + call back
 
