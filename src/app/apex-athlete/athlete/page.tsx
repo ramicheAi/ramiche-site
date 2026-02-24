@@ -1469,12 +1469,14 @@ export default function AthletePortal() {
 
         {/* ══════════════ DASHBOARD TAB ══════════════ */}
         {tab === "dashboard" && attrs && (
-          <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-12 space-y-4 lg:space-y-0 w-full">
-            {/* Left column on desktop */}
-            <div className="space-y-4 w-full">
-            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
+          <div className="xl:grid xl:grid-cols-3 lg:grid lg:grid-cols-2 gap-6 xl:gap-8 space-y-4 lg:space-y-0 w-full">
+            {/* Column 1: Strengths radar */}
+            <div className="w-full">
+            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10 h-full flex flex-col">
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6 text-center">YOUR STRENGTHS</h3>
-              <RadarChart values={attrs} />
+              <div className="flex-1 flex items-center justify-center">
+                <RadarChart values={attrs} />
+              </div>
               <div className="grid grid-cols-5 gap-1 mt-3">
                 {ATTRIBUTES.map(a => (
                   <div key={a.key} className="text-center">
@@ -1484,8 +1486,11 @@ export default function AthletePortal() {
                 ))}
               </div>
             </div>
+            </div>
 
-            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
+            {/* Column 2: Today's effort + streaks */}
+            <div className="w-full space-y-4">
+            <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5 flex-1">
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">TODAY&apos;S EFFORT</h3>
               <div className="grid grid-cols-3 gap-3 lg:gap-8">
                 <div className="text-center">
@@ -1508,7 +1513,7 @@ export default function AthletePortal() {
             </div>
 
             {athlete.weightStreak > 0 && (
-              <div className="p-4 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
+              <div className="p-4 lg:p-6 rounded-xl bg-[#0a0518]/80 border border-[#f59e0b]/10">
                 <h3 className="text-white/50 text-xs font-mono tracking-wider mb-2">IRON DISCIPLINE</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-2xl font-black text-[#f59e0b]">{athlete.weightStreak}</span>
@@ -1517,8 +1522,9 @@ export default function AthletePortal() {
               </div>
             )}
             </div>
-            {/* Right column on desktop */}
-            <div className="space-y-4 w-full">
+
+            {/* Column 3: Consistency calendar */}
+            <div className="w-full xl:col-span-1 lg:col-span-2 xl:col-auto">
             {/* Attendance Calendar — last 28 days heatmap */}
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">YOUR CONSISTENCY — LAST 28 DAYS</h3>
