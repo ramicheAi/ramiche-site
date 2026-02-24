@@ -3,11 +3,12 @@ import { writeFile, readFile, mkdir } from "fs/promises";
 import path from "path";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { parseBody, isValidEmail, sanitize, badRequest } from "@/lib/api-security";
+import { withAudit } from "@/lib/api-audit";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const INQUIRIES_FILE = path.join(DATA_DIR, "studio-inquiries.json");
 
-export async function POST(req: Request) {
+export const POST = withAudit("/api/studio-inquiry", async function POST(req: Request) {
   const ip = getClientIp(req);
   const rl = rateLimit(`studio-inquiry:${ip}`, 5, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);
@@ -74,4 +75,4 @@ export async function POST(req: Request) {
     console.error("Studio inquiry error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-}
+});

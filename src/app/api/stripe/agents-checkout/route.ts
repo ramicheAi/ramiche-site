@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { parseBody, isValidEmail, isOneOf, sanitize, badRequest } from "@/lib/api-security";
+import { withAudit } from "@/lib/api-audit";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE CHECKOUT — White-Label Agent Marketplace
@@ -42,7 +43,7 @@ function getStripe(): Stripe {
   return new Stripe(key, { apiVersion: "2026-01-28.clover" });
 }
 
-export async function POST(req: Request) {
+export const POST = withAudit("/api/stripe/agents-checkout", async function POST(req: Request) {
   const ip = getClientIp(req);
   const rl = rateLimit(`agents-checkout:${ip}`, 10, 60_000);
   if (!rl.allowed) return rateLimitResponse(rl);
@@ -104,4 +105,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Internal server error";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});
