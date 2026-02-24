@@ -251,20 +251,20 @@ export default function LoginPage() {
   // ── Render ──────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 py-8 lg:px-0">
+    <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 py-8 lg:px-6 xl:px-8">
       <BgOrbs />
 
-      <div className="relative z-10 w-full max-w-sm lg:max-w-6xl lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-0">
+      <div className="relative z-10 w-full max-w-sm lg:max-w-none lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-8 xl:gap-12 lg:px-8 xl:px-16 2xl:px-24">
 
         {/* ── Desktop branding panel (hidden on mobile) ── */}
-        <div className="hidden lg:flex flex-col items-center justify-center px-16">
-          <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-32 h-32 mb-8" style={{ filter: "drop-shadow(0 0 60px rgba(212,168,67,0.3))" }} />
-          <h1 className="text-5xl xl:text-6xl font-black tracking-tight text-white mb-4">METTLE</h1>
-          <p className="text-lg text-white/30 text-center max-w-sm">Unlocking the greatness already inside every athlete.</p>
+        <div className="hidden lg:flex flex-col items-center justify-center">
+          <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-40 h-40 xl:w-48 xl:h-48 mb-8" style={{ filter: "drop-shadow(0 0 60px rgba(212,168,67,0.3))" }} />
+          <h1 className="text-5xl xl:text-6xl 2xl:text-7xl font-black tracking-tight text-white mb-4">METTLE</h1>
+          <p className="text-xl xl:text-2xl text-white/30 text-center max-w-md">Unlocking the greatness already inside every athlete.</p>
         </div>
 
         {/* ── Form panel ── */}
-        <div className="w-full max-w-sm mx-auto lg:max-w-md lg:pr-16">
+        <div className="w-full max-w-sm mx-auto lg:max-w-lg xl:max-w-xl">
 
         {/* ── Role Selection Screen ── */}
         {mode === "select" && (
