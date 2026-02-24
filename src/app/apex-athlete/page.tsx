@@ -2289,9 +2289,9 @@ export default function ApexAthletePage() {
                 <div className="text-[#D4A843]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
               </div>
               {/* Access card */}
-              <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#D4A843]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
-                <div className="text-center mb-12">
-                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-4">{"// SECURE ACCESS"}</div>
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border-[3px] border-[#D4A843]/30 rounded-3xl p-12 sm:p-14 lg:p-16" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
+                <div className="text-center mb-14">
+                  <div className="text-[#D4A843]/50 text-xs tracking-[0.3em] uppercase font-mono mb-5">{"// SECURE ACCESS"}</div>
                   <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Coach Access</h2>
                 </div>
                 {inviteCoachName && (
@@ -2300,9 +2300,9 @@ export default function ApexAthletePage() {
                     <div className="text-[#a855f7] font-bold">{inviteCoachName}</div>
                   </div>
                 )}
-                <div className="flex flex-col gap-7">
+                <div className="flex flex-col gap-8">
                   <div>
-                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-3 block">Enter PIN</label>
+                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-4 block">Enter PIN</label>
                     <input
                       type="password" maxLength={4} value={pinInput}
                       onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
