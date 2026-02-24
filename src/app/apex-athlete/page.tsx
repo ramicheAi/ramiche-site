@@ -5639,7 +5639,7 @@ export default function ApexAthletePage() {
               <div className="relative mb-10">
                 {/* Podium glow backdrop */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
-                <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] mx-auto items-end">
+                <div className="grid grid-cols-3 gap-3 sm:gap-5 lg:gap-8 max-w-[800px] lg:max-w-[1100px] xl:max-w-[1400px] mx-auto items-end">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp);
@@ -5698,6 +5698,8 @@ export default function ApexAthletePage() {
                       {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
+                    <span className="text-xs text-white/20 font-mono hidden lg:inline w-24 text-center">{a.group || "—"}</span>
+                    <span className="text-xs text-white/15 font-mono hidden xl:inline w-20 text-center">{a.totalPractices || 0}p</span>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
                     {a.streak > 0 && <span className="text-white/50 text-sm hidden sm:inline-flex items-center gap-0.5 font-bold"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d</span>}
                     <span className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
