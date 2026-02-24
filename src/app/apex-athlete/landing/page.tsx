@@ -224,7 +224,7 @@ export default function MettleLanding() {
             </span>
           </div>
           <Link
-            href="/apex-athlete/login"
+            href="/apex-athlete/portal"
             className="heartbeat-card px-6 py-2.5 lg:px-8 lg:py-3 rounded-full text-xs lg:text-sm font-bold tracking-wider uppercase transition-all duration-300 hover:scale-105 border-2"
             style={{
               "--glow-color": C.gold,
@@ -270,7 +270,7 @@ export default function MettleLanding() {
           {/* CTA — BIG, THICK, GLOWING like a heartbeat before a race */}
           <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
-              href="/apex-athlete/login"
+              href="/apex-athlete/portal"
               className="heartbeat-cta inline-flex items-center justify-center rounded-2xl font-black tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08]"
               style={{
                 "--glow-color": C.goldBright,

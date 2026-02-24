@@ -13,7 +13,7 @@ import {
   firebaseConnected,
 } from "@/lib/apex-sync";
 import { ApexNotificationBell, addNotification } from "@/components/apex-notifications";
-import { MASTER_PIN, getSession } from "./auth";
+import { MASTER_PIN } from "./auth";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics
@@ -1139,14 +1139,6 @@ export default function ApexAthletePage() {
 
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
-    // Auto-unlock if already authenticated via login page (admin session)
-    const session = getSession();
-    if (session && (session.role === "admin" || session.role === "coach")) {
-      setUnlocked(true);
-      setActiveCoach(session.role === "admin" ? "Head Coach" : session.name || "Coach");
-      setActiveCoachGroups(["all"]);
-      try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {}
-    }
     const pin = load<string>(K.PIN, "");
     // Force-migrate old default PIN or empty → current default
     if (!pin || pin === "1234") { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); } else { setCoachPin(pin); }
