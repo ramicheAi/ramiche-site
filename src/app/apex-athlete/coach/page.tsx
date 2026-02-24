@@ -2038,7 +2038,7 @@ export default function ApexAthletePage() {
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
             <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Athlete Performance System</div>
-            <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
+            <h1 className="text-4xl font-black mb-2 tracking-tighter" style={{background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'}}>METTLE</h1>
             <div className="text-[#a855f7]/30 text-xs tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
           <div className="flex flex-col gap-4">
@@ -2092,14 +2092,14 @@ export default function ApexAthletePage() {
           {/* Title row — compact */}
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
-              background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
+              background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundSize: '200% 200%',
               animation: 'gradientShift 4s ease-in-out infinite',
-              filter: 'drop-shadow(0 0 30px rgba(0,240,255,0.3))'
+              filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'
             }}>
-              APEX ATHLETE
+              METTLE
             </h1>
             <div className="flex items-center gap-2">
               <button onClick={togglePushNotifications} disabled={pushLoading}
@@ -4347,7 +4347,7 @@ export default function ApexAthletePage() {
 
         {/* Privacy footer */}
         <div className="text-center text-white/[0.05] text-xs py-10 space-y-1">
-          <p>Apex Athlete — Saint Andrew&apos;s Aquatics</p>
+          <p>METTLE — Athlete Relations Manager</p>
           <p>Coach manages all data. Parental consent required.</p>
         </div>
       </div>

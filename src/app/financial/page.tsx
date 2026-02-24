@@ -27,7 +27,7 @@ const APEX_PROJECTIONS = SHARED_PROJECTIONS.map(p => ({ ...p }));
 
 const BRANDS = [
   {
-    name: "Apex Athlete", accent: "#f59e0b", icon: "\u2726",
+    name: "METTLE", accent: "#f59e0b", icon: "\u2726",
     streams: [
       { name: "SaaS Subscriptions ($149-$549/mo)", status: "active", monthly: "Beta (Stripe live)", potential: "$310K/mo @ 1K teams" },
       { name: "App Store (v3)", status: "planned", monthly: "\u2014", potential: "$50K+/mo (30% premium)" },
@@ -173,7 +173,7 @@ export default function FinancialDashboard() {
           <div className="flex items-center gap-3 mb-8">
             <div className="h-px flex-1 bg-gradient-to-r from-[#f59e0b]/20 to-transparent" />
             <h2 className="text-sm tracking-[0.25em] uppercase text-[#f59e0b]/60 font-mono font-bold">
-              Apex Athlete &#x2014; Pricing Tiers
+              METTLE &#x2014; Pricing Tiers
             </h2>
             <div className="h-px flex-1 bg-gradient-to-l from-[#f59e0b]/20 to-transparent" />
           </div>

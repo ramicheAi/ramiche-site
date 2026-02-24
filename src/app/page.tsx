@@ -53,14 +53,14 @@ export default function Home() {
   const navLinks = [
     { label: "HQ", href: "/", active: true },
     { label: "Command Center", href: "/command-center" },
-    { label: "Apex Athlete", href: "/apex-athlete" },
+    { label: "METTLE", href: "/apex-athlete" },
     { label: "Financial", href: "/financial" },
     { label: "Studio", href: "/studio" },
   ];
 
   const portals = [
     { title: "Command Center", description: "Mission control for all operations", href: "/command-center", accent: "cyan" as const, icon: "◈", status: "ONLINE" },
-    { title: "Apex Athlete", description: "Athlete engagement & performance platform", href: "/apex-athlete", accent: "purple" as const, icon: "✦", status: "ACTIVE" },
+    { title: "METTLE", description: "Athlete Relations Manager — gamified training", href: "/apex-athlete", accent: "purple" as const, icon: "✦", status: "ACTIVE" },
     { title: "Financial", description: "ORACLE — Revenue & growth metrics", href: "/financial", accent: "gold" as const, icon: "◉", status: "LIVE" },
     { title: "Parallax Studio", description: "Creative direction for the bold", href: "/studio", accent: "cyan" as const, icon: "♢", status: "LIVE" },
   ];
@@ -70,7 +70,7 @@ export default function Home() {
     { name: "PARALLAX", role: "Operations HQ" },
     { name: "Galactik Antics", role: "Product Line" },
     { name: "The Baba Studio", role: "Audio Division" },
-    { name: "Apex Athlete", role: "SaaS Platform" },
+    { name: "METTLE", role: "SaaS Platform" },
   ];
 
   const stats = data
@@ -411,7 +411,7 @@ export default function Home() {
             </div>
             <div className="flex items-center gap-6">
               <a href="/command-center" className="text-[10px] text-white/20 hover:text-[#00f0ff]/60 tracking-wider uppercase transition-colors">Command Center</a>
-              <a href="/apex-athlete" className="text-[10px] text-white/20 hover:text-[#a855f7]/60 tracking-wider uppercase transition-colors">Apex Athlete</a>
+              <a href="/apex-athlete" className="text-[10px] text-white/20 hover:text-[#a855f7]/60 tracking-wider uppercase transition-colors">METTLE</a>
               <a href="/financial" className="text-[10px] text-white/20 hover:text-[#f59e0b]/60 tracking-wider uppercase transition-colors">Financial</a>
               <a href="/studio" className="text-[10px] text-white/20 hover:text-[#f59e0b]/60 tracking-wider uppercase transition-colors">Studio</a>
             </div>

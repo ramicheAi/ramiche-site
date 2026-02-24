@@ -381,7 +381,7 @@ function TierCard({
           <div className="flex items-center gap-2 mb-4">
             <CheckIcon className="w-4 h-4 shrink-0" style={{ color: tier.color }} />
             <span className="text-xs font-mono font-bold uppercase tracking-wider" style={{ color: `${tier.color}CC` }}>
-              Full Apex Experience
+              Full METTLE Experience
             </span>
           </div>
 
@@ -562,7 +562,7 @@ function EnterpriseCard() {
           {/* Right side */}
           <div className="shrink-0">
             <a
-              href="mailto:hello@parallax.so?subject=Apex%20Enterprise%20Inquiry"
+              href="mailto:hello@parallax.so?subject=METTLE%20Enterprise%20Inquiry"
               className="inline-flex items-center gap-2 px-8 py-3.5 text-sm font-bold font-mono tracking-[0.2em] uppercase transition-all duration-300 hover:brightness-125"
               style={{
                 background: "linear-gradient(135deg, #f59e0b30, #f59e0b15)",
@@ -605,7 +605,7 @@ function ValueStats() {
             WebkitTextFillColor: "transparent",
           }}
         >
-          Why Teams Switch to Apex
+          Why Teams Switch to METTLE
         </h2>
       </div>
 
@@ -744,7 +744,7 @@ export default function BillingPage() {
           </h1>
 
           <p className="text-white/30 text-sm sm:text-base font-mono max-w-2xl mx-auto leading-relaxed">
-            Every tier includes the full Apex experience. All features, every portal, complete gamification.
+            Every tier includes the full METTLE experience. All features, every portal, complete gamification.
             <br />
             <span className="text-white/50">The only difference is how many athletes you bring.</span>
           </p>
@@ -832,7 +832,7 @@ export default function BillingPage() {
             {[
               {
                 q: "Do all tiers get the same features?",
-                a: "Yes. Every tier includes the complete Apex experience — all three portals, full gamification, meet management, analytics, and performance tools. No features are locked behind higher tiers.",
+                a: "Yes. Every tier includes the complete METTLE experience — all three portals, full gamification, meet management, analytics, and performance tools. No features are locked behind higher tiers.",
               },
               {
                 q: "What's the difference between tiers?",

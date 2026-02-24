@@ -2743,7 +2743,7 @@ export default function AthletePortal() {
 
         {/* Footer */}
         <div className="text-center mt-10 text-white/[0.06] text-sm space-y-1">
-          <p>Apex Athlete — Athlete Portal</p>
+          <p>METTLE — Athlete Portal</p>
           <p>Every rep counts · Every streak matters · Keep leveling up</p>
         </div>
       </div>

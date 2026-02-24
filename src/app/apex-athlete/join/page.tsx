@@ -199,7 +199,7 @@ function JoinContent() {
         </button>
 
         <p className="text-white/10 text-[10px] font-mono mt-8">
-          APEX ATHLETE // Secure Invite System
+          METTLE // Secure Invite System
         </p>
       </div>
     </div>

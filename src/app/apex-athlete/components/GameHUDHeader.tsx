@@ -67,16 +67,16 @@ export function GameHUDHeader({
         {/* Title + Nav */}
         <div className="flex items-end justify-between mb-6">
           <div>
-            <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-1">{'<'} swim.training.system {'/'+'>'}</div>
+            <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#C9A84C]/30 font-mono mb-1">{'<'} athlete.relations.manager {'/'+'>'}</div>
             <h1 className="text-4xl sm:text-5xl font-black tracking-[-0.04em] leading-[0.85]" style={{
-              background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
+              background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundSize: '200% 200%',
               animation: 'gradientShift 4s ease-in-out infinite',
-              filter: 'drop-shadow(0 0 30px rgba(0,240,255,0.3))'
+              filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'
             }}>
-              APEX ATHLETE
+              METTLE
             </h1>
           </div>
           {/* Game HUD nav tabs */}

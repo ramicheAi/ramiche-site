@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     const snap = await query.get();
-    const payload = JSON.stringify({ title, body, tag: tag || "apex-coach", url: url || "/apex-athlete", icon: "/agents/apex-icon-192.png" });
+    const payload = JSON.stringify({ title, body, tag: tag || "mettle-coach", url: url || "/apex-athlete", icon: "/mettle-brand/v5/mettle-icon.svg" });
 
     let sent = 0;
     let failed = 0;

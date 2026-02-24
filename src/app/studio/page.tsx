@@ -12,7 +12,7 @@ import { useState, FormEvent } from "react";
 const NAV_LINKS = [
   { label: "GA Dock", href: "/", active: false },
   { label: "Command Center", href: "/command-center", active: false },
-  { label: "Apex Athlete", href: "/apex-athlete", active: false },
+  { label: "METTLE", href: "/apex-athlete", active: false },
   { label: "Financial", href: "/financial", active: false },
   { label: "Studio", href: "/studio", active: true },
   { label: "Agents", href: "/agents", active: false },
@@ -120,7 +120,7 @@ const PORTFOLIO_ITEMS = [
     accent: "cyan",
   },
   {
-    title: "Apex Athlete",
+    title: "METTLE",
     category: "SaaS Product Design",
     description: "Gamified swim training platform — futuristic game UI, coach/athlete/parent portals, and brand identity for 240+ youth athletes.",
     tags: ["UI/UX", "Brand", "SaaS"],

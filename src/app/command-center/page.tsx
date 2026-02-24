@@ -168,7 +168,7 @@ const AGENTS = [
 /* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
 const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "active" | "idle" | "done" }[]> = {
   Atlas: [
-    { project: "Apex Athlete", role: "Lead architect + game engine", status: "active" },
+    { project: "METTLE", role: "Lead architect + game engine", status: "active" },
     { project: "Command Center", role: "Design + build", status: "active" },
     { project: "Galactik Antics", role: "Store pipeline + copy", status: "active" },
     { project: "Parallax Studio", role: "Landing page + outreach", status: "idle" },
@@ -182,11 +182,11 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Revenue Optimization", role: "Pricing models + market analysis", status: "idle" },
   ],
   "Dr. Strange": [
-    { project: "Apex Athlete", role: "Attrition prediction + forecasting", status: "idle" },
+    { project: "METTLE", role: "Attrition prediction + forecasting", status: "idle" },
     { project: "Business Strategy", role: "Scenario planning + risk analysis", status: "idle" },
   ],
   SHURI: [
-    { project: "Apex Athlete", role: "UI/UX + rapid prototyping", status: "active" },
+    { project: "METTLE", role: "UI/UX + rapid prototyping", status: "active" },
     { project: "Replit Projects", role: "Social Cross-Poster build", status: "idle" },
     { project: "Galactik Antics", role: "Browser game MVP", status: "idle" },
   ],
@@ -195,7 +195,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Competitive Intel", role: "Market monitoring + threat scan", status: "idle" },
   ],
   PROXIMON: [
-    { project: "Apex Athlete", role: "Systems architecture + scaling", status: "active" },
+    { project: "METTLE", role: "Systems architecture + scaling", status: "active" },
     { project: "Infrastructure", role: "Firebase + deployment pipeline", status: "idle" },
   ],
   Vee: [
@@ -205,11 +205,11 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
   ],
   Aetherion: [
     { project: "Multi-Agent Architecture", role: "Designing agent collaboration patterns", status: "active" },
-    { project: "Apex Athlete", role: "Scalable system blueprint (multi-team SaaS)", status: "idle" },
+    { project: "METTLE", role: "Scalable system blueprint (multi-team SaaS)", status: "idle" },
     { project: "Infrastructure", role: "Cross-project integration + emergence analysis", status: "idle" },
   ],
   MICHAEL: [
-    { project: "Apex Athlete", role: "Swim coaching intelligence + athlete motivation", status: "active" },
+    { project: "METTLE", role: "Swim coaching intelligence + athlete motivation", status: "active" },
     { project: "Saint Andrew's Aquatics", role: "Training analysis + race strategy", status: "active" },
   ],
   Prophets: [
@@ -218,7 +218,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Life Guidance", role: "Faith-rooted wisdom for decisions", status: "active" },
   ],
   SELAH: [
-    { project: "Apex Athlete", role: "Sport psychology + athlete mental performance", status: "active" },
+    { project: "METTLE", role: "Sport psychology + athlete mental performance", status: "active" },
     { project: "Team Wellness", role: "Coach/athlete wellness support + burnout prevention", status: "active" },
     { project: "Personal Growth", role: "Ramon's peak performance + mindset coaching", status: "idle" },
   ],
@@ -232,7 +232,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
   ],
   HAVEN: [
     { project: "Customer Support", role: "Ticket system + onboarding", status: "idle" },
-    { project: "Apex Athlete", role: "Coach/parent support flows", status: "idle" },
+    { project: "METTLE", role: "Coach/parent support flows", status: "idle" },
   ],
   INK: [
     { project: "Content Pipeline", role: "Blog + social copy + scripts", status: "idle" },
@@ -243,12 +243,12 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
     { project: "Galactik Antics", role: "Physical merch prototyping", status: "idle" },
   ],
   KIYOSAKI: [
-    { project: "Apex Athlete", role: "Financial model + pricing strategy", status: "done" },
+    { project: "METTLE", role: "Financial model + pricing strategy", status: "done" },
     { project: "Wealth Architecture", role: "Investment analysis + cashflow optimization", status: "idle" },
   ],
   TRIAGE: [
     { project: "System Health", role: "Debugging + diagnostics + failure tracing", status: "idle" },
-    { project: "Apex Athlete", role: "Code review + performance audit", status: "idle" },
+    { project: "METTLE", role: "Code review + performance audit", status: "idle" },
   ],
 };
 
@@ -270,7 +270,7 @@ const MISSIONS = [
     link: { label: "Printful", href: "https://www.printful.com/dashboard" },
   },
   {
-    name: "Apex Athlete", accent: "#f59e0b", status: "active" as const,
+    name: "METTLE", accent: "#C9A84C", status: "active" as const,
     desc: "Gamified swim training \u2014 LIVE BETA \u2014 Stripe checkout live", priority: "CRITICAL",
     tasks: [
       { t: "Game engine + check-ins", done: true },
@@ -364,7 +364,7 @@ const LINKS = [
 /* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
 const LOG = [
   { time: "Feb 17", text: "Atlas: All dashboards synced to shared config \u2014 single source of truth", color: "#00f0ff" },
-  { time: "Feb 17", text: "Copyright filed for Apex Athlete at eco.copyright.gov", color: "#a855f7" },
+  { time: "Feb 17", text: "Copyright filed for METTLE at eco.copyright.gov", color: "#a855f7" },
   { time: "Feb 17", text: "Stripe checkout confirmed \u2014 all 3 tiers working end-to-end", color: "#34d399" },
   { time: "Feb 16", text: "Billing page rebuilt \u2014 $149/$349/$549, full features every tier", color: "#f59e0b" },
   { time: "Feb 16", text: "CI/CD pipeline deployed \u2014 GitHub Actions + Husky + Vitest", color: "#00f0ff" },
@@ -374,7 +374,7 @@ const LOG = [
   { time: "Feb 10", text: "INK: 5-piece launch content package completed", color: "#c084fc" },
   { time: "Feb 10", text: "Shopify store created \u2014 GALAKTIK ANTICS", color: "#96bf48" },
   { time: "Feb 9", text: "Model tiers locked \u2014 19 agents assigned", color: "#00f0ff" },
-  { time: "Feb 8", text: "Apex Athlete v1 tested live \u2014 all checkpoints working", color: "#f59e0b" },
+  { time: "Feb 8", text: "METTLE v1 tested live \u2014 all checkpoints working", color: "#f59e0b" },
   { time: "Feb 8", text: "Multi-roster: 240+ athletes across 7 groups deployed", color: "#f59e0b" },
   { time: "Feb 8", text: "Aetherion: 5 blueprints + Phase 1 matrix delivered", color: "#818cf8" },
 ];
@@ -394,7 +394,7 @@ const SCHEDULE = [
 /* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
 const NOTIFICATIONS = [
   { text: "Stripe checkout LIVE \u2014 3 tiers ($149/$349/$549) tested + working", accent: "#34d399", icon: "\u25C8" },
-  { text: "Copyright filed \u2014 Apex Athlete protected (Feb 17)", accent: "#a855f7", icon: "\u25C8" },
+  { text: "Copyright filed \u2014 METTLE protected (Feb 17)", accent: "#a855f7", icon: "\u25C8" },
   { text: "CI/CD pipeline deployed \u2014 GitHub Actions + Husky + Vitest", accent: "#00f0ff", icon: "\u25C8" },
   { text: "Billing page rebuilt \u2014 full features at every tier, no vapor", accent: "#f59e0b", icon: "\u25C8" },
   { text: "Hy-Tek import \u2014 .hy3/.ev3 iOS fix deployed, needs user test", accent: "#22d3ee", icon: "\u25C8" },
@@ -405,7 +405,7 @@ const NOTIFICATIONS = [
 const NAV = [
   { label: "HQ", href: "/", icon: "\u25C8" },
   { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
-  { label: "APEX", href: "/apex-athlete", icon: "\u2726" },
+  { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
   { label: "FINANCE", href: "/financial", icon: "\u25C9" },
   { label: "STUDIO", href: "/studio", icon: "\u2662" },
 ];
@@ -1170,7 +1170,7 @@ export default function CommandCenter() {
                     </span>
                   </div>
                   <div className="text-base sm:text-lg font-bold text-white/90 leading-snug">
-                    Quest flow UX polish + Firebase v2 deploy for Apex Athlete
+                    Quest flow UX polish + Firebase v2 deploy for METTLE
                   </div>
                   <div className="text-[10px] font-mono text-white/25 mt-1">
                     Stripe live · Copyright filed · CI/CD deployed — now polish + scale
@@ -1186,7 +1186,7 @@ export default function CommandCenter() {
                       border: "1px solid rgba(245,158,11,0.3)",
                     }}
                   >
-                    OPEN APEX &rarr;
+                    OPEN METTLE &rarr;
                   </Link>
                 </div>
               </div>

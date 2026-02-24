@@ -73,7 +73,7 @@ export const APEX_PROJECTIONS = [
 export const BRANDS = [
   { name: "Parallax", role: "Parent Company", accent: "#e879f9" },
   { name: "PARALLAX", role: "Operations HQ", accent: "#fcd34d" },
-  { name: "Apex Athlete", role: "SaaS Platform", accent: "#f59e0b" },
+  { name: "METTLE", role: "SaaS Platform", accent: "#C9A84C" },
   { name: "Galactik Antics", role: "AI Art + Merch", accent: "#00f0ff" },
   { name: "Parallax Studio", role: "Creative Services", accent: "#a855f7" },
   { name: "The Baba Studio", role: "Audio Division", accent: "#e879f9" },
@@ -94,7 +94,7 @@ export const KEY_METRICS = {
 export const NAV_LINKS = [
   { label: "HQ", href: "/", icon: "\u25C8" },
   { label: "COMMAND", href: "/command-center", icon: "\u25C7" },
-  { label: "APEX", href: "/apex-athlete", icon: "\u2726" },
+  { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
   { label: "FINANCE", href: "/financial", icon: "\u25C9" },
   { label: "STUDIO", href: "/studio", icon: "\u2662" },
 ] as const;

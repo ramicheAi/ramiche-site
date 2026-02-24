@@ -2361,14 +2361,14 @@ export default function ApexAthletePage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
-                background: 'linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #00f0ff 60%, #e879f9 100%)',
+                background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundSize: '200% 200%',
                 animation: 'gradientShift 4s ease-in-out infinite',
-                filter: 'drop-shadow(0 0 30px rgba(0,240,255,0.3))'
+                filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'
               }}>
-                APEX ATHLETE
+                METTLE
               </h1>
               {/* Sync Status Badge */}
               <div className="flex items-center gap-1.5 mt-1.5">
@@ -3194,7 +3194,7 @@ export default function ApexAthletePage() {
           )}
 
           <div className="text-center text-white/[0.08] text-sm py-10 space-y-1">
-            <p>Apex Athlete — Race Strategy AI</p>
+            <p>METTLE — Athlete Relations Manager</p>
             <p>Personal growth, not competition. Every rep counts.</p>
           </div>
         </div>
@@ -4446,7 +4446,7 @@ export default function ApexAthletePage() {
       const courseCode = meet.course === "LCM" ? "L" : meet.course === "SCM" ? "S" : "Y";
       const lines: string[] = [];
       // A0 — File Description
-      lines.push(pad("A0", 2) + pad("03", 2) + pad("Apex Athlete", 30) + pad("", 126));
+      lines.push(pad("A0", 2) + pad("03", 2) + pad("METTLE", 30) + pad("", 126));
       // B1 — Meet record
       lines.push(pad("B1", 2) + pad("", 9) + pad(meet.name, 45) + pad(meet.location || "", 45) + dateMMDDYYYY(meet.date) + dateMMDDYYYY(meet.endDate || meet.date) + courseCode + pad("", 50));
       // C1 — Team record
