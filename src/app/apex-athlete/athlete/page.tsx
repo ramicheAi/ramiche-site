@@ -350,7 +350,7 @@ function RadarChart({ values }: { values: Record<string, number> }) {
 
   return (
     <div className="flex justify-center w-full py-6">
-      <svg viewBox="0 0 200 200" className="w-full max-w-[320px] lg:max-w-[480px] xl:max-w-[560px]" style={{ filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.25))' }}>
+      <svg viewBox="0 0 200 200" className="w-full max-w-[320px] lg:max-w-none" style={{ filter: 'drop-shadow(0 0 30px rgba(168,85,247,0.25))' }}>
         {gridLevels.map(level => (
           <polygon key={level} points={points(r * level).map(p => p.join(",")).join(" ")}
             fill="none" stroke="rgba(168,85,247,0.25)" strokeWidth="1" />
@@ -1362,11 +1362,11 @@ export default function AthletePortal() {
         <div className="flex items-center justify-between mb-4 lg:mb-8">
           <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
           <div className="text-center">
-            <h2 className="text-white font-bold text-lg lg:text-3xl xl:text-4xl">{athlete.name}</h2>
-            <div className="flex items-center justify-center gap-2 mt-0.5">
-              <span style={{ color: level.color }} className="text-sm font-bold">{level.icon} {level.name}</span>
-              <span className="text-white/50 text-xs">·</span>
-              <span className="text-white/60 text-xs">{athlete.group.toUpperCase()}</span>
+            <h2 className="text-white font-bold text-lg lg:text-4xl xl:text-5xl">{athlete.name}</h2>
+            <div className="flex items-center justify-center gap-2 lg:gap-3 mt-0.5 lg:mt-2">
+              <span style={{ color: level.color }} className="text-sm lg:text-xl font-bold">{level.icon} {level.name}</span>
+              <span className="text-white/50 text-xs lg:text-base">·</span>
+              <span className="text-white/60 text-xs lg:text-lg">{athlete.group.toUpperCase()}</span>
             </div>
             <div className="flex items-center justify-center gap-2 mt-1">
               <span className="text-white/50 text-sm font-mono">Age {athlete.age}</span>
@@ -1390,38 +1390,38 @@ export default function AthletePortal() {
         </div>
 
         {/* XP Bar */}
-        <div className="mb-4 lg:mb-6 p-3 lg:p-5 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 lg:max-w-[1920px] lg:mx-auto">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-white/60 text-xs font-mono">XP: {athlete.xp}</span>
+        <div className="mb-4 lg:mb-8 p-3 lg:p-6 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-[#a855f7]/10 lg:max-w-[1920px] lg:mx-auto">
+          <div className="flex items-center justify-between mb-1.5 lg:mb-3">
+            <span className="text-white/60 text-xs lg:text-base font-mono">XP: {athlete.xp}</span>
             {nextLevel ? (
               <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
               <span className="text-[#ef4444] text-xs font-bold">MAX LEVEL</span>
             )}
           </div>
-          <div className="h-2.5 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-2.5 lg:h-4 bg-white/5 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
           </div>
         </div>
 
         {/* Quick Stats Row */}
-        <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-4 lg:mb-6 lg:max-w-[1920px] lg:mx-auto">
-          <div className="p-2.5 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-xl lg:text-3xl font-black text-white">{athlete.streak}</div>
-            <div className="text-sm lg:text-base font-mono tracking-wider" style={{ color: streak.color }}>{streak.label}</div>
-            <div className="text-white/50 text-sm lg:text-base">{streak.mult}</div>
+        <div className="grid grid-cols-3 gap-2 lg:gap-6 mb-4 lg:mb-8 lg:max-w-[1920px] lg:mx-auto">
+          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.streak}</div>
+            <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
+            <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>
-          <div className="p-2.5 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-xl lg:text-3xl font-black text-white">{athlete.totalPractices}</div>
-            <div className="text-white/60 text-sm lg:text-base font-mono tracking-wider">PRACTICES</div>
+          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.totalPractices}</div>
+            <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-1">PRACTICES</div>
           </div>
-          <div className="p-2.5 lg:p-5 rounded-xl bg-[#0a0518]/80 border border-white/5 text-center">
-            <div className="text-xl lg:text-3xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
-            <div className="text-white/60 text-xs font-mono tracking-wider">
+          <div className="p-2.5 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border border-white/5 text-center">
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
+            <div className="text-white/60 text-xs lg:text-base xl:text-lg font-mono tracking-wider mt-1">
               {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
             </div>
-            <div className="text-white/60 text-xs font-mono tracking-wider">THIS WEEK</div>
+            <div className="text-white/60 text-xs lg:text-base font-mono tracking-wider">THIS WEEK</div>
           </div>
         </div>
 
@@ -1449,10 +1449,10 @@ export default function AthletePortal() {
             ))}
           </div>
           {/* Tablet+: single row */}
-          <div className="hidden md:grid" style={{ gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '4px' }}>
+          <div className="hidden md:grid" style={{ gridTemplateColumns: `repeat(${TABS.length}, 1fr)`, gap: '6px' }}>
             {TABS.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)}
-                className={`flex flex-col items-center justify-center gap-0.5 py-2 lg:py-3 text-[10px] lg:text-sm font-bold rounded-lg transition-all duration-200 relative min-h-[48px] lg:min-h-[56px] ${
+                className={`flex flex-col items-center justify-center gap-1 py-3 lg:py-4 text-xs lg:text-base xl:text-lg font-bold rounded-xl transition-all duration-200 relative min-h-[56px] lg:min-h-[72px] ${
                   tab === t.key ? "bg-[#a855f7]/20 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_15px_rgba(168,85,247,0.2)]" : "text-white/40 hover:text-white/60 hover:bg-white/[0.04] border border-white/[0.06]"
                 }`}>
                 {t.icon(tab === t.key)}
@@ -1473,7 +1473,7 @@ export default function AthletePortal() {
             {/* Left column on desktop */}
             <div className="space-y-4">
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-[#a855f7]/10">
-              <h3 className="text-white/50 text-xs lg:text-sm font-mono tracking-wider mb-3 lg:mb-4 text-center">YOUR STRENGTHS</h3>
+              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6 text-center">YOUR STRENGTHS</h3>
               <RadarChart values={attrs} />
               <div className="grid grid-cols-5 gap-1 mt-3">
                 {ATTRIBUTES.map(a => (
@@ -1486,19 +1486,19 @@ export default function AthletePortal() {
             </div>
 
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
-              <h3 className="text-white/50 text-xs lg:text-sm font-mono tracking-wider mb-3 lg:mb-4">TODAY&apos;S EFFORT</h3>
-              <div className="grid grid-cols-3 gap-3 lg:gap-6">
+              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">TODAY&apos;S EFFORT</h3>
+              <div className="grid grid-cols-3 gap-3 lg:gap-8">
                 <div className="text-center">
-                  <div className="text-lg lg:text-2xl font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
-                  <div className="text-sm lg:text-base text-white/60">Pool</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
+                  <div className="text-sm lg:text-lg text-white/60">Pool</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg lg:text-2xl font-bold text-[#f59e0b]">{athlete.dailyXP?.weight || 0}</div>
-                  <div className="text-sm lg:text-base text-white/60">Weight</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#f59e0b]">{athlete.dailyXP?.weight || 0}</div>
+                  <div className="text-sm lg:text-lg text-white/60">Weight</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg lg:text-2xl font-bold text-[#ef4444]">{athlete.dailyXP?.meet || 0}</div>
-                  <div className="text-sm lg:text-base text-white/60">Meet</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#ef4444]">{athlete.dailyXP?.meet || 0}</div>
+                  <div className="text-sm lg:text-lg text-white/60">Meet</div>
                 </div>
               </div>
               <div className="mt-3 pt-3 border-t border-white/5 text-center">
@@ -1521,10 +1521,10 @@ export default function AthletePortal() {
             <div className="space-y-4">
             {/* Attendance Calendar — last 28 days heatmap */}
             <div className="p-4 lg:p-6 xl:p-8 rounded-xl bg-[#0a0518]/80 border border-white/5">
-              <h3 className="text-white/50 text-xs lg:text-sm font-mono tracking-wider mb-3 lg:mb-4">YOUR CONSISTENCY — LAST 28 DAYS</h3>
-              <div className="grid grid-cols-7 gap-1.5 lg:gap-2.5">
+              <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-3 lg:mb-6">YOUR CONSISTENCY — LAST 28 DAYS</h3>
+              <div className="grid grid-cols-7 gap-1.5 lg:gap-3">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
-                  <div key={i} className="text-center text-white/50 text-xs font-mono">{d}</div>
+                  <div key={i} className="text-center text-white/50 text-xs lg:text-base font-mono font-bold">{d}</div>
                 ))}
                 {(() => {
                   const days = [];
@@ -1549,7 +1549,7 @@ export default function AthletePortal() {
                   return days.map((d, i) => {
                     if (!d) return <div key={`pad-${i}`} />;
                     return (
-                      <div key={d.date} className={`aspect-square rounded-md flex items-center justify-center text-sm font-mono transition-all ${
+                      <div key={d.date} className={`aspect-square rounded-md lg:rounded-lg flex items-center justify-center text-sm lg:text-lg xl:text-xl font-mono transition-all ${
                         d.isToday ? "ring-1 ring-[#a855f7]/40" : ""
                       } ${
                         d.active
