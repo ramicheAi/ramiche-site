@@ -1049,10 +1049,10 @@ export default function CommandCenter() {
                       CRITICAL
                     </span>
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-white/90 leading-snug">
+                  <div className="text-base sm:text-lg font-bold text-[#0f172a] leading-snug">
                     Quest flow UX polish + Firebase v2 deploy for METTLE
                   </div>
-                  <div className="text-[10px] font-mono text-white/25 mt-1">
+                  <div className="text-[10px] font-mono text-[#94a3b8] mt-1">
                     Stripe live · Copyright filed · CI/CD deployed — now polish + scale
                   </div>
                 </div>
@@ -1083,7 +1083,7 @@ export default function CommandCenter() {
                     style={{ boxShadow: "0 0 8px rgba(245,158,11,0.6)" }} />
                   <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#f59e0b] notif-ping" />
                 </div>
-                <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Notifications</h2>
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#94a3b8] font-medium">Notifications</h2>
               </div>
               <div className="h-px flex-1 bg-gradient-to-l from-[#f59e0b]/20 to-transparent" />
             </div>
@@ -1092,10 +1092,13 @@ export default function CommandCenter() {
               {NOTIFICATIONS.map((n, i) => (
                 <div
                   key={i}
-                  className="game-panel game-panel-border relative p-4 flex items-center gap-3 group transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
+                  className="relative p-4 flex items-center gap-3 group transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
                   style={{
-                    background: `linear-gradient(145deg, ${n.accent}0a 0%, rgba(6,2,15,0.95) 100%)`,
-                    border: `2px solid ${n.accent}30`,
+                    background: `rgba(255,255,255,0.9)`,
+                    border: `1px solid rgba(0,0,0,0.08)`,
+                    borderRadius: 12,
+                    borderLeft: `3px solid ${n.accent}`,
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                   }}
                 >
                   <div
@@ -1108,7 +1111,7 @@ export default function CommandCenter() {
                   >
                     {n.icon}
                   </div>
-                  <span className="text-sm text-white/70 group-hover:text-white/90 transition-colors leading-snug min-w-0">
+                  <span className="text-sm text-[#475569] group-hover:text-[#0f172a] transition-colors leading-snug min-w-0">
                     {n.text}
                   </span>
                 </div>
@@ -1121,7 +1124,8 @@ export default function CommandCenter() {
 
             {/* ── Scripture Card ── */}
             <div
-              className="game-panel game-panel-border relative p-6 flex flex-col justify-between min-h-[220px] border border-[#f59e0b]/30 bg-[#f59e0b]/5 hover:bg-[#f59e0b]/8 transition-all duration-300"
+              className="relative p-6 flex flex-col justify-between min-h-[220px] transition-all duration-300"
+              style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, borderLeft: '3px solid #f59e0b', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
             >
               <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b]/40 tracking-[0.3em] uppercase font-bold">
                 DAILY WORD
@@ -1131,7 +1135,7 @@ export default function CommandCenter() {
               </div>
               {verse ? (
                 <div className="mt-4">
-                  <p className="text-white/75 text-sm leading-[1.8] italic pr-6 mb-4">
+                  <p className="text-[#334155] text-sm leading-[1.8] italic pr-6 mb-4">
                     &ldquo;{verse.text}&rdquo;
                   </p>
                   <div className="neon-text-gold text-[11px] font-mono tracking-wider">
@@ -1141,7 +1145,7 @@ export default function CommandCenter() {
               ) : (
                 <div className="flex items-center gap-2 mt-4">
                   <div className="w-4 h-4 rounded-full border-2 border-[#f59e0b]/30 border-t-[#f59e0b] animate-spin" />
-                  <span className="text-white/20 text-sm font-mono">Receiving...</span>
+                  <span className="text-[#cbd5e1] text-sm font-mono">Receiving...</span>
                 </div>
               )}
               <div className="flex gap-2 mt-5 pt-4 border-t border-[#f59e0b]/8">
@@ -1153,7 +1157,7 @@ export default function CommandCenter() {
                 </button>
                 <button
                   onClick={copyVerse}
-                  className="game-btn px-4 py-2 text-[9px] font-mono uppercase tracking-wider bg-white/[0.03] text-white/25 hover:text-white/50 hover:bg-white/[0.06] transition-all"
+                  className="game-btn px-4 py-2 text-[9px] font-mono uppercase tracking-wider bg-white/[0.03] text-[#94a3b8] hover:text-[#64748b] hover:bg-white/[0.06] transition-all"
                 >
                   {copied ? "COPIED" : "COPY"}
                 </button>
@@ -1162,7 +1166,8 @@ export default function CommandCenter() {
 
             {/* ── Weather Card ── */}
             <div
-              className="game-panel game-panel-border relative p-6 min-h-[220px] border border-[#00f0ff]/30 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/8 transition-all duration-300"
+              className="relative p-6 min-h-[220px] transition-all duration-300"
+              style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, borderLeft: '3px solid #0ea5e9', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
             >
               <div className="absolute top-3 right-4 text-[10px] font-mono text-[#00f0ff]/40 tracking-[0.3em] uppercase font-bold">
                 ATMOSPHERE
@@ -1179,8 +1184,8 @@ export default function CommandCenter() {
                       <div className="text-sm font-mono text-[#00f0ff]/50 mt-1.5">
                         Feels like {weather.feelsLike}&deg;F
                       </div>
-                      <div className="text-white/85 text-lg font-bold mt-2">{weather.condition}</div>
-                      <div className="text-sm font-mono text-white/40 mt-1.5 flex gap-4">
+                      <div className="text-[#1e293b] text-lg font-bold mt-2">{weather.condition}</div>
+                      <div className="text-sm font-mono text-[#94a3b8] mt-1.5 flex gap-4">
                         <span>💧 {weather.humidity}%</span>
                         <span>💨 {weather.wind}</span>
                       </div>
@@ -1200,11 +1205,11 @@ export default function CommandCenter() {
                         }}
                       >
                         <div className="text-xs font-mono text-[#00f0ff]/50 uppercase">{d.day}</div>
-                        <div className="text-base text-white/75 font-bold mt-1">
+                        <div className="text-base text-[#334155] font-bold mt-1">
                           {d.high}&deg;
-                          <span className="text-white/30 text-sm">/{d.low}&deg;</span>
+                          <span className="text-[#94a3b8] text-sm">/{d.low}&deg;</span>
                         </div>
-                        <div className="text-[10px] text-white/25 font-mono mt-0.5 leading-snug">{d.cond}</div>
+                        <div className="text-[10px] text-[#94a3b8] font-mono mt-0.5 leading-snug">{d.cond}</div>
                       </div>
                     ))}
                   </div>
@@ -1212,14 +1217,15 @@ export default function CommandCenter() {
               ) : (
                 <div className="flex items-center gap-2 mt-4">
                   <div className="w-4 h-4 rounded-full border-2 border-[#00f0ff]/30 border-t-[#00f0ff] animate-spin" />
-                  <span className="text-white/20 text-sm font-mono">Scanning atmosphere...</span>
+                  <span className="text-[#cbd5e1] text-sm font-mono">Scanning atmosphere...</span>
                 </div>
               )}
             </div>
 
             {/* ── Calendar / Schedule Card ── */}
             <div
-              className="game-panel game-panel-border relative p-6 min-h-[220px] border border-[#a855f7]/30 bg-[#a855f7]/5 hover:bg-[#a855f7]/8 transition-all duration-300"
+              className="relative p-6 min-h-[220px] transition-all duration-300"
+              style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 16, borderLeft: '3px solid #7c3aed', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
             >
               <div className="absolute top-3 right-4 text-[10px] font-mono text-[#a855f7]/40 tracking-[0.3em] uppercase font-bold">
                 SCHEDULE
@@ -1246,7 +1252,7 @@ export default function CommandCenter() {
                         boxShadow: `0 0 6px ${s.accent}50`,
                       }}
                     />
-                    <div className="text-sm text-white/65 font-mono group-hover:text-white/80 transition-colors">
+                    <div className="text-sm text-[#475569] font-mono group-hover:text-[#1e293b] transition-colors">
                       {s.event}
                     </div>
                   </div>
@@ -1259,7 +1265,7 @@ export default function CommandCenter() {
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
-              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Agent Network</h2>
+              <h2 className="text-xs tracking-[0.25em] uppercase text-[#94a3b8] font-medium">Agent Network</h2>
               <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
             </div>
 
@@ -1391,8 +1397,8 @@ export default function CommandCenter() {
                   </div>
 
                   <div className="mt-5 text-center">
-                    <div className="text-sm font-black tracking-[0.25em]" style={{ color: "#00f0ff", textShadow: "0 0 24px rgba(0,240,255,0.4), 0 2px 4px rgba(0,0,0,0.8)" }}>ATLAS</div>
-                    <div className="text-[9px] font-mono text-white/35 mt-0.5 tracking-wider">LEAD STRATEGIST · Opus 4.6</div>
+                    <div className="text-sm font-black tracking-[0.25em]" style={{ color: "#1a1a5e" }}>ATLAS</div>
+                    <div className="text-[9px] font-mono text-[#94a3b8] mt-0.5 tracking-wider">LEAD STRATEGIST · Opus 4.6</div>
                     <div className="flex justify-center gap-1 mt-1.5">
                       <span className="w-2 h-2 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0s infinite" }} />
                       <span className="w-2 h-2 rounded-full" style={{ background: "#00f0ff", animation: "agent-typing 1.2s 0.2s infinite" }} />
@@ -1591,7 +1597,7 @@ export default function CommandCenter() {
                             {isActive ? "● ACTIVE" : isDone ? "✓ DONE" : "○ STANDBY"}
                           </span>
                         </div>
-                        <div className="text-[10px] text-white/40 font-mono leading-relaxed mb-2">{a.desc}</div>
+                        <div className="text-[10px] text-[#94a3b8] font-mono leading-relaxed mb-2">{a.desc}</div>
                         {a.activeTask && (
                           <div className="text-[9px] font-mono truncate" style={{ color: `${a.color}55` }}>→ {a.activeTask}</div>
                         )}
@@ -1634,7 +1640,7 @@ export default function CommandCenter() {
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
-              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Active Missions</h2>
+              <h2 className="text-xs tracking-[0.25em] uppercase text-[#94a3b8] font-medium">Active Missions</h2>
               <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
             </div>
 
@@ -1682,8 +1688,8 @@ export default function CommandCenter() {
                             }}
                           />
                           <div>
-                            <h3 className="text-base font-bold text-white/90 leading-tight">{m.name}</h3>
-                            <p className="text-xs text-white/35 font-mono mt-0.5 leading-snug">{m.desc}</p>
+                            <h3 className="text-base font-bold text-[#0f172a] leading-tight">{m.name}</h3>
+                            <p className="text-xs text-[#94a3b8] font-mono mt-0.5 leading-snug">{m.desc}</p>
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-1">
@@ -1746,7 +1752,7 @@ export default function CommandCenter() {
                                 </div>
                                 <span
                                   className={`text-[11px] font-mono ${
-                                    t.done ? "text-white/30 line-through" : "text-white/55"
+                                    t.done ? "text-[#94a3b8] line-through" : "text-white/55"
                                   }`}
                                 >
                                   {t.t}
@@ -1783,7 +1789,7 @@ export default function CommandCenter() {
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 bg-gradient-to-r from-[#e879f9]/20 to-transparent" />
-              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Health Vitals</h2>
+              <h2 className="text-xs tracking-[0.25em] uppercase text-[#94a3b8] font-medium">Health Vitals</h2>
               <div className="h-px flex-1 bg-gradient-to-l from-[#e879f9]/20 to-transparent" />
             </div>
 
@@ -1885,9 +1891,9 @@ export default function CommandCenter() {
                   { label: "Monthly Target", val: "$5,000", glow: false },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-white/20 uppercase tracking-wider">{r.label}</span>
+                    <span className="text-[10px] font-mono text-[#cbd5e1] uppercase tracking-wider">{r.label}</span>
                     <span
-                      className={`text-lg font-black tabular-nums ${r.glow ? "neon-text-gold" : "text-white/30"}`}
+                      className={`text-lg font-black tabular-nums ${r.glow ? "neon-text-gold" : "text-[#94a3b8]"}`}
                     >
                       {r.val}
                     </span>
@@ -1897,7 +1903,7 @@ export default function CommandCenter() {
               {/* Revenue progress arc */}
               <div className="mt-5 pt-4 border-t border-[#f59e0b]/8">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono text-white/30">TARGET PROGRESS</span>
+                  <span className="text-[11px] font-mono text-[#94a3b8]">TARGET PROGRESS</span>
                   <span className="text-[9px] font-mono neon-text-gold">0%</span>
                 </div>
                 <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden xp-bar-segments">
@@ -1949,10 +1955,10 @@ export default function CommandCenter() {
                         {o.rev}
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-white/75 mb-1 group-hover:text-white/90 transition-colors">
+                    <div className="text-xs font-bold text-[#334155] mb-1 group-hover:text-[#0f172a] transition-colors">
                       {o.title}
                     </div>
-                    <div className="text-[9px] text-white/25 font-mono leading-relaxed">
+                    <div className="text-[9px] text-[#94a3b8] font-mono leading-relaxed">
                       {o.desc}
                     </div>
                   </div>
@@ -1965,7 +1971,7 @@ export default function CommandCenter() {
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
-              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Quick Links</h2>
+              <h2 className="text-xs tracking-[0.25em] uppercase text-[#94a3b8] font-medium">Quick Links</h2>
               <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
             </div>
 
@@ -1994,7 +2000,7 @@ export default function CommandCenter() {
                   >
                     {l.icon}
                   </div>
-                  <span className="text-[9px] font-mono text-white/30 group-hover:text-white/60 transition-colors uppercase tracking-wider">
+                  <span className="text-[9px] font-mono text-[#94a3b8] group-hover:text-[#64748b] transition-colors uppercase tracking-wider">
                     {l.label}
                   </span>
                   {/* Hover glow */}
@@ -2012,11 +2018,11 @@ export default function CommandCenter() {
           {/* ═══════ ROW 7: ACTIVITY FEED ═══════ */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/30 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#94a3b8] font-bold">
                 ACTIVITY FEED
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
-              <div className="text-[8px] font-mono text-white/10">LATEST</div>
+              <div className="text-[8px] font-mono text-[#e2e8f0]">LATEST</div>
             </div>
 
             <div
@@ -2043,11 +2049,11 @@ export default function CommandCenter() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white/55 leading-snug group-hover:text-white/75 transition-colors line-clamp-2">
+                      <div className="text-sm text-white/55 leading-snug group-hover:text-[#334155] transition-colors line-clamp-2">
                         {l.text}
                       </div>
                     </div>
-                    <div className="text-[11px] font-mono text-white/30 flex-shrink-0 uppercase">
+                    <div className="text-[11px] font-mono text-[#94a3b8] flex-shrink-0 uppercase">
                       {l.time}
                     </div>
                   </div>
@@ -2063,7 +2069,7 @@ export default function CommandCenter() {
                 COMMAND LINE
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[9px] font-mono text-white/20">
+              <div className="text-[9px] font-mono text-[#cbd5e1]">
                 Send instructions to Atlas
               </div>
             </div>
@@ -2105,9 +2111,9 @@ export default function CommandCenter() {
                 <div className="border-t border-white/[0.04] px-4 py-3 space-y-2 max-h-40 overflow-y-auto">
                   {commandHistory.map((cmd, i) => (
                     <div key={i} className="flex items-center gap-3">
-                      <span className="text-[11px] font-mono text-white/30 w-16 flex-shrink-0">{cmd.time}</span>
+                      <span className="text-[11px] font-mono text-[#94a3b8] w-16 flex-shrink-0">{cmd.time}</span>
                       <span className="text-[#00f0ff]/40 font-mono text-xs">&gt;</span>
-                      <span className="text-[11px] font-mono text-white/50 flex-1 truncate">{cmd.text}</span>
+                      <span className="text-[11px] font-mono text-[#64748b] flex-1 truncate">{cmd.text}</span>
                       <span
                         className="text-[7px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded"
                         style={{
@@ -2126,7 +2132,7 @@ export default function CommandCenter() {
 
           {/* ═══════ FOOTER ═══════ */}
           <footer className="text-center py-8 border-t border-white/[0.03]">
-            <div className="text-[9px] font-mono text-white/10 tracking-[0.4em] uppercase">
+            <div className="text-[9px] font-mono text-[#e2e8f0] tracking-[0.4em] uppercase">
               COMMAND CENTER v6 // PARALLAX OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
             </div>
           </footer>
@@ -2298,7 +2304,7 @@ function AgentCard({
               {isActive ? "● ONLINE" : "○ SLEEP"}
             </span>
           </div>
-          <div className="text-[10px] text-white/40 font-mono leading-relaxed mb-2">{agent.desc}</div>
+          <div className="text-[10px] text-[#94a3b8] font-mono leading-relaxed mb-2">{agent.desc}</div>
           {agent.activeTask && (
             <div className="text-[9px] font-mono truncate" style={{ color: `${agent.color}60` }}>
               → {agent.activeTask}
