@@ -135,10 +135,14 @@ export default function ClawGuardPage() {
           <span style={{ background: "linear-gradient(135deg, #00f0ff, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>ClawGuard</span>{" "}
           <span style={{ color: "#94a3b8", fontWeight: 400 }}>Pro</span>
         </h1>
-        <p style={{ fontSize: "clamp(18px, 2.5vw, 24px)", color: "#94a3b8", maxWidth: "700px", margin: "0 auto 40px", lineHeight: 1.6 }}>
-          Security scanning for AI agent deployments. 12 domains. One command. Know your risk.
+        <p style={{ fontSize: "clamp(18px, 2.5vw, 24px)", color: "#94a3b8", maxWidth: "700px", margin: "0 auto 20px", lineHeight: 1.6 }}>
+          The only security scanner built for AI agent deployments. 12 domains. 63 checks. One command.
         </p>
-        <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap" }}>
+        {/* Anchoring — value comparison */}
+        <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "32px" }}>
+          A manual security audit costs <span style={{ textDecoration: "line-through", color: "#94a3b8" }}>$5,000+</span> → ClawGuard does it in seconds.
+        </p>
+        <div style={{ display: "flex", gap: "16px", justifyContent: "center", flexWrap: "wrap", marginBottom: "20px" }}>
           <a href="#pricing" style={{
             display: "inline-block", padding: "16px 40px", background: "linear-gradient(135deg, #00f0ff, #a855f7)", color: "#0a0a0f",
             fontWeight: 800, fontSize: "18px", borderRadius: "12px", textDecoration: "none", letterSpacing: "0.02em",
@@ -153,6 +157,10 @@ export default function ClawGuardPage() {
             View Source
           </a>
         </div>
+        {/* Risk reversal */}
+        <p style={{ fontSize: "13px", color: "#64748b", maxWidth: "500px", margin: "0 auto" }}>
+          If ClawGuard doesn&apos;t find at least 3 vulnerabilities, it&apos;s free. No questions asked.
+        </p>
       </section>
 
       {/* Install snippet */}
@@ -164,6 +172,34 @@ export default function ClawGuardPage() {
         }}>
           <div style={{ color: "#64748b", marginBottom: "8px" }}># Install &amp; scan in one command</div>
           <div><span style={{ color: "#22c55e" }}>$</span> <span style={{ color: "#e2e8f0" }}>pip install clawguard && clawguard scan</span></div>
+        </div>
+      </section>
+
+      {/* Social proof */}
+      <section style={{ padding: "0 32px 40px", maxWidth: "900px", margin: "0 auto", textAlign: "center" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "32px" }}>
+          {[
+            { num: "63", label: "Security Checks" },
+            { num: "12", label: "Attack Domains" },
+            { num: "0-100", label: "Risk Score" },
+          ].map((s) => (
+            <div key={s.label} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 900, background: "linear-gradient(135deg, #00f0ff, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>{s.num}</span>
+              <span style={{ fontSize: "13px", color: "#64748b", letterSpacing: "0.1em", textTransform: "uppercase" }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Free scan CTA */}
+      <section style={{ padding: "0 32px 60px", maxWidth: "800px", margin: "0 auto", textAlign: "center" }}>
+        <div style={{ background: "#111118", border: "2px solid #00f0ff30", borderRadius: "16px", padding: "24px 32px" }}>
+          <p style={{ fontSize: "16px", fontWeight: 700, marginBottom: "8px", color: "#00f0ff" }}>
+            Try it free — no credit card required
+          </p>
+          <p style={{ fontSize: "14px", color: "#64748b" }}>
+            Run your first scan free with the open-source CLI. See your real vulnerabilities before you buy.
+          </p>
         </div>
       </section>
 
@@ -194,8 +230,11 @@ export default function ClawGuardPage() {
         <h2 style={{ textAlign: "center", fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, marginBottom: "16px", letterSpacing: "-0.02em" }}>
           Choose Your Plan
         </h2>
-        <p style={{ textAlign: "center", color: "#94a3b8", fontSize: "18px", marginBottom: "48px" }}>
+        <p style={{ textAlign: "center", color: "#94a3b8", fontSize: "18px", marginBottom: "16px" }}>
           One-time purchase. Lifetime updates. No subscriptions.
+        </p>
+        <p style={{ textAlign: "center", fontSize: "13px", color: "#f59e0b", marginBottom: "48px" }}>
+          ⚡ First 20 customers get lifetime updates free — {"{"}limited spots{"}"}
         </p>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "24px", alignItems: "stretch" }}>
           {TIERS.map((tier) => (
