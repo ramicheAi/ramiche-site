@@ -34,6 +34,20 @@ const SPRINT_STEPS = [
   { step: "04", label: "Decision", desc: "Pick one and go. Or walk away with a clear brief to take anywhere." },
 ];
 
+const LOCAL_SEO_SPRINT = {
+  price: "$400",
+  timeline: "48 hours",
+  description: "AI-powered local SEO sprint for service businesses. We optimize your Google Business Profile, generate 10 location-specific service pages, and build a content multiplication system — all in 48 hours.",
+  deliverables: [
+    "Google Business Profile audit + optimization",
+    "10 AI-generated service pages (city + service combos)",
+    "Local citation cleanup + NAP consistency check",
+    "Content multiplication system (1 post → 5 platforms)",
+    "Competitor gap analysis with keyword targets",
+    "Monthly SEO action plan (DIY-ready)",
+  ],
+};
+
 const PACKAGES = [
   {
     tier: "STARTER",
@@ -787,6 +801,48 @@ export default function StudioPage() {
                   >
                     Book Your Sprint
                   </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── local SEO sprint section ──────────────────────── */}
+        <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
+          <div className="mx-auto max-w-[2000px]">
+            <div className="game-panel game-panel-border bg-white/[0.02] border border-[#059669]/20 p-6 sm:p-10 lg:p-12">
+              <div className="flex flex-col lg:flex-row lg:items-start lg:gap-12">
+                <div className="flex-1">
+                  <span className="text-xs tracking-[0.3em] uppercase text-[#059669]/60 font-mono block mb-2">
+                    NEW SERVICE
+                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-black tracking-tight text-white/90 mb-3">
+                    Local SEO Sprint
+                  </h3>
+                  <div className="flex items-baseline gap-3 mb-4">
+                    <span className="text-4xl font-black text-[#059669]">{LOCAL_SEO_SPRINT.price}</span>
+                    <span className="text-white/30 text-xs font-mono">{LOCAL_SEO_SPRINT.timeline}</span>
+                  </div>
+                  <p className="text-white/40 text-sm leading-relaxed max-w-2xl mb-6">
+                    {LOCAL_SEO_SPRINT.description}
+                  </p>
+                  <a
+                    href="#inquiry"
+                    className="game-btn inline-block bg-[#059669]/10 border border-[#059669]/30 text-[#059669] px-8 py-3 text-xs font-mono tracking-[0.2em] uppercase hover:brightness-125 transition-all"
+                  >
+                    Get Started
+                  </a>
+                </div>
+                <div className="mt-8 lg:mt-0 lg:w-[400px]">
+                  <div className="text-xs tracking-[0.2em] uppercase text-white/30 font-mono mb-4">What You Get</div>
+                  <ul className="space-y-3">
+                    {LOCAL_SEO_SPRINT.deliverables.map((d) => (
+                      <li key={d} className="flex items-start gap-2.5">
+                        <span className="text-[#059669] text-xs mt-0.5 opacity-60">{"\u25B8"}</span>
+                        <span className="text-white/60 text-sm leading-relaxed">{d}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
