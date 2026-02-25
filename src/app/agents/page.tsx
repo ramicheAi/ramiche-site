@@ -345,7 +345,7 @@ export default function AgentsMarketplace() {
           Pre-built AI agent teams with memory, scheduling, and soul engineering.
           Not chatbots. Autonomous specialists that work while you sleep.
         </p>
-        {/* Authority + Risk reversal */}
+        {/* Authority + Risk reversal + Scarcity */}
         <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 20 }}>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase" }}>
             Production-tested
@@ -353,10 +353,14 @@ export default function AgentsMarketplace() {
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase" }}>
             14-day money-back guarantee
           </span>
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase" }}>
-            Enterprise-ready
+          <span style={{ fontSize: 11, color: "#f59e0b", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase", fontWeight: 600 }}>
+            Founder pricing — locks in forever
           </span>
         </div>
+        {/* Loss aversion */}
+        <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginTop: 16, fontStyle: "italic" }}>
+          Your competitors are already automating. Every week without agents is revenue left on the table.
+        </p>
 
         {/* Stats */}
         <div style={{ display: "flex", justifyContent: "center", gap: 40, marginTop: 40, flexWrap: "wrap" }}>
@@ -366,6 +370,25 @@ export default function AgentsMarketplace() {
               <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", marginTop: 4 }}>{s.label}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Before/After Bridge */}
+      <section style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px 40px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 20, alignItems: "center" }}>
+          <div style={{ background: "rgba(255,60,60,0.05)", border: "1px solid rgba(255,60,60,0.15)", borderRadius: 16, padding: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,100,100,0.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>Before</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
+              Hiring 5 specialists costs $400K+/yr. Managing them costs your time. Scaling means more headcount.
+            </div>
+          </div>
+          <div style={{ fontSize: 24, color: "rgba(255,255,255,0.15)" }}>→</div>
+          <div style={{ background: "rgba(0,240,255,0.05)", border: "1px solid rgba(0,240,255,0.15)", borderRadius: 16, padding: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(0,240,255,0.6)", letterSpacing: 2, textTransform: "uppercase", marginBottom: 8 }}>After</div>
+            <div style={{ fontSize: 14, color: "rgba(255,255,255,0.5)", lineHeight: 1.6 }}>
+              18 AI agents work 24/7 for a one-time investment. They coordinate, learn, and never need PTO.
+            </div>
+          </div>
         </div>
       </section>
 
@@ -594,27 +617,50 @@ export default function AgentsMarketplace() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px 80px", textAlign: "center" }}>
+      {/* CTA — Anchoring + Risk reversal + Urgency */}
+      <section style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px 40px", textAlign: "center" }}>
         <h2 style={{ fontSize: 32, fontWeight: 800, marginBottom: 12 }}>
-          Ready to deploy your AI team?
+          Stop hiring. Start deploying.
         </h2>
-        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, marginBottom: 28 }}>
-          Start with a bundle. Scale to an ecosystem. Replace 5+ roles for the cost of one.
+        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 16, marginBottom: 8 }}>
+          A full-time employee costs $80K+/year. A Parallax agent bundle costs less than one month&apos;s salary — and works 24/7.
+        </p>
+        <p style={{ color: "#f59e0b", fontSize: 13, marginBottom: 28, fontWeight: 600 }}>
+          Founder pricing active — these rates lock in forever for early customers.
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           <button
             onClick={() => { setActiveTab("bundles"); window.scrollTo({ top: 400, behavior: "smooth" }); }}
-            style={{ padding: "14px 32px", background: "linear-gradient(135deg, #00f0ff, #a855f7)", color: "#000", border: "none", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer" }}
+            style={{ padding: "16px 40px", background: "linear-gradient(135deg, #00f0ff, #a855f7)", color: "#000", border: "none", borderRadius: 12, fontSize: 16, fontWeight: 800, cursor: "pointer" }}
           >
             Browse Bundles
           </button>
           <a
             href="mailto:hello@parallax.so?subject=Agent%20Marketplace%20Inquiry"
-            style={{ padding: "14px 32px", background: "transparent", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", borderRadius: 12, fontSize: 15, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}
+            style={{ padding: "16px 40px", background: "transparent", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", borderRadius: 12, fontSize: 16, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}
           >
-            Talk to Us
+            Schedule a Demo
           </a>
+        </div>
+        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.25)", marginTop: 16 }}>
+          14-day money-back guarantee. No questions asked.
+        </p>
+      </section>
+
+      {/* Social proof */}
+      <section style={{ maxWidth: 900, margin: "0 auto", padding: "0 20px 60px" }}>
+        <div style={{ display: "flex", justifyContent: "center", gap: 40, flexWrap: "wrap" }}>
+          {[
+            { value: "18", label: "Agents in production" },
+            { value: "4", label: "Enterprise deployments" },
+            { value: "24/7", label: "Autonomous operation" },
+            { value: "$0", label: "To explore our agents" },
+          ].map((s) => (
+            <div key={s.label} style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#00f0ff" }}>{s.value}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 4, textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
