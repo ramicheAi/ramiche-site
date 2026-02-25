@@ -939,7 +939,7 @@ export default function CommandCenter() {
      RENDER
      ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <main className="min-h-screen w-full bg-[#030108] text-white relative overflow-x-hidden">
+    <main className="min-h-screen w-full bg-[#06020f] text-white relative overflow-x-hidden">
 
       {/* ═══════════════════════════════════════════════════════════════════
           LAYER 0: HOLOGRAPHIC BACKGROUND SYSTEM
@@ -1018,65 +1018,53 @@ export default function CommandCenter() {
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="relative z-10 w-full">
 
-        {/* ═══════ TOP NAV + IDENTITY + CLOCK ═══════ */}
-        <header className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 pt-4 pb-2">
-
-          {/* Nav bar */}
-          <nav className="flex items-center justify-between mb-4 overflow-visible">
-            <div className="flex items-center gap-1">
-              {NAV.map((n) => (
-                <Link
-                  key={n.href}
-                  href={n.href}
-                  className={`game-btn px-4 py-2.5 text-[10px] font-mono uppercase tracking-[0.2em] transition-all ${
-                    n.active
-                      ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30"
-                      : "bg-white/[0.02] text-white/25 hover:text-white/50 hover:bg-white/[0.04] border border-white/[0.04]"
-                  }`}
-                >
-                  <span className="mr-1.5 opacity-50">{n.icon}</span>
-                  {n.label}
-                </Link>
-              ))}
-            </div>
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#00f0ff] animate-pulse"
-                  style={{ boxShadow: "0 0 8px rgba(0,240,255,0.8)" }} />
-                <span className="text-[9px] font-mono text-[#00f0ff]/50 tracking-wider">SYSTEM ONLINE</span>
-              </div>
-            </div>
-          </nav>
-
-          {/* Identity + Clock row */}
-          <div className="flex items-end justify-between mb-2">
-            <div className="flex items-center gap-5">
-              {/* Parallax logo mark */}
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center group"
-                style={{
-                  background: "linear-gradient(135deg, rgba(0,240,255,0.08) 0%, rgba(168,85,247,0.06) 50%, rgba(0,240,255,0.04) 100%)",
-                  border: "2px solid rgba(0,240,255,0.25)",
-                  borderRadius: "12px",
-                  boxShadow: "0 0 20px rgba(0,240,255,0.1), inset 0 0 20px rgba(0,240,255,0.05)",
-                }}>
-                <svg viewBox="0 0 100 100" className="w-9 h-9 sm:w-10 sm:h-10" style={{ filter: "drop-shadow(0 0 8px rgba(0,240,255,0.4))" }}>
-                  <path d="M25 15 L65 15 Q85 15 85 35 L85 45 Q85 65 65 65 L45 65 L45 85 L25 85 Z M45 30 L45 50 L60 50 Q70 50 70 40 Q70 30 60 30 Z" fill="url(#pGrad)" />
-                  <defs><linearGradient id="pGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#00f0ff" /><stop offset="50%" stopColor="#a855f7" /><stop offset="100%" stopColor="#00f0ff" /></linearGradient></defs>
-                </svg>
-                <div className="absolute inset-0 neon-pulse opacity-30 rounded-xl" />
-              </div>
-              <div>
-                <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.5em] text-[#00f0ff]/30 font-mono mb-1">
-                  PARALLAX OPS // MISSION CONTROL
+        {/* ═══════ TOP NAV — MATCHING PARALLAX HQ ═══════ */}
+        <nav className="w-full border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
+          <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
+            <div className="flex items-center justify-between h-14">
+              <div className="flex items-center gap-3">
+                {/* Parallax P logo mark — identical to HQ */}
+                <div className="relative w-8 h-8 flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(0,240,255,0.1), rgba(168,85,247,0.08))", border: "1.5px solid rgba(0,240,255,0.3)", borderRadius: "8px", boxShadow: "0 0 12px rgba(0,240,255,0.1)" }}>
+                  <svg viewBox="0 0 100 100" className="w-5 h-5" style={{ filter: "drop-shadow(0 0 6px rgba(0,240,255,0.4))" }}>
+                    <path d="M25 15 L65 15 Q85 15 85 35 L85 45 Q85 65 65 65 L45 65 L45 85 L25 85 Z M45 30 L45 50 L60 50 Q70 50 70 40 Q70 30 60 30 Z" fill="url(#pNavGradCC)" />
+                    <defs><linearGradient id="pNavGradCC" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#00f0ff" /><stop offset="50%" stopColor="#a855f7" /><stop offset="100%" stopColor="#00f0ff" /></linearGradient></defs>
+                  </svg>
                 </div>
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-none">
-                  <span className="bg-gradient-to-r from-[#00f0ff] via-[#a855f7] to-[#e879f9] bg-clip-text text-transparent bg-[length:200%_200%] animated-gradient-text">
-                    COMMAND CENTER
-                  </span>
-                </h1>
+                <span className="text-sm font-bold tracking-widest" style={{ background: "linear-gradient(135deg, #00f0ff, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>PARALLAX</span>
+                <span className="text-white/20 text-xs">|</span>
+                <span className="text-white/30 text-[10px] tracking-wider uppercase">Command Center</span>
+              </div>
+              <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+                {NAV.map((n) => (
+                  <Link
+                    key={n.href}
+                    href={n.href}
+                    className={`game-btn px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all whitespace-nowrap flex-shrink-0 ${
+                      n.active
+                        ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30"
+                        : "text-white/40 hover:text-white/70 hover:bg-white/5 border border-transparent"
+                    }`}
+                  >
+                    {n.label}
+                  </Link>
+                ))}
               </div>
             </div>
+          </div>
+        </nav>
 
+        {/* ═══════ HERO SECTION — COMMAND CENTER TITLE + CLOCK ═══════ */}
+        <section className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 pt-10 pb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#00f0ff]/50" />
+            <span className="text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]/60 font-medium">Systems Online</span>
+            <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#00f0ff]/50" />
+          </div>
+          <div className="flex items-end justify-between">
+            <h1 className="animated-gradient-text text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none bg-clip-text text-transparent"
+              style={{ backgroundImage: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #f59e0b 70%, #00f0ff 100%)", backgroundSize: "200% 200%", WebkitBackgroundClip: "text", filter: "drop-shadow(0 0 30px rgba(0,240,255,0.2))" }}>
+              COMMAND CENTER
+            </h1>
             {/* Live clock */}
             <div className="hidden sm:block text-right">
               <div className="font-mono text-2xl lg:text-3xl neon-text-cyan tabular-nums tracking-[0.15em] leading-none">
@@ -1090,7 +1078,7 @@ export default function CommandCenter() {
               </div>
             </div>
           </div>
-        </header>
+        </section>
 
         {/* ═══════ SYSTEM STATUS STRIP ═══════ */}
         <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 mb-6">
