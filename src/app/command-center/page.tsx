@@ -1875,12 +1875,13 @@ export default function CommandCenter() {
 
             {/* Revenue tracker */}
             <div
-              className="game-panel game-panel-border game-panel-scan relative p-6"
+              className="relative p-6 rounded-xl"
               style={{
-                background: "linear-gradient(145deg, rgba(245,158,11,0.04) 0%, rgba(6,2,15,0.98) 100%)",
+                background: "linear-gradient(145deg, rgba(245,158,11,0.06) 0%, #ffffff 100%)",
+                border: "2px solid rgba(245,158,11,0.2)",
               }}
             >
-              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b]/40 tracking-[0.3em] uppercase font-bold">
+              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b] tracking-[0.3em] uppercase font-bold">
                 REVENUE
               </div>
               <div className="space-y-5 mt-1">
@@ -1890,9 +1891,9 @@ export default function CommandCenter() {
                   { label: "Monthly Target", val: "$5,000", glow: false },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-[#cbd5e1] uppercase tracking-wider">{r.label}</span>
+                    <span className="text-[10px] font-mono text-[#64748b] uppercase tracking-wider">{r.label}</span>
                     <span
-                      className={`text-lg font-black tabular-nums ${r.glow ? "neon-text-gold" : "text-[#94a3b8]"}`}
+                      className={`text-lg font-black tabular-nums ${r.glow ? "text-[#f59e0b]" : "text-[#0f172a]"}`}
                     >
                       {r.val}
                     </span>
@@ -1900,12 +1901,12 @@ export default function CommandCenter() {
                 ))}
               </div>
               {/* Revenue progress arc */}
-              <div className="mt-5 pt-4 border-t border-[#f59e0b]/8">
+              <div className="mt-5 pt-4 border-t border-[#f59e0b]/15">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono text-[#94a3b8]">TARGET PROGRESS</span>
-                  <span className="text-[9px] font-mono neon-text-gold">0%</span>
+                  <span className="text-[11px] font-mono text-[#64748b]">TARGET PROGRESS</span>
+                  <span className="text-[9px] font-mono text-[#f59e0b] font-bold">0%</span>
                 </div>
-                <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden xp-bar-segments">
+                <div className="h-2 bg-[#f1f5f9] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-700"
                     style={{
@@ -1921,28 +1922,28 @@ export default function CommandCenter() {
             {/* Opportunity Scanner */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-3 mb-3">
-                <div className="text-[8px] font-mono uppercase tracking-[0.4em] text-white/15">
+                <div className="text-[8px] font-mono uppercase tracking-[0.4em] text-[#94a3b8]">
                   OPPORTUNITY SCANNER
                 </div>
-                <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
+                <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,0,0,0.08), transparent)" }} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {OPPS.map((o) => (
                   <div
                     key={o.title}
-                    className="game-card game-panel relative p-4 cursor-pointer group"
+                    className="relative p-4 cursor-pointer group rounded-xl"
                     style={{
-                      background: `linear-gradient(160deg, ${o.accent}08 0%, rgba(3,1,8,0.99) 100%)`,
-                      border: `2px solid ${o.accent}25`,
+                      background: `linear-gradient(160deg, ${o.accent}10 0%, #ffffff 100%)`,
+                      border: `2px solid ${o.accent}30`,
                     }}
                   >
                     <div className="flex items-center justify-between mb-2.5">
                       <span
                         className="text-[7px] font-mono uppercase px-2 py-0.5 tracking-wider game-panel-sm"
                         style={{
-                          color: o.tag === "READY" ? o.accent : o.tag === "SOON" ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
-                          background: `${o.accent}08`,
-                          border: `1px solid ${o.accent}15`,
+                          color: o.tag === "READY" ? "#059669" : o.tag === "SOON" ? "#94a3b8" : "#cbd5e1",
+                          background: o.tag === "READY" ? "#ecfdf5" : "#f1f5f9",
+                          border: `1px solid ${o.accent}30`,
                         }}
                       >
                         {o.tag}
@@ -1954,10 +1955,10 @@ export default function CommandCenter() {
                         {o.rev}
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-[#334155] mb-1 group-hover:text-[#0f172a] transition-colors">
+                    <div className="text-sm font-bold text-[#0f172a] mb-1">
                       {o.title}
                     </div>
-                    <div className="text-[9px] text-[#94a3b8] font-mono leading-relaxed">
+                    <div className="text-xs text-[#64748b] font-mono leading-relaxed">
                       {o.desc}
                     </div>
                   </div>
@@ -1981,25 +1982,24 @@ export default function CommandCenter() {
                   href={l.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="game-card game-panel relative p-4 flex flex-col items-center justify-center gap-2 group transition-all overflow-hidden"
+                  className="relative p-4 flex flex-col items-center justify-center gap-2 group transition-all overflow-hidden rounded-xl"
                   style={{
-                    background: `linear-gradient(145deg, ${l.accent}08 0%, rgba(3,1,8,0.99) 100%)`,
-                    border: `2px solid ${l.accent}20`,
+                    background: `linear-gradient(145deg, ${l.accent}10 0%, #f8fafc 100%)`,
+                    border: `2px solid ${l.accent}25`,
                     minHeight: "88px",
                   }}
                 >
                   <div
                     className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-black transition-all duration-300 group-hover:scale-110"
                     style={{
-                      background: `${l.accent}08`,
-                      color: l.accent,
-                      border: `1px solid ${l.accent}15`,
-                      textShadow: `0 0 10px ${l.accent}30`,
+                      background: `${l.accent}15`,
+                      color: l.accent === "#ffffff" ? "#1a1a5e" : l.accent,
+                      border: `1px solid ${l.accent}30`,
                     }}
                   >
                     {l.icon}
                   </div>
-                  <span className="text-[9px] font-mono text-[#94a3b8] group-hover:text-[#64748b] transition-colors uppercase tracking-wider">
+                  <span className="text-[10px] font-mono text-[#475569] group-hover:text-[#0f172a] transition-colors uppercase tracking-wider font-semibold">
                     {l.label}
                   </span>
                   {/* Hover glow */}
