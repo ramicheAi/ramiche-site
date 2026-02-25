@@ -286,9 +286,14 @@ export default function MettleLanding() {
             >
               Get Started Free
             </Link>
-            <span className="text-xs lg:text-sm text-white/20 tracking-[0.3em] uppercase font-medium">
-              Private Beta
-            </span>
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-xs lg:text-sm tracking-[0.3em] uppercase font-medium" style={{ color: `${C.scarlet}90` }}>
+                ⚡ Beta pricing — locks in forever
+              </span>
+              <span className="text-[10px] lg:text-xs text-white/20 tracking-wider">
+                Free for teams up to 10 athletes · No credit card required
+              </span>
+            </div>
           </div>
         </section>
 
@@ -344,6 +349,64 @@ export default function MettleLanding() {
                 </div>
               </Link>
             ))}
+          </div>
+        </section>
+
+        {/* ━━━ SOCIAL PROOF ━━━ */}
+        <section style={{ width: "100%", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
+          <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16">
+            {[
+              { num: "240+", label: "Athletes in Beta" },
+              { num: "3", label: "Portals (Coach · Athlete · Parent)" },
+              { num: "12", label: "Gamified Features" },
+            ].map((s) => (
+              <div key={s.label} className="flex flex-col items-center">
+                <span className="text-3xl lg:text-5xl font-black" style={{ color: C.gold }}>{s.num}</span>
+                <span className="text-xs lg:text-sm text-white/30 tracking-wider mt-1">{s.label}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ━━━ BEFORE / AFTER TRANSFORMATION ━━━ */}
+        <section style={{ width: "100%", maxWidth: "1000px", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)" }}>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 text-center">
+            <div className="rounded-2xl p-8 lg:p-10 border-2" style={{ background: `${C.scarlet}08`, borderColor: `${C.scarlet}20` }}>
+              <span className="text-xs tracking-[0.3em] uppercase font-bold block mb-4" style={{ color: `${C.scarlet}80` }}>Before</span>
+              <p className="text-white/50 text-sm lg:text-base leading-relaxed">Athletes zone out. Attendance drops. Parents feel disconnected.</p>
+            </div>
+            <div className="rounded-2xl p-8 lg:p-10 border-2 flex items-center justify-center" style={{ background: `${C.gold}08`, borderColor: `${C.gold}30` }}>
+              <span className="text-2xl lg:text-3xl font-black" style={{ color: C.gold }}>→</span>
+            </div>
+            <div className="rounded-2xl p-8 lg:p-10 border-2" style={{ background: `${C.purple}08`, borderColor: `${C.purple}25` }}>
+              <span className="text-xs tracking-[0.3em] uppercase font-bold block mb-4" style={{ color: `${C.purple}80` }}>After METTLE</span>
+              <p className="text-white/50 text-sm lg:text-base leading-relaxed">Athletes compete for XP. Practice feels like a game. Parents see every milestone.</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ━━━ RISK REVERSAL ━━━ */}
+        <section style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "2rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
+          <div className="rounded-2xl p-6 lg:p-8 border" style={{ background: `${C.gold}05`, borderColor: `${C.gold}15` }}>
+            <p className="text-sm lg:text-base text-white/40 leading-relaxed">
+              <span className="font-bold text-white/60">30-day money-back guarantee.</span>{" "}
+              If your athletes don&apos;t love it, you pay nothing. No questions asked.
+            </p>
+          </div>
+        </section>
+
+        {/* ━━━ AUTHORITY MARKERS ━━━ */}
+        <section style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "1rem clamp(1.5rem, 3vw, 3rem) 3rem", textAlign: "center" }}>
+          <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6">
+            <span className="text-[10px] lg:text-xs tracking-wider text-white/20 uppercase border rounded-full px-4 py-1.5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              Patent Pending
+            </span>
+            <span className="text-[10px] lg:text-xs tracking-wider text-white/20 uppercase border rounded-full px-4 py-1.5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              COPPA Compliant
+            </span>
+            <span className="text-[10px] lg:text-xs tracking-wider text-white/20 uppercase border rounded-full px-4 py-1.5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              Built by Parallax Ventures
+            </span>
           </div>
         </section>
 
