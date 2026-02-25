@@ -1008,75 +1008,44 @@ export default function CommandCenter() {
         </section>
 
         {/* ═══════ SYSTEM STATUS STRIP ═══════ */}
-        <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 mb-6">
-          <div
-            className="game-panel game-panel-scan scan-sweep relative px-5 py-3 flex items-center justify-between gap-4 flex-wrap"
-            style={{
-              background: "linear-gradient(90deg, rgba(0,240,255,0.03) 0%, rgba(168,85,247,0.02) 30%, rgba(232,121,249,0.02) 60%, rgba(0,240,255,0.03) 100%)",
-              border: "1px solid rgba(0,240,255,0.1)",
-            }}
-          >
-            <div className="flex items-center gap-5 flex-wrap">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-[#00f0ff] animate-pulse"
-                  style={{ boxShadow: "0 0 10px rgba(0,240,255,0.8)" }} />
-                <span className="text-[9px] font-mono text-[#00f0ff]/60 tracking-wider">ALL SYSTEMS NOMINAL</span>
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '12px 20px', borderRadius: 12, background: 'rgba(26,26,94,0.03)', border: '1px solid rgba(26,26,94,0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669' }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#1a1a5e', letterSpacing: '0.05em' }}>ALL SYSTEMS NOMINAL</span>
               </div>
-              <div className="h-3 w-[1px] bg-white/10" />
-              <div className="text-[9px] font-mono text-white/30">
-                <span className="neon-text-cyan">{activeAgents}</span>/{agents.length} AGENTS
-              </div>
-              <div className="h-3 w-[1px] bg-white/10" />
-              <div className="text-[9px] font-mono text-white/30">
-                <span className="neon-text-purple">{activeMissions}</span> ACTIVE MISSIONS
-              </div>
-              <div className="h-3 w-[1px] bg-white/10" />
-              <div className="text-[9px] font-mono text-white/30">
-                TASKS <span className="neon-text-gold">{doneT}</span>/{totalT}
-              </div>
+              <span style={{ color: 'rgba(0,0,0,0.12)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 11, color: '#475569' }}><strong style={{ color: '#1a1a5e' }}>{activeAgents}</strong>/{agents.length} Agents</span>
+              <span style={{ color: 'rgba(0,0,0,0.12)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 11, color: '#475569' }}><strong style={{ color: '#7c3aed' }}>{activeMissions}</strong> Active Missions</span>
+              <span style={{ color: 'rgba(0,0,0,0.12)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 11, color: '#475569' }}>Tasks <strong style={{ color: '#059669' }}>{doneT}</strong>/{totalT}</span>
             </div>
-            <div className="flex items-center gap-3 flex-1 max-w-xs min-w-[200px]">
-              <div className="flex-1 h-2 bg-white/[0.05] rounded-full overflow-hidden xp-bar-segments">
-                <div
-                  className="h-full rounded-full xp-shimmer transition-all duration-1000"
-                  style={{ width: `${pct}%` }}
-                />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 1 200px', minWidth: 120 }}>
+              <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #1a1a5e, #7c3aed)', transition: 'width 1s ease' }} />
               </div>
-              <span className="text-[10px] font-mono neon-text-cyan font-bold tabular-nums">{pct}%</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#1a1a5e', fontFamily: 'monospace' }}>{pct}%</span>
             </div>
           </div>
         </div>
 
-        <div className="w-full px-4 sm:px-6 lg:px-10 xl:px-16">
+        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
 
           {/* ═══════ WHAT'S NEXT — #1 PRIORITY ═══════ */}
-          <div className="mb-6">
-            <div
-              className="game-panel game-panel-border relative p-5 sm:p-6 neon-pulse-gold border-2 border-[#f59e0b]/40 bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 transition-all duration-300"
-            >
-
-              <div className="flex items-center gap-4 sm:gap-5">
-                <div className="flex-shrink-0">
-                  <div
-                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center text-xl sm:text-2xl font-black bg-[#f59e0b]/10 border border-[#f59e0b]/30 text-[#f59e0b]"
-                  >
+          <div style={{ marginBottom: 24 }}>
+            <div className="heartbeat-btn" style={{ display: 'block', padding: '24px 28px', borderRadius: 16, background: 'linear-gradient(135deg, rgba(26,26,94,0.04), rgba(124,58,237,0.03))', border: '1px solid rgba(26,26,94,0.15)', transition: 'all 0.3s' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, background: 'linear-gradient(135deg, #1a1a5e, #7c3aed)', color: '#ffffff' }}>
                     #1
-                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-[8px] font-mono uppercase tracking-[0.4em] neon-text-gold">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: '#1a1a5e' }}>
                       WHAT&apos;S NEXT
                     </span>
-                    <span
-                      className="text-[7px] font-mono uppercase px-2 py-0.5 tracking-wider"
-                      style={{
-                        color: "#ef4444",
-                        background: "rgba(239,68,68,0.1)",
-                        border: "1px solid rgba(239,68,68,0.2)",
-                        clipPath: "polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px))",
-                      }}
-                    >
+                    <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', letterSpacing: '0.1em', color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 4 }}>
                       CRITICAL
                     </span>
                   </div>
