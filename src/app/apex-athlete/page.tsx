@@ -876,6 +876,7 @@ export default function ApexAthletePage() {
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [rosterSearch, setRosterSearch] = useState("");
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
   const [autoSession] = useState(true); // auto-detect from schedule
@@ -6152,9 +6153,20 @@ export default function ApexAthletePage() {
             </div>
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Roster Check-In"}</h3>
+            <div className="flex items-center gap-4 mb-4 flex-wrap">
+              <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold font-mono">{"// Roster Check-In"}</h3>
+              <input
+                value={rosterSearch}
+                onChange={e => setRosterSearch(e.target.value)}
+                placeholder="Search athletes..."
+                className="bg-white/[0.04] border-2 border-white/[0.08] rounded-xl px-4 py-2.5 text-white text-sm flex-1 max-w-xs focus:outline-none focus:border-[#c9a227]/40 min-h-[44px] placeholder:text-white/20"
+              />
+              {rosterSearch && (
+                <button onClick={() => setRosterSearch("")} className="text-white/30 hover:text-white/60 text-xs">Clear</button>
+              )}
+            </div>
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-10">
-              {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+              {[...filteredRoster].filter(a => !rosterSearch || a.name.toLowerCase().includes(rosterSearch.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
                 const sk = fmtStreak(a.streak);
