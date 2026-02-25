@@ -1053,30 +1053,26 @@ export default function CommandCenter() {
           </div>
         </nav>
 
-        {/* ═══════ HERO SECTION — COMMAND CENTER TITLE + CLOCK ═══════ */}
-        <section className="w-full px-4 sm:px-6 lg:px-10 xl:px-16 pt-10 pb-6">
+        {/* ═══════ HERO SECTION — MATCHING PARALLAX HQ CENTERED STYLE ═══════ */}
+        <section className="relative z-10 flex flex-col items-center justify-center pt-16 pb-10 px-4 sm:pt-20 sm:pb-14">
           <div className="flex items-center gap-3 mb-4">
             <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#00f0ff]/50" />
             <span className="text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]/60 font-medium">Systems Online</span>
             <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#00f0ff]/50" />
           </div>
-          <div className="flex items-end justify-between">
-            <h1 className="animated-gradient-text text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none bg-clip-text text-transparent"
-              style={{ backgroundImage: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #f59e0b 70%, #00f0ff 100%)", backgroundSize: "200% 200%", WebkitBackgroundClip: "text", filter: "drop-shadow(0 0 30px rgba(0,240,255,0.2))" }}>
-              COMMAND CENTER
-            </h1>
-            {/* Live clock */}
-            <div className="hidden sm:block text-right">
-              <div className="font-mono text-2xl lg:text-3xl neon-text-cyan tabular-nums tracking-[0.15em] leading-none">
-                {time}
-              </div>
-              <div className="text-[9px] font-mono text-white/20 uppercase tracking-wider mt-1.5">
-                {dateStr}
-              </div>
-              <div className="text-[8px] font-mono text-[#00f0ff]/20 tracking-widest mt-0.5">
-                EST // LIVE FEED
-              </div>
-            </div>
+          <h1 className="animated-gradient-text text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tight text-center leading-none bg-clip-text text-transparent select-none"
+            style={{ backgroundImage: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #f59e0b 70%, #00f0ff 100%)", backgroundSize: "200% 200%", WebkitBackgroundClip: "text", filter: "drop-shadow(0 0 40px rgba(0,240,255,0.2))" }}>
+            COMMAND CENTER
+          </h1>
+          <p className="mt-4 text-lg sm:text-xl text-white/50 tracking-wide text-center font-light">Mission control for the Parallax ecosystem.</p>
+          {/* Live clock + status */}
+          <div className="mt-4 flex items-center gap-4">
+            <span className="text-[10px] text-[#00f0ff]/60 tracking-wider font-mono">{time}</span>
+            <span className="text-white/10">|</span>
+            <span className="text-[10px] text-white/30 tracking-wider font-mono">{dateStr}</span>
+            <span className="text-white/10">|</span>
+            <span className="text-[10px] text-white/30 tracking-wider">LIVE</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff88] animate-pulse" />
           </div>
         </section>
 
@@ -1195,20 +1191,16 @@ export default function CommandCenter() {
           {/* ═══════ NOTIFICATIONS / INBOX ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1 bg-gradient-to-r from-[#f59e0b]/20 to-transparent" />
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <div className="w-2 h-2 rounded-full bg-[#f59e0b]"
                     style={{ boxShadow: "0 0 8px rgba(245,158,11,0.6)" }} />
                   <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#f59e0b] notif-ping" />
                 </div>
-                <span className="text-sm font-mono uppercase tracking-[0.35em] text-[#f59e0b]/50 font-bold">
-                  NOTIFICATIONS
-                </span>
+                <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Notifications</h2>
               </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(245,158,11,0.12), transparent)" }} />
-              <div className="text-[11px] font-mono text-white/30">
-                {NOTIFICATIONS.length} ITEMS
-              </div>
+              <div className="h-px flex-1 bg-gradient-to-l from-[#f59e0b]/20 to-transparent" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1390,13 +1382,9 @@ export default function CommandCenter() {
           {/* ═══════ ROW 2: AGENT NETWORK — 3D ISOMETRIC SPACE STATION ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/45 font-bold">
-                AGENT NETWORK
-              </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[11px] font-mono text-white/30">
-                {activeAgents} ACTIVE // {agents.length} TOTAL
-              </div>
+              <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
+              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Agent Network</h2>
+              <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
             </div>
 
             {/* 3D Isometric Space Station */}
@@ -1769,13 +1757,9 @@ export default function CommandCenter() {
           {/* ═══════ ROW 3: ACTIVE MISSIONS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/45 font-bold">
-                ACTIVE MISSIONS
-              </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[11px] font-mono text-white/30">
-                {activeMissions} ACTIVE // {MISSIONS.length} TOTAL
-              </div>
+              <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
+              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Active Missions</h2>
+              <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1922,10 +1906,9 @@ export default function CommandCenter() {
           {/* ═══════ ROW 4: HEALTH VITALS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#e879f9]/45 font-bold">
-                HEALTH VITALS
-              </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(232,121,249,0.12), transparent)" }} />
+              <div className="h-px flex-1 bg-gradient-to-r from-[#e879f9]/20 to-transparent" />
+              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Health Vitals</h2>
+              <div className="h-px flex-1 bg-gradient-to-l from-[#e879f9]/20 to-transparent" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -2105,10 +2088,9 @@ export default function CommandCenter() {
           {/* ═══════ ROW 6: QUICK LINKS HUB ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/30 font-bold">
-                QUICK LINKS
-              </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
+              <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
+              <h2 className="text-xs tracking-[0.25em] uppercase text-white/30 font-medium">Quick Links</h2>
+              <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
