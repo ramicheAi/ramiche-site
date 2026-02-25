@@ -1832,17 +1832,14 @@ export default function CommandCenter() {
               />
               {/* Workout toggle */}
               <div
-                className="game-panel relative p-5 cursor-pointer group transition-all duration-300"
+                className="glass-card relative p-5 cursor-pointer group transition-all duration-300"
                 onClick={() => setWorkedOut((w) => !w)}
                 style={{
-                  background: workedOut
-                    ? "linear-gradient(145deg, rgba(232,121,249,0.1) 0%, rgba(3,1,8,0.95) 100%)"
-                    : "linear-gradient(145deg, rgba(232,121,249,0.03) 0%, rgba(3,1,8,0.98) 100%)",
                   border: workedOut
-                    ? "1px solid rgba(232,121,249,0.3)"
-                    : "1px solid rgba(232,121,249,0.08)",
+                    ? "1px solid rgba(232,121,249,0.4)"
+                    : "1px solid rgba(0,0,0,0.08)",
                   boxShadow: workedOut
-                    ? "0 0 25px rgba(232,121,249,0.1), inset 0 0 20px rgba(232,121,249,0.03)"
+                    ? "0 4px 16px rgba(232,121,249,0.08)"
                     : "none",
                 }}
               >
@@ -1852,15 +1849,14 @@ export default function CommandCenter() {
                 <div
                   className="text-3xl font-black leading-none mb-2 transition-all"
                   style={{
-                    color: workedOut ? "#e879f9" : "rgba(255,255,255,0.1)",
-                    textShadow: workedOut ? "0 0 20px rgba(232,121,249,0.4)" : "none",
+                    color: workedOut ? "#e879f9" : "rgba(0,0,0,0.1)",
                   }}
                 >
                   {workedOut ? "DONE" : "\u2014"}
                 </div>
                 <div
                   className="text-[9px] font-mono transition-all"
-                  style={{ color: workedOut ? "#e879f9" : "rgba(255,255,255,0.15)" }}
+                  style={{ color: workedOut ? "#e879f9" : "rgba(0,0,0,0.2)" }}
                 >
                   {workedOut ? "\u2713 Completed" : "Tap to mark"}
                 </div>
@@ -2350,40 +2346,31 @@ function VitalCard({
 
   return (
     <div
-      className="game-panel relative p-5 group transition-all duration-300"
-      style={{
-        background: `linear-gradient(145deg, ${color}05 0%, rgba(3,1,8,0.98) 100%)`,
-        border: `1px solid ${color}12`,
-      }}
+      className="glass-card relative p-5 group transition-all duration-300"
     >
-      {/* Corner accent */}
-      <div className="absolute top-0 left-0 w-6 h-[1px]" style={{ background: `${color}30` }} />
-      <div className="absolute top-0 left-0 w-[1px] h-6" style={{ background: `${color}30` }} />
-
-      <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3" style={{ color: `${color}40` }}>
+      <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3" style={{ color: `${color}` }}>
         {label}
       </div>
       <div className="flex items-baseline gap-1.5 mb-3">
         <span
           className="text-3xl font-black tabular-nums leading-none"
-          style={{ color, textShadow: `0 0 20px ${color}35` }}
+          style={{ color }}
         >
           {value}
         </span>
         {unit && (
-          <span className="text-[10px] font-mono text-white/15">{unit}</span>
+          <span className="text-[10px] font-mono text-[#94a3b8]">{unit}</span>
         )}
       </div>
 
       {/* Mini progress ring */}
       <div className="flex items-center gap-3 mb-3">
-        <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
+        <div className="flex-1 h-1 bg-black/[0.06] rounded-full overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
               width: `${fillPct}%`,
-              background: `linear-gradient(90deg, ${color}60, ${color})`,
-              boxShadow: `0 0 6px ${color}30`,
+              background: `linear-gradient(90deg, ${color}90, ${color})`,
             }}
           />
         </div>
@@ -2395,22 +2382,24 @@ function VitalCard({
       <div className="flex gap-1.5">
         <button
           onClick={onDec}
-          className="game-btn flex-1 h-8 text-xs font-mono flex items-center justify-center transition-all hover:brightness-125"
+          className="flex-1 h-8 text-xs font-mono flex items-center justify-center transition-all rounded-lg hover:bg-black/[0.04]"
           style={{
             background: `${color}08`,
-            color: `${color}60`,
-            border: `1px solid ${color}10`,
+            color,
+            border: `1px solid ${color}20`,
+            borderRadius: 8,
           }}
         >
           &minus;
         </button>
         <button
           onClick={onInc}
-          className="game-btn flex-1 h-8 text-xs font-mono flex items-center justify-center transition-all hover:brightness-125"
+          className="flex-1 h-8 text-xs font-mono flex items-center justify-center transition-all rounded-lg hover:bg-black/[0.04]"
           style={{
             background: `${color}08`,
-            color: `${color}60`,
-            border: `1px solid ${color}10`,
+            color,
+            border: `1px solid ${color}20`,
+            borderRadius: 8,
           }}
         >
           +
