@@ -1654,13 +1654,16 @@ export default function CommandCenter() {
                 return (
                   <div
                     key={m.name}
-                    className={`game-card game-panel relative overflow-hidden cursor-pointer transition-all duration-300 ${
+                    className={`relative overflow-hidden cursor-pointer transition-all duration-300 ${
                       m.status === "paused" ? "opacity-50" : ""
                     }`}
                     onClick={() => setExpandedMission(isExpanded ? null : m.name)}
                     style={{
-                      background: `linear-gradient(145deg, ${m.accent}0a 0%, rgba(3,1,8,0.98) 50%, rgba(3,1,8,0.99) 100%)`,
-                      border: `2px solid ${m.accent}30`,
+                      background: 'rgba(255,255,255,0.9)',
+                      border: '1px solid rgba(0,0,0,0.08)',
+                      borderLeft: `3px solid ${m.accent}`,
+                      borderRadius: 16,
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                     }}
                   >
                     {/* Scan sweep on active projects */}
