@@ -1207,23 +1207,23 @@ export default function CommandCenter() {
               {NOTIFICATIONS.map((n, i) => (
                 <div
                   key={i}
-                  className="game-panel-sm relative p-3.5 flex items-center gap-3 group transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+                  className="game-panel game-panel-border relative p-4 flex items-center gap-3 group transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
                   style={{
-                    background: `linear-gradient(145deg, ${n.accent}08 0%, rgba(3,1,8,0.98) 100%)`,
-                    border: `1px solid ${n.accent}15`,
+                    background: `linear-gradient(145deg, ${n.accent}0a 0%, rgba(6,2,15,0.95) 100%)`,
+                    border: `2px solid ${n.accent}30`,
                   }}
                 >
                   <div
-                    className="w-7 h-7 rounded flex items-center justify-center text-xs font-bold flex-shrink-0"
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold flex-shrink-0"
                     style={{
-                      background: `${n.accent}12`,
+                      background: `${n.accent}15`,
                       color: n.accent,
-                      border: `1px solid ${n.accent}20`,
+                      border: `1px solid ${n.accent}30`,
                     }}
                   >
                     {n.icon}
                   </div>
-                  <span className="text-sm font-mono text-white/65 group-hover:text-white/85 transition-colors leading-snug min-w-0">
+                  <span className="text-sm text-white/70 group-hover:text-white/90 transition-colors leading-snug min-w-0">
                     {n.text}
                   </span>
                 </div>
@@ -1777,8 +1777,8 @@ export default function CommandCenter() {
                     }`}
                     onClick={() => setExpandedMission(isExpanded ? null : m.name)}
                     style={{
-                      background: `linear-gradient(145deg, ${m.accent}05 0%, rgba(3,1,8,0.98) 50%, rgba(3,1,8,0.99) 100%)`,
-                      border: `1px solid ${m.accent}15`,
+                      background: `linear-gradient(145deg, ${m.accent}0a 0%, rgba(3,1,8,0.98) 50%, rgba(3,1,8,0.99) 100%)`,
+                      border: `2px solid ${m.accent}30`,
                     }}
                   >
                     {/* Scan sweep on active projects */}
@@ -2049,10 +2049,10 @@ export default function CommandCenter() {
                 {OPPS.map((o) => (
                   <div
                     key={o.title}
-                    className="game-card game-panel-sm relative p-4 cursor-pointer group"
+                    className="game-card game-panel relative p-4 cursor-pointer group"
                     style={{
-                      background: `linear-gradient(160deg, ${o.accent}04 0%, rgba(3,1,8,0.99) 100%)`,
-                      border: `1px solid ${o.accent}10`,
+                      background: `linear-gradient(160deg, ${o.accent}08 0%, rgba(3,1,8,0.99) 100%)`,
+                      border: `2px solid ${o.accent}25`,
                     }}
                   >
                     <div className="flex items-center justify-between mb-2.5">
@@ -2100,10 +2100,10 @@ export default function CommandCenter() {
                   href={l.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="game-card game-panel-sm relative p-4 flex flex-col items-center justify-center gap-2 group transition-all overflow-hidden"
+                  className="game-card game-panel relative p-4 flex flex-col items-center justify-center gap-2 group transition-all overflow-hidden"
                   style={{
-                    background: `linear-gradient(145deg, ${l.accent}04 0%, rgba(3,1,8,0.99) 100%)`,
-                    border: `1px solid ${l.accent}08`,
+                    background: `linear-gradient(145deg, ${l.accent}08 0%, rgba(3,1,8,0.99) 100%)`,
+                    border: `2px solid ${l.accent}20`,
                     minHeight: "88px",
                   }}
                 >
@@ -2144,10 +2144,10 @@ export default function CommandCenter() {
             </div>
 
             <div
-              className="game-panel game-panel-scan relative p-6"
+              className="game-panel game-panel-border game-panel-scan relative p-6"
               style={{
-                background: "linear-gradient(145deg, rgba(255,255,255,0.01) 0%, rgba(3,1,8,0.99) 100%)",
-                border: "1px solid rgba(255,255,255,0.04)",
+                background: "linear-gradient(145deg, rgba(255,255,255,0.02) 0%, rgba(3,1,8,0.99) 100%)",
+                border: "2px solid rgba(255,255,255,0.08)",
               }}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
