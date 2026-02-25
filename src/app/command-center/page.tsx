@@ -939,140 +939,71 @@ export default function CommandCenter() {
      RENDER
      ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <main className="min-h-screen w-full bg-[#06020f] text-white relative overflow-x-hidden">
+    <main className="min-h-screen w-full relative overflow-x-hidden" style={{ background: '#ffffff', color: '#0f172a', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
       {/* ═══════════════════════════════════════════════════════════════════
           LAYER 0: HOLOGRAPHIC BACKGROUND SYSTEM
           ═══════════════════════════════════════════════════════════════════ */}
 
-      {/* Particle canvas — full page height */}
-      <canvas
-        ref={canvasRef}
-        className="fixed inset-0 z-0 pointer-events-none"
-        style={{ width: "100vw", height: "100vh" }}
-      />
+      {/* Parallax-style subtle background */}
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{
+        backgroundImage: 'linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
+        backgroundSize: '60px 60px', opacity: 0.4,
+      }} />
+      <div className="fixed z-0 pointer-events-none" style={{
+        top: '10%', left: '5%', width: 500, height: 500, borderRadius: '50%',
+        background: 'rgba(26,26,94,0.04)', filter: 'blur(120px)', position: 'absolute',
+      }} />
+      <div className="fixed z-0 pointer-events-none" style={{
+        bottom: '10%', right: '5%', width: 500, height: 500, borderRadius: '50%',
+        background: 'rgba(124,58,237,0.04)', filter: 'blur(120px)', position: 'absolute',
+      }} />
 
-      {/* Nebula gradient layers — breathing, drifting */}
-      <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
-        <div
-          className="absolute w-[900px] h-[900px] rounded-full nebula-1"
-          style={{
-            top: "-15%", left: "-10%",
-            background: "radial-gradient(circle, rgba(0,240,255,0.07) 0%, rgba(0,240,255,0.02) 30%, transparent 60%)",
-          }}
-        />
-        <div
-          className="absolute w-[700px] h-[700px] rounded-full nebula-2"
-          style={{
-            top: "25%", right: "-15%",
-            background: "radial-gradient(circle, rgba(168,85,247,0.06) 0%, rgba(168,85,247,0.015) 35%, transparent 60%)",
-          }}
-        />
-        <div
-          className="absolute w-[600px] h-[600px] rounded-full nebula-3"
-          style={{
-            bottom: "-10%", left: "35%",
-            background: "radial-gradient(circle, rgba(245,158,11,0.05) 0%, transparent 55%)",
-          }}
-        />
-        <div
-          className="absolute w-[500px] h-[500px] rounded-full nebula-drift"
-          style={{
-            top: "55%", left: "5%",
-            background: "radial-gradient(circle, rgba(232,121,249,0.04) 0%, transparent 55%)",
-          }}
-        />
-        <div
-          className="absolute w-[800px] h-[800px] rounded-full nebula-2"
-          style={{
-            top: "70%", right: "10%",
-            background: "radial-gradient(circle, rgba(34,211,238,0.03) 0%, transparent 50%)",
-            animationDelay: "-5s",
-          }}
-        />
-      </div>
-
-      {/* Data grid overlay */}
-      <div className="fixed inset-0 z-0 pointer-events-none data-grid-bg opacity-20" />
-
-      {/* Scan line sweep */}
-      <div className="fixed inset-0 z-[1] pointer-events-none overflow-hidden">
-        <div
-          className="w-full h-[2px] scan-line"
-          style={{
-            background: "linear-gradient(90deg, transparent, rgba(0,240,255,0.12), rgba(168,85,247,0.08), transparent)",
-          }}
-        />
-      </div>
-
-      {/* Horizontal scan line repeater (CRT effect) */}
-      <div
-        className="fixed inset-0 z-[1] pointer-events-none"
-        style={{
-          background: "repeating-linear-gradient(0deg, transparent 0px, transparent 3px, rgba(0,240,255,0.008) 3px, rgba(0,240,255,0.008) 4px)",
-        }}
-      />
+      {/* Clean light theme — no CRT scan lines */}
 
       {/* ═══════════════════════════════════════════════════════════════════
           LAYER 1: CONTENT
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="relative z-10 w-full">
 
-        {/* ═══════ TOP NAV — MATCHING PARALLAX HQ ═══════ */}
-        <nav className="w-full border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
-          <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
-            <div className="flex items-center justify-between h-14">
-              <div className="flex items-center gap-3">
-                {/* Parallax P logo mark — identical to HQ */}
-                <div className="relative w-8 h-8 flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(0,240,255,0.1), rgba(168,85,247,0.08))", border: "1.5px solid rgba(0,240,255,0.3)", borderRadius: "8px", boxShadow: "0 0 12px rgba(0,240,255,0.1)" }}>
-                  <svg viewBox="0 0 100 100" className="w-5 h-5" style={{ filter: "drop-shadow(0 0 6px rgba(0,240,255,0.4))" }}>
-                    <path d="M25 15 L65 15 Q85 15 85 35 L85 45 Q85 65 65 65 L45 65 L45 85 L25 85 Z M45 30 L45 50 L60 50 Q70 50 70 40 Q70 30 60 30 Z" fill="url(#pNavGradCC)" />
-                    <defs><linearGradient id="pNavGradCC" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#00f0ff" /><stop offset="50%" stopColor="#a855f7" /><stop offset="100%" stopColor="#00f0ff" /></linearGradient></defs>
-                  </svg>
-                </div>
-                <span className="text-sm font-bold tracking-widest" style={{ background: "linear-gradient(135deg, #00f0ff, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>PARALLAX</span>
-                <span className="text-white/20 text-xs">|</span>
-                <span className="text-white/30 text-[10px] tracking-wider uppercase">Command Center</span>
-              </div>
-              <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
-                {NAV.map((n) => (
-                  <Link
-                    key={n.href}
-                    href={n.href}
-                    className={`game-btn px-3 py-1.5 text-xs font-medium tracking-wide uppercase transition-all whitespace-nowrap flex-shrink-0 ${
-                      n.active
-                        ? "bg-[#00f0ff]/10 text-[#00f0ff] border border-[#00f0ff]/30"
-                        : "text-white/40 hover:text-white/70 hover:bg-white/5 border border-transparent"
-                    }`}
-                  >
-                    {n.label}
-                  </Link>
-                ))}
-              </div>
+        {/* ═══════ TOP NAV — MATCHING PARALLAX SITE (WHITE/GLASS) ═══════ */}
+        <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: 'contain' }} />
+              <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#1a1a5e' }}>PARALLAX</span>
+              <span style={{ color: 'rgba(0,0,0,0.2)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#64748b' }}>COMMAND CENTER</span>
+            </Link>
+            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
+              {NAV.map((n) => (
+                <Link key={n.href} href={n.href} style={{
+                  fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
+                  color: n.active ? '#1a1a5e' : '#64748b', transition: 'color 0.2s',
+                }}>{n.label}</Link>
+              ))}
             </div>
           </div>
         </nav>
 
-        {/* ═══════ HERO SECTION — MATCHING PARALLAX HQ CENTERED STYLE ═══════ */}
-        <section className="relative z-10 flex flex-col items-center justify-center pt-16 pb-10 px-4 sm:pt-20 sm:pb-14">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-px w-8 bg-gradient-to-r from-transparent to-[#00f0ff]/50" />
-            <span className="text-[10px] tracking-[0.3em] uppercase text-[#00f0ff]/60 font-medium">Systems Online</span>
-            <div className="h-px w-8 bg-gradient-to-l from-transparent to-[#00f0ff]/50" />
+        {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
+        <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 60px', position: 'relative' }}>
+          <div style={{ display: 'inline-block', padding: '6px 16px', borderRadius: 20, border: '1px solid rgba(26,26,94,0.15)', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#1a1a5e' }}>
+            MISSION CONTROL &middot; LIVE
           </div>
-          <h1 className="animated-gradient-text text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black tracking-tight text-center leading-none bg-clip-text text-transparent select-none"
-            style={{ backgroundImage: "linear-gradient(135deg, #00f0ff 0%, #a855f7 40%, #f59e0b 70%, #00f0ff 100%)", backgroundSize: "200% 200%", WebkitBackgroundClip: "text", filter: "drop-shadow(0 0 40px rgba(0,240,255,0.2))" }}>
-            COMMAND CENTER
+          <h1 style={{ fontSize: 'clamp(40px, 7vw, 72px)', fontWeight: 800, lineHeight: 1.05, marginBottom: 16 }}>
+            <span style={{ color: '#0f172a' }}>Command</span>{' '}
+            <span className="gradient-text">Center.</span>
           </h1>
-          <p className="mt-4 text-lg sm:text-xl text-white/50 tracking-wide text-center font-light">Mission control for the Parallax ecosystem.</p>
-          {/* Live clock + status */}
-          <div className="mt-4 flex items-center gap-4">
-            <span className="text-[10px] text-[#00f0ff]/60 tracking-wider font-mono">{time}</span>
-            <span className="text-white/10">|</span>
-            <span className="text-[10px] text-white/30 tracking-wider font-mono">{dateStr}</span>
-            <span className="text-white/10">|</span>
-            <span className="text-[10px] text-white/30 tracking-wider">LIVE</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00ff88] animate-pulse" />
+          <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: '#475569', lineHeight: 1.6, maxWidth: 600, margin: '0 auto 24px' }}>
+            Mission control for the Parallax ecosystem. 19 agents. 6 divisions. One coordinated operation.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: '#94a3b8', fontSize: 12, fontWeight: 500 }}>
+            <span style={{ fontFamily: 'monospace' }}>{time}</span>
+            <span>|</span>
+            <span style={{ fontFamily: 'monospace' }}>{dateStr}</span>
+            <span>|</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>LIVE <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#059669', display: 'inline-block' }} /></span>
           </div>
         </section>
 
