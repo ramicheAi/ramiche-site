@@ -1042,17 +1042,19 @@ export default function CommandCenter() {
           {/* Identity + Clock row */}
           <div className="flex items-end justify-between mb-2">
             <div className="flex items-center gap-5">
-              {/* Holographic logo mark */}
-              <div className="relative w-14 h-14 sm:w-16 sm:h-16 game-panel flex items-center justify-center group"
+              {/* Parallax logo mark */}
+              <div className="relative w-14 h-14 sm:w-16 sm:h-16 flex items-center justify-center group"
                 style={{
                   background: "linear-gradient(135deg, rgba(0,240,255,0.08) 0%, rgba(168,85,247,0.06) 50%, rgba(0,240,255,0.04) 100%)",
-                  border: "1px solid rgba(0,240,255,0.2)",
+                  border: "2px solid rgba(0,240,255,0.25)",
+                  borderRadius: "12px",
+                  boxShadow: "0 0 20px rgba(0,240,255,0.1), inset 0 0 20px rgba(0,240,255,0.05)",
                 }}>
-                <span className="neon-text-cyan text-2xl sm:text-3xl font-black tracking-tight">R</span>
-                <div className="absolute inset-0 neon-pulse opacity-40 game-panel" />
-                {/* Corner decorations */}
-                <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-[#00f0ff]/40" />
-                <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-[#00f0ff]/40" />
+                <svg viewBox="0 0 100 100" className="w-9 h-9 sm:w-10 sm:h-10" style={{ filter: "drop-shadow(0 0 8px rgba(0,240,255,0.4))" }}>
+                  <path d="M25 15 L65 15 Q85 15 85 35 L85 45 Q85 65 65 65 L45 65 L45 85 L25 85 Z M45 30 L45 50 L60 50 Q70 50 70 40 Q70 30 60 30 Z" fill="url(#pGrad)" />
+                  <defs><linearGradient id="pGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#00f0ff" /><stop offset="50%" stopColor="#a855f7" /><stop offset="100%" stopColor="#00f0ff" /></linearGradient></defs>
+                </svg>
+                <div className="absolute inset-0 neon-pulse opacity-30 rounded-xl" />
               </div>
               <div>
                 <div className="text-[8px] sm:text-[9px] uppercase tracking-[0.5em] text-[#00f0ff]/30 font-mono mb-1">
