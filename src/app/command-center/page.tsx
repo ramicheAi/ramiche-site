@@ -1121,28 +1121,13 @@ export default function CommandCenter() {
           {/* ═══════ WHAT'S NEXT — #1 PRIORITY ═══════ */}
           <div className="mb-6">
             <div
-              className="game-panel relative p-5 sm:p-6 priority-pulse"
-              style={{
-                background: "linear-gradient(135deg, rgba(245,158,11,0.08) 0%, rgba(6,2,15,0.95) 40%, rgba(168,85,247,0.05) 100%)",
-                border: "2px solid rgba(245,158,11,0.4)",
-              }}
+              className="game-panel game-panel-border relative p-5 sm:p-6 neon-pulse-gold border-2 border-[#f59e0b]/40 bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 transition-all duration-300"
             >
-              {/* Corner accents */}
-              <div className="absolute top-0 left-0 w-5 h-5 border-t-2 border-l-2 border-[#f59e0b]/60" />
-              <div className="absolute bottom-0 right-0 w-5 h-5 border-b-2 border-r-2 border-[#f59e0b]/60" />
-              <div className="absolute top-0 right-0 w-5 h-5 border-t-2 border-r-2 border-[#f59e0b]/30" />
-              <div className="absolute bottom-0 left-0 w-5 h-5 border-b-2 border-l-2 border-[#f59e0b]/30" />
 
               <div className="flex items-center gap-4 sm:gap-5">
                 <div className="flex-shrink-0">
                   <div
-                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center text-xl sm:text-2xl font-black"
-                    style={{
-                      background: "linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(245,158,11,0.05) 100%)",
-                      border: "1px solid rgba(245,158,11,0.3)",
-                      color: "#f59e0b",
-                      textShadow: "0 0 15px rgba(245,158,11,0.5)",
-                    }}
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg flex items-center justify-center text-xl sm:text-2xl font-black bg-[#f59e0b]/10 border border-[#f59e0b]/30 text-[#f59e0b]"
                   >
                     #1
                   </div>
@@ -1236,16 +1221,13 @@ export default function CommandCenter() {
 
             {/* ── Scripture Card ── */}
             <div
-              className="game-panel game-panel-border game-panel-scan relative p-6 flex flex-col justify-between min-h-[220px]"
-              style={{
-                background: "linear-gradient(145deg, rgba(245,158,11,0.04) 0%, rgba(6,2,15,0.97) 40%, rgba(6,2,15,0.99) 100%)",
-              }}
+              className="game-panel game-panel-border relative p-6 flex flex-col justify-between min-h-[220px] border border-[#f59e0b]/30 bg-[#f59e0b]/5 hover:bg-[#f59e0b]/8 transition-all duration-300"
             >
               <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b]/40 tracking-[0.3em] uppercase font-bold">
                 DAILY WORD
               </div>
               <div className="absolute top-3 left-4">
-                <div className="w-1 h-6" style={{ background: "linear-gradient(180deg, #f59e0b, transparent)" }} />
+                <div className="w-1 h-6 bg-gradient-to-b from-[#f59e0b] to-transparent" />
               </div>
               {verse ? (
                 <div className="mt-4">
@@ -1280,10 +1262,7 @@ export default function CommandCenter() {
 
             {/* ── Weather Card ── */}
             <div
-              className="game-panel game-panel-border game-panel-scan relative p-6 min-h-[220px]"
-              style={{
-                background: "linear-gradient(145deg, rgba(0,240,255,0.04) 0%, rgba(6,2,15,0.97) 40%, rgba(6,2,15,0.99) 100%)",
-              }}
+              className="game-panel game-panel-border relative p-6 min-h-[220px] border border-[#00f0ff]/30 bg-[#00f0ff]/5 hover:bg-[#00f0ff]/8 transition-all duration-300"
             >
               <div className="absolute top-3 right-4 text-[10px] font-mono text-[#00f0ff]/40 tracking-[0.3em] uppercase font-bold">
                 ATMOSPHERE
@@ -1340,16 +1319,13 @@ export default function CommandCenter() {
 
             {/* ── Calendar / Schedule Card ── */}
             <div
-              className="game-panel game-panel-border game-panel-scan relative p-6 min-h-[220px]"
-              style={{
-                background: "linear-gradient(145deg, rgba(168,85,247,0.04) 0%, rgba(6,2,15,0.97) 40%, rgba(6,2,15,0.99) 100%)",
-              }}
+              className="game-panel game-panel-border relative p-6 min-h-[220px] border border-[#a855f7]/30 bg-[#a855f7]/5 hover:bg-[#a855f7]/8 transition-all duration-300"
             >
               <div className="absolute top-3 right-4 text-[10px] font-mono text-[#a855f7]/40 tracking-[0.3em] uppercase font-bold">
                 SCHEDULE
               </div>
               <div className="absolute top-3 left-4">
-                <div className="w-1 h-6" style={{ background: "linear-gradient(180deg, #a855f7, transparent)" }} />
+                <div className="w-1 h-6 bg-gradient-to-b from-[#a855f7] to-transparent" />
               </div>
               <div className="mt-2 space-y-2.5">
                 {SCHEDULE.map((s, i) => (
