@@ -810,8 +810,26 @@ export default function BillingPage() {
         {/* ── Value Stats ──────────────────────────────────────── */}
         <ValueStats />
 
+        {/* ── Trust + Guarantee Strip ─────────────────────────── */}
+        <div className="mt-16 mb-8">
+          <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 py-8 border-t border-b border-white/[0.06]">
+            <div className="flex items-center gap-2 text-white/50 text-xs font-mono tracking-wider uppercase">
+              <span className="text-[#00f0ff]">&#x25C8;</span> 30-Day Money-Back Guarantee
+            </div>
+            <div className="flex items-center gap-2 text-white/50 text-xs font-mono tracking-wider uppercase">
+              <span className="text-[#a855f7]">&#x25C8;</span> 240+ Athletes in Beta
+            </div>
+            <div className="flex items-center gap-2 text-white/50 text-xs font-mono tracking-wider uppercase">
+              <span className="text-[#f59e0b]">&#x25C8;</span> Beta Pricing — Locks In For Life
+            </div>
+            <div className="flex items-center gap-2 text-white/50 text-xs font-mono tracking-wider uppercase">
+              <span className="text-[#00f0ff]">&#x25C8;</span> Cancel Anytime — No Questions Asked
+            </div>
+          </div>
+        </div>
+
         {/* ── FAQ Section ──────────────────────────────────────── */}
-        <div className="mt-20 mb-16">
+        <div className="mt-12 mb-16">
           <div className="text-center mb-12">
             <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#a855f7]/30 font-mono mb-2">
               {"<"} intel.brief {"/>"}
