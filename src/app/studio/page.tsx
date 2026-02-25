@@ -546,6 +546,26 @@ export default function StudioPage() {
           </div>
         </section>
 
+        {/* ── guarantee + authority strip ────────────────────────── */}
+        <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
+          <div className="mx-auto max-w-[2000px]">
+            <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-10 py-6 border-t border-b border-white/[0.06]">
+              <div className="flex items-center gap-2 text-white/40 text-xs font-mono tracking-wider uppercase">
+                <span className="text-[#00f0ff]">&#x25C8;</span> 100% Satisfaction Guarantee
+              </div>
+              <div className="flex items-center gap-2 text-white/40 text-xs font-mono tracking-wider uppercase">
+                <span className="text-[#a855f7]">&#x25C8;</span> 3 Brands Launched
+              </div>
+              <div className="flex items-center gap-2 text-white/40 text-xs font-mono tracking-wider uppercase">
+                <span className="text-[#f59e0b]">&#x25C8;</span> AI-Augmented Delivery
+              </div>
+              <div className="flex items-center gap-2 text-white/40 text-xs font-mono tracking-wider uppercase">
+                <span className="text-[#00f0ff]">&#x25C8;</span> Sprint Credits Toward Packages
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* ── why parallax section ─────────────────────────────── */}
         <section className="px-4 sm:px-6 lg:px-10 xl:px-16 pb-20">
           <div className="mx-auto max-w-[2000px]">
