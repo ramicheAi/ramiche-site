@@ -345,6 +345,18 @@ export default function AgentsMarketplace() {
           Pre-built AI agent teams with memory, scheduling, and soul engineering.
           Not chatbots. Autonomous specialists that work while you sleep.
         </p>
+        {/* Authority + Risk reversal */}
+        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 12, marginTop: 20 }}>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase" }}>
+            Production-tested
+          </span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase" }}>
+            14-day money-back guarantee
+          </span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: "4px 14px", letterSpacing: 1, textTransform: "uppercase" }}>
+            Enterprise-ready
+          </span>
+        </div>
 
         {/* Stats */}
         <div style={{ display: "flex", justifyContent: "center", gap: 40, marginTop: 40, flexWrap: "wrap" }}>
