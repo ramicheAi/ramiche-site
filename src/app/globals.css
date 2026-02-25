@@ -619,3 +619,56 @@ a {
   100% { transform: scale(1); opacity: 0; }
 }
 .notif-ping { animation: notifPing 1.5s cubic-bezier(0, 0, 0.2, 1) infinite; }
+
+/* ══════════════════════════════════════════════════════════════
+   PARALLAX BRAND SYSTEM — matches parallax-site-ashen.vercel.app
+   ══════════════════════════════════════════════════════════════ */
+
+.gradient-text {
+  background: linear-gradient(135deg, #1a1a5e, #7c3aed);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glass-card {
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03);
+  transition: all 0.3s ease;
+}
+.glass-card:hover {
+  border-color: rgba(0,0,0,0.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
+}
+
+.glow-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(26,26,94,0.3), transparent);
+}
+
+/* Heartbeat glow — navy/purple for light theme */
+@keyframes heartbeat-glow-light {
+  0% { box-shadow: 0 0 8px rgba(26,26,94,0.3), 0 0 20px rgba(26,26,94,0.15); transform: scale(1); }
+  15% { box-shadow: 0 0 16px rgba(26,26,94,0.5), 0 0 40px rgba(26,26,94,0.25), 0 0 60px rgba(124,58,237,0.15); transform: scale(1.02); }
+  30% { box-shadow: 0 0 10px rgba(26,26,94,0.35), 0 0 24px rgba(26,26,94,0.18); transform: scale(1); }
+  45% { box-shadow: 0 0 14px rgba(26,26,94,0.45), 0 0 36px rgba(26,26,94,0.22), 0 0 50px rgba(124,58,237,0.12); transform: scale(1.015); }
+  60%, 100% { box-shadow: 0 0 8px rgba(26,26,94,0.3), 0 0 20px rgba(26,26,94,0.15); transform: scale(1); }
+}
+
+.heartbeat-btn {
+  animation: heartbeat-glow-light 1s ease-in-out infinite;
+  transition: filter 0.2s;
+}
+.heartbeat-btn:hover {
+  animation-play-state: paused;
+  filter: brightness(1.1);
+  box-shadow: 0 0 24px rgba(26,26,94,0.6), 0 0 48px rgba(124,58,237,0.3) !important;
+}
+
+/* Mobile nav for Command Center */
+@media (max-width: 768px) {
+  .nav-desktop { display: none !important; }
+}

@@ -1138,7 +1138,7 @@ export default function CommandCenter() {
                   <p className="text-[#334155] text-sm leading-[1.8] italic pr-6 mb-4">
                     &ldquo;{verse.text}&rdquo;
                   </p>
-                  <div className="neon-text-gold text-[11px] font-mono tracking-wider">
+                  <div className="text-[#b45309] text-[11px] font-mono tracking-wider">
                     &mdash; {verse.ref}
                   </div>
                 </div>
@@ -1178,7 +1178,7 @@ export default function CommandCenter() {
                     {/* 3D weather scene */}
                     <WeatherScene condition={weather.condition} />
                     <div className="flex-1 min-w-0">
-                      <div className="text-5xl sm:text-6xl font-black neon-text-cyan leading-none">
+                      <div className="text-5xl sm:text-6xl font-black text-[#1a1a5e] leading-none">
                         {weather.tempF}<span className="text-4xl align-top">&deg;</span>
                       </div>
                       <div className="text-sm font-mono text-[#00f0ff]/50 mt-1.5">
