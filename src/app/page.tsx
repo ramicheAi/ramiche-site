@@ -133,10 +133,17 @@ export default function Home() {
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
         <div className="mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16">
           <div className="flex items-center justify-between h-14">
-            <div className="flex items-center gap-2">
-              <span className="neon-text-cyan text-sm font-bold tracking-widest">PARALLAX</span>
+            <div className="flex items-center gap-3">
+              {/* Parallax P logo mark */}
+              <div className="relative w-8 h-8 flex items-center justify-center" style={{ background: "linear-gradient(135deg, rgba(0,240,255,0.1), rgba(168,85,247,0.08))", border: "1.5px solid rgba(0,240,255,0.3)", borderRadius: "8px", boxShadow: "0 0 12px rgba(0,240,255,0.1)" }}>
+                <svg viewBox="0 0 100 100" className="w-5 h-5" style={{ filter: "drop-shadow(0 0 6px rgba(0,240,255,0.4))" }}>
+                  <path d="M25 15 L65 15 Q85 15 85 35 L85 45 Q85 65 65 65 L45 65 L45 85 L25 85 Z M45 30 L45 50 L60 50 Q70 50 70 40 Q70 30 60 30 Z" fill="url(#pNavGrad)" />
+                  <defs><linearGradient id="pNavGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#00f0ff" /><stop offset="50%" stopColor="#a855f7" /><stop offset="100%" stopColor="#00f0ff" /></linearGradient></defs>
+                </svg>
+              </div>
+              <span className="text-sm font-bold tracking-widest" style={{ background: "linear-gradient(135deg, #00f0ff, #a855f7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>PARALLAX</span>
               <span className="text-white/20 text-xs">|</span>
-              <span className="text-white/30 text-[10px] tracking-wider uppercase">Systems HQ</span>
+              <span className="text-white/30 text-[10px] tracking-wider uppercase">Operations HQ</span>
             </div>
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
               {navLinks.map((link) => (
