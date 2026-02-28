@@ -1126,28 +1126,28 @@ export default function CommandCenter() {
               { label: "AGENTS", href: "/command-center/agents", icon: "\u25C8", accent: "#7c3aed", desc: `${activeAgents} active \u00B7 ${agents.length} total`, sub: "Usage, skills, tools, config" },
               { label: "MISSIONS", href: "/command-center/missions", icon: "\u2726", accent: "#C9A84C", desc: `${activeMissions} active \u00B7 ${doneT}/${totalT} tasks`, sub: "Projects, progress, checklists" },
               { label: "VITALS", href: "/command-center/vitals", icon: "\u2665", accent: "#10b981", desc: "Health \u00B7 Spiritual \u00B7 Weather", sub: "Steps, water, sleep, scripture" },
-              { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#fbbf24", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
-              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#38bdf8", desc: `${LOG.length} recent events`, sub: "Feed, schedule, history" },
-              { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#1a1a5e", desc: "Command input", sub: "Send commands, approvals" },
+              { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#d97706", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
+              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${LOG.length} recent events`, sub: "Feed, schedule, history" },
+              { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
             ].map((card) => (
               <Link
                 key={card.href}
                 href={card.href}
                 className="group relative p-6 flex flex-col justify-between min-h-[160px] transition-all duration-300 hover:-translate-y-1"
-                style={{ background: 'rgba(255,255,255,0.9)', border: '2px solid rgba(0,0,0,0.06)', borderRadius: 16, borderLeft: `3px solid ${card.accent}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                style={{ background: 'rgba(255,255,255,0.95)', border: '2px solid rgba(0,0,0,0.12)', borderRadius: 16, borderLeft: `4px solid ${card.accent}`, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, background: `${card.accent}12`, color: card.accent, border: `1px solid ${card.accent}25` }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, background: `${card.accent}18`, color: card.accent, border: `2px solid ${card.accent}40` }}>
                       {card.icon}
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.15em', color: '#1a1a5e' }}>{card.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.12em', color: '#0f172a' }}>{card.label}</span>
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#0f172a', marginBottom: 4 }}>{card.desc}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8' }}>{card.sub}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{card.desc}</div>
+                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{card.sub}</div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                  <span className="group-hover:translate-x-1 transition-transform" style={{ fontSize: 12, fontWeight: 600, color: card.accent }}>&rarr;</span>
+                  <span className="group-hover:translate-x-1 transition-transform" style={{ fontSize: 14, fontWeight: 700, color: card.accent }}>&rarr;</span>
                 </div>
               </Link>
             ))}
