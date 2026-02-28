@@ -47,7 +47,7 @@ interface Agent {
 
 const AGENTS: Agent[] = [
   {
-    name: "Atlas", model: "Opus 4.6", role: "Lead Strategist",
+    name: "Atlas", model: "Opus 4.6 (Cloud)", role: "Lead Strategist",
     status: "active", color: "#00f0ff", icon: "🧭",
     desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
     credits: { used: 1250, limit: 5000 },
@@ -57,7 +57,7 @@ const AGENTS: Agent[] = [
     domain: "operations",
   },
   {
-    name: "TheMAESTRO", model: "DeepSeek V3.2", role: "Music Production AI",
+    name: "TheMAESTRO", model: "Qwen 3.5 (Local)", role: "Music Production AI",
     status: "idle", color: "#f59e0b", icon: "🎵",
     desc: "Ye + Quincy + Babyface — influence-based creative direction, sound design",
     credits: { used: 0, limit: 5000 },
@@ -67,7 +67,7 @@ const AGENTS: Agent[] = [
     domain: "music",
   },
   {
-    name: "SIMONS", model: "DeepSeek V3.2", role: "Algorithmic Analysis",
+    name: "SIMONS", model: "Qwen 3.5 (Local)", role: "Algorithmic Analysis",
     status: "idle", color: "#22d3ee", icon: "📊",
     desc: "Jim Simons — pattern recognition, statistical arbitrage, data crunching",
     credits: { used: 0, limit: 5000 },
@@ -77,7 +77,7 @@ const AGENTS: Agent[] = [
     domain: "analytics",
   },
   {
-    name: "Dr. Strange", model: "DeepSeek V3.2", role: "Forecasting & Decisions",
+    name: "Dr. Strange", model: "Qwen 3.5 (Local)", role: "Forecasting & Decisions",
     status: "idle", color: "#a855f7", icon: "🔮",
     desc: "Scenario analysis, probable outcomes, strategic foresight, risk assessment",
     credits: { used: 0, limit: 5000 },
@@ -87,7 +87,7 @@ const AGENTS: Agent[] = [
     domain: "strategy",
   },
   {
-    name: "SHURI", model: "DeepSeek V3.2", role: "Creative Coding",
+    name: "SHURI", model: "Qwen 3.5 (Local)", role: "Creative Coding",
     status: "active", color: "#34d399", icon: "⚡",
     desc: "Prototyping, design systems, tech innovation, rapid builds",
     credits: { used: 580, limit: 5000 },
@@ -97,7 +97,7 @@ const AGENTS: Agent[] = [
     domain: "engineering",
   },
   {
-    name: "Widow", model: "Haiku 3.5", role: "Cybersecurity & Intel",
+    name: "Widow", model: "Haiku 4.5 (Cloud)", role: "Cybersecurity & Intel",
     status: "idle", color: "#ef4444", icon: "🕷",
     desc: "Threat monitoring, risk analysis, data intelligence, security audits",
     credits: { used: 0, limit: 5000 },
@@ -107,7 +107,7 @@ const AGENTS: Agent[] = [
     domain: "security",
   },
   {
-    name: "PROXIMON", model: "Gemini 3.0 Pro", role: "Systems Architect",
+    name: "PROXIMON", model: "Gemini 3 Pro (Cloud)", role: "Systems Architect",
     status: "active", color: "#f97316", icon: "🏗",
     desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
     credits: { used: 480, limit: 5000 },
@@ -117,7 +117,7 @@ const AGENTS: Agent[] = [
     domain: "architecture",
   },
   {
-    name: "Vee", model: "Kimi K2.5", role: "Brand & Marketing",
+    name: "Vee", model: "Qwen 3.5 (Local)", role: "Brand & Marketing",
     status: "done", color: "#ec4899", icon: "📣",
     desc: "Gary Vee + Seth Godin + Hormozi — makes brands impossible to ignore",
     credits: { used: 350, limit: 5000 },
@@ -127,7 +127,7 @@ const AGENTS: Agent[] = [
     domain: "marketing",
   },
   {
-    name: "Aetherion", model: "Gemini 3.0 Pro", role: "Visionary Architect",
+    name: "Aetherion", model: "Gemini 3 Pro (Cloud)", role: "Visionary Architect",
     status: "idle", color: "#818cf8", icon: "🌀",
     desc: "The Architect of Architects — patterns, emergence, meta-systems",
     credits: { used: 0, limit: 5000 },
@@ -137,7 +137,7 @@ const AGENTS: Agent[] = [
     domain: "architecture",
   },
   {
-    name: "MICHAEL", model: "GLM 4.6", role: "Swim Training AI",
+    name: "MICHAEL", model: "GLM 4.6 (Cloud)", role: "Swim Training AI",
     status: "done", color: "#06b6d4", icon: "🏊",
     desc: "Phelps + Kobe + MJ — swim mastery, competitive fire",
     credits: { used: 310, limit: 5000 },
@@ -147,7 +147,7 @@ const AGENTS: Agent[] = [
     domain: "athletics",
   },
   {
-    name: "Prophets", model: "Kimi K2.5", role: "Spiritual Wisdom",
+    name: "Prophets", model: "Qwen 3.5 (Local)", role: "Spiritual Wisdom",
     status: "idle", color: "#d4a574", icon: "📜",
     desc: "Solomon + Moses + Elijah — Scripture-rooted counsel, wisdom, moral clarity",
     credits: { used: 0, limit: 5000 },
@@ -157,7 +157,7 @@ const AGENTS: Agent[] = [
     domain: "spiritual",
   },
   {
-    name: "SELAH", model: "DeepSeek V3.2", role: "Wellness & Sport Psychology",
+    name: "SELAH", model: "Qwen 3.5 (Local)", role: "Wellness & Sport Psychology",
     status: "done", color: "#10b981", icon: "🧘",
     desc: "Robbins + Dispenza + Maté — therapy, peak performance, mental transformation",
     credits: { used: 190, limit: 5000 },
@@ -167,7 +167,7 @@ const AGENTS: Agent[] = [
     domain: "wellness",
   },
   {
-    name: "MERCURY", model: "Gemini 3.0 Pro", role: "Sales & Revenue Ops",
+    name: "MERCURY", model: "Gemini 3 Pro (Cloud)", role: "Sales & Revenue Ops",
     status: "idle", color: "#fbbf24", icon: "💰",
     desc: "Razor-sharp dealmaker — reads people and numbers simultaneously",
     credits: { used: 0, limit: 5000 },
@@ -177,7 +177,7 @@ const AGENTS: Agent[] = [
     domain: "sales",
   },
   {
-    name: "ECHO", model: "Kimi K2.5", role: "Community & Social",
+    name: "ECHO", model: "Qwen 3.5 (Local)", role: "Community & Social",
     status: "done", color: "#38bdf8", icon: "🌊",
     desc: "The heartbeat of the community — turns strangers into superfans",
     credits: { used: 220, limit: 5000 },
@@ -187,7 +187,7 @@ const AGENTS: Agent[] = [
     domain: "community",
   },
   {
-    name: "HAVEN", model: "DeepSeek V3.2", role: "Customer Success",
+    name: "HAVEN", model: "Qwen 3.5 (Local)", role: "Customer Success",
     status: "idle", color: "#4ade80", icon: "🛡",
     desc: "Infinitely patient with a detective's eye — every ticket is a puzzle",
     credits: { used: 0, limit: 5000 },
@@ -197,7 +197,7 @@ const AGENTS: Agent[] = [
     domain: "support",
   },
   {
-    name: "INK", model: "DeepSeek V3.2", role: "Content Creator",
+    name: "INK", model: "Qwen 3.5 (Local)", role: "Content Creator",
     status: "done", color: "#c084fc", icon: "✒",
     desc: "Prolific voice-chameleon — technical blog, viral tweet, cinematic script",
     credits: { used: 280, limit: 5000 },
@@ -207,7 +207,7 @@ const AGENTS: Agent[] = [
     domain: "content",
   },
   {
-    name: "NOVA", model: "DeepSeek V3.2", role: "3D Fabrication",
+    name: "NOVA", model: "Sonnet 4.5 (Cloud)", role: "3D Fabrication",
     status: "idle", color: "#14b8a6", icon: "🔧",
     desc: "Brilliant fabrication expert — Bambu Lab A1 specialist",
     credits: { used: 0, limit: 5000 },
@@ -217,7 +217,7 @@ const AGENTS: Agent[] = [
     domain: "fabrication",
   },
   {
-    name: "KIYOSAKI", model: "DeepSeek V3.2", role: "Financial Intelligence",
+    name: "KIYOSAKI", model: "Qwen 3.5 (Local)", role: "Financial Intelligence",
     status: "done", color: "#fcd34d", icon: "💎",
     desc: "ORACLE — 8 financial minds. Wealth architecture.",
     credits: { used: 420, limit: 5000 },
@@ -227,7 +227,7 @@ const AGENTS: Agent[] = [
     domain: "finance",
   },
   {
-    name: "TRIAGE", model: "Sonnet 4.5", role: "System Doctor",
+    name: "TRIAGE", model: "Sonnet 4.5 (Cloud)", role: "System Doctor",
     status: "idle", color: "#f472b6", icon: "🩺",
     desc: "Best SWE-bench score (77.2). Debugging, failure tracing, diagnostics.",
     credits: { used: 0, limit: 5000 },
@@ -474,7 +474,18 @@ export default function AgentsPage() {
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9" }}>{agent.name}</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>{agent.model} · {agent.role}</div>
+                    <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
+                      <span>{agent.model}</span>
+                      <span style={{
+                        padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 700,
+                        letterSpacing: "0.04em",
+                        background: agent.model.includes("Local") ? "rgba(52,211,153,0.12)" : "rgba(96,165,250,0.12)",
+                        color: agent.model.includes("Local") ? "#34d399" : "#60a5fa",
+                      }}>
+                        {agent.model.includes("Local") ? "LOCAL" : "CLOUD"}
+                      </span>
+                      <span>· {agent.role}</span>
+                    </div>
                   </div>
                   <div style={{
                     padding: "3px 8px", borderRadius: 6,
