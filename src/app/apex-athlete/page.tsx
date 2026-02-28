@@ -13,6 +13,7 @@ import {
   firebaseConnected,
 } from "@/lib/apex-sync";
 import { ApexNotificationBell, addNotification } from "@/components/apex-notifications";
+import ParticleField from "@/components/ParticleField";
 import { MASTER_PIN } from "./auth";
 
 /* ══════════════════════════════════════════════════════════════
@@ -2224,14 +2225,98 @@ export default function ApexAthletePage() {
     );
   };
 
-  // ── loading ──────────────────────────────────────────────
+  // ── cinematic game boot ─────────────────────────────────
   // BgOrbs is now defined outside the component
 
   if (!mounted) return (
-    <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative">
+    <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative overflow-hidden">
       <BgOrbs />
-      <div className="text-center relative z-10">
-        <div className="neon-text-cyan text-sm font-mono tracking-wider opacity-60">INITIALIZING...</div>
+      <ParticleField variant="gold" count={35} opacity={0.2} speed={0.4} />
+      <style jsx>{`
+        @keyframes bootLogoReveal {
+          0% { opacity: 0; transform: scale(0.7) translateY(20px); filter: blur(12px); }
+          40% { opacity: 1; filter: blur(0); }
+          100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+        }
+        @keyframes bootTextType {
+          from { width: 0; }
+          to { width: 100%; }
+        }
+        @keyframes bootPulseRing {
+          0% { transform: scale(0.8); opacity: 0.6; }
+          50% { transform: scale(1.2); opacity: 0; }
+          100% { transform: scale(0.8); opacity: 0; }
+        }
+        @keyframes bootBarFill {
+          0% { width: 0%; }
+          30% { width: 35%; }
+          60% { width: 68%; }
+          85% { width: 88%; }
+          100% { width: 100%; }
+        }
+        @keyframes bootScanDown {
+          0% { top: -2px; opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { top: 100%; opacity: 0; }
+        }
+        @keyframes bootStatusFade {
+          0%, 10% { opacity: 0; transform: translateY(6px); }
+          20%, 80% { opacity: 1; transform: translateY(0); }
+          90%, 100% { opacity: 0; transform: translateY(-4px); }
+        }
+        @keyframes bootParticleFloat {
+          0% { transform: translateY(0) scale(1); opacity: 0.6; }
+          50% { transform: translateY(-30px) scale(1.3); opacity: 0.3; }
+          100% { transform: translateY(-60px) scale(0.5); opacity: 0; }
+        }
+      `}</style>
+
+      {/* Scan line sweeping down */}
+      <div className="absolute left-0 right-0 h-[2px] z-20"
+        style={{ animation: 'bootScanDown 2s ease-in-out infinite', background: 'linear-gradient(90deg, transparent, rgba(212,168,67,0.6), transparent)' }} />
+
+      {/* Pulse rings behind logo */}
+      <div className="absolute inset-0 flex items-center justify-center z-[2]">
+        <div className="w-60 h-60 rounded-full border border-[#D4A843]/10" style={{ animation: 'bootPulseRing 2s ease-out infinite' }} />
+        <div className="absolute w-80 h-80 rounded-full border border-[#D4A843]/5" style={{ animation: 'bootPulseRing 2s ease-out 0.5s infinite' }} />
+        <div className="absolute w-[400px] h-[400px] rounded-full border border-[#D4A843]/3" style={{ animation: 'bootPulseRing 2s ease-out 1s infinite' }} />
+      </div>
+
+      {/* Rising particles around logo */}
+      <div className="absolute inset-0 flex items-center justify-center z-[3] pointer-events-none">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="absolute w-1 h-1 rounded-full bg-[#D4A843]"
+            style={{
+              left: `${45 + Math.random() * 10}%`,
+              top: `${55 + Math.random() * 10}%`,
+              animation: `bootParticleFloat ${2 + Math.random() * 2}s ease-out ${Math.random() * 2}s infinite`,
+            }} />
+        ))}
+      </div>
+
+      <div className="text-center relative z-10 flex flex-col items-center">
+        {/* Logo reveal */}
+        <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-28 h-28 mb-5"
+          style={{ animation: 'bootLogoReveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) both', filter: 'drop-shadow(0 0 50px rgba(212,168,67,0.4))' }} />
+        <h1 className="text-5xl font-black mb-3 tracking-tight"
+          style={{ background: 'linear-gradient(135deg, #D4A843, #FFD700, #D4A843)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', animation: 'bootLogoReveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both' }}>
+          METTLE
+        </h1>
+
+        {/* Status messages — game engine style */}
+        <div className="mt-6 space-y-1 font-mono text-xs tracking-wider text-[#D4A843]/40">
+          <div style={{ animation: 'bootStatusFade 2.5s ease 0s both' }}>LOADING ATHLETE ENGINE...</div>
+          <div style={{ animation: 'bootStatusFade 2.5s ease 0.3s both' }}>SYNCING FIREBASE...</div>
+          <div style={{ animation: 'bootStatusFade 2.5s ease 0.6s both' }}>BUILDING ROSTER...</div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-6 w-56 h-[3px] bg-[#D4A843]/10 rounded-full overflow-hidden">
+          <div className="h-full rounded-full" style={{ background: 'linear-gradient(90deg, #D4A843, #FFD700)', animation: 'bootBarFill 2s ease-out both' }} />
+        </div>
+
+        <div className="mt-4 text-[10px] font-mono tracking-[0.4em] text-white/15 uppercase">Forged in Purpose</div>
       </div>
     </div>
   );
@@ -2257,6 +2342,7 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
         <BgOrbs />
+        <ParticleField variant="gold" count={45} opacity={0.25} speed={0.6} interactive />
         <style jsx>{`
           @keyframes coachPinGlow {
             0%, 100% { box-shadow: 0 0 40px rgba(212,168,67,0.15), 0 0 80px rgba(212,168,67,0.05); }
