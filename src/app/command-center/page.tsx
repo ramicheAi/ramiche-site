@@ -2017,7 +2017,7 @@ export default function CommandCenter() {
                 background: "linear-gradient(145deg, rgba(245,158,11,0.04) 0%, rgba(6,2,15,0.98) 100%)",
               }}
             >
-              <div className="absolute top-3 right-4 text-[10px] font-mono text-[#f59e0b]/40 tracking-[0.3em] uppercase font-bold">
+              <div className="absolute top-3 right-4 text-[12px] font-mono text-[#f59e0b]/70 tracking-[0.3em] uppercase font-black">
                 REVENUE
               </div>
               <div className="space-y-5 mt-1">
@@ -2027,9 +2027,9 @@ export default function CommandCenter() {
                   { label: "Monthly Target", val: "$5,000", glow: false },
                 ].map((r) => (
                   <div key={r.label} className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono text-white/20 uppercase tracking-wider">{r.label}</span>
+                    <span className="text-[11px] font-mono text-white/40 uppercase tracking-wider font-bold">{r.label}</span>
                     <span
-                      className={`text-lg font-black tabular-nums ${r.glow ? "neon-text-gold" : "text-white/30"}`}
+                      className={`text-xl font-black tabular-nums ${r.glow ? "neon-text-gold" : "text-white/50"}`}
                     >
                       {r.val}
                     </span>
@@ -2037,9 +2037,9 @@ export default function CommandCenter() {
                 ))}
               </div>
               {/* Revenue progress arc */}
-              <div className="mt-5 pt-4 border-t border-[#f59e0b]/8">
+              <div className="mt-5 pt-4 border-t-2 border-[#f59e0b]/15">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[11px] font-mono text-white/30">TARGET PROGRESS</span>
+                  <span className="text-[12px] font-mono text-white/50 font-bold">TARGET PROGRESS</span>
                   <span className="text-[9px] font-mono neon-text-gold">0%</span>
                 </div>
                 <div className="h-2 bg-white/[0.04] rounded-full overflow-hidden xp-bar-segments">
@@ -2058,7 +2058,7 @@ export default function CommandCenter() {
             {/* Opportunity Scanner */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-3 mb-3">
-                <div className="text-[8px] font-mono uppercase tracking-[0.4em] text-white/15">
+                <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-white/40 font-bold">
                   OPPORTUNITY SCANNER
                 </div>
                 <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
@@ -2069,32 +2069,32 @@ export default function CommandCenter() {
                     key={o.title}
                     className="game-card game-panel-sm relative p-4 cursor-pointer group"
                     style={{
-                      background: `linear-gradient(160deg, ${o.accent}04 0%, rgba(3,1,8,0.99) 100%)`,
-                      border: `1px solid ${o.accent}10`,
+                      background: `linear-gradient(160deg, ${o.accent}08 0%, rgba(3,1,8,0.99) 100%)`,
+                      border: `2px solid ${o.accent}20`,
                     }}
                   >
                     <div className="flex items-center justify-between mb-2.5">
                       <span
-                        className="text-[7px] font-mono uppercase px-2 py-0.5 tracking-wider game-panel-sm"
+                        className="text-[8px] font-mono uppercase px-2 py-0.5 tracking-wider game-panel-sm font-bold"
                         style={{
-                          color: o.tag === "READY" ? o.accent : o.tag === "SOON" ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.2)",
-                          background: `${o.accent}08`,
-                          border: `1px solid ${o.accent}15`,
+                          color: o.tag === "READY" ? o.accent : o.tag === "SOON" ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)",
+                          background: `${o.accent}12`,
+                          border: `1px solid ${o.accent}25`,
                         }}
                       >
                         {o.tag}
                       </span>
                       <span
-                        className="text-sm font-black font-mono whitespace-nowrap"
-                        style={{ color: o.accent, textShadow: `0 0 10px ${o.accent}25` }}
+                        className="text-base font-black font-mono whitespace-nowrap"
+                        style={{ color: o.accent, textShadow: `0 0 12px ${o.accent}35` }}
                       >
                         {o.rev}
                       </span>
                     </div>
-                    <div className="text-xs font-bold text-white/75 mb-1 group-hover:text-white/90 transition-colors">
+                    <div className="text-sm font-bold text-white/85 mb-1 group-hover:text-white transition-colors">
                       {o.title}
                     </div>
-                    <div className="text-[9px] text-white/25 font-mono leading-relaxed">
+                    <div className="text-[10px] text-white/40 font-mono leading-relaxed">
                       {o.desc}
                     </div>
                   </div>
@@ -2106,7 +2106,7 @@ export default function CommandCenter() {
           {/* ═══════ ROW 6: QUICK LINKS HUB ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/30 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/50 font-black">
                 QUICK LINKS
               </div>
               <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
@@ -2121,23 +2121,23 @@ export default function CommandCenter() {
                   rel="noopener noreferrer"
                   className="game-card game-panel-sm relative p-4 flex flex-col items-center justify-center gap-2 group transition-all overflow-hidden"
                   style={{
-                    background: `linear-gradient(145deg, ${l.accent}04 0%, rgba(3,1,8,0.99) 100%)`,
-                    border: `1px solid ${l.accent}08`,
+                    background: `linear-gradient(145deg, ${l.accent}08 0%, rgba(3,1,8,0.99) 100%)`,
+                    border: `2px solid ${l.accent}18`,
                     minHeight: "88px",
                   }}
                 >
                   <div
-                    className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-black transition-all duration-300 group-hover:scale-110"
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-base font-black transition-all duration-300 group-hover:scale-110"
                     style={{
-                      background: `${l.accent}08`,
+                      background: `${l.accent}12`,
                       color: l.accent,
-                      border: `1px solid ${l.accent}15`,
-                      textShadow: `0 0 10px ${l.accent}30`,
+                      border: `2px solid ${l.accent}25`,
+                      textShadow: `0 0 12px ${l.accent}40`,
                     }}
                   >
                     {l.icon}
                   </div>
-                  <span className="text-[9px] font-mono text-white/30 group-hover:text-white/60 transition-colors uppercase tracking-wider">
+                  <span className="text-[10px] font-mono text-white/45 group-hover:text-white/70 transition-colors uppercase tracking-wider font-bold">
                     {l.label}
                   </span>
                   {/* Hover glow */}
@@ -2155,42 +2155,42 @@ export default function CommandCenter() {
           {/* ═══════ ROW 7: ACTIVITY FEED ═══════ */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/30 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-white/50 font-black">
                 ACTIVITY FEED
               </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.05), transparent)" }} />
-              <div className="text-[8px] font-mono text-white/10">LATEST</div>
+              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(255,255,255,0.1), transparent)" }} />
+              <div className="text-[9px] font-mono text-white/25 font-bold">LATEST</div>
             </div>
 
             <div
               className="game-panel game-panel-scan relative p-6"
               style={{
-                background: "linear-gradient(145deg, rgba(255,255,255,0.01) 0%, rgba(3,1,8,0.99) 100%)",
-                border: "1px solid rgba(255,255,255,0.04)",
+                background: "linear-gradient(145deg, rgba(255,255,255,0.02) 0%, rgba(3,1,8,0.99) 100%)",
+                border: "2px solid rgba(255,255,255,0.08)",
               }}
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
                 {LOG.map((l, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-4 group py-2.5 border-b border-white/[0.03] last:border-b-0"
+                    className="flex items-center gap-4 group py-2.5 border-b border-white/[0.06] last:border-b-0"
                   >
                     {/* Timeline dot + line */}
                     <div className="flex flex-col items-center flex-shrink-0">
                       <div
-                        className="w-2 h-2 rounded-full transition-all duration-300 group-hover:scale-150"
+                        className="w-2.5 h-2.5 rounded-full transition-all duration-300 group-hover:scale-150"
                         style={{
                           background: l.color,
-                          boxShadow: `0 0 8px ${l.color}40`,
+                          boxShadow: `0 0 10px ${l.color}50`,
                         }}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-white/55 leading-snug group-hover:text-white/75 transition-colors line-clamp-2">
+                      <div className="text-sm text-white/70 leading-snug group-hover:text-white/90 transition-colors line-clamp-2 font-medium">
                         {l.text}
                       </div>
                     </div>
-                    <div className="text-[11px] font-mono text-white/30 flex-shrink-0 uppercase">
+                    <div className="text-[11px] font-mono text-white/40 flex-shrink-0 uppercase font-bold">
                       {l.time}
                     </div>
                   </div>
@@ -2202,11 +2202,11 @@ export default function CommandCenter() {
           {/* ═══════ COMMAND INPUT — Send commands/approvals ═══════ */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-4">
-              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/40 font-bold">
+              <div className="text-sm font-mono uppercase tracking-[0.35em] text-[#00f0ff]/60 font-black">
                 COMMAND LINE
               </div>
-              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.15), transparent)" }} />
-              <div className="text-[9px] font-mono text-white/20">
+              <div className="flex-1 h-[1px]" style={{ background: "linear-gradient(90deg, rgba(0,240,255,0.25), transparent)" }} />
+              <div className="text-[10px] font-mono text-white/35 font-bold">
                 Send instructions to Atlas
               </div>
             </div>
@@ -2214,8 +2214,8 @@ export default function CommandCenter() {
             <div
               className="game-panel game-panel-scan relative"
               style={{
-                background: "linear-gradient(145deg, rgba(0,240,255,0.03) 0%, rgba(3,1,8,0.99) 100%)",
-                border: "1px solid rgba(0,240,255,0.12)",
+                background: "linear-gradient(145deg, rgba(0,240,255,0.05) 0%, rgba(3,1,8,0.99) 100%)",
+                border: "2px solid rgba(0,240,255,0.20)",
               }}
             >
               {/* Input row */}
