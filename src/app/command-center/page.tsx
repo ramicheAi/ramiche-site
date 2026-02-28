@@ -414,6 +414,7 @@ const NOTIFICATIONS = [
 const NAV = [
   { label: "HQ", href: "/", icon: "\u25C8" },
   { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
+  { label: "AGENTS", href: "/command-center/agents", icon: "\u2726" },
   { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
   { label: "FINANCE", href: "/financial", icon: "\u25C9" },
   { label: "STUDIO", href: "/studio", icon: "\u2662" },
