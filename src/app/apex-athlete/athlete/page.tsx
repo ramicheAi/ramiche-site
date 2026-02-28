@@ -58,7 +58,7 @@ const K = {
 
 interface Athlete {
   id: string; name: string; age: number; gender: "M" | "F"; group: string;
-  xp: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
+  xp: number; seasonXP?: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
@@ -1430,7 +1430,7 @@ export default function AthletePortal() {
         {/* XP Bar */}
         <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
-            <span className="text-white/60 text-xs lg:text-base font-mono">XP: {athlete.xp}</span>
+            <span className="text-white/60 text-xs lg:text-base font-mono">Season: {athlete.seasonXP || 0} XP • Total: {athlete.xp} XP</span>
             {nextLevel ? (
               <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (

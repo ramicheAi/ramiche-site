@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/mettle-brand/v5/mettle-icon.svg",
-    apple: "/mettle-brand/v5/mettle-icon.svg",
+    apple: "/mettle-brand/v5/apple-touch-icon.png",
   },
   other: {
     "theme-color": "#C9A84C",

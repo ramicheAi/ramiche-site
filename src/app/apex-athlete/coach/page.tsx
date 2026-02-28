@@ -136,7 +136,7 @@ interface DailyXP { date: string; pool: number; weight: number; meet: number; }
 
 interface Athlete {
   id: string; name: string; age: number; gender: "M" | "F"; group: string;
-  xp: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
+  xp: number; seasonXP?: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
@@ -861,7 +861,7 @@ export default function ApexAthletePage() {
   const [coachPin, setCoachPin] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
@@ -1405,6 +1405,7 @@ export default function ApexAthletePage() {
     if (awarded <= 0) return { newAthlete: a, awarded: 0 };
     const oldXP = a.xp;
     a.xp += awarded;
+    a.seasonXP = (a.seasonXP || 0) + awarded;
     a.dailyXP[category] += awarded;
     checkLevelUp(oldXP, a.xp, a.name);
     return { newAthlete: a, awarded };
@@ -1423,7 +1424,7 @@ export default function ApexAthletePage() {
         // Revert XP when unchecking
         const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
         const awarded = Math.round(cpXP * mult);
-        a.xp = Math.max(0, a.xp - awarded);
+        a.xp = Math.max(0, a.xp - awarded); a.seasonXP = Math.max(0, (a.seasonXP || 0) - awarded);
         if (a.dailyXP.date === today()) {
           a.dailyXP = { ...a.dailyXP, [category]: Math.max(0, a.dailyXP[category] - awarded) };
         }
@@ -1456,7 +1457,7 @@ export default function ApexAthletePage() {
         a.weightChallenges[chId] = false;
         const mult = getWeightStreakMult(a.weightStreak);
         const reverted = Math.round(chXP * mult);
-        a.xp = Math.max(0, a.xp - reverted);
+        a.xp = Math.max(0, a.xp - reverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - reverted);
         if (a.dailyXP.date === today()) {
           a.dailyXP = { ...a.dailyXP, weight: Math.max(0, a.dailyXP.weight - reverted) };
         }
@@ -1570,7 +1571,7 @@ export default function ApexAthletePage() {
           if (oldCPs[cp.id]) {
             oldCPs[cp.id] = false;
             const reverted = Math.round(cp.xp * mult);
-            a.xp = Math.max(0, a.xp - reverted);
+            a.xp = Math.max(0, a.xp - reverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - reverted);
             if (a.dailyXP.date === today()) {
               const cat = sessionMode === "meet" ? "meet" : sessionMode;
               a.dailyXP = { ...a.dailyXP, [cat]: Math.max(0, a.dailyXP[cat] - reverted) };
@@ -1580,7 +1581,7 @@ export default function ApexAthletePage() {
         }
         // Revert base present XP
         const baseReverted = Math.round(PRESENT_XP * mult);
-        a.xp = Math.max(0, a.xp - baseReverted);
+        a.xp = Math.max(0, a.xp - baseReverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - baseReverted);
         if (a.dailyXP.date === today()) {
           const cat = sessionMode === "meet" ? "meet" : sessionMode;
           a.dailyXP = { ...a.dailyXP, [cat]: Math.max(0, a.dailyXP[cat] - baseReverted) };

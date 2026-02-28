@@ -1,660 +1,724 @@
 "use client";
 
-import { useState, useCallback, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   AGENT MANAGEMENT — Focused agent dashboard
-   View usage, skills, tools. Toggle capabilities per agent.
+   AGENT MANAGEMENT — Focused sub-page of Command Center
+   View, configure, and manage all 19 agents
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── SKILLS REGISTRY ──────────────────────────────────────────────────────── */
-const SKILLS_REGISTRY: Record<string, string[]> = {
-  coding: ["coding-agent", "github", "container-debug", "perf-profiler", "log-analyzer"],
-  content: ["agent-content-pipeline", "linkedin-automator", "marketing-mode", "content-quality-auditor"],
-  music: ["ai-music-generation", "music-cog", "elevenlabs-music", "clawtunes", "songsee"],
-  research: ["last30days", "competitive-analysis", "market-research", "web_search", "web_fetch"],
-  finance: ["actual-budget", "personal-finance", "intellectia-stock-forecast"],
-  wellness: ["fasting-tracker", "habit-tracker", "healthy-eating", "morning-routine"],
-  security: ["healthcheck", "dns-networking", "container-debug"],
-  communication: ["email", "wacli", "imsg", "metricool"],
-  design: ["figma", "nano-banana-pro", "openai-image-gen", "brand-cog"],
-  analytics: ["ga4-analytics", "app-log-analyzer", "proc-monitor", "mactop"],
-};
+/* ── Agent Data ─────────────────────────────────────────────────────────────── */
+interface AgentSkill {
+  name: string;
+  enabled: boolean;
+  description: string;
+}
 
-/* ── TOOLS REGISTRY ───────────────────────────────────────────────────────── */
-const TOOLS_REGISTRY = [
-  "read", "write", "edit", "exec", "web_search", "web_fetch", "browser",
-  "canvas", "memory_get", "memory_search", "tts", "image", "cron",
-  "message", "sessions_spawn", "subagents", "nodes",
-];
+interface AgentTool {
+  name: string;
+  enabled: boolean;
+}
 
-/* ── AGENT DATA ───────────────────────────────────────────────────────────── */
 interface Agent {
   name: string;
   model: string;
   role: string;
-  status: "active" | "idle" | "done" | "error";
+  status: "active" | "idle" | "done";
   color: string;
-  icon: string;
   desc: string;
+  avatar: string;
   credits: { used: number; limit: number };
   activeTask: string;
-  skills: string[];
-  tools: string[];
-  domain: string;
+  skills: AgentSkill[];
+  tools: AgentTool[];
+  stats: { tasksCompleted: number; tokensUsed: string; avgResponseTime: string; uptime: string };
 }
 
 const AGENTS: Agent[] = [
   {
-    name: "Atlas", model: "Opus 4.6 (Cloud)", role: "Lead Strategist",
-    status: "active", color: "#00f0ff", icon: "🧭",
-    desc: "Orchestrates all agents, system-wide reasoning, mission planning, memory",
-    credits: { used: 1250, limit: 5000 },
-    activeTask: "Command center redesign + Qwen local setup",
-    skills: ["coding-agent", "github", "agent-content-pipeline", "last30days", "competitive-analysis", "ga4-analytics", "healthcheck"],
-    tools: ["read", "write", "edit", "exec", "web_search", "web_fetch", "browser", "canvas", "memory_get", "memory_search", "tts", "image", "cron", "message", "sessions_spawn", "subagents", "nodes"],
-    domain: "operations",
+    name: "Atlas", model: "Opus 4.6", role: "Operations Lead",
+    status: "active", color: "#C9A84C", avatar: "/agents/atlas-3d.png",
+    desc: "Carries the weight — orchestrates 18 agents, ships products, memory, mission control",
+    credits: { used: 4800, limit: 5000 },
+    activeTask: "Command Center upgrade + Parallax Publish build",
+    skills: [
+      { name: "coding-agent", enabled: true, description: "Delegate coding tasks to sub-agents" },
+      { name: "github", enabled: true, description: "GitHub CLI operations" },
+      { name: "weather", enabled: true, description: "Weather forecasts" },
+      { name: "email", enabled: true, description: "Email management" },
+      { name: "apple-calendar", enabled: true, description: "Calendar integration" },
+      { name: "bear-notes", enabled: true, description: "Note management" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "edit", enabled: true }, { name: "exec", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+      { name: "browser", enabled: true }, { name: "memory_search", enabled: true },
+      { name: "tts", enabled: true }, { name: "cron", enabled: true },
+    ],
+    stats: { tasksCompleted: 347, tokensUsed: "2.4M", avgResponseTime: "3.2s", uptime: "99.8%" },
   },
   {
-    name: "TheMAESTRO", model: "Qwen 3.5 (Local)", role: "Music Production AI",
-    status: "idle", color: "#f59e0b", icon: "🎵",
+    name: "TheMAESTRO", model: "DeepSeek V3.2", role: "Music Production AI",
+    status: "idle", color: "#f59e0b", avatar: "/agents/themaestro-3d.png",
     desc: "Ye + Quincy + Babyface — influence-based creative direction, sound design",
     credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Track inventory",
-    skills: ["ai-music-generation", "music-cog", "elevenlabs-music", "clawtunes", "songsee"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "memory_get", "memory_search", "tts"],
-    domain: "music",
+    activeTask: "Awaiting: Ramiche music pipeline",
+    skills: [
+      { name: "ai-music-generation", enabled: true, description: "Generate AI music" },
+      { name: "ai-music-prompts", enabled: true, description: "Music prompt templates" },
+      { name: "elevenlabs-music", enabled: true, description: "ElevenLabs music generation" },
+      { name: "music-cog", enabled: true, description: "Original music creation" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "exec", enabled: true }, { name: "web_search", enabled: true },
+      { name: "tts", enabled: true },
+    ],
+    stats: { tasksCompleted: 12, tokensUsed: "180K", avgResponseTime: "4.1s", uptime: "95.2%" },
   },
   {
-    name: "SIMONS", model: "Qwen 3.5 (Local)", role: "Algorithmic Analysis",
-    status: "idle", color: "#22d3ee", icon: "📊",
-    desc: "Jim Simons — pattern recognition, statistical arbitrage, data crunching",
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: SEO/competitor analysis",
-    skills: ["ga4-analytics", "competitive-analysis", "intellectia-stock-forecast", "app-log-analyzer"],
-    tools: ["read", "exec", "web_search", "web_fetch", "memory_get", "memory_search"],
-    domain: "analytics",
+    name: "SIMONS", model: "DeepSeek V3.2", role: "Algorithmic Analysis",
+    status: "done", color: "#22d3ee", avatar: "/agents/simons-3d.png",
+    desc: "Jim Simons — pattern recognition, statistical arbitrage, pricing models",
+    credits: { used: 620, limit: 5000 },
+    activeTask: "DELIVERED: Pricing analysis + marketing playbook",
+    skills: [
+      { name: "intellectia-stock-forecast", enabled: true, description: "Stock analysis" },
+      { name: "ga4-analytics", enabled: true, description: "Google Analytics" },
+      { name: "data-visualization", enabled: true, description: "Charts & graphs" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "exec", enabled: true }, { name: "web_search", enabled: true },
+      { name: "web_fetch", enabled: true },
+    ],
+    stats: { tasksCompleted: 28, tokensUsed: "420K", avgResponseTime: "2.8s", uptime: "97.1%" },
   },
   {
-    name: "Dr. Strange", model: "Qwen 3.5 (Local)", role: "Forecasting & Decisions",
-    status: "idle", color: "#a855f7", icon: "🔮",
+    name: "Dr. Strange", model: "DeepSeek V3.2", role: "Forecasting & Decisions",
+    status: "idle", color: "#a855f7", avatar: "/agents/drstrange-3d.png",
     desc: "Scenario analysis, probable outcomes, strategic foresight, risk assessment",
     credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Kickstarter landscape",
-    skills: ["competitive-analysis", "last30days", "intellectia-stock-forecast"],
-    tools: ["read", "exec", "web_search", "web_fetch", "memory_get", "memory_search"],
-    domain: "strategy",
+    activeTask: "Awaiting: Next strategic planning cycle",
+    skills: [
+      { name: "competitive-analysis", enabled: true, description: "Competitor deep-dive" },
+      { name: "business-plan", enabled: true, description: "Business planning" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+    ],
+    stats: { tasksCompleted: 8, tokensUsed: "95K", avgResponseTime: "5.2s", uptime: "92.0%" },
   },
   {
-    name: "SHURI", model: "Qwen 3.5 (Local)", role: "Creative Coding",
-    status: "active", color: "#34d399", icon: "⚡",
+    name: "SHURI", model: "DeepSeek V3.2", role: "Creative Coding",
+    status: "done", color: "#34d399", avatar: "/agents/shuri-3d.png",
     desc: "Prototyping, design systems, tech innovation, rapid builds",
-    credits: { used: 580, limit: 5000 },
-    activeTask: "Three-portal UI extraction",
-    skills: ["coding-agent", "github", "container-debug", "perf-profiler", "figma"],
-    tools: ["read", "write", "edit", "exec", "web_search", "web_fetch", "browser", "memory_get", "memory_search"],
-    domain: "engineering",
+    credits: { used: 1800, limit: 5000 },
+    activeTask: "DELIVERED: 18+ PRs — portals, meet mgmt, invite system",
+    skills: [
+      { name: "coding-agent", enabled: true, description: "Code delegation" },
+      { name: "github", enabled: true, description: "GitHub operations" },
+      { name: "figma", enabled: true, description: "Figma design analysis" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "edit", enabled: true }, { name: "exec", enabled: true },
+      { name: "web_search", enabled: true },
+    ],
+    stats: { tasksCompleted: 156, tokensUsed: "1.8M", avgResponseTime: "2.5s", uptime: "98.5%" },
   },
   {
-    name: "Widow", model: "Haiku 4.5 (Cloud)", role: "Cybersecurity & Intel",
-    status: "idle", color: "#ef4444", icon: "🕷",
+    name: "Widow", model: "Haiku 4.5", role: "Cybersecurity & Intel",
+    status: "done", color: "#ef4444", avatar: "/agents/widow-3d.png",
     desc: "Threat monitoring, risk analysis, data intelligence, security audits",
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: API key audit + COPPA check",
-    skills: ["healthcheck", "dns-networking", "container-debug", "log-analyzer"],
-    tools: ["read", "exec", "web_search", "web_fetch", "memory_get", "memory_search"],
-    domain: "security",
-  },
-  {
-    name: "PROXIMON", model: "Gemini 3 Pro (Cloud)", role: "Systems Architect",
-    status: "active", color: "#f97316", icon: "🏗",
-    desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
     credits: { used: 480, limit: 5000 },
-    activeTask: "Firebase v2 spec + deploy guide",
-    skills: ["coding-agent", "github", "perf-profiler", "container-debug"],
-    tools: ["read", "write", "edit", "exec", "web_search", "web_fetch", "memory_get", "memory_search"],
-    domain: "architecture",
+    activeTask: "DELIVERED: ClawGuard Pro + CSP headers + Firestore rules",
+    skills: [
+      { name: "healthcheck", enabled: true, description: "Security hardening" },
+      { name: "dns-networking", enabled: true, description: "Network diagnostics" },
+      { name: "container-debug", enabled: true, description: "Container debugging" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "exec", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+    ],
+    stats: { tasksCompleted: 42, tokensUsed: "310K", avgResponseTime: "1.8s", uptime: "99.2%" },
   },
   {
-    name: "Vee", model: "Qwen 3.5 (Local)", role: "Brand & Marketing",
-    status: "done", color: "#ec4899", icon: "📣",
+    name: "PROXIMON", model: "Gemini 3.0 Pro", role: "Systems Architect",
+    status: "done", color: "#f97316", avatar: "/agents/proximon-3d.png",
+    desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
+    credits: { used: 880, limit: 5000 },
+    activeTask: "DELIVERED: Event sourcing + BFF pattern + DR plan",
+    skills: [
+      { name: "perf-profiler", enabled: true, description: "Performance optimization" },
+      { name: "log-analyzer", enabled: true, description: "Log analysis" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "edit", enabled: true }, { name: "exec", enabled: true },
+      { name: "web_search", enabled: true },
+    ],
+    stats: { tasksCompleted: 64, tokensUsed: "720K", avgResponseTime: "3.8s", uptime: "97.5%" },
+  },
+  {
+    name: "Vee", model: "Kimi K2.5", role: "Brand & Marketing",
+    status: "active", color: "#ec4899", avatar: "/agents/vee-3d.png",
     desc: "Gary Vee + Seth Godin + Hormozi — makes brands impossible to ignore",
-    credits: { used: 350, limit: 5000 },
-    activeTask: "DELIVERED: GA Shopify copy + Studio outreach",
-    skills: ["marketing-mode", "marketing-strategy-pmm", "linkedin-automator", "content-quality-auditor", "brand-analyzer", "metricool"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "browser", "memory_get", "memory_search", "message"],
-    domain: "marketing",
+    credits: { used: 950, limit: 5000 },
+    activeTask: "15-strategy conversion playbook + METTLE brand consulting",
+    skills: [
+      { name: "marketing-mode", enabled: true, description: "Full marketing suite" },
+      { name: "marketing-strategy-pmm", enabled: true, description: "Product marketing" },
+      { name: "brand-analyzer", enabled: true, description: "Brand analysis" },
+      { name: "content-quality-auditor", enabled: true, description: "Content audit" },
+      { name: "linkedin-automator", enabled: true, description: "LinkedIn automation" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+      { name: "browser", enabled: true },
+    ],
+    stats: { tasksCompleted: 89, tokensUsed: "950K", avgResponseTime: "4.5s", uptime: "96.8%" },
   },
   {
-    name: "Aetherion", model: "Gemini 3 Pro (Cloud)", role: "Visionary Architect",
-    status: "idle", color: "#818cf8", icon: "🌀",
+    name: "Aetherion", model: "Gemini 3.0 Pro", role: "Meta-Architect",
+    status: "done", color: "#818cf8", avatar: "/agents/aetherion-3d.png",
     desc: "The Architect of Architects — patterns, emergence, meta-systems",
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Done: 5 blueprints + Phase 1 matrix",
-    skills: ["coding-agent", "github", "competitive-analysis", "business-plan"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "memory_get", "memory_search"],
-    domain: "architecture",
+    credits: { used: 200, limit: 5000 },
+    activeTask: "DELIVERED: Inter-agent workflow chains + white-label architecture",
+    skills: [
+      { name: "skill-creator", enabled: true, description: "Create agent skills" },
+      { name: "coding-agent", enabled: true, description: "Code delegation" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "edit", enabled: true }, { name: "exec", enabled: true },
+    ],
+    stats: { tasksCompleted: 18, tokensUsed: "200K", avgResponseTime: "6.1s", uptime: "94.0%" },
   },
   {
-    name: "MICHAEL", model: "GLM 4.6 (Cloud)", role: "Swim Training AI",
-    status: "done", color: "#06b6d4", icon: "🏊",
-    desc: "Phelps + Kobe + MJ — swim mastery, competitive fire",
-    credits: { used: 310, limit: 5000 },
-    activeTask: "DELIVERED: Practice schedule builder",
-    skills: ["data-visualization", "habit-tracker"],
-    tools: ["read", "write", "exec", "memory_get", "memory_search"],
-    domain: "athletics",
+    name: "MICHAEL", model: "GLM 4.6", role: "Swim Training AI",
+    status: "done", color: "#06b6d4", avatar: "/agents/michael-3d.png",
+    desc: "Phelps + Kobe + MJ + Bolt — swim mastery, mamba mentality",
+    credits: { used: 510, limit: 5000 },
+    activeTask: "DELIVERED: Full meet management + splits + results",
+    skills: [
+      { name: "data-visualization", enabled: true, description: "Performance charts" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "exec", enabled: true },
+    ],
+    stats: { tasksCompleted: 35, tokensUsed: "510K", avgResponseTime: "3.0s", uptime: "98.0%" },
   },
   {
-    name: "Prophets", model: "Qwen 3.5 (Local)", role: "Spiritual Wisdom",
-    status: "idle", color: "#d4a574", icon: "📜",
-    desc: "Solomon + Moses + Elijah — Scripture-rooted counsel, wisdom, moral clarity",
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Daily Scripture cron",
-    skills: ["obsidian", "bear-notes"],
-    tools: ["read", "write", "exec", "web_search", "memory_get", "memory_search", "tts"],
-    domain: "spiritual",
+    name: "Prophets", model: "Kimi K2.5", role: "Spiritual Wisdom",
+    status: "active", color: "#d4a574", avatar: "/agents/prophets-3d.png",
+    desc: "Solomon + Moses + Elijah — Scripture-rooted counsel, wisdom",
+    credits: { used: 190, limit: 5000 },
+    activeTask: "Daily Scripture + Prayer (7:00 AM cron active)",
+    skills: [],
+    tools: [
+      { name: "read", enabled: true }, { name: "web_search", enabled: true },
+      { name: "tts", enabled: true },
+    ],
+    stats: { tasksCompleted: 54, tokensUsed: "190K", avgResponseTime: "2.1s", uptime: "99.5%" },
   },
   {
-    name: "SELAH", model: "Qwen 3.5 (Local)", role: "Wellness & Sport Psychology",
-    status: "done", color: "#10b981", icon: "🧘",
+    name: "SELAH", model: "DeepSeek V3.2", role: "Wellness & Sport Psychology",
+    status: "done", color: "#10b981", avatar: "/agents/selah-3d.png",
     desc: "Robbins + Dispenza + Maté — therapy, peak performance, mental transformation",
     credits: { used: 190, limit: 5000 },
-    activeTask: "DELIVERED: Meditation library + journaling system",
-    skills: ["fasting-tracker", "habit-tracker", "healthy-eating", "morning-routine", "focus-deep-work"],
-    tools: ["read", "write", "exec", "web_search", "memory_get", "memory_search", "tts", "cron"],
-    domain: "wellness",
+    activeTask: "DELIVERED: Wellness check-in + journal + meditation",
+    skills: [
+      { name: "habit-tracker", enabled: true, description: "Build habits with streaks" },
+      { name: "fasting-tracker", enabled: true, description: "Track fasting windows" },
+      { name: "healthy-eating", enabled: true, description: "Nutrition tracking" },
+      { name: "morning-routine", enabled: true, description: "Morning routine builder" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "tts", enabled: true },
+    ],
+    stats: { tasksCompleted: 22, tokensUsed: "190K", avgResponseTime: "2.9s", uptime: "96.5%" },
   },
   {
-    name: "MERCURY", model: "Gemini 3 Pro (Cloud)", role: "Sales & Revenue Ops",
-    status: "idle", color: "#fbbf24", icon: "💰",
+    name: "MERCURY", model: "Gemini 3.0 Pro", role: "Sales & Revenue Ops",
+    status: "active", color: "#fbbf24", avatar: "/agents/mercury-3d.png",
     desc: "Razor-sharp dealmaker — reads people and numbers simultaneously",
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Outbound sales pipeline",
-    skills: ["email", "linkedin-automator", "competitive-analysis", "clawpify"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "browser", "memory_get", "memory_search", "message"],
-    domain: "sales",
+    credits: { used: 520, limit: 5000 },
+    activeTask: "Upwork proposals + Stripe checkout + conversion strategies",
+    skills: [
+      { name: "clawpify", enabled: true, description: "Shopify management" },
+      { name: "personal-finance", enabled: true, description: "Financial tracking" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "exec", enabled: true }, { name: "web_search", enabled: true },
+      { name: "web_fetch", enabled: true },
+    ],
+    stats: { tasksCompleted: 45, tokensUsed: "520K", avgResponseTime: "3.5s", uptime: "97.8%" },
   },
   {
-    name: "ECHO", model: "Qwen 3.5 (Local)", role: "Community & Social",
-    status: "done", color: "#38bdf8", icon: "🌊",
+    name: "ECHO", model: "Kimi K2.5", role: "Community & Social",
+    status: "active", color: "#38bdf8", avatar: "/agents/echo-3d.png",
     desc: "The heartbeat of the community — turns strangers into superfans",
-    credits: { used: 220, limit: 5000 },
-    activeTask: "DELIVERED: Discord server architecture",
-    skills: ["metricool", "linkedin-automator", "agent-content-pipeline", "last30days"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "memory_get", "memory_search", "message"],
-    domain: "community",
+    credits: { used: 540, limit: 5000 },
+    activeTask: "X/LinkedIn posting + social listening cron",
+    skills: [
+      { name: "metricool", enabled: true, description: "Social media scheduling" },
+      { name: "linkedin-automator", enabled: true, description: "LinkedIn automation" },
+      { name: "agent-content-pipeline", enabled: true, description: "Content workflow" },
+      { name: "last30days", enabled: true, description: "Social research" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+      { name: "browser", enabled: true },
+    ],
+    stats: { tasksCompleted: 67, tokensUsed: "540K", avgResponseTime: "3.3s", uptime: "97.2%" },
   },
   {
-    name: "HAVEN", model: "Qwen 3.5 (Local)", role: "Customer Success",
-    status: "idle", color: "#4ade80", icon: "🛡",
-    desc: "Infinitely patient with a detective's eye — every ticket is a puzzle",
+    name: "HAVEN", model: "DeepSeek V3.2", role: "Customer Success",
+    status: "idle", color: "#4ade80", avatar: "/agents/haven-3d.png",
+    desc: "Infinitely patient with a detective's eye — treats every ticket like a puzzle",
     credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Support system + onboarding",
-    skills: ["email", "app-log-analyzer", "api-health-check"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "memory_get", "memory_search", "message"],
-    domain: "support",
+    activeTask: "Awaiting: First customer onboarding",
+    skills: [
+      { name: "email", enabled: true, description: "Email management" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "tts", enabled: true },
+    ],
+    stats: { tasksCompleted: 3, tokensUsed: "15K", avgResponseTime: "2.0s", uptime: "90.0%" },
   },
   {
-    name: "INK", model: "Qwen 3.5 (Local)", role: "Content Creator",
-    status: "done", color: "#c084fc", icon: "✒",
-    desc: "Prolific voice-chameleon — technical blog, viral tweet, cinematic script",
-    credits: { used: 280, limit: 5000 },
-    activeTask: "DELIVERED: 5-piece launch content package",
-    skills: ["agent-content-pipeline", "content-quality-auditor", "marketing-mode", "ai-music-prompts", "linkedin-automator"],
-    tools: ["read", "write", "exec", "web_search", "web_fetch", "memory_get", "memory_search", "tts"],
-    domain: "content",
+    name: "INK", model: "DeepSeek V3.2", role: "Content Creator",
+    status: "done", color: "#c084fc", avatar: "/agents/ink-3d.png",
+    desc: "Prolific voice-chameleon — technical blog at dawn, viral tweet at noon",
+    credits: { used: 650, limit: 5000 },
+    activeTask: "DELIVERED: Weekly content calendar + Building in Public posts",
+    skills: [
+      { name: "agent-content-pipeline", enabled: true, description: "Content workflow" },
+      { name: "content-quality-auditor", enabled: true, description: "Content audit" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+    ],
+    stats: { tasksCompleted: 78, tokensUsed: "650K", avgResponseTime: "3.7s", uptime: "96.0%" },
   },
   {
-    name: "NOVA", model: "Sonnet 4.5 (Cloud)", role: "3D Fabrication",
-    status: "idle", color: "#14b8a6", icon: "🔧",
+    name: "NOVA", model: "DeepSeek V3.2", role: "3D Fabrication",
+    status: "idle", color: "#14b8a6", avatar: "/agents/nova-3d.png",
     desc: "Brilliant fabrication expert — Bambu Lab A1 specialist",
     credits: { used: 0, limit: 5000 },
     activeTask: "Awaiting: Bambu Lab production pipeline",
-    skills: ["data-visualization"],
-    tools: ["read", "write", "exec", "web_search", "memory_get", "memory_search"],
-    domain: "fabrication",
+    skills: [],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "exec", enabled: true },
+    ],
+    stats: { tasksCompleted: 2, tokensUsed: "8K", avgResponseTime: "2.5s", uptime: "88.0%" },
   },
   {
-    name: "KIYOSAKI", model: "Qwen 3.5 (Local)", role: "Financial Intelligence",
-    status: "done", color: "#fcd34d", icon: "💎",
-    desc: "ORACLE — 8 financial minds. Wealth architecture.",
-    credits: { used: 420, limit: 5000 },
-    activeTask: "DELIVERED: Apex financial model — tiered pricing validated",
-    skills: ["actual-budget", "personal-finance", "intellectia-stock-forecast", "competitive-analysis"],
-    tools: ["read", "exec", "web_search", "web_fetch", "memory_get", "memory_search"],
-    domain: "finance",
+    name: "KIYOSAKI", model: "DeepSeek V3.2", role: "Financial Intelligence",
+    status: "done", color: "#fcd34d", avatar: "/agents/kiyosaki-3d.png",
+    desc: "ORACLE — 8 financial minds. Wealth architecture + business plan + patent strategy.",
+    credits: { used: 720, limit: 5000 },
+    activeTask: "DELIVERED: METTLE business plan v2 + patent filing",
+    skills: [
+      { name: "personal-finance", enabled: true, description: "Financial tracking" },
+      { name: "actual-budget", enabled: true, description: "Budget management" },
+      { name: "business-plan", enabled: true, description: "Business planning" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+    ],
+    stats: { tasksCompleted: 31, tokensUsed: "720K", avgResponseTime: "4.0s", uptime: "95.5%" },
   },
   {
-    name: "TRIAGE", model: "Sonnet 4.5 (Cloud)", role: "System Doctor",
-    status: "idle", color: "#f472b6", icon: "🩺",
-    desc: "Best SWE-bench score (77.2). Debugging, failure tracing, diagnostics.",
+    name: "TRIAGE", model: "Sonnet 4.5", role: "System Doctor",
+    status: "idle", color: "#f472b6", avatar: "/agents/triage-3d.png",
+    desc: "Best SWE-bench score in the squad (77.2). Debugging, failure tracing, diagnostics.",
     credits: { used: 0, limit: 5000 },
     activeTask: "Available on demand — system diagnostics",
-    skills: ["coding-agent", "github", "container-debug", "perf-profiler", "log-analyzer", "dns-networking", "proc-monitor"],
-    tools: ["read", "write", "edit", "exec", "web_search", "web_fetch", "memory_get", "memory_search", "nodes"],
-    domain: "diagnostics",
+    skills: [
+      { name: "log-analyzer", enabled: true, description: "Log analysis" },
+      { name: "perf-profiler", enabled: true, description: "Performance profiling" },
+      { name: "container-debug", enabled: true, description: "Container debugging" },
+      { name: "proc-monitor", enabled: true, description: "Process monitoring" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "edit", enabled: true }, { name: "exec", enabled: true },
+    ],
+    stats: { tasksCompleted: 15, tokensUsed: "85K", avgResponseTime: "2.2s", uptime: "99.0%" },
   },
 ];
 
-/* ── DOMAIN COLORS ────────────────────────────────────────────────────────── */
-const DOMAIN_COLORS: Record<string, string> = {
-  operations: "#00f0ff",
-  music: "#f59e0b",
-  analytics: "#22d3ee",
-  strategy: "#a855f7",
-  engineering: "#34d399",
-  security: "#ef4444",
-  architecture: "#f97316",
-  marketing: "#ec4899",
-  athletics: "#06b6d4",
-  spiritual: "#d4a574",
-  wellness: "#10b981",
-  sales: "#fbbf24",
-  community: "#38bdf8",
-  support: "#4ade80",
-  content: "#c084fc",
-  fabrication: "#14b8a6",
-  finance: "#fcd34d",
-  diagnostics: "#f472b6",
+/* ── Model tier colors ─────────────────────────────────────────────────────── */
+const MODEL_TIERS: Record<string, { label: string; color: string; bg: string }> = {
+  "Opus 4.6": { label: "APEX", color: "#C9A84C", bg: "rgba(201,168,76,0.12)" },
+  "Sonnet 4.5": { label: "PRO", color: "#f472b6", bg: "rgba(244,114,182,0.12)" },
+  "Gemini 3.0 Pro": { label: "PRO", color: "#f97316", bg: "rgba(249,115,22,0.12)" },
+  "DeepSeek V3.2": { label: "CORE", color: "#22d3ee", bg: "rgba(34,211,238,0.12)" },
+  "Kimi K2.5": { label: "CORE", color: "#818cf8", bg: "rgba(129,140,248,0.12)" },
+  "GLM 4.6": { label: "SPEC", color: "#06b6d4", bg: "rgba(6,182,212,0.12)" },
+  "Haiku 4.5": { label: "LITE", color: "#94a3b8", bg: "rgba(148,163,184,0.12)" },
 };
 
-const STATUS_LABELS: Record<string, { label: string; bg: string; text: string }> = {
-  active: { label: "ACTIVE", bg: "rgba(52, 211, 153, 0.15)", text: "#34d399" },
-  idle: { label: "IDLE", bg: "rgba(148, 163, 184, 0.12)", text: "#94a3b8" },
-  done: { label: "DONE", bg: "rgba(96, 165, 250, 0.12)", text: "#60a5fa" },
-  error: { label: "ERROR", bg: "rgba(239, 68, 68, 0.15)", text: "#ef4444" },
-};
+/* ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ══════════════════════════════════════════════════════════════════════════════
-   COMPONENT
-   ══════════════════════════════════════════════════════════════════════════════ */
-export default function AgentsPage() {
+export default function AgentManagement() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<"all" | "active" | "idle" | "done">("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingAgent, setEditingAgent] = useState<string | null>(null);
-  const [agentOverrides, setAgentOverrides] = useState<Record<string, { skills: string[]; tools: string[] }>>({});
-
-  const getAgentConfig = useCallback((agent: Agent) => {
-    const override = agentOverrides[agent.name];
-    return {
-      skills: override?.skills ?? agent.skills,
-      tools: override?.tools ?? agent.tools,
-    };
-  }, [agentOverrides]);
-
-  const toggleSkill = useCallback((agentName: string, skill: string, currentSkills: string[]) => {
-    setAgentOverrides((prev) => {
-      const existing = prev[agentName];
-      const skills = existing?.skills ?? currentSkills;
-      const updated = skills.includes(skill) ? skills.filter((s) => s !== skill) : [...skills, skill];
-      return { ...prev, [agentName]: { skills: updated, tools: existing?.tools ?? AGENTS.find((a) => a.name === agentName)!.tools } };
-    });
-  }, []);
-
-  const toggleTool = useCallback((agentName: string, tool: string, currentTools: string[]) => {
-    setAgentOverrides((prev) => {
-      const existing = prev[agentName];
-      const tools = existing?.tools ?? currentTools;
-      const updated = tools.includes(tool) ? tools.filter((t) => t !== tool) : [...tools, tool];
-      return { ...prev, [agentName]: { tools: updated, skills: existing?.skills ?? AGENTS.find((a) => a.name === agentName)!.skills } };
-    });
-  }, []);
 
   const filteredAgents = AGENTS.filter((a) => {
-    const matchesFilter = filter === "all" || a.status === filter || a.domain === filter;
-    const matchesSearch = !searchQuery ||
-      a.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      a.domain.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+    if (filter !== "all" && a.status !== filter) return false;
+    if (searchQuery && !a.name.toLowerCase().includes(searchQuery.toLowerCase()) && !a.role.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
   });
 
-  const statusCounts = {
-    active: AGENTS.filter((a) => a.status === "active").length,
-    idle: AGENTS.filter((a) => a.status === "idle").length,
-    done: AGENTS.filter((a) => a.status === "done").length,
-  };
-
-  const domains = [...new Set(AGENTS.map((a) => a.domain))];
+  const activeCount = AGENTS.filter((a) => a.status === "active").length;
+  const totalTokens = "9.6M";
 
   return (
-    <div style={{
-      width: "100%",
-      minHeight: "100vh",
-      padding: "32px 40px 80px",
-      background: "#0a0a0f",
-      position: "relative",
-      overflow: "hidden",
-      fontFamily: "'Geist', -apple-system, system-ui, sans-serif",
-      color: "#e2e8f0",
-    }}>
-      {/* ── background glow ── */}
-      <div style={{
-        position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: `
-          radial-gradient(ellipse 600px 400px at 15% 20%, rgba(45, 212, 191, 0.06) 0%, transparent 100%),
-          radial-gradient(ellipse 500px 500px at 85% 15%, rgba(168, 85, 247, 0.05) 0%, transparent 100%),
-          radial-gradient(ellipse 700px 400px at 50% 60%, rgba(249, 115, 22, 0.04) 0%, transparent 100%)
-        `,
-      }} />
+    <div style={{ minHeight: "100vh", background: "#fafafa", color: "#1a1a5e", fontFamily: "Inter, system-ui, sans-serif" }}>
+      {/* ── Ambient background ── */}
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 600px 400px at 15% 20%, rgba(26,26,94,0.03) 0%, transparent 100%), radial-gradient(ellipse 500px 500px at 85% 15%, rgba(201,168,76,0.04) 0%, transparent 100%)" }} />
 
-      <div style={{ position: "relative", zIndex: 1 }}>
-        {/* ── HEADER ── */}
-        <div style={{ marginBottom: 32 }}>
-          <Link href="/command-center" style={{
-            color: "#94a3b8", textDecoration: "none", fontSize: 13,
-            display: "inline-flex", alignItems: "center", gap: 6,
-            marginBottom: 12,
-          }}>
-            ← Command Center
-          </Link>
-          <h1 style={{
-            fontSize: "clamp(28px, 4vw, 42px)",
-            fontWeight: 800,
-            letterSpacing: "-0.03em",
-            background: "linear-gradient(135deg, #e2e8f0, #94a3b8)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            margin: 0,
-          }}>
-            Agent Management
-          </h1>
-          <p style={{ color: "#64748b", fontSize: 14, margin: "8px 0 0" }}>
-            {AGENTS.length} agents · {statusCounts.active} active · {statusCounts.idle} idle · {statusCounts.done} completed
-          </p>
-        </div>
+      <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 1400, margin: "0 auto", padding: "32px 24px 80px" }}>
+        {/* ── Header ── */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
+          <div>
+            <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: "#1a1a5e", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+              <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
+            </Link>
+            <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, background: "linear-gradient(135deg, #1a1a5e 0%, #C9A84C 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+              Agent Management
+            </h1>
+            <p style={{ fontSize: 13, color: "rgba(26,26,94,0.5)", margin: "4px 0 0" }}>
+              {activeCount} active &middot; {AGENTS.length} total &middot; {totalTokens} tokens this week
+            </p>
+          </div>
 
-        {/* ── FILTERS + SEARCH ── */}
-        <div style={{
-          display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24,
-          alignItems: "center",
-        }}>
+          {/* Search */}
           <input
             type="text"
             placeholder="Search agents..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              padding: "8px 14px",
-              borderRadius: 10,
-              border: "1px solid rgba(148, 163, 184, 0.15)",
-              background: "rgba(255, 255, 255, 0.03)",
-              color: "#e2e8f0",
-              fontSize: 13,
-              outline: "none",
-              width: 200,
-              fontFamily: "inherit",
+              padding: "10px 16px", borderRadius: 10, border: "2px solid rgba(26,26,94,0.1)",
+              background: "#fff", color: "#1a1a5e", fontSize: 13, width: 220,
+              outline: "none", fontFamily: "inherit",
             }}
           />
-          {["all", "active", "idle", "done"].map((f) => (
+        </div>
+
+        {/* ── Filter tabs ── */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+          {(["all", "active", "idle", "done"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f)}
               style={{
-                padding: "6px 14px",
-                borderRadius: 8,
-                border: filter === f ? "1px solid rgba(0, 240, 255, 0.4)" : "1px solid rgba(148, 163, 184, 0.12)",
-                background: filter === f ? "rgba(0, 240, 255, 0.08)" : "rgba(255, 255, 255, 0.02)",
-                color: filter === f ? "#00f0ff" : "#94a3b8",
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: "pointer",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
-                fontFamily: "inherit",
+                padding: "8px 16px", borderRadius: 8, border: `2px solid ${filter === f ? "rgba(201,168,76,0.5)" : "rgba(26,26,94,0.08)"}`,
+                background: filter === f ? "rgba(201,168,76,0.08)" : "#fff",
+                color: filter === f ? "#C9A84C" : "rgba(26,26,94,0.5)",
+                fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em",
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
               }}
             >
-              {f}
-            </button>
-          ))}
-          <div style={{ width: 1, height: 24, background: "rgba(148,163,184,0.12)", margin: "0 4px" }} />
-          {domains.map((d) => (
-            <button
-              key={d}
-              onClick={() => setFilter(filter === d ? "all" : d)}
-              style={{
-                padding: "4px 10px",
-                borderRadius: 6,
-                border: filter === d ? `1px solid ${DOMAIN_COLORS[d] || "#94a3b8"}44` : "1px solid rgba(148, 163, 184, 0.08)",
-                background: filter === d ? `${DOMAIN_COLORS[d] || "#94a3b8"}12` : "transparent",
-                color: filter === d ? (DOMAIN_COLORS[d] || "#94a3b8") : "#64748b",
-                fontSize: 11,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              {d}
+              {f === "all" ? `ALL (${AGENTS.length})` : `${f.toUpperCase()} (${AGENTS.filter((a) => a.status === f).length})`}
             </button>
           ))}
         </div>
 
-        {/* ── AGENT GRID ── */}
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
-          gap: 16,
-        }}>
-          {filteredAgents.map((agent) => {
-            const st = STATUS_LABELS[agent.status] || STATUS_LABELS.idle;
-            const usagePct = Math.round((agent.credits.used / agent.credits.limit) * 100);
-            const isSelected = selectedAgent?.name === agent.name;
-            const isEditing = editingAgent === agent.name;
-            const config = getAgentConfig(agent);
+        {/* ── Agent grid + detail panel ── */}
+        <div style={{ display: "grid", gridTemplateColumns: selectedAgent ? "1fr 420px" : "1fr", gap: 24 }} className="agents-layout">
+          {/* Agent cards grid */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+            {filteredAgents.map((agent) => {
+              const tier = MODEL_TIERS[agent.model] || { label: "—", color: "#888", bg: "rgba(136,136,136,0.1)" };
+              const creditPct = Math.round((agent.credits.used / agent.credits.limit) * 100);
+              const isSelected = selectedAgent?.name === agent.name;
 
-            return (
-              <div
-                key={agent.name}
-                onClick={() => setSelectedAgent(isSelected ? null : agent)}
-                style={{
-                  padding: 20,
-                  borderRadius: 14,
-                  border: isSelected
-                    ? `2px solid ${agent.color}66`
-                    : "1px solid rgba(148, 163, 184, 0.08)",
-                  background: isSelected
-                    ? `linear-gradient(135deg, ${agent.color}08, ${agent.color}04)`
-                    : "rgba(255, 255, 255, 0.02)",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                {/* top row: icon + name + status */}
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: `${agent.color}15`,
-                    border: `1px solid ${agent.color}30`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    fontSize: 20,
-                  }}>
-                    {agent.icon}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15, color: "#f1f5f9" }}>{agent.name}</div>
-                    <div style={{ fontSize: 11, color: "#64748b", display: "flex", alignItems: "center", gap: 6 }}>
-                      <span>{agent.model}</span>
-                      <span style={{
-                        padding: "1px 5px", borderRadius: 3, fontSize: 9, fontWeight: 700,
-                        letterSpacing: "0.04em",
-                        background: agent.model.includes("Local") ? "rgba(52,211,153,0.12)" : "rgba(96,165,250,0.12)",
-                        color: agent.model.includes("Local") ? "#34d399" : "#60a5fa",
-                      }}>
-                        {agent.model.includes("Local") ? "LOCAL" : "CLOUD"}
-                      </span>
-                      <span>· {agent.role}</span>
-                    </div>
-                  </div>
-                  <div style={{
-                    padding: "3px 8px", borderRadius: 6,
-                    background: st.bg, color: st.text,
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.05em",
-                  }}>
-                    {st.label}
-                  </div>
-                </div>
+              return (
+                <div
+                  key={agent.name}
+                  onClick={() => setSelectedAgent(isSelected ? null : agent)}
+                  style={{
+                    padding: 20, borderRadius: 14, cursor: "pointer", transition: "all 0.2s",
+                    border: `2px solid ${isSelected ? agent.color + "60" : "rgba(26,26,94,0.08)"}`,
+                    background: isSelected ? `${agent.color}08` : "#fff",
+                    position: "relative", overflow: "hidden",
+                    boxShadow: isSelected ? `0 4px 20px ${agent.color}15` : "0 1px 4px rgba(26,26,94,0.05)",
+                  }}
+                >
+                  {/* Top accent line for active */}
+                  {agent.status === "active" && (
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, transparent, ${agent.color}, transparent)` }} />
+                  )}
 
-                {/* description */}
-                <p style={{ fontSize: 12, color: "#94a3b8", margin: "0 0 12px", lineHeight: 1.5 }}>
-                  {agent.desc}
-                </p>
-
-                {/* current task */}
-                <div style={{
-                  padding: "8px 10px", borderRadius: 8,
-                  background: "rgba(255, 255, 255, 0.02)",
-                  border: "1px solid rgba(148, 163, 184, 0.06)",
-                  marginBottom: 12,
-                }}>
-                  <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600, letterSpacing: "0.05em", marginBottom: 4 }}>
-                    CURRENT TASK
-                  </div>
-                  <div style={{ fontSize: 12, color: "#cbd5e1" }}>{agent.activeTask}</div>
-                </div>
-
-                {/* usage bar */}
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#64748b", marginBottom: 4 }}>
-                    <span>USAGE</span>
-                    <span>{agent.credits.used.toLocaleString()} / {agent.credits.limit.toLocaleString()} credits ({usagePct}%)</span>
-                  </div>
-                  <div style={{
-                    height: 4, borderRadius: 2,
-                    background: "rgba(148, 163, 184, 0.08)",
-                    overflow: "hidden",
-                  }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    {/* Avatar */}
                     <div style={{
-                      height: "100%", borderRadius: 2,
-                      width: `${usagePct}%`,
-                      background: usagePct > 80 ? "#ef4444" : agent.color,
-                      transition: "width 0.5s ease",
-                    }} />
-                  </div>
-                </div>
-
-                {/* skills chips */}
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600, letterSpacing: "0.05em" }}>
-                      SKILLS ({config.skills.length})
-                    </div>
-                    {isSelected && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setEditingAgent(isEditing ? null : agent.name); }}
-                        style={{
-                          padding: "3px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600,
-                          border: isEditing ? "1px solid rgba(249, 115, 22, 0.4)" : "1px solid rgba(148, 163, 184, 0.15)",
-                          background: isEditing ? "rgba(249, 115, 22, 0.1)" : "rgba(255, 255, 255, 0.03)",
-                          color: isEditing ? "#f97316" : "#94a3b8",
-                          cursor: "pointer", fontFamily: "inherit",
-                        }}
-                      >
-                        {isEditing ? "DONE" : "EDIT"}
-                      </button>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {(isEditing
-                      ? Object.values(SKILLS_REGISTRY).flat().filter((v, i, a) => a.indexOf(v) === i)
-                      : config.skills.slice(0, isSelected ? undefined : 4)
-                    ).map((s) => {
-                      const isActive = config.skills.includes(s);
-                      return (
-                        <span
-                          key={s}
-                          onClick={isEditing ? (e) => { e.stopPropagation(); toggleSkill(agent.name, s, config.skills); } : undefined}
-                          style={{
-                            padding: "2px 8px", borderRadius: 4,
-                            background: isActive ? `${agent.color}10` : "rgba(148, 163, 184, 0.03)",
-                            border: isActive ? `1px solid ${agent.color}20` : "1px dashed rgba(148, 163, 184, 0.12)",
-                            color: isActive ? agent.color : "#475569",
-                            fontSize: 10,
-                            cursor: isEditing ? "pointer" : "default",
-                            opacity: isEditing && !isActive ? 0.5 : 1,
-                            transition: "all 0.15s ease",
-                          }}
-                        >
-                          {isEditing && <span style={{ marginRight: 3 }}>{isActive ? "✓" : "+"}</span>}
-                          {s}
-                        </span>
-                      );
-                    })}
-                    {!isSelected && !isEditing && config.skills.length > 4 && (
-                      <span style={{ fontSize: 10, color: "#64748b", padding: "2px 4px" }}>
-                        +{config.skills.length - 4} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* tools — only when expanded */}
-                {isSelected && (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 10, color: "#64748b", fontWeight: 600, letterSpacing: "0.05em", marginBottom: 6 }}>
-                      TOOLS ({config.tools.length})
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {(isEditing ? TOOLS_REGISTRY : config.tools).map((t) => {
-                        const isActive = config.tools.includes(t);
-                        return (
-                          <span
-                            key={t}
-                            onClick={isEditing ? (e) => { e.stopPropagation(); toggleTool(agent.name, t, config.tools); } : undefined}
-                            style={{
-                              padding: "2px 8px", borderRadius: 4,
-                              background: isActive ? "rgba(148, 163, 184, 0.06)" : "rgba(148, 163, 184, 0.02)",
-                              border: isActive ? "1px solid rgba(148, 163, 184, 0.1)" : "1px dashed rgba(148, 163, 184, 0.08)",
-                              color: isActive ? "#94a3b8" : "#475569",
-                              fontSize: 10,
-                              cursor: isEditing ? "pointer" : "default",
-                              opacity: isEditing && !isActive ? 0.5 : 1,
-                              transition: "all 0.15s ease",
-                            }}
-                          >
-                            {isEditing && <span style={{ marginRight: 3 }}>{isActive ? "✓" : "+"}</span>}
-                            {t}
-                          </span>
-                        );
-                      })}
-                    </div>
-
-                    {/* domain badge */}
-                    <div style={{
-                      marginTop: 12,
-                      display: "flex", alignItems: "center", gap: 6,
+                      width: 56, height: 56, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
+                      border: `2px solid ${agent.color}40`,
+                      background: `radial-gradient(circle at 35% 35%, ${agent.color}15 0%, #f0f0f5 70%)`,
+                      display: "flex", alignItems: "center", justifyContent: "center", padding: 6,
+                      boxShadow: agent.status === "active" ? `0 0 16px ${agent.color}25` : "none",
                     }}>
-                      <div style={{
-                        width: 8, height: 8, borderRadius: "50%",
-                        background: DOMAIN_COLORS[agent.domain] || "#94a3b8",
-                        boxShadow: `0 0 8px ${DOMAIN_COLORS[agent.domain] || "#94a3b8"}40`,
-                      }} />
-                      <span style={{ fontSize: 11, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                        {agent.domain}
-                      </span>
+                      <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a5e" }}>{agent.name}</span>
+                        {/* Status dot */}
+                        <span style={{
+                          width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                          background: agent.status === "active" ? "#22c55e" : agent.status === "done" ? "#06b6d4" : "rgba(250,204,21,0.7)",
+                          boxShadow: agent.status === "active" ? "0 0 8px rgba(34,197,94,0.5)" : "none",
+                          animation: agent.status === "active" ? "pulse 2s ease-in-out infinite" : "none",
+                        }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: agent.color, marginBottom: 4 }}>{agent.role}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: tier.bg, color: tier.color, fontWeight: 700, letterSpacing: "0.06em" }}>
+                          {tier.label}
+                        </span>
+                        <span style={{ fontSize: 10, color: "rgba(26,26,94,0.4)" }}>{agent.model}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {/* Credits bar */}
+                  <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: "rgba(26,26,94,0.06)", overflow: "hidden" }}>
+                      <div style={{ height: "100%", borderRadius: 2, width: `${creditPct}%`, background: agent.color, boxShadow: `0 0 6px ${agent.color}30`, transition: "width 0.5s" }} />
+                    </div>
+                    <span style={{ fontSize: 10, color: agent.color, fontVariantNumeric: "tabular-nums" }}>{creditPct}%</span>
+                  </div>
+
+                  {/* Active task */}
+                  <div style={{ marginTop: 8, fontSize: 11, color: "rgba(26,26,94,0.45)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                    {agent.activeTask}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Detail panel ── */}
+          {selectedAgent && (
+            <AgentDetailPanel agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
+          )}
         </div>
       </div>
 
-      {/* ── responsive ── */}
-      <style>{`
+      <style jsx global>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.5; }
+        }
         @media (max-width: 768px) {
-          div[style*="gridTemplateColumns"] {
+          .agents-layout {
             grid-template-columns: 1fr !important;
           }
-        }
-        @media (max-width: 480px) {
-          div[style*="padding: \\"32px 40px"] {
-            padding: 16px 16px 60px !important;
+          .agent-detail-panel {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+            z-index: 50;
           }
         }
       `}</style>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ── Agent Detail Panel                                                    ── */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+function AgentDetailPanel({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+  const [localSkills, setLocalSkills] = useState(agent.skills);
+  const [localTools, setLocalTools] = useState(agent.tools);
+  const tier = MODEL_TIERS[agent.model] || { label: "—", color: "#888", bg: "rgba(136,136,136,0.1)" };
+  const creditPct = Math.round((agent.credits.used / agent.credits.limit) * 100);
+
+  const toggleSkill = (idx: number) => {
+    setLocalSkills((prev) => prev.map((s, i) => i === idx ? { ...s, enabled: !s.enabled } : s));
+  };
+  const toggleTool = (idx: number) => {
+    setLocalTools((prev) => prev.map((t, i) => i === idx ? { ...t, enabled: !t.enabled } : t));
+  };
+
+  return (
+    <div className="agent-detail-panel" style={{
+      position: "sticky", top: 32, borderRadius: 16, padding: 24,
+      border: `2px solid ${agent.color}30`, background: "#fff",
+      boxShadow: `0 8px 32px rgba(26,26,94,0.08)`, maxHeight: "calc(100vh - 64px)", overflowY: "auto" as const,
+    }}>
+      {/* Close */}
+      <button onClick={onClose} style={{
+        position: "absolute", top: 12, right: 12, width: 28, height: 28, borderRadius: "50%",
+        border: "2px solid rgba(26,26,94,0.1)", background: "rgba(26,26,94,0.03)",
+        color: "#1a1a5e", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "inherit",
+      }}>&times;</button>
+
+      {/* Avatar + name */}
+      <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", marginBottom: 24, paddingTop: 8 }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: "50%", overflow: "hidden", marginBottom: 12,
+          border: `3px solid ${agent.color}40`, padding: 8,
+          background: `radial-gradient(circle at 35% 35%, ${agent.color}15 0%, #f0f0f5 70%)`,
+          boxShadow: `0 0 30px ${agent.color}12`,
+        }}>
+          <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+        </div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: "#1a1a5e" }}>{agent.name}</h2>
+        <span style={{ fontSize: 12, color: agent.color, marginTop: 2 }}>{agent.role}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+          <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: tier.bg, color: tier.color, fontWeight: 700, letterSpacing: "0.08em" }}>
+            {tier.label}
+          </span>
+          <span style={{ fontSize: 11, color: "rgba(26,26,94,0.4)" }}>{agent.model}</span>
+        </div>
+      </div>
+
+      {/* Status + credits */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)" }}>STATUS</span>
+          <span style={{
+            fontSize: 10, padding: "3px 10px", borderRadius: 999, fontWeight: 700, letterSpacing: "0.06em",
+            background: agent.status === "active" ? "rgba(34,197,94,0.1)" : agent.status === "done" ? "rgba(6,182,212,0.1)" : "rgba(250,204,21,0.1)",
+            color: agent.status === "active" ? "#16a34a" : agent.status === "done" ? "#0891b2" : "#ca8a04",
+            border: `1px solid ${agent.status === "active" ? "rgba(34,197,94,0.3)" : agent.status === "done" ? "rgba(6,182,212,0.3)" : "rgba(250,204,21,0.3)"}`,
+          }}>
+            {agent.status.toUpperCase()}
+          </span>
+        </div>
+
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 6 }}>CREDITS</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(26,26,94,0.06)", overflow: "hidden" }}>
+            <div style={{ height: "100%", borderRadius: 3, width: `${creditPct}%`, background: `linear-gradient(90deg, ${agent.color}90, ${agent.color})`, boxShadow: `0 0 8px ${agent.color}30` }} />
+          </div>
+          <span style={{ fontSize: 11, color: agent.color, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{creditPct}%</span>
+        </div>
+        <div style={{ fontSize: 10, color: "rgba(26,26,94,0.35)" }}>{agent.credits.used.toLocaleString()} / {agent.credits.limit.toLocaleString()} credits</div>
+      </div>
+
+      {/* Stats grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+        {[
+          { label: "Tasks Done", value: agent.stats.tasksCompleted.toString(), color: "#0891b2" },
+          { label: "Tokens Used", value: agent.stats.tokensUsed, color: "#ea580c" },
+          { label: "Avg Response", value: agent.stats.avgResponseTime, color: "#9333ea" },
+          { label: "Uptime", value: agent.stats.uptime, color: "#ca8a04" },
+        ].map((s) => (
+          <div key={s.label} style={{ padding: 12, borderRadius: 10, border: "2px solid rgba(26,26,94,0.06)", background: "rgba(26,26,94,0.02)" }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 4 }}>{s.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Active task */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 6 }}>CURRENT TASK</div>
+        <div style={{ fontSize: 12, color: "rgba(26,26,94,0.65)", lineHeight: 1.5, padding: 12, borderRadius: 8, background: "rgba(26,26,94,0.02)", border: "2px solid rgba(26,26,94,0.06)" }}>
+          {agent.activeTask}
+        </div>
+      </div>
+
+      {/* Description */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 6 }}>PROFILE</div>
+        <div style={{ fontSize: 12, color: "rgba(26,26,94,0.55)", lineHeight: 1.6 }}>{agent.desc}</div>
+      </div>
+
+      {/* Skills */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 8 }}>
+          SKILLS ({localSkills.length})
+        </div>
+        {localSkills.length === 0 ? (
+          <div style={{ fontSize: 11, color: "rgba(26,26,94,0.3)", fontStyle: "italic" }}>No skills assigned</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+            {localSkills.map((skill, idx) => (
+              <div key={skill.name} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8,
+                background: skill.enabled ? `${agent.color}08` : "rgba(26,26,94,0.02)",
+                border: `2px solid ${skill.enabled ? agent.color + "25" : "rgba(26,26,94,0.06)"}`,
+                transition: "all 0.2s",
+              }}>
+                <button
+                  onClick={() => toggleSkill(idx)}
+                  style={{
+                    width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
+                    background: skill.enabled ? agent.color : "rgba(26,26,94,0.12)",
+                    position: "relative", transition: "background 0.2s", flexShrink: 0,
+                  }}
+                >
+                  <div style={{
+                    width: 14, height: 14, borderRadius: "50%", background: "#fff",
+                    position: "absolute", top: 2, transition: "left 0.2s",
+                    left: skill.enabled ? 16 : 2,
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
+                  }} />
+                </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: skill.enabled ? "#1a1a5e" : "rgba(26,26,94,0.35)" }}>{skill.name}</div>
+                  <div style={{ fontSize: 10, color: "rgba(26,26,94,0.4)", marginTop: 1 }}>{skill.description}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tools */}
+      <div>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 8 }}>
+          TOOLS ({localTools.length})
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+          {localTools.map((tool, idx) => (
+            <button
+              key={tool.name}
+              onClick={() => toggleTool(idx)}
+              style={{
+                padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                border: `2px solid ${tool.enabled ? agent.color + "35" : "rgba(26,26,94,0.08)"}`,
+                background: tool.enabled ? `${agent.color}10` : "rgba(26,26,94,0.02)",
+                color: tool.enabled ? agent.color : "rgba(26,26,94,0.35)",
+                fontFamily: "monospace", transition: "all 0.2s",
+              }}
+            >
+              {tool.name}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }

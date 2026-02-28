@@ -323,7 +323,25 @@ export default function LoginPage() {
 
               <button
                 onClick={() => switchMode("admin")}
-                className="group relative w-full text-left p-5 rounded-2xl border border-[#a855f7]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#a855f7]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px]"
+                className="group relative w-full text-left p-5 rounded-2xl border border-[#00f0ff]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#00f0ff]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px]"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(0,240,255,0.08)", border: "1px solid rgba(0,240,255,0.2)" }}>
+                    <SvgKey size={28} color="#00f0ff" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-white font-bold text-base">Athlete Login</div>
+                    <div className="text-white/30 text-sm">6-Digit Access PIN</div>
+                  </div>
+                  <div className="text-[#00f0ff]/30 group-hover:text-[#00f0ff]/60 transition-colors text-lg font-mono shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                  </div>
+                </div>
+              </button>
+
+              <button
+                onClick={() => switchMode("admin")}
+                className="group relative w-full text-left p-5 rounded-2xl border border-[#a855f7]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#a855f7]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px] opacity-70"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
@@ -520,8 +538,8 @@ export default function LoginPage() {
               <div className="flex justify-center mb-3">
                 <SvgKey size={40} color="#a855f7" />
               </div>
-              <h2 className="text-2xl font-black text-white mb-1">Admin Access</h2>
-              <p className="text-white/30 text-sm font-mono">Enter the master PIN to unlock admin controls</p>
+              <h2 className="text-2xl font-black text-white mb-1">Enter PIN</h2>
+              <p className="text-white/30 text-sm font-mono">Athletes enter 6-digit access PIN</p>
             </div>
 
             <div className="flex flex-col gap-4">

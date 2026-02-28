@@ -13,7 +13,8 @@ export interface Athlete {
   age: number;
   gender: "M" | "F";
   group: string;
-  xp: number;
+  xp: number; // Lifetime XP
+  seasonXP?: number; // Monthly reset XP
   streak: number;
   weightStreak: number;
   lastStreakDate: string;

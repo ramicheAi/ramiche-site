@@ -386,7 +386,7 @@ interface RsvpRecord {
 
 interface Athlete {
   id: string; name: string; age: number; gender: "M" | "F"; group: string;
-  xp: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
+  xp: number; seasonXP?: number; streak: number; weightStreak: number; lastStreakDate: string; lastWeightStreakDate: string;
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
@@ -1480,7 +1480,7 @@ export default function ParentPortal() {
               <div className="h-full rounded-full transition-all duration-700"
                 style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
             </div>
-            <div className="text-white/50 text-sm mt-2 font-mono">{athlete.xp} XP TOTAL</div>
+            <div className="text-white/50 text-sm mt-2 font-mono">{athlete.seasonXP || 0} SEASON XP • {athlete.xp} TOTAL XP</div>
           </div>
         </div>
 

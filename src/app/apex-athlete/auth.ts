@@ -4,13 +4,14 @@
    localStorage-based (Firestore-ready structure).
    ══════════════════════════════════════════════════════════════ */
 
-export type AuthRole = "coach" | "parent" | "admin";
+export type AuthRole = "coach" | "parent" | "admin" | "athlete";
 
 export interface AuthSession {
   role: AuthRole;
   name: string;
   email: string;
   group?: string;
+  athleteId?: string; // specific to athlete login
   expiry: number; // Unix timestamp (ms)
 }
 
@@ -164,6 +165,7 @@ export function registerParent(email: string, name: string, verificationCode: st
 // ── Login Functions ─────────────────────────────────────────
 
 export function loginWithPin(pin: string): { success: boolean; session?: AuthSession; error?: string } {
+  // 1. Check Master Admin PIN
   if (pin === MASTER_PIN) {
     const session: AuthSession = {
       role: "admin",
@@ -174,7 +176,8 @@ export function loginWithPin(pin: string): { success: boolean; session?: AuthSes
     setSession(session);
     return { success: true, session };
   }
-  // Also check the stored custom PIN
+
+  // 2. Check stored custom Admin PIN
   try {
     const storedPinRaw = localStorage.getItem("apex-athlete-pin");
     if (storedPinRaw) {
@@ -192,6 +195,29 @@ export function loginWithPin(pin: string): { success: boolean; session?: AuthSes
       }
     }
   } catch {}
+
+  // 3. Check Athlete PINs (generated for roster)
+  try {
+    const storedRosterRaw = localStorage.getItem("apex-athlete-roster");
+    if (storedRosterRaw) {
+      const roster = JSON.parse(storedRosterRaw);
+      // Look for an athlete that has this PIN stored in their record
+      // In a real DB this would query where pin === input
+      const athlete = roster.find((a: any) => a.pin && a.pin === pin);
+      if (athlete) {
+        const session: AuthSession = {
+          role: "athlete",
+          name: athlete.name,
+          email: `${athlete.id}@apexathlete.local`, // mock email for session
+          athleteId: athlete.id,
+          expiry: Date.now() + SESSION_DURATION_MS,
+        };
+        setSession(session);
+        return { success: true, session };
+      }
+    }
+  } catch {}
+
   return { success: false, error: "Invalid PIN." };
 }
 
@@ -250,6 +276,7 @@ export function getRedirectForRole(role: AuthRole): string {
     case "admin": return "/apex-athlete";
     case "coach": return "/apex-athlete/coach";
     case "parent": return "/apex-athlete/parent";
+    case "athlete": return "/apex-athlete/athlete";
     default: return "/apex-athlete/login";
   }
 }
