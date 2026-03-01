@@ -1,49 +1,53 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
-  <rect width="180" height="180" rx="40" fill="#030108"/>
+  <!-- Dark app icon — optimized for small sizes (home screen) -->
+  <rect width="180" height="180" rx="40" fill="#0A0A12"/>
   <defs>
-    <linearGradient id="goldEdge" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#B8862A"/>
-      <stop offset="25%" stop-color="#F0D478"/>
-      <stop offset="50%" stop-color="#FFFBE6"/>
-      <stop offset="75%" stop-color="#E8C36A"/>
-      <stop offset="100%" stop-color="#B8862A"/>
-    </linearGradient>
-    <linearGradient id="purpleDeep" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0%" stop-color="#4A1A99"/>
-      <stop offset="100%" stop-color="#1E0940"/>
-    </linearGradient>
-    <linearGradient id="scarletRich" x1="0" y1="0" x2="0.3" y2="1">
-      <stop offset="0%" stop-color="#CC1230"/>
-      <stop offset="100%" stop-color="#6E0A1A"/>
-    </linearGradient>
-    <linearGradient id="navyDeep" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#1E3A6E"/>
-      <stop offset="100%" stop-color="#0C1C38"/>
-    </linearGradient>
-    <linearGradient id="sparkGold" x1="0.5" y1="0" x2="0.5" y2="1">
-      <stop offset="0%" stop-color="#FFFBE6"/>
-      <stop offset="50%" stop-color="#F0D478"/>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#D4A843"/>
+      <stop offset="50%" stop-color="#F5E6A3"/>
       <stop offset="100%" stop-color="#D4A843"/>
     </linearGradient>
-    <radialGradient id="innerGlow" cx="0.5" cy="0.55" r="0.35">
-      <stop offset="0%" stop-color="#F0D478" stop-opacity="0.15"/>
-      <stop offset="100%" stop-color="#F0D478" stop-opacity="0"/>
+    <linearGradient id="p" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#5B24B5"/>
+      <stop offset="100%" stop-color="#2A0F5E"/>
+    </linearGradient>
+    <linearGradient id="s" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#E0142E"/>
+      <stop offset="100%" stop-color="#8B0E20"/>
+    </linearGradient>
+    <linearGradient id="n" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2B5299"/>
+      <stop offset="100%" stop-color="#142A52"/>
+    </linearGradient>
+    <linearGradient id="sg" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#FFFBE6"/>
+      <stop offset="50%" stop-color="#F5E6A3"/>
+      <stop offset="100%" stop-color="#D4A843"/>
+    </linearGradient>
+    <radialGradient id="bg" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#F5E6A3" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#F5E6A3" stop-opacity="0"/>
     </radialGradient>
   </defs>
-  <g transform="translate(30,25) scale(1.2)">
-    <circle cx="60" cy="78" r="30" fill="url(#innerGlow)"/>
-    <polygon points="22,94 36,94 36,30 22,38" fill="url(#navyDeep)"/>
-    <polygon points="36,30 36,54 60,78 60,54" fill="url(#scarletRich)"/>
-    <polygon points="60,54 60,78 84,54 84,30" fill="url(#purpleDeep)"/>
-    <polygon points="84,30 84,94 98,94 98,38" fill="url(#navyDeep)"/>
-    <polyline points="22,94 22,38 36,30 36,54 60,78 84,54 84,30 98,38 98,94"
-      stroke="url(#goldEdge)" stroke-width="2.5" stroke-linejoin="miter" fill="none"/>
-    <line x1="22" y1="94" x2="36" y2="94" stroke="url(#goldEdge)" stroke-width="2.5"/>
-    <line x1="84" y1="94" x2="98" y2="94" stroke="url(#goldEdge)" stroke-width="2.5"/>
-    <line x1="36" y1="30" x2="36" y2="94" stroke="#D4A843" stroke-width="1" opacity="0.35"/>
-    <line x1="84" y1="30" x2="84" y2="94" stroke="#D4A843" stroke-width="1" opacity="0.35"/>
-    <polygon points="60,72 66,80 60,88 54,80" fill="url(#sparkGold)" opacity="0.9"/>
-    <polygon points="60,75 63.5,80 60,85 56.5,80" fill="#FFFBE6" opacity="0.8"/>
-    <line x1="60" y1="70" x2="60" y2="66" stroke="#F0D478" stroke-width="0.7" opacity="0.4" stroke-linecap="round"/>
+  <!-- Ambient glow -->
+  <circle cx="90" cy="95" r="50" fill="url(#bg)"/>
+  <!-- M body — larger, bolder, centered -->
+  <g transform="translate(28,25) scale(1.38)">
+    <!-- Left leg — navy -->
+    <polygon points="22,94 38,94 38,28 22,37" fill="url(#n)"/>
+    <!-- Left diagonal — scarlet -->
+    <polygon points="38,28 38,52 60,76 60,52" fill="url(#s)"/>
+    <!-- Right diagonal — purple -->
+    <polygon points="60,52 60,76 82,52 82,28" fill="url(#p)"/>
+    <!-- Right leg — navy -->
+    <polygon points="82,28 82,94 98,94 98,37" fill="url(#n)"/>
+    <!-- Gold outline — thicker for legibility at small size -->
+    <polyline points="22,94 22,37 38,28 38,52 60,76 82,52 82,28 98,37 98,94"
+      stroke="url(#g)" stroke-width="3.5" stroke-linejoin="round" fill="none"/>
+    <line x1="22" y1="94" x2="38" y2="94" stroke="url(#g)" stroke-width="3.5"/>
+    <line x1="82" y1="94" x2="98" y2="94" stroke="url(#g)" stroke-width="3.5"/>
+    <!-- Forge spark — diamond -->
+    <polygon points="60,70 66,78 60,86 54,78" fill="url(#sg)" opacity="0.95"/>
+    <polygon points="60,73 64,78 60,83 56,78" fill="#FFFBE6" opacity="0.9"/>
   </g>
 </svg>
