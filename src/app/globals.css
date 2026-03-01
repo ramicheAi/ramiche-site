@@ -1024,6 +1024,35 @@ a {
   }
 }
 
+/* ── METTLE MICRO-INTERACTIONS (auto-enhanced) ────────── */
+
+/* Tap ripple effect */
+@keyframes mettleRipple {
+  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
+  100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+.mettle-ripple {
+  position: absolute;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  background: radial-gradient(circle, rgba(201,168,76,0.4) 0%, rgba(201,168,76,0.1) 40%, transparent 70%);
+  animation: mettleRipple 0.6s ease-out forwards;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Staggered entrance */
+.mettle-entrance {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+.mettle-entered {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Mobile nav for Command Center */
 @media (max-width: 768px) {
   .nav-desktop { display: none !important; }

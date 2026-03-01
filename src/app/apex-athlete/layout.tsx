@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import ErrorReporterInit from "@/components/ErrorReporterInit";
 import PageTransition from "@/components/PageTransition";
+import MettleMicroInteractions from "@/components/MettleMicroInteractions";
 
 export const metadata: Metadata = {
   title: "METTLE — Athlete Relations Manager",
@@ -42,9 +43,10 @@ export default function MettleLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
+    <div className="mettle-app">
       <ErrorReporterInit />
+      <MettleMicroInteractions />
       <PageTransition>{children}</PageTransition>
-    </>
+    </div>
   );
 }
