@@ -6,6 +6,7 @@ import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
+import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -831,7 +832,23 @@ function load<T>(key: string, fallback: T): T {
     try { return JSON.parse(v); } catch { return v as unknown as T; }
   } catch { return fallback; }
 }
-function save(key: string, val: unknown) { localStorage.setItem(key, JSON.stringify(val)); }
+// Firestore path mapping for important keys
+const SYNC_PATHS: Record<string, string> = {
+  [K.ROSTER]: "rosters/all",
+  [K.AUDIT]: "audit/all",
+  [K.CHALLENGES]: "config/challenges",
+  [K.SNAPSHOTS]: "config/snapshots",
+  [K.CULTURE]: "config/culture",
+  [K.SCHEDULES]: "config/schedules",
+  [K.COACHES]: "config/coaches",
+  [K.MEETS]: "config/meets",
+  [K.PIN]: "config/pin",
+};
+function save(key: string, val: unknown) {
+  localStorage.setItem(key, JSON.stringify(val));
+  const fbPath = SYNC_PATHS[key];
+  if (fbPath) syncSave(key, val, fbPath);
+}
 
 const DEFAULT_CHALLENGES: TeamChallenge[] = [
   { id: "tc-attendance", name: "Full House", description: "90% team attendance this week", target: 90, current: 0, reward: 50 },
@@ -1243,6 +1260,52 @@ export default function ApexAthletePage() {
       });
     }
     setMounted(true);
+
+    // ── Firestore sync: push localStorage data or pull from Firestore ──
+    (async () => {
+      try {
+        const migrated = localStorage.getItem("apex-firestore-migrated");
+        if (!migrated && r.length > 0) {
+          // First time: push all localStorage data to Firestore
+          syncSave(K.ROSTER, r, "rosters/all");
+          syncSave(K.AUDIT, load<unknown[]>(K.AUDIT, []), "audit/all");
+          syncSave(K.CHALLENGES, load<unknown[]>(K.CHALLENGES, []), "config/challenges");
+          syncSave(K.SNAPSHOTS, load<unknown[]>(K.SNAPSHOTS, []), "config/snapshots");
+          syncSave(K.CULTURE, load<unknown>(K.CULTURE, {}), "config/culture");
+          syncSave(K.SCHEDULES, load<unknown[]>(K.SCHEDULES, []), "config/schedules");
+          syncSave(K.COACHES, load<unknown[]>(K.COACHES, []), "config/coaches");
+          syncSave(K.MEETS, load<unknown[]>(K.MEETS, []), "config/meets");
+          syncSave(K.PIN, load<string>(K.PIN, ""), "config/pin");
+          localStorage.setItem("apex-firestore-migrated", "1");
+          console.log("[Sync] Migrated localStorage → Firestore");
+        } else if (r.length === 0) {
+          // No local data — try loading from Firestore
+          const remote = await syncLoad<{ athletes?: Athlete[] }>(K.ROSTER, "rosters/all");
+          if (remote) {
+            const athletes = Array.isArray(remote) ? remote : (remote.athletes || []);
+            if (athletes.length > 0) {
+              save(K.ROSTER, athletes);
+              setRoster(athletes);
+              console.log("[Sync] Loaded roster from Firestore:", athletes.length, "athletes");
+            }
+          }
+          // Also load other data from Firestore
+          const remoteAudit = await syncLoad<unknown[]>(K.AUDIT, "audit/all");
+          if (remoteAudit && Array.isArray(remoteAudit)) setAuditLog(remoteAudit as AuditEntry[]);
+          const remoteCulture = await syncLoad<TeamCulture>(K.CULTURE, "config/culture");
+          if (remoteCulture) setCulture(remoteCulture);
+          const remoteSchedules = await syncLoad<GroupSchedule[]>(K.SCHEDULES, "config/schedules");
+          if (remoteSchedules && Array.isArray(remoteSchedules)) setSchedules(remoteSchedules);
+          const remoteCoaches = await syncLoad<CoachProfile[]>(K.COACHES, "config/coaches");
+          if (remoteCoaches && Array.isArray(remoteCoaches)) setCoaches(remoteCoaches);
+          const remoteMeets = await syncLoad<SwimMeet[]>(K.MEETS, "config/meets");
+          if (remoteMeets && Array.isArray(remoteMeets)) setMeets(remoteMeets);
+          localStorage.setItem("apex-firestore-migrated", "1");
+        }
+      } catch (e) {
+        console.warn("[Sync] Firestore sync error (non-fatal):", e);
+      }
+    })();
   }, []);
 
   // ── push notification helpers ──────────────────────────────
@@ -1480,9 +1543,9 @@ export default function ApexAthletePage() {
   }, [mounted, roster, teamChallenges]);
 
   // ── persist helpers ──────────────────────────────────────
-  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); }, []);
-  const saveCulture = useCallback((c: TeamCulture) => { setCulture(c); save(K.CULTURE, c); }, []);
-  const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); save(K.SCHEDULES, s); }, []);
+  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); syncSave(K.ROSTER, r, "rosters/all"); }, []);
+  const saveCulture = useCallback((c: TeamCulture) => { setCulture(c); syncSave(K.CULTURE, c, "config/culture"); }, []);
+  const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); syncSave(K.SCHEDULES, s, "config/schedules"); }, []);
 
   const addAudit = useCallback((athleteId: string, athleteName: string, action: string, xpDelta: number) => {
     const entry: AuditEntry = { timestamp: Date.now(), coach: "Coach", athleteId, athleteName, action, xpDelta };
