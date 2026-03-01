@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import GameBootScreen from "@/components/GameBootScreen";
 
 /* ══════════════════════════════════════════════════════════════
    METTLE — Landing Page v5
@@ -29,6 +30,7 @@ export default function MettleLanding() {
   const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [bootDone, setBootDone] = useState(false);
 
   if (!mounted) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: C.dark }}>
@@ -75,6 +77,21 @@ export default function MettleLanding() {
       ),
     },
   ];
+
+  /* ── Boot screen: nothing else renders until boot completes ── */
+  if (!bootDone) {
+    return (
+      <div style={{ background: C.dark, minHeight: "100vh" }}>
+        <GameBootScreen
+          onComplete={() => setBootDone(true)}
+          brandColor={C.gold}
+          logoSrc="/mettle-brand/v5/mettle-icon.svg"
+          title="METTLE"
+          subtitle="Forged in fire. Proven in practice."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen overflow-x-hidden" style={{ background: C.dark, color: "#fff" }}>
