@@ -1,9 +1,44 @@
 "use client";
 
-import { useState, useEffect, useSyncExternalStore } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import GameBootScreen from "@/components/GameBootScreen";
 import ParticleField from "@/components/ParticleField";
+
+/* ── Scroll-triggered reveal — sections animate in when visible ── */
+function ScrollSection({ children, style, className = "", delay = 0 }: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setVisible(true); obs.disconnect(); } },
+      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <section
+      ref={ref}
+      className={className}
+      style={{
+        ...style,
+        opacity: visible ? 1 : 0,
+        transform: visible ? "none" : "translateY(30px)",
+        transition: `opacity 0.7s ease-out ${delay}s, transform 0.7s ease-out ${delay}s`,
+      }}
+    >
+      {children}
+    </section>
+  );
+}
 
 /* ══════════════════════════════════════════════════════════════
    METTLE — Landing Page v5
@@ -337,7 +372,7 @@ export default function MettleLanding() {
         </section>
 
         {/* ━━━ PORTAL CARDS — intense heartbeat glow ━━━ */}
-        <section style={{ width: "100%", margin: "0 auto", padding: "4rem clamp(1.5rem, 3vw, 3rem) 5rem" }}>
+        <ScrollSection style={{ width: "100%", margin: "0 auto", padding: "4rem clamp(1.5rem, 3vw, 3rem) 5rem" }}>
           <div className="portal-grid">
             {portals.map((p, i) => (
               <Link
@@ -389,10 +424,10 @@ export default function MettleLanding() {
               </Link>
             ))}
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ SOCIAL PROOF ━━━ */}
-        <section style={{ width: "100%", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
+        <ScrollSection style={{ width: "100%", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }} delay={0.1}>
           <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16 stagger-reveal">
             {[
               { num: "240+", label: "Athletes in Beta" },
@@ -405,10 +440,10 @@ export default function MettleLanding() {
               </div>
             ))}
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ BEFORE / AFTER TRANSFORMATION ━━━ */}
-        <section style={{ width: "100%", maxWidth: "1000px", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)" }}>
+        <ScrollSection style={{ width: "100%", maxWidth: "1000px", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)" }}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 text-center">
             <div className="rounded-2xl p-8 lg:p-10 border-2" style={{ background: `${C.scarlet}08`, borderColor: `${C.scarlet}20` }}>
               <span className="text-xs tracking-[0.3em] uppercase font-bold block mb-4" style={{ color: `${C.scarlet}80` }}>Before</span>
@@ -422,20 +457,20 @@ export default function MettleLanding() {
               <p className="text-white/50 text-sm lg:text-base leading-relaxed">Athletes compete for XP. Practice feels like a game. Parents see every milestone.</p>
             </div>
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ RISK REVERSAL ━━━ */}
-        <section style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "2rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
+        <ScrollSection style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "2rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
           <div className="rounded-2xl p-6 lg:p-8 border" style={{ background: `${C.gold}05`, borderColor: `${C.gold}15` }}>
             <p className="text-sm lg:text-base text-white/40 leading-relaxed">
               <span className="font-bold text-white/60">30-day money-back guarantee.</span>{" "}
               If your athletes don&apos;t love it, you pay nothing. No questions asked.
             </p>
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ AUTHORITY MARKERS ━━━ */}
-        <section style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "1rem clamp(1.5rem, 3vw, 3rem) 3rem", textAlign: "center" }}>
+        <ScrollSection style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "1rem clamp(1.5rem, 3vw, 3rem) 3rem", textAlign: "center" }}>
           <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6">
             <span className="text-[10px] lg:text-xs tracking-wider text-white/20 uppercase border rounded-full px-4 py-1.5" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
               Patent Pending
@@ -447,10 +482,10 @@ export default function MettleLanding() {
               Built by Parallax Ventures
             </span>
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ MISSION — one powerful line ━━━ */}
-        <section style={{ width: "100%", margin: "0 auto", padding: "5rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
+        <ScrollSection style={{ width: "100%", margin: "0 auto", padding: "5rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
           <div style={{ maxWidth: "800px", margin: "0 auto" }}>
             <div className="flex items-center justify-center gap-4 mb-8 lg:mb-12">
               <div className="h-[2px] w-16 lg:w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${C.gold}40)` }} />
@@ -461,10 +496,10 @@ export default function MettleLanding() {
               Unlocking the greatness already inside every athlete.
             </p>
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ WAITLIST — compact, glowing ━━━ */}
-        <section id="waitlist" style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "0 2rem 6rem", textAlign: "center" }}>
+        <ScrollSection style={{ width: "100%", maxWidth: "700px", margin: "0 auto", padding: "0 2rem 6rem", textAlign: "center" }}>
           <div>
             <h2 className="text-2xl lg:text-3xl font-black tracking-tight mb-3 lg:mb-4 text-white">
               Ready to compete?
@@ -522,7 +557,7 @@ export default function MettleLanding() {
               </form>
             )}
           </div>
-        </section>
+        </ScrollSection>
 
         {/* ━━━ FOOTER ━━━ */}
         <footer className="pb-10 lg:pb-14 text-center">
