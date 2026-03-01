@@ -1,5 +1,5 @@
 // METTLE Service Worker — Push Notifications + Offline Cache
-const CACHE_NAME = "mettle-v1";
+const CACHE_NAME = "mettle-v3";
 const OFFLINE_URLS = [
   "/apex-athlete",
   "/apex-athlete/landing",
