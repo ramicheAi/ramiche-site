@@ -445,77 +445,80 @@ export default function GameBootScreen({
         )}
       </div>
 
-      {/* ── Narrative boot lines — typewriter system checks ── */}
-      {bootLines.length > 0 && phase !== "ready" && (
-        <div className="absolute bottom-28 sm:bottom-32 left-1/2 -translate-x-1/2 w-[280px] sm:w-[400px]">
-          <div className="flex flex-col gap-1">
-            {bootLines.map((line, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 text-[10px] sm:text-xs font-mono tracking-wider"
-                style={{
-                  color: i === bootLines.length - 1 ? `${brandColor}70` : `${brandColor}25`,
-                  animation: "boot-line-in 0.3s ease-out both",
-                }}
-              >
-                <span
-                  className="w-1 h-1 rounded-full shrink-0"
+      {/* ── Bottom section: boot lines + progress — unified, no overlap ── */}
+      {phase !== "ready" && (
+        <div className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 w-[260px] sm:w-[360px] flex flex-col items-center gap-4">
+          {/* Boot lines */}
+          {bootLines.length > 0 && (
+            <div className="w-full flex flex-col gap-0.5">
+              {bootLines.slice(-4).map((line, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 text-[9px] sm:text-[11px] font-mono tracking-wider"
                   style={{
-                    background: line.includes("ready") || line.includes("Ready")
-                      ? "#34d399"
-                      : i === bootLines.length - 1
-                        ? brandColor
-                        : `${brandColor}40`,
+                    color: i === bootLines.slice(-4).length - 1 ? `${brandColor}70` : `${brandColor}25`,
+                    animation: "boot-line-in 0.3s ease-out both",
                   }}
-                />
-                <span>{line}</span>
-                {i === bootLines.length - 1 && !line.toLowerCase().includes("ready") && (
+                >
                   <span
-                    className="w-[6px] h-[12px] inline-block"
+                    className="w-1 h-1 rounded-full shrink-0"
                     style={{
-                      background: `${brandColor}60`,
-                      animation: "cursor-blink 0.8s step-end infinite",
+                      background: line.includes("ready") || line.includes("Ready")
+                        ? "#34d399"
+                        : i === bootLines.slice(-4).length - 1
+                          ? brandColor
+                          : `${brandColor}40`,
                     }}
                   />
-                )}
+                  <span className="truncate">{line}</span>
+                  {i === bootLines.slice(-4).length - 1 && !line.toLowerCase().includes("ready") && (
+                    <span
+                      className="w-[5px] h-[10px] inline-block shrink-0"
+                      style={{
+                        background: `${brandColor}60`,
+                        animation: "cursor-blink 0.8s step-end infinite",
+                      }}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Progress bar */}
+          {progress < 100 && (
+            <div className="w-full">
+              <div
+                className="h-[2px] rounded-full overflow-hidden"
+                style={{ background: `${brandColor}15` }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-100"
+                  style={{
+                    width: `${progress}%`,
+                    background: `linear-gradient(90deg, ${brandColor}60, ${brandColor})`,
+                    animation: "progress-glow 1.5s ease-in-out infinite",
+                  }}
+                />
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+              <p className="text-center mt-1.5 text-[9px] sm:text-[10px] tracking-[0.3em] uppercase"
+                style={{ color: `${brandColor}35` }}>
+                {progress < 30 ? "Initializing..." : progress < 60 ? "Loading systems..." : progress < 90 ? "Preparing arena..." : "Ready"}
+              </p>
+            </div>
+          )}
 
-      {/* ── Progress bar — bottom of screen ── */}
-      {progress < 100 && (
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-[200px] sm:w-[300px]">
-          <div
-            className="h-[2px] rounded-full overflow-hidden"
-            style={{ background: `${brandColor}15` }}
-          >
-            <div
-              className="h-full rounded-full transition-all duration-100"
-              style={{
-                width: `${progress}%`,
-                background: `linear-gradient(90deg, ${brandColor}60, ${brandColor})`,
-                animation: "progress-glow 1.5s ease-in-out infinite",
-              }}
-            />
-          </div>
-          <p className="text-center mt-2 text-[10px] sm:text-xs tracking-[0.3em] uppercase"
-            style={{ color: `${brandColor}40` }}>
-            {progress < 30 ? "Initializing..." : progress < 60 ? "Loading systems..." : progress < 90 ? "Preparing arena..." : "Ready"}
-          </p>
+          {/* Skip — inline at bottom */}
+          {skipVisible && (
+            <button
+              onClick={handleSkip}
+              className="text-[9px] tracking-wider uppercase transition-opacity hover:opacity-80"
+              style={{ color: `rgba(255,255,255,0.12)` }}
+            >
+              Skip
+            </button>
+          )}
         </div>
-      )}
-
-      {/* ── Skip button ── */}
-      {skipVisible && phase !== "ready" && (
-        <button
-          onClick={handleSkip}
-          className="absolute bottom-12 right-8 text-xs tracking-wider uppercase transition-opacity hover:opacity-80"
-          style={{ color: `rgba(255,255,255,0.15)` }}
-        >
-          Skip &rarr;
-        </button>
       )}
 
       {/* ── Aurora sweep on logo reveal ── */}
