@@ -12,6 +12,15 @@ import StreakFlame from "../components/StreakFlame";
    Clean UI · React + Tailwind · localStorage
    ══════════════════════════════════════════════════════════════ */
 
+// ── micro sound effects (Web Audio API) ──────────────────────
+const SFX = {
+  tick: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 1200; o.type = "sine"; g.gain.setValueAtTime(0.12, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08); o.start(); o.stop(c.currentTime + 0.08); } catch {} },
+  untick: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 600; o.type = "sine"; g.gain.setValueAtTime(0.06, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.06); o.start(); o.stop(c.currentTime + 0.06); } catch {} },
+  questAssign: () => { try { const c = new AudioContext(); [660, 880].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "triangle"; g.gain.setValueAtTime(0, c.currentTime + i * 0.08); g.gain.linearRampToValueAtTime(0.08, c.currentTime + i * 0.08 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.08 + 0.15); o.start(c.currentTime + i * 0.08); o.stop(c.currentTime + i * 0.08 + 0.15); }); } catch {} },
+  questDone: () => { try { const c = new AudioContext(); [784, 988, 1318].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "sine"; g.gain.setValueAtTime(0, c.currentTime + i * 0.1); g.gain.linearRampToValueAtTime(0.1, c.currentTime + i * 0.1 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.1 + 0.25); o.start(c.currentTime + i * 0.1); o.stop(c.currentTime + i * 0.1 + 0.25); }); } catch {} },
+  shoutout: () => { try { const c = new AudioContext(); [523, 659, 784, 1047].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "triangle"; g.gain.setValueAtTime(0, c.currentTime + i * 0.06); g.gain.linearRampToValueAtTime(0.07, c.currentTime + i * 0.06 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.06 + 0.2); o.start(c.currentTime + i * 0.06); o.stop(c.currentTime + i * 0.06 + 0.2); }); } catch {} },
+};
+
 // ── game engine ──────────────────────────────────────────────
 
 const LEVELS = [
@@ -1006,6 +1015,15 @@ export default function ApexAthletePage() {
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => void } | null>(null);
 
+  // ── practice recap ───────────────────────────────────
+  const [showRecap, setShowRecap] = useState(false);
+  const [recapData, setRecapData] = useState<{
+    group: string; date: string; attendance: number; total: number;
+    xpAwarded: number; topEarners: { name: string; xp: number; level: string; color: string }[];
+    streaksActive: number; longestStreak: { name: string; streak: number };
+    mvp: { name: string; xp: number } | null; checkpointsChecked: number;
+  } | null>(null);
+
   // ── invite system ─────────────────────────────────────
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteList, setInviteList] = useState<Invite[]>([]);
@@ -1281,6 +1299,49 @@ export default function ApexAthletePage() {
     });
     save(K.SNAPSHOTS, snaps);
 
+    // Build recap data BEFORE clearing
+    const dailyXPs = groupRoster.map(a => ({
+      name: a.name,
+      xp: a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0,
+      level: getLevel(a.xp).name,
+      color: getLevel(a.xp).color,
+    })).sort((a, b) => b.xp - a.xp);
+    const streaksActive = groupRoster.filter(a => a.streak > 0).length;
+    const longestStreak = groupRoster.reduce((best, a) => a.streak > best.streak ? { name: a.name, streak: a.streak } : best, { name: "", streak: 0 });
+    const totalCheckpoints = groupRoster.reduce((s, a) =>
+      s + Object.values(a.checkpoints || {}).filter(Boolean).length +
+      Object.values(a.weightCheckpoints || {}).filter(Boolean).length +
+      Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0);
+
+    setRecapData({
+      group: selectedGroup, date: today(),
+      attendance: groupRoster.filter(a => a.present).length,
+      total: groupRoster.length,
+      xpAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
+      topEarners: dailyXPs.filter(a => a.xp > 0).slice(0, 3),
+      streaksActive,
+      longestStreak: longestStreak.streak > 0 ? longestStreak : { name: "-", streak: 0 },
+      mvp: dailyXPs[0]?.xp > 0 ? { name: dailyXPs[0].name, xp: dailyXPs[0].xp } : null,
+      checkpointsChecked: totalCheckpoints,
+    });
+    setShowRecap(true);
+
+    // Play recap sound
+    try {
+      const ctx = new AudioContext();
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = "sine";
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.12);
+        gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + i * 0.12 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+        osc.start(ctx.currentTime + i * 0.12); osc.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+    } catch {}
+    if (navigator.vibrate) navigator.vibrate([40, 30, 60, 30, 80]);
+
     // Clear current session — fresh slate
     const cleared = roster.map(a => a.group !== selectedGroup ? a : ({
       ...a, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
@@ -1554,6 +1615,7 @@ export default function ApexAthletePage() {
       const cps = { ...a[cpMap] };
       if (cps[cpId]) {
         cps[cpId] = false; a[cpMap] = cps;
+        SFX.untick();
         // Revert XP when unchecking
         const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
         const awarded = Math.round(cpXP * mult);
@@ -1565,6 +1627,7 @@ export default function ApexAthletePage() {
         const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
       }
       cps[cpId] = true; a[cpMap] = cps;
+      SFX.tick();
       const { newAthlete, awarded } = awardXP(a, cpXP, category);
       let final = { ...newAthlete, [cpMap]: cps };
       // Increment streak once per day on Practice Complete (pool) or Showed Up (weight)
@@ -1590,6 +1653,7 @@ export default function ApexAthletePage() {
       let a = { ...prev[idx], weightChallenges: { ...prev[idx].weightChallenges } };
       if (a.weightChallenges[chId]) {
         a.weightChallenges[chId] = false;
+        SFX.untick();
         const mult = getWeightStreakMult(a.weightStreak);
         const reverted = Math.round(chXP * mult);
         a.xp = Math.max(0, a.xp - reverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - reverted);
@@ -1599,6 +1663,7 @@ export default function ApexAthletePage() {
         addAudit(a.id, a.name, `Unchallenged: ${chId}`, -reverted);
       } else {
         a.weightChallenges[chId] = true;
+        SFX.tick();
         const { newAthlete, awarded } = awardXP(a, chXP, "weight");
         a = { ...newAthlete, weightChallenges: a.weightChallenges };
         addAudit(a.id, a.name, `Challenge: ${chId}`, awarded);
@@ -1622,8 +1687,10 @@ export default function ApexAthletePage() {
         cur === "active" ? "done" : // fallback: coach can still approve directly
         "pending";
       a.quests[qId] = next;
+      if (next === "active") SFX.questAssign();
       let awarded = 0;
       if (next === "done") {
+        SFX.questDone();
         const res = awardXP(a, qXP, "pool");
         a = { ...res.newAthlete, quests: a.quests };
         awarded = res.awarded;
@@ -1736,6 +1803,7 @@ export default function ApexAthletePage() {
       if (idx < 0) return prev;
       const a = { ...prev[idx] };
       const { newAthlete, awarded } = awardXP(a, SHOUTOUT_XP, "pool");
+      SFX.shoutout();
       addAudit(newAthlete.id, newAthlete.name, "Shoutout", awarded);
       if (e) spawnXpFloat(awarded, e);
       const r = [...prev]; r[idx] = newAthlete; save(K.ROSTER, r); return r;
@@ -4606,6 +4674,94 @@ export default function ApexAthletePage() {
           </div>
         )}
 
+        {/* Practice Recap Overlay */}
+        {showRecap && recapData && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={() => setShowRecap(false)}>
+            {/* Backdrop with radial glow */}
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-md" />
+            <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 30%, rgba(168,85,247,0.15), transparent 60%)" }} />
+
+            <div className="relative w-full max-w-sm recap-enter" onClick={e => e.stopPropagation()}>
+              {/* Top accent line */}
+              <div className="h-[2px] rounded-full mb-1" style={{ background: "linear-gradient(90deg, transparent, #a855f7, #00f0ff, #a855f7, transparent)" }} />
+
+              <div className="rounded-3xl overflow-hidden border-2 border-white/[0.08]" style={{
+                background: "linear-gradient(180deg, rgba(6,2,15,0.97) 0%, rgba(15,5,30,0.97) 100%)",
+                boxShadow: "0 0 60px rgba(168,85,247,0.1), 0 25px 50px rgba(0,0,0,0.5)",
+              }}>
+                {/* Header */}
+                <div className="text-center pt-8 pb-4 px-6">
+                  <div className="text-[10px] uppercase tracking-[0.4em] font-bold font-mono text-[#a855f7]/60 mb-2">Practice Complete</div>
+                  <div className="text-2xl font-black text-white tracking-tight mb-1">Session Recap</div>
+                  <div className="text-white/30 text-xs font-mono">{recapData.group} — {new Date(recapData.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
+                </div>
+
+                {/* Key stats grid */}
+                <div className="grid grid-cols-3 gap-px mx-6 mb-6 rounded-2xl overflow-hidden border border-white/[0.06]">
+                  <div className="bg-white/[0.03] p-4 text-center">
+                    <div className="text-2xl font-black text-[#00f0ff] tabular-nums">{recapData.total > 0 ? Math.round((recapData.attendance / recapData.total) * 100) : 0}%</div>
+                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">Attendance</div>
+                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.attendance}/{recapData.total}</div>
+                  </div>
+                  <div className="bg-white/[0.03] p-4 text-center">
+                    <div className="text-2xl font-black text-[#f59e0b] tabular-nums">{recapData.xpAwarded}</div>
+                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">XP Awarded</div>
+                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.checkpointsChecked} checks</div>
+                  </div>
+                  <div className="bg-white/[0.03] p-4 text-center">
+                    <div className="text-2xl font-black text-[#a855f7] tabular-nums">{recapData.streaksActive}</div>
+                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">Streaks</div>
+                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.longestStreak.streak > 0 ? `Best: ${recapData.longestStreak.streak}d` : "-"}</div>
+                  </div>
+                </div>
+
+                {/* MVP */}
+                {recapData.mvp && (
+                  <div className="mx-6 mb-4 p-4 rounded-2xl border border-[#f59e0b]/20" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(168,85,247,0.05))" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#f59e0b]/15 border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b"/></svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#f59e0b]/60">MVP — Top Earner</div>
+                        <div className="text-white font-bold text-sm truncate">{recapData.mvp.name}</div>
+                      </div>
+                      <div className="text-[#f59e0b] font-black text-lg tabular-nums">+{recapData.mvp.xp}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top 3 earners */}
+                {recapData.topEarners.length > 1 && (
+                  <div className="mx-6 mb-6 space-y-1">
+                    <div className="text-white/30 text-[10px] uppercase tracking-[0.2em] font-bold mb-2 px-1">Top Earners</div>
+                    {recapData.topEarners.map((e, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02]">
+                        <span className="text-white/30 text-xs font-bold font-mono w-5 text-center">{i + 1}</span>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color, boxShadow: `0 0 6px ${e.color}60` }} />
+                        <span className="text-white/80 text-sm flex-1 truncate">{e.name}</span>
+                        <span className="text-xs font-mono" style={{ color: e.color }}>{e.level}</span>
+                        <span className="text-white/60 text-xs font-bold font-mono tabular-nums">+{e.xp}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Dismiss */}
+                <div className="px-6 pb-6">
+                  <button onClick={() => setShowRecap(false)}
+                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#a855f7]/15 to-[#00f0ff]/15 border border-white/[0.08] text-white/80 text-sm font-bold tracking-wider uppercase hover:from-[#a855f7]/25 hover:to-[#00f0ff]/25 transition-all active:scale-[0.98] min-h-[52px]">
+                    Done
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom accent */}
+              <div className="h-[2px] rounded-full mt-1" style={{ background: "linear-gradient(90deg, transparent, #00f0ff, #a855f7, #00f0ff, transparent)" }} />
+            </div>
+          </div>
+        )}
+
         {/* Privacy footer */}
         <div className="text-center text-white/[0.05] text-xs py-10 space-y-1">
           <p>METTLE — Athlete Relations Manager</p>
@@ -4635,6 +4791,13 @@ export default function ApexAthletePage() {
         }
         .pulse-glow {
           animation: pulseGlow 3s ease-in-out infinite;
+        }
+        @keyframes recapEnter {
+          0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .recap-enter {
+          animation: recapEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
     </div>
