@@ -4,10 +4,10 @@ import ErrorReporterInit from "@/components/ErrorReporterInit";
 export const metadata: Metadata = {
   title: "METTLE — Athlete Relations Manager",
   description: "Unlocking the greatness already inside every athlete — through the power of play.",
-  manifest: "/manifest.json",
+  manifest: "/mettle-manifest.json",
   icons: {
     icon: "/mettle-brand/v5/mettle-icon.svg",
-    apple: "/mettle-brand/v5/apple-touch-icon.png",
+    apple: "/mettle-brand/v5/apple-touch-icon-dark.png",
   },
   other: {
     "theme-color": "#C9A84C",

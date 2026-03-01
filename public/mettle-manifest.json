@@ -1,0 +1,29 @@
+{
+  "name": "METTLE — Athlete Relations Manager",
+  "short_name": "METTLE",
+  "description": "Forged in fire. Proven in practice. Gamified training that transforms athletes.",
+  "start_url": "/apex-athlete/landing",
+  "display": "standalone",
+  "background_color": "#030108",
+  "theme_color": "#C9A84C",
+  "orientation": "portrait-primary",
+  "categories": ["sports", "fitness", "education"],
+  "icons": [
+    {
+      "src": "/mettle-brand/v5/mettle-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/mettle-brand/v5/mettle-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/mettle-brand/v5/apple-touch-icon-dark.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
