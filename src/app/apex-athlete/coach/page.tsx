@@ -955,6 +955,9 @@ export default function ApexAthletePage() {
   const [mounted, setMounted] = useState(false);
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
+  const [levelUpIcon, setLevelUpIcon] = useState<string>("");
+  const [levelUpColor, setLevelUpColor] = useState<string>("");
+  const [levelUpExiting, setLevelUpExiting] = useState(false);
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
   // ── scroll guard: prevent phantom taps on mobile during/after scroll ──
   const isScrollingRef = useRef(false);
@@ -1376,13 +1379,59 @@ export default function ApexAthletePage() {
     setAuditLog(prev => { const n = [entry, ...prev].slice(0, 2000); save(K.AUDIT, n); return n; });
   }, []);
 
+  // ── level-up triumphant sound (Web Audio API) ──────────
+  const playLevelUpSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const now = ctx.currentTime;
+      // Rising arpeggio: C5 → E5 → G5 → C6
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + i * 0.12);
+        gain.gain.linearRampToValueAtTime(0.15, now + i * 0.12 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.12);
+        osc.stop(now + i * 0.12 + 0.5);
+      });
+      // Final shimmer chord
+      [1046.5, 1318.5, 1568.0].forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + 0.5);
+        gain.gain.linearRampToValueAtTime(0.08, now + 0.55);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + 0.5);
+        osc.stop(now + 1.6);
+      });
+    } catch { /* silent fail if audio unavailable */ }
+  }, []);
+
   const checkLevelUp = useCallback((oldXP: number, newXP: number, name: string) => {
     const oldLv = getLevel(oldXP);
     const newLv = getLevel(newXP);
     if (newLv.name !== oldLv.name) {
       setLevelUpName(name);
       setLevelUpLevel(newLv.name);
-      setTimeout(() => { setLevelUpName(null); }, 3000);
+      setLevelUpIcon(newLv.icon);
+      setLevelUpColor(newLv.color);
+      setLevelUpExiting(false);
+      // Play triumphant sound
+      playLevelUpSound();
+      // Haptic burst
+      if (navigator.vibrate) navigator.vibrate([50, 30, 80, 30, 120, 50, 80]);
+      // Auto-dismiss with fade-out
+      setTimeout(() => { setLevelUpExiting(true); }, 3500);
+      setTimeout(() => { setLevelUpName(null); setLevelUpExiting(false); }, 4000);
     }
   }, []);
 
@@ -1982,29 +2031,48 @@ export default function ApexAthletePage() {
     </div>
   );
 
-  // ── level-up overlay with sparkles ──────────────────────
+  // ── cinematic level-up overlay ──────────────────────────
   const SPARKLE_DIRS = [
-    { sx: "-60px", sy: "-70px" }, { sx: "65px", sy: "-60px" },
-    { sx: "-50px", sy: "55px" }, { sx: "55px", sy: "60px" },
-    { sx: "-80px", sy: "0px" }, { sx: "80px", sy: "-10px" },
-    { sx: "0px", sy: "-80px" }, { sx: "10px", sy: "75px" },
+    { sx: "-90px", sy: "-100px" }, { sx: "95px", sy: "-90px" },
+    { sx: "-80px", sy: "85px" }, { sx: "85px", sy: "90px" },
+    { sx: "-120px", sy: "0px" }, { sx: "120px", sy: "-10px" },
+    { sx: "0px", sy: "-120px" }, { sx: "10px", sy: "110px" },
+    { sx: "-50px", sy: "-130px" }, { sx: "60px", sy: "120px" },
+    { sx: "-110px", sy: "-50px" }, { sx: "100px", sy: "40px" },
   ];
   const LevelUpOverlay = () => {
     if (!levelUpName) return null;
     return (
-      <div className="fixed inset-0 z-[300] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setLevelUpName(null)} />
+      <div className={`fixed inset-0 z-[300] flex items-center justify-center ${levelUpExiting ? "level-up-exit" : ""}`}>
+        {/* cinematic white flash */}
+        <div className="absolute inset-0 bg-white level-up-screen-flash" />
+        {/* dark backdrop */}
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => { setLevelUpExiting(true); setTimeout(() => setLevelUpName(null), 500); }} />
         <div className="relative level-up-enter text-center">
-          {/* sparkle particles */}
+          {/* expanding ring bursts */}
+          <div className="ring-burst absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40" style={{ color: levelUpColor, animationDelay: "0.1s" }} />
+          <div className="ring-burst absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56" style={{ color: levelUpColor, animationDelay: "0.3s" }} />
+          <div className="ring-burst absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72" style={{ color: levelUpColor, animationDelay: "0.5s" }} />
+          {/* sparkle particles — more and wider */}
           {SPARKLE_DIRS.map((d, i) => (
-            <div key={i} className="sparkle absolute left-1/2 top-1/2 w-2 h-2 rounded-full bg-[#f59e0b]"
-              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.05}s` } as React.CSSProperties} />
+            <div key={i} className="sparkle absolute left-1/2 top-1/2 w-2.5 h-2.5 rounded-full"
+              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.04}s`, backgroundColor: levelUpColor } as React.CSSProperties} />
           ))}
-          <div className="relative bg-[#0c0618]/95 border border-[#f59e0b]/25 rounded-2xl p-10 shadow-[0_0_60px_rgba(245,158,11,0.15),0_0_120px_rgba(107,33,168,0.1)]">
-            <div className="text-5xl mb-3">⚡</div>
-            <div className="text-[#f59e0b] text-xs tracking-[0.3em] uppercase font-bold mb-2">Level Up!</div>
-            <div className="text-white text-2xl font-black mb-1">{levelUpName}</div>
-            <div className="bg-gradient-to-r from-[#a855f7] to-[#f59e0b] bg-clip-text text-transparent text-lg font-bold">{levelUpLevel}</div>
+          <div className="relative bg-[#0c0618]/95 border-2 rounded-2xl p-12 shadow-[0_0_80px_rgba(245,158,11,0.2),0_0_160px_rgba(107,33,168,0.15)]"
+            style={{ borderColor: `${levelUpColor}40` }}>
+            {/* level icon — big and explosive */}
+            <div className="level-icon-explode text-7xl mb-4" style={{ filter: `drop-shadow(0 0 20px ${levelUpColor})` }}>
+              {levelUpIcon || "⚡"}
+            </div>
+            <div className="text-xs tracking-[0.4em] uppercase font-bold mb-3 level-text-slide"
+              style={{ color: levelUpColor, animationDelay: "0.3s" }}>Level Up!</div>
+            <div className="text-white text-3xl font-black mb-2 level-text-slide" style={{ animationDelay: "0.5s" }}>
+              {levelUpName}
+            </div>
+            <div className="text-2xl font-bold level-text-slide bg-gradient-to-r bg-clip-text text-transparent"
+              style={{ backgroundImage: `linear-gradient(to right, ${levelUpColor}, #f59e0b)`, animationDelay: "0.7s" }}>
+              {levelUpLevel}
+            </div>
           </div>
         </div>
       </div>
