@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   loginWithPin,
@@ -14,9 +14,14 @@ import {
 } from "../auth";
 
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — Login Page
-   Unified authentication: Coach (email+pw), Parent (email+code),
-   Admin (PIN or email+pw). Dark sci-fi game HUD aesthetic.
+   METTLE — Login Page (Living Experience v1)
+
+   Psychology-driven boot sequence:
+   - Biophilia: Canvas particles mimic fireflies/underwater light
+   - Heartbeat sync: Button pulses at 72 BPM (calm trust)
+   - Progressive reveal: Elements stagger in, world "loads"
+   - Warmth gradient: Cool cyan → warm gold progression
+   - Competence signaling: Mission control aesthetic
    ══════════════════════════════════════════════════════════════ */
 
 // ── SVG Icons ───────────────────────────────────────────────
@@ -96,20 +101,233 @@ const SvgUserPlus = ({ size = 20, color = "#94a3b8" }: { size?: number; color?: 
 
 type LoginMode = "select" | "coach" | "parent" | "admin" | "register-coach" | "register-parent";
 
-// ── Background Effect ───────────────────────────────────────
+// ── Boot Sequence Canvas ────────────────────────────────────
+// Particles emerge from center, scatter outward like a world loading.
+// After boot, they settle into ambient drift.
 
-const BgOrbs = () => (
-  <div className="fixed inset-0 pointer-events-none overflow-hidden">
-    <div className="absolute top-[-20%] left-[-10%] w-[600px] lg:w-[900px] h-[600px] lg:h-[900px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.06)_0%,transparent_60%)]" />
-    <div className="absolute bottom-[-15%] right-[-5%] w-[500px] lg:w-[800px] h-[500px] lg:h-[800px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.05)_0%,transparent_60%)]" />
-    <div className="absolute top-[30%] right-[15%] w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] rounded-full bg-[radial-gradient(circle,rgba(245,158,11,0.04)_0%,transparent_60%)]" />
-  </div>
+interface BootParticle {
+  x: number; y: number; tx: number; ty: number;
+  vx: number; vy: number; size: number; alpha: number;
+  alphaTarget: number; phase: number; hue: number;
+  born: number;
+}
+
+const BootCanvas = ({ phase }: { phase: "boot" | "ambient" }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const particlesRef = useRef<BootParticle[]>([]);
+  const mouseRef = useRef({ x: -9999, y: -9999 });
+  const animRef = useRef(0);
+  const startTime = useRef(Date.now());
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    // Create particles — all start at center during boot
+    const count = 80;
+    particlesRef.current = Array.from({ length: count }, (_, i) => {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+      const dist = Math.random() * Math.max(canvas.width, canvas.height) * 0.6;
+      const hue = Math.random() > 0.6 ? 45 : (Math.random() > 0.5 ? 190 : 270); // gold, cyan, purple
+      return {
+        x: cx, y: cy,
+        tx: cx + Math.cos(angle) * dist,
+        ty: cy + Math.sin(angle) * dist,
+        vx: 0, vy: 0,
+        size: Math.random() * 2.5 + 0.8,
+        alpha: 0,
+        alphaTarget: Math.random() * 0.35 + 0.05,
+        phase: Math.random() * Math.PI * 2,
+        hue,
+        born: Date.now() + Math.random() * 800, // stagger birth
+      };
+    });
+
+    const onMouse = (e: MouseEvent) => {
+      mouseRef.current.x = e.clientX;
+      mouseRef.current.y = e.clientY;
+    };
+    window.addEventListener("mousemove", onMouse);
+
+    let t = 0;
+
+    const animate = () => {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      t += 0.008;
+      const now = Date.now();
+      const elapsed = (now - startTime.current) / 1000;
+
+      for (const p of particlesRef.current) {
+        if (now < p.born) continue; // not born yet — stagger effect
+
+        // During boot: fly outward from center
+        // After boot: gentle ambient drift
+        if (phase === "boot" && elapsed < 2.5) {
+          const progress = Math.min(1, (now - p.born) / 1500);
+          const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+          p.x = cx + (p.tx - cx) * ease;
+          p.y = cy + (p.ty - cy) * ease;
+          p.alpha = p.alphaTarget * ease;
+        } else {
+          // Ambient drift — organic sine/cosine motion
+          const driftX = Math.sin(t + p.phase) * 0.2;
+          const driftY = Math.cos(t * 0.7 + p.phase) * 0.15;
+          p.x += driftX;
+          p.y += driftY;
+
+          // Breathing alpha
+          p.alpha = p.alphaTarget * (0.6 + 0.4 * Math.sin(t * 0.5 + p.phase));
+
+          // Wrap edges
+          if (p.x < -20) p.x = canvas.width + 20;
+          if (p.x > canvas.width + 20) p.x = -20;
+          if (p.y < -20) p.y = canvas.height + 20;
+          if (p.y > canvas.height + 20) p.y = -20;
+        }
+
+        // Mouse interaction — particles gently avoid cursor
+        const dx = p.x - mouseRef.current.x;
+        const dy = p.y - mouseRef.current.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < 100 && dist > 0) {
+          const force = (100 - dist) / 100 * 0.8;
+          p.x += (dx / dist) * force;
+          p.y += (dy / dist) * force;
+        }
+
+        // Render particle
+        const color = p.hue === 45
+          ? `rgba(212,168,67,${p.alpha})`
+          : p.hue === 190
+            ? `rgba(0,240,255,${p.alpha})`
+            : `rgba(168,85,247,${p.alpha})`;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        // Glow halo on larger particles
+        if (p.size > 1.5) {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
+          ctx.fillStyle = p.hue === 45
+            ? `rgba(212,168,67,${p.alpha * 0.12})`
+            : p.hue === 190
+              ? `rgba(0,240,255,${p.alpha * 0.12})`
+              : `rgba(168,85,247,${p.alpha * 0.12})`;
+          ctx.fill();
+        }
+
+        // Connecting lines between nearby particles (constellation effect)
+        for (const q of particlesRef.current) {
+          if (q === p || now < q.born) continue;
+          const ddx = p.x - q.x;
+          const ddy = p.y - q.y;
+          const d = Math.sqrt(ddx * ddx + ddy * ddy);
+          if (d < 80) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(q.x, q.y);
+            ctx.strokeStyle = `rgba(212,168,67,${0.03 * (1 - d / 80)})`;
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+          }
+        }
+      }
+
+      animRef.current = requestAnimationFrame(animate);
+    };
+
+    animRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animRef.current);
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMouse);
+    };
+  }, [phase]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="fixed inset-0 pointer-events-none z-[1]"
+    />
+  );
+};
+
+// ── Heartbeat Button ────────────────────────────────────────
+// Pulses at ~72 BPM (833ms cycle) — syncs with human calm heart rate
+
+const HeartbeatButton = ({
+  onClick,
+  disabled,
+  loading,
+  label,
+  loadingLabel,
+  accentColor,
+  className = "",
+}: {
+  onClick: () => void;
+  disabled: boolean;
+  loading: boolean;
+  label: string;
+  loadingLabel: string;
+  accentColor: string;
+  className?: string;
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    className={`relative w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border-2 disabled:opacity-40 disabled:cursor-not-allowed overflow-hidden ${className}`}
+    style={{
+      borderColor: `${accentColor}50`,
+      color: accentColor,
+      background: `linear-gradient(135deg, ${accentColor}15, ${accentColor}08)`,
+    }}
+  >
+    {/* Heartbeat glow — pulses behind the button */}
+    {!loading && !disabled && (
+      <span
+        className="absolute inset-0 rounded-xl"
+        style={{
+          background: `radial-gradient(ellipse at center, ${accentColor}18, transparent 70%)`,
+          animation: "heartbeat 1.667s ease-in-out infinite", // ~72 BPM (2 pulses per cycle = 833ms each)
+        }}
+      />
+    )}
+    <span className="relative z-10">
+      {loading ? (
+        <span className="flex items-center justify-center gap-2">
+          <span
+            className="w-4 h-4 border-2 rounded-full animate-spin"
+            style={{ borderColor: `${accentColor}30`, borderTopColor: accentColor }}
+          />
+          {loadingLabel}
+        </span>
+      ) : label}
+    </span>
+  </button>
 );
 
 // ── Main Login Component ────────────────────────────────────
 
 export default function LoginPage() {
   const [mounted, setMounted] = useState(false);
+  const [bootPhase, setBootPhase] = useState<"black" | "particles" | "logo" | "ready">("black");
   const [mode, setMode] = useState<LoginMode>("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -120,36 +338,38 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ── Boot sequence timing ──────────────────────────────
   useEffect(() => {
     setMounted(true);
-    // If already logged in, redirect
+
+    // If already logged in, skip boot and redirect
     const session = getSession();
     if (session) {
       window.location.href = getRedirectForRole(session.role);
       return;
     }
+
     // Deep-link: ?role=coach|parent|admin skips the select screen
     const params = new URLSearchParams(window.location.search);
     const role = params.get("role");
     if (role === "coach") setMode("coach");
     else if (role === "parent") setMode("parent");
     else if (role === "admin") setMode("admin");
+
+    // Boot sequence: black → particles emerge → logo fades in → UI ready
+    const t1 = setTimeout(() => setBootPhase("particles"), 200);
+    const t2 = setTimeout(() => setBootPhase("logo"), 1200);
+    const t3 = setTimeout(() => setBootPhase("ready"), 2400);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
   }, []);
 
   const clearForm = () => {
-    setEmail("");
-    setPassword("");
-    setCode("");
-    setPin("");
-    setName("");
-    setError("");
-    setSuccess("");
+    setEmail(""); setPassword(""); setCode(""); setPin(""); setName("");
+    setError(""); setSuccess("");
   };
 
-  const switchMode = (m: LoginMode) => {
-    clearForm();
-    setMode(m);
-  };
+  const switchMode = (m: LoginMode) => { clearForm(); setMode(m); };
 
   // ── Handlers ────────────────────────────────────────────
 
@@ -199,8 +419,7 @@ export default function LoginPage() {
   };
 
   const handleCoachRegister = async () => {
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
     if (!name.trim()) { setError("Name is required."); return; }
     if (!email.trim()) { setError("Email is required."); return; }
     if (!password.trim() || password.length < 4) { setError("Password must be at least 4 characters."); return; }
@@ -214,8 +433,7 @@ export default function LoginPage() {
   };
 
   const handleParentRegister = () => {
-    setError("");
-    setSuccess("");
+    setError(""); setSuccess("");
     if (!name.trim()) { setError("Name is required."); return; }
     if (!email.trim()) { setError("Email is required."); return; }
     if (!code.trim() || code.length < 4) { setError("Enter the verification code from your coach."); return; }
@@ -228,39 +446,134 @@ export default function LoginPage() {
     }
   };
 
-  // ── Loading state ───────────────────────────────────────
-
+  // ── Loading state (before hydration) ──────────────────
   if (!mounted) return (
-    <div className="min-h-screen bg-[#06020f] flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-[#00f0ff]/30 border-t-[#00f0ff] rounded-full animate-spin" />
-    </div>
+    <div className="min-h-screen bg-[#030108]" />
   );
 
-  // ── Shared UI helpers ───────────────────────────────────
+  // ── Shared UI helpers ─────────────────────────────────
 
   const inputClass = (hasError: boolean = false) =>
-    `w-full px-4 py-4 lg:px-5 lg:py-5 bg-[#0a0518]/80 backdrop-blur-xl border rounded-xl text-white text-base lg:text-lg placeholder:text-white/25 focus:outline-none transition-all font-mono ${
+    `w-full px-4 py-4 lg:px-5 lg:py-5 bg-[#0a0518]/80 backdrop-blur-xl border-2 rounded-xl text-white text-base lg:text-lg placeholder:text-white/25 focus:outline-none transition-all duration-300 font-mono ${
       hasError
         ? "border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.2)]"
-        : "border-white/10 focus:border-[#00f0ff]/40 focus:shadow-[0_0_20px_rgba(0,240,255,0.1)]"
+        : "border-white/10 focus:border-[#C9A84C]/40 focus:shadow-[0_0_25px_rgba(201,168,76,0.12)]"
     }`;
 
-  const primaryBtnClass = (accentFrom: string, accentTo: string, textColor: string) =>
-    `w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border bg-gradient-to-r ${accentFrom} ${accentTo} border-${textColor.replace("#", "")}/30 disabled:opacity-40 disabled:cursor-not-allowed`;
+  // ── Boot sequence rendering ───────────────────────────
 
-  // ── Render ──────────────────────────────────────────────
+  const showCanvas = bootPhase !== "black";
+  const showLogo = bootPhase === "logo" || bootPhase === "ready";
+  const showUI = bootPhase === "ready";
 
   return (
-    <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 py-8 lg:px-6 xl:px-8">
-      <BgOrbs />
+    <div className="min-h-screen bg-[#030108] relative overflow-hidden flex flex-col items-center justify-center px-5 py-8 lg:px-6 xl:px-8">
 
+      {/* Keyframe animations */}
+      <style jsx global>{`
+        @keyframes heartbeat {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          15% { opacity: 1; transform: scale(1.02); }
+          30% { opacity: 0.4; transform: scale(1); }
+          45% { opacity: 0.8; transform: scale(1.01); }
+          60% { opacity: 0.3; transform: scale(1); }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes glowPulse {
+          0%, 100% { filter: drop-shadow(0 0 30px rgba(201,168,76,0.2)); }
+          50% { filter: drop-shadow(0 0 60px rgba(201,168,76,0.5)); }
+        }
+        @keyframes scanline {
+          0% { transform: translateY(-100%); }
+          100% { transform: translateY(100vh); }
+        }
+        @keyframes typewriter {
+          from { width: 0; }
+          to { width: 100%; }
+        }
+        .boot-card {
+          animation: fadeInUp 0.5s ease-out both;
+        }
+        .boot-card:nth-child(1) { animation-delay: 0ms; }
+        .boot-card:nth-child(2) { animation-delay: 150ms; }
+        .boot-card:nth-child(3) { animation-delay: 300ms; }
+        .boot-card:nth-child(4) { animation-delay: 450ms; }
+      `}</style>
+
+      {/* Particle field — emerges from center during boot */}
+      {showCanvas && (
+        <BootCanvas phase={bootPhase === "ready" ? "ambient" : "boot"} />
+      )}
+
+      {/* Scanline effect during boot */}
+      {bootPhase === "particles" && (
+        <div className="fixed inset-0 z-[2] pointer-events-none overflow-hidden">
+          <div
+            className="absolute left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C9A84C]/30 to-transparent"
+            style={{ animation: "scanline 1.5s linear" }}
+          />
+        </div>
+      )}
+
+      {/* Ambient orbs — always present, subtle depth */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden z-[0]">
+        <div className="absolute top-[-20%] left-[-10%] w-[600px] lg:w-[900px] h-[600px] lg:h-[900px] rounded-full bg-[radial-gradient(circle,rgba(201,168,76,0.04)_0%,transparent_60%)]" />
+        <div className="absolute bottom-[-15%] right-[-5%] w-[500px] lg:w-[800px] h-[500px] lg:h-[800px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.03)_0%,transparent_60%)]" />
+        <div className="absolute top-[30%] right-[15%] w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.025)_0%,transparent_60%)]" />
+      </div>
+
+      {/* ── Main content ── */}
       <div className="relative z-10 w-full max-w-sm lg:max-w-none lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-8 xl:gap-12 lg:px-8 xl:px-16 2xl:px-24">
 
         {/* ── Desktop branding panel (hidden on mobile) ── */}
         <div className="hidden lg:flex flex-col items-center justify-center">
-          <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-40 h-40 xl:w-48 xl:h-48 mb-8" style={{ filter: "drop-shadow(0 0 60px rgba(212,168,67,0.3))" }} />
-          <h1 className="text-5xl xl:text-6xl 2xl:text-7xl font-black tracking-tight text-white mb-4">METTLE</h1>
-          <p className="text-xl xl:text-2xl text-white/30 text-center max-w-md">Unlocking the greatness already inside every athlete.</p>
+          {showLogo && (
+            <div style={{ animation: "scaleIn 0.8s ease-out both" }}>
+              <img
+                src="/mettle-brand/v5/mettle-icon.svg"
+                alt="METTLE"
+                className="w-40 h-40 xl:w-48 xl:h-48 mb-8"
+                style={{ animation: "glowPulse 3s ease-in-out infinite" }}
+              />
+            </div>
+          )}
+          {showUI && (
+            <>
+              <h1
+                className="text-5xl xl:text-6xl 2xl:text-7xl font-black tracking-tight text-white mb-4"
+                style={{ animation: "fadeIn 0.6s ease-out both", animationDelay: "200ms" }}
+              >
+                METTLE
+              </h1>
+              <p
+                className="text-xl xl:text-2xl text-white/25 text-center max-w-md"
+                style={{ animation: "fadeIn 0.6s ease-out both", animationDelay: "400ms" }}
+              >
+                Unlocking the greatness already inside every athlete.
+              </p>
+              {/* System status line — competence signaling */}
+              <div
+                className="mt-6 flex items-center gap-2 text-[10px] font-mono tracking-widest uppercase"
+                style={{ animation: "fadeIn 0.6s ease-out both", animationDelay: "600ms" }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-emerald-400/50">Systems Online</span>
+                <span className="text-white/10 mx-1">·</span>
+                <span className="text-white/15">v5.0</span>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Form panel ── */}
@@ -269,106 +582,124 @@ export default function LoginPage() {
         {/* ── Role Selection Screen ── */}
         {mode === "select" && (
           <div className="text-center">
-            {/* Logo + Title */}
-            <div className="mb-8">
-              <div className="flex justify-center mb-4">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-14 h-14 lg:w-20 lg:h-20" />
+            {/* Logo + Title — mobile + boot animation */}
+            {showLogo && (
+              <div className="mb-8" style={{ animation: "scaleIn 0.6s ease-out both" }}>
+                <div className="flex justify-center mb-4">
+                  <img
+                    src="/mettle-brand/v5/mettle-icon.svg"
+                    alt="METTLE"
+                    className="w-14 h-14 lg:w-20 lg:h-20"
+                    style={{ animation: "glowPulse 3s ease-in-out infinite" }}
+                  />
+                </div>
+                <div
+                  className="text-[10px] tracking-[0.5em] uppercase font-mono mb-2"
+                  style={{ color: "rgba(201,168,76,0.5)" }}
+                >
+                  INITIALIZING SECURE CONNECTION
+                </div>
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-2 lg:hidden">
+                  METTLE
+                </h1>
+                <p className="text-white/20 text-sm font-mono">Select your access level to continue</p>
               </div>
-              <div className="text-[10px] tracking-[0.5em] uppercase font-mono mb-2" style={{ color: "rgba(0,240,255,0.4)" }}>
-                AUTHENTICATION REQUIRED
+            )}
+
+            {/* Role Cards — staggered entrance */}
+            {showUI && (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => switchMode("coach")}
+                  className="boot-card group relative w-full text-left p-5 rounded-2xl border-2 border-[#00f0ff]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#00f0ff]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px] hover:shadow-[0_0_30px_rgba(0,240,255,0.08)]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110" style={{ background: "rgba(0,240,255,0.08)", border: "2px solid rgba(0,240,255,0.2)" }}>
+                      <SvgCoach size={28} color="#00f0ff" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-bold text-base">Coach Login</div>
+                      <div className="text-white/30 text-sm">Email + password</div>
+                    </div>
+                    <div className="text-[#00f0ff]/30 group-hover:text-[#00f0ff]/60 group-hover:translate-x-1 transition-all text-lg font-mono shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => switchMode("parent")}
+                  className="boot-card group relative w-full text-left p-5 rounded-2xl border-2 border-[#f59e0b]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#f59e0b]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px] hover:shadow-[0_0_30px_rgba(245,158,11,0.08)]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110" style={{ background: "rgba(245,158,11,0.08)", border: "2px solid rgba(245,158,11,0.2)" }}>
+                      <SvgParent size={28} color="#f59e0b" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-bold text-base">Parent Login</div>
+                      <div className="text-white/30 text-sm">Email + verification code</div>
+                    </div>
+                    <div className="text-[#f59e0b]/30 group-hover:text-[#f59e0b]/60 group-hover:translate-x-1 transition-all text-lg font-mono shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => switchMode("admin")}
+                  className="boot-card group relative w-full text-left p-5 rounded-2xl border-2 border-[#00f0ff]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#00f0ff]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px] hover:shadow-[0_0_30px_rgba(0,240,255,0.08)]"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110" style={{ background: "rgba(0,240,255,0.08)", border: "2px solid rgba(0,240,255,0.2)" }}>
+                      <SvgKey size={28} color="#00f0ff" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-bold text-base">Athlete Login</div>
+                      <div className="text-white/30 text-sm">6-Digit Access PIN</div>
+                    </div>
+                    <div className="text-[#00f0ff]/30 group-hover:text-[#00f0ff]/60 group-hover:translate-x-1 transition-all text-lg font-mono shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => switchMode("admin")}
+                  className="boot-card group relative w-full text-left p-5 rounded-2xl border-2 border-[#a855f7]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#a855f7]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px] hover:shadow-[0_0_30px_rgba(168,85,247,0.08)] opacity-70"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110" style={{ background: "rgba(168,85,247,0.08)", border: "2px solid rgba(168,85,247,0.2)" }}>
+                      <SvgKey size={28} color="#a855f7" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-bold text-base">Admin Access</div>
+                      <div className="text-white/30 text-sm">Master PIN</div>
+                    </div>
+                    <div className="text-[#a855f7]/30 group-hover:text-[#a855f7]/60 group-hover:translate-x-1 transition-all text-lg font-mono shrink-0">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                    </div>
+                  </div>
+                </button>
               </div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white mb-2">
-                METTLE
-              </h1>
-              <p className="text-white/25 text-sm font-mono">Select your access level to continue</p>
-            </div>
-
-            {/* Role Cards */}
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => switchMode("coach")}
-                className="group relative w-full text-left p-5 rounded-2xl border border-[#00f0ff]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#00f0ff]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px]"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(0,240,255,0.08)", border: "1px solid rgba(0,240,255,0.2)" }}>
-                    <SvgCoach size={28} color="#00f0ff" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-bold text-base">Coach Login</div>
-                    <div className="text-white/30 text-sm">Email + password</div>
-                  </div>
-                  <div className="text-[#00f0ff]/30 group-hover:text-[#00f0ff]/60 transition-colors text-lg font-mono shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => switchMode("parent")}
-                className="group relative w-full text-left p-5 rounded-2xl border border-[#f59e0b]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#f59e0b]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px]"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
-                    <SvgParent size={28} color="#f59e0b" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-bold text-base">Parent Login</div>
-                    <div className="text-white/30 text-sm">Email + verification code</div>
-                  </div>
-                  <div className="text-[#f59e0b]/30 group-hover:text-[#f59e0b]/60 transition-colors text-lg font-mono shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => switchMode("admin")}
-                className="group relative w-full text-left p-5 rounded-2xl border border-[#00f0ff]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#00f0ff]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px]"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(0,240,255,0.08)", border: "1px solid rgba(0,240,255,0.2)" }}>
-                    <SvgKey size={28} color="#00f0ff" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-bold text-base">Athlete Login</div>
-                    <div className="text-white/30 text-sm">6-Digit Access PIN</div>
-                  </div>
-                  <div className="text-[#00f0ff]/30 group-hover:text-[#00f0ff]/60 transition-colors text-lg font-mono shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                  </div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => switchMode("admin")}
-                className="group relative w-full text-left p-5 rounded-2xl border border-[#a855f7]/15 bg-[#06020f]/70 backdrop-blur-xl hover:border-[#a855f7]/40 hover:bg-[#0a0418]/90 transition-all duration-300 min-h-[72px] opacity-70"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
-                    <SvgKey size={28} color="#a855f7" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-bold text-base">Admin Access</div>
-                    <div className="text-white/30 text-sm">Master PIN</div>
-                  </div>
-                  <div className="text-[#a855f7]/30 group-hover:text-[#a855f7]/60 transition-colors text-lg font-mono shrink-0">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                  </div>
-                </div>
-              </button>
-            </div>
+            )}
 
             {/* Portal selector link */}
-            <Link href="/apex-athlete/portal" className="inline-flex items-center gap-2 text-white/20 text-sm hover:text-white/40 transition-colors mt-8 min-h-[44px]">
-              <SvgArrowLeft size={14} color="currentColor" />
-              <span>Back to Portal Selector</span>
-            </Link>
+            {showUI && (
+              <Link
+                href="/apex-athlete/portal"
+                className="inline-flex items-center gap-2 text-white/20 text-sm hover:text-white/40 transition-colors mt-8 min-h-[44px]"
+                style={{ animation: "fadeIn 0.5s ease-out both", animationDelay: "600ms" }}
+              >
+                <SvgArrowLeft size={14} color="currentColor" />
+                <span>Back to Portal Selector</span>
+              </Link>
+            )}
           </div>
         )}
 
         {/* ── Coach Login ── */}
         {mode === "coach" && (
-          <div>
+          <div style={{ animation: "fadeInUp 0.4s ease-out both" }}>
             <button onClick={() => switchMode("select")} className="flex items-center gap-2 text-white/30 hover:text-white/50 transition-colors mb-6 min-h-[44px]">
               <SvgArrowLeft size={14} color="currentColor" />
               <span className="text-sm">Back</span>
@@ -415,23 +746,19 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-red-500/10 border-2 border-red-500/20 text-red-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {error}
                 </div>
               )}
 
-              <button
+              <HeartbeatButton
                 onClick={handleCoachLogin}
                 disabled={loading}
-                className="w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border-[#00f0ff]/30 text-[#00f0ff] hover:shadow-[0_0_30px_rgba(0,240,255,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[#00f0ff]/30 border-t-[#00f0ff] rounded-full animate-spin" />
-                    Authenticating...
-                  </span>
-                ) : "Sign In"}
-              </button>
+                loading={loading}
+                label="Sign In"
+                loadingLabel="Authenticating..."
+                accentColor="#00f0ff"
+              />
 
               <div className="flex items-center justify-between mt-1">
                 <button onClick={() => switchMode("register-coach")} className="flex items-center gap-1.5 text-[#00f0ff]/40 text-sm hover:text-[#00f0ff]/70 transition-colors min-h-[44px]">
@@ -448,7 +775,7 @@ export default function LoginPage() {
 
         {/* ── Parent Login ── */}
         {mode === "parent" && (
-          <div>
+          <div style={{ animation: "fadeInUp 0.4s ease-out both" }}>
             <button onClick={() => switchMode("select")} className="flex items-center gap-2 text-white/30 hover:text-white/50 transition-colors mb-6 min-h-[44px]">
               <SvgArrowLeft size={14} color="currentColor" />
               <span className="text-sm">Back</span>
@@ -495,23 +822,19 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-red-500/10 border-2 border-red-500/20 text-red-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {error}
                 </div>
               )}
 
-              <button
+              <HeartbeatButton
                 onClick={handleParentLogin}
                 disabled={loading}
-                className="w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border bg-gradient-to-r from-[#f59e0b]/20 to-[#f97316]/20 border-[#f59e0b]/30 text-[#f59e0b] hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[#f59e0b]/30 border-t-[#f59e0b] rounded-full animate-spin" />
-                    Verifying...
-                  </span>
-                ) : "Verify & Enter"}
-              </button>
+                loading={loading}
+                label="Verify & Enter"
+                loadingLabel="Verifying..."
+                accentColor="#f59e0b"
+              />
 
               <div className="flex items-center justify-between mt-1">
                 <button onClick={() => switchMode("register-parent")} className="flex items-center gap-1.5 text-[#f59e0b]/40 text-sm hover:text-[#f59e0b]/70 transition-colors min-h-[44px]">
@@ -528,7 +851,7 @@ export default function LoginPage() {
 
         {/* ── Admin PIN Login ── */}
         {mode === "admin" && (
-          <div>
+          <div style={{ animation: "fadeInUp 0.4s ease-out both" }}>
             <button onClick={() => switchMode("select")} className="flex items-center gap-2 text-white/30 hover:text-white/50 transition-colors mb-6 min-h-[44px]">
               <SvgArrowLeft size={14} color="currentColor" />
               <span className="text-sm">Back</span>
@@ -556,30 +879,26 @@ export default function LoginPage() {
               />
 
               {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-red-500/10 border-2 border-red-500/20 text-red-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {error}
                 </div>
               )}
 
-              <button
+              <HeartbeatButton
                 onClick={handlePinLogin}
                 disabled={loading}
-                className="w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border bg-gradient-to-r from-[#a855f7]/20 to-[#7c3aed]/20 border-[#a855f7]/30 text-[#a855f7] hover:shadow-[0_0_30px_rgba(168,85,247,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="w-4 h-4 border-2 border-[#a855f7]/30 border-t-[#a855f7] rounded-full animate-spin" />
-                    Authenticating...
-                  </span>
-                ) : "Authenticate"}
-              </button>
+                loading={loading}
+                label="Authenticate"
+                loadingLabel="Authenticating..."
+                accentColor="#a855f7"
+              />
             </div>
           </div>
         )}
 
         {/* ── Coach Registration ── */}
         {mode === "register-coach" && (
-          <div>
+          <div style={{ animation: "fadeInUp 0.4s ease-out both" }}>
             <button onClick={() => switchMode("coach")} className="flex items-center gap-2 text-white/30 hover:text-white/50 transition-colors mb-6 min-h-[44px]">
               <SvgArrowLeft size={14} color="currentColor" />
               <span className="text-sm">Back to Sign In</span>
@@ -631,30 +950,31 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-red-500/10 border-2 border-red-500/20 text-red-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {error}
                 </div>
               )}
               {success && (
-                <div className="px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-emerald-500/10 border-2 border-emerald-500/20 text-emerald-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {success}
                 </div>
               )}
 
-              <button
+              <HeartbeatButton
                 onClick={handleCoachRegister}
                 disabled={loading}
-                className="w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border-[#00f0ff]/30 text-[#00f0ff] hover:shadow-[0_0_30px_rgba(0,240,255,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Create Account
-              </button>
+                loading={loading}
+                label="Create Account"
+                loadingLabel="Creating..."
+                accentColor="#00f0ff"
+              />
             </div>
           </div>
         )}
 
         {/* ── Parent Registration ── */}
         {mode === "register-parent" && (
-          <div>
+          <div style={{ animation: "fadeInUp 0.4s ease-out both" }}>
             <button onClick={() => switchMode("parent")} className="flex items-center gap-2 text-white/30 hover:text-white/50 transition-colors mb-6 min-h-[44px]">
               <SvgArrowLeft size={14} color="currentColor" />
               <span className="text-sm">Back to Sign In</span>
@@ -706,33 +1026,36 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-red-500/10 border-2 border-red-500/20 text-red-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {error}
                 </div>
               )}
               {success && (
-                <div className="px-4 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-mono">
+                <div className="px-4 py-3 rounded-xl bg-emerald-500/10 border-2 border-emerald-500/20 text-emerald-400 text-sm font-mono" style={{ animation: "fadeIn 0.3s ease-out" }}>
                   {success}
                 </div>
               )}
 
-              <button
+              <HeartbeatButton
                 onClick={handleParentRegister}
                 disabled={loading}
-                className="w-full py-4 rounded-xl font-bold text-base tracking-wider uppercase transition-all active:scale-[0.97] min-h-[52px] border bg-gradient-to-r from-[#f59e0b]/20 to-[#f97316]/20 border-[#f59e0b]/30 text-[#f59e0b] hover:shadow-[0_0_30px_rgba(245,158,11,0.2)] disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Register
-              </button>
+                loading={loading}
+                label="Register"
+                loadingLabel="Registering..."
+                accentColor="#f59e0b"
+              />
             </div>
           </div>
         )}
 
         {/* ── Footer ── */}
-        <div className="text-center mt-10">
-          <p className="text-white/[0.08] text-[10px] font-mono">
-            METTLE · Athlete Relations Manager
-          </p>
-        </div>
+        {showUI && (
+          <div className="text-center mt-10" style={{ animation: "fadeIn 0.5s ease-out both", animationDelay: "500ms" }}>
+            <p className="text-white/[0.06] text-[10px] font-mono tracking-wider">
+              METTLE · Athlete Relations Manager · v5.0
+            </p>
+          </div>
+        )}
         </div>{/* close form panel */}
       </div>
     </div>
