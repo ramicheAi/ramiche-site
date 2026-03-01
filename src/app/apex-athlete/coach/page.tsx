@@ -960,6 +960,8 @@ export default function ApexAthletePage() {
   const [levelUpColor, setLevelUpColor] = useState<string>("");
   const [levelUpExiting, setLevelUpExiting] = useState(false);
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
+  const [achieveToasts, setAchieveToasts] = useState<{ id: string; title: string; desc: string; icon: string; color: string; exiting: boolean }[]>([]);
+  const achieveIdRef = useRef(0);
   // ── scroll guard: prevent phantom taps on mobile during/after scroll ──
   const isScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1436,6 +1438,85 @@ export default function ApexAthletePage() {
     }
   }, []);
 
+  // ── achievement toast system ──────────────────────────────
+  const spawnAchievement = useCallback((title: string, desc: string, icon: string, color: string) => {
+    const id = `ach-${achieveIdRef.current++}`;
+    setAchieveToasts(prev => [...prev, { id, title, desc, icon, color, exiting: false }]);
+    // Play a subtle chime
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; osc.type = "sine";
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(); osc.stop(ctx.currentTime + 0.4);
+      // Second note (fifth)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.frequency.value = 1320; osc2.type = "sine";
+      gain2.gain.setValueAtTime(0, ctx.currentTime + 0.1);
+      gain2.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc2.start(ctx.currentTime + 0.1); osc2.stop(ctx.currentTime + 0.5);
+    } catch {}
+    // Haptic
+    if (navigator.vibrate) navigator.vibrate([30, 20, 50]);
+    // Auto exit
+    setTimeout(() => setAchieveToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t)), 3200);
+    setTimeout(() => setAchieveToasts(prev => prev.filter(t => t.id !== id)), 3600);
+  }, []);
+
+  const checkAchievements = useCallback((athlete: Athlete, cpId: string) => {
+    const totalChecked = Object.values(athlete.checkpoints).filter(Boolean).length +
+      Object.values(athlete.weightCheckpoints).filter(Boolean).length +
+      Object.values(athlete.meetCheckpoints).filter(Boolean).length;
+    // First ever check-in
+    if (totalChecked === 1) {
+      spawnAchievement("First Check-In", `${athlete.name} is on the board!`, "🎯", "#60a5fa");
+    }
+    // Streak milestones
+    const streakMilestones = [5, 10, 25, 50, 100];
+    if (cpId === "practice-complete" && athlete.lastStreakDate !== today()) {
+      const newStreak = athlete.streak + 1;
+      if (streakMilestones.includes(newStreak)) {
+        spawnAchievement(`${newStreak}-Day Streak`, `${athlete.name} is on fire!`, "🔥", "#f97316");
+      }
+    }
+    // Practice count milestones
+    if (cpId === "practice-complete") {
+      const newTotal = athlete.totalPractices + 1;
+      const practiceMilestones = [10, 25, 50, 100, 200, 500];
+      if (practiceMilestones.includes(newTotal)) {
+        spawnAchievement(`${newTotal} Practices`, `${athlete.name} — dedicated!`, "💪", "#a78bfa");
+      }
+    }
+    // XP milestones
+    const xpMilestones = [100, 250, 500, 1000, 2000, 5000];
+    for (const m of xpMilestones) {
+      if (athlete.xp < m) break;
+      // Only trigger if they JUST crossed it (within 150 XP of the milestone — max daily cap)
+      if (athlete.xp >= m && athlete.xp - m < DAILY_XP_CAP) {
+        spawnAchievement(`${m} XP`, `${athlete.name} hit ${m.toLocaleString()} XP!`, "⚡", "#f59e0b");
+        break;
+      }
+    }
+    // Perfect practice (all pool checkpoints checked)
+    const allPool = POOL_CPS.every(cp => athlete.checkpoints[cp.id]);
+    if (allPool) {
+      spawnAchievement("Perfect Practice", `${athlete.name} — every box checked!`, "⭐", "#f59e0b");
+    }
+    // Meet milestones
+    if (cpId === "m-pr") {
+      spawnAchievement("New PR!", `${athlete.name} set a personal best!`, "🏆", "#f59e0b");
+    }
+    if (cpId === "m-team-record") {
+      spawnAchievement("Team Record!", `${athlete.name} made history!`, "👑", "#ef4444");
+    }
+  }, [spawnAchievement]);
+
   const spawnXpFloat = useCallback((xp: number, e?: React.MouseEvent) => {
     if (xp <= 0) return;
     const id = `f-${floatCounter.current++}`;
@@ -1495,9 +1576,11 @@ export default function ApexAthletePage() {
       }
       addAudit(final.id, final.name, `Checked: ${cpId}`, awarded);
       if (e) spawnXpFloat(awarded, e);
+      // Check for achievement milestones
+      setTimeout(() => checkAchievements(final, cpId), 100);
       const r = [...prev]; r[idx] = final; save(K.ROSTER, r); return r;
     });
-  }, [awardXP, addAudit, spawnXpFloat]);
+  }, [awardXP, addAudit, spawnXpFloat, checkAchievements]);
 
   // ── weight challenge toggle ──────────────────────────────
   const toggleWeightChallenge = useCallback((athleteId: string, chId: string, chXP: number, e?: React.MouseEvent) => {
@@ -2133,6 +2216,43 @@ export default function ApexAthletePage() {
     );
   };
 
+  // ── achievement toasts (Xbox-style) ─────────────────────
+  const AchievementToasts = () => {
+    if (achieveToasts.length === 0) return null;
+    return (
+      <div className="fixed bottom-6 right-4 z-[250] flex flex-col gap-3 pointer-events-none" style={{ maxWidth: "320px" }}>
+        {achieveToasts.map((t, i) => (
+          <div key={t.id}
+            className={`relative overflow-hidden rounded-2xl border-2 pointer-events-auto achieve-shine ${t.exiting ? "achieve-toast-exit" : "achieve-toast-enter"}`}
+            style={{
+              borderColor: `${t.color}40`,
+              background: `linear-gradient(135deg, rgba(6,2,15,0.95), rgba(6,2,15,0.85))`,
+              boxShadow: `0 0 30px ${t.color}20, 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 ${t.color}15`,
+              backdropFilter: "blur(20px)",
+              animationDelay: `${i * 0.1}s`,
+            }}
+            onClick={() => setAchieveToasts(prev => prev.map(x => x.id === t.id ? { ...x, exiting: true } : x))}
+          >
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="achieve-icon-pop text-2xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 8px ${t.color})` }}>
+                {t.icon}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-[0.3em] font-bold font-mono mb-0.5" style={{ color: `${t.color}90` }}>
+                  Achievement Unlocked
+                </div>
+                <div className="text-white font-bold text-sm leading-tight truncate">{t.title}</div>
+                <div className="text-white/50 text-xs mt-0.5 truncate">{t.desc}</div>
+              </div>
+            </div>
+            {/* progress bar accent */}
+            <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${t.color}, ${t.color}40)` }} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   // ── loading ──────────────────────────────────────────────
 
   if (!mounted) return (
@@ -2240,6 +2360,21 @@ export default function ApexAthletePage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Personalized greeting */}
+          <div className="mb-3 px-1">
+            <span className="text-white/40 text-xs font-mono">
+              {(() => {
+                const h = new Date().getHours();
+                const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+                const name = currentCoach?.name || "Coach";
+                return `${greeting}, ${name}`;
+              })()}
+            </span>
+            <span className="text-white/20 text-xs font-mono ml-2">
+              {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+            </span>
           </div>
 
           {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
@@ -2936,7 +3071,7 @@ export default function ApexAthletePage() {
   if (view === "parent") {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-        <BgOrbs /><XpFloats /><LevelUpOverlay />
+        <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
@@ -3921,7 +4056,7 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
       <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
-      <XpFloats /><LevelUpOverlay />
+      <XpFloats /><LevelUpOverlay /><AchievementToasts />
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="w-full">
@@ -4152,7 +4287,7 @@ export default function ApexAthletePage() {
 
             {/* Quick actions — full-width toolbar */}
             <div className="grid grid-cols-5 gap-2 mb-3">
-              <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+              <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px] tap-feedback touch-glow-cyan">
                 Bulk
               </button>
               <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
@@ -4302,7 +4437,7 @@ export default function ApexAthletePage() {
                       isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
-                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
+                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-150 rounded-2xl group tap-feedback"
                         onClick={() => setExpandedId(isExp ? null : a.id)}
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
@@ -4360,7 +4495,7 @@ export default function ApexAthletePage() {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
                   const done = tc.current >= tc.target;
                   return (
-                    <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
+                    <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all card-press ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-medium text-sm">{tc.name}</span>
                         <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${done ? "text-[#f59e0b]" : "text-white/60"}`}>{tc.current}%<span className="text-white/40">/{tc.target}%</span></span>
