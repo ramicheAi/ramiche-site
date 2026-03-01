@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import GameBootScreen from "@/components/GameBootScreen";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
    METTLE — Landing Page v5
@@ -31,6 +32,15 @@ export default function MettleLanding() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [bootDone, setBootDone] = useState(false);
+  const [pageReady, setPageReady] = useState(false);
+
+  // Cinematic page entry — brief delay after boot, then fade in
+  useEffect(() => {
+    if (bootDone) {
+      const t = setTimeout(() => setPageReady(true), 100);
+      return () => clearTimeout(t);
+    }
+  }, [bootDone]);
 
   if (!mounted) return (
     <div className="min-h-screen flex items-center justify-center" style={{ background: C.dark }}>
@@ -94,7 +104,19 @@ export default function MettleLanding() {
   }
 
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ background: C.dark, color: "#fff" }}>
+    <div
+      className="min-h-screen overflow-x-hidden"
+      style={{
+        background: C.dark,
+        color: "#fff",
+        opacity: pageReady ? 1 : 0,
+        transform: pageReady ? "none" : "translateY(12px)",
+        transition: "opacity 0.8s ease-out, transform 0.8s ease-out",
+      }}
+    >
+
+      {/* ── Ambient particles — living background ── */}
+      <ParticleField variant="gold" count={50} speed={0.3} opacity={0.4} connections={false} theme="dark" />
 
       {/* ── Keyframes ── */}
       <style jsx>{`
