@@ -76,6 +76,14 @@ export default function GameBootScreen({
     setTimeout(onComplete, 400);
   }, [onComplete]);
 
+  // ── Lock body scroll while boot screen is active ────────
+  useEffect(() => {
+    if (phase === "done" || prefersReduced) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [phase, prefersReduced]);
+
   // ── Phase timing ─────────────────────────────────────────
   useEffect(() => {
     if (prefersReduced) { finish(); return; }
@@ -294,7 +302,7 @@ export default function GameBootScreen({
   return (
     <div
       className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden cursor-pointer"
-      style={{ background: "#030108" }}
+      style={{ background: "#030108", touchAction: "none" }}
       onClick={phase === "ready" ? handleEnter : undefined}
     >
       {/* ── Keyframes ── */}
