@@ -1,17 +1,16 @@
 // METTLE Service Worker — Push Notifications + Offline Cache
-const CACHE_NAME = "mettle-v3";
+// Cache version uses build timestamp — changes on every deploy
+const CACHE_VERSION = "__BUILD_TS__";
+const CACHE_NAME = `mettle-${CACHE_VERSION}`;
 const OFFLINE_URLS = [
   "/apex-athlete",
   "/apex-athlete/landing",
-  "/apex-athlete/portal",
-  "/apex-athlete/athlete",
-  "/apex-athlete/parent",
   "/mettle-brand/v5/mettle-icon.svg",
   "/mettle-brand/v5/mettle-wordmark.svg",
   "/mettle-brand/v5/mettle-logo-full.svg",
 ];
 
-// ── Install: pre-cache critical pages ──
+// ── Install: pre-cache critical pages, skip waiting immediately ──
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(OFFLINE_URLS))
@@ -19,7 +18,7 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// ── Activate: clean old caches ──
+// ── Activate: delete ALL old caches, claim clients immediately ──
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -28,32 +27,32 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// ── Fetch: network-first with cache fallback ──
+// ── Fetch: network-first, cache fallback for offline only ──
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Only cache same-origin navigation and asset requests
+  // Only handle same-origin GET requests
   if (url.origin !== self.location.origin) return;
   if (event.request.method !== "GET") return;
 
-  // Skip API routes — always go to network
+  // Skip API routes and Next.js internals — always network
   if (url.pathname.startsWith("/api/")) return;
+  if (url.pathname.startsWith("/_next/")) return;
 
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        // Cache successful responses for METTLE pages
-        if (response.ok && url.pathname.startsWith("/apex-athlete")) {
+        // Only cache navigation requests (HTML pages), not JS/CSS chunks
+        if (response.ok && event.request.mode === "navigate") {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
         }
         return response;
       })
       .catch(() => {
-        // Network failed — serve from cache
+        // Network failed — serve from cache (offline fallback)
         return caches.match(event.request).then((cached) => {
           if (cached) return cached;
-          // Fallback to main page for navigation requests
           if (event.request.mode === "navigate") {
             return caches.match("/apex-athlete");
           }

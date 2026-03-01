@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"const fs=require('fs');const s=fs.readFileSync('public/sw.js','utf8');fs.writeFileSync('public/sw.js',s.replace('__BUILD_TS__',String(Date.now())))\"",
     "build": "next build",
+    "postbuild": "node -e \"const fs=require('fs');let s=fs.readFileSync('public/sw.js','utf8');s=s.replace(/const CACHE_VERSION = \\\"\\d+\\\"/,'const CACHE_VERSION = \\\"__BUILD_TS__\\\"');fs.writeFileSync('public/sw.js',s)\"",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

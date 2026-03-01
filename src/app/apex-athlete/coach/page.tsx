@@ -1233,9 +1233,10 @@ export default function ApexAthletePage() {
     // Load broadcasts + absence reports
     try { setAllBroadcasts(JSON.parse(localStorage.getItem("apex-broadcasts-v1") || "[]")); } catch { /* empty */ }
     try { setAbsenceReports(JSON.parse(localStorage.getItem("apex-absences-v1") || "[]")); } catch { /* empty */ }
-    // Check push notification status
+    // Check push notification status + force SW update check on every load
     if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.register("/sw.js").then(reg => {
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(reg => {
+        reg.update();
         reg.pushManager.getSubscription().then(sub => {
           setPushEnabled(!!sub);
         });
