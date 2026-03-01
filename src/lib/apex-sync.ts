@@ -59,8 +59,27 @@ export function syncSave<T>(key: string, data: T, fbPath?: string): void {
   lsSet(key, data);
   // 2. Async Firebase push (fire-and-forget)
   if (hasConfig && fbPath) {
-    fbSet(fbPath, data as Record<string, unknown>).catch(() => {});
+    // Wrap arrays in an object — Firestore can't store raw arrays at document root
+    const payload = Array.isArray(data) ? { _items: data } : (data as Record<string, unknown>);
+    fbSet(fbPath, payload).catch((e) => {
+      console.warn("[Sync] Firebase write error:", fbPath, e);
+    });
   }
+}
+
+// Unwrap Firestore documents that were stored with _items wrapper
+function unwrapFirestore<T>(remote: unknown): T | null {
+  if (!remote || typeof remote !== "object") return null;
+  const obj = remote as Record<string, unknown>;
+  // If we stored it wrapped, unwrap
+  if ("_items" in obj && Array.isArray(obj._items)) return obj._items as unknown as T;
+  // Legacy: check if it has numeric keys (broken spread of array)
+  const keys = Object.keys(obj).filter(k => k !== "_updatedAt");
+  if (keys.length > 0 && keys.every(k => /^\d+$/.test(k))) {
+    const arr = keys.sort((a, b) => Number(a) - Number(b)).map(k => obj[k]);
+    return arr as unknown as T;
+  }
+  return remote as T;
 }
 
 export async function syncLoad<T>(key: string, fbPath?: string): Promise<T | null> {
@@ -69,9 +88,10 @@ export async function syncLoad<T>(key: string, fbPath?: string): Promise<T | nul
   if (local !== null) {
     // Also backfill to Firebase if it doesn't have it
     if (hasConfig && fbPath) {
-      fbGet<T>(fbPath).then((remote) => {
+      fbGet<Record<string, unknown>>(fbPath).then((remote) => {
         if (!remote) {
-          fbSet(fbPath, local as Record<string, unknown>).catch(() => {});
+          const payload = Array.isArray(local) ? { _items: local } : (local as Record<string, unknown>);
+          fbSet(fbPath, payload).catch(() => {});
         }
       });
     }
@@ -79,10 +99,13 @@ export async function syncLoad<T>(key: string, fbPath?: string): Promise<T | nul
   }
   // 2. Fallback: try Firebase
   if (hasConfig && fbPath) {
-    const remote = await fbGet<T>(fbPath);
+    const remote = await fbGet<Record<string, unknown>>(fbPath);
     if (remote) {
-      lsSet(key, remote); // Cache locally
-      return remote;
+      const unwrapped = unwrapFirestore<T>(remote);
+      if (unwrapped !== null) {
+        lsSet(key, unwrapped); // Cache locally
+        return unwrapped;
+      }
     }
   }
   return null;

@@ -1261,12 +1261,11 @@ export default function ApexAthletePage() {
     }
     setMounted(true);
 
-    // ── Firestore sync: push localStorage data or pull from Firestore ──
+    // ── Firestore sync: always push local data AND pull if local is empty ──
     (async () => {
       try {
-        const migrated = localStorage.getItem("apex-firestore-migrated");
-        if (!migrated && r.length > 0) {
-          // First time: push all localStorage data to Firestore
+        if (r.length > 0) {
+          // Local data exists — push to Firestore (idempotent, ensures cloud is current)
           syncSave(K.ROSTER, r, "rosters/all");
           syncSave(K.AUDIT, load<unknown[]>(K.AUDIT, []), "audit/all");
           syncSave(K.CHALLENGES, load<unknown[]>(K.CHALLENGES, []), "config/challenges");
@@ -1276,31 +1275,35 @@ export default function ApexAthletePage() {
           syncSave(K.COACHES, load<unknown[]>(K.COACHES, []), "config/coaches");
           syncSave(K.MEETS, load<unknown[]>(K.MEETS, []), "config/meets");
           syncSave(K.PIN, load<string>(K.PIN, ""), "config/pin");
-          localStorage.setItem("apex-firestore-migrated", "1");
-          console.log("[Sync] Migrated localStorage → Firestore");
-        } else if (r.length === 0) {
-          // No local data — try loading from Firestore
-          const remote = await syncLoad<{ athletes?: Athlete[] }>(K.ROSTER, "rosters/all");
+          console.log("[Sync] Pushed localStorage → Firestore");
+        } else {
+          // No local data — pull everything from Firestore (new browser / cleared cache)
+          const remote = await syncLoad<Athlete[]>(K.ROSTER, "rosters/all");
           if (remote) {
-            const athletes = Array.isArray(remote) ? remote : (remote.athletes || []);
+            const athletes = Array.isArray(remote) ? remote : [];
             if (athletes.length > 0) {
               save(K.ROSTER, athletes);
               setRoster(athletes);
               console.log("[Sync] Loaded roster from Firestore:", athletes.length, "athletes");
             }
           }
-          // Also load other data from Firestore
-          const remoteAudit = await syncLoad<unknown[]>(K.AUDIT, "audit/all");
-          if (remoteAudit && Array.isArray(remoteAudit)) setAuditLog(remoteAudit as AuditEntry[]);
+          const remoteAudit = await syncLoad<AuditEntry[]>(K.AUDIT, "audit/all");
+          if (remoteAudit && Array.isArray(remoteAudit)) { save(K.AUDIT, remoteAudit); setAuditLog(remoteAudit); }
+          const remoteChallenges = await syncLoad<TeamChallenge[]>(K.CHALLENGES, "config/challenges");
+          if (remoteChallenges && Array.isArray(remoteChallenges)) { save(K.CHALLENGES, remoteChallenges); setTeamChallenges(remoteChallenges); }
+          const remoteSnapshots = await syncLoad<DailySnapshot[]>(K.SNAPSHOTS, "config/snapshots");
+          if (remoteSnapshots && Array.isArray(remoteSnapshots)) { save(K.SNAPSHOTS, remoteSnapshots); setSnapshots(remoteSnapshots); }
           const remoteCulture = await syncLoad<TeamCulture>(K.CULTURE, "config/culture");
-          if (remoteCulture) setCulture(remoteCulture);
+          if (remoteCulture) { save(K.CULTURE, remoteCulture); setCulture(remoteCulture); }
           const remoteSchedules = await syncLoad<GroupSchedule[]>(K.SCHEDULES, "config/schedules");
-          if (remoteSchedules && Array.isArray(remoteSchedules)) setSchedules(remoteSchedules);
+          if (remoteSchedules && Array.isArray(remoteSchedules)) { save(K.SCHEDULES, remoteSchedules); setSchedules(remoteSchedules); }
           const remoteCoaches = await syncLoad<CoachProfile[]>(K.COACHES, "config/coaches");
-          if (remoteCoaches && Array.isArray(remoteCoaches)) setCoaches(remoteCoaches);
+          if (remoteCoaches && Array.isArray(remoteCoaches)) { save(K.COACHES, remoteCoaches); setCoaches(remoteCoaches); }
           const remoteMeets = await syncLoad<SwimMeet[]>(K.MEETS, "config/meets");
-          if (remoteMeets && Array.isArray(remoteMeets)) setMeets(remoteMeets);
-          localStorage.setItem("apex-firestore-migrated", "1");
+          if (remoteMeets && Array.isArray(remoteMeets)) { save(K.MEETS, remoteMeets); setMeets(remoteMeets); }
+          const remotePin = await syncLoad<string>(K.PIN, "config/pin");
+          if (remotePin && typeof remotePin === "string") { save(K.PIN, remotePin); setCoachPin(remotePin); }
+          console.log("[Sync] Pulled all data from Firestore");
         }
       } catch (e) {
         console.warn("[Sync] Firestore sync error (non-fatal):", e);
