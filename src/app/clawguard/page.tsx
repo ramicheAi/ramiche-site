@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
    CLAWGUARD PRO — Security Scanner Product Page
@@ -98,6 +99,9 @@ export default function ClawGuardPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#e2e8f0", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      {/* ── Living particles ── */}
+      <ParticleField count={40} variant="cyan" speed={0.4} opacity={0.2} interactive />
+
       {/* Success/Cancel banners */}
       {success && (
         <div style={{ background: "linear-gradient(135deg, #065f46, #064e3b)", padding: "16px 24px", textAlign: "center", fontSize: "16px", fontWeight: 600 }}>

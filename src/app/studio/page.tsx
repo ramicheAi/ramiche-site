@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, FormEvent } from "react";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
    PARALLAX STUDIO — Creative Direction Service
@@ -459,6 +460,9 @@ export default function StudioPage() {
         />
         <div className="data-grid-bg absolute inset-0 opacity-30" />
       </div>
+
+      {/* ── Living particles ── */}
+      <ParticleField count={45} variant="purple" speed={0.5} opacity={0.2} interactive connections />
 
       {/* ── scan line effect ─────────────────────────────────── */}
       <div className="scan-line pointer-events-none fixed inset-0 z-[1] w-full h-[2px] bg-gradient-to-r from-transparent via-[#00f0ff]/20 to-transparent" />

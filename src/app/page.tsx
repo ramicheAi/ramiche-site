@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PARALLAX HQ — LIVE OPERATIONS DASHBOARD
@@ -128,6 +129,9 @@ export default function Home() {
         <div className="nebula-3 absolute rounded-full blur-3xl" style={{ width: "400px", height: "400px", bottom: "5%", left: "20%", background: "radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)" }} />
         <div className="scan-line absolute left-0 w-full h-px" style={{ background: "rgba(0,240,255,0.1)" }} />
       </div>
+
+      {/* ── Living particles — ambient depth field ── */}
+      <ParticleField count={50} variant="cyan" speed={0.6} opacity={0.25} interactive connections />
 
       {/* ── HUD navigation bar ─────────────────────────────────── */}
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">

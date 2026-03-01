@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import ParticleField from "@/components/ParticleField";
 import { APEX_PRICING, APEX_PROJECTIONS as SHARED_PROJECTIONS, NAV_LINKS, KEY_METRICS } from "@/lib/shared-config";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -106,6 +107,9 @@ export default function FinancialDashboard() {
         <div className="nebula-3 absolute rounded-full blur-3xl" style={{ width: "500px", height: "500px", bottom: "5%", left: "30%", background: "radial-gradient(circle, rgba(0,240,255,0.05) 0%, transparent 70%)" }} />
         <div className="scan-line absolute left-0 w-full h-px" style={{ background: "rgba(245,158,11,0.08)" }} />
       </div>
+
+      {/* ── Living particles ── */}
+      <ParticleField count={40} variant="gold" speed={0.5} opacity={0.2} interactive connections />
 
       {/* Nav bar */}
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
