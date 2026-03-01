@@ -63,18 +63,82 @@ export default function GameBootScreen({
   const completed = useRef(false);
   const gyro = useRef({ x: 0, y: 0 }); // device tilt for proprioceptive response
 
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const gainRef = useRef<GainNode | null>(null);
+
   // Check reduced motion preference
   const prefersReduced = typeof window !== "undefined"
     ? window.matchMedia("(prefers-reduced-motion: reduce)").matches
     : false;
+
+  // ── Ambient audio — generative drone via Web Audio API ──
+  const startAmbient = useCallback(() => {
+    try {
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const master = ctx.createGain();
+      master.gain.value = 0;
+      master.connect(ctx.destination);
+      gainRef.current = master;
+
+      // Layer 1: deep sub-bass drone (55 Hz — A1)
+      const osc1 = ctx.createOscillator();
+      osc1.type = "sine";
+      osc1.frequency.value = 55;
+      const g1 = ctx.createGain();
+      g1.gain.value = 0.12;
+      osc1.connect(g1).connect(master);
+      osc1.start();
+
+      // Layer 2: harmonic shimmer (110 Hz — A2, detuned slightly)
+      const osc2 = ctx.createOscillator();
+      osc2.type = "sine";
+      osc2.frequency.value = 110.5;
+      const g2 = ctx.createGain();
+      g2.gain.value = 0.04;
+      osc2.connect(g2).connect(master);
+      osc2.start();
+
+      // Layer 3: filtered noise — adds texture/airiness
+      const bufSize = ctx.sampleRate * 2;
+      const noiseBuf = ctx.createBuffer(1, bufSize, ctx.sampleRate);
+      const data = noiseBuf.getChannelData(0);
+      for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+      const noise = ctx.createBufferSource();
+      noise.buffer = noiseBuf;
+      noise.loop = true;
+      const lpf = ctx.createBiquadFilter();
+      lpf.type = "lowpass";
+      lpf.frequency.value = 200;
+      lpf.Q.value = 1;
+      const gn = ctx.createGain();
+      gn.gain.value = 0.015;
+      noise.connect(lpf).connect(gn).connect(master);
+      noise.start();
+
+      // Fade in over 3 seconds
+      master.gain.linearRampToValueAtTime(0.08, ctx.currentTime + 3);
+    } catch {
+      // Web Audio not available — skip silently
+    }
+  }, []);
+
+  const stopAmbient = useCallback(() => {
+    if (gainRef.current && audioCtxRef.current) {
+      const ctx = audioCtxRef.current;
+      gainRef.current.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.8);
+      setTimeout(() => { ctx.close().catch(() => {}); }, 1000);
+    }
+  }, []);
 
   const finish = useCallback(() => {
     if (completed.current) return;
     completed.current = true;
     setPhase("done");
     cancelAnimationFrame(animRef.current);
+    stopAmbient();
     setTimeout(onComplete, 400);
-  }, [onComplete]);
+  }, [onComplete, stopAmbient]);
 
   // ── Lock body scroll while boot screen is active ────────
   useEffect(() => {
@@ -93,6 +157,17 @@ export default function GameBootScreen({
     if (seen) { finish(); return; }
 
     startTime.current = Date.now();
+
+    // Start ambient audio on first user interaction (autoplay policy)
+    const kickAudio = () => {
+      if (!audioCtxRef.current) startAmbient();
+      window.removeEventListener("click", kickAudio);
+      window.removeEventListener("touchstart", kickAudio);
+    };
+    window.addEventListener("click", kickAudio);
+    window.addEventListener("touchstart", kickAudio);
+    // Also try starting immediately — works on desktop
+    startAmbient();
 
     // Narrative boot lines — typed sequentially like a game world initializing
     const BOOT_NARRATIVE = [
@@ -145,8 +220,10 @@ export default function GameBootScreen({
       clearInterval(hapticInterval);
       clearInterval(progInterval);
       window.removeEventListener("deviceorientation", onDeviceOrientation);
+      window.removeEventListener("click", kickAudio);
+      window.removeEventListener("touchstart", kickAudio);
     };
-  }, [prefersReduced, finish]);
+  }, [prefersReduced, finish, startAmbient]);
 
   // ── Canvas particle system ───────────────────────────────
   useEffect(() => {
