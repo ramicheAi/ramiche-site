@@ -15,12 +15,12 @@ import StreakFlame from "../components/StreakFlame";
 // ── game engine ──────────────────────────────────────────────
 
 const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
-  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
-  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
-  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
-  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
-  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
+  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8", gradient: "from-slate-400 to-slate-300" },
+  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa", gradient: "from-violet-400 to-purple-300" },
+  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa", gradient: "from-blue-400 to-cyan-300" },
+  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b", gradient: "from-amber-400 to-yellow-300" },
+  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316", gradient: "from-orange-400 to-amber-300" },
+  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444", gradient: "from-red-500 to-orange-400" },
 ] as const;
 
 function getLevel(xp: number) {
@@ -2044,36 +2044,89 @@ export default function ApexAthletePage() {
   const LevelUpOverlay = () => {
     if (!levelUpName) return null;
     return (
-      <div className={`fixed inset-0 z-[300] flex items-center justify-center ${levelUpExiting ? "level-up-exit" : ""}`}>
-        {/* cinematic white flash */}
-        <div className="absolute inset-0 bg-white level-up-screen-flash" />
-        {/* dark backdrop */}
-        <div className="absolute inset-0 bg-black/70 backdrop-blur-md" onClick={() => { setLevelUpExiting(true); setTimeout(() => setLevelUpName(null), 500); }} />
-        <div className="relative level-up-enter text-center">
-          {/* expanding ring bursts */}
-          <div className="ring-burst absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-40 h-40" style={{ color: levelUpColor, animationDelay: "0.1s" }} />
-          <div className="ring-burst absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56" style={{ color: levelUpColor, animationDelay: "0.3s" }} />
-          <div className="ring-burst absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-72 h-72" style={{ color: levelUpColor, animationDelay: "0.5s" }} />
-          {/* sparkle particles — more and wider */}
-          {SPARKLE_DIRS.map((d, i) => (
-            <div key={i} className="sparkle absolute left-1/2 top-1/2 w-2.5 h-2.5 rounded-full"
-              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.04}s`, backgroundColor: levelUpColor } as React.CSSProperties} />
+      <div className={`fixed inset-0 z-[300] flex items-center justify-center ${levelUpExiting ? "level-up-exit" : ""}`}
+        onClick={() => { setLevelUpExiting(true); setTimeout(() => setLevelUpName(null), 500); }}>
+        {/* cinematic flash */}
+        <div className="absolute inset-0 level-up-screen-flash" style={{ background: `radial-gradient(circle, ${levelUpColor}40, transparent 70%)` }} />
+        {/* dark backdrop with radial glow */}
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-lg" />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, ${levelUpColor}15 0%, transparent 60%)` }} />
+
+        <div className="relative level-up-enter text-center w-full max-w-sm mx-4">
+          {/* expanding ring bursts — thicker, more dramatic */}
+          {[160, 224, 288, 352].map((size, i) => (
+            <div key={i} className="ring-burst-pro absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{ width: size, height: size, borderColor: levelUpColor, animationDelay: `${i * 0.15}s` }} />
           ))}
-          <div className="relative bg-[#0c0618]/95 border-2 rounded-2xl p-12 shadow-[0_0_80px_rgba(245,158,11,0.2),0_0_160px_rgba(107,33,168,0.15)]"
-            style={{ borderColor: `${levelUpColor}40` }}>
-            {/* level icon — big and explosive */}
-            <div className="level-icon-explode text-7xl mb-4" style={{ filter: `drop-shadow(0 0 20px ${levelUpColor})` }}>
-              {levelUpIcon || "⚡"}
+          {/* sparkle particles — bigger, brighter */}
+          {SPARKLE_DIRS.map((d, i) => (
+            <div key={i} className="sparkle-pro absolute left-1/2 top-1/2 w-3 h-3 rounded-full"
+              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.04}s`, backgroundColor: levelUpColor, boxShadow: `0 0 8px ${levelUpColor}` } as React.CSSProperties} />
+          ))}
+
+          {/* main card — premium glass morphism */}
+          <div className="relative overflow-hidden rounded-3xl"
+            style={{ border: `2px solid ${levelUpColor}50`, boxShadow: `0 0 60px ${levelUpColor}30, inset 0 0 60px ${levelUpColor}08` }}>
+            {/* inner gradient bg */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0c0618] via-[#0c0618]/98 to-[#0c0618]" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${levelUpColor}08 0%, transparent 40%, ${levelUpColor}05 100%)` }} />
+
+            <div className="relative px-8 py-14">
+              {/* top accent line */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-0.5 level-up-accent-line" style={{ backgroundColor: levelUpColor }} />
+
+              {/* SVG shield icon instead of emoji */}
+              <div className="level-icon-explode mx-auto mb-6" style={{ filter: `drop-shadow(0 0 30px ${levelUpColor}) drop-shadow(0 0 60px ${levelUpColor}80)` }}>
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  {/* shield shape */}
+                  <path d="M40 4L12 18V38C12 56 24 70 40 76C56 70 68 56 68 38V18L40 4Z"
+                    fill={`${levelUpColor}20`} stroke={levelUpColor} strokeWidth="2.5"/>
+                  {/* inner glow */}
+                  <path d="M40 12L18 23V38C18 52 28 64 40 69C52 64 62 52 62 38V23L40 12Z"
+                    fill={`${levelUpColor}15`}/>
+                  {/* center star */}
+                  <path d="M40 24L44.5 33.5L55 35L47.5 42L49.5 52.5L40 47.5L30.5 52.5L32.5 42L25 35L35.5 33.5Z"
+                    fill={levelUpColor} fillOpacity="0.9"/>
+                </svg>
+              </div>
+
+              {/* LEVEL UP text — dramatic */}
+              <div className="level-text-slide mb-2" style={{ animationDelay: "0.2s" }}>
+                <div className="text-[10px] tracking-[0.5em] uppercase font-bold opacity-60" style={{ color: levelUpColor }}>
+                  Achievement Unlocked
+                </div>
+              </div>
+              <div className="level-text-slide mb-5" style={{ animationDelay: "0.35s" }}>
+                <div className="text-4xl font-black tracking-tight bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(180deg, white 30%, ${levelUpColor})` }}>
+                  LEVEL UP
+                </div>
+              </div>
+
+              {/* divider line */}
+              <div className="w-16 h-px mx-auto mb-5 level-text-slide" style={{ backgroundColor: `${levelUpColor}40`, animationDelay: "0.45s" }} />
+
+              {/* athlete name */}
+              <div className="text-white/90 text-xl font-bold tracking-wide mb-2 level-text-slide" style={{ animationDelay: "0.55s" }}>
+                {levelUpName}
+              </div>
+
+              {/* new rank — big and gradient */}
+              <div className="level-text-slide" style={{ animationDelay: "0.7s" }}>
+                <div className="text-3xl font-black tracking-tight bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(135deg, ${levelUpColor}, #f59e0b, ${levelUpColor})` }}>
+                  {levelUpLevel}
+                </div>
+              </div>
+
+              {/* bottom accent line */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-0.5 level-up-accent-line" style={{ backgroundColor: levelUpColor, animationDelay: "0.3s" }} />
             </div>
-            <div className="text-xs tracking-[0.4em] uppercase font-bold mb-3 level-text-slide"
-              style={{ color: levelUpColor, animationDelay: "0.3s" }}>Level Up!</div>
-            <div className="text-white text-3xl font-black mb-2 level-text-slide" style={{ animationDelay: "0.5s" }}>
-              {levelUpName}
-            </div>
-            <div className="text-2xl font-bold level-text-slide bg-gradient-to-r bg-clip-text text-transparent"
-              style={{ backgroundImage: `linear-gradient(to right, ${levelUpColor}, #f59e0b)`, animationDelay: "0.7s" }}>
-              {levelUpLevel}
-            </div>
+          </div>
+
+          {/* tap to dismiss */}
+          <div className="text-white/30 text-xs mt-4 level-text-slide" style={{ animationDelay: "1.2s" }}>
+            Tap to dismiss
           </div>
         </div>
       </div>
