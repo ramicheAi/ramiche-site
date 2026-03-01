@@ -5,6 +5,7 @@ import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { AnimatedCounter } from "../components/AnimatedCounter";
+import StreakFlame from "../components/StreakFlame";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -3982,7 +3983,7 @@ export default function ApexAthletePage() {
                           {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
-                          <div className="text-white/60 text-xs mt-1 font-bold">🔥 {a.streak}d streak</div>
+                          <div className="text-white/60 text-xs mt-1 font-bold flex items-center gap-1"><StreakFlame streak={a.streak} size={14} /> {a.streak}d streak</div>
                         )}
                       </div>
                     );
@@ -4013,7 +4014,7 @@ export default function ApexAthletePage() {
                     </div>
                     <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
-                    {a.streak > 0 && <span className="text-white/60 text-xs hidden sm:inline font-bold">🔥 {a.streak}d</span>}
+                    {a.streak > 0 && <span className="text-white/60 text-xs hidden sm:inline-flex items-center gap-0.5 font-bold"><StreakFlame streak={a.streak} size={12} /> {a.streak}d</span>}
                     <AnimatedCounter value={a.xp} className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]" />
                   </div>
                 );
@@ -4276,7 +4277,7 @@ export default function ApexAthletePage() {
                           <div className="text-white text-sm font-semibold truncate">{a.name}</div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
-                            {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70">🔥 {a.streak}d · {sk.mult}</span>}
+                            {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><StreakFlame streak={a.streak} size={12} /> {a.streak}d · {sk.mult}</span>}
                           </div>
                         </div>
                         <div className="w-28 shrink-0 text-right">
