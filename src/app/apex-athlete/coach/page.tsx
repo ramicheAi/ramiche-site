@@ -1006,6 +1006,51 @@ export default function ApexAthletePage() {
   // Removed entirely: the initial load value is correct, and the coach can override manually.
   const floatCounter = useRef(0);
 
+  // ── combo counter state ─────────────────────────────────
+  const [comboCount, setComboCount] = useState(0);
+  const [comboExiting, setComboExiting] = useState(false);
+  const comboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const comboResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const incrementCombo = useCallback(() => {
+    if (comboResetRef.current) clearTimeout(comboResetRef.current);
+    if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+    setComboExiting(false);
+    setComboCount(prev => {
+      const next = prev + 1;
+      // Escalating pitch chime
+      if (next >= 3) {
+        try {
+          const ctx = new AudioContext();
+          const baseFreq = 440 + Math.min(next * 60, 600);
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = baseFreq; osc.type = "triangle";
+          gain.gain.setValueAtTime(0.06, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+          osc.start(); osc.stop(ctx.currentTime + 0.15);
+          if (next >= 5) {
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2); gain2.connect(ctx.destination);
+            osc2.frequency.value = baseFreq * 1.5; osc2.type = "sine";
+            gain2.gain.setValueAtTime(0.03, ctx.currentTime + 0.05);
+            gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+            osc2.start(ctx.currentTime + 0.05); osc2.stop(ctx.currentTime + 0.2);
+          }
+        } catch {}
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+      return next;
+    });
+    // Reset combo after 2s of inactivity
+    comboResetRef.current = setTimeout(() => {
+      setComboExiting(true);
+      comboTimerRef.current = setTimeout(() => { setComboCount(0); setComboExiting(false); }, 400);
+    }, 2000);
+  }, []);
+
   // ── bulk undo state ────────────────────────────────────
   const [bulkUndoVisible, setBulkUndoVisible] = useState(false);
   const [bulkUndoSnapshot, setBulkUndoSnapshot] = useState<Athlete[] | null>(null);
@@ -1628,6 +1673,7 @@ export default function ApexAthletePage() {
       }
       cps[cpId] = true; a[cpMap] = cps;
       SFX.tick();
+      incrementCombo();
       const { newAthlete, awarded } = awardXP(a, cpXP, category);
       let final = { ...newAthlete, [cpMap]: cps };
       // Increment streak once per day on Practice Complete (pool) or Showed Up (weight)
@@ -1643,7 +1689,7 @@ export default function ApexAthletePage() {
       setTimeout(() => checkAchievements(final, cpId), 100);
       const r = [...prev]; r[idx] = final; save(K.ROSTER, r); return r;
     });
-  }, [awardXP, addAudit, spawnXpFloat, checkAchievements]);
+  }, [awardXP, addAudit, incrementCombo, spawnXpFloat, checkAchievements]);
 
   // ── weight challenge toggle ──────────────────────────────
   const toggleWeightChallenge = useCallback((athleteId: string, chId: string, chXP: number, e?: React.MouseEvent) => {
@@ -1741,6 +1787,7 @@ export default function ApexAthletePage() {
       if (!wasPresent) {
         // MARKING PRESENT → auto-check Tier 1 checkpoints + award XP
         a.present = true;
+        incrementCombo();
         const newCPs: Record<string, boolean> = { ...a[cpMapKey] };
         let totalAwarded = 0;
         // Award base "showed up" XP
@@ -1794,7 +1841,7 @@ export default function ApexAthletePage() {
       }
       const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
     });
-  }, [addAudit, awardXP, selectedGroup, sessionMode]);
+  }, [addAudit, awardXP, incrementCombo, selectedGroup, sessionMode]);
 
   // ── shoutout / MVP — coach recognition for standout moments ─
   const giveShoutout = useCallback((athleteId: string, e?: React.MouseEvent) => {
@@ -2317,6 +2364,30 @@ export default function ApexAthletePage() {
             <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${t.color}, ${t.color}40)` }} />
           </div>
         ))}
+      </div>
+    );
+  };
+
+  // ── combo counter display ──────────────────────────────
+  const ComboCounter = () => {
+    if (comboCount < 3) return null;
+    const tier = comboCount >= 10 ? 3 : comboCount >= 7 ? 2 : comboCount >= 5 ? 1 : 0;
+    const colors = ["#00f0ff", "#a78bfa", "#f59e0b", "#ef4444"];
+    const labels = ["COMBO", "MEGA COMBO", "ULTRA COMBO", "INSANE COMBO"];
+    const color = colors[tier];
+    return (
+      <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] pointer-events-none ${comboExiting ? "combo-exit" : "combo-enter"}`}>
+        <div className="text-center">
+          <div className="combo-pulse text-5xl font-black tabular-nums" style={{
+            color,
+            textShadow: `0 0 30px ${color}, 0 0 60px ${color}60`,
+          }}>
+            {comboCount}x
+          </div>
+          <div className="text-[10px] tracking-[0.4em] font-bold uppercase mt-1" style={{ color: `${color}90` }}>
+            {labels[tier]}
+          </div>
+        </div>
       </div>
     );
   };
@@ -3139,7 +3210,7 @@ export default function ApexAthletePage() {
   if (view === "parent") {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-        <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts />
+        <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts /><ComboCounter />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>

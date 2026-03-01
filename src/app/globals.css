@@ -450,6 +450,24 @@ a {
   animation: achieveShine 1.5s ease-in-out 0.5s;
 }
 
+/* ── combo counter ─────────────────────────────────────────── */
+@keyframes comboEnter {
+  0% { opacity: 0; transform: translateX(-50%) scale(2); }
+  50% { opacity: 1; transform: translateX(-50%) scale(0.9); }
+  100% { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+@keyframes comboExit {
+  0% { opacity: 1; transform: translateX(-50%) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) scale(0.5) translateY(-20px); }
+}
+@keyframes comboPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.combo-enter { animation: comboEnter 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.combo-exit { animation: comboExit 0.35s ease-in forwards; }
+.combo-pulse { animation: comboPulse 0.4s ease-in-out; }
+
 /* ── podium rank pulse ─────────────────────────────────────── */
 @keyframes podiumPulse {
   0%, 100% { transform: scale(1); filter: brightness(1); }
