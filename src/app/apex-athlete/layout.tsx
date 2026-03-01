@@ -9,10 +9,13 @@ export const metadata: Metadata = {
     icon: "/mettle-brand/v5/mettle-icon.svg",
     apple: "/mettle-brand/v5/apple-touch-icon-dark.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "METTLE",
+  },
   other: {
-    "theme-color": "#C9A84C",
-    "apple-mobile-web-app-capable": "yes",
-    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "theme-color": "#030108",
   },
   openGraph: {
     title: "METTLE — Where Athletes Find Their Edge",

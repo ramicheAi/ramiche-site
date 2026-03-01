@@ -17,6 +17,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Parallax Operations",
   description: "Automation dock — all projects, all signals, one view",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/parallax-icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Parallax",
+  },
+  other: {
+    "theme-color": "#1a1a5e",
+  },
 };
 
 export const viewport: Viewport = {
@@ -32,15 +45,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" style={{ colorScheme: "dark" }}>
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/parallax-icon-192.png" />
-        <meta name="theme-color" content="#1a1a5e" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Parallax" />
-      </head>
+      <head />
+
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}
         <SpeedInsights />
