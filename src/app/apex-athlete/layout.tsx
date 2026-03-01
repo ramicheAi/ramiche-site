@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import ErrorReporterInit from "@/components/ErrorReporterInit";
+import PageTransition from "@/components/PageTransition";
 
 export const metadata: Metadata = {
   title: "METTLE — Athlete Relations Manager",
@@ -43,7 +44,7 @@ export default function MettleLayout({
   return (
     <>
       <ErrorReporterInit />
-      {children}
+      <PageTransition>{children}</PageTransition>
     </>
   );
 }
