@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { MASTER_PIN } from "../auth";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -1354,6 +1355,7 @@ export default function AthletePortal() {
   // ── Main dashboard ────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
+      <ParticleField variant="purple" count={40} speed={0.3} opacity={0.4} />
       {/* Portal switcher — full-width grid */}
       <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 w-full">
         {[

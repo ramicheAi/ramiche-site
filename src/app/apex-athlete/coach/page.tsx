@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MASTER_PIN } from "../auth";
+import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 
 /* ══════════════════════════════════════════════════════════════
@@ -3796,6 +3797,7 @@ export default function ApexAthletePage() {
   return (
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
+      <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
       <XpFloats /><LevelUpOverlay />
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
