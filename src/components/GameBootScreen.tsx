@@ -61,6 +61,7 @@ export default function GameBootScreen({
   const animRef = useRef(0);
   const startTime = useRef(0);
   const completed = useRef(false);
+  const gyro = useRef({ x: 0, y: 0 }); // device tilt for proprioceptive response
 
   // Check reduced motion preference
   const prefersReduced = typeof window !== "undefined"
@@ -107,10 +108,20 @@ export default function GameBootScreen({
       ),
     ];
 
-    // Haptic pulse when ready phase hits (mobile)
+    // Haptic rhythm — subtle heartbeat vibration during boot (72 BPM = 833ms)
     const hapticTimer = setTimeout(() => {
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
     }, 4500);
+    const hapticInterval = setInterval(() => {
+      if (navigator.vibrate && !completed.current) navigator.vibrate([15, 80, 15]);
+    }, 833);
+
+    // Gyroscope — particles respond to phone tilt (proprioceptive connection)
+    const onDeviceOrientation = (e: DeviceOrientationEvent) => {
+      gyro.current.x = (e.gamma || 0) * 0.5; // left-right tilt
+      gyro.current.y = (e.beta || 0) * 0.3;  // front-back tilt
+    };
+    window.addEventListener("deviceorientation", onDeviceOrientation);
 
     // Progress bar: 0 → 100 over 4.5s
     const progInterval = setInterval(() => {
@@ -123,7 +134,9 @@ export default function GameBootScreen({
     return () => {
       timers.forEach(clearTimeout);
       clearTimeout(hapticTimer);
+      clearInterval(hapticInterval);
       clearInterval(progInterval);
+      window.removeEventListener("deviceorientation", onDeviceOrientation);
     };
   }, [prefersReduced, finish]);
 
@@ -189,9 +202,10 @@ export default function GameBootScreen({
           p.y = cy + (p.ty - cy) * ease;
           p.alpha = Math.min(0.6, ease * 0.6);
         } else {
-          // AMBIENT: organic drift with depth-based speed
-          const driftX = Math.sin(t * p.speed + p.phase) * (0.2 + p.layer * 0.1);
-          const driftY = Math.cos(t * 0.7 * p.speed + p.phase) * (0.15 + p.layer * 0.08);
+          // AMBIENT: organic drift with depth-based speed + gyroscope response
+          const gyroScale = [0.1, 0.3, 0.6][p.layer]; // near particles react more
+          const driftX = Math.sin(t * p.speed + p.phase) * (0.2 + p.layer * 0.1) + gyro.current.x * gyroScale * 0.02;
+          const driftY = Math.cos(t * 0.7 * p.speed + p.phase) * (0.15 + p.layer * 0.08) + gyro.current.y * gyroScale * 0.02;
           p.x += driftX;
           p.y += driftY;
 
