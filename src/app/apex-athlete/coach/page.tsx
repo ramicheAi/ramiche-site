@@ -1154,160 +1154,206 @@ export default function ApexAthletePage() {
   const [pushLoading, setPushLoading] = useState(false);
 
   // ── mount & load ─────────────────────────────────────────
+  // Firestore is the source of truth. Always pull from Firestore first.
+  // localStorage is a fast cache — never treat it as authoritative over Firestore.
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
     if (!pin || pin === "1234") { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); } else { setCoachPin(pin); }
-    // Load selected group
+    // Load selected group (local-only, not synced)
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
-    let r = load<Athlete[]>(K.ROSTER, []);
-    // Migrate from older roster versions — carry forward existing data
-    if (r.length === 0) {
-      const oldKeys = ["apex-athlete-roster-v4", "apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
-      for (const ok of oldKeys) {
-        const old = load<Athlete[]>(ok, []);
-        if (old.length > 0) {
-          // Old data is Platinum only — tag them and merge with new groups
-          const migrated = old.map(a => ({ ...a, group: a.group || "platinum" }));
-          const newGroups = INITIAL_ROSTER.filter(e => e.group !== "platinum").map(makeAthlete);
-          r = [...migrated, ...newGroups];
-          save(K.ROSTER, r);
-          break;
-        }
-      }
-    }
-    if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
-    // If roster exists but is smaller than full roster, add missing athletes
-    if (r.length > 0 && r.length < INITIAL_ROSTER.length) {
-      const existingIds = new Set(r.map(a => a.id));
-      const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
-      if (missing.length > 0) { r = [...r, ...missing]; save(K.ROSTER, r); }
-    }
-    // Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
-    const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
-    if (anyPastCheckins) {
-      const prevDate = r.find(a => a.dailyXP?.date && a.dailyXP.date !== today())?.dailyXP?.date || today();
-      const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
-      if (!snaps.some(s => s.date === prevDate)) {
-        const att = r.filter(a => a.present).length;
-        snaps.push({
-          date: prevDate, attendance: att, totalAthletes: r.length,
-          totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0), 0),
-          poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
-          weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
-          meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
-          questsCompleted: 0, challengesCompleted: 0,
-          athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0])),
-          athleteStreaks: Object.fromEntries(r.map(a => [a.id, a.streak || 0])),
-        });
-        save(K.SNAPSHOTS, snaps);
-      }
-    }
-    r = r.map(a => {
-      // Ensure new fields exist for legacy data
-      if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
-      if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
-      if (!a.group) a = { ...a, group: "platinum" };
-      // Reset daily XP + check-ins for new day (clean slate per practice)
-      if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
-      else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
-      // Auto-break streaks if last check-in was more than 1 day ago
-      if (a.lastStreakDate && a.streak > 0) {
-        const last = new Date(a.lastStreakDate); const now = new Date(today());
-        const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
-        if (diffDays > 1) a = { ...a, streak: 0 };
-      }
-      if (a.lastWeightStreakDate && a.weightStreak > 0) {
-        const last = new Date(a.lastWeightStreakDate); const now = new Date(today());
-        const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
-        if (diffDays > 1) a = { ...a, weightStreak: 0 };
-      }
-      return a;
-    });
-    save(K.ROSTER, r);
-    setRoster(r);
-    setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
-    setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
-    setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
-    setCulture(load<TeamCulture>(K.CULTURE, DEFAULT_CULTURE));
-    // Load schedules
-    let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
-    if (scheds.length === 0) {
-      scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
-      save(K.SCHEDULES, scheds);
-    } else {
-      // Ensure all groups have schedules
-      const existingIds = new Set(scheds.map(s => s.groupId));
-      const missing = ROSTER_GROUPS.filter(g => !existingIds.has(g.id)).map(g => makeDefaultGroupSchedule(g.id));
-      if (missing.length > 0) { scheds = [...scheds, ...missing]; save(K.SCHEDULES, scheds); }
-    }
-    setSchedules(scheds);
-    // Load coaches
-    const savedCoaches = load<CoachProfile[]>(K.COACHES, []);
-    setCoaches(savedCoaches);
-    // Load meets
-    setMeets(load<SwimMeet[]>(K.MEETS, []));
-    // Load broadcasts + absence reports
+    // Load broadcasts + absence reports (local-only)
     try { setAllBroadcasts(JSON.parse(localStorage.getItem("apex-broadcasts-v1") || "[]")); } catch { /* empty */ }
     try { setAbsenceReports(JSON.parse(localStorage.getItem("apex-absences-v1") || "[]")); } catch { /* empty */ }
-    // Check push notification status + force SW update check on every load
+    // Service worker
     if ("serviceWorker" in navigator && "PushManager" in window) {
       navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(reg => {
         reg.update();
-        reg.pushManager.getSubscription().then(sub => {
-          setPushEnabled(!!sub);
-        });
+        reg.pushManager.getSubscription().then(sub => { setPushEnabled(!!sub); });
       });
     }
-    setMounted(true);
 
-    // ── Firestore sync: always push local data AND pull if local is empty ──
+    // ── Firestore-first data loading ──
+    // Strategy: Try Firestore first → merge with localStorage (keep richer data) → update both
     (async () => {
       try {
-        if (r.length > 0) {
-          // Local data exists — push to Firestore (idempotent, ensures cloud is current)
-          syncSave(K.ROSTER, r, "rosters/all");
-          syncSave(K.AUDIT, load<unknown[]>(K.AUDIT, []), "audit/all");
-          syncSave(K.CHALLENGES, load<unknown[]>(K.CHALLENGES, []), "config/challenges");
-          syncSave(K.SNAPSHOTS, load<unknown[]>(K.SNAPSHOTS, []), "config/snapshots");
-          syncSave(K.CULTURE, load<unknown>(K.CULTURE, {}), "config/culture");
-          syncSave(K.SCHEDULES, load<unknown[]>(K.SCHEDULES, []), "config/schedules");
-          syncSave(K.COACHES, load<unknown[]>(K.COACHES, []), "config/coaches");
-          syncSave(K.MEETS, load<unknown[]>(K.MEETS, []), "config/meets");
-          syncSave(K.PIN, load<string>(K.PIN, ""), "config/pin");
-          console.log("[Sync] Pushed localStorage → Firestore");
-        } else {
-          // No local data — pull everything from Firestore (new browser / cleared cache)
-          const remote = await syncLoad<Athlete[]>(K.ROSTER, "rosters/all");
-          if (remote) {
-            const athletes = Array.isArray(remote) ? remote : [];
-            if (athletes.length > 0) {
-              save(K.ROSTER, athletes);
-              setRoster(athletes);
-              console.log("[Sync] Loaded roster from Firestore:", athletes.length, "athletes");
+        // Helper: pick the roster with more total XP (= more real data)
+        const rosterXP = (athletes: Athlete[]) => athletes.reduce((s, a) => s + (a.xp || 0), 0);
+
+        // 1. Load roster from localStorage (instant)
+        let localRoster = load<Athlete[]>(K.ROSTER, []);
+        // Migrate from older roster versions
+        if (localRoster.length === 0) {
+          const oldKeys = ["apex-athlete-roster-v4", "apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
+          for (const ok of oldKeys) {
+            const old = load<Athlete[]>(ok, []);
+            if (old.length > 0) {
+              const migrated = old.map(a => ({ ...a, group: a.group || "platinum" }));
+              const newGroups = INITIAL_ROSTER.filter(e => e.group !== "platinum").map(makeAthlete);
+              localRoster = [...migrated, ...newGroups];
+              break;
             }
           }
-          const remoteAudit = await syncLoad<AuditEntry[]>(K.AUDIT, "audit/all");
-          if (remoteAudit && Array.isArray(remoteAudit)) { save(K.AUDIT, remoteAudit); setAuditLog(remoteAudit); }
-          const remoteChallenges = await syncLoad<TeamChallenge[]>(K.CHALLENGES, "config/challenges");
-          if (remoteChallenges && Array.isArray(remoteChallenges)) { save(K.CHALLENGES, remoteChallenges); setTeamChallenges(remoteChallenges); }
-          const remoteSnapshots = await syncLoad<DailySnapshot[]>(K.SNAPSHOTS, "config/snapshots");
-          if (remoteSnapshots && Array.isArray(remoteSnapshots)) { save(K.SNAPSHOTS, remoteSnapshots); setSnapshots(remoteSnapshots); }
-          const remoteCulture = await syncLoad<TeamCulture>(K.CULTURE, "config/culture");
-          if (remoteCulture) { save(K.CULTURE, remoteCulture); setCulture(remoteCulture); }
-          const remoteSchedules = await syncLoad<GroupSchedule[]>(K.SCHEDULES, "config/schedules");
-          if (remoteSchedules && Array.isArray(remoteSchedules)) { save(K.SCHEDULES, remoteSchedules); setSchedules(remoteSchedules); }
-          const remoteCoaches = await syncLoad<CoachProfile[]>(K.COACHES, "config/coaches");
-          if (remoteCoaches && Array.isArray(remoteCoaches)) { save(K.COACHES, remoteCoaches); setCoaches(remoteCoaches); }
-          const remoteMeets = await syncLoad<SwimMeet[]>(K.MEETS, "config/meets");
-          if (remoteMeets && Array.isArray(remoteMeets)) { save(K.MEETS, remoteMeets); setMeets(remoteMeets); }
+        }
+
+        // 2. Load roster from Firestore
+        let firestoreRoster: Athlete[] = [];
+        try {
+          const remote = await syncLoad<Athlete[]>(K.ROSTER, "rosters/all");
+          if (remote && Array.isArray(remote) && remote.length > 0) {
+            firestoreRoster = remote;
+            console.log("[Sync] Firestore roster:", firestoreRoster.length, "athletes, total XP:", rosterXP(firestoreRoster));
+          }
+        } catch (e) { console.warn("[Sync] Firestore read failed (using local):", e); }
+
+        // 3. Pick the roster with more data (higher total XP = more real check-in data)
+        let r: Athlete[];
+        if (firestoreRoster.length > 0 && localRoster.length > 0) {
+          // Both exist — use the one with more XP (more real data)
+          const fbXP = rosterXP(firestoreRoster);
+          const lsXP = rosterXP(localRoster);
+          if (fbXP >= lsXP) {
+            r = firestoreRoster;
+            console.log("[Sync] Using Firestore roster (XP:", fbXP, "vs local:", lsXP, ")");
+          } else {
+            r = localRoster;
+            console.log("[Sync] Using localStorage roster (XP:", lsXP, "vs Firestore:", fbXP, ")");
+          }
+        } else if (firestoreRoster.length > 0) {
+          r = firestoreRoster;
+          console.log("[Sync] Using Firestore roster (no local data)");
+        } else if (localRoster.length > 0) {
+          r = localRoster;
+          console.log("[Sync] Using localStorage roster (no Firestore data)");
+        } else {
+          // Neither has data — initialize from seed
+          r = INITIAL_ROSTER.map(makeAthlete);
+          console.log("[Sync] No data anywhere — initializing from seed roster");
+        }
+
+        // 4. Ensure all athletes are present (add missing from seed)
+        if (r.length > 0 && r.length < INITIAL_ROSTER.length) {
+          const existingIds = new Set(r.map(a => a.id));
+          const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
+          if (missing.length > 0) r = [...r, ...missing];
+        }
+
+        // 5. Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
+        const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
+        if (anyPastCheckins) {
+          const prevDate = r.find(a => a.dailyXP?.date && a.dailyXP.date !== today())?.dailyXP?.date || today();
+          const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
+          if (!snaps.some(s => s.date === prevDate)) {
+            const att = r.filter(a => a.present).length;
+            snaps.push({
+              date: prevDate, attendance: att, totalAthletes: r.length,
+              totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0), 0),
+              poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
+              weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
+              meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+              questsCompleted: 0, challengesCompleted: 0,
+              athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0])),
+              athleteStreaks: Object.fromEntries(r.map(a => [a.id, a.streak || 0])),
+            });
+            save(K.SNAPSHOTS, snaps);
+          }
+        }
+
+        // 6. Normalize athlete data (ensure fields, reset daily XP for new day, auto-break streaks)
+        r = r.map(a => {
+          if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
+          if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
+          if (!a.group) a = { ...a, group: "platinum" };
+          if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          if (a.lastStreakDate && a.streak > 0) {
+            const last = new Date(a.lastStreakDate); const now = new Date(today());
+            const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
+            if (diffDays > 1) a = { ...a, streak: 0 };
+          }
+          if (a.lastWeightStreakDate && a.weightStreak > 0) {
+            const last = new Date(a.lastWeightStreakDate); const now = new Date(today());
+            const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
+            if (diffDays > 1) a = { ...a, weightStreak: 0 };
+          }
+          return a;
+        });
+
+        // 7. Save to BOTH localStorage AND Firestore (single source of truth)
+        save(K.ROSTER, r);
+        setRoster(r);
+
+        // 8. Load other data — pull from Firestore first, fall back to localStorage
+        const loadWithSync = async <T,>(key: string, fbPath: string, fallback: T, setter: (v: T) => void) => {
+          try {
+            const remote = await syncLoad<T>(key, fbPath);
+            if (remote !== null) { save(key, remote); setter(remote as T); return; }
+          } catch { /* fall through */ }
+          const local = load<T>(key, fallback);
+          setter(local);
+          // Push local to Firestore so it's available next time
+          syncSave(key, local, fbPath);
+        };
+
+        await loadWithSync<AuditEntry[]>(K.AUDIT, "audit/all", [], setAuditLog);
+        await loadWithSync<TeamChallenge[]>(K.CHALLENGES, "config/challenges", DEFAULT_CHALLENGES, setTeamChallenges);
+        await loadWithSync<DailySnapshot[]>(K.SNAPSHOTS, "config/snapshots", [], setSnapshots);
+        await loadWithSync<TeamCulture>(K.CULTURE, "config/culture", DEFAULT_CULTURE, setCulture);
+        await loadWithSync<SwimMeet[]>(K.MEETS, "config/meets", [], setMeets);
+        await loadWithSync<CoachProfile[]>(K.COACHES, "config/coaches", [], setCoaches);
+
+        // Load + sync pin
+        try {
           const remotePin = await syncLoad<string>(K.PIN, "config/pin");
           if (remotePin && typeof remotePin === "string") { save(K.PIN, remotePin); setCoachPin(remotePin); }
-          console.log("[Sync] Pulled all data from Firestore");
+        } catch { /* keep local */ }
+
+        // Load schedules (with ensure-all-groups logic)
+        let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
+        try {
+          const remoteScheds = await syncLoad<GroupSchedule[]>(K.SCHEDULES, "config/schedules");
+          if (remoteScheds && Array.isArray(remoteScheds) && remoteScheds.length > 0) scheds = remoteScheds;
+        } catch { /* keep local */ }
+        if (scheds.length === 0) {
+          scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+        } else {
+          const existingIds = new Set(scheds.map(s => s.groupId));
+          const missing = ROSTER_GROUPS.filter(g => !existingIds.has(g.id)).map(g => makeDefaultGroupSchedule(g.id));
+          if (missing.length > 0) scheds = [...scheds, ...missing];
         }
+        save(K.SCHEDULES, scheds);
+        setSchedules(scheds);
+
+        // Push authoritative roster to Firestore (ensures cloud is always current)
+        syncSave(K.ROSTER, r, "rosters/all");
+        console.log("[Sync] Data loaded and synced. Roster:", r.length, "athletes, total XP:", rosterXP(r));
+
       } catch (e) {
-        console.warn("[Sync] Firestore sync error (non-fatal):", e);
+        console.warn("[Sync] Firestore sync error — falling back to localStorage:", e);
+        // Full localStorage fallback if Firestore fails
+        let r = load<Athlete[]>(K.ROSTER, []);
+        if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
+        r = r.map(a => {
+          if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
+          if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
+          if (!a.group) a = { ...a, group: "platinum" };
+          if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          return a;
+        });
+        save(K.ROSTER, r);
+        setRoster(r);
+        setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
+        setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
+        setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
+        setCulture(load<TeamCulture>(K.CULTURE, DEFAULT_CULTURE));
+        let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
+        if (scheds.length === 0) scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+        setSchedules(scheds);
+        setCoaches(load<CoachProfile[]>(K.COACHES, []));
+        setMeets(load<SwimMeet[]>(K.MEETS, []));
       }
+      setMounted(true);
     })();
   }, []);
 
