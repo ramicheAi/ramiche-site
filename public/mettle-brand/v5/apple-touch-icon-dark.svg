@@ -30,9 +30,9 @@
     </radialGradient>
   </defs>
   <!-- Ambient glow -->
-  <circle cx="90" cy="95" r="50" fill="url(#bg)"/>
+  <circle cx="90" cy="90" r="50" fill="url(#bg)"/>
   <!-- M body — larger, bolder, centered -->
-  <g transform="translate(28,25) scale(1.38)">
+  <g transform="translate(7,6) scale(1.38)">
     <!-- Left leg — navy -->
     <polygon points="22,94 38,94 38,28 22,37" fill="url(#n)"/>
     <!-- Left diagonal — scarlet -->
