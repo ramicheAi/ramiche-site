@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import ErrorReporterInit from "@/components/ErrorReporterInit";
 import PageTransition from "@/components/PageTransition";
 import MettleMicroInteractions from "@/components/MettleMicroInteractions";
+import SWUpdateHandler from "@/components/SWUpdateHandler";
 
 export const metadata: Metadata = {
   title: "METTLE — Athlete Relations Manager",
@@ -45,6 +46,7 @@ export default function MettleLayout({
   return (
     <div className="mettle-app">
       <ErrorReporterInit />
+      <SWUpdateHandler />
       <MettleMicroInteractions />
       <PageTransition>{children}</PageTransition>
     </div>

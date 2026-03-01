@@ -1,5 +1,6 @@
 // METTLE Service Worker — Push Notifications + Offline Cache
-// Cache version uses build timestamp — changes on every deploy
+// Cache version uses deploy timestamp — forces full refresh on every deploy
+// sw.js is served with no-cache headers so browsers always fetch the latest copy
 const CACHE_VERSION = "__BUILD_TS__";
 const CACHE_NAME = `mettle-${CACHE_VERSION}`;
 const OFFLINE_URLS = [
@@ -18,13 +19,22 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// ── Activate: delete ALL old caches, claim clients immediately ──
+// ── Activate: delete ALL old caches, claim clients, notify all tabs to reload ──
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     ).then(() => self.clients.claim())
+     .then(() => self.clients.matchAll({ type: "window" }))
+     .then((windowClients) => {
+       windowClients.forEach((client) => client.postMessage({ type: "SW_UPDATED" }));
+     })
   );
+});
+
+// ── Message handler: force skip waiting from app ──
+self.addEventListener("message", (event) => {
+  if (event.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 // ── Fetch: network-first, cache fallback for offline only ──
