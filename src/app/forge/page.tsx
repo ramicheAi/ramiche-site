@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
    PARALLAX FORGE — Creative Tools Hub
@@ -93,6 +94,7 @@ export default function ForgePage() {
         color: "#0f172a",
       }}
     >
+      <ParticleField variant="purple" theme="light" opacity={0.12} count={45} interactive connections />
       {/* Header */}
       <header
         style={{

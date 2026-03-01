@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
    PARALLAX — White-Label Agent Marketplace
@@ -303,6 +304,7 @@ export default function AgentsMarketplace() {
 
   return (
     <div style={{ background: "#06020f", minHeight: "100vh", color: "#fff", fontFamily: "var(--font-geist-sans, system-ui)" }}>
+      <ParticleField variant="gold" theme="dark" opacity={0.25} count={50} interactive connections />
       {/* Header — standalone, no internal links */}
       <nav style={{ width: "100%", borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(6,2,15,0.8)", backdropFilter: "blur(12px)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px" }}>

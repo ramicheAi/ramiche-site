@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER v4 — HOLOGRAPHIC MISSION CONTROL
@@ -940,6 +941,8 @@ export default function CommandCenter() {
      ══════════════════════════════════════════════════════════════════════════ */
   return (
     <main className="min-h-screen w-full relative overflow-x-hidden" style={{ background: '#ffffff', color: '#0f172a', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+
+      <ParticleField variant="gold" theme="light" opacity={0.1} count={50} interactive connections />
 
       {/* ═══════════════════════════════════════════════════════════════════
           LAYER 0: HOLOGRAPHIC BACKGROUND SYSTEM

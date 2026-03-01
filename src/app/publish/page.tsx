@@ -1,5 +1,7 @@
 "use client";
 
+import ParticleField from "@/components/ParticleField";
+
 /* ══════════════════════════════════════════════════════════════
    PARALLAX PUBLISH — Social Media Command Center
    Links to the real Publish app at parallax-publish.vercel.app
@@ -47,6 +49,7 @@ export default function PublishPage() {
         color: "#0f172a",
       }}
     >
+      <ParticleField variant="cyan" theme="light" opacity={0.1} count={40} interactive />
       {/* Header */}
       <header style={{ padding: "40px 24px 32px", textAlign: "center", borderBottom: "2px solid #e2e8f0" }}>
         <div
