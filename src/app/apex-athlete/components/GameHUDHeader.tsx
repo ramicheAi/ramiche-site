@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { AnimatedCounter } from "./AnimatedCounter";
 
 interface GameHUDHeaderProps {
   view: "coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness";
@@ -137,7 +138,7 @@ export function GameHUDHeader({
           </div>
           <div className="w-px h-4 bg-[#00f0ff]/10" />
           <div className="flex items-center gap-2">
-            <span className="neon-text-gold text-sm font-bold font-mono tabular-nums whitespace-nowrap">{xpToday}</span>
+            <AnimatedCounter value={xpToday} className="neon-text-gold text-sm font-bold font-mono tabular-nums whitespace-nowrap" />
             <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
           </div>
           <div className="w-px h-4 bg-[#00f0ff]/10" />

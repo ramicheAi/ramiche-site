@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
+import { AnimatedCounter } from "../components/AnimatedCounter";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -2297,7 +2298,7 @@ export default function ApexAthletePage() {
               </div>
               <div className="mt-3">
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-white/60 font-bold">{athlete.xp} XP</span>
+                  <AnimatedCounter value={athlete.xp} suffix=" XP" className="text-white/60 font-bold" />
                   <span className="text-white/60">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
@@ -3945,7 +3946,7 @@ export default function ApexAthletePage() {
                     <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
                     {a.streak > 0 && <span className="text-white/60 text-xs hidden sm:inline font-bold">🔥 {a.streak}d</span>}
-                    <span className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
+                    <AnimatedCounter value={a.xp} className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]" />
                   </div>
                 );
               })}
@@ -4211,7 +4212,7 @@ export default function ApexAthletePage() {
                           </div>
                         </div>
                         <div className="w-28 shrink-0 text-right">
-                          <div className="text-white font-black text-sm tabular-nums whitespace-nowrap">{a.xp}<span className="text-white/50 text-xs ml-1">XP</span></div>
+                          <div className="text-white font-black text-sm tabular-nums whitespace-nowrap"><AnimatedCounter value={a.xp} /><span className="text-white/50 text-xs ml-1">XP</span></div>
                           <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>

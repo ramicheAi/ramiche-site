@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
+import { AnimatedCounter } from "../components/AnimatedCounter";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -1432,7 +1433,7 @@ export default function AthletePortal() {
         {/* XP Bar */}
         <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
-            <span className="text-white/60 text-xs lg:text-base font-mono">Season: {athlete.seasonXP || 0} XP • Total: {athlete.xp} XP</span>
+            <span className="text-white/60 text-xs lg:text-base font-mono">Season: <AnimatedCounter value={athlete.seasonXP || 0} /> XP • Total: <AnimatedCounter value={athlete.xp} /> XP</span>
             {nextLevel ? (
               <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
