@@ -395,6 +395,8 @@ export default function GameBootScreen({
               animation: "shield-pulse 1.667s ease-in-out infinite", // 72 BPM (2 beats)
               opacity: phase === "logo" ? 0.8 : 1,
               transition: "opacity 0.5s ease",
+              background: "transparent",
+              filter: "drop-shadow(0 0 20px rgba(212,168,67,0.4)) drop-shadow(0 0 40px rgba(212,168,67,0.15))",
             }}
           />
         )}
