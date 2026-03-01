@@ -494,21 +494,28 @@ a {
   clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
   position: relative;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .game-btn:hover {
   filter: brightness(1.15);
   box-shadow: 0 0 20px rgba(0,240,255,0.2), inset 0 0 15px rgba(0,240,255,0.05);
 }
 .game-btn:active {
-  filter: brightness(0.9);
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4);
-  transform: scale(0.97);
+  filter: brightness(0.85);
+  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4), 0 0 15px rgba(0,240,255,0.3);
+  transform: scale(0.95);
+  transition: all 0.08s ease;
 }
 
 /* ── game card hover glow ─────────────────────────────────── */
 .game-card {
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+}
+.game-card:active {
+  transform: scale(0.98);
+  transition: all 0.1s ease;
 }
 .game-card::before {
   content: '';
@@ -637,11 +644,17 @@ a {
   border-radius: 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03);
   transition: all 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 .glass-card:hover {
   border-color: rgba(0,0,0,0.15);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.05);
   transform: translateY(-2px);
+}
+.glass-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  transition: all 0.1s ease;
 }
 
 .glow-line {
@@ -666,6 +679,133 @@ a {
   animation-play-state: paused;
   filter: brightness(1.1);
   box-shadow: 0 0 24px rgba(26,26,94,0.6), 0 0 48px rgba(124,58,237,0.3) !important;
+}
+
+/* ── MICRO-INTERACTIONS — touch + hover feedback ──────────── */
+
+/* Breathing button — subtle scale pulse for primary CTAs */
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.015); }
+}
+.btn-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+.btn-breathe:hover, .btn-breathe:active {
+  animation: none;
+}
+
+/* Tap ripple — expands from center on press */
+@keyframes tapRipple {
+  0% { transform: scale(0); opacity: 0.4; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.tap-feedback {
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+.tap-feedback:active {
+  transform: scale(0.96);
+  filter: brightness(0.85);
+}
+
+/* Card press — subtle depth on tap */
+.card-press {
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.card-press:active {
+  transform: scale(0.98) translateY(1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 4px rgba(0,0,0,0.2);
+}
+
+/* Glow on touch — border lights up on press (gold) */
+.touch-glow-gold {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.touch-glow-gold:active {
+  box-shadow: 0 0 20px rgba(245,158,11,0.5), 0 0 40px rgba(245,158,11,0.2);
+  border-color: rgba(245,158,11,0.7);
+}
+
+/* Glow on touch — border lights up on press (cyan) */
+.touch-glow-cyan {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.touch-glow-cyan:active {
+  box-shadow: 0 0 20px rgba(0,240,255,0.5), 0 0 40px rgba(0,240,255,0.2);
+  border-color: rgba(0,240,255,0.7);
+}
+
+/* Glow on touch — border lights up on press (purple) */
+.touch-glow-purple {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.touch-glow-purple:active {
+  box-shadow: 0 0 20px rgba(168,85,247,0.5), 0 0 40px rgba(168,85,247,0.2);
+  border-color: rgba(168,85,247,0.7);
+}
+
+/* Icon bounce — bounces on tap */
+@keyframes iconBounce {
+  0% { transform: scale(1); }
+  30% { transform: scale(0.85); }
+  60% { transform: scale(1.1); }
+  80% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+.icon-bounce:active {
+  animation: iconBounce 0.4s ease;
+}
+
+/* Magnetic hover — element follows cursor slightly on desktop */
+.magnetic-hover {
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Stagger reveal — children animate in with delay */
+@keyframes staggerIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.stagger-reveal > * {
+  opacity: 0;
+  animation: staggerIn 0.4s ease-out forwards;
+}
+.stagger-reveal > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-reveal > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger-reveal > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-reveal > *:nth-child(4) { animation-delay: 0.2s; }
+.stagger-reveal > *:nth-child(5) { animation-delay: 0.25s; }
+.stagger-reveal > *:nth-child(6) { animation-delay: 0.3s; }
+.stagger-reveal > *:nth-child(7) { animation-delay: 0.35s; }
+.stagger-reveal > *:nth-child(8) { animation-delay: 0.4s; }
+
+/* Number tick — digits animate when value changes */
+@keyframes numberTick {
+  0% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(-8px); opacity: 0; }
+  51% { transform: translateY(8px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.number-tick {
+  animation: numberTick 0.3s ease-out;
+}
+
+/* Progress fill — smooth bar growth */
+.progress-fill {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover lift — universal subtle lift on hover */
+.hover-lift {
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.2);
 }
 
 /* Mobile nav for Command Center */

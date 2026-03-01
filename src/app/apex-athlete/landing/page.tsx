@@ -310,7 +310,7 @@ export default function MettleLanding() {
           <div className="flex flex-col items-center gap-5 mb-6 reveal reveal-d4">
             <Link
               href="/apex-athlete/portal"
-              className="heartbeat-cta inline-flex items-center justify-center rounded-2xl font-black tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08]"
+              className="heartbeat-cta btn-breathe tap-feedback inline-flex items-center justify-center rounded-2xl font-black tracking-[0.15em] uppercase transition-all duration-300 hover:scale-[1.08]"
               style={{
                 "--glow-color": C.goldBright,
                 background: `linear-gradient(135deg, ${C.goldLight}, ${C.gold}, ${C.goldDim})`,
@@ -343,7 +343,7 @@ export default function MettleLanding() {
               <Link
                 key={p.title}
                 href={p.href}
-                className="heartbeat-card group relative flex flex-col items-center justify-center rounded-3xl border-2 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer"
+                className="heartbeat-card tap-feedback group relative flex flex-col items-center justify-center rounded-3xl border-2 transition-all duration-300 hover:-translate-y-3 hover:scale-[1.03] cursor-pointer"
                 style={{
                   ...({
                     "--glow-color": p.color,
@@ -364,7 +364,7 @@ export default function MettleLanding() {
                 </div>
 
                 {/* Icon — large, glowing */}
-                <div className="mb-8 lg:mb-10 transition-all duration-300 group-hover:scale-110" style={{ color: p.brightColor, filter: `drop-shadow(0 0 20px ${p.color}60)` }}>
+                <div className="mb-8 lg:mb-10 transition-all duration-300 group-hover:scale-110 icon-bounce" style={{ color: p.brightColor, filter: `drop-shadow(0 0 20px ${p.color}60)` }}>
                   <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="w-14 h-14 lg:w-20 lg:h-20">
                     {p.title === "Coach" && <><path d="M12 2L15 8H9L12 2Z" /><circle cx="12" cy="14" r="4" /><path d="M6 22V20C6 17 9 15 12 15S18 17 18 20V22" /></>}
                     {p.title === "Athlete" && <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26" />}
@@ -393,7 +393,7 @@ export default function MettleLanding() {
 
         {/* ━━━ SOCIAL PROOF ━━━ */}
         <section style={{ width: "100%", margin: "0 auto", padding: "3rem clamp(1.5rem, 3vw, 3rem)", textAlign: "center" }}>
-          <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16">
+          <div className="flex flex-wrap items-center justify-center gap-8 lg:gap-16 stagger-reveal">
             {[
               { num: "240+", label: "Athletes in Beta" },
               { num: "3", label: "Portals (Coach · Athlete · Parent)" },
