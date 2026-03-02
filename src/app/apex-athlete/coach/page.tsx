@@ -1404,6 +1404,8 @@ export default function ApexAthletePage() {
   const [sessionHistory, setSessionHistory] = useState<SessionRecord[]>([]);
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [editingHistorySession, setEditingHistorySession] = useState<string | null>(null);
+  const [confirmDeleteSessionId, setConfirmDeleteSessionId] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   // Load session history on mount
   useEffect(() => {
@@ -4593,12 +4595,37 @@ export default function ApexAthletePage() {
 
             {/* Session History modal */}
             {showSessionHistory && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); }}>
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }}>
                 <div className="bg-[#0a0315] border border-white/10 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-white font-bold text-lg font-mono">Session History</h3>
-                    <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); }} className="text-white/40 hover:text-white text-2xl">&times;</button>
+                    <div className="flex items-center gap-3">
+                      {sessionHistory.filter(s => s.group === selectedGroup).length > 0 && (
+                        <button
+                          onClick={() => setConfirmClearAll(true)}
+                          className="text-red-400/50 hover:text-red-400 text-xs font-mono px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                      <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }} className="text-white/40 hover:text-white text-2xl">&times;</button>
+                    </div>
                   </div>
+                  {/* Clear All confirmation */}
+                  {confirmClearAll && (
+                    <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                      <p className="text-red-400/80 text-xs font-mono mb-3">Delete all session history for this group? This cannot be undone.</p>
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setConfirmClearAll(false)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                        <button onClick={() => {
+                          const updated = sessionHistory.filter(s => s.group !== selectedGroup);
+                          save(K.SESSION_HISTORY, updated);
+                          setSessionHistory(updated);
+                          setConfirmClearAll(false);
+                        }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Delete All</button>
+                      </div>
+                    </div>
+                  )}
                   {sessionHistory.filter(s => s.group === selectedGroup).length === 0 ? (
                     <p className="text-white/30 text-sm font-mono text-center py-8">No saved sessions yet. Tap &ldquo;End Session + Save&rdquo; after practice to create history.</p>
                   ) : (
@@ -4618,6 +4645,25 @@ export default function ApexAthletePage() {
                               >
                                 {editingHistorySession === session.id ? "Close" : "Edit"}
                               </button>
+                              {confirmDeleteSessionId === session.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => {
+                                    const updated = sessionHistory.filter(s => s.id !== session.id);
+                                    save(K.SESSION_HISTORY, updated);
+                                    setSessionHistory(updated);
+                                    setConfirmDeleteSessionId(null);
+                                  }} className="text-red-400 text-xs font-mono font-bold px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/25 transition-colors">Delete</button>
+                                  <button onClick={() => setConfirmDeleteSessionId(null)} className="text-white/30 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors">Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDeleteSessionId(session.id)}
+                                  className="text-white/20 hover:text-red-400/60 text-xs font-mono px-1.5 py-1 rounded hover:bg-red-500/10 transition-colors"
+                                  title="Delete session"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
+                              )}
                             </div>
                           </div>
                           {editingHistorySession === session.id && (
