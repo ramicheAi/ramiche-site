@@ -1,8 +1,10 @@
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — Authentication Module
-   Manages sessions for coaches, parents, and admins.
-   localStorage-based (Firestore-ready structure).
+   METTLE — Authentication Module
+   Manages sessions for coaches, athletes, parents, and admins.
+   localStorage + Firestore (athletes/parents auth via Firestore).
    ══════════════════════════════════════════════════════════════ */
+
+import { fbListCollection } from "@/lib/firebase";
 
 export type AuthRole = "coach" | "parent" | "admin" | "athlete";
 
@@ -164,7 +166,7 @@ export function registerParent(email: string, name: string, verificationCode: st
 
 // ── Login Functions ─────────────────────────────────────────
 
-export function loginWithPin(pin: string): { success: boolean; session?: AuthSession; error?: string } {
+export async function loginWithPin(pin: string): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
   // 1. Check Master Admin PIN
   if (pin === MASTER_PIN) {
     const session: AuthSession = {
@@ -196,20 +198,20 @@ export function loginWithPin(pin: string): { success: boolean; session?: AuthSes
     }
   } catch {}
 
-  // 3. Check Athlete PINs (generated for roster)
+  // 3. Check Athlete PINs — localStorage first (coach's device), then Firestore (any device)
+  // 3a. localStorage (v5 key — matches coach page)
   try {
-    const storedRosterRaw = localStorage.getItem("apex-athlete-roster");
+    const storedRosterRaw = localStorage.getItem("apex-athlete-roster-v5");
     if (storedRosterRaw) {
       const roster = JSON.parse(storedRosterRaw);
-      // Look for an athlete that has this PIN stored in their record
-      // In a real DB this would query where pin === input
       const athlete = roster.find((a: any) => a.pin && a.pin === pin);
       if (athlete) {
         const session: AuthSession = {
           role: "athlete",
           name: athlete.name,
-          email: `${athlete.id}@apexathlete.local`, // mock email for session
+          email: `${athlete.id}@apexathlete.local`,
           athleteId: athlete.id,
+          group: athlete.group,
           expiry: Date.now() + SESSION_DURATION_MS,
         };
         setSession(session);
@@ -217,6 +219,84 @@ export function loginWithPin(pin: string): { success: boolean; session?: AuthSes
       }
     }
   } catch {}
+
+  // 3b. Firestore — query all roster groups for the PIN (works from athlete's own device)
+  try {
+    const groups = ["platinum", "gold", "silver", "bronze1", "bronze2", "diving", "waterpolo"];
+    for (const groupId of groups) {
+      const rosterDoc = await fbListCollection<{ athletes?: any[]; id?: string }>(`rosters`);
+      // fbListCollection returns all docs in the rosters collection
+      // Each doc has { athletes: [...], groupId }
+      for (const doc of rosterDoc) {
+        const athletes = (doc as any).athletes;
+        if (!Array.isArray(athletes)) continue;
+        const athlete = athletes.find((a: any) => a.pin && a.pin === pin);
+        if (athlete) {
+          // Cache roster locally so athlete page works
+          localStorage.setItem("apex-athlete-roster-v5", JSON.stringify(athletes));
+          const session: AuthSession = {
+            role: "athlete",
+            name: athlete.name,
+            email: `${athlete.id}@apexathlete.local`,
+            athleteId: athlete.id,
+            group: athlete.group,
+            expiry: Date.now() + SESSION_DURATION_MS,
+          };
+          setSession(session);
+          return { success: true, session };
+        }
+      }
+      break; // Only need to query once — fbListCollection gets all groups
+    }
+  } catch (e) {
+    console.warn("[Auth] Firestore PIN lookup failed:", e);
+  }
+
+  // 4. Check parent codes — localStorage then Firestore
+  try {
+    const storedRosterRaw = localStorage.getItem("apex-athlete-roster-v5");
+    if (storedRosterRaw) {
+      const roster = JSON.parse(storedRosterRaw);
+      const athlete = roster.find((a: any) => a.parentCode && a.parentCode === pin);
+      if (athlete) {
+        const session: AuthSession = {
+          role: "parent",
+          name: `${athlete.name}'s Parent`,
+          email: athlete.parentEmail || `parent-${athlete.id}@apexathlete.local`,
+          athleteId: athlete.id,
+          group: athlete.group,
+          expiry: Date.now() + SESSION_DURATION_MS,
+        };
+        setSession(session);
+        return { success: true, session };
+      }
+    }
+  } catch {}
+
+  // 4b. Firestore parent code lookup
+  try {
+    const rosterDocs = await fbListCollection<{ athletes?: any[] }>(`rosters`);
+    for (const doc of rosterDocs) {
+      const athletes = (doc as any).athletes;
+      if (!Array.isArray(athletes)) continue;
+      const athlete = athletes.find((a: any) => a.parentCode && a.parentCode === pin);
+      if (athlete) {
+        localStorage.setItem("apex-athlete-roster-v5", JSON.stringify(athletes));
+        const session: AuthSession = {
+          role: "parent",
+          name: `${athlete.name}'s Parent`,
+          email: athlete.parentEmail || `parent-${athlete.id}@apexathlete.local`,
+          athleteId: athlete.id,
+          group: athlete.group,
+          expiry: Date.now() + SESSION_DURATION_MS,
+        };
+        setSession(session);
+        return { success: true, session };
+      }
+    }
+  } catch (e) {
+    console.warn("[Auth] Firestore parent code lookup failed:", e);
+  }
 
   return { success: false, error: "Invalid PIN." };
 }

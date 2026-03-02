@@ -413,19 +413,22 @@ export default function LoginPage() {
     }, 400);
   };
 
-  const handlePinLogin = () => {
+  const handlePinLogin = async () => {
     setError("");
     if (!pin.trim()) { setError("PIN is required."); return; }
     setLoading(true);
-    setTimeout(() => {
-      const result = loginWithPin(pin.trim());
+    try {
+      const result = await loginWithPin(pin.trim());
       setLoading(false);
       if (result.success && result.session) {
         window.location.href = getRedirectForRole(result.session.role);
       } else {
         setError(result.error || "Invalid PIN.");
       }
-    }, 400);
+    } catch {
+      setLoading(false);
+      setError("Login failed. Please try again.");
+    }
   };
 
   const handleCoachRegister = async () => {
