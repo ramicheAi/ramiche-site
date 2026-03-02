@@ -342,6 +342,16 @@ export default function LoginPage() {
   useEffect(() => {
     setMounted(true);
 
+    // Nuclear cache clear — unregister stale service workers + purge all caches
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+      });
+    }
+    if ("caches" in window) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+    }
+
     // If already logged in, skip boot and redirect
     const session = getSession();
     if (session) {

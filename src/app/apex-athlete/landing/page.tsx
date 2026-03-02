@@ -71,6 +71,18 @@ export default function MettleLanding() {
   const [bootDone, setBootDone] = useState(false);
   const [pageReady, setPageReady] = useState(false);
 
+  // Nuclear cache clear — unregister stale service workers + purge all caches
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+      });
+    }
+    if ("caches" in window) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+    }
+  }, []);
+
   // Cinematic page entry — brief delay after boot, then fade in
   useEffect(() => {
     if (bootDone) {

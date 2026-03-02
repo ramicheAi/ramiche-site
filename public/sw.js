@@ -1,7 +1,7 @@
 // METTLE Service Worker — Push Notifications + Offline Cache
 // Cache version uses deploy timestamp — forces full refresh on every deploy
 // sw.js is served with no-cache headers so browsers always fetch the latest copy
-const CACHE_VERSION = "__BUILD_TS__";
+const CACHE_VERSION = "1740960000000";
 const CACHE_NAME = `mettle-${CACHE_VERSION}`;
 const OFFLINE_URLS = [
   "/apex-athlete",
