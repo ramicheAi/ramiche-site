@@ -131,6 +131,7 @@ const PORTFOLIO_ITEMS = [
     title: "Galactik Antics",
     category: "Brand System + Product Line",
     description: "AI-powered art brand — visual identity, product photography system, and e-commerce launch for phone cases, framed posters, and apparel.",
+    result: "Full e-commerce brand from concept to live Shopify store in 2 weeks",
     tags: ["Identity", "Product", "E-Commerce"],
     accent: "cyan",
   },
@@ -138,6 +139,7 @@ const PORTFOLIO_ITEMS = [
     title: "METTLE",
     category: "SaaS Product Design",
     description: "Gamified swim training platform — futuristic game UI, coach/athlete/parent portals, and brand identity for 240+ youth athletes.",
+    result: "3 portals, cinematic level-up system, live with 240+ athletes",
     tags: ["UI/UX", "Brand", "SaaS"],
     accent: "purple",
   },
@@ -145,6 +147,7 @@ const PORTFOLIO_ITEMS = [
     title: "The Baba Studio",
     category: "Audio Division Rebrand",
     description: "Music label identity — from naming to visual system. Dark, premium, built for artist portfolios and release campaigns.",
+    result: "Complete brand identity system: naming, visual language, release templates",
     tags: ["Identity", "Naming", "Music"],
     accent: "gold",
   },
@@ -678,21 +681,19 @@ export default function StudioPage() {
                     key={item.title}
                     className={`game-panel game-panel-border bg-white/[0.02] border ${a.border} p-6 sm:p-8 flex flex-col transition-all duration-300 hover:translate-y-[-4px] hover:${a.glow} group`}
                   >
-                    {/* placeholder image area */}
-                    <div className={`w-full aspect-[4/3] mb-6 rounded-sm bg-white/[0.03] border border-white/[0.06] flex items-center justify-center overflow-hidden`}>
-                      <div className="text-center">
-                        <div className={`text-3xl ${a.text} opacity-40 mb-2`}>{"\u25C8"}</div>
-                        <div className="text-white/20 text-xs font-mono tracking-wider">Case Study Soon</div>
-                      </div>
-                    </div>
-
                     <span className={`text-[10px] tracking-[0.4em] uppercase font-mono ${a.text} opacity-60 mb-2`}>
                       {item.category}
                     </span>
                     <h3 className="text-xl font-bold text-white/90 mb-3">{item.title}</h3>
-                    <p className="text-white/40 text-sm leading-relaxed mb-4 flex-1">
+                    <p className="text-white/40 text-sm leading-relaxed mb-3 flex-1">
                       {item.description}
                     </p>
+                    {item.result && (
+                      <div className={`text-xs font-mono ${a.text} opacity-50 mb-4 flex items-center gap-2`}>
+                        <span className="w-4 h-[1px]" style={{ background: "currentColor" }} />
+                        {item.result}
+                      </div>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       {item.tags.map((tag) => (
                         <span
