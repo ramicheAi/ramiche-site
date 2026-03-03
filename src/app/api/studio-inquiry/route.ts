@@ -4,6 +4,7 @@ import path from "path";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { parseBody, isValidEmail, sanitize, badRequest } from "@/lib/api-security";
 import { withAudit } from "@/lib/api-audit";
+import { sendEmail } from "@/lib/email";
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const INQUIRIES_FILE = path.join(DATA_DIR, "studio-inquiries.json");
@@ -69,6 +70,41 @@ export const POST = withAudit("/api/studio-inquiry", async function POST(req: Re
 
     inquiries.push(inquiry);
     await writeFile(INQUIRIES_FILE, JSON.stringify(inquiries, null, 2));
+
+    // Fire-and-forget email notification to Ramon
+    const notifyEmail = process.env.STUDIO_NOTIFY_EMAIL;
+    if (notifyEmail) {
+      const tagColors: Record<string, string> = {
+        "sprint-ready": "#00f0ff",
+        "full-package": "#a855f7",
+        "nurture": "#f59e0b",
+        "disqualified": "#666",
+      };
+      const tagColor = tagColors[tag] || "#999";
+
+      sendEmail({
+        to: notifyEmail,
+        subject: `[Ramiche Studio] New inquiry — ${nameRole} (${tag})`,
+        html: `
+          <div style="font-family:monospace;background:#0a0a0a;color:#e0e0e0;padding:24px;border-radius:8px;">
+            <h2 style="color:#fff;margin:0 0 16px;">New Studio Inquiry</h2>
+            <div style="display:inline-block;background:${tagColor}22;border:1px solid ${tagColor}44;color:${tagColor};padding:4px 12px;border-radius:4px;font-size:12px;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:16px;">${tag}</div>
+            <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Name</td><td style="color:#fff;padding:6px 0;">${nameRole}</td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Email</td><td style="color:#fff;padding:6px 0;"><a href="mailto:${email}" style="color:#00f0ff;">${email}</a></td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Product</td><td style="color:#fff;padding:6px 0;">${sanitizedBody.product || ""}</td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Problem</td><td style="color:#fff;padding:6px 0;">${sanitizedBody.problem || ""}</td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Budget</td><td style="color:#fff;padding:6px 0;">${sanitizedBody.budget || ""}</td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Timeline</td><td style="color:#fff;padding:6px 0;">${sanitizedBody.timeline || ""}</td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Studio exp</td><td style="color:#fff;padding:6px 0;">${sanitizedBody.studioExperience || ""}</td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Website</td><td style="color:#fff;padding:6px 0;"><a href="${sanitizedBody.website || ""}" style="color:#00f0ff;">${sanitizedBody.website || ""}</a></td></tr>
+              <tr><td style="color:#888;padding:6px 12px 6px 0;vertical-align:top;">Referral</td><td style="color:#fff;padding:6px 0;">${sanitizedBody.referral || ""}</td></tr>
+            </table>
+            <p style="color:#666;font-size:11px;margin-top:20px;">Submitted ${new Date().toLocaleString("en-US", { timeZone: "America/New_York" })} ET</p>
+          </div>
+        `,
+      }).catch((err) => console.error("Failed to send inquiry notification:", err));
+    }
 
     return NextResponse.json({ ok: true, tag });
   } catch (err) {
