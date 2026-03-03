@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
+import { fbSaveRoster } from "@/lib/firebase";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -151,6 +152,7 @@ interface Athlete {
   usaSwimmingId?: string;
   parentName?: string;
   parentPhone?: string;
+  pin?: string;
 }
 
 interface AuditEntry {
@@ -719,6 +721,7 @@ function makeAthlete(r: { name: string; age: number; gender: "M" | "F"; group?: 
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
     weightChallenges: {}, quests: {},
     dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 },
+    pin: String(100000 + Math.floor(Math.random() * 900000)),
   };
 }
 
@@ -820,7 +823,12 @@ function load<T>(key: string, fallback: T): T {
     try { return JSON.parse(v); } catch { return v as unknown as T; }
   } catch { return fallback; }
 }
-function save(key: string, val: unknown) { localStorage.setItem(key, JSON.stringify(val)); }
+function save(key: string, val: unknown) {
+  localStorage.setItem(key, JSON.stringify(val));
+  if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
+    fbSaveRoster("all", val).catch(() => {});
+  }
+}
 
 const DEFAULT_CHALLENGES: TeamChallenge[] = [
   { id: "tc-attendance", name: "Full House", description: "90% team attendance this week", target: 90, current: 0, reward: 50 },
@@ -1096,6 +1104,13 @@ export default function ApexAthletePage() {
       const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
       if (missing.length > 0) { r = [...r, ...missing]; save(K.ROSTER, r); }
     }
+    // Backfill PINs on athletes that don't have one
+    let pinBackfilled = false;
+    r = r.map(a => {
+      if (!a.pin) { pinBackfilled = true; return { ...a, pin: String(100000 + Math.floor(Math.random() * 900000)) }; }
+      return a;
+    });
+    if (pinBackfilled) save(K.ROSTER, r);
     // Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
     const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
     if (anyPastCheckins) {
@@ -2840,6 +2855,7 @@ export default function ApexAthletePage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-white/60">
                     <span>Streak: {a.streak}d</span><span>Practices: {a.totalPractices}</span>
+                    {a.pin && <span className="ml-auto font-mono text-[#6b21a8]">PIN: {a.pin}</span>}
                   </div>
                   {growth && growth.xpGain !== 0 && (
                     <div className={`mt-2 text-xs font-medium ${growth.xpGain > 0 ? "text-emerald-400/60" : "text-red-400/60"}`}>
