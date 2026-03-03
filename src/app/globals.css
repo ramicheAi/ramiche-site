@@ -539,70 +539,6 @@ a {
   box-shadow: 0 8px 40px rgba(0,240,255,0.1), 0 4px 20px rgba(0,0,0,0.3);
 }
 
-/* ── micro-interactions — button ripple ───────────────────── */
-@keyframes btnRipple {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.6; }
-  100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
-}
-.btn-ripple {
-  position: absolute;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  background: radial-gradient(circle, rgba(0,240,255,0.5) 0%, transparent 70%);
-  animation: btnRipple 0.6s ease-out forwards;
-  pointer-events: none;
-  z-index: 10;
-}
-
-/* ── micro-interactions — button press spring bounce ─────── */
-@keyframes btnSpring {
-  0% { transform: scale(1); }
-  30% { transform: scale(0.93); }
-  60% { transform: scale(1.03); }
-  80% { transform: scale(0.98); }
-  100% { transform: scale(1); }
-}
-.btn-spring { animation: btnSpring 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
-
-/* ── micro-interactions — card breathing glow on hover ───── */
-@keyframes cardBreathe {
-  0%, 100% { box-shadow: 0 0 15px rgba(0,240,255,0.05), 0 4px 20px rgba(0,0,0,0.3); }
-  50% { box-shadow: 0 0 30px rgba(0,240,255,0.15), 0 8px 40px rgba(0,0,0,0.3); }
-}
-.card-breathe:hover,
-.card-breathe:active {
-  animation: cardBreathe 2s ease-in-out infinite;
-}
-
-/* ── micro-interactions — touch glow (mobile tap feedback) ─ */
-@keyframes touchGlow {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.4; }
-  50% { opacity: 0.2; }
-  100% { transform: translate(-50%, -50%) scale(3); opacity: 0; }
-}
-.touch-glow {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,240,255,0.4) 0%, rgba(168,85,247,0.2) 40%, transparent 70%);
-  animation: touchGlow 0.5s ease-out forwards;
-  pointer-events: none;
-  z-index: 10;
-}
-
-/* ── micro-interactions — border trace on hover ──────────── */
-@keyframes borderTrace {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
-}
-.game-panel-border:hover::before {
-  background: linear-gradient(135deg, rgba(0,240,255,0.6) 0%, rgba(168,85,247,0.5) 25%, rgba(0,240,255,0.3) 50%, rgba(232,121,249,0.4) 75%, rgba(0,240,255,0.6) 100%);
-  background-size: 300% 100%;
-  animation: borderTrace 2s linear infinite;
-}
-
 /* ── HUD corner decorations ──────────────────────────────── */
 .hud-corner-tl::before {
   content: '';
@@ -872,185 +808,63 @@ a {
   box-shadow: 0 8px 25px rgba(0,0,0,0.2);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   METTLE — AUTO-APPLIED MICRO-INTERACTIONS
-   Every button + card inside .mettle-app gets feedback for free.
-   Psychology: haptic spring = embodied cognition, glow = reward signal,
-   breathing = living system, cursor-follow = spatial presence.
-   ══════════════════════════════════════════════════════════════ */
-
-/* ── ALL BUTTONS — spring press + border glow + hover lift ── */
-.mettle-app button {
+/* ===== METTLE Global Micro-Interactions ===== */
+/* Auto-apply tap/hover feedback to all buttons and interactive cards in METTLE */
+[data-mettle] button,
+[data-mettle] [role="button"],
+[data-mettle] a[href] {
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, filter 0.15s ease, box-shadow 0.2s ease;
+}
+[data-mettle] button:active,
+[data-mettle] [role="button"]:active,
+[data-mettle] a[href]:active {
+  transform: scale(0.96);
+  filter: brightness(0.9);
+}
+[data-mettle] button:not(:disabled):hover,
+[data-mettle] [role="button"]:hover {
+  transform: translateY(-1px);
+}
+
+/* Breathing glow — subtle idle pulse on cards */
+@keyframes breatheGlow {
+  0%, 100% { box-shadow: 0 0 8px rgba(0,240,255,0.05), 0 4px 24px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 16px rgba(0,240,255,0.12), 0 4px 24px rgba(0,0,0,0.4); }
+}
+.breathe-glow {
+  animation: breatheGlow 4s ease-in-out infinite;
+}
+
+@keyframes breatheGlowGold {
+  0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.05), 0 4px 24px rgba(0,0,0,0.4); }
+  50% { box-shadow: 0 0 16px rgba(245,158,11,0.12), 0 4px 24px rgba(0,0,0,0.4); }
+}
+.breathe-glow-gold {
+  animation: breatheGlowGold 4s ease-in-out infinite;
+}
+
+/* Button ripple — expanding ring from tap point */
+@keyframes btnRipple {
+  0% { transform: scale(0); opacity: 0.4; }
+  100% { transform: scale(4); opacity: 0; }
+}
+.btn-ripple {
   position: relative;
   overflow: hidden;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-              filter 0.15s ease,
-              box-shadow 0.25s ease,
-              border-color 0.25s ease;
 }
-@media (hover: hover) {
-  .mettle-app button:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.1);
-  }
-}
-.mettle-app button:active {
-  transform: scale(0.94);
-  filter: brightness(0.85);
-}
-
-/* Primary/accent buttons — idle breathing glow */
-.mettle-app button[class*="bg-"] {
-  animation: btnIdleBreathe 3s ease-in-out infinite;
-}
-@keyframes btnIdleBreathe {
-  0%, 100% { box-shadow: 0 0 0 rgba(201,168,76,0); }
-  50% { box-shadow: 0 0 12px rgba(201,168,76,0.15); }
-}
-
-/* ── ALL BORDERED CARDS — hover glow + lift + breathe ── */
-.mettle-app div[class*="border"][class*="rounded"],
-.mettle-app div[class*="border-2"][class*="rounded"],
-.mettle-app .game-panel {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.3s ease,
-              border-color 0.3s ease;
-}
-@media (hover: hover) {
-  .mettle-app div[class*="border"][class*="rounded"]:hover,
-  .mettle-app div[class*="border-2"][class*="rounded"]:hover,
-  .mettle-app .game-panel:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 20px rgba(201,168,76,0.08), 0 8px 32px rgba(0,0,0,0.3);
-    border-color: rgba(201,168,76,0.3);
-  }
-}
-.mettle-app div[class*="border"][class*="rounded"]:active,
-.mettle-app .game-panel:active {
-  transform: scale(0.985);
-  transition: transform 0.1s ease;
-}
-
-/* ── CLICKABLE ELEMENTS — pulse feedback ── */
-.mettle-app [class*="cursor-pointer"] {
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
-}
-.mettle-app [class*="cursor-pointer"]:active {
-  transform: scale(0.97);
-}
-
-/* ── GAME BUTTONS — enhanced spring ── */
-.mettle-app .game-btn {
-  animation: btnIdleBreathe 3s ease-in-out infinite;
-}
-.mettle-app .game-btn:active {
-  transform: scale(0.93);
-  box-shadow: inset 0 2px 8px rgba(0,0,0,0.4), 0 0 20px rgba(0,240,255,0.35);
-  transition: all 0.08s ease;
-}
-
-/* ── FORM INPUTS — focus glow pulse ── */
-.mettle-app input:focus,
-.mettle-app select:focus,
-.mettle-app textarea:focus {
-  box-shadow: 0 0 0 2px rgba(201,168,76,0.3), 0 0 15px rgba(201,168,76,0.1);
-  border-color: rgba(201,168,76,0.5) !important;
-  outline: none;
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-.mettle-app input,
-.mettle-app select,
-.mettle-app textarea {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-}
-
-/* ── STAT NUMBERS — count-up shimmer on hover ── */
-.mettle-app [class*="text-3xl"],
-.mettle-app [class*="text-4xl"],
-.mettle-app [class*="text-5xl"] {
-  transition: text-shadow 0.3s ease;
-}
-@media (hover: hover) {
-  .mettle-app [class*="text-3xl"]:hover,
-  .mettle-app [class*="text-4xl"]:hover,
-  .mettle-app [class*="text-5xl"]:hover {
-    text-shadow: 0 0 20px rgba(201,168,76,0.4);
-  }
-}
-
-/* ── SLIDE-IN ROWS — hover glow ── */
-.mettle-app .slide-in:hover {
-  box-shadow: 0 0 15px rgba(0,240,255,0.1);
-}
-
-/* ── TABLE ROWS — stripe hover ── */
-.mettle-app tr {
-  transition: background-color 0.15s ease;
-}
-@media (hover: hover) {
-  .mettle-app tbody tr:hover {
-    background-color: rgba(201,168,76,0.04);
-  }
-}
-
-/* ── ICON/AVATAR ELEMENTS — bounce on tap ── */
-.mettle-app svg,
-.mettle-app img[class*="rounded-full"] {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.mettle-app svg:active,
-.mettle-app img[class*="rounded-full"]:active {
-  transform: scale(0.85);
-}
-
-/* ── LINKS inside METTLE — underline slide ── */
-.mettle-app a[class*="text-"]:not([class*="flex"]) {
-  position: relative;
-}
-.mettle-app a[class*="text-"]:not([class*="flex"])::after {
+.btn-ripple::after {
   content: '';
   position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 0;
-  height: 1px;
-  background: currentColor;
-  transition: width 0.25s ease;
-}
-@media (hover: hover) {
-  .mettle-app a[class*="text-"]:not([class*="flex"]):hover::after {
-    width: 100%;
-  }
-}
-
-/* ── METTLE MICRO-INTERACTIONS (auto-enhanced) ────────── */
-
-/* Tap ripple effect */
-@keyframes mettleRipple {
-  0% { transform: translate(-50%, -50%) scale(0); opacity: 0.5; }
-  100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
-}
-.mettle-ripple {
-  position: absolute;
+  top: 50%; left: 50%;
+  width: 20px; height: 20px;
   border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  background: radial-gradient(circle, rgba(201,168,76,0.4) 0%, rgba(201,168,76,0.1) 40%, transparent 70%);
-  animation: mettleRipple 0.6s ease-out forwards;
+  background: rgba(0,240,255,0.3);
+  transform: translate(-50%, -50%) scale(0);
   pointer-events: none;
-  z-index: 50;
 }
-
-/* Staggered entrance */
-.mettle-entrance {
-  opacity: 0;
-  transform: translateY(16px);
-  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-}
-.mettle-entered {
-  opacity: 1;
-  transform: translateY(0);
+.btn-ripple:active::after {
+  animation: btnRipple 0.5s ease-out;
 }
 
 /* Mobile nav for Command Center */

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN } from "../auth";
+import { MASTER_PIN, loginWithPin, getSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
@@ -700,6 +700,11 @@ export default function AthletePortal() {
   const [coachGroup, setCoachGroup] = useState<string>("");
   useEffect(() => {
     setMounted(true);
+    // Auto-unlock for athletes with valid auth session
+    const session = getSession();
+    if (session && session.role === "athlete") {
+      setUnlocked(true);
+    }
     // Auto-unlock for coaches who already authenticated in the coach portal
     try {
       if (sessionStorage.getItem("apex-coach-auth")) {
@@ -717,8 +722,12 @@ export default function AthletePortal() {
     } catch {}
   }, []);
 
-  const handlePin = () => {
+  const handlePin = async () => {
     if (pinInput === MASTER_PIN) { setUnlocked(true); setPinError(false); return; }
+    // Check athlete PIN against Firestore
+    const result = await loginWithPin(pinInput.trim());
+    if (result.success) { setUnlocked(true); setPinError(false); return; }
+    // Fallback: check localStorage custom admin PIN
     let stored = "";
     if (typeof window !== "undefined") {
       const raw = localStorage.getItem("apex-athlete-pin");
