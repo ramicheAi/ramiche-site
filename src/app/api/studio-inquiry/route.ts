@@ -71,6 +71,29 @@ export const POST = withAudit("/api/studio-inquiry", async function POST(req: Re
     inquiries.push(inquiry);
     await writeFile(INQUIRIES_FILE, JSON.stringify(inquiries, null, 2));
 
+    // Fire-and-forget confirmation to prospect (non-disqualified only)
+    if (tag !== "disqualified" && process.env.GMAIL_USER) {
+      const firstName = nameRole.split(/[,\s]/)[0];
+      sendEmail({
+        to: email,
+        subject: "Ramiche Studio — Inquiry received",
+        html: `
+          <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;color:#333;">
+            <div style="border-bottom:2px solid #111;padding-bottom:12px;margin-bottom:24px;">
+              <strong style="font-size:14px;letter-spacing:0.1em;text-transform:uppercase;">Ramiche Studio</strong>
+            </div>
+            <p style="font-size:15px;line-height:1.6;">Hey ${firstName},</p>
+            <p style="font-size:15px;line-height:1.6;">Got your inquiry. I review every one personally and respond within 12 hours if it's a fit.</p>
+            <p style="font-size:15px;line-height:1.6;">If we move forward, the next step is a quick 15-minute call to get clear on your vision and make sure we're the right studio for you.</p>
+            <p style="font-size:15px;line-height:1.6;">Talk soon,<br/><strong>Ramon</strong><br/><span style="color:#888;font-size:13px;">Creative Director, Ramiche Studio</span></p>
+            <div style="border-top:1px solid #eee;margin-top:24px;padding-top:12px;color:#999;font-size:11px;">
+              ramiche.com/studio · Fort Lauderdale, FL
+            </div>
+          </div>
+        `,
+      }).catch((err) => console.error("Failed to send prospect confirmation:", err));
+    }
+
     // Fire-and-forget email notification to Ramon
     const notifyEmail = process.env.STUDIO_NOTIFY_EMAIL;
     if (notifyEmail) {
