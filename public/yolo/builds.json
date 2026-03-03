@@ -1,0 +1,53 @@
+[
+  {
+    "date": "2026-03-02",
+    "name": "Squad Status Board",
+    "idea": "Live dashboard showing all 19 agents with capability badges, model info, and provider \u2014 exposes which agents lack vision/TTS/scraping",
+    "status": "working",
+    "takeaway": "Built and verified on disk. Exposed capability gaps: DeepSeek/Kimi/GLM agents lack native vision \u2014 need OpenClaw image tool routing.",
+    "folder": "2026-03-02-squad-status-board",
+    "agent": "Atlas"
+  },
+  {
+    "date": "2026-03-02",
+    "name": "PrintFlow Storefront",
+    "idea": "Full drag-and-drop 3D print quoting storefront \u2014 Three.js STL viewer, instant cost calculator, material selector, order form. 1064 lines.",
+    "status": "working",
+    "takeaway": "NOVA built 1064 lines of real code at 1AM but saved to its own workspace (workspace-nova/) instead of shared workspace. Root cause: ~ path resolved to agent workspace. Fixed with absolute paths. Code at workspace-nova/yolo-builds/printflow-storefront/",
+    "folder": "2026-03-02-printflow-storefront",
+    "agent": "Nova",
+    "files": [
+      "index.html"
+    ],
+    "verified": true,
+    "note": "Saved to wrong workspace \u2014 path bug fixed for future builds"
+  },
+  {
+    "date": "2026-03-02",
+    "name": "PrintDiag \u2014 3D Print Failure Analyzer",
+    "idea": "Interactive FDM failure diagnostic tool with 10 failure modes, step-by-step flowcharts, slicer quick-fix tables, and material-specific notes from production experience",
+    "status": "working",
+    "takeaway": "690-line single HTML file covering the 10 most common FDM failures. Each mode has symptoms, root causes, diagnostic flowchart, and concrete slicer parameter changes. Bambu A1-specific notes where relevant. Could be extended with vision API for photo-based diagnosis.",
+    "folder": "2026-03-02-print-failure-analyzer",
+    "agent": "Nova",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "verified": true
+  },
+  {
+    "date": "2026-03-03",
+    "name": "FilaTrack \u2014 Filament Inventory & Cost Tracker",
+    "idea": "Interactive filament inventory manager with spool tracking, print logging with auto-deduction, cost-per-gram analytics, low-stock alerts, and data export \u2014 built for Bambu Lab A1 production pipeline",
+    "status": "working",
+    "takeaway": "1137-line single HTML file. Covers full spool lifecycle: add inventory, log prints (auto-deducts grams), track material costs, surface low-stock alerts. Seeds with realistic demo data. Could integrate with Bambu MQTT for auto-detection. Correct workspace path used this time.",
+    "folder": "2026-03-03-filament-tracker",
+    "agent": "Nova",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "verified": true
+  }
+]

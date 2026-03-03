@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NOVA PrintFlow — Instant 3D Print Quoting</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a0f;
+            --surface: #141420;
+            --surface2: #1a1a2e;
+            --accent: #00d4ff;
+            --accent2: #7b2dff;
+            --success: #00ff88;
+            --warning: #ffaa00;
+            --danger: #ff4466;
+            --text: #e8e8f0;
+            --text-dim: #8888a0;
+            --border: #2a2a40;
+        }
+
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 42px;
+            height: 42px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .logo h1 {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(90deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo span {
+            font-size: 13px;
+            color: var(--text-dim);
+            display: block;
+        }
+
+        .printer-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Main Layout */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 380px;
+            gap: 0;
+            min-height: calc(100vh - 82px);
+        }
+
+        @media (max-width: 900px) {
+            .main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Viewer Panel */
+        .viewer-panel {
+            position: relative;
+            background: var(--bg);
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Drop Zone */
+        .drop-zone {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed var(--border);
+            margin: 20px;
+            border-radius: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 400px;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.dragover {
+            border-color: var(--accent);
+            background: rgba(0, 212, 255, 0.03);
+        }
+
+        .drop-zone.has-model {
+            border: none;
+            margin: 0;
+            border-radius: 0;
+        }
+
+        .drop-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.6;
+        }
+
+        .drop-text h2 {
+            font-size: 20px;
+            margin-bottom: 8px;
+        }
+
+        .drop-text p {
+            color: var(--text-dim);
+            font-size: 14px;
+        }
+
+        .drop-hint {
+            margin-top: 16px;
+            padding: 8px 20px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #file-input { display: none; }
+
+        /* 3D Viewer Canvas */
+        #viewer-canvas {
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+
+        .viewer-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: none;
+            gap: 8px;
+        }
+
+        .viewer-controls.visible {
+            display: flex;
+        }
+
+        .viewer-btn {
+            padding: 8px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 12px;
+            cursor: pointer;
+        }
+
+        .viewer-btn:hover { border-color: var(--accent); }
+
+        .model-info-bar {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            display: none;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .model-info-bar.visible { display: flex; }
+
+        .info-chip {
+            padding: 5px 12px;
+            background: rgba(20, 20, 32, 0.9);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 12px;
+            backdrop-filter: blur(8px);
+        }
+
+        /* Quote Panel */
+        .quote-panel {
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Material Selector */
+        .material-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .material-card {
+            padding: 12px;
+            background: var(--surface2);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .material-card:hover { border-color: var(--accent); }
+        .material-card.selected {
+            border-color: var(--accent);
+            background: rgba(0, 212, 255, 0.08);
+        }
+
+        .material-name {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .material-price {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .material-tags {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+
+        .tag-food { background: rgba(0, 255, 136, 0.15); color: var(--success); }
+        .tag-uv { background: rgba(255, 170, 0, 0.15); color: var(--warning); }
+        .tag-flex { background: rgba(123, 45, 255, 0.15); color: #b07dff; }
+        .tag-easy { background: rgba(0, 212, 255, 0.15); color: var(--accent); }
+
+        /* Settings */
+        .settings-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+        }
+
+        .settings-label {
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+
+        .settings-value {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 120px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .slider-val {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 36px;
+            text-align: right;
+        }
+
+        select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        /* Quote Result */
+        .quote-result {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            display: none;
+        }
+
+        .quote-result.visible { display: block; }
+
+        .quote-total {
+            font-size: 36px;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--success), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+
+        .quote-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .breakdown-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+        }
+
+        .breakdown-row .label { color: var(--text-dim); }
+        .breakdown-row .value { font-weight: 600; }
+
+        .breakdown-divider {
+            border-top: 1px solid var(--border);
+            margin: 6px 0;
+        }
+
+        .quote-meta {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .meta-item {
+            font-size: 12px;
+            color: var(--text-dim);
+        }
+
+        .meta-item strong { color: var(--text); }
+
+        /* Order Button */
+        .order-section {
+            display: none;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .order-section.visible { display: flex; }
+
+        .input-field {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        .input-field:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        textarea.input-field {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .order-btn {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        .order-btn:hover { opacity: 0.9; }
+        .order-btn:active { transform: scale(0.98); }
+
+        .order-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Success Message */
+        .success-msg {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 255, 136, 0.08);
+            border: 1px solid rgba(0, 255, 136, 0.3);
+            border-radius: 12px;
+        }
+
+        .success-msg.visible { display: block; }
+
+        .success-msg h3 {
+            color: var(--success);
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-dim);
+        }
+
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* Loading */
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loading.visible { display: block; }
+
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Footer */
+        .footer {
+            padding: 12px 24px;
+            text-align: center;
+            font-size: 11px;
+            color: var(--text-dim);
+            border-top: 1px solid var(--border);
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="logo">
+        <div class="logo-icon">&#x1F5A8;&#xFE0F;</div>
+        <div>
+            <h1>NOVA PrintFlow</h1>
+            <span>Instant 3D Print Quoting</span>
+        </div>
+    </div>
+    <div class="printer-status">
+        <div class="status-dot"></div>
+        Bambu A1 — Online
+    </div>
+</div>
+
+<div class="main">
+    <!-- Viewer Panel -->
+    <div class="viewer-panel">
+        <div class="drop-zone" id="drop-zone">
+            <div class="drop-icon">&#x1F4E6;</div>
+            <div class="drop-text">
+                <h2>Drop your STL file here</h2>
+                <p>or click to browse</p>
+            </div>
+            <button class="drop-hint" onclick="document.getElementById('file-input').click()">Choose File</button>
+            <input type="file" id="file-input" accept=".stl,.obj">
+        </div>
+        <canvas id="viewer-canvas"></canvas>
+        <div class="model-info-bar" id="model-info-bar">
+            <div class="info-chip" id="info-dims"></div>
+            <div class="info-chip" id="info-tris"></div>
+            <div class="info-chip" id="info-water"></div>
+        </div>
+        <div class="viewer-controls" id="viewer-controls">
+            <button class="viewer-btn" onclick="resetCamera()">Reset View</button>
+            <button class="viewer-btn" onclick="toggleWireframe()">Wireframe</button>
+            <button class="viewer-btn" onclick="loadNewFile()">New File</button>
+        </div>
+    </div>
+
+    <!-- Quote Panel -->
+    <div class="quote-panel">
+        <div class="panel-title">Material</div>
+        <div class="material-grid">
+            <div class="material-card selected" data-material="PLA" onclick="selectMaterial(this)">
+                <div class="material-name">PLA</div>
+                <div class="material-price">$22/kg</div>
+                <div class="material-tags">
+                    <span class="tag tag-easy">Easy Print</span>
+                </div>
+            </div>
+            <div class="material-card" data-material="PLA+" onclick="selectMaterial(this)">
+                <div class="material-name">PLA+</div>
+                <div class="material-price">$24/kg</div>
+                <div class="material-tags">
+                    <span class="tag tag-easy">Stronger</span>
+                </div>
+            </div>
+            <div class="material-card" data-material="PETG" onclick="selectMaterial(this)">
+                <div class="material-name">PETG</div>
+                <div class="material-price">$25/kg</div>
+                <div class="material-tags">
+                    <span class="tag tag-food">Food Safe</span>
+                </div>
+            </div>
+            <div class="material-card" data-material="ASA" onclick="selectMaterial(this)">
+                <div class="material-name">ASA</div>
+                <div class="material-price">$28/kg</div>
+                <div class="material-tags">
+                    <span class="tag tag-uv">UV Resist</span>
+                </div>
+            </div>
+            <div class="material-card" data-material="ABS" onclick="selectMaterial(this)">
+                <div class="material-name">ABS</div>
+                <div class="material-price">$22/kg</div>
+                <div class="material-tags">
+                    <span class="tag tag-uv">Heat Resist</span>
+                </div>
+            </div>
+            <div class="material-card" data-material="TPU" onclick="selectMaterial(this)">
+                <div class="material-name">TPU</div>
+                <div class="material-price">$32/kg</div>
+                <div class="material-tags">
+                    <span class="tag tag-flex">Flexible</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-title">Settings</div>
+        <div>
+            <div class="settings-row">
+                <span class="settings-label">Infill</span>
+                <div class="slider-container">
+                    <input type="range" id="infill-slider" min="5" max="100" value="15" oninput="updateInfill(this.value)">
+                    <span class="slider-val" id="infill-val">15%</span>
+                </div>
+            </div>
+            <div class="settings-row">
+                <span class="settings-label">Layer Height</span>
+                <select id="layer-select" onchange="updateQuote()">
+                    <option value="0.08">0.08mm (Ultra Fine)</option>
+                    <option value="0.12">0.12mm (Fine)</option>
+                    <option value="0.16" selected>0.16mm (Quality)</option>
+                    <option value="0.20">0.20mm (Fast)</option>
+                    <option value="0.28">0.28mm (Draft)</option>
+                </select>
+            </div>
+            <div class="settings-row">
+                <span class="settings-label">Quantity</span>
+                <div class="slider-container">
+                    <input type="range" id="qty-slider" min="1" max="20" value="1" oninput="updateQty(this.value)">
+                    <span class="slider-val" id="qty-val">1x</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state">
+            <div class="icon">&#x2B06;&#xFE0F;</div>
+            <p>Upload an STL file to get an instant quote</p>
+        </div>
+
+        <!-- Loading -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Analyzing model...</p>
+        </div>
+
+        <!-- Quote Result -->
+        <div class="quote-result" id="quote-result">
+            <div class="panel-title">Quote</div>
+            <div class="quote-total" id="quote-total">$0.00</div>
+            <div class="quote-breakdown">
+                <div class="breakdown-row">
+                    <span class="label">Material</span>
+                    <span class="value" id="cost-material">$0.00</span>
+                </div>
+                <div class="breakdown-row">
+                    <span class="label">Electricity</span>
+                    <span class="value" id="cost-electricity">$0.00</span>
+                </div>
+                <div class="breakdown-row">
+                    <span class="label">Depreciation</span>
+                    <span class="value" id="cost-depreciation">$0.00</span>
+                </div>
+                <div class="breakdown-row">
+                    <span class="label">Post-processing</span>
+                    <span class="value" id="cost-postprocess">$0.00</span>
+                </div>
+                <div class="breakdown-divider"></div>
+                <div class="breakdown-row">
+                    <span class="label">Production cost</span>
+                    <span class="value" id="cost-production">$0.00</span>
+                </div>
+                <div class="breakdown-row">
+                    <span class="label">Service fee (40%)</span>
+                    <span class="value" id="cost-margin">$0.00</span>
+                </div>
+                <div class="breakdown-divider"></div>
+                <div class="breakdown-row">
+                    <span class="label"><strong>Per unit</strong></span>
+                    <span class="value" id="cost-perunit"><strong>$0.00</strong></span>
+                </div>
+            </div>
+            <div class="quote-meta">
+                <div class="meta-item">Weight: <strong id="meta-weight">0g</strong></div>
+                <div class="meta-item">Print time: <strong id="meta-time">0h</strong></div>
+                <div class="meta-item">Triangles: <strong id="meta-tris">0</strong></div>
+            </div>
+        </div>
+
+        <!-- Order Section -->
+        <div class="order-section" id="order-section">
+            <div class="panel-title">Submit Order</div>
+            <input type="text" class="input-field" id="order-name" placeholder="Your name">
+            <input type="email" class="input-field" id="order-email" placeholder="Email address">
+            <textarea class="input-field" id="order-notes" placeholder="Special instructions (color, finish, etc.)"></textarea>
+            <button class="order-btn" id="order-btn" onclick="submitOrder()">
+                Submit Order
+            </button>
+        </div>
+
+        <div class="success-msg" id="success-msg">
+            <h3>Order Submitted!</h3>
+            <p>NOVA will review your model and send a confirmation within 24 hours.</p>
+            <p id="order-id" style="margin-top:8px;font-size:12px;color:var(--text-dim)"></p>
+        </div>
+
+        <div class="footer">
+            Powered by NOVA PrintFlow — Bambu Lab A1 | Ramiche Fabrication
+        </div>
+    </div>
+</div>
+
+<!-- Three.js for 3D preview -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+<script>
+// -- Material Database (matches quote-calc.py) --
+const MATERIALS = {
+    PLA:  { cost_per_kg: 22, density: 1.24, food_safe: false, uv_resistant: false, hdt: 55 },
+    'PLA+': { cost_per_kg: 24, density: 1.24, food_safe: false, uv_resistant: false, hdt: 55 },
+    PETG: { cost_per_kg: 25, density: 1.27, food_safe: true,  uv_resistant: false, hdt: 70 },
+    ASA:  { cost_per_kg: 28, density: 1.07, food_safe: false, uv_resistant: true,  hdt: 95 },
+    ABS:  { cost_per_kg: 22, density: 1.04, food_safe: false, uv_resistant: false, hdt: 90 },
+    TPU:  { cost_per_kg: 32, density: 1.21, food_safe: false, uv_resistant: false, hdt: 60 },
+};
+
+const ELECTRICITY_RATE = 0.15;
+const PRINTER_WATTAGE = 150;
+const MACHINE_COST = 400;
+const MACHINE_LIFESPAN_HOURS = 5000;
+const WASTE_FACTOR = 1.08;
+const POST_PROCESS_RATE = 15.00;
+const DEFAULT_MARGIN = 0.40;
+
+// -- State --
+let currentModel = null;
+let scene, camera, renderer, controls, meshObj;
+let wireframeMode = false;
+let selectedMaterial = 'PLA';
+
+// -- Three.js Setup --
+function initViewer() {
+    const canvas = document.getElementById('viewer-canvas');
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0f);
+
+    camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
+    camera.position.set(100, 80, 100);
+
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    dirLight.position.set(50, 100, 50);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+
+    const fillLight = new THREE.DirectionalLight(0x00d4ff, 0.3);
+    fillLight.position.set(-50, 30, -50);
+    scene.add(fillLight);
+
+    // Grid
+    const grid = new THREE.GridHelper(200, 20, 0x2a2a40, 0x1a1a2e);
+    scene.add(grid);
+
+    resizeViewer();
+    window.addEventListener('resize', resizeViewer);
+    animate();
+}
+
+function resizeViewer() {
+    const panel = document.querySelector('.viewer-panel');
+    const w = panel.clientWidth;
+    const h = panel.clientHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+// -- File Handling --
+function setupDropZone() {
+    const zone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+
+    zone.addEventListener('dragover', e => {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+    zone.addEventListener('drop', e => {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+    });
+
+    zone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+        if (e.target.files.length) handleFile(e.target.files[0]);
+    });
+}
+
+function handleFile(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (ext !== 'stl' && ext !== 'obj') {
+        alert('Please upload an STL or OBJ file.');
+        return;
+    }
+
+    document.getElementById('loading').classList.add('visible');
+    document.getElementById('empty-state').style.display = 'none';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        parseSTL(e.target.result, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseSTL(buffer, filename) {
+    const loader = new THREE.STLLoader();
+    const geometry = loader.parse(buffer);
+
+    geometry.computeBoundingBox();
+    const box = geometry.boundingBox;
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+
+    // Compute volume (sum of signed tetrahedra volumes)
+    const pos = geometry.attributes.position;
+    let volume = 0;
+    for (let i = 0; i < pos.count; i += 3) {
+        const ax = pos.getX(i), ay = pos.getY(i), az = pos.getZ(i);
+        const bx = pos.getX(i+1), by = pos.getY(i+1), bz = pos.getZ(i+1);
+        const cx = pos.getX(i+2), cy = pos.getY(i+2), cz = pos.getZ(i+2);
+        volume += (ax*(by*cz - bz*cy) + bx*(cy*az - cz*ay) + cx*(ay*bz - az*by)) / 6.0;
+    }
+    volume = Math.abs(volume); // mm3
+
+    const triangleCount = pos.count / 3;
+
+    currentModel = {
+        filename,
+        geometry,
+        volume_mm3: volume,
+        volume_cm3: volume / 1000,
+        dimensions: [size.x, size.y, size.z],
+        center: [center.x, center.y, center.z],
+        triangles: triangleCount,
+        is_watertight: volume > 0.01, // rough check
+    };
+
+    displayModel(geometry, center, Math.max(size.x, size.y, size.z));
+    updateQuote();
+
+    // Update UI
+    document.getElementById('loading').classList.remove('visible');
+    document.getElementById('drop-zone').style.display = 'none';
+    document.getElementById('drop-zone').classList.add('has-model');
+    document.getElementById('viewer-canvas').style.display = 'block';
+    document.getElementById('viewer-controls').classList.add('visible');
+    document.getElementById('model-info-bar').classList.add('visible');
+
+    // Info chips
+    document.getElementById('info-dims').textContent =
+        size.x.toFixed(1) + ' x ' + size.y.toFixed(1) + ' x ' + size.z.toFixed(1) + ' mm';
+    document.getElementById('info-tris').textContent = triangleCount.toLocaleString() + ' triangles';
+    document.getElementById('info-water').textContent = currentModel.is_watertight ? 'Watertight' : 'Not watertight';
+}
+
+function displayModel(geometry, center, maxDim) {
+    if (meshObj) scene.remove(meshObj);
+
+    const material = new THREE.MeshPhongMaterial({
+        color: 0x00d4ff,
+        specular: 0x222244,
+        shininess: 40,
+        flatShading: false,
+    });
+
+    geometry.computeVertexNormals();
+    meshObj = new THREE.Mesh(geometry, material);
+    meshObj.geometry.center();
+    meshObj.castShadow = true;
+    meshObj.receiveShadow = true;
+    scene.add(meshObj);
+
+    // Camera fit
+    const dist = maxDim * 1.8;
+    camera.position.set(dist * 0.7, dist * 0.5, dist * 0.7);
+    controls.target.set(0, 0, 0);
+    controls.update();
+}
+
+function resetCamera() {
+    if (!currentModel) return;
+    const maxDim = Math.max(...currentModel.dimensions);
+    const dist = maxDim * 1.8;
+    camera.position.set(dist * 0.7, dist * 0.5, dist * 0.7);
+    controls.target.set(0, 0, 0);
+    controls.update();
+}
+
+function toggleWireframe() {
+    if (!meshObj) return;
+    wireframeMode = !wireframeMode;
+    meshObj.material.wireframe = wireframeMode;
+}
+
+function loadNewFile() {
+    document.getElementById('file-input').value = '';
+    document.getElementById('file-input').click();
+}
+
+// -- Material Selection --
+function selectMaterial(el) {
+    document.querySelectorAll('.material-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedMaterial = el.dataset.material;
+    updateQuote();
+}
+
+// -- Quote Calculation (matches quote-calc.py logic) --
+function updateInfill(val) {
+    document.getElementById('infill-val').textContent = val + '%';
+    updateQuote();
+}
+
+function updateQty(val) {
+    document.getElementById('qty-val').textContent = val + 'x';
+    updateQuote();
+}
+
+function updateQuote() {
+    if (!currentModel) return;
+
+    const mat = MATERIALS[selectedMaterial];
+    const infill = parseInt(document.getElementById('infill-slider').value);
+    const layerHeight = parseFloat(document.getElementById('layer-select').value);
+    const qty = parseInt(document.getElementById('qty-slider').value);
+
+    const volume_cm3 = currentModel.volume_cm3;
+    const dims = currentModel.dimensions;
+
+    // Shell fraction estimate (matches quote-calc.py)
+    const shellThickness = 1.6;
+    const maxDim = Math.max(...dims);
+    const shellFraction = Math.min(0.5, shellThickness * 6 / maxDim);
+    const interiorFraction = 1.0 - shellFraction;
+    const effectiveVolume = volume_cm3 * (shellFraction + interiorFraction * (infill / 100.0));
+
+    const weight_g = effectiveVolume * mat.density;
+
+    // Print time estimate
+    const throughput = layerHeight <= 0.16 ? 20 : 30; // cm3/hr
+    let printHours = effectiveVolume / throughput + 0.25;
+
+    // Costs
+    const materialCost = (weight_g / 1000) * mat.cost_per_kg * WASTE_FACTOR;
+    const electricityCost = (PRINTER_WATTAGE / 1000) * printHours * ELECTRICITY_RATE;
+    const depreciationCost = (MACHINE_COST / MACHINE_LIFESPAN_HOURS) * printHours;
+    const ppHours = weight_g < 50 ? 0.25 : weight_g < 150 ? 0.50 : 0.75;
+    const postProcessCost = ppHours * POST_PROCESS_RATE;
+
+    const productionCost = materialCost + electricityCost + depreciationCost + postProcessCost;
+    const margin = productionCost * DEFAULT_MARGIN;
+    const unitPrice = productionCost + margin;
+    const totalPrice = unitPrice * qty;
+
+    // Update DOM
+    document.getElementById('quote-total').textContent = '$' + totalPrice.toFixed(2);
+    document.getElementById('cost-material').textContent = '$' + (materialCost * qty).toFixed(2);
+    document.getElementById('cost-electricity').textContent = '$' + (electricityCost * qty).toFixed(2);
+    document.getElementById('cost-depreciation').textContent = '$' + (depreciationCost * qty).toFixed(2);
+    document.getElementById('cost-postprocess').textContent = '$' + (postProcessCost * qty).toFixed(2);
+    document.getElementById('cost-production').textContent = '$' + (productionCost * qty).toFixed(2);
+    document.getElementById('cost-margin').textContent = '$' + (margin * qty).toFixed(2);
+    document.getElementById('cost-perunit').innerHTML = '<strong>$' + unitPrice.toFixed(2) + '</strong>';
+
+    document.getElementById('meta-weight').textContent = (weight_g * qty).toFixed(0) + 'g';
+    document.getElementById('meta-time').textContent = (printHours * qty).toFixed(1) + 'h';
+    document.getElementById('meta-tris').textContent = currentModel.triangles.toLocaleString();
+
+    document.getElementById('quote-result').classList.add('visible');
+    document.getElementById('order-section').classList.add('visible');
+}
+
+// -- Order Submission --
+function submitOrder() {
+    const name = document.getElementById('order-name').value.trim();
+    const email = document.getElementById('order-email').value.trim();
+    const notes = document.getElementById('order-notes').value.trim();
+
+    if (!name || !email) {
+        alert('Please enter your name and email.');
+        return;
+    }
+
+    const qty = parseInt(document.getElementById('qty-slider').value);
+    const orderId = 'NOVA-' + Date.now().toString(36).toUpperCase();
+
+    const order = {
+        id: orderId,
+        timestamp: new Date().toISOString(),
+        customer: { name, email },
+        model: {
+            filename: currentModel.filename,
+            dimensions: currentModel.dimensions.map(d => d.toFixed(1) + 'mm'),
+            triangles: currentModel.triangles,
+            volume_cm3: currentModel.volume_cm3.toFixed(2),
+        },
+        material: selectedMaterial,
+        infill: document.getElementById('infill-slider').value + '%',
+        layer_height: document.getElementById('layer-select').value + 'mm',
+        quantity: qty,
+        total: document.getElementById('quote-total').textContent,
+        notes: notes || 'None',
+    };
+
+    // Store in localStorage
+    const orders = JSON.parse(localStorage.getItem('nova-orders') || '[]');
+    orders.push(order);
+    localStorage.setItem('nova-orders', JSON.stringify(orders));
+
+    // Show success
+    document.getElementById('order-section').classList.remove('visible');
+    document.getElementById('success-msg').classList.add('visible');
+    document.getElementById('order-id').textContent = 'Order ID: ' + orderId;
+    document.getElementById('order-btn').disabled = true;
+
+    console.log('Order submitted:', order);
+}
+
+// -- Init --
+initViewer();
+setupDropZone();
+</script>
+
+</body>
+</html>

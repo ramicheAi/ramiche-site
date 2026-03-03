@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YOLO Overnight Builds — Parallax</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-hover: #1a1a26;
+    --border: rgba(139, 92, 246, 0.25);
+    --border-glow: rgba(139, 92, 246, 0.5);
+    --text: #e4e4e7;
+    --text-dim: #71717a;
+    --accent: #8b5cf6;
+    --accent-glow: rgba(139, 92, 246, 0.3);
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --gold: #d4a843;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    width: 100%;
+    padding: 24px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+  }
+
+  .header h1 {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: pulse-glow 4s ease-in-out infinite;
+  }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    margin-top: 8px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-cols: repeat(4, 1fr);
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card:hover { border-color: var(--border-glow); }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+
+  /* Filters */
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 8px 20px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover { border-color: var(--border-glow); color: var(--text); }
+  .filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+  /* Build cards */
+  .builds-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 16px;
+  }
+
+  @media (min-width: 768px) { .builds-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .builds-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1280px) { .builds-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .build-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .build-card:hover {
+    border-color: var(--border-glow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px var(--accent-glow);
+  }
+
+  .build-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+
+  .build-card.status-working::before { background: var(--success); }
+  .build-card.status-partial::before { background: var(--warning); }
+  .build-card.status-failed::before { background: var(--danger); }
+
+  .build-date {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .build-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+
+  .build-idea {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+
+  .build-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .build-status.working { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+  .build-status.partial { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+  .build-status.failed { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+  .build-takeaway {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-style: italic;
+  }
+
+  .build-folder {
+    font-size: 0.7rem;
+    color: var(--accent);
+    margin-top: 8px;
+    word-break: break-all;
+  }
+
+  .build-agent {
+    font-size: 0.7rem;
+    color: var(--gold);
+    margin-top: 4px;
+  }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-dim);
+  }
+
+  .empty-state .icon {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    animation: float 3s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+
+  /* Ambient particles */
+  .particle {
+    position: fixed;
+    width: 2px;
+    height: 2px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    animation: drift 8s linear infinite;
+  }
+
+  @keyframes drift {
+    0% { opacity: 0; transform: translateY(100vh) scale(0); }
+    10% { opacity: 0.4; }
+    90% { opacity: 0.1; }
+    100% { opacity: 0; transform: translateY(-20px) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<!-- Ambient particles -->
+<div id="particles"></div>
+
+<div class="header">
+  <h1>YOLO OVERNIGHT BUILDS</h1>
+  <div class="subtitle">Parallax &middot; Shipped While You Slept</div>
+</div>
+
+<div class="stats-bar" id="stats-bar">
+  <div class="stat-card">
+    <div class="stat-value" id="stat-total">0</div>
+    <div class="stat-label">Total Builds</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-working">0</div>
+    <div class="stat-label">Working</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-partial">0</div>
+    <div class="stat-label">Partial</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-failed">0</div>
+    <div class="stat-label">Failed</div>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="filter-btn active" onclick="filter('all')">All</button>
+  <button class="filter-btn" onclick="filter('working')">Working</button>
+  <button class="filter-btn" onclick="filter('partial')">Partial</button>
+  <button class="filter-btn" onclick="filter('failed')">Failed</button>
+</div>
+
+<div class="builds-grid" id="builds-grid"></div>
+
+<script>
+  // Generate ambient particles
+  const particleContainer = document.getElementById('particles');
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + 'vw';
+    p.style.animationDelay = Math.random() * 8 + 's';
+    p.style.animationDuration = (6 + Math.random() * 6) + 's';
+    particleContainer.appendChild(p);
+  }
+
+  let builds = [];
+  let currentFilter = 'all';
+
+  async function loadBuilds() {
+    try {
+      const res = await fetch('./builds.json?t=' + Date.now());
+      builds = await res.json();
+    } catch (e) {
+      builds = [];
+    }
+    render();
+  }
+
+  function filter(status) {
+    currentFilter = status;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    render();
+  }
+
+  function statusEmoji(status) {
+    if (status === 'working') return '✅';
+    if (status === 'partial') return '⚠️';
+    return '❌';
+  }
+
+  function statusClass(status) {
+    if (status === 'working') return 'working';
+    if (status === 'partial') return 'partial';
+    return 'failed';
+  }
+
+  function render() {
+    // Stats
+    document.getElementById('stat-total').textContent = builds.length;
+    document.getElementById('stat-working').textContent = builds.filter(b => b.status === 'working').length;
+    document.getElementById('stat-partial').textContent = builds.filter(b => b.status === 'partial').length;
+    document.getElementById('stat-failed').textContent = builds.filter(b => b.status === 'failed').length;
+
+    // Filter
+    const filtered = currentFilter === 'all' ? builds : builds.filter(b => b.status === currentFilter);
+
+    const grid = document.getElementById('builds-grid');
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column: 1 / -1;">
+          <div class="icon">🌙</div>
+          <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 8px;">No builds yet</div>
+          <div>The overnight builders haven't shipped yet. Check back in the morning.</div>
+        </div>
+      `;
+      return;
+    }
+
+    // Newest first
+    const sorted = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    grid.innerHTML = sorted.map(b => {
+      const folderName = b.folder || '';
+      const link = folderName ? './' + folderName + '/index.html' : '#';
+      return `
+      <a href="${link}" style="text-decoration:none;color:inherit;display:block;">
+        <div class="build-card status-${statusClass(b.status)}">
+          <div class="build-date">${b.date}</div>
+          <div class="build-name">${b.name}</div>
+          <div class="build-idea">${b.idea}</div>
+          <div class="build-status ${statusClass(b.status)}">${statusEmoji(b.status)} ${b.status}</div>
+          ${b.takeaway ? `<div class="build-takeaway">"${b.takeaway}"</div>` : ''}
+          ${b.folder ? `<div class="build-folder">📁 ${folderName}</div>` : ''}
+          ${b.agent ? `<div class="build-agent">🤖 Built by ${b.agent}</div>` : ''}
+        </div>
+      </a>`;
+    }).join('');
+  }
+
+  loadBuilds();
+</script>
+</body>
+</html>

@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FilaTrack — Filament Inventory & Cost Tracker</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(139, 92, 246, 0.25);
+    --border-glow: rgba(139, 92, 246, 0.5);
+    --purple: #8b5cf6;
+    --purple-soft: #a78bfa;
+    --gold: #f59e0b;
+    --green: #10b981;
+    --red: #ef4444;
+    --orange: #f97316;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient particles */
+  #particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    padding: 20px;
+    max-width: 100%;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 24px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 20px;
+  }
+
+  .header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--purple), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    margin-top: 2px;
+  }
+
+  .header-stats {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+  }
+
+  .header-stat {
+    text-align: center;
+  }
+
+  .header-stat .value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--purple-soft);
+  }
+
+  .header-stat .label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Stats Row */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card:hover {
+    border-color: var(--border-glow);
+  }
+
+  .stat-card .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .stat-card .stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* Main Grid */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .main-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Panels */
+  .panel {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .panel-header h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--purple-soft);
+  }
+
+  .panel-body {
+    padding: 16px 20px;
+  }
+
+  /* Spool List */
+  .spool-item {
+    display: grid;
+    grid-template-columns: 8px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .spool-item:last-child { border-bottom: none; }
+
+  .spool-color {
+    width: 8px;
+    height: 40px;
+    border-radius: 4px;
+  }
+
+  .spool-info h3 {
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+
+  .spool-info .spool-meta {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    display: flex;
+    gap: 12px;
+  }
+
+  .spool-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  /* Progress bar for remaining */
+  .spool-bar-wrap {
+    width: 80px;
+    height: 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .spool-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+  }
+
+  .spool-pct {
+    font-size: 0.75rem;
+    font-weight: 600;
+    width: 36px;
+    text-align: right;
+  }
+
+  /* Buttons */
+  .btn {
+    padding: 8px 16px;
+    border: 2px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 600;
+  }
+
+  .btn:hover {
+    border-color: var(--purple);
+    background: rgba(139, 92, 246, 0.1);
+  }
+
+  .btn-primary {
+    background: var(--purple);
+    border-color: var(--purple);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #7c3aed;
+  }
+
+  .btn-danger {
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .btn-danger:hover {
+    border-color: var(--red);
+    background: rgba(239, 68, 68, 0.1);
+  }
+
+  .btn-sm {
+    padding: 4px 10px;
+    font-size: 0.65rem;
+  }
+
+  /* Form Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 2px solid var(--border-glow);
+    border-radius: 16px;
+    padding: 28px;
+    width: 90%;
+    max-width: 460px;
+    animation: modalIn 0.2s ease;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal h2 {
+    font-size: 1.1rem;
+    margin-bottom: 20px;
+    color: var(--purple-soft);
+  }
+
+  .form-group {
+    margin-bottom: 14px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .form-group input, .form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--purple);
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+
+  .color-preview {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 2px solid var(--border);
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 8px;
+  }
+
+  /* Print Log */
+  .log-item {
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.8rem;
+  }
+
+  .log-item:last-child { border-bottom: none; }
+
+  .log-item .log-date {
+    color: var(--text-muted);
+    font-size: 0.65rem;
+  }
+
+  .log-item .log-desc {
+    margin-top: 2px;
+  }
+
+  .log-item .log-usage {
+    color: var(--gold);
+    font-weight: 600;
+  }
+
+  /* Alerts */
+  .alert-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+  }
+
+  .alert-item.warning {
+    background: rgba(249, 115, 22, 0.06);
+    border-color: rgba(249, 115, 22, 0.2);
+  }
+
+  .alert-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--red);
+    flex-shrink: 0;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .alert-item.warning .alert-dot {
+    background: var(--orange);
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Cost breakdown */
+  .cost-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 0.8rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+
+  .cost-row:last-child { border-bottom: none; }
+
+  .cost-row .cost-label { color: var(--text-dim); }
+  .cost-row .cost-value { font-weight: 600; }
+
+  .empty-state {
+    text-align: center;
+    padding: 30px;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  /* Export bar */
+  .export-bar {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Heartbeat glow on header */
+  .header {
+    animation: headerPulse 4.8s ease-in-out infinite;
+  }
+
+  @keyframes headerPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(139, 92, 246, 0.05); }
+    50% { box-shadow: 0 0 30px rgba(139, 92, 246, 0.15); }
+  }
+
+  /* Full width span */
+  .full-span {
+    grid-column: 1 / -1;
+  }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>FilaTrack</h1>
+      <div class="subtitle">Bambu Lab A1 — Filament Inventory & Cost Tracker</div>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat">
+        <div class="value" id="hdr-spools">0</div>
+        <div class="label">Spools</div>
+      </div>
+      <div class="header-stat">
+        <div class="value" id="hdr-weight">0g</div>
+        <div class="label">In Stock</div>
+      </div>
+      <div class="header-stat">
+        <div class="value" id="hdr-value">$0</div>
+        <div class="label">Inventory Value</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-value" id="stat-prints">0</div>
+      <div class="stat-label">Total Prints</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-used">0g</div>
+      <div class="stat-label">Filament Used</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-cost">$0</div>
+      <div class="stat-label">Material Cost</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-avg">$0</div>
+      <div class="stat-label">Avg Cost/Print</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-value" id="stat-cpg">$0.00</div>
+      <div class="stat-label">Avg $/gram</div>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="main-grid">
+    <!-- Spool Inventory -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Spool Inventory</h2>
+        <button class="btn btn-primary btn-sm" onclick="openSpoolModal()">+ Add Spool</button>
+      </div>
+      <div class="panel-body" id="spool-list">
+        <div class="empty-state">No spools added yet. Click "+ Add Spool" to start.</div>
+      </div>
+    </div>
+
+    <!-- Alerts -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Low Stock Alerts</h2>
+      </div>
+      <div class="panel-body" id="alerts-list">
+        <div class="empty-state">All spools are well stocked.</div>
+      </div>
+    </div>
+
+    <!-- Print Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Print Log</h2>
+        <button class="btn btn-sm" onclick="openLogModal()">+ Log Print</button>
+      </div>
+      <div class="panel-body" id="log-list">
+        <div class="empty-state">No prints logged yet.</div>
+      </div>
+    </div>
+
+    <!-- Cost Breakdown -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Material Cost Breakdown</h2>
+      </div>
+      <div class="panel-body" id="cost-breakdown">
+        <div class="empty-state">Add spools and log prints to see cost analysis.</div>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="panel full-span">
+      <div class="panel-header">
+        <h2>Data Management</h2>
+      </div>
+      <div class="panel-body">
+        <div class="export-bar" style="border: none; padding-top: 0; margin-top: 0;">
+          <button class="btn btn-sm" onclick="exportData()">Export JSON</button>
+          <button class="btn btn-sm" onclick="importData()">Import JSON</button>
+          <button class="btn btn-sm" onclick="exportCSV()">Export CSV</button>
+          <button class="btn btn-danger btn-sm" onclick="clearAll()">Reset All Data</button>
+        </div>
+        <input type="file" id="import-input" accept=".json" style="display:none" onchange="handleImport(event)">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Spool Modal -->
+<div class="modal-overlay" id="spool-modal">
+  <div class="modal">
+    <h2 id="spool-modal-title">Add New Spool</h2>
+    <input type="hidden" id="spool-edit-id">
+    <div class="form-group">
+      <label>Material</label>
+      <select id="spool-material" onchange="autoSetDefaults()">
+        <option value="PLA">PLA</option>
+        <option value="PLA+">PLA+</option>
+        <option value="PETG">PETG</option>
+        <option value="ASA">ASA</option>
+        <option value="ABS">ABS</option>
+        <option value="TPU">TPU</option>
+        <option value="PLA-CF">PLA-CF</option>
+        <option value="PETG-CF">PETG-CF</option>
+        <option value="Nylon">Nylon</option>
+        <option value="PC">PC</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Brand / Name</label>
+      <input type="text" id="spool-brand" placeholder="e.g. Bambu PLA Basic, eSUN PLA+">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Color <span class="color-preview" id="color-preview"></span></label>
+        <input type="color" id="spool-color" value="#ffffff" oninput="document.getElementById('color-preview').style.background=this.value">
+      </div>
+      <div class="form-group">
+        <label>Color Name</label>
+        <input type="text" id="spool-color-name" placeholder="e.g. Matte Black">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Spool Weight (g)</label>
+        <input type="number" id="spool-weight" value="1000" min="100" max="5000">
+      </div>
+      <div class="form-group">
+        <label>Remaining (g)</label>
+        <input type="number" id="spool-remaining" value="1000" min="0" max="5000">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Cost per Spool ($)</label>
+        <input type="number" id="spool-cost" value="25" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Print Temp (°C)</label>
+        <input type="number" id="spool-temp" value="210" min="150" max="320">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input type="text" id="spool-notes" placeholder="Optional notes...">
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeSpoolModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSpool()">Save Spool</button>
+    </div>
+  </div>
+</div>
+
+<!-- Log Print Modal -->
+<div class="modal-overlay" id="log-modal">
+  <div class="modal">
+    <h2>Log Print Job</h2>
+    <div class="form-group">
+      <label>Spool Used</label>
+      <select id="log-spool"></select>
+    </div>
+    <div class="form-group">
+      <label>Project / Part Name</label>
+      <input type="text" id="log-name" placeholder="e.g. Phone case, Gear housing">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Filament Used (g)</label>
+        <input type="number" id="log-grams" value="20" min="1" max="5000">
+      </div>
+      <div class="form-group">
+        <label>Print Duration (hrs)</label>
+        <input type="number" id="log-hours" value="2" min="0.1" max="100" step="0.1">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Status</label>
+      <select id="log-status">
+        <option value="success">Success</option>
+        <option value="failed">Failed</option>
+        <option value="partial">Partial (stopped early)</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input type="text" id="log-notes" placeholder="Optional...">
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeLogModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveLog()">Log Print</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== DATA STORE =====
+const STORAGE_KEY = 'filatrack';
+
+function loadData() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { spools: [], logs: [] };
+  } catch { return { spools: [], logs: [] }; }
+}
+
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+// ===== SPOOL MODAL =====
+function openSpoolModal(editId) {
+  const modal = document.getElementById('spool-modal');
+  const title = document.getElementById('spool-modal-title');
+  modal.classList.add('active');
+
+  if (editId) {
+    title.textContent = 'Edit Spool';
+    document.getElementById('spool-edit-id').value = editId;
+    const data = loadData();
+    const spool = data.spools.find(s => s.id === editId);
+    if (spool) {
+      document.getElementById('spool-material').value = spool.material;
+      document.getElementById('spool-brand').value = spool.brand;
+      document.getElementById('spool-color').value = spool.color;
+      document.getElementById('spool-color-name').value = spool.colorName;
+      document.getElementById('spool-weight').value = spool.totalWeight;
+      document.getElementById('spool-remaining').value = spool.remaining;
+      document.getElementById('spool-cost').value = spool.cost;
+      document.getElementById('spool-temp').value = spool.temp;
+      document.getElementById('spool-notes').value = spool.notes || '';
+      document.getElementById('color-preview').style.background = spool.color;
+    }
+  } else {
+    title.textContent = 'Add New Spool';
+    document.getElementById('spool-edit-id').value = '';
+    document.getElementById('spool-material').value = 'PLA';
+    document.getElementById('spool-brand').value = '';
+    document.getElementById('spool-color').value = '#ffffff';
+    document.getElementById('spool-color-name').value = '';
+    document.getElementById('spool-weight').value = 1000;
+    document.getElementById('spool-remaining').value = 1000;
+    document.getElementById('spool-cost').value = 25;
+    document.getElementById('spool-temp').value = 210;
+    document.getElementById('spool-notes').value = '';
+    document.getElementById('color-preview').style.background = '#ffffff';
+  }
+}
+
+function closeSpoolModal() {
+  document.getElementById('spool-modal').classList.remove('active');
+}
+
+function autoSetDefaults() {
+  const mat = document.getElementById('spool-material').value;
+  const temps = { PLA: 210, 'PLA+': 215, PETG: 240, ASA: 260, ABS: 250, TPU: 220, 'PLA-CF': 220, 'PETG-CF': 250, Nylon: 270, PC: 280 };
+  const costs = { PLA: 20, 'PLA+': 22, PETG: 25, ASA: 30, ABS: 22, TPU: 35, 'PLA-CF': 40, 'PETG-CF': 45, Nylon: 45, PC: 50 };
+  document.getElementById('spool-temp').value = temps[mat] || 210;
+  document.getElementById('spool-cost').value = costs[mat] || 25;
+}
+
+function saveSpool() {
+  const data = loadData();
+  const editId = document.getElementById('spool-edit-id').value;
+
+  const spool = {
+    id: editId || Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    material: document.getElementById('spool-material').value,
+    brand: document.getElementById('spool-brand').value || 'Generic',
+    color: document.getElementById('spool-color').value,
+    colorName: document.getElementById('spool-color-name').value || 'Unnamed',
+    totalWeight: parseInt(document.getElementById('spool-weight').value) || 1000,
+    remaining: parseInt(document.getElementById('spool-remaining').value) || 1000,
+    cost: parseFloat(document.getElementById('spool-cost').value) || 0,
+    temp: parseInt(document.getElementById('spool-temp').value) || 210,
+    notes: document.getElementById('spool-notes').value,
+    added: editId ? (data.spools.find(s => s.id === editId)?.added || new Date().toISOString()) : new Date().toISOString()
+  };
+
+  if (editId) {
+    const idx = data.spools.findIndex(s => s.id === editId);
+    if (idx >= 0) data.spools[idx] = spool;
+  } else {
+    data.spools.push(spool);
+  }
+
+  saveData(data);
+  closeSpoolModal();
+  render();
+}
+
+function deleteSpool(id) {
+  if (!confirm('Delete this spool? Print logs using it will remain.')) return;
+  const data = loadData();
+  data.spools = data.spools.filter(s => s.id !== id);
+  saveData(data);
+  render();
+}
+
+// ===== LOG MODAL =====
+function openLogModal() {
+  const data = loadData();
+  const sel = document.getElementById('log-spool');
+  sel.innerHTML = data.spools.map(s =>
+    `<option value="${s.id}">${s.brand} ${s.colorName} (${s.material}) — ${s.remaining}g left</option>`
+  ).join('');
+
+  if (data.spools.length === 0) {
+    sel.innerHTML = '<option disabled>No spools — add one first</option>';
+  }
+
+  document.getElementById('log-name').value = '';
+  document.getElementById('log-grams').value = 20;
+  document.getElementById('log-hours').value = 2;
+  document.getElementById('log-status').value = 'success';
+  document.getElementById('log-notes').value = '';
+  document.getElementById('log-modal').classList.add('active');
+}
+
+function closeLogModal() {
+  document.getElementById('log-modal').classList.remove('active');
+}
+
+function saveLog() {
+  const data = loadData();
+  const spoolId = document.getElementById('log-spool').value;
+  const grams = parseInt(document.getElementById('log-grams').value) || 0;
+
+  const log = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    spoolId,
+    name: document.getElementById('log-name').value || 'Unnamed print',
+    grams,
+    hours: parseFloat(document.getElementById('log-hours').value) || 0,
+    status: document.getElementById('log-status').value,
+    notes: document.getElementById('log-notes').value,
+    date: new Date().toISOString()
+  };
+
+  data.logs.push(log);
+
+  // Deduct from spool
+  const spool = data.spools.find(s => s.id === spoolId);
+  if (spool) {
+    spool.remaining = Math.max(0, spool.remaining - grams);
+  }
+
+  saveData(data);
+  closeLogModal();
+  render();
+}
+
+function deleteLog(id) {
+  if (!confirm('Delete this print log entry?')) return;
+  const data = loadData();
+  data.logs = data.logs.filter(l => l.id !== id);
+  saveData(data);
+  render();
+}
+
+// ===== RENDER =====
+function render() {
+  const data = loadData();
+  const { spools, logs } = data;
+
+  // Header stats
+  const totalWeight = spools.reduce((a, s) => a + s.remaining, 0);
+  const totalValue = spools.reduce((a, s) => a + (s.cost * (s.remaining / s.totalWeight)), 0);
+  document.getElementById('hdr-spools').textContent = spools.length;
+  document.getElementById('hdr-weight').textContent = totalWeight >= 1000 ? (totalWeight / 1000).toFixed(1) + 'kg' : totalWeight + 'g';
+  document.getElementById('hdr-value').textContent = '$' + totalValue.toFixed(0);
+
+  // Stats row
+  const totalUsed = logs.reduce((a, l) => a + l.grams, 0);
+  const totalMaterialCost = logs.reduce((a, l) => {
+    const spool = spools.find(s => s.id === l.spoolId);
+    if (!spool) return a;
+    const cpg = spool.cost / spool.totalWeight;
+    return a + (cpg * l.grams);
+  }, 0);
+
+  document.getElementById('stat-prints').textContent = logs.length;
+  document.getElementById('stat-used').textContent = totalUsed >= 1000 ? (totalUsed / 1000).toFixed(1) + 'kg' : totalUsed + 'g';
+  document.getElementById('stat-cost').textContent = '$' + totalMaterialCost.toFixed(2);
+  document.getElementById('stat-avg').textContent = logs.length ? '$' + (totalMaterialCost / logs.length).toFixed(2) : '$0';
+  document.getElementById('stat-cpg').textContent = totalUsed > 0 ? '$' + (totalMaterialCost / totalUsed).toFixed(3) : '$0.00';
+
+  // Spool list
+  const spoolList = document.getElementById('spool-list');
+  if (spools.length === 0) {
+    spoolList.innerHTML = '<div class="empty-state">No spools added yet. Click "+ Add Spool" to start.</div>';
+  } else {
+    spoolList.innerHTML = spools.map(s => {
+      const pct = Math.round((s.remaining / s.totalWeight) * 100);
+      const barColor = pct <= 15 ? 'var(--red)' : pct <= 30 ? 'var(--orange)' : 'var(--green)';
+      const cpg = (s.cost / s.totalWeight).toFixed(3);
+      return `
+        <div class="spool-item">
+          <div class="spool-color" style="background: ${s.color}"></div>
+          <div class="spool-info">
+            <h3>${s.brand} — ${s.colorName}</h3>
+            <div class="spool-meta">
+              <span>${s.material}</span>
+              <span>${s.remaining}/${s.totalWeight}g</span>
+              <span>$${cpg}/g</span>
+              <span>${s.temp}°C</span>
+            </div>
+          </div>
+          <div class="spool-actions">
+            <div class="spool-bar-wrap"><div class="spool-bar" style="width:${pct}%; background:${barColor}"></div></div>
+            <div class="spool-pct" style="color:${barColor}">${pct}%</div>
+            <button class="btn btn-sm" onclick="openSpoolModal('${s.id}')">Edit</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteSpool('${s.id}')">×</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Alerts
+  const alertsList = document.getElementById('alerts-list');
+  const lowSpools = spools.filter(s => (s.remaining / s.totalWeight) <= 0.25);
+  if (lowSpools.length === 0) {
+    alertsList.innerHTML = '<div class="empty-state">All spools are well stocked.</div>';
+  } else {
+    alertsList.innerHTML = lowSpools.map(s => {
+      const pct = Math.round((s.remaining / s.totalWeight) * 100);
+      const critical = pct <= 15;
+      return `
+        <div class="alert-item ${critical ? '' : 'warning'}">
+          <div class="alert-dot"></div>
+          <div>
+            <strong>${s.brand} ${s.colorName}</strong> (${s.material}) — ${s.remaining}g remaining (${pct}%)
+            ${critical ? '<br><span style="color:var(--red); font-size:0.7rem">CRITICAL: Reorder soon</span>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Print log (most recent first)
+  const logList = document.getElementById('log-list');
+  const sortedLogs = [...logs].sort((a, b) => new Date(b.date) - new Date(a.date));
+  if (sortedLogs.length === 0) {
+    logList.innerHTML = '<div class="empty-state">No prints logged yet.</div>';
+  } else {
+    logList.innerHTML = sortedLogs.slice(0, 20).map(l => {
+      const spool = spools.find(s => s.id === l.spoolId);
+      const statusIcon = l.status === 'success' ? '✓' : l.status === 'failed' ? '✗' : '◐';
+      const statusColor = l.status === 'success' ? 'var(--green)' : l.status === 'failed' ? 'var(--red)' : 'var(--orange)';
+      const cpg = spool ? (spool.cost / spool.totalWeight) : 0;
+      const cost = (cpg * l.grams).toFixed(2);
+      return `
+        <div class="log-item">
+          <div class="log-date">${new Date(l.date).toLocaleDateString()} ${new Date(l.date).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} <span style="color:${statusColor}">${statusIcon}</span></div>
+          <div class="log-desc">
+            <strong>${l.name}</strong> — <span class="log-usage">${l.grams}g</span> of ${spool ? spool.material + ' ' + spool.colorName : 'Unknown'} — ${l.hours}h — <span style="color:var(--gold)">$${cost}</span>
+            ${l.notes ? '<br><span style="color:var(--text-muted); font-size:0.7rem">' + l.notes + '</span>' : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Cost breakdown by material
+  const costBreakdown = document.getElementById('cost-breakdown');
+  if (logs.length === 0) {
+    costBreakdown.innerHTML = '<div class="empty-state">Add spools and log prints to see cost analysis.</div>';
+  } else {
+    const byMaterial = {};
+    logs.forEach(l => {
+      const spool = spools.find(s => s.id === l.spoolId);
+      if (!spool) return;
+      const mat = spool.material;
+      if (!byMaterial[mat]) byMaterial[mat] = { grams: 0, cost: 0, prints: 0 };
+      byMaterial[mat].grams += l.grams;
+      byMaterial[mat].cost += (spool.cost / spool.totalWeight) * l.grams;
+      byMaterial[mat].prints += 1;
+    });
+
+    costBreakdown.innerHTML = Object.entries(byMaterial)
+      .sort((a, b) => b[1].cost - a[1].cost)
+      .map(([mat, d]) => `
+        <div class="cost-row">
+          <span class="cost-label">${mat}</span>
+          <span class="cost-value">${d.prints} prints · ${d.grams}g · $${d.cost.toFixed(2)}</span>
+        </div>
+      `).join('') + `
+        <div class="cost-row" style="margin-top: 8px; border-top: 1px solid var(--border); padding-top: 10px;">
+          <span class="cost-label" style="color: var(--text);">Total</span>
+          <span class="cost-value" style="color: var(--gold); font-size: 1rem;">$${totalMaterialCost.toFixed(2)}</span>
+        </div>
+      `;
+  }
+}
+
+// ===== EXPORT / IMPORT =====
+function exportData() {
+  const data = loadData();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `filatrack-backup-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  document.getElementById('import-input').click();
+}
+
+function handleImport(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.spools && data.logs) {
+        saveData(data);
+        render();
+        alert('Data imported successfully!');
+      } else {
+        alert('Invalid file format.');
+      }
+    } catch { alert('Failed to parse JSON file.'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function exportCSV() {
+  const data = loadData();
+  if (data.logs.length === 0) { alert('No print logs to export.'); return; }
+
+  let csv = 'Date,Project,Material,Color,Grams,Hours,Status,Cost,Notes\n';
+  data.logs.forEach(l => {
+    const spool = data.spools.find(s => s.id === l.spoolId);
+    const cpg = spool ? (spool.cost / spool.totalWeight) : 0;
+    csv += `"${new Date(l.date).toLocaleDateString()}","${l.name}","${spool?.material || ''}","${spool?.colorName || ''}",${l.grams},${l.hours},"${l.status}",${(cpg * l.grams).toFixed(2)},"${l.notes || ''}"\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `filatrack-logs-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearAll() {
+  if (!confirm('This will delete ALL spool and print data. Are you sure?')) return;
+  if (!confirm('Really? This cannot be undone.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  render();
+}
+
+// ===== AMBIENT PARTICLES =====
+(function initParticles() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  const particles = [];
+  const COUNT = 40;
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < COUNT; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 1.5 + 0.5,
+      dx: (Math.random() - 0.5) * 0.3,
+      dy: (Math.random() - 0.5) * 0.3,
+      alpha: Math.random() * 0.3 + 0.1
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach(p => {
+      p.x += p.dx;
+      p.y += p.dy;
+      if (p.x < 0) p.x = w;
+      if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h;
+      if (p.y > h) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(139, 92, 246, ${p.alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ===== SEED DEMO DATA =====
+function seedDemo() {
+  const data = loadData();
+  if (data.spools.length > 0) return; // Already has data
+
+  // Pre-load with some common Bambu filaments
+  data.spools = [
+    { id: 's1', material: 'PLA', brand: 'Bambu PLA Basic', color: '#1a1a1a', colorName: 'Matte Black', totalWeight: 1000, remaining: 720, cost: 20, temp: 210, notes: 'Workhorse spool', added: '2026-02-15T10:00:00Z' },
+    { id: 's2', material: 'PLA', brand: 'Bambu PLA Basic', color: '#f5f5f5', colorName: 'White', totalWeight: 1000, remaining: 450, cost: 20, temp: 210, notes: '', added: '2026-02-20T10:00:00Z' },
+    { id: 's3', material: 'PETG', brand: 'Bambu PETG Basic', color: '#3b82f6', colorName: 'Blue', totalWeight: 1000, remaining: 880, cost: 25, temp: 240, notes: 'For outdoor parts', added: '2026-02-25T10:00:00Z' },
+    { id: 's4', material: 'PLA', brand: 'eSUN PLA+', color: '#ef4444', colorName: 'Fire Engine Red', totalWeight: 1000, remaining: 150, cost: 22, temp: 215, notes: 'Running low!', added: '2026-01-10T10:00:00Z' },
+    { id: 's5', material: 'TPU', brand: 'Bambu TPU 95A', color: '#8b5cf6', colorName: 'Purple', totalWeight: 500, remaining: 380, cost: 35, temp: 220, notes: 'Flex prints', added: '2026-03-01T10:00:00Z' },
+    { id: 's6', material: 'ASA', brand: 'Polymaker ASA', color: '#f97316', colorName: 'Orange', totalWeight: 1000, remaining: 90, cost: 30, temp: 260, notes: 'UV resistant, outdoor use', added: '2026-02-01T10:00:00Z' }
+  ];
+
+  data.logs = [
+    { id: 'l1', spoolId: 's1', name: 'Phone Case v3', grams: 45, hours: 1.5, status: 'success', notes: '', date: '2026-02-28T14:00:00Z' },
+    { id: 'l2', spoolId: 's1', name: 'Cable Organizer', grams: 62, hours: 2.2, status: 'success', notes: 'Nice snap fit', date: '2026-03-01T09:00:00Z' },
+    { id: 'l3', spoolId: 's2', name: 'Desk Name Plate', grams: 38, hours: 1.8, status: 'success', notes: '', date: '2026-03-01T15:00:00Z' },
+    { id: 'l4', spoolId: 's4', name: 'Custom Grinder Housing', grams: 120, hours: 4.5, status: 'success', notes: 'Client order #47', date: '2026-02-25T10:00:00Z' },
+    { id: 'l5', spoolId: 's3', name: 'Outdoor Bracket', grams: 85, hours: 3.1, status: 'success', notes: 'PETG for heat resistance', date: '2026-02-27T11:00:00Z' },
+    { id: 'l6', spoolId: 's6', name: 'Garden Hook', grams: 55, hours: 2.0, status: 'failed', notes: 'Layer separation at 68% — moisture', date: '2026-03-02T08:00:00Z' },
+    { id: 'l7', spoolId: 's1', name: 'Stash Jar Lid', grams: 28, hours: 0.8, status: 'success', notes: 'Threaded, tight seal', date: '2026-03-02T14:00:00Z' },
+    { id: 'l8', spoolId: 's5', name: 'Watch Strap Prototype', grams: 15, hours: 1.2, status: 'success', notes: 'TPU flex test', date: '2026-03-02T18:00:00Z' }
+  ];
+
+  saveData(data);
+}
+
+// Init
+seedDemo();
+render();
+
+// Close modals on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+</script>
+</body>
+</html>
