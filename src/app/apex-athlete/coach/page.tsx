@@ -1110,7 +1110,11 @@ export default function ApexAthletePage() {
       if (!a.pin) { pinBackfilled = true; return { ...a, pin: String(100000 + Math.floor(Math.random() * 900000)) }; }
       return a;
     });
-    if (pinBackfilled) save(K.ROSTER, r);
+    if (pinBackfilled) {
+      save(K.ROSTER, r);
+      // Sync PINs to Firestore so athletes can log in from any device
+      fbSaveRoster("platinum", r).catch(() => {});
+    }
     // Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
     const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
     if (anyPastCheckins) {
@@ -1381,7 +1385,7 @@ export default function ApexAthletePage() {
   }, [mounted, roster, teamChallenges]);
 
   // ── persist helpers ──────────────────────────────────────
-  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); }, []);
+  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); fbSaveRoster("platinum", r).catch(() => {}); }, []);
   const saveCulture = useCallback((c: TeamCulture) => { setCulture(c); save(K.CULTURE, c); }, []);
   const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); save(K.SCHEDULES, s); }, []);
 
