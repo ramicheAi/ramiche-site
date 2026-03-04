@@ -317,14 +317,16 @@ export async function loadRosterFromFirestore(): Promise<any[]> {
   try {
     const rostersRef = collection(db, `organizations/${ORG_ID}/rosters`);
     const snap = await getDocs(rostersRef);
-    const all: any[] = [];
+    const seen = new Map<string, any>();
     for (const docSnap of snap.docs) {
       const data = docSnap.data();
       if (data.athletes && Array.isArray(data.athletes)) {
-        all.push(...data.athletes);
+        for (const a of data.athletes) {
+          if (a.id && !seen.has(a.id)) seen.set(a.id, a);
+        }
       }
     }
-    return all;
+    return Array.from(seen.values());
   } catch (e) {
     console.warn("[Auth] Firestore roster load failed:", e);
     return [];
