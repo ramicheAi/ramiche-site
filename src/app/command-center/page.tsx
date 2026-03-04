@@ -426,6 +426,7 @@ const NAV = [
   { label: "TASKS", href: "/command-center/tasks", icon: "\u25A3" },
   { label: "CALENDAR", href: "/command-center/calendar", icon: "\u25CB" },
   { label: "PROJECTS", href: "/command-center/projects", icon: "\u25C9" },
+  { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE" },
   { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
 ];
 
@@ -1143,6 +1144,7 @@ export default function CommandCenter() {
               { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
               { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },
               { label: "PROJECTS", href: "/command-center/projects", icon: "\u25B6", accent: "#10b981", desc: "7 tracked", sub: "Progress, milestones, blockers" },
+              { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE", accent: "#f59e0b", desc: "Agent journal", sub: "Daily logs, search, timeline" },
             ].map((card) => (
               <Link
                 key={card.href}
