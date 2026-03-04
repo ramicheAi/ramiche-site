@@ -1139,6 +1139,8 @@ export default function CommandCenter() {
               { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#d97706", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
               { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${LOG.length} recent events`, sub: "Feed, schedule, history" },
               { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
+              { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
+              { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },
             ].map((card) => (
               <Link
                 key={card.href}
