@@ -13,7 +13,7 @@ export async function GET() {
       version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || "local",
       environment: process.env.VERCEL_ENV || "development",
       region: process.env.VERCEL_REGION || "unknown",
-      uptime: process.uptime?.() || null,
+      uptime: null,
       timestamp: new Date().toISOString(),
       latency_ms: Date.now() - start,
       firebase_configured: !!(

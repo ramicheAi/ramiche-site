@@ -26,7 +26,7 @@ const SCHEDULE = [
 ];
 
 const NAV = [
-  { label: "HQ", href: "/" },
+  { label: "COMMAND", href: "/command-center" },
   { label: "COMMAND", href: "/command-center" },
   { label: "AGENTS", href: "/command-center/agents" },
   { label: "MISSIONS", href: "/command-center/missions" },

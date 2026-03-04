@@ -418,9 +418,6 @@ export default function AgentManagement() {
   const [chatInput, setChatInput] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "workspace">("grid");
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
-  const [cameraAngle, setCameraAngle] = useState({ x: -25, y: 35 });
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const filteredAgents = AGENTS.filter((a) => {
     if (filter !== "all" && a.status !== filter) return false;
@@ -499,203 +496,200 @@ export default function AgentManagement() {
           </div>
         </div>
 
-        {/* ═══════ 3D WORKSPACE VIEW ═══════ */}
+        {/* ═══════ RESPONSIVE WORKSPACE VIEW ═══════ */}
         {viewMode === "workspace" && (
           <div
+            className="hangar-container"
             style={{
-              width: "100%", height: "calc(100vh - 220px)", borderRadius: 20,
+              width: "100%", borderRadius: 20,
               border: "2px solid rgba(26,26,94,0.12)", background: "#0a0a1a",
-              overflow: "hidden", position: "relative", cursor: isDragging ? "grabbing" : "grab",
+              overflow: "auto", position: "relative", maxHeight: "90vh",
             }}
-            onMouseDown={(e) => { setIsDragging(true); setDragStart({ x: e.clientX, y: e.clientY }); }}
-            onMouseMove={(e) => {
-              if (!isDragging) return;
-              setCameraAngle({ x: cameraAngle.x + (e.clientY - dragStart.y) * 0.15, y: cameraAngle.y + (e.clientX - dragStart.x) * 0.15 });
-              setDragStart({ x: e.clientX, y: e.clientY });
-            }}
-            onMouseUp={() => setIsDragging(false)}
-            onMouseLeave={() => setIsDragging(false)}
           >
             {/* Ambient grid floor */}
-            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 800px 600px at 50% 60%, rgba(201,168,76,0.06) 0%, transparent 70%)" }} />
-            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 80% 70% at 50% 60%, rgba(201,168,76,0.06) 0%, transparent 70%)", pointerEvents: "none" }} />
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px)", backgroundSize: "40px 40px", pointerEvents: "none" }} />
 
-            {/* Scene label */}
-            <div style={{ position: "absolute", top: 20, left: 24, zIndex: 10 }}>
-              <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "rgba(201,168,76,0.6)", fontWeight: 700 }}>PARALLAX OPERATIONS CENTER</div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginTop: 2, textShadow: "0 0 30px rgba(201,168,76,0.3)" }}>
-                THE HANGAR
-              </div>
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>Drag to rotate &middot; Click station to inspect</div>
-            </div>
-
-            {/* Agent count HUD */}
-            <div style={{ position: "absolute", top: 20, right: 24, zIndex: 10, display: "flex", gap: 12 }}>
-              {[
-                { label: "ONLINE", count: AGENTS.filter(a => a.status === "active").length, color: "#22c55e" },
-                { label: "IDLE", count: AGENTS.filter(a => a.status === "idle").length, color: "#fbbf24" },
-                { label: "DONE", count: AGENTS.filter(a => a.status === "done").length, color: "#06b6d4" },
-              ].map(h => (
-                <div key={h.label} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: h.color, fontVariantNumeric: "tabular-nums", textShadow: `0 0 12px ${h.color}50` }}>{h.count}</div>
-                  <div style={{ fontSize: 8, letterSpacing: "0.15em", color: `${h.color}90`, fontWeight: 700 }}>{h.label}</div>
+            {/* Scene header */}
+            <div className="hangar-header" style={{ position: "relative", zIndex: 10, padding: "8px 10px 0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 4 }}>
+              <div>
+                <div style={{ fontSize: 8, letterSpacing: "0.2em", color: "rgba(201,168,76,0.6)", fontWeight: 700 }}>PARALLAX OPERATIONS CENTER</div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#fff", marginTop: 1, textShadow: "0 0 30px rgba(201,168,76,0.3)" }}>
+                  THE HANGAR
                 </div>
-              ))}
+              </div>
+
+              {/* Agent count HUD */}
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  { label: "ONLINE", count: AGENTS.filter(a => a.status === "active").length, color: "#22c55e" },
+                  { label: "IDLE", count: AGENTS.filter(a => a.status === "idle").length, color: "#fbbf24" },
+                  { label: "DONE", count: AGENTS.filter(a => a.status === "done").length, color: "#06b6d4" },
+                ].map(h => (
+                  <div key={h.label} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: h.color, fontVariantNumeric: "tabular-nums", textShadow: `0 0 12px ${h.color}50` }}>{h.count}</div>
+                    <div style={{ fontSize: 6, letterSpacing: "0.15em", color: `${h.color}90`, fontWeight: 700 }}>{h.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* 3D perspective container */}
-            <div style={{
-              width: "100%", height: "100%", perspective: 1200, perspectiveOrigin: "50% 40%",
-              display: "flex", alignItems: "center", justifyContent: "center",
+            {/* Central Atlas command node */}
+            <div className="hangar-cmd-node" style={{
+              display: "flex", justifyContent: "center", padding: "0", position: "relative", zIndex: 5,
             }}>
               <div style={{
-                position: "relative", width: 900, height: 700,
-                transformStyle: "preserve-3d" as const,
-                transform: `rotateX(${cameraAngle.x}deg) rotateY(${cameraAngle.y}deg)`,
-                transition: isDragging ? "none" : "transform 0.3s ease-out",
+                width: 32, height: 32, borderRadius: "50%",
+                border: "2px solid rgba(201,168,76,0.5)",
+                background: "radial-gradient(circle, rgba(201,168,76,0.15), rgba(10,10,26,0.9))",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 30px rgba(201,168,76,0.2), 0 0 60px rgba(201,168,76,0.08)",
+                animation: "commandPulse 4s ease-in-out infinite",
               }}>
-                {/* Floor plane */}
-                <div style={{
-                  position: "absolute", width: 1100, height: 900, left: -100, top: -100,
-                  background: "linear-gradient(135deg, rgba(26,26,94,0.15) 0%, rgba(10,10,26,0.9) 100%)",
-                  border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8,
-                  transform: "rotateX(90deg) translateZ(-200px)",
-                  boxShadow: "0 0 80px rgba(201,168,76,0.08) inset",
-                }} />
+                <div style={{ fontSize: 7, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", textAlign: "center" }}>
+                  ATLAS<br /><span style={{ fontSize: 5, opacity: 0.6 }}>CMD</span>
+                </div>
+              </div>
+            </div>
 
-                {/* Agent workstations — arranged in concentric arcs */}
+            {/* Connection lines from Atlas to active agents */}
+            <div className="hangar-connectors" style={{ position: "relative", zIndex: 1, pointerEvents: "none" }}>
+              <svg style={{ position: "absolute", top: -20, left: 0, width: "100%", height: 20, overflow: "visible" }}>
                 {filteredAgents.map((agent, i) => {
-                  const total = filteredAgents.length;
+                  if (agent.status !== "active" || agent.name === "Atlas") return null;
                   const cols = 5;
-                  const row = Math.floor(i / cols);
                   const col = i % cols;
-                  const xOffset = (col - (cols - 1) / 2) * 170;
-                  const zOffset = row * 160 - 100;
-                  const isHovered = hoveredStation === agent.name;
-                  const statusGlow = agent.status === "active" ? agent.color : agent.status === "done" ? "rgba(6,182,212,0.4)" : "rgba(250,204,21,0.2)";
-
+                  const pctX = ((col + 0.5) / cols) * 100;
                   return (
-                    <div
+                    <line
                       key={agent.name}
-                      onMouseEnter={() => setHoveredStation(agent.name)}
-                      onMouseLeave={() => setHoveredStation(null)}
-                      onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent); setViewMode("grid"); }}
-                      style={{
-                        position: "absolute",
-                        left: 450 + xOffset - 60, top: 350 + zOffset - 50,
-                        width: 130, height: 120,
-                        transformStyle: "preserve-3d" as const,
-                        transform: `translateZ(${isHovered ? 40 : 0}px)`,
-                        transition: "transform 0.3s ease-out",
-                        cursor: "pointer",
-                      }}
-                    >
-                      {/* Station base / desk */}
-                      <div style={{
-                        position: "absolute", bottom: 0, left: 5, right: 5, height: 35,
-                        background: `linear-gradient(180deg, ${agent.color}25 0%, ${agent.color}08 100%)`,
-                        border: `1px solid ${agent.color}40`, borderRadius: 6,
-                        boxShadow: `0 0 ${isHovered ? 30 : 12}px ${statusGlow}`,
-                        transform: "rotateX(60deg) translateZ(10px)",
-                        transition: "box-shadow 0.3s",
-                      }} />
+                      x1="50%" y1="0"
+                      x2={`${pctX}%`} y2="20"
+                      stroke={`${agent.color}40`}
+                      strokeWidth="1"
+                      strokeDasharray="3 3"
+                    />
+                  );
+                })}
+              </svg>
+            </div>
 
-                      {/* Screen / terminal */}
-                      <div style={{
-                        position: "absolute", top: 10, left: 15, right: 15, height: 50,
-                        background: `linear-gradient(180deg, ${agent.color}15 0%, rgba(10,10,26,0.95) 100%)`,
-                        border: `1px solid ${agent.color}50`, borderRadius: 4,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        boxShadow: `0 0 ${isHovered ? 25 : 8}px ${agent.color}30`,
-                        transition: "box-shadow 0.3s",
-                      }}>
-                        {/* Mini screen content */}
-                        <div style={{ width: "80%", display: "flex", flexDirection: "column" as const, gap: 3 }}>
-                          {[1,2,3].map(l => (
-                            <div key={l} style={{
-                              height: 2, borderRadius: 1, width: `${60 + Math.random() * 40}%`,
-                              background: agent.status === "active" ? `${agent.color}80` : `${agent.color}30`,
-                              animation: agent.status === "active" ? `screenFlicker ${1 + l * 0.3}s ease-in-out infinite alternate` : "none",
-                            }} />
-                          ))}
-                        </div>
-                      </div>
+            {/* Agent grid — 5x4 compact on mobile, 5-col desktop */}
+            <div
+              className="hangar-grid"
+              style={{
+                position: "relative", zIndex: 5,
+                display: "grid",
+                gridTemplateColumns: "repeat(5, 1fr)",
+                gap: 3,
+                padding: "2px 6px 6px",
+              }}
+            >
+              {filteredAgents.map((agent) => {
+                const isHovered = hoveredStation === agent.name;
+                const statusGlow = agent.status === "active" ? agent.color : agent.status === "done" ? "rgba(6,182,212,0.4)" : "rgba(250,204,21,0.2)";
 
-                      {/* Avatar floating above station */}
-                      <div style={{
-                        position: "absolute", top: -35, left: "50%", transform: "translateX(-50%)",
-                        width: 48, height: 48, borderRadius: "50%", overflow: "hidden",
-                        border: `2px solid ${agent.color}70`,
+                return (
+                  <div
+                    key={agent.name}
+                    className="hangar-station"
+                    onMouseEnter={() => setHoveredStation(agent.name)}
+                    onMouseLeave={() => setHoveredStation(null)}
+                    onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent); setViewMode("grid"); }}
+                    style={{
+                      position: "relative",
+                      display: "flex", flexDirection: "column" as const, alignItems: "center",
+                      padding: "3px 2px 3px",
+                      borderRadius: 6,
+                      background: isHovered
+                        ? `linear-gradient(180deg, ${agent.color}18 0%, ${agent.color}06 100%)`
+                        : `linear-gradient(180deg, ${agent.color}08 0%, transparent 100%)`,
+                      border: `1px solid ${isHovered ? agent.color + "50" : agent.color + "18"}`,
+                      cursor: "pointer",
+                      transition: "all 0.25s ease",
+                      boxShadow: isHovered
+                        ? `0 0 20px ${statusGlow}, 0 4px 12px rgba(0,0,0,0.3)`
+                        : `0 0 8px ${statusGlow}`,
+                      transform: isHovered ? "translateY(-2px)" : "translateY(0)",
+                    }}
+                  >
+                    {/* Station base glow */}
+                    <div style={{
+                      position: "absolute", bottom: 0, left: 3, right: 3, height: 1.5,
+                      borderRadius: "0 0 4px 4px",
+                      background: agent.status === "active" ? agent.color : `${agent.color}50`,
+                      boxShadow: `0 0 6px ${statusGlow}`,
+                    }} />
+
+                    {/* Avatar */}
+                    <div style={{ position: "relative", marginBottom: 2 }}>
+                      <div className="hangar-avatar" style={{
+                        width: 28, height: 28, borderRadius: "50%", overflow: "hidden",
+                        border: `1.5px solid ${agent.color}70`,
                         background: `radial-gradient(circle at 35% 35%, ${agent.color}20 0%, #1a1a2e 70%)`,
-                        boxShadow: `0 0 ${isHovered ? 30 : 12}px ${agent.color}40`,
+                        boxShadow: `0 0 ${isHovered ? 16 : 6}px ${agent.color}40`,
                         animation: agent.status === "active" ? "floatAvatar 3s ease-in-out infinite" : "none",
                         transition: "box-shadow 0.3s",
                       }}>
-                        <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+                        <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 2 }} />
                       </div>
-
                       {/* Status indicator */}
                       <div style={{
-                        position: "absolute", top: -38, left: "50%", transform: "translateX(16px)",
-                        width: 8, height: 8, borderRadius: "50%",
+                        position: "absolute", top: -1, right: -1,
+                        width: 6, height: 6, borderRadius: "50%",
                         background: agent.status === "active" ? "#22c55e" : agent.status === "done" ? "#06b6d4" : "#fbbf24",
-                        boxShadow: agent.status === "active" ? "0 0 8px rgba(34,197,94,0.8)" : "none",
+                        boxShadow: agent.status === "active" ? "0 0 6px rgba(34,197,94,0.8)" : "none",
                         animation: agent.status === "active" ? "pulse 2s ease-in-out infinite" : "none",
+                        border: "1px solid #0a0a1a",
                       }} />
-
-                      {/* Name label */}
-                      <div style={{
-                        position: "absolute", bottom: -18, left: "50%", transform: "translateX(-50%)",
-                        fontSize: 9, fontWeight: 700, color: isHovered ? agent.color : "rgba(255,255,255,0.5)",
-                        letterSpacing: "0.08em", whiteSpace: "nowrap" as const, textAlign: "center",
-                        textShadow: isHovered ? `0 0 10px ${agent.color}60` : "none",
-                        transition: "all 0.2s",
-                      }}>
-                        {agent.name}
-                      </div>
-
-                      {/* Role label on hover */}
-                      {isHovered && (
-                        <div style={{
-                          position: "absolute", bottom: -30, left: "50%", transform: "translateX(-50%)",
-                          fontSize: 7, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" as const,
-                          letterSpacing: "0.05em",
-                        }}>
-                          {agent.role}
-                        </div>
-                      )}
-
-                      {/* Connection lines to Atlas (index 0) — show for active agents */}
-                      {agent.status === "active" && i > 0 && (
-                        <div style={{
-                          position: "absolute", top: "50%", left: "50%",
-                          width: 1, height: 80,
-                          background: `linear-gradient(180deg, ${agent.color}40, transparent)`,
-                          transformOrigin: "top center",
-                          transform: `rotate(${-45 + (col * 20)}deg)`,
-                          pointerEvents: "none",
-                        }} />
-                      )}
                     </div>
-                  );
-                })}
 
-                {/* Central Atlas command node — elevated */}
-                <div style={{
-                  position: "absolute", left: 410, top: 280, width: 80, height: 80,
-                  borderRadius: "50%", border: "2px solid rgba(201,168,76,0.5)",
-                  background: "radial-gradient(circle, rgba(201,168,76,0.15), rgba(10,10,26,0.9))",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  transform: "translateZ(80px)",
-                  boxShadow: "0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(201,168,76,0.08)",
-                  animation: "commandPulse 4s ease-in-out infinite",
-                  pointerEvents: "none",
-                }}>
-                  <div style={{ fontSize: 8, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", textAlign: "center" }}>
-                    ATLAS<br /><span style={{ fontSize: 6, opacity: 0.6 }}>CMD</span>
+                    {/* Screen / terminal mini */}
+                    <div className="hangar-screen" style={{
+                      width: "88%", height: 10, borderRadius: 2, marginBottom: 1,
+                      background: `linear-gradient(180deg, ${agent.color}12 0%, rgba(10,10,26,0.95) 100%)`,
+                      border: `1px solid ${agent.color}30`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 3px",
+                      boxShadow: `0 0 ${isHovered ? 8 : 3}px ${agent.color}20`,
+                    }}>
+                      <div style={{ width: "100%", display: "flex", flexDirection: "column" as const, gap: 1 }}>
+                        {[1,2].map(l => (
+                          <div key={l} style={{
+                            height: 1, borderRadius: 1, width: `${50 + l * 20}%`,
+                            background: agent.status === "active" ? `${agent.color}80` : `${agent.color}30`,
+                            animation: agent.status === "active" ? `screenFlicker ${1 + l * 0.3}s ease-in-out infinite alternate` : "none",
+                          }} />
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Name label */}
+                    <div className="hangar-name" style={{
+                      fontSize: 7, fontWeight: 700,
+                      color: isHovered ? agent.color : "rgba(255,255,255,0.55)",
+                      letterSpacing: "0.04em", whiteSpace: "nowrap" as const, textAlign: "center",
+                      textShadow: isHovered ? `0 0 8px ${agent.color}60` : "none",
+                      transition: "all 0.2s",
+                      overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%",
+                      lineHeight: 1.2,
+                    }}>
+                      {agent.name}
+                    </div>
+
+                    {/* Role label on hover */}
+                    {isHovered && (
+                      <div style={{
+                        fontSize: 5, color: "rgba(255,255,255,0.35)", whiteSpace: "nowrap" as const,
+                        letterSpacing: "0.04em", marginTop: 1,
+                        overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%",
+                      }}>
+                        {agent.role}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -952,16 +946,73 @@ export default function AgentManagement() {
           50% { opacity: 0.5; }
         }
         @keyframes floatAvatar {
-          0%, 100% { transform: translateX(-50%) translateY(0px); }
-          50% { transform: translateX(-50%) translateY(-6px); }
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-4px); }
         }
         @keyframes screenFlicker {
           0% { opacity: 0.6; }
           100% { opacity: 1; }
         }
         @keyframes commandPulse {
-          0%, 100% { box-shadow: 0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(201,168,76,0.08); }
-          50% { box-shadow: 0 0 80px rgba(201,168,76,0.35), 0 0 160px rgba(201,168,76,0.15); }
+          0%, 100% { box-shadow: 0 0 40px rgba(201,168,76,0.2), 0 0 80px rgba(201,168,76,0.08); }
+          50% { box-shadow: 0 0 60px rgba(201,168,76,0.35), 0 0 120px rgba(201,168,76,0.15); }
+        }
+        /* Hangar responsive grid */
+        .hangar-grid {
+          grid-template-columns: repeat(5, 1fr) !important;
+        }
+        @media (max-width: 480px) {
+          .hangar-container {
+            border-radius: 12px !important;
+            overflow: hidden !important;
+          }
+          .hangar-grid {
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 1px !important;
+            padding: 1px 2px 3px !important;
+          }
+          .hangar-station {
+            padding: 2px 1px 1px !important;
+            border-radius: 3px !important;
+            min-height: 0 !important;
+          }
+          .hangar-avatar {
+            width: 28px !important;
+            height: 28px !important;
+            margin-bottom: 1px !important;
+          }
+          .hangar-avatar img {
+            padding: 1px !important;
+          }
+          .hangar-name {
+            font-size: 7px !important;
+            line-height: 1.1 !important;
+          }
+          .hangar-header { padding: 3px 6px 0 !important; }
+          .hangar-header > div:first-child > div:first-child { font-size: 5px !important; }
+          .hangar-header > div:first-child > div:nth-child(2) { font-size: 10px !important; margin-top: 0 !important; }
+          .hangar-cmd-node { padding: 2px 0 0 !important; }
+          .hangar-cmd-node > div { width: 24px !important; height: 24px !important; }
+          .hangar-cmd-node > div > div { font-size: 4px !important; }
+          .hangar-connectors { display: none !important; }
+          .hangar-screen { display: none !important; }
+        }
+        @media (max-width: 360px) {
+          .hangar-grid {
+            grid-template-columns: repeat(5, 1fr) !important;
+            gap: 1px !important;
+            padding: 1px 1px 2px !important;
+          }
+          .hangar-station {
+            padding: 1px 0 1px !important;
+          }
+          .hangar-avatar {
+            width: 24px !important;
+            height: 24px !important;
+          }
+          .hangar-name {
+            font-size: 6px !important;
+          }
         }
         @media (max-width: 768px) {
           .agents-layout {

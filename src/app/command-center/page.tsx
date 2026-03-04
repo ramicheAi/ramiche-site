@@ -164,6 +164,14 @@ const AGENTS = [
     credits: { used: 0, limit: 5000 },
     activeTask: "Available on demand — system diagnostics + debugging",
   },
+  {
+    name: "THEMIS", model: "Opus 4.6", role: "Legal & Compliance",
+    status: "idle" as const, color: "#8b5cf6", icon: "⚖",
+    desc: "IP protection, compliance frameworks, contract review, legal strategy — the law is the shield",
+    connections: [0, 5],
+    credits: { used: 0, limit: 5000 },
+    activeTask: "SOC 2 / HIPAA / GDPR compliance + patent filing support",
+  },
 ];
 
 /* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */

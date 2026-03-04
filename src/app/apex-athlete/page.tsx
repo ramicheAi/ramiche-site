@@ -166,7 +166,6 @@ interface Athlete {
   parentPhone?: string;
   sport?: "swimming" | "diving" | "waterpolo";
   present?: boolean;
-  pin?: string;
   // v7 — best times from SwimCloud / manual entry
   bestTimes?: BestTime[];
   bestTimesUpdated?: string; // ISO date of last fetch
@@ -737,6 +736,12 @@ function getWeekTarget(group: string): number {
   return WEEK_TARGETS_TOTAL[key] ?? 5;
 }
 
+function generateAthletePin(existing: Set<string>): string {
+  let pin: string;
+  do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (existing.has(pin));
+  return pin;
+}
+
 function makeAthlete(r: RosterEntry & { group?: string }, existingPins?: Set<string>): Athlete {
   const g = r.group ?? "Varsity";
   const pins = existingPins ?? new Set<string>();
@@ -759,7 +764,6 @@ function makeAthlete(r: RosterEntry & { group?: string }, existingPins?: Set<str
     parentPhone: r.parentPhone ?? "",
     sport: "swimming",
     present: false,
-    pin: generatePin(r.name),
   };
 }
 

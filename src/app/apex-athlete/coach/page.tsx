@@ -5,6 +5,9 @@ import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster } from "@/lib/firebase";
+import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
+import { AnimatedCounter } from "../components/AnimatedCounter";
+import StreakFlame from "../components/StreakFlame";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
