@@ -423,9 +423,10 @@ const NOTIFICATIONS = [
 const NAV = [
   { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
   { label: "AGENTS", href: "/command-center/agents", icon: "\u2726" },
+  { label: "TASKS", href: "/command-center/tasks", icon: "\u25A3" },
+  { label: "CALENDAR", href: "/command-center/calendar", icon: "\u25CB" },
+  { label: "PROJECTS", href: "/command-center/projects", icon: "\u25C9" },
   { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
-  { label: "FINANCE", href: "/financial", icon: "\u25C9" },
-  { label: "STUDIO", href: "/studio", icon: "\u2662" },
 ];
 
 /* ── TYPES ─────────────────────────────────────────────────────────────────── */
@@ -1141,6 +1142,7 @@ export default function CommandCenter() {
               { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
               { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
               { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },
+              { label: "PROJECTS", href: "/command-center/projects", icon: "\u25B6", accent: "#10b981", desc: "7 tracked", sub: "Progress, milestones, blockers" },
             ].map((card) => (
               <Link
                 key={card.href}
