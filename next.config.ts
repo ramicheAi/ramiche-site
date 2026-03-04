@@ -52,6 +52,21 @@ const nextConfig: NextConfig = {
       ],
     },
     {
+      source: "/sw.js",
+      headers: [
+        { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        { key: "Pragma", value: "no-cache" },
+        { key: "Expires", value: "0" },
+        { key: "Service-Worker-Allowed", value: "/" },
+      ],
+    },
+    {
+      source: "/_next/static/:path*",
+      headers: [
+        { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+      ],
+    },
+    {
       source: "/api/:path*",
       headers: [
         { key: "Access-Control-Allow-Origin", value: "https://ramiche-site.vercel.app" },

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import GameBootScreen from "@/components/GameBootScreen";
 import ParticleField from "@/components/ParticleField";
+import { db } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 /* ── Scroll-triggered reveal — sections animate in when visible ── */
 function ScrollSection({ children, style, className = "", delay = 0 }: {
@@ -68,6 +70,18 @@ export default function MettleLanding() {
   const [submitted, setSubmitted] = useState(false);
   const [bootDone, setBootDone] = useState(false);
   const [pageReady, setPageReady] = useState(false);
+
+  // Nuclear cache clear — unregister stale service workers + purge all caches
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        regs.forEach((r) => r.unregister());
+      });
+    }
+    if ("caches" in window) {
+      caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+    }
+  }, []);
 
   // Cinematic page entry — brief delay after boot, then fade in
   useEffect(() => {
@@ -518,9 +532,21 @@ export default function MettleLanding() {
               </div>
             ) : (
               <form
-                onSubmit={(e) => {
+                onSubmit={async (e) => {
                   e.preventDefault();
                   if (email.trim()) {
+                    // Save to Firestore if available, always save to localStorage as fallback
+                    if (db) {
+                      try {
+                        await addDoc(collection(db, "waitlist"), {
+                          email: email.trim(),
+                          source: "landing",
+                          createdAt: serverTimestamp(),
+                        });
+                      } catch (err) {
+                        console.warn("[Waitlist] Firestore write failed, saved locally", err);
+                      }
+                    }
                     const waitlist = JSON.parse(localStorage.getItem("mettle_waitlist") || "[]");
                     waitlist.push({ email: email.trim(), ts: Date.now() });
                     localStorage.setItem("mettle_waitlist", JSON.stringify(waitlist));

@@ -159,6 +159,7 @@ interface Athlete {
   // v6 fields — athlete + parent linking
   birthday?: string; // YYYY-MM-DD or MM/DD/YYYY
   usaSwimmingId?: string;
+  pin?: string; // 4-digit unique athlete PIN for athlete portal login
   parentCode?: string; // 6-char code parents use to access their child's portal
   parentName?: string;
   parentEmail?: string;
@@ -736,8 +737,11 @@ function getWeekTarget(group: string): number {
   return WEEK_TARGETS_TOTAL[key] ?? 5;
 }
 
-function makeAthlete(r: RosterEntry & { group?: string }): Athlete {
+function makeAthlete(r: RosterEntry & { group?: string }, existingPins?: Set<string>): Athlete {
   const g = r.group ?? "Varsity";
+  const pins = existingPins ?? new Set<string>();
+  const pin = generateAthletePin(pins);
+  pins.add(pin);
   return {
     id: r.name.toLowerCase().replace(/\s+/g, "-"),
     name: r.name, age: r.age, gender: r.gender, group: g,
@@ -746,6 +750,7 @@ function makeAthlete(r: RosterEntry & { group?: string }): Athlete {
     checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {},
     weightChallenges: {}, quests: {},
     dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 },
+    pin,
     birthday: r.birthday ?? "",
     usaSwimmingId: r.usaSwimmingId ?? "",
     parentCode: generateParentCode(),
@@ -898,7 +903,7 @@ export default function ApexAthletePage() {
   const [autoSession] = useState(true); // auto-detect from schedule
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [leaderboardVisible, setLeaderboardVisible] = useState(10);
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy" | "meets" | "comms">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "strategy" | "meets" | "comms" | "pins">("coach");
   const [activeCoach, setActiveCoach] = useState<string>("Coach");
   const [activeCoachGroups, setActiveCoachGroups] = useState<string[]>(["all"]);
 
@@ -933,6 +938,7 @@ export default function ApexAthletePage() {
   const [timelineAthleteId, setTimelineAthleteId] = useState<string | null>(null);
   const [comparePeriod, setComparePeriod] = useState<"week" | "month">("week");
   const [addAthleteOpen, setAddAthleteOpen] = useState(false);
+  const [showPinSheet, setShowPinSheet] = useState(false);
   const [newAthleteName, setNewAthleteName] = useState("");
   const [newAthleteAge, setNewAthleteAge] = useState("");
 
@@ -1172,18 +1178,18 @@ export default function ApexAthletePage() {
         if (old.length > 0) {
           // Old data is Platinum only — tag them and merge with new groups
           const migrated = old.map(a => ({ ...a, group: a.group || "platinum" }));
-          const newGroups = INITIAL_ROSTER.filter(e => e.group !== "platinum").map(makeAthlete);
+          const newGroups = INITIAL_ROSTER.filter(e => e.group !== "platinum").map(e => makeAthlete(e));
           r = [...migrated, ...newGroups];
           save(K.ROSTER, r);
           break;
         }
       }
     }
-    if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
+    if (r.length === 0) { r = INITIAL_ROSTER.map(e => makeAthlete(e)); save(K.ROSTER, r); }
     // If roster exists but is smaller than full roster, add missing athletes
     if (r.length > 0 && r.length < INITIAL_ROSTER.length) {
       const existingIds = new Set(r.map(a => a.id));
-      const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
+      const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(e => makeAthlete(e));
       if (missing.length > 0) { r = [...r, ...missing]; save(K.ROSTER, r); }
     }
     r = r.map(a => {
@@ -1209,6 +1215,19 @@ export default function ApexAthletePage() {
       if (!a.parentCode) a = { ...a, parentCode: generateParentCode() };
       if (!a.sport) a = { ...a, sport: "swimming" as const };
       if (!a.pin) a = { ...a, pin: generatePin(a.name) };
+      return a;
+    });
+    // Migrate: ensure every athlete has a unique 6-digit PIN (upgrade old 4-digit PINs too)
+    const existingPins = new Set<string>();
+    let pinsChanged = false;
+    r = r.map(a => {
+      if (!a.pin || a.pin.length < 6) {
+        const newPin = generateAthletePin(existingPins);
+        existingPins.add(newPin);
+        pinsChanged = true;
+        return { ...a, pin: newPin };
+      }
+      existingPins.add(a.pin);
       return a;
     });
     save(K.ROSTER, r);
@@ -2642,6 +2661,8 @@ export default function ApexAthletePage() {
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                 {athlete.birthday && <span className="text-white/50"><span className="text-white/70">DOB:</span> {athlete.birthday}</span>}
                 {athlete.usaSwimmingId && <span className="text-white/50"><span className="text-white/70">USA-S:</span> {athlete.usaSwimmingId}</span>}
+                {athlete.pin && <span className="text-white/50"><span className="text-white/70">PIN:</span> <span className="font-mono text-[#a855f7]">{athlete.pin}</span></span>}
+                {athlete.parentCode && <span className="text-white/50"><span className="text-white/70">Parent:</span> <span className="font-mono text-[#22d3ee]">{athlete.parentCode}</span></span>}
               </div>
               <div className="mt-3">
                 <div className="flex justify-between text-sm mb-1">
@@ -3724,14 +3745,31 @@ export default function ApexAthletePage() {
         <BgOrbs />
         <div className="w-full mx-auto relative z-10 px-4 sm:px-6 lg:px-6 xl:px-8 2xl:px-10">
           <GameHUDHeader />
-          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-6">Audit Log</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-black tracking-tight neon-text-cyan">Audit Log</h2>
+            {auditLog.length > 0 && (
+              <button
+                onClick={() => { if (confirm("Delete ALL session history? This cannot be undone.")) { setAuditLog([]); save(K.AUDIT, []); } }}
+                className="px-4 py-2 text-xs font-bold tracking-wider uppercase rounded-lg border border-red-500/30 text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-all"
+              >
+                Clear All
+              </button>
+            )}
+          </div>
           <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
             {!auditLog.length && <p className="text-white/50 text-sm p-6 font-mono">No actions recorded yet.</p>}
             {auditLog.slice(0, 200).map((e, i) => (
-              <div key={i} className="flex items-center gap-3 py-3 px-5 text-sm hover:bg-[#00f0ff]/[0.03] transition-colors border-b border-[#00f0ff]/5 last:border-0">
+              <div key={i} className="group flex items-center gap-3 py-3 px-5 text-sm hover:bg-[#00f0ff]/[0.03] transition-colors border-b border-[#00f0ff]/5 last:border-0">
                 <span className="text-[#00f0ff]/25 text-xs w-36 shrink-0 font-mono">{new Date(e.timestamp).toLocaleString()}</span>
                 <span className="text-white/50 flex-1 truncate font-mono">{e.athleteName}: {e.action}</span>
                 {e.xpDelta > 0 && <span className="neon-text-gold font-bold text-sm font-mono">+{e.xpDelta}</span>}
+                <button
+                  onClick={() => { setAuditLog(prev => { const n = [...prev]; n.splice(i, 1); save(K.AUDIT, n); return n; }); }}
+                  className="opacity-0 group-hover:opacity-100 text-red-400/60 hover:text-red-400 transition-all p-1"
+                  title="Delete entry"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                </button>
               </div>
             ))}
           </div>
@@ -6042,33 +6080,51 @@ export default function ApexAthletePage() {
                 <div className="bg-[#0a0315] border border-white/10 rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
                   <div className="sticky top-0 bg-[#0a0315] border-b border-white/10 p-4 flex items-center justify-between">
                     <h3 className="text-white font-bold text-lg">Session History</h3>
-                    <button onClick={() => setViewingSession(null)} className="text-white/40 hover:text-white/80 text-2xl leading-none">&times;</button>
+                    <div className="flex items-center gap-3">
+                      {sessionHistory.filter(s => s.group === selectedGroup).length > 0 && (
+                        <button
+                          onClick={() => { if (confirm("Delete ALL session history for this group? This cannot be undone.")) { setSessionHistory(prev => { const n = prev.filter(s => s.group !== selectedGroup); save(K.SESSION_HISTORY, n); return n; }); setViewingSession(null); } }}
+                          className="px-3 py-1.5 text-xs font-bold tracking-wider uppercase rounded-lg border border-red-500/30 text-red-400/80 hover:bg-red-500/10 hover:text-red-400 transition-all"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                      <button onClick={() => setViewingSession(null)} className="text-white/40 hover:text-white/80 text-2xl leading-none">&times;</button>
+                    </div>
                   </div>
                   {/* Session list */}
                   <div className="p-4 space-y-2">
                     {sessionHistory.filter(s => s.group === selectedGroup).reverse().map(sess => (
-                      <button key={sess.id} onClick={() => setViewingSession(sess)}
-                        className={`w-full text-left p-4 rounded-xl border transition-all min-h-[56px] ${
+                      <div key={sess.id} className={`flex items-center gap-2 p-4 rounded-xl border transition-all min-h-[56px] ${
                           viewingSession.id === sess.id
                             ? "bg-[#22d3ee]/10 border-[#22d3ee]/30"
                             : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.04]"
                         }`}>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-white/80 font-mono text-sm">{new Date(sess.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
-                            <span className={`font-mono text-xs font-bold ml-2 ${(sess.sessionTime === "pm" || (!sess.sessionTime && sess.startedAt > 0 && new Date(sess.startedAt).getHours() >= 12)) ? "text-[#a855f7]" : "text-[#f59e0b]"}`}>
-                              {(sess.sessionTime === "am" || sess.sessionTime === "pm") ? sess.sessionTime.toUpperCase() : new Date(sess.startedAt).getHours() < 12 ? "AM" : "PM"}
-                            </span>
-                            {sess.startedAt > 0 && (
-                              <span className="text-white/30 font-mono text-xs ml-1">
-                                {new Date(sess.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
-                                {sess.endedAt > sess.startedAt && ` – ${new Date(sess.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+                        <button onClick={() => setViewingSession(sess)} className="flex-1 text-left">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="text-white/80 font-mono text-sm">{new Date(sess.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}</span>
+                              <span className={`font-mono text-xs font-bold ml-2 ${(sess.sessionTime === "pm" || (!sess.sessionTime && sess.startedAt > 0 && new Date(sess.startedAt).getHours() >= 12)) ? "text-[#a855f7]" : "text-[#f59e0b]"}`}>
+                                {(sess.sessionTime === "am" || sess.sessionTime === "pm") ? sess.sessionTime.toUpperCase() : new Date(sess.startedAt).getHours() < 12 ? "AM" : "PM"}
                               </span>
-                            )}
+                              {sess.startedAt > 0 && (
+                                <span className="text-white/30 font-mono text-xs ml-1">
+                                  {new Date(sess.startedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
+                                  {sess.endedAt > sess.startedAt && ` – ${new Date(sess.endedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[#22d3ee]/60 font-mono text-sm">{sess.totalAttendance}/{sess.totalAthletes}</span>
                           </div>
-                          <span className="text-[#22d3ee]/60 font-mono text-sm">{sess.totalAttendance}/{sess.totalAthletes}</span>
-                        </div>
-                      </button>
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (confirm(`Delete session from ${new Date(sess.date + "T12:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}?`)) { setSessionHistory(prev => { const n = prev.filter(s => s.id !== sess.id); save(K.SESSION_HISTORY, n); return n; }); if (viewingSession.id === sess.id) { const remaining = sessionHistory.filter(s => s.group === selectedGroup && s.id !== sess.id); setViewingSession(remaining.length > 0 ? remaining[remaining.length - 1] : null); } } }}
+                          className="text-red-400/40 hover:text-red-400 transition-all p-2 shrink-0"
+                          title="Delete session"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                        </button>
+                      </div>
                     ))}
                     {sessionHistory.filter(s => s.group === selectedGroup).length === 0 && (
                       <div className="text-center text-white/30 font-mono text-sm py-8">No session history yet. Sessions are auto-saved when a new practice starts.</div>
@@ -6268,7 +6324,43 @@ export default function ApexAthletePage() {
               {rosterSearch && (
                 <button onClick={() => setRosterSearch("")} className="text-white/30 hover:text-white/60 text-xs">Clear</button>
               )}
+              <button onClick={() => setShowPinSheet(!showPinSheet)}
+                className="px-3 py-2 rounded-lg bg-[#a855f7]/10 text-[#a855f7] text-xs font-bold border border-[#a855f7]/20 hover:bg-[#a855f7]/20 transition-all min-h-[34px] shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block mr-1 -mt-0.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                {showPinSheet ? "Hide PINs" : "Share PINs"}
+              </button>
             </div>
+
+            {/* ── PIN Share Sheet ── */}
+            {showPinSheet && (
+              <Card className="mb-6 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="text-white font-bold text-sm">Athlete PINs — {ROSTER_GROUPS.find(g => g.id === selectedGroup)?.name || selectedGroup}</h4>
+                  <button
+                    onClick={() => {
+                      const lines = filteredRoster.map(a => `${a.name} — PIN: ${a.pin || "N/A"}  |  Parent: ${a.parentCode || "N/A"}`).join("\n");
+                      const header = `METTLE — Athlete Access Codes\n${"—".repeat(40)}\nLogin: ${typeof window !== "undefined" ? window.location.origin : ""}/apex-athlete/login\n\n`;
+                      navigator.clipboard.writeText(header + lines);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-[#22d3ee]/10 text-[#22d3ee] text-xs font-bold border border-[#22d3ee]/20 hover:bg-[#22d3ee]/20 transition-all">
+                    Copy All
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                  {filteredRoster.map(a => (
+                    <div key={a.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.06] transition-colors">
+                      <span className="text-white text-sm font-medium">{a.name}</span>
+                      <div className="flex items-center gap-4">
+                        <span className="text-[#a855f7] font-mono text-sm font-bold">{a.pin || "—"}</span>
+                        <span className="text-white/30 text-xs">|</span>
+                        <span className="text-[#22d3ee] font-mono text-xs">Parent: {a.parentCode || "—"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-white/30 text-xs mt-3 font-mono">Athletes log in at /apex-athlete/login → Enter PIN. Parents use their code at the parent portal.</p>
+              </Card>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3 mb-10">
               {[...filteredRoster].filter(a => !rosterSearch || a.name.toLowerCase().includes(rosterSearch.toLowerCase())).sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);

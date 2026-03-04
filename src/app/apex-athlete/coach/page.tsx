@@ -11,15 +11,24 @@ import { fbSaveRoster } from "@/lib/firebase";
    Clean UI · React + Tailwind · localStorage
    ══════════════════════════════════════════════════════════════ */
 
+// ── micro sound effects (Web Audio API) ──────────────────────
+const SFX = {
+  tick: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 1200; o.type = "sine"; g.gain.setValueAtTime(0.12, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08); o.start(); o.stop(c.currentTime + 0.08); } catch {} },
+  untick: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 600; o.type = "sine"; g.gain.setValueAtTime(0.06, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.06); o.start(); o.stop(c.currentTime + 0.06); } catch {} },
+  questAssign: () => { try { const c = new AudioContext(); [660, 880].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "triangle"; g.gain.setValueAtTime(0, c.currentTime + i * 0.08); g.gain.linearRampToValueAtTime(0.08, c.currentTime + i * 0.08 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.08 + 0.15); o.start(c.currentTime + i * 0.08); o.stop(c.currentTime + i * 0.08 + 0.15); }); } catch {} },
+  questDone: () => { try { const c = new AudioContext(); [784, 988, 1318].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "sine"; g.gain.setValueAtTime(0, c.currentTime + i * 0.1); g.gain.linearRampToValueAtTime(0.1, c.currentTime + i * 0.1 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.1 + 0.25); o.start(c.currentTime + i * 0.1); o.stop(c.currentTime + i * 0.1 + 0.25); }); } catch {} },
+  shoutout: () => { try { const c = new AudioContext(); [523, 659, 784, 1047].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "triangle"; g.gain.setValueAtTime(0, c.currentTime + i * 0.06); g.gain.linearRampToValueAtTime(0.07, c.currentTime + i * 0.06 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.06 + 0.2); o.start(c.currentTime + i * 0.06); o.stop(c.currentTime + i * 0.06 + 0.2); }); } catch {} },
+};
+
 // ── game engine ──────────────────────────────────────────────
 
 const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },
-  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa" },
-  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa" },
-  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b" },
-  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316" },
-  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444" },
+  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8", gradient: "from-slate-400 to-slate-300" },
+  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa", gradient: "from-violet-400 to-purple-300" },
+  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa", gradient: "from-blue-400 to-cyan-300" },
+  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b", gradient: "from-amber-400 to-yellow-300" },
+  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316", gradient: "from-orange-400 to-amber-300" },
+  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444", gradient: "from-red-500 to-orange-400" },
 ] as const;
 
 function getLevel(xp: number) {
@@ -962,7 +971,12 @@ export default function ApexAthletePage() {
   const [mounted, setMounted] = useState(false);
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
+  const [levelUpIcon, setLevelUpIcon] = useState<string>("");
+  const [levelUpColor, setLevelUpColor] = useState<string>("");
+  const [levelUpExiting, setLevelUpExiting] = useState(false);
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
+  const [achieveToasts, setAchieveToasts] = useState<{ id: string; title: string; desc: string; icon: string; color: string; exiting: boolean }[]>([]);
+  const achieveIdRef = useRef(0);
   // ── scroll guard: prevent phantom taps on mobile during/after scroll ──
   const isScrollingRef = useRef(false);
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -998,6 +1012,51 @@ export default function ApexAthletePage() {
   // Removed entirely: the initial load value is correct, and the coach can override manually.
   const floatCounter = useRef(0);
 
+  // ── combo counter state ─────────────────────────────────
+  const [comboCount, setComboCount] = useState(0);
+  const [comboExiting, setComboExiting] = useState(false);
+  const comboTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const comboResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const incrementCombo = useCallback(() => {
+    if (comboResetRef.current) clearTimeout(comboResetRef.current);
+    if (comboTimerRef.current) clearTimeout(comboTimerRef.current);
+    setComboExiting(false);
+    setComboCount(prev => {
+      const next = prev + 1;
+      // Escalating pitch chime
+      if (next >= 3) {
+        try {
+          const ctx = new AudioContext();
+          const baseFreq = 440 + Math.min(next * 60, 600);
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = baseFreq; osc.type = "triangle";
+          gain.gain.setValueAtTime(0.06, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+          osc.start(); osc.stop(ctx.currentTime + 0.15);
+          if (next >= 5) {
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2); gain2.connect(ctx.destination);
+            osc2.frequency.value = baseFreq * 1.5; osc2.type = "sine";
+            gain2.gain.setValueAtTime(0.03, ctx.currentTime + 0.05);
+            gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
+            osc2.start(ctx.currentTime + 0.05); osc2.stop(ctx.currentTime + 0.2);
+          }
+        } catch {}
+        if (navigator.vibrate) navigator.vibrate(15);
+      }
+      return next;
+    });
+    // Reset combo after 2s of inactivity
+    comboResetRef.current = setTimeout(() => {
+      setComboExiting(true);
+      comboTimerRef.current = setTimeout(() => { setComboCount(0); setComboExiting(false); }, 400);
+    }, 2000);
+  }, []);
+
   // ── bulk undo state ────────────────────────────────────
   const [bulkUndoVisible, setBulkUndoVisible] = useState(false);
   const [bulkUndoSnapshot, setBulkUndoSnapshot] = useState<Athlete[] | null>(null);
@@ -1006,6 +1065,15 @@ export default function ApexAthletePage() {
   // ── more menu & confirm dialog ─────────────────────────
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ label: string; action: () => void } | null>(null);
+
+  // ── practice recap ───────────────────────────────────
+  const [showRecap, setShowRecap] = useState(false);
+  const [recapData, setRecapData] = useState<{
+    group: string; date: string; attendance: number; total: number;
+    xpAwarded: number; topEarners: { name: string; xp: number; level: string; color: string }[];
+    streaksActive: number; longestStreak: { name: string; streak: number };
+    mvp: { name: string; xp: number } | null; checkpointsChecked: number;
+  } | null>(null);
 
   // ── invite system ─────────────────────────────────────
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -1075,10 +1143,12 @@ export default function ApexAthletePage() {
   const [pushLoading, setPushLoading] = useState(false);
 
   // ── mount & load ─────────────────────────────────────────
+  // Firestore is the source of truth. Always pull from Firestore first.
+  // localStorage is a fast cache — never treat it as authoritative over Firestore.
   useEffect(() => {
     const pin = load<string>(K.PIN, "");
     if (!pin || pin === "1234") { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); } else { setCoachPin(pin); }
-    // Load selected group
+    // Load selected group (local-only, not synced)
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
     let r = load<Athlete[]>(K.ROSTER, []);
@@ -1182,15 +1252,196 @@ export default function ApexAthletePage() {
     // Load broadcasts + absence reports
     try { setAllBroadcasts(JSON.parse(localStorage.getItem("apex-broadcasts-v1") || "[]")); } catch { /* empty */ }
     try { setAbsenceReports(JSON.parse(localStorage.getItem("apex-absences-v1") || "[]")); } catch { /* empty */ }
-    // Check push notification status
+    // Service worker
     if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.register("/sw.js").then(reg => {
-        reg.pushManager.getSubscription().then(sub => {
-          setPushEnabled(!!sub);
-        });
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(reg => {
+        reg.update();
+        reg.pushManager.getSubscription().then(sub => { setPushEnabled(!!sub); });
       });
     }
-    setMounted(true);
+
+    // ── Firestore-first data loading ──
+    // Strategy: Try Firestore first → merge with localStorage (keep richer data) → update both
+    (async () => {
+      try {
+        // Helper: pick the roster with more total XP (= more real data)
+        const rosterXP = (athletes: Athlete[]) => athletes.reduce((s, a) => s + (a.xp || 0), 0);
+
+        // 1. Load roster from localStorage (instant)
+        let localRoster = load<Athlete[]>(K.ROSTER, []);
+        // Migrate from older roster versions
+        if (localRoster.length === 0) {
+          const oldKeys = ["apex-athlete-roster-v4", "apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
+          for (const ok of oldKeys) {
+            const old = load<Athlete[]>(ok, []);
+            if (old.length > 0) {
+              const migrated = old.map(a => ({ ...a, group: a.group || "platinum" }));
+              const newGroups = INITIAL_ROSTER.filter(e => e.group !== "platinum").map(makeAthlete);
+              localRoster = [...migrated, ...newGroups];
+              break;
+            }
+          }
+        }
+
+        // 2. Load roster from Firestore
+        let firestoreRoster: Athlete[] = [];
+        try {
+          const remote = await syncLoad<Athlete[]>(K.ROSTER, "rosters/all");
+          if (remote && Array.isArray(remote) && remote.length > 0) {
+            firestoreRoster = remote;
+            console.log("[Sync] Firestore roster:", firestoreRoster.length, "athletes, total XP:", rosterXP(firestoreRoster));
+          }
+        } catch (e) { console.warn("[Sync] Firestore read failed (using local):", e); }
+
+        // 3. Pick the roster with more data (higher total XP = more real check-in data)
+        let r: Athlete[];
+        if (firestoreRoster.length > 0 && localRoster.length > 0) {
+          // Both exist — use the one with more XP (more real data)
+          const fbXP = rosterXP(firestoreRoster);
+          const lsXP = rosterXP(localRoster);
+          if (fbXP >= lsXP) {
+            r = firestoreRoster;
+            console.log("[Sync] Using Firestore roster (XP:", fbXP, "vs local:", lsXP, ")");
+          } else {
+            r = localRoster;
+            console.log("[Sync] Using localStorage roster (XP:", lsXP, "vs Firestore:", fbXP, ")");
+          }
+        } else if (firestoreRoster.length > 0) {
+          r = firestoreRoster;
+          console.log("[Sync] Using Firestore roster (no local data)");
+        } else if (localRoster.length > 0) {
+          r = localRoster;
+          console.log("[Sync] Using localStorage roster (no Firestore data)");
+        } else {
+          // Neither has data — initialize from seed
+          r = INITIAL_ROSTER.map(makeAthlete);
+          console.log("[Sync] No data anywhere — initializing from seed roster");
+        }
+
+        // 4. Ensure all athletes are present (add missing from seed)
+        if (r.length > 0 && r.length < INITIAL_ROSTER.length) {
+          const existingIds = new Set(r.map(a => a.id));
+          const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
+          if (missing.length > 0) r = [...r, ...missing];
+        }
+
+        // 5. Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
+        const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
+        if (anyPastCheckins) {
+          const prevDate = r.find(a => a.dailyXP?.date && a.dailyXP.date !== today())?.dailyXP?.date || today();
+          const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
+          if (!snaps.some(s => s.date === prevDate)) {
+            const att = r.filter(a => a.present).length;
+            snaps.push({
+              date: prevDate, attendance: att, totalAthletes: r.length,
+              totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0), 0),
+              poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
+              weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
+              meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
+              questsCompleted: 0, challengesCompleted: 0,
+              athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0])),
+              athleteStreaks: Object.fromEntries(r.map(a => [a.id, a.streak || 0])),
+            });
+            save(K.SNAPSHOTS, snaps);
+          }
+        }
+
+        // 6. Normalize athlete data (ensure fields, reset daily XP for new day, auto-break streaks)
+        r = r.map(a => {
+          if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
+          if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
+          if (!a.group) a = { ...a, group: "platinum" };
+          if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          if (a.lastStreakDate && a.streak > 0) {
+            const last = new Date(a.lastStreakDate); const now = new Date(today());
+            const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
+            if (diffDays > 1) a = { ...a, streak: 0 };
+          }
+          if (a.lastWeightStreakDate && a.weightStreak > 0) {
+            const last = new Date(a.lastWeightStreakDate); const now = new Date(today());
+            const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
+            if (diffDays > 1) a = { ...a, weightStreak: 0 };
+          }
+          return a;
+        });
+
+        // 7. Save to BOTH localStorage AND Firestore (single source of truth)
+        save(K.ROSTER, r);
+        setRoster(r);
+
+        // 8. Load other data — pull from Firestore first, fall back to localStorage
+        const loadWithSync = async <T,>(key: string, fbPath: string, fallback: T, setter: (v: T) => void) => {
+          try {
+            const remote = await syncLoad<T>(key, fbPath);
+            if (remote !== null) { save(key, remote); setter(remote as T); return; }
+          } catch { /* fall through */ }
+          const local = load<T>(key, fallback);
+          setter(local);
+          // Push local to Firestore so it's available next time
+          syncSave(key, local, fbPath);
+        };
+
+        await loadWithSync<AuditEntry[]>(K.AUDIT, "audit/all", [], setAuditLog);
+        await loadWithSync<TeamChallenge[]>(K.CHALLENGES, "config/challenges", DEFAULT_CHALLENGES, setTeamChallenges);
+        await loadWithSync<DailySnapshot[]>(K.SNAPSHOTS, "config/snapshots", [], setSnapshots);
+        await loadWithSync<TeamCulture>(K.CULTURE, "config/culture", DEFAULT_CULTURE, setCulture);
+        await loadWithSync<SwimMeet[]>(K.MEETS, "config/meets", [], setMeets);
+        await loadWithSync<CoachProfile[]>(K.COACHES, "config/coaches", [], setCoaches);
+
+        // Load + sync pin
+        try {
+          const remotePin = await syncLoad<string>(K.PIN, "config/pin");
+          if (remotePin && typeof remotePin === "string") { save(K.PIN, remotePin); setCoachPin(remotePin); }
+        } catch { /* keep local */ }
+
+        // Load schedules (with ensure-all-groups logic)
+        let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
+        try {
+          const remoteScheds = await syncLoad<GroupSchedule[]>(K.SCHEDULES, "config/schedules");
+          if (remoteScheds && Array.isArray(remoteScheds) && remoteScheds.length > 0) scheds = remoteScheds;
+        } catch { /* keep local */ }
+        if (scheds.length === 0) {
+          scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+        } else {
+          const existingIds = new Set(scheds.map(s => s.groupId));
+          const missing = ROSTER_GROUPS.filter(g => !existingIds.has(g.id)).map(g => makeDefaultGroupSchedule(g.id));
+          if (missing.length > 0) scheds = [...scheds, ...missing];
+        }
+        save(K.SCHEDULES, scheds);
+        setSchedules(scheds);
+
+        // Push authoritative roster to Firestore (ensures cloud is always current)
+        syncSave(K.ROSTER, r, "rosters/all");
+        console.log("[Sync] Data loaded and synced. Roster:", r.length, "athletes, total XP:", rosterXP(r));
+
+      } catch (e) {
+        console.warn("[Sync] Firestore sync error — falling back to localStorage:", e);
+        // Full localStorage fallback if Firestore fails
+        let r = load<Athlete[]>(K.ROSTER, []);
+        if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
+        r = r.map(a => {
+          if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
+          if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
+          if (!a.group) a = { ...a, group: "platinum" };
+          if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          return a;
+        });
+        save(K.ROSTER, r);
+        setRoster(r);
+        setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
+        setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
+        setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
+        setCulture(load<TeamCulture>(K.CULTURE, DEFAULT_CULTURE));
+        let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
+        if (scheds.length === 0) scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+        setSchedules(scheds);
+        setCoaches(load<CoachProfile[]>(K.COACHES, []));
+        setMeets(load<SwimMeet[]>(K.MEETS, []));
+      }
+      setMounted(true);
+    })();
   }, []);
 
   // ── push notification helpers ──────────────────────────────
@@ -1240,6 +1491,8 @@ export default function ApexAthletePage() {
   const [sessionHistory, setSessionHistory] = useState<SessionRecord[]>([]);
   const [showSessionHistory, setShowSessionHistory] = useState(false);
   const [editingHistorySession, setEditingHistorySession] = useState<string | null>(null);
+  const [confirmDeleteSessionId, setConfirmDeleteSessionId] = useState<string | null>(null);
+  const [confirmClearAll, setConfirmClearAll] = useState(false);
 
   // Load session history on mount
   useEffect(() => {
@@ -1292,6 +1545,49 @@ export default function ApexAthletePage() {
       athleteStreaks: Object.fromEntries(groupRoster.map(a => [a.id, a.streak || 0])),
     });
     save(K.SNAPSHOTS, snaps);
+
+    // Build recap data BEFORE clearing
+    const dailyXPs = groupRoster.map(a => ({
+      name: a.name,
+      xp: a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0,
+      level: getLevel(a.xp).name,
+      color: getLevel(a.xp).color,
+    })).sort((a, b) => b.xp - a.xp);
+    const streaksActive = groupRoster.filter(a => a.streak > 0).length;
+    const longestStreak = groupRoster.reduce((best, a) => a.streak > best.streak ? { name: a.name, streak: a.streak } : best, { name: "", streak: 0 });
+    const totalCheckpoints = groupRoster.reduce((s, a) =>
+      s + Object.values(a.checkpoints || {}).filter(Boolean).length +
+      Object.values(a.weightCheckpoints || {}).filter(Boolean).length +
+      Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0);
+
+    setRecapData({
+      group: selectedGroup, date: today(),
+      attendance: groupRoster.filter(a => a.present).length,
+      total: groupRoster.length,
+      xpAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
+      topEarners: dailyXPs.filter(a => a.xp > 0).slice(0, 3),
+      streaksActive,
+      longestStreak: longestStreak.streak > 0 ? longestStreak : { name: "-", streak: 0 },
+      mvp: dailyXPs[0]?.xp > 0 ? { name: dailyXPs[0].name, xp: dailyXPs[0].xp } : null,
+      checkpointsChecked: totalCheckpoints,
+    });
+    setShowRecap(true);
+
+    // Play recap sound
+    try {
+      const ctx = new AudioContext();
+      [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = freq; osc.type = "sine";
+        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.12);
+        gain.gain.linearRampToValueAtTime(0.06, ctx.currentTime + i * 0.12 + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.12 + 0.4);
+        osc.start(ctx.currentTime + i * 0.12); osc.stop(ctx.currentTime + i * 0.12 + 0.4);
+      });
+    } catch {}
+    if (navigator.vibrate) navigator.vibrate([40, 30, 60, 30, 80]);
 
     // Clear current session — fresh slate
     const cleared = roster.map(a => a.group !== selectedGroup ? a : ({
@@ -1394,15 +1690,140 @@ export default function ApexAthletePage() {
     setAuditLog(prev => { const n = [entry, ...prev].slice(0, 2000); save(K.AUDIT, n); return n; });
   }, []);
 
+  // ── level-up triumphant sound (Web Audio API) ──────────
+  const playLevelUpSound = useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const now = ctx.currentTime;
+      // Rising arpeggio: C5 → E5 → G5 → C6
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + i * 0.12);
+        gain.gain.linearRampToValueAtTime(0.15, now + i * 0.12 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.12 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + i * 0.12);
+        osc.stop(now + i * 0.12 + 0.5);
+      });
+      // Final shimmer chord
+      [1046.5, 1318.5, 1568.0].forEach((freq) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "triangle";
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, now + 0.5);
+        gain.gain.linearRampToValueAtTime(0.08, now + 0.55);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now + 0.5);
+        osc.stop(now + 1.6);
+      });
+    } catch { /* silent fail if audio unavailable */ }
+  }, []);
+
   const checkLevelUp = useCallback((oldXP: number, newXP: number, name: string) => {
     const oldLv = getLevel(oldXP);
     const newLv = getLevel(newXP);
     if (newLv.name !== oldLv.name) {
       setLevelUpName(name);
       setLevelUpLevel(newLv.name);
-      setTimeout(() => { setLevelUpName(null); }, 3000);
+      setLevelUpIcon(newLv.icon);
+      setLevelUpColor(newLv.color);
+      setLevelUpExiting(false);
+      // Play triumphant sound
+      playLevelUpSound();
+      // Haptic burst
+      if (navigator.vibrate) navigator.vibrate([50, 30, 80, 30, 120, 50, 80]);
+      // Auto-dismiss with fade-out
+      setTimeout(() => { setLevelUpExiting(true); }, 3500);
+      setTimeout(() => { setLevelUpName(null); setLevelUpExiting(false); }, 4000);
     }
   }, []);
+
+  // ── achievement toast system ──────────────────────────────
+  const spawnAchievement = useCallback((title: string, desc: string, icon: string, color: string) => {
+    const id = `ach-${achieveIdRef.current++}`;
+    setAchieveToasts(prev => [...prev, { id, title, desc, icon, color, exiting: false }]);
+    // Play a subtle chime
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; osc.type = "sine";
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      osc.start(); osc.stop(ctx.currentTime + 0.4);
+      // Second note (fifth)
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.frequency.value = 1320; osc2.type = "sine";
+      gain2.gain.setValueAtTime(0, ctx.currentTime + 0.1);
+      gain2.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.15);
+      gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc2.start(ctx.currentTime + 0.1); osc2.stop(ctx.currentTime + 0.5);
+    } catch {}
+    // Haptic
+    if (navigator.vibrate) navigator.vibrate([30, 20, 50]);
+    // Auto exit
+    setTimeout(() => setAchieveToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t)), 3200);
+    setTimeout(() => setAchieveToasts(prev => prev.filter(t => t.id !== id)), 3600);
+  }, []);
+
+  const checkAchievements = useCallback((athlete: Athlete, cpId: string) => {
+    const totalChecked = Object.values(athlete.checkpoints).filter(Boolean).length +
+      Object.values(athlete.weightCheckpoints).filter(Boolean).length +
+      Object.values(athlete.meetCheckpoints).filter(Boolean).length;
+    // First ever check-in
+    if (totalChecked === 1) {
+      spawnAchievement("First Check-In", `${athlete.name} is on the board!`, "🎯", "#60a5fa");
+    }
+    // Streak milestones
+    const streakMilestones = [5, 10, 25, 50, 100];
+    if (cpId === "practice-complete" && athlete.lastStreakDate !== today()) {
+      const newStreak = athlete.streak + 1;
+      if (streakMilestones.includes(newStreak)) {
+        spawnAchievement(`${newStreak}-Day Streak`, `${athlete.name} is on fire!`, "🔥", "#f97316");
+      }
+    }
+    // Practice count milestones
+    if (cpId === "practice-complete") {
+      const newTotal = athlete.totalPractices + 1;
+      const practiceMilestones = [10, 25, 50, 100, 200, 500];
+      if (practiceMilestones.includes(newTotal)) {
+        spawnAchievement(`${newTotal} Practices`, `${athlete.name} — dedicated!`, "💪", "#a78bfa");
+      }
+    }
+    // XP milestones
+    const xpMilestones = [100, 250, 500, 1000, 2000, 5000];
+    for (const m of xpMilestones) {
+      if (athlete.xp < m) break;
+      // Only trigger if they JUST crossed it (within 150 XP of the milestone — max daily cap)
+      if (athlete.xp >= m && athlete.xp - m < DAILY_XP_CAP) {
+        spawnAchievement(`${m} XP`, `${athlete.name} hit ${m.toLocaleString()} XP!`, "⚡", "#f59e0b");
+        break;
+      }
+    }
+    // Perfect practice (all pool checkpoints checked)
+    const allPool = POOL_CPS.every(cp => athlete.checkpoints[cp.id]);
+    if (allPool) {
+      spawnAchievement("Perfect Practice", `${athlete.name} — every box checked!`, "⭐", "#f59e0b");
+    }
+    // Meet milestones
+    if (cpId === "m-pr") {
+      spawnAchievement("New PR!", `${athlete.name} set a personal best!`, "🏆", "#f59e0b");
+    }
+    if (cpId === "m-team-record") {
+      spawnAchievement("Team Record!", `${athlete.name} made history!`, "👑", "#ef4444");
+    }
+  }, [spawnAchievement]);
 
   const spawnXpFloat = useCallback((xp: number, e?: React.MouseEvent) => {
     if (xp <= 0) return;
@@ -1441,6 +1862,7 @@ export default function ApexAthletePage() {
       const cps = { ...a[cpMap] };
       if (cps[cpId]) {
         cps[cpId] = false; a[cpMap] = cps;
+        SFX.untick();
         // Revert XP when unchecking
         const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
         const awarded = Math.round(cpXP * mult);
@@ -1452,6 +1874,8 @@ export default function ApexAthletePage() {
         const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
       }
       cps[cpId] = true; a[cpMap] = cps;
+      SFX.tick();
+      incrementCombo();
       const { newAthlete, awarded } = awardXP(a, cpXP, category);
       let final = { ...newAthlete, [cpMap]: cps };
       // Increment streak once per day on Practice Complete (pool) or Showed Up (weight)
@@ -1463,9 +1887,11 @@ export default function ApexAthletePage() {
       }
       addAudit(final.id, final.name, `Checked: ${cpId}`, awarded);
       if (e) spawnXpFloat(awarded, e);
+      // Check for achievement milestones
+      setTimeout(() => checkAchievements(final, cpId), 100);
       const r = [...prev]; r[idx] = final; save(K.ROSTER, r); return r;
     });
-  }, [awardXP, addAudit, spawnXpFloat]);
+  }, [awardXP, addAudit, incrementCombo, spawnXpFloat, checkAchievements]);
 
   // ── weight challenge toggle ──────────────────────────────
   const toggleWeightChallenge = useCallback((athleteId: string, chId: string, chXP: number, e?: React.MouseEvent) => {
@@ -1475,6 +1901,7 @@ export default function ApexAthletePage() {
       let a = { ...prev[idx], weightChallenges: { ...prev[idx].weightChallenges } };
       if (a.weightChallenges[chId]) {
         a.weightChallenges[chId] = false;
+        SFX.untick();
         const mult = getWeightStreakMult(a.weightStreak);
         const reverted = Math.round(chXP * mult);
         a.xp = Math.max(0, a.xp - reverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - reverted);
@@ -1484,6 +1911,7 @@ export default function ApexAthletePage() {
         addAudit(a.id, a.name, `Unchallenged: ${chId}`, -reverted);
       } else {
         a.weightChallenges[chId] = true;
+        SFX.tick();
         const { newAthlete, awarded } = awardXP(a, chXP, "weight");
         a = { ...newAthlete, weightChallenges: a.weightChallenges };
         addAudit(a.id, a.name, `Challenge: ${chId}`, awarded);
@@ -1507,8 +1935,10 @@ export default function ApexAthletePage() {
         cur === "active" ? "done" : // fallback: coach can still approve directly
         "pending";
       a.quests[qId] = next;
+      if (next === "active") SFX.questAssign();
       let awarded = 0;
       if (next === "done") {
+        SFX.questDone();
         const res = awardXP(a, qXP, "pool");
         a = { ...res.newAthlete, quests: a.quests };
         awarded = res.awarded;
@@ -1559,6 +1989,7 @@ export default function ApexAthletePage() {
       if (!wasPresent) {
         // MARKING PRESENT → auto-check Tier 1 checkpoints + award XP
         a.present = true;
+        incrementCombo();
         const newCPs: Record<string, boolean> = { ...a[cpMapKey] };
         let totalAwarded = 0;
         // Award base "showed up" XP
@@ -1612,7 +2043,7 @@ export default function ApexAthletePage() {
       }
       const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
     });
-  }, [addAudit, awardXP, selectedGroup, sessionMode]);
+  }, [addAudit, awardXP, incrementCombo, selectedGroup, sessionMode]);
 
   // ── shoutout / MVP — coach recognition for standout moments ─
   const giveShoutout = useCallback((athleteId: string, e?: React.MouseEvent) => {
@@ -1621,6 +2052,7 @@ export default function ApexAthletePage() {
       if (idx < 0) return prev;
       const a = { ...prev[idx] };
       const { newAthlete, awarded } = awardXP(a, SHOUTOUT_XP, "pool");
+      SFX.shoutout();
       addAudit(newAthlete.id, newAthlete.name, "Shoutout", awarded);
       if (e) spawnXpFloat(awarded, e);
       const r = [...prev]; r[idx] = newAthlete; save(K.ROSTER, r); return r;
@@ -2000,29 +2432,162 @@ export default function ApexAthletePage() {
     </div>
   );
 
-  // ── level-up overlay with sparkles ──────────────────────
+  // ── cinematic level-up overlay ──────────────────────────
   const SPARKLE_DIRS = [
-    { sx: "-60px", sy: "-70px" }, { sx: "65px", sy: "-60px" },
-    { sx: "-50px", sy: "55px" }, { sx: "55px", sy: "60px" },
-    { sx: "-80px", sy: "0px" }, { sx: "80px", sy: "-10px" },
-    { sx: "0px", sy: "-80px" }, { sx: "10px", sy: "75px" },
+    { sx: "-90px", sy: "-100px" }, { sx: "95px", sy: "-90px" },
+    { sx: "-80px", sy: "85px" }, { sx: "85px", sy: "90px" },
+    { sx: "-120px", sy: "0px" }, { sx: "120px", sy: "-10px" },
+    { sx: "0px", sy: "-120px" }, { sx: "10px", sy: "110px" },
+    { sx: "-50px", sy: "-130px" }, { sx: "60px", sy: "120px" },
+    { sx: "-110px", sy: "-50px" }, { sx: "100px", sy: "40px" },
   ];
   const LevelUpOverlay = () => {
     if (!levelUpName) return null;
     return (
-      <div className="fixed inset-0 z-[300] flex items-center justify-center">
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setLevelUpName(null)} />
-        <div className="relative level-up-enter text-center">
-          {/* sparkle particles */}
-          {SPARKLE_DIRS.map((d, i) => (
-            <div key={i} className="sparkle absolute left-1/2 top-1/2 w-2 h-2 rounded-full bg-[#f59e0b]"
-              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.05}s` } as React.CSSProperties} />
+      <div className={`fixed inset-0 z-[300] flex items-center justify-center ${levelUpExiting ? "level-up-exit" : ""}`}
+        onClick={() => { setLevelUpExiting(true); setTimeout(() => setLevelUpName(null), 500); }}>
+        {/* cinematic flash */}
+        <div className="absolute inset-0 level-up-screen-flash" style={{ background: `radial-gradient(circle, ${levelUpColor}40, transparent 70%)` }} />
+        {/* dark backdrop with radial glow */}
+        <div className="absolute inset-0 bg-black/85 backdrop-blur-lg" />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, ${levelUpColor}15 0%, transparent 60%)` }} />
+
+        <div className="relative level-up-enter text-center w-full max-w-sm mx-4">
+          {/* expanding ring bursts — thicker, more dramatic */}
+          {[160, 224, 288, 352].map((size, i) => (
+            <div key={i} className="ring-burst-pro absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+              style={{ width: size, height: size, borderColor: levelUpColor, animationDelay: `${i * 0.15}s` }} />
           ))}
-          <div className="relative bg-[#0c0618]/95 border border-[#f59e0b]/25 rounded-2xl p-10 shadow-[0_0_60px_rgba(245,158,11,0.15),0_0_120px_rgba(107,33,168,0.1)]">
-            <div className="text-5xl mb-3">⚡</div>
-            <div className="text-[#f59e0b] text-xs tracking-[0.3em] uppercase font-bold mb-2">Level Up!</div>
-            <div className="text-white text-2xl font-black mb-1">{levelUpName}</div>
-            <div className="bg-gradient-to-r from-[#a855f7] to-[#f59e0b] bg-clip-text text-transparent text-lg font-bold">{levelUpLevel}</div>
+          {/* sparkle particles — bigger, brighter */}
+          {SPARKLE_DIRS.map((d, i) => (
+            <div key={i} className="sparkle-pro absolute left-1/2 top-1/2 w-3 h-3 rounded-full"
+              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.04}s`, backgroundColor: levelUpColor, boxShadow: `0 0 8px ${levelUpColor}` } as React.CSSProperties} />
+          ))}
+
+          {/* main card — premium glass morphism */}
+          <div className="relative overflow-hidden rounded-3xl"
+            style={{ border: `2px solid ${levelUpColor}50`, boxShadow: `0 0 60px ${levelUpColor}30, inset 0 0 60px ${levelUpColor}08` }}>
+            {/* inner gradient bg */}
+            <div className="absolute inset-0 bg-gradient-to-b from-[#0c0618] via-[#0c0618]/98 to-[#0c0618]" />
+            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${levelUpColor}08 0%, transparent 40%, ${levelUpColor}05 100%)` }} />
+
+            <div className="relative px-8 py-14">
+              {/* top accent line */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-0.5 level-up-accent-line" style={{ backgroundColor: levelUpColor }} />
+
+              {/* SVG shield icon instead of emoji */}
+              <div className="level-icon-explode mx-auto mb-6" style={{ filter: `drop-shadow(0 0 30px ${levelUpColor}) drop-shadow(0 0 60px ${levelUpColor}80)` }}>
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  {/* shield shape */}
+                  <path d="M40 4L12 18V38C12 56 24 70 40 76C56 70 68 56 68 38V18L40 4Z"
+                    fill={`${levelUpColor}20`} stroke={levelUpColor} strokeWidth="2.5"/>
+                  {/* inner glow */}
+                  <path d="M40 12L18 23V38C18 52 28 64 40 69C52 64 62 52 62 38V23L40 12Z"
+                    fill={`${levelUpColor}15`}/>
+                  {/* center star */}
+                  <path d="M40 24L44.5 33.5L55 35L47.5 42L49.5 52.5L40 47.5L30.5 52.5L32.5 42L25 35L35.5 33.5Z"
+                    fill={levelUpColor} fillOpacity="0.9"/>
+                </svg>
+              </div>
+
+              {/* LEVEL UP text — dramatic */}
+              <div className="level-text-slide mb-2" style={{ animationDelay: "0.2s" }}>
+                <div className="text-[10px] tracking-[0.5em] uppercase font-bold opacity-60" style={{ color: levelUpColor }}>
+                  Achievement Unlocked
+                </div>
+              </div>
+              <div className="level-text-slide mb-5" style={{ animationDelay: "0.35s" }}>
+                <div className="text-4xl font-black tracking-tight bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(180deg, white 30%, ${levelUpColor})` }}>
+                  LEVEL UP
+                </div>
+              </div>
+
+              {/* divider line */}
+              <div className="w-16 h-px mx-auto mb-5 level-text-slide" style={{ backgroundColor: `${levelUpColor}40`, animationDelay: "0.45s" }} />
+
+              {/* athlete name */}
+              <div className="text-white/90 text-xl font-bold tracking-wide mb-2 level-text-slide" style={{ animationDelay: "0.55s" }}>
+                {levelUpName}
+              </div>
+
+              {/* new rank — big and gradient */}
+              <div className="level-text-slide" style={{ animationDelay: "0.7s" }}>
+                <div className="text-3xl font-black tracking-tight bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(135deg, ${levelUpColor}, #f59e0b, ${levelUpColor})` }}>
+                  {levelUpLevel}
+                </div>
+              </div>
+
+              {/* bottom accent line */}
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-0.5 level-up-accent-line" style={{ backgroundColor: levelUpColor, animationDelay: "0.3s" }} />
+            </div>
+          </div>
+
+          {/* tap to dismiss */}
+          <div className="text-white/30 text-xs mt-4 level-text-slide" style={{ animationDelay: "1.2s" }}>
+            Tap to dismiss
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ── achievement toasts (Xbox-style) ─────────────────────
+  const AchievementToasts = () => {
+    if (achieveToasts.length === 0) return null;
+    return (
+      <div className="fixed bottom-6 right-4 z-[250] flex flex-col gap-3 pointer-events-none" style={{ maxWidth: "320px" }}>
+        {achieveToasts.map((t, i) => (
+          <div key={t.id}
+            className={`relative overflow-hidden rounded-2xl border-2 pointer-events-auto achieve-shine ${t.exiting ? "achieve-toast-exit" : "achieve-toast-enter"}`}
+            style={{
+              borderColor: `${t.color}40`,
+              background: `linear-gradient(135deg, rgba(6,2,15,0.95), rgba(6,2,15,0.85))`,
+              boxShadow: `0 0 30px ${t.color}20, 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 ${t.color}15`,
+              backdropFilter: "blur(20px)",
+              animationDelay: `${i * 0.1}s`,
+            }}
+            onClick={() => setAchieveToasts(prev => prev.map(x => x.id === t.id ? { ...x, exiting: true } : x))}
+          >
+            <div className="flex items-center gap-3 px-4 py-3">
+              <div className="achieve-icon-pop text-2xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 8px ${t.color})` }}>
+                {t.icon}
+              </div>
+              <div className="min-w-0">
+                <div className="text-[9px] uppercase tracking-[0.3em] font-bold font-mono mb-0.5" style={{ color: `${t.color}90` }}>
+                  Achievement Unlocked
+                </div>
+                <div className="text-white font-bold text-sm leading-tight truncate">{t.title}</div>
+                <div className="text-white/50 text-xs mt-0.5 truncate">{t.desc}</div>
+              </div>
+            </div>
+            {/* progress bar accent */}
+            <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${t.color}, ${t.color}40)` }} />
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // ── combo counter display ──────────────────────────────
+  const ComboCounter = () => {
+    if (comboCount < 3) return null;
+    const tier = comboCount >= 10 ? 3 : comboCount >= 7 ? 2 : comboCount >= 5 ? 1 : 0;
+    const colors = ["#00f0ff", "#a78bfa", "#f59e0b", "#ef4444"];
+    const labels = ["COMBO", "MEGA COMBO", "ULTRA COMBO", "INSANE COMBO"];
+    const color = colors[tier];
+    return (
+      <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] pointer-events-none ${comboExiting ? "combo-exit" : "combo-enter"}`}>
+        <div className="text-center">
+          <div className="combo-pulse text-5xl font-black tabular-nums" style={{
+            color,
+            textShadow: `0 0 30px ${color}, 0 0 60px ${color}60`,
+          }}>
+            {comboCount}x
+          </div>
+          <div className="text-[10px] tracking-[0.4em] font-bold uppercase mt-1" style={{ color: `${color}90` }}>
+            {labels[tier]}
           </div>
         </div>
       </div>
@@ -2136,6 +2701,21 @@ export default function ApexAthletePage() {
                 </button>
               )}
             </div>
+          </div>
+
+          {/* Personalized greeting */}
+          <div className="mb-3 px-1">
+            <span className="text-white/40 text-xs font-mono">
+              {(() => {
+                const h = new Date().getHours();
+                const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+                const name = currentCoach?.name || "Coach";
+                return `${greeting}, ${name}`;
+              })()}
+            </span>
+            <span className="text-white/20 text-xs font-mono ml-2">
+              {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+            </span>
           </div>
 
           {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
@@ -2316,7 +2896,7 @@ export default function ApexAthletePage() {
               </div>
               <div className="mt-3">
                 <div className="flex justify-between text-xs mb-1">
-                  <span className="text-white/60 font-bold">{athlete.xp} XP</span>
+                  <AnimatedCounter value={athlete.xp} suffix=" XP" className="text-white/60 font-bold" />
                   <span className="text-white/60">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
@@ -2832,7 +3412,7 @@ export default function ApexAthletePage() {
   if (view === "parent") {
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-        <BgOrbs /><XpFloats /><LevelUpOverlay />
+        <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts /><ComboCounter />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
@@ -3818,7 +4398,7 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
       <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
-      <XpFloats /><LevelUpOverlay />
+      <XpFloats /><LevelUpOverlay /><AchievementToasts />
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="w-full">
@@ -3933,7 +4513,7 @@ export default function ApexAthletePage() {
                           {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
-                          <div className="text-white/60 text-xs mt-1 font-bold">🔥 {a.streak}d streak</div>
+                          <div className="text-white/60 text-xs mt-1 font-bold flex items-center gap-1"><StreakFlame streak={a.streak} size={14} /> {a.streak}d streak</div>
                         )}
                       </div>
                     );
@@ -3964,8 +4544,8 @@ export default function ApexAthletePage() {
                     </div>
                     <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
-                    {a.streak > 0 && <span className="text-white/60 text-xs hidden sm:inline font-bold">🔥 {a.streak}d</span>}
-                    <span className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]">{a.xp}</span>
+                    {a.streak > 0 && <span className="text-white/60 text-xs hidden sm:inline-flex items-center gap-0.5 font-bold"><StreakFlame streak={a.streak} size={12} /> {a.streak}d</span>}
+                    <AnimatedCounter value={a.xp} className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]" />
                   </div>
                 );
               })}
@@ -4049,7 +4629,7 @@ export default function ApexAthletePage() {
 
             {/* Quick actions — full-width toolbar */}
             <div className="grid grid-cols-5 gap-2 mb-3">
-              <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+              <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px] tap-feedback touch-glow-cyan">
                 Bulk
               </button>
               <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
@@ -4103,12 +4683,37 @@ export default function ApexAthletePage() {
 
             {/* Session History modal */}
             {showSessionHistory && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); }}>
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }}>
                 <div className="bg-[#0a0315] border border-white/10 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-white font-bold text-lg font-mono">Session History</h3>
-                    <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); }} className="text-white/40 hover:text-white text-2xl">&times;</button>
+                    <div className="flex items-center gap-3">
+                      {sessionHistory.filter(s => s.group === selectedGroup).length > 0 && (
+                        <button
+                          onClick={() => setConfirmClearAll(true)}
+                          className="text-red-400/50 hover:text-red-400 text-xs font-mono px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                        >
+                          Clear All
+                        </button>
+                      )}
+                      <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }} className="text-white/40 hover:text-white text-2xl">&times;</button>
+                    </div>
                   </div>
+                  {/* Clear All confirmation */}
+                  {confirmClearAll && (
+                    <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                      <p className="text-red-400/80 text-xs font-mono mb-3">Delete all session history for this group? This cannot be undone.</p>
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setConfirmClearAll(false)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                        <button onClick={() => {
+                          const updated = sessionHistory.filter(s => s.group !== selectedGroup);
+                          save(K.SESSION_HISTORY, updated);
+                          setSessionHistory(updated);
+                          setConfirmClearAll(false);
+                        }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Delete All</button>
+                      </div>
+                    </div>
+                  )}
                   {sessionHistory.filter(s => s.group === selectedGroup).length === 0 ? (
                     <p className="text-white/30 text-sm font-mono text-center py-8">No saved sessions yet. Tap &ldquo;End Session + Save&rdquo; after practice to create history.</p>
                   ) : (
@@ -4128,6 +4733,25 @@ export default function ApexAthletePage() {
                               >
                                 {editingHistorySession === session.id ? "Close" : "Edit"}
                               </button>
+                              {confirmDeleteSessionId === session.id ? (
+                                <div className="flex items-center gap-1">
+                                  <button onClick={() => {
+                                    const updated = sessionHistory.filter(s => s.id !== session.id);
+                                    save(K.SESSION_HISTORY, updated);
+                                    setSessionHistory(updated);
+                                    setConfirmDeleteSessionId(null);
+                                  }} className="text-red-400 text-xs font-mono font-bold px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/25 transition-colors">Delete</button>
+                                  <button onClick={() => setConfirmDeleteSessionId(null)} className="text-white/30 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors">Cancel</button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmDeleteSessionId(session.id)}
+                                  className="text-white/20 hover:text-red-400/60 text-xs font-mono px-1.5 py-1 rounded hover:bg-red-500/10 transition-colors"
+                                  title="Delete session"
+                                >
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                                </button>
+                              )}
                             </div>
                           </div>
                           {editingHistorySession === session.id && (
@@ -4199,7 +4823,7 @@ export default function ApexAthletePage() {
                       isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
-                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-colors duration-150 rounded-2xl group"
+                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-150 rounded-2xl group tap-feedback"
                         onClick={() => setExpandedId(isExp ? null : a.id)}
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
@@ -4227,11 +4851,11 @@ export default function ApexAthletePage() {
                           <div className="text-white text-sm font-semibold truncate">{a.name}</div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
-                            {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70">🔥 {a.streak}d · {sk.mult}</span>}
+                            {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><StreakFlame streak={a.streak} size={12} /> {a.streak}d · {sk.mult}</span>}
                           </div>
                         </div>
                         <div className="w-28 shrink-0 text-right">
-                          <div className="text-white font-black text-sm tabular-nums whitespace-nowrap">{a.xp}<span className="text-white/50 text-xs ml-1">XP</span></div>
+                          <div className="text-white font-black text-sm tabular-nums whitespace-nowrap"><AnimatedCounter value={a.xp} /><span className="text-white/50 text-xs ml-1">XP</span></div>
                           <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
@@ -4257,7 +4881,7 @@ export default function ApexAthletePage() {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
                   const done = tc.current >= tc.target;
                   return (
-                    <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
+                    <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all card-press ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-white font-medium text-sm">{tc.name}</span>
                         <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${done ? "text-[#f59e0b]" : "text-white/60"}`}>{tc.current}%<span className="text-white/40">/{tc.target}%</span></span>
@@ -4368,6 +4992,94 @@ export default function ApexAthletePage() {
           </div>
         )}
 
+        {/* Practice Recap Overlay */}
+        {showRecap && recapData && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={() => setShowRecap(false)}>
+            {/* Backdrop with radial glow */}
+            <div className="absolute inset-0 bg-black/85 backdrop-blur-md" />
+            <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 30%, rgba(168,85,247,0.15), transparent 60%)" }} />
+
+            <div className="relative w-full max-w-sm recap-enter" onClick={e => e.stopPropagation()}>
+              {/* Top accent line */}
+              <div className="h-[2px] rounded-full mb-1" style={{ background: "linear-gradient(90deg, transparent, #a855f7, #00f0ff, #a855f7, transparent)" }} />
+
+              <div className="rounded-3xl overflow-hidden border-2 border-white/[0.08]" style={{
+                background: "linear-gradient(180deg, rgba(6,2,15,0.97) 0%, rgba(15,5,30,0.97) 100%)",
+                boxShadow: "0 0 60px rgba(168,85,247,0.1), 0 25px 50px rgba(0,0,0,0.5)",
+              }}>
+                {/* Header */}
+                <div className="text-center pt-8 pb-4 px-6">
+                  <div className="text-[10px] uppercase tracking-[0.4em] font-bold font-mono text-[#a855f7]/60 mb-2">Practice Complete</div>
+                  <div className="text-2xl font-black text-white tracking-tight mb-1">Session Recap</div>
+                  <div className="text-white/30 text-xs font-mono">{recapData.group} — {new Date(recapData.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
+                </div>
+
+                {/* Key stats grid */}
+                <div className="grid grid-cols-3 gap-px mx-6 mb-6 rounded-2xl overflow-hidden border border-white/[0.06]">
+                  <div className="bg-white/[0.03] p-4 text-center">
+                    <div className="text-2xl font-black text-[#00f0ff] tabular-nums">{recapData.total > 0 ? Math.round((recapData.attendance / recapData.total) * 100) : 0}%</div>
+                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">Attendance</div>
+                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.attendance}/{recapData.total}</div>
+                  </div>
+                  <div className="bg-white/[0.03] p-4 text-center">
+                    <div className="text-2xl font-black text-[#f59e0b] tabular-nums">{recapData.xpAwarded}</div>
+                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">XP Awarded</div>
+                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.checkpointsChecked} checks</div>
+                  </div>
+                  <div className="bg-white/[0.03] p-4 text-center">
+                    <div className="text-2xl font-black text-[#a855f7] tabular-nums">{recapData.streaksActive}</div>
+                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">Streaks</div>
+                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.longestStreak.streak > 0 ? `Best: ${recapData.longestStreak.streak}d` : "-"}</div>
+                  </div>
+                </div>
+
+                {/* MVP */}
+                {recapData.mvp && (
+                  <div className="mx-6 mb-4 p-4 rounded-2xl border border-[#f59e0b]/20" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(168,85,247,0.05))" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[#f59e0b]/15 border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b"/></svg>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#f59e0b]/60">MVP — Top Earner</div>
+                        <div className="text-white font-bold text-sm truncate">{recapData.mvp.name}</div>
+                      </div>
+                      <div className="text-[#f59e0b] font-black text-lg tabular-nums">+{recapData.mvp.xp}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Top 3 earners */}
+                {recapData.topEarners.length > 1 && (
+                  <div className="mx-6 mb-6 space-y-1">
+                    <div className="text-white/30 text-[10px] uppercase tracking-[0.2em] font-bold mb-2 px-1">Top Earners</div>
+                    {recapData.topEarners.map((e, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02]">
+                        <span className="text-white/30 text-xs font-bold font-mono w-5 text-center">{i + 1}</span>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color, boxShadow: `0 0 6px ${e.color}60` }} />
+                        <span className="text-white/80 text-sm flex-1 truncate">{e.name}</span>
+                        <span className="text-xs font-mono" style={{ color: e.color }}>{e.level}</span>
+                        <span className="text-white/60 text-xs font-bold font-mono tabular-nums">+{e.xp}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Dismiss */}
+                <div className="px-6 pb-6">
+                  <button onClick={() => setShowRecap(false)}
+                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#a855f7]/15 to-[#00f0ff]/15 border border-white/[0.08] text-white/80 text-sm font-bold tracking-wider uppercase hover:from-[#a855f7]/25 hover:to-[#00f0ff]/25 transition-all active:scale-[0.98] min-h-[52px]">
+                    Done
+                  </button>
+                </div>
+              </div>
+
+              {/* Bottom accent */}
+              <div className="h-[2px] rounded-full mt-1" style={{ background: "linear-gradient(90deg, transparent, #00f0ff, #a855f7, #00f0ff, transparent)" }} />
+            </div>
+          </div>
+        )}
+
         {/* Privacy footer */}
         <div className="text-center text-white/[0.05] text-xs py-10 space-y-1">
           <p>METTLE — Athlete Relations Manager</p>
@@ -4397,6 +5109,13 @@ export default function ApexAthletePage() {
         }
         .pulse-glow {
           animation: pulseGlow 3s ease-in-out infinite;
+        }
+        @keyframes recapEnter {
+          0% { opacity: 0; transform: scale(0.9) translateY(20px); }
+          100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .recap-enter {
+          animation: recapEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
     </div>

@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { MASTER_PIN, loginWithPin, getSession, loadRosterFromFirestore } from "../auth";
 import ParticleField from "@/components/ParticleField";
+import { AnimatedCounter } from "../components/AnimatedCounter";
+import StreakFlame from "../components/StreakFlame";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -1443,7 +1445,7 @@ export default function AthletePortal() {
         {/* XP Bar */}
         <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
-            <span className="text-white/60 text-xs lg:text-base font-mono">Season: {athlete.seasonXP || 0} XP • Total: {athlete.xp} XP</span>
+            <span className="text-white/60 text-xs lg:text-base font-mono">Season: <AnimatedCounter value={athlete.seasonXP || 0} /> XP • Total: <AnimatedCounter value={athlete.xp} /> XP</span>
             {nextLevel ? (
               <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
@@ -1459,7 +1461,7 @@ export default function AthletePortal() {
         {/* Quick Stats Row */}
         <div className="grid grid-cols-3 gap-3 lg:gap-6 mb-5 lg:mb-10 w-full">
           <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.streak}</div>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white flex items-center justify-center gap-1"><StreakFlame streak={athlete.streak} size={32} /> {athlete.streak}</div>
             <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>

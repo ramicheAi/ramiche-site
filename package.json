@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"const fs=require('fs');let s=fs.readFileSync('public/sw.js','utf8');s=s.replace(/const CACHE_VERSION = \\\"\\d+\\\"/,'const CACHE_VERSION = \\\"'+Date.now()+'\\\"');fs.writeFileSync('public/sw.js',s)\"",
     "build": "next build",
+    "postbuild": "node -e \"const fs=require('fs');let s=fs.readFileSync('public/sw.js','utf8');s=s.replace(/const CACHE_VERSION = \\\"\\d+\\\"/,'const CACHE_VERSION = \\\"1740960000000\\\"');fs.writeFileSync('public/sw.js',s)\"",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
