@@ -361,6 +361,25 @@ const AGENTS: Agent[] = [
     ],
     stats: { tasksCompleted: 15, tokensUsed: "85K", avgResponseTime: "2.2s", uptime: "99.0%" },
   },
+  {
+    name: "THEMIS", model: "Opus 4.6", role: "Legal & Compliance",
+    status: "idle", color: "#8b5cf6", avatar: "/agents/triage-3d.png",
+    desc: "IP protection, compliance frameworks, contract review, legal strategy — the law is the shield",
+    credits: { used: 0, limit: 5000 },
+    activeTask: "SOC 2 / HIPAA / GDPR compliance + patent filing support",
+    skills: [
+      { name: "healthcheck", enabled: true, description: "Compliance scanning" },
+      { name: "github", enabled: true, description: "IP monitoring" },
+      { name: "email", enabled: true, description: "Legal correspondence" },
+      { name: "pdf", enabled: true, description: "Contract review" },
+    ],
+    tools: [
+      { name: "read", enabled: true }, { name: "write", enabled: true },
+      { name: "web_search", enabled: true }, { name: "web_fetch", enabled: true },
+      { name: "pdf", enabled: true },
+    ],
+    stats: { tasksCompleted: 0, tokensUsed: "0K", avgResponseTime: "—", uptime: "—" },
+  },
 ];
 
 /* ── Model tier colors ─────────────────────────────────────────────────────── */
@@ -376,10 +395,32 @@ const MODEL_TIERS: Record<string, { label: string; color: string; bg: string }> 
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
+/* ── Available models for switching ─────────────────────────────────────── */
+const AVAILABLE_MODELS = [
+  { id: "opus4.6", label: "Opus 4.6", provider: "Claude Max", tier: "APEX" },
+  { id: "sonnet4.5", label: "Sonnet 4.5", provider: "Claude Max", tier: "PRO" },
+  { id: "gemini", label: "Gemini 3.1 Pro", provider: "Google", tier: "PRO" },
+  { id: "deepseek", label: "DeepSeek V3.2", provider: "OpenRouter", tier: "CORE" },
+  { id: "kimi", label: "Kimi K2.5", provider: "OpenRouter", tier: "CORE" },
+  { id: "glm", label: "GLM 4.6", provider: "OpenRouter", tier: "SPEC" },
+  { id: "haiku", label: "Haiku 4.5", provider: "OpenRouter", tier: "LITE" },
+];
+
 export default function AgentManagement() {
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "idle" | "done">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatAgent, setChatAgent] = useState<Agent | null>(null);
+  const [isGroupChat, setIsGroupChat] = useState(false);
+  const [groupAgents, setGroupAgents] = useState<string[]>([]);
+  const [chatMessages, setChatMessages] = useState<{from: string; text: string; time: string}[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [viewMode, setViewMode] = useState<"grid" | "workspace">("grid");
+  const [hoveredStation, setHoveredStation] = useState<string | null>(null);
+  const [cameraAngle, setCameraAngle] = useState({ x: -25, y: 35 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   const filteredAgents = AGENTS.filter((a) => {
     if (filter !== "all" && a.status !== filter) return false;
@@ -424,27 +465,243 @@ export default function AgentManagement() {
           />
         </div>
 
-        {/* ── Filter tabs ── */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          {(["all", "active", "idle", "done"] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              style={{
-                padding: "8px 16px", borderRadius: 8, border: `2px solid ${filter === f ? "rgba(201,168,76,0.5)" : "rgba(26,26,94,0.08)"}`,
-                background: filter === f ? "rgba(201,168,76,0.08)" : "#fff",
-                color: filter === f ? "#C9A84C" : "rgba(26,26,94,0.5)",
-                fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em",
-                cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
-              }}
-            >
-              {f === "all" ? `ALL (${AGENTS.length})` : `${f.toUpperCase()} (${AGENTS.filter((a) => a.status === f).length})`}
-            </button>
-          ))}
+        {/* ── Filter tabs + view toggle ── */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {(["all", "active", "idle", "done"] as const).map((f) => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: `2px solid ${filter === f ? "rgba(201,168,76,0.5)" : "rgba(26,26,94,0.08)"}`,
+                  background: filter === f ? "rgba(201,168,76,0.08)" : "#fff",
+                  color: filter === f ? "#C9A84C" : "rgba(26,26,94,0.5)",
+                  fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em",
+                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+                }}
+              >
+                {f === "all" ? `ALL (${AGENTS.length})` : `${f.toUpperCase()} (${AGENTS.filter((a) => a.status === f).length})`}
+              </button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 4, background: "#fff", borderRadius: 10, border: "2px solid rgba(26,26,94,0.08)", padding: 3 }}>
+            {(["grid", "workspace"] as const).map((v) => (
+              <button key={v} onClick={() => setViewMode(v)} style={{
+                padding: "6px 14px", borderRadius: 7, border: "none", fontSize: 11, fontWeight: 700,
+                background: viewMode === v ? "linear-gradient(135deg, #1a1a5e, #3730a3)" : "transparent",
+                color: viewMode === v ? "#fff" : "rgba(26,26,94,0.4)",
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", letterSpacing: "0.06em",
+                textTransform: "uppercase" as const,
+              }}>
+                {v === "grid" ? "GRID" : "3D WORKSPACE"}
+              </button>
+            ))}
+          </div>
         </div>
 
+        {/* ═══════ 3D WORKSPACE VIEW ═══════ */}
+        {viewMode === "workspace" && (
+          <div
+            style={{
+              width: "100%", height: "calc(100vh - 220px)", borderRadius: 20,
+              border: "2px solid rgba(26,26,94,0.12)", background: "#0a0a1a",
+              overflow: "hidden", position: "relative", cursor: isDragging ? "grabbing" : "grab",
+            }}
+            onMouseDown={(e) => { setIsDragging(true); setDragStart({ x: e.clientX, y: e.clientY }); }}
+            onMouseMove={(e) => {
+              if (!isDragging) return;
+              setCameraAngle({ x: cameraAngle.x + (e.clientY - dragStart.y) * 0.15, y: cameraAngle.y + (e.clientX - dragStart.x) * 0.15 });
+              setDragStart({ x: e.clientX, y: e.clientY });
+            }}
+            onMouseUp={() => setIsDragging(false)}
+            onMouseLeave={() => setIsDragging(false)}
+          >
+            {/* Ambient grid floor */}
+            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 800px 600px at 50% 60%, rgba(201,168,76,0.06) 0%, transparent 70%)" }} />
+            <div style={{ position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
+
+            {/* Scene label */}
+            <div style={{ position: "absolute", top: 20, left: 24, zIndex: 10 }}>
+              <div style={{ fontSize: 10, letterSpacing: "0.2em", color: "rgba(201,168,76,0.6)", fontWeight: 700 }}>PARALLAX OPERATIONS CENTER</div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginTop: 2, textShadow: "0 0 30px rgba(201,168,76,0.3)" }}>
+                THE HANGAR
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>Drag to rotate &middot; Click station to inspect</div>
+            </div>
+
+            {/* Agent count HUD */}
+            <div style={{ position: "absolute", top: 20, right: 24, zIndex: 10, display: "flex", gap: 12 }}>
+              {[
+                { label: "ONLINE", count: AGENTS.filter(a => a.status === "active").length, color: "#22c55e" },
+                { label: "IDLE", count: AGENTS.filter(a => a.status === "idle").length, color: "#fbbf24" },
+                { label: "DONE", count: AGENTS.filter(a => a.status === "done").length, color: "#06b6d4" },
+              ].map(h => (
+                <div key={h.label} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: h.color, fontVariantNumeric: "tabular-nums", textShadow: `0 0 12px ${h.color}50` }}>{h.count}</div>
+                  <div style={{ fontSize: 8, letterSpacing: "0.15em", color: `${h.color}90`, fontWeight: 700 }}>{h.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* 3D perspective container */}
+            <div style={{
+              width: "100%", height: "100%", perspective: 1200, perspectiveOrigin: "50% 40%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <div style={{
+                position: "relative", width: 900, height: 700,
+                transformStyle: "preserve-3d" as const,
+                transform: `rotateX(${cameraAngle.x}deg) rotateY(${cameraAngle.y}deg)`,
+                transition: isDragging ? "none" : "transform 0.3s ease-out",
+              }}>
+                {/* Floor plane */}
+                <div style={{
+                  position: "absolute", width: 1100, height: 900, left: -100, top: -100,
+                  background: "linear-gradient(135deg, rgba(26,26,94,0.15) 0%, rgba(10,10,26,0.9) 100%)",
+                  border: "1px solid rgba(201,168,76,0.15)", borderRadius: 8,
+                  transform: "rotateX(90deg) translateZ(-200px)",
+                  boxShadow: "0 0 80px rgba(201,168,76,0.08) inset",
+                }} />
+
+                {/* Agent workstations — arranged in concentric arcs */}
+                {filteredAgents.map((agent, i) => {
+                  const total = filteredAgents.length;
+                  const cols = 5;
+                  const row = Math.floor(i / cols);
+                  const col = i % cols;
+                  const xOffset = (col - (cols - 1) / 2) * 170;
+                  const zOffset = row * 160 - 100;
+                  const isHovered = hoveredStation === agent.name;
+                  const statusGlow = agent.status === "active" ? agent.color : agent.status === "done" ? "rgba(6,182,212,0.4)" : "rgba(250,204,21,0.2)";
+
+                  return (
+                    <div
+                      key={agent.name}
+                      onMouseEnter={() => setHoveredStation(agent.name)}
+                      onMouseLeave={() => setHoveredStation(null)}
+                      onClick={(e) => { e.stopPropagation(); setSelectedAgent(agent); setViewMode("grid"); }}
+                      style={{
+                        position: "absolute",
+                        left: 450 + xOffset - 60, top: 350 + zOffset - 50,
+                        width: 130, height: 120,
+                        transformStyle: "preserve-3d" as const,
+                        transform: `translateZ(${isHovered ? 40 : 0}px)`,
+                        transition: "transform 0.3s ease-out",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {/* Station base / desk */}
+                      <div style={{
+                        position: "absolute", bottom: 0, left: 5, right: 5, height: 35,
+                        background: `linear-gradient(180deg, ${agent.color}25 0%, ${agent.color}08 100%)`,
+                        border: `1px solid ${agent.color}40`, borderRadius: 6,
+                        boxShadow: `0 0 ${isHovered ? 30 : 12}px ${statusGlow}`,
+                        transform: "rotateX(60deg) translateZ(10px)",
+                        transition: "box-shadow 0.3s",
+                      }} />
+
+                      {/* Screen / terminal */}
+                      <div style={{
+                        position: "absolute", top: 10, left: 15, right: 15, height: 50,
+                        background: `linear-gradient(180deg, ${agent.color}15 0%, rgba(10,10,26,0.95) 100%)`,
+                        border: `1px solid ${agent.color}50`, borderRadius: 4,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: `0 0 ${isHovered ? 25 : 8}px ${agent.color}30`,
+                        transition: "box-shadow 0.3s",
+                      }}>
+                        {/* Mini screen content */}
+                        <div style={{ width: "80%", display: "flex", flexDirection: "column" as const, gap: 3 }}>
+                          {[1,2,3].map(l => (
+                            <div key={l} style={{
+                              height: 2, borderRadius: 1, width: `${60 + Math.random() * 40}%`,
+                              background: agent.status === "active" ? `${agent.color}80` : `${agent.color}30`,
+                              animation: agent.status === "active" ? `screenFlicker ${1 + l * 0.3}s ease-in-out infinite alternate` : "none",
+                            }} />
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Avatar floating above station */}
+                      <div style={{
+                        position: "absolute", top: -35, left: "50%", transform: "translateX(-50%)",
+                        width: 48, height: 48, borderRadius: "50%", overflow: "hidden",
+                        border: `2px solid ${agent.color}70`,
+                        background: `radial-gradient(circle at 35% 35%, ${agent.color}20 0%, #1a1a2e 70%)`,
+                        boxShadow: `0 0 ${isHovered ? 30 : 12}px ${agent.color}40`,
+                        animation: agent.status === "active" ? "floatAvatar 3s ease-in-out infinite" : "none",
+                        transition: "box-shadow 0.3s",
+                      }}>
+                        <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+                      </div>
+
+                      {/* Status indicator */}
+                      <div style={{
+                        position: "absolute", top: -38, left: "50%", transform: "translateX(16px)",
+                        width: 8, height: 8, borderRadius: "50%",
+                        background: agent.status === "active" ? "#22c55e" : agent.status === "done" ? "#06b6d4" : "#fbbf24",
+                        boxShadow: agent.status === "active" ? "0 0 8px rgba(34,197,94,0.8)" : "none",
+                        animation: agent.status === "active" ? "pulse 2s ease-in-out infinite" : "none",
+                      }} />
+
+                      {/* Name label */}
+                      <div style={{
+                        position: "absolute", bottom: -18, left: "50%", transform: "translateX(-50%)",
+                        fontSize: 9, fontWeight: 700, color: isHovered ? agent.color : "rgba(255,255,255,0.5)",
+                        letterSpacing: "0.08em", whiteSpace: "nowrap" as const, textAlign: "center",
+                        textShadow: isHovered ? `0 0 10px ${agent.color}60` : "none",
+                        transition: "all 0.2s",
+                      }}>
+                        {agent.name}
+                      </div>
+
+                      {/* Role label on hover */}
+                      {isHovered && (
+                        <div style={{
+                          position: "absolute", bottom: -30, left: "50%", transform: "translateX(-50%)",
+                          fontSize: 7, color: "rgba(255,255,255,0.3)", whiteSpace: "nowrap" as const,
+                          letterSpacing: "0.05em",
+                        }}>
+                          {agent.role}
+                        </div>
+                      )}
+
+                      {/* Connection lines to Atlas (index 0) — show for active agents */}
+                      {agent.status === "active" && i > 0 && (
+                        <div style={{
+                          position: "absolute", top: "50%", left: "50%",
+                          width: 1, height: 80,
+                          background: `linear-gradient(180deg, ${agent.color}40, transparent)`,
+                          transformOrigin: "top center",
+                          transform: `rotate(${-45 + (col * 20)}deg)`,
+                          pointerEvents: "none",
+                        }} />
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* Central Atlas command node — elevated */}
+                <div style={{
+                  position: "absolute", left: 410, top: 280, width: 80, height: 80,
+                  borderRadius: "50%", border: "2px solid rgba(201,168,76,0.5)",
+                  background: "radial-gradient(circle, rgba(201,168,76,0.15), rgba(10,10,26,0.9))",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  transform: "translateZ(80px)",
+                  boxShadow: "0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(201,168,76,0.08)",
+                  animation: "commandPulse 4s ease-in-out infinite",
+                  pointerEvents: "none",
+                }}>
+                  <div style={{ fontSize: 8, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", textAlign: "center" }}>
+                    ATLAS<br /><span style={{ fontSize: 6, opacity: 0.6 }}>CMD</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ── Agent grid + detail panel ── */}
-        <div style={{ display: "grid", gridTemplateColumns: selectedAgent ? "1fr 420px" : "1fr", gap: 24 }} className="agents-layout">
+        {viewMode === "grid" && <div style={{ display: "grid", gridTemplateColumns: selectedAgent ? "1fr 420px" : "1fr", gap: 24 }} className="agents-layout">
           {/* Agent cards grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
             {filteredAgents.map((agent) => {
@@ -521,15 +778,190 @@ export default function AgentManagement() {
 
           {/* ── Detail panel ── */}
           {selectedAgent && (
-            <AgentDetailPanel agent={selectedAgent} onClose={() => setSelectedAgent(null)} />
+            <AgentDetailPanel
+              agent={selectedAgent}
+              onClose={() => setSelectedAgent(null)}
+              onChat={(agent) => { setChatAgent(agent); setChatOpen(true); setIsGroupChat(false); }}
+            />
           )}
-        </div>
+        </div>}
+
+        {/* ═══════ CHAT / GROUP CHAT PANEL ═══════ */}
+        {chatOpen && (
+          <div style={{
+            position: "fixed", bottom: 24, right: 24, width: 400, maxHeight: 520,
+            borderRadius: 16, border: "2px solid rgba(26,26,94,0.12)", background: "#fff",
+            boxShadow: "0 16px 48px rgba(26,26,94,0.15)", zIndex: 100, display: "flex",
+            flexDirection: "column" as const, overflow: "hidden",
+          }}>
+            {/* Chat header */}
+            <div style={{
+              padding: "14px 18px", borderBottom: "2px solid rgba(26,26,94,0.06)",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: isGroupChat ? "linear-gradient(135deg, rgba(26,26,94,0.04), rgba(201,168,76,0.04))" : `${chatAgent?.color || "#1a1a5e"}08`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {chatAgent && !isGroupChat && (
+                  <div style={{
+                    width: 32, height: 32, borderRadius: "50%", overflow: "hidden",
+                    border: `2px solid ${chatAgent.color}40`, padding: 3,
+                    background: `radial-gradient(circle, ${chatAgent.color}15, #f0f0f5)`,
+                  }}>
+                    <img src={chatAgent.avatar} alt={chatAgent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                  </div>
+                )}
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a5e" }}>
+                    {isGroupChat ? `Group Chat (${groupAgents.length})` : chatAgent?.name || "Chat"}
+                  </div>
+                  <div style={{ fontSize: 10, color: "rgba(26,26,94,0.4)" }}>
+                    {isGroupChat ? groupAgents.join(", ") : chatAgent?.role}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  onClick={() => {
+                    setIsGroupChat(!isGroupChat);
+                    if (!isGroupChat) setGroupAgents(chatAgent ? [chatAgent.name] : []);
+                  }}
+                  style={{
+                    padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600,
+                    border: `2px solid ${isGroupChat ? "#C9A84C40" : "rgba(26,26,94,0.1)"}`,
+                    background: isGroupChat ? "rgba(201,168,76,0.08)" : "transparent",
+                    color: isGroupChat ? "#C9A84C" : "rgba(26,26,94,0.4)", cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  {isGroupChat ? "GROUP" : "1:1"}
+                </button>
+                <button
+                  onClick={() => setChatOpen(false)}
+                  style={{
+                    width: 24, height: 24, borderRadius: 6, border: "2px solid rgba(26,26,94,0.1)",
+                    background: "transparent", color: "#1a1a5e", fontSize: 12, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
+                  }}
+                >&times;</button>
+              </div>
+            </div>
+
+            {/* Group agent selector */}
+            {isGroupChat && (
+              <div style={{ padding: "8px 14px", borderBottom: "2px solid rgba(26,26,94,0.06)", display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
+                {AGENTS.map((a) => (
+                  <button
+                    key={a.name}
+                    onClick={() => setGroupAgents((prev) =>
+                      prev.includes(a.name) ? prev.filter((n) => n !== a.name) : [...prev, a.name]
+                    )}
+                    style={{
+                      padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 600,
+                      border: `1px solid ${groupAgents.includes(a.name) ? a.color + "50" : "rgba(26,26,94,0.08)"}`,
+                      background: groupAgents.includes(a.name) ? `${a.color}12` : "transparent",
+                      color: groupAgents.includes(a.name) ? a.color : "rgba(26,26,94,0.35)",
+                      cursor: "pointer", fontFamily: "inherit",
+                    }}
+                  >
+                    {a.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Chat messages */}
+            <div style={{ flex: 1, overflowY: "auto" as const, padding: 14, display: "flex", flexDirection: "column" as const, gap: 10, minHeight: 200 }}>
+              {chatMessages.length === 0 && (
+                <div style={{ textAlign: "center", padding: 40, color: "rgba(26,26,94,0.25)", fontSize: 12 }}>
+                  {isGroupChat ? "Start a group conversation" : `Start chatting with ${chatAgent?.name || "an agent"}`}
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} style={{
+                  alignSelf: msg.from === "You" ? "flex-end" : "flex-start",
+                  maxWidth: "80%",
+                }}>
+                  <div style={{
+                    padding: "10px 14px", borderRadius: 12,
+                    background: msg.from === "You" ? "linear-gradient(135deg, #1a1a5e, #3730a3)" : "rgba(26,26,94,0.04)",
+                    color: msg.from === "You" ? "#fff" : "#1a1a5e",
+                    border: msg.from === "You" ? "none" : "2px solid rgba(26,26,94,0.06)",
+                    fontSize: 13, lineHeight: 1.5,
+                  }}>
+                    {msg.from !== "You" && <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(26,26,94,0.5)", marginBottom: 3 }}>{msg.from}</div>}
+                    {msg.text}
+                  </div>
+                  <div style={{ fontSize: 9, color: "rgba(26,26,94,0.3)", marginTop: 2, textAlign: msg.from === "You" ? "right" : "left" }}>{msg.time}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chat input */}
+            <div style={{ padding: 12, borderTop: "2px solid rgba(26,26,94,0.06)", display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                placeholder={isGroupChat ? "Message the group..." : `Message ${chatAgent?.name || "agent"}...`}
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && chatInput.trim()) {
+                    const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                    setChatMessages((prev) => [...prev, { from: "You", text: chatInput, time: now }]);
+                    setChatInput("");
+                    // Simulate agent response
+                    setTimeout(() => {
+                      const responder = isGroupChat
+                        ? groupAgents[Math.floor(Math.random() * groupAgents.length)] || "Atlas"
+                        : chatAgent?.name || "Atlas";
+                      setChatMessages((prev) => [...prev, {
+                        from: responder,
+                        text: `Acknowledged. Processing your request...`,
+                        time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }),
+                      }]);
+                    }, 800);
+                  }
+                }}
+                style={{
+                  flex: 1, padding: "10px 14px", borderRadius: 10, border: "2px solid rgba(26,26,94,0.1)",
+                  background: "#fafafa", color: "#1a1a5e", fontSize: 13, outline: "none", fontFamily: "inherit",
+                }}
+              />
+              <button
+                onClick={() => {
+                  if (!chatInput.trim()) return;
+                  const now = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+                  setChatMessages((prev) => [...prev, { from: "You", text: chatInput, time: now }]);
+                  setChatInput("");
+                }}
+                style={{
+                  padding: "10px 16px", borderRadius: 10, border: "none",
+                  background: "linear-gradient(135deg, #1a1a5e, #3730a3)", color: "#fff",
+                  fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <style jsx global>{`
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes floatAvatar {
+          0%, 100% { transform: translateX(-50%) translateY(0px); }
+          50% { transform: translateX(-50%) translateY(-6px); }
+        }
+        @keyframes screenFlicker {
+          0% { opacity: 0.6; }
+          100% { opacity: 1; }
+        }
+        @keyframes commandPulse {
+          0%, 100% { box-shadow: 0 0 60px rgba(201,168,76,0.2), 0 0 120px rgba(201,168,76,0.08); }
+          50% { box-shadow: 0 0 80px rgba(201,168,76,0.35), 0 0 160px rgba(201,168,76,0.15); }
         }
         @media (max-width: 768px) {
           .agents-layout {
@@ -555,10 +987,12 @@ export default function AgentManagement() {
 /* ── Agent Detail Panel                                                    ── */
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
-function AgentDetailPanel({ agent, onClose }: { agent: Agent; onClose: () => void }) {
+function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: () => void; onChat: (agent: Agent) => void }) {
   const [localSkills, setLocalSkills] = useState(agent.skills);
   const [localTools, setLocalTools] = useState(agent.tools);
-  const tier = MODEL_TIERS[agent.model] || { label: "—", color: "#888", bg: "rgba(136,136,136,0.1)" };
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(agent.model);
+  const tier = MODEL_TIERS[selectedModel] || MODEL_TIERS[agent.model] || { label: "—", color: "#888", bg: "rgba(136,136,136,0.1)" };
   const creditPct = Math.round((agent.credits.used / agent.credits.limit) * 100);
 
   const toggleSkill = (idx: number) => {
@@ -598,8 +1032,60 @@ function AgentDetailPanel({ agent, onClose }: { agent: Agent; onClose: () => voi
           <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: tier.bg, color: tier.color, fontWeight: 700, letterSpacing: "0.08em" }}>
             {tier.label}
           </span>
-          <span style={{ fontSize: 11, color: "rgba(26,26,94,0.4)" }}>{agent.model}</span>
+          <button
+            onClick={() => setShowModelPicker(!showModelPicker)}
+            style={{
+              fontSize: 11, color: "rgba(26,26,94,0.5)", cursor: "pointer", background: "none",
+              border: "1px dashed rgba(26,26,94,0.15)", borderRadius: 4, padding: "2px 8px",
+              fontFamily: "inherit", transition: "all 0.2s",
+            }}
+          >
+            {selectedModel} ▾
+          </button>
         </div>
+
+        {/* Model picker dropdown */}
+        {showModelPicker && (
+          <div style={{
+            marginTop: 8, padding: 8, borderRadius: 10, border: "2px solid rgba(26,26,94,0.1)",
+            background: "#fff", boxShadow: "0 4px 16px rgba(26,26,94,0.08)",
+            display: "flex", flexDirection: "column" as const, gap: 4,
+          }}>
+            {AVAILABLE_MODELS.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => { setSelectedModel(m.label); setShowModelPicker(false); }}
+                style={{
+                  padding: "8px 12px", borderRadius: 8, border: `2px solid ${selectedModel === m.label ? agent.color + "40" : "rgba(26,26,94,0.06)"}`,
+                  background: selectedModel === m.label ? `${agent.color}08` : "transparent",
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  fontFamily: "inherit", textAlign: "left" as const,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1a5e" }}>{m.label}</div>
+                  <div style={{ fontSize: 9, color: "rgba(26,26,94,0.4)" }}>{m.provider}</div>
+                </div>
+                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: "rgba(26,26,94,0.04)", color: "rgba(26,26,94,0.4)", letterSpacing: "0.05em" }}>
+                  {m.tier}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Chat button */}
+        <button
+          onClick={() => onChat(agent)}
+          style={{
+            marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 10,
+            border: `2px solid ${agent.color}35`, background: `${agent.color}08`,
+            color: agent.color, fontSize: 13, fontWeight: 700, cursor: "pointer",
+            fontFamily: "inherit", transition: "all 0.2s", letterSpacing: "0.03em",
+          }}
+        >
+          Chat with {agent.name}
+        </button>
       </div>
 
       {/* Status + credits */}
