@@ -165,6 +165,7 @@ interface Athlete {
   parentPhone?: string;
   sport?: "swimming" | "diving" | "waterpolo";
   present?: boolean;
+  pin?: string;
   // v7 — best times from SwimCloud / manual entry
   bestTimes?: BestTime[];
   bestTimesUpdated?: string; // ISO date of last fetch
@@ -753,6 +754,7 @@ function makeAthlete(r: RosterEntry & { group?: string }): Athlete {
     parentPhone: r.parentPhone ?? "",
     sport: "swimming",
     present: false,
+    pin: String(Math.floor(100000 + Math.random() * 900000)),
   };
 }
 
@@ -1193,9 +1195,11 @@ export default function ApexAthletePage() {
       // Migrate: ensure parent code + sport fields exist
       if (!a.parentCode) a = { ...a, parentCode: generateParentCode() };
       if (!a.sport) a = { ...a, sport: "swimming" as const };
+      if (!a.pin) a = { ...a, pin: String(Math.floor(100000 + Math.random() * 900000)) };
       return a;
     });
     save(K.ROSTER, r);
+    syncSaveRoster(K.ROSTER, selectedGroup, r);
     setRoster(r);
     setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
     setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
@@ -6293,6 +6297,7 @@ export default function ApexAthletePage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-white text-sm font-semibold truncate">{a.name}</div>
+                          {a.pin && <div className="text-[#a855f7] text-xs font-mono font-bold mt-0.5">PIN: {a.pin}</div>}
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
                             {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><svg width="12" height="12" viewBox="0 0 24 24" fill="#f97316"><path d="M12 23c-3.9 0-7-3.1-7-7 0-3 2-5.5 4-8l3 3c.4.4 1 .2 1-.3V2l5 6c2 2.4 3 5 3 8 0 3.9-3.1 7-7 7z"/></svg> {a.streak}d · {sk.mult}</span>}
