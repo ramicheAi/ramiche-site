@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN, loginWithPin, getSession } from "../auth";
+import { MASTER_PIN, loginWithPin, getSession, loadRosterFromFirestore } from "../auth";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
@@ -739,17 +739,19 @@ export default function AthletePortal() {
 
   useEffect(() => {
     if (!mounted) return;
-    const r = load<Athlete[]>(K.ROSTER, []);
-    setRoster(r);
-    // Check for saved profile lock — if athlete already onboarded, auto-load their profile
-    const saved = localStorage.getItem("apex-athlete-profile-lock");
-    if (saved) {
-      try {
-        const lock = JSON.parse(saved) as { athleteId: string; name: string };
-        const found = r.find(a => a.id === lock.athleteId);
-        if (found) loadAthleteData(found);
-      } catch {}
-    }
+    // Load from Firestore (works on any device, not just coach's)
+    loadRosterFromFirestore().then(fbRoster => {
+      const r = fbRoster.length > 0 ? fbRoster as Athlete[] : load<Athlete[]>(K.ROSTER, []);
+      setRoster(r);
+      const saved = localStorage.getItem("apex-athlete-profile-lock");
+      if (saved) {
+        try {
+          const lock = JSON.parse(saved) as { athleteId: string; name: string };
+          const found = r.find(a => a.id === lock.athleteId);
+          if (found) loadAthleteData(found);
+        } catch {}
+      }
+    });
   }, [mounted]);
 
   // Name search — only used during onboarding, matches name + shows for confirmation

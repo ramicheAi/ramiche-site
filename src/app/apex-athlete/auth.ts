@@ -311,4 +311,24 @@ export function getRedirectForRole(role: AuthRole): string {
   }
 }
 
+// ── Roster loader (Firestore, works on any device) ──────────
+export async function loadRosterFromFirestore(): Promise<any[]> {
+  if (!db) return [];
+  try {
+    const rostersRef = collection(db, `organizations/${ORG_ID}/rosters`);
+    const snap = await getDocs(rostersRef);
+    const all: any[] = [];
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      if (data.athletes && Array.isArray(data.athletes)) {
+        all.push(...data.athletes);
+      }
+    }
+    return all;
+  } catch (e) {
+    console.warn("[Auth] Firestore roster load failed:", e);
+    return [];
+  }
+}
+
 export { MASTER_PIN, AUTH_SESSION_KEY };
