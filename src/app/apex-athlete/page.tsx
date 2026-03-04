@@ -754,8 +754,21 @@ function makeAthlete(r: RosterEntry & { group?: string }): Athlete {
     parentPhone: r.parentPhone ?? "",
     sport: "swimming",
     present: false,
-    pin: String(Math.floor(100000 + Math.random() * 900000)),
+    pin: generatePin(r.name),
   };
+}
+
+function generatePin(name: string): string {
+  // Deterministic 6-digit PIN from name — matches PDF generator (SHA-256 based)
+  // Simple hash: sum char codes with position weighting, then mod to 6 digits
+  const seed = `mettle-pin-${name}`;
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) {
+    h = ((h << 5) - h + seed.charCodeAt(i)) | 0;
+  }
+  // Ensure positive 6-digit number
+  const pin = Math.abs(h % 900000) + 100000;
+  return String(pin);
 }
 
 function generateParentCode(): string {
@@ -1195,7 +1208,7 @@ export default function ApexAthletePage() {
       // Migrate: ensure parent code + sport fields exist
       if (!a.parentCode) a = { ...a, parentCode: generateParentCode() };
       if (!a.sport) a = { ...a, sport: "swimming" as const };
-      if (!a.pin) a = { ...a, pin: String(Math.floor(100000 + Math.random() * 900000)) };
+      if (!a.pin) a = { ...a, pin: generatePin(a.name) };
       return a;
     });
     save(K.ROSTER, r);

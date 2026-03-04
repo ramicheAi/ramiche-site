@@ -1,8 +1,13 @@
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — Authentication Module
+   METTLE — Authentication Module
    Manages sessions for coaches, parents, and admins.
-   localStorage-based (Firestore-ready structure).
+   Firestore-backed PIN auth for athletes.
    ══════════════════════════════════════════════════════════════ */
+
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
+
+const ORG_ID = "saint-andrews-aquatics";
 
 export type AuthRole = "coach" | "parent" | "admin" | "athlete";
 
@@ -164,7 +169,7 @@ export function registerParent(email: string, name: string, verificationCode: st
 
 // ── Login Functions ─────────────────────────────────────────
 
-export function loginWithPin(pin: string): { success: boolean; session?: AuthSession; error?: string } {
+export async function loginWithPin(pin: string): Promise<{ success: boolean; session?: AuthSession; error?: string }> {
   // 1. Check Master Admin PIN
   if (pin === MASTER_PIN) {
     const session: AuthSession = {
@@ -196,19 +201,44 @@ export function loginWithPin(pin: string): { success: boolean; session?: AuthSes
     }
   } catch {}
 
-  // 3. Check Athlete PINs (generated for roster)
+  // 3. Check Athlete PINs from Firestore (works on any device)
+  if (db) {
+    try {
+      const rostersRef = collection(db, `organizations/${ORG_ID}/rosters`);
+      const snap = await getDocs(rostersRef);
+      for (const docSnap of snap.docs) {
+        const data = docSnap.data();
+        const athletes = data.athletes as any[];
+        if (!athletes) continue;
+        const athlete = athletes.find((a: any) => a.pin && a.pin === pin);
+        if (athlete) {
+          const session: AuthSession = {
+            role: "athlete",
+            name: athlete.name,
+            email: `${athlete.id}@apexathlete.local`,
+            athleteId: athlete.id,
+            expiry: Date.now() + SESSION_DURATION_MS,
+          };
+          setSession(session);
+          return { success: true, session };
+        }
+      }
+    } catch (e) {
+      console.warn("[Auth] Firestore PIN lookup failed:", e);
+    }
+  }
+
+  // 4. Fallback: check localStorage roster (coach's device only)
   try {
-    const storedRosterRaw = localStorage.getItem("apex-athlete-roster");
+    const storedRosterRaw = localStorage.getItem("apex-athlete-roster-v5");
     if (storedRosterRaw) {
       const roster = JSON.parse(storedRosterRaw);
-      // Look for an athlete that has this PIN stored in their record
-      // In a real DB this would query where pin === input
       const athlete = roster.find((a: any) => a.pin && a.pin === pin);
       if (athlete) {
         const session: AuthSession = {
           role: "athlete",
           name: athlete.name,
-          email: `${athlete.id}@apexathlete.local`, // mock email for session
+          email: `${athlete.id}@apexathlete.local`,
           athleteId: athlete.id,
           expiry: Date.now() + SESSION_DURATION_MS,
         };
