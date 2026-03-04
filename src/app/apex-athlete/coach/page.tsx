@@ -2859,7 +2859,7 @@ export default function ApexAthletePage() {
                   </div>
                   <div className="flex items-center gap-3 text-xs text-white/60">
                     <span>Streak: {a.streak}d</span><span>Practices: {a.totalPractices}</span>
-                    {a.pin && <span className="ml-auto font-mono text-[#6b21a8]">PIN: {a.pin}</span>}
+                    {a.pin && <span className="ml-auto font-mono text-[#a855f7] font-bold bg-[#6b21a8]/20 px-2 py-0.5 rounded">PIN: {a.pin}</span>}
                   </div>
                   {growth && growth.xpGain !== 0 && (
                     <div className={`mt-2 text-xs font-medium ${growth.xpGain > 0 ? "text-emerald-400/60" : "text-red-400/60"}`}>
