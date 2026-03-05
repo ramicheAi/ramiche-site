@@ -468,6 +468,19 @@ function getOpportunities() {
   ];
 }
 
+// ── Tasks ───────────────────────────────────────────────────────────
+
+function getTasks() {
+  const tasksPath = join(WORKSPACE, "agents/tasks.json");
+  if (!existsSync(tasksPath)) return { backlog: [], "in-progress": [], review: [], done: [] };
+  try {
+    const raw = JSON.parse(readFileSync(tasksPath, "utf8"));
+    return raw.tasks || { backlog: [], "in-progress": [], review: [], done: [] };
+  } catch {
+    return { backlog: [], "in-progress": [], review: [], done: [] };
+  }
+}
+
 // ── Main Sync Loop ───────────────────────────────────────────────────
 
 async function syncAll() {
@@ -483,6 +496,7 @@ async function syncAll() {
   const schedule = getSchedule();
   const notifications = getNotifications();
   const opportunities = getOpportunities();
+  const tasks = getTasks();
 
   // Also write status.json locally for the secondary frontend fallback
   try {
@@ -513,6 +527,7 @@ async function syncAll() {
     pushToFirestore("schedule", { items: schedule, count: schedule.length, lastSync: timestamp }),
     pushToFirestore("notifications", { items: notifications, count: notifications.length, lastSync: timestamp }),
     pushToFirestore("opportunities", { items: opportunities, count: opportunities.length, lastSync: timestamp }),
+    pushToFirestore("tasks", { ...tasks, lastSync: timestamp }),
   ]);
 
   const ok = results.filter(Boolean).length;

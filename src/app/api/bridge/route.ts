@@ -79,7 +79,7 @@ function fromFirestoreFields(fields: Record<string, Record<string, unknown>>): R
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
-  const validTypes = ["agents", "crons", "activity", "projects", "links", "missions", "schedule", "notifications", "opportunities"];
+  const validTypes = ["agents", "crons", "activity", "projects", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
 
   try {
     if (type === "all") {
@@ -114,6 +114,90 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// PATCH: Update task status (move, approve, create) from Command Center UI
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { action, taskId, fromCol, toCol, task } = body;
+
+    // Read current tasks from Firestore
+    const tasksRes = await fetch(`${FIRESTORE_BASE}/command-center/tasks`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+
+    let currentTasks: Record<string, unknown[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+    if (tasksRes.ok) {
+      const doc = await tasksRes.json();
+      if (doc.fields) {
+        const parsed = fromFirestoreFields(doc.fields);
+        currentTasks = {
+          backlog: (parsed.backlog as unknown[]) || [],
+          "in-progress": (parsed["in-progress"] as unknown[]) || [],
+          review: (parsed.review as unknown[]) || [],
+          done: (parsed.done as unknown[]) || [],
+        };
+      }
+    }
+
+    if (action === "move" && taskId && fromCol && toCol) {
+      // Move task between columns
+      const fromTasks = (currentTasks[fromCol] as Array<Record<string, unknown>>) || [];
+      const taskIndex = fromTasks.findIndex((t) => t.id === taskId);
+      if (taskIndex === -1) {
+        return NextResponse.json({ error: "task not found in source column" }, { status: 404 });
+      }
+      const [movedTask] = fromTasks.splice(taskIndex, 1);
+      if (toCol === "done") {
+        (movedTask as Record<string, unknown>).completedAt = new Date().toISOString().split("T")[0];
+      }
+      const toTasks = (currentTasks[toCol] as unknown[]) || [];
+      toTasks.push(movedTask);
+      currentTasks[fromCol] = fromTasks;
+      currentTasks[toCol] = toTasks;
+    } else if (action === "create" && task) {
+      // Add new task to backlog
+      const newTask = {
+        id: `task-${Date.now()}`,
+        ...task,
+        createdAt: new Date().toISOString().split("T")[0],
+      };
+      (currentTasks.backlog as unknown[]).push(newTask);
+    } else if (action === "approve" && taskId) {
+      // Move from backlog to in-progress (approve/start)
+      const backlog = (currentTasks.backlog as Array<Record<string, unknown>>) || [];
+      const idx = backlog.findIndex((t) => t.id === taskId);
+      if (idx !== -1) {
+        const [approved] = backlog.splice(idx, 1);
+        (currentTasks["in-progress"] as unknown[]).push(approved);
+      }
+    } else {
+      return NextResponse.json({ error: "invalid action. use: move, create, approve" }, { status: 400 });
+    }
+
+    // Write updated tasks back to Firestore
+    const fields = toFirestoreFields({
+      ...currentTasks,
+      _updatedAt: new Date().toISOString(),
+      _source: "command-center-ui",
+    });
+
+    const writeRes = await fetch(`${FIRESTORE_BASE}/command-center/tasks`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fields }),
+    });
+
+    if (!writeRes.ok) {
+      return NextResponse.json({ error: "failed to write tasks" }, { status: 500 });
+    }
+
+    return NextResponse.json({ ok: true, action, tasks: currentTasks });
+  } catch (e) {
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
+}
+
 // POST: Sync data from local machine
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
@@ -129,7 +213,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "type and data required" }, { status: 400 });
     }
 
-    const validTypes = ["agents", "crons", "activity", "projects", "memory", "links", "missions", "schedule", "notifications", "opportunities"];
+    const validTypes = ["agents", "crons", "activity", "projects", "memory", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: `invalid type. use: ${validTypes.join(", ")}` }, { status: 400 });
     }
