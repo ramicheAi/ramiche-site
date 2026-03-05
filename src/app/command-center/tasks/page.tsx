@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
@@ -125,6 +125,83 @@ export default function TaskBoardPage() {
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromCol: ColumnId } | null>(null);
   const [dropTarget, setDropTarget] = useState<ColumnId | null>(null);
   const dragCounter = useRef<Record<string, number>>({});
+  const [showNewTask, setShowNewTask] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
+  const [newAssignee, setNewAssignee] = useState("Atlas");
+  const [newPriority, setNewPriority] = useState<Task["priority"]>("MEDIUM");
+
+  // Fetch live tasks from bridge API
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch("/api/bridge?type=tasks");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.tasks && typeof data.tasks === "object") {
+          const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+          for (const col of COLUMNS) {
+            if (Array.isArray(data.tasks[col.id])) {
+              live[col.id] = data.tasks[col.id];
+            }
+          }
+          const total = Object.values(live).reduce((s, a) => s + a.length, 0);
+          if (total > 0) setColumns(live);
+        }
+      } catch {}
+    };
+    fetchTasks();
+    const iv = setInterval(fetchTasks, 60000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Persist task move to API
+  const persistMove = async (taskId: string, toCol: ColumnId) => {
+    try {
+      await fetch("/api/bridge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "tasks", taskId, update: { status: toCol } }),
+      });
+    } catch {}
+  };
+
+  // Create new task
+  const createTask = async () => {
+    if (!newTitle.trim()) return;
+    const task: Task = {
+      id: `t${Date.now()}`,
+      title: newTitle.trim(),
+      description: newDesc.trim(),
+      priority: newPriority,
+      assignee: newAssignee,
+      avatar: "🤖",
+      accent: "#C9A84C",
+      tags: [],
+    };
+    setColumns((prev) => ({ ...prev, backlog: [...prev.backlog, task] }));
+    setShowNewTask(false);
+    setNewTitle("");
+    setNewDesc("");
+    try {
+      await fetch("/api/bridge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "tasks", taskId: task.id, update: { ...task, status: "backlog" } }),
+      });
+    } catch {}
+  };
+
+  // Quick action: move task to next column
+  const quickAction = (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
+    if (fromCol === toCol) return;
+    setColumns((prev) => {
+      const fromTasks = prev[fromCol].filter((t) => t.id !== task.id);
+      const toTasks = [...prev[toCol], task];
+      return { ...prev, [fromCol]: fromTasks, [toCol]: toTasks };
+    });
+    persistMove(task.id, toCol);
+  };
 
   const handleDragStart = useCallback((e: React.DragEvent, task: Task, fromCol: ColumnId) => {
     setDraggedTask({ task, fromCol });
@@ -176,6 +253,7 @@ export default function TaskBoardPage() {
       const toTasks = [...prev[toCol], draggedTask.task];
       return { ...prev, [draggedTask.fromCol]: fromTasks, [toCol]: toTasks };
     });
+    persistMove(draggedTask.task.id, toCol);
     setDraggedTask(null);
   }, [draggedTask]);
 
@@ -223,10 +301,18 @@ export default function TaskBoardPage() {
             </p>
           </div>
 
-          <div
-            className="flex items-center gap-3 px-4 py-2 rounded-xl"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowNewTask(true)}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105"
+              style={{ background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "2px solid rgba(201,168,76,0.3)" }}
+            >
+              + New Task
+            </button>
+            <div
+              className="flex items-center gap-3 px-4 py-2 rounded-xl"
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+            >
             <div className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
               Progress
             </div>
@@ -245,6 +331,7 @@ export default function TaskBoardPage() {
             <div className="text-sm font-mono" style={{ color: "#22c55e" }}>
               {doneTasks}/{totalTasks}
             </div>
+          </div>
           </div>
         </div>
 
@@ -363,18 +450,54 @@ export default function TaskBoardPage() {
                         ))}
                       </div>
 
-                      {/* Mobile: tap to move */}
-                      <button
-                        className="mt-2 w-full text-[11px] py-1.5 rounded-lg transition-colors md:hidden"
-                        style={{
-                          background: "rgba(255,255,255,0.04)",
-                          color: "rgba(255,255,255,0.4)",
-                          border: "1px solid rgba(255,255,255,0.06)",
-                        }}
-                        onClick={() => setMobileMenu({ task, fromCol: col.id })}
-                      >
-                        Move →
-                      </button>
+                      {/* Quick actions */}
+                      <div className="flex gap-1.5 mt-2">
+                        {col.id === "backlog" && (
+                          <button
+                            className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                            style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
+                            onClick={() => quickAction(task, col.id, "in-progress")}
+                          >
+                            Start
+                          </button>
+                        )}
+                        {col.id === "in-progress" && (
+                          <button
+                            className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                            style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6", border: "1px solid rgba(139,92,246,0.25)" }}
+                            onClick={() => quickAction(task, col.id, "review")}
+                          >
+                            Submit for Review
+                          </button>
+                        )}
+                        {col.id === "review" && (
+                          <>
+                            <button
+                              className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                              style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}
+                              onClick={() => quickAction(task, col.id, "done")}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                              style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
+                              onClick={() => quickAction(task, col.id, "in-progress")}
+                            >
+                              Revise
+                            </button>
+                          </>
+                        )}
+                        {col.id !== "done" && (
+                          <button
+                            className="text-[10px] py-1.5 px-2 rounded-lg transition-colors md:hidden"
+                            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}
+                            onClick={() => setMobileMenu({ task, fromCol: col.id })}
+                          >
+                            Move
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
 
@@ -395,6 +518,74 @@ export default function TaskBoardPage() {
           })}
         </div>
       </div>
+
+      {/* ── New Task Modal ────────────────────────────────────────────────── */}
+      {showNewTask && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setShowNewTask(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6 space-y-4"
+            style={{ background: "#12121a", border: "2px solid rgba(201,168,76,0.2)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold" style={{ color: "#e2e8f0" }}>New Task</h2>
+            <input
+              className="w-full px-4 py-3 rounded-xl text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              placeholder="Task title"
+              value={newTitle}
+              onChange={(e) => setNewTitle(e.target.value)}
+            />
+            <textarea
+              className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              placeholder="Description"
+              rows={3}
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+            />
+            <div className="flex gap-3">
+              <select
+                className="flex-1 px-3 py-2 rounded-xl text-sm"
+                style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+                value={newPriority}
+                onChange={(e) => setNewPriority(e.target.value as Task["priority"])}
+              >
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+              </select>
+              <input
+                className="flex-1 px-3 py-2 rounded-xl text-sm"
+                style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+                placeholder="Assignee"
+                value={newAssignee}
+                onChange={(e) => setNewAssignee(e.target.value)}
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                className="flex-1 py-3 rounded-xl text-sm font-medium transition-all hover:scale-105"
+                style={{ background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "2px solid rgba(201,168,76,0.3)" }}
+                onClick={createTask}
+              >
+                Create Task
+              </button>
+              <button
+                className="px-6 py-3 rounded-xl text-sm"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+                onClick={() => setShowNewTask(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Mobile Move Menu (overlay) ───────────────────────────────────── */}
       {mobileMenu && (
