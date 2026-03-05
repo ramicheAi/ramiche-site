@@ -483,8 +483,6 @@ function getTasks() {
 
 // ── Poll Trigger Queue: Command Center → Agent Inbox ─────────────────
 
-const FIRESTORE_BASE = "https://firestore.googleapis.com/v1/projects/apex-athlete-73755/databases/(default)/documents";
-
 async function pollTriggerQueue() {
   try {
     const res = await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {

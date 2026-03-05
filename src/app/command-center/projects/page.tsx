@@ -182,8 +182,9 @@ export default function ProjectTracker() {
         const res = await fetch("/api/bridge?type=projects");
         if (!res.ok) return;
         const data = await res.json();
-        if (data?.projects && Array.isArray(data.projects) && data.projects.length > 0) {
-          setLiveProjects(data.projects);
+        const arr = data?.projects || data?.items;
+        if (Array.isArray(arr) && arr.length > 0) {
+          setLiveProjects(arr);
         }
       } catch {}
     };
