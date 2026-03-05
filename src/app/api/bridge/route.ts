@@ -171,8 +171,40 @@ export async function PATCH(req: NextRequest) {
         const [approved] = backlog.splice(idx, 1);
         (currentTasks["in-progress"] as unknown[]).push(approved);
       }
+    } else if (action === "trigger") {
+      // Trigger an agent: move task to in-progress + write to trigger queue for local relay
+      const { agent, title, description, fromCol: triggerFrom } = body;
+      const srcCol = triggerFrom || "backlog";
+      const srcTasks = (currentTasks[srcCol] as Array<Record<string, unknown>>) || [];
+      const tIdx = srcTasks.findIndex((t) => t.id === taskId);
+      if (tIdx !== -1) {
+        const [triggered] = srcTasks.splice(tIdx, 1);
+        triggered.startedAt = new Date().toISOString();
+        (currentTasks["in-progress"] as unknown[]).push(triggered);
+        currentTasks[srcCol] = srcTasks;
+      }
+      // Write trigger to Firestore queue — bridge sync reads this and writes to agents/inbox.md
+      const triggerEntry = {
+        taskId: taskId || `task-${Date.now()}`,
+        agent: agent || "Atlas",
+        title: title || "Untitled task",
+        description: description || "",
+        triggeredAt: new Date().toISOString(),
+        status: "pending",
+      };
+      await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: toFirestoreFields({
+            pending: [triggerEntry],
+            _updatedAt: new Date().toISOString(),
+          }),
+        }),
+      }).catch(() => {});
+      // Fall through to persist task move below
     } else {
-      return NextResponse.json({ error: "invalid action. use: move, create, approve" }, { status: 400 });
+      return NextResponse.json({ error: "invalid action. use: move, create, approve, trigger" }, { status: 400 });
     }
 
     // Write updated tasks back to Firestore

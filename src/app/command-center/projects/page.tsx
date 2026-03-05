@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -174,8 +174,26 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
 export default function ProjectTracker() {
   const [filter, setFilter] = useState<string>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [liveProjects, setLiveProjects] = useState<Project[] | null>(null);
 
-  const filtered = filter === "all" ? PROJECTS : PROJECTS.filter((p) => p.status === filter);
+  useEffect(() => {
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch("/api/bridge?type=projects");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.projects && Array.isArray(data.projects) && data.projects.length > 0) {
+          setLiveProjects(data.projects);
+        }
+      } catch {}
+    };
+    fetchProjects();
+    const iv = setInterval(fetchProjects, 60000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const projects = liveProjects || PROJECTS;
+  const filtered = filter === "all" ? projects : projects.filter((p) => p.status === filter);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#e2e8f0", fontFamily: "'Inter', system-ui, sans-serif" }}>
@@ -192,7 +210,7 @@ export default function ProjectTracker() {
           PROJECT TRACKER
         </h1>
         <p style={{ color: "#64748b", fontSize: 13, margin: "4px 0 0" }}>
-          {PROJECTS.length} projects &middot; {PROJECTS.filter((p) => p.status === "active").length} active &middot; {PROJECTS.filter((p) => p.status === "blocked").length} blocked
+          {projects.length} projects &middot; {projects.filter((p) => p.status === "active").length} active &middot; {projects.filter((p) => p.status === "blocked").length} blocked
         </p>
       </div>
 

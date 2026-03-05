@@ -155,14 +155,30 @@ export default function TaskBoardPage() {
     return () => clearInterval(iv);
   }, []);
 
-  // Persist task move to API
-  const persistMove = async (taskId: string, toCol: ColumnId) => {
+  // Persist task move to API + trigger agent when starting
+  const persistMove = async (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
     try {
-      await fetch("/api/bridge", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "tasks", taskId, update: { status: toCol } }),
-      });
+      if (toCol === "in-progress" && task.assignee) {
+        // Single call: moves task to in-progress AND triggers the agent
+        await fetch("/api/bridge", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "trigger",
+            taskId: task.id,
+            fromCol,
+            agent: task.assignee,
+            title: task.title,
+            description: task.description,
+          }),
+        });
+      } else {
+        await fetch("/api/bridge", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "move", taskId: task.id, fromCol, toCol }),
+        });
+      }
     } catch {}
   };
 
@@ -192,7 +208,7 @@ export default function TaskBoardPage() {
     } catch {}
   };
 
-  // Quick action: move task to next column
+  // Quick action: move task to next column + trigger agent
   const quickAction = (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
     if (fromCol === toCol) return;
     setColumns((prev) => {
@@ -200,7 +216,7 @@ export default function TaskBoardPage() {
       const toTasks = [...prev[toCol], task];
       return { ...prev, [fromCol]: fromTasks, [toCol]: toTasks };
     });
-    persistMove(task.id, toCol);
+    persistMove(task, fromCol, toCol);
   };
 
   const handleDragStart = useCallback((e: React.DragEvent, task: Task, fromCol: ColumnId) => {
@@ -253,7 +269,7 @@ export default function TaskBoardPage() {
       const toTasks = [...prev[toCol], draggedTask.task];
       return { ...prev, [draggedTask.fromCol]: fromTasks, [toCol]: toTasks };
     });
-    persistMove(draggedTask.task.id, toCol);
+    persistMove(draggedTask.task, draggedTask.fromCol, toCol);
     setDraggedTask(null);
   }, [draggedTask]);
 

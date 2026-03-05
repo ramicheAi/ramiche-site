@@ -481,6 +481,66 @@ function getTasks() {
   }
 }
 
+// ── Poll Trigger Queue: Command Center → Agent Inbox ─────────────────
+
+const FIRESTORE_BASE = "https://firestore.googleapis.com/v1/projects/apex-athlete-73755/databases/(default)/documents";
+
+async function pollTriggerQueue() {
+  try {
+    const res = await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const doc = await res.json();
+    if (!doc.fields?.pending?.arrayValue?.values) return;
+
+    const pending = doc.fields.pending.arrayValue.values
+      .map((v) => {
+        const f = v.mapValue?.fields || {};
+        return {
+          taskId: f.taskId?.stringValue || "",
+          agent: f.agent?.stringValue || "Atlas",
+          title: f.title?.stringValue || "",
+          description: f.description?.stringValue || "",
+          status: f.status?.stringValue || "pending",
+          triggeredAt: f.triggeredAt?.stringValue || "",
+        };
+      })
+      .filter((t) => t.status === "pending");
+
+    if (pending.length === 0) return;
+
+    const inboxPath = join(WORKSPACE, "agents", "inbox.md");
+    const now = new Date().toISOString().replace("T", " ").split(".")[0];
+
+    for (const trigger of pending) {
+      // Write to agents/inbox.md
+      const entry = `\n## [${now}] FROM: CommandCenter → TO: ${trigger.agent}\nSTATUS: pending\nPRIORITY: high\nTASK_ID: ${trigger.taskId}\nMESSAGE: You have been assigned and approved to start this task: "${trigger.title}". ${trigger.description}. Begin working immediately. When done, write results to agents/outbox.md and mark the task complete.\n---\n`;
+
+      let inbox = existsSync(inboxPath) ? readFileSync(inboxPath, "utf8") : "# Agent Inbox\n";
+      inbox += entry;
+      writeFileSync(inboxPath, inbox);
+      console.log(`[trigger] Wrote task "${trigger.title}" to inbox for ${trigger.agent}`);
+    }
+
+    // Clear the trigger queue by writing empty pending array
+    await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fields: {
+          pending: { arrayValue: { values: [] } },
+          _clearedAt: { stringValue: new Date().toISOString() },
+        },
+      }),
+    });
+    console.log(`[trigger] Cleared ${pending.length} trigger(s) from queue`);
+  } catch (e) {
+    console.error("[trigger] Error polling trigger queue:", e.message);
+  }
+}
+
 // ── Main Sync Loop ───────────────────────────────────────────────────
 
 async function syncAll() {
@@ -535,6 +595,9 @@ async function syncAll() {
 
   // Poll for pending chat messages and route to agents
   await pollPendingMessages();
+
+  // Poll for task triggers from Command Center and route to agent inbox
+  await pollTriggerQueue();
 }
 
 // ── Start ────────────────────────────────────────────────────────────
