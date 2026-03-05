@@ -531,8 +531,24 @@ export default function CommandCenter() {
           const data = await res.json();
           setBridgeData(data);
           // Update agent status from bridge if available
-          if (data?.agents?.list && Array.isArray(data.agents.list)) {
-            setLiveAgents(data.agents.list);
+          if (data?.agents?.items && Array.isArray(data.agents.items)) {
+            // Map bridge agent data to match hardcoded AGENTS shape
+            const mapped = data.agents.items.map((a: any, i: number) => {
+              const match = AGENTS.find(ha => ha.name.toLowerCase() === (a.name || '').toLowerCase());
+              return {
+                name: a.name || `Agent ${i}`,
+                model: a.model || match?.model || '',
+                role: a.role || match?.role || '',
+                status: (a.status === 'active' ? 'active' : a.status === 'done' ? 'done' : 'idle') as 'active' | 'idle' | 'done',
+                color: match?.color || '#737373',
+                icon: match?.icon || '🤖',
+                desc: match?.desc || a.capabilities || '',
+                connections: match?.connections || [],
+                credits: match?.credits || { used: 0, limit: 5000 },
+                activeTask: a.activeTask || a.lastTask || match?.activeTask || 'Standing by',
+              };
+            });
+            if (mapped.length > 0) setLiveAgents(mapped);
           }
         }
       } catch { /* silent — fallback to hardcoded */ }

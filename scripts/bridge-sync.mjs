@@ -7,7 +7,7 @@
 // Or: BRIDGE_URL=https://ramiche-site.vercel.app/api/bridge node scripts/bridge-sync.mjs
 
 import { execSync } from "child_process";
-import { readFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
 import { join } from "path";
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
@@ -292,6 +292,25 @@ async function syncAll() {
   const activity = getRecentActivity();
   const projects = getProjectStatus();
   const links = getQuickLinks();
+
+  // Also write status.json locally for the secondary frontend fallback
+  try {
+    const statusPath = join(WORKSPACE, "../../ramiche-site/public/status.json");
+    const statusData = {
+      agents: agents.map(a => ({
+        name: a.name,
+        model: a.model,
+        role: a.role,
+        status: a.status || "idle",
+        task: a.lastTask || "Standing by",
+        color: a.color || "#737373",
+      })),
+      lastSync: timestamp,
+    };
+    writeFileSync(statusPath, JSON.stringify(statusData, null, 2));
+  } catch (e) {
+    console.error("[bridge] status.json write error:", e.message);
+  }
 
   const results = await Promise.all([
     pushToFirestore("agents", { items: agents, count: agents.length, lastSync: timestamp }),
