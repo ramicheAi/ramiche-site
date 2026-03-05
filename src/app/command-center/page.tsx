@@ -174,86 +174,81 @@ const AGENTS = [
   },
 ];
 
-/* ── AGENT → PROJECT ASSIGNMENTS ───────────────────────────────────────────── */
+/* ── AGENT → PROJECT ASSIGNMENTS ─────────────────────────────────────────────────── */
 const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "active" | "idle" | "done" }[]> = {
   Atlas: [
     { project: "METTLE", role: "Lead architect + game engine", status: "active" },
-    { project: "Command Center", role: "Design + build", status: "active" },
-    { project: "Galactik Antics", role: "Store pipeline + copy", status: "active" },
-    { project: "Parallax Studio", role: "Landing page + outreach", status: "idle" },
+    { project: "Command Center", role: "Live backend + bridge sync", status: "active" },
+    { project: "Parallax Site", role: "Marketplace + deployment", status: "active" },
   ],
   TheMAESTRO: [
     { project: "Music Pipeline", role: "Production direction + sound design", status: "idle" },
     { project: "Parallax", role: "Artist A&R + creative guidance", status: "idle" },
   ],
   SIMONS: [
-    { project: "Replit Projects", role: "Sports Betting Engine analytics", status: "active" },
     { project: "Revenue Optimization", role: "Pricing models + market analysis", status: "idle" },
+    { project: "METTLE", role: "Growth analytics", status: "idle" },
   ],
   "Dr. Strange": [
     { project: "METTLE", role: "Attrition prediction + forecasting", status: "idle" },
     { project: "Business Strategy", role: "Scenario planning + risk analysis", status: "idle" },
   ],
   SHURI: [
+    { project: "Command Center", role: "Office page redesign", status: "active" },
     { project: "METTLE", role: "UI/UX + rapid prototyping", status: "active" },
-    { project: "Replit Projects", role: "Social Cross-Poster build", status: "idle" },
-    { project: "Galactik Antics", role: "Browser game MVP", status: "idle" },
+    { project: "Parallax Site", role: "Linear restyle", status: "done" },
   ],
   Widow: [
-    { project: "Security Audit", role: "Platform security + API protection", status: "idle" },
+    { project: "ClawGuard Pro", role: "Security scanning + threat detection", status: "active" },
     { project: "Competitive Intel", role: "Market monitoring + threat scan", status: "idle" },
   ],
   PROXIMON: [
-    { project: "METTLE", role: "Systems architecture + scaling", status: "active" },
-    { project: "Infrastructure", role: "Firebase + deployment pipeline", status: "idle" },
+    { project: "Command Center", role: "Systems architecture", status: "active" },
+    { project: "METTLE", role: "Scaling architecture", status: "idle" },
   ],
   Vee: [
-    { project: "Galactik Antics", role: "Brand voice + launch marketing", status: "active" },
-    { project: "Parallax Studio", role: "Client acquisition + positioning", status: "idle" },
-    { project: "SCOWW", role: "Event marketing + social strategy", status: "idle" },
+    { project: "Content Pipeline", role: "Daily content lead + brand voice", status: "active" },
+    { project: "Ramiche Studio", role: "Client acquisition + positioning", status: "active" },
   ],
   Aetherion: [
-    { project: "Multi-Agent Architecture", role: "Designing agent collaboration patterns", status: "active" },
-    { project: "METTLE", role: "Scalable system blueprint (multi-team SaaS)", status: "idle" },
-    { project: "Infrastructure", role: "Cross-project integration + emergence analysis", status: "idle" },
+    { project: "Multi-Agent Architecture", role: "Agent collaboration patterns", status: "active" },
+    { project: "Infrastructure", role: "Cross-project integration", status: "idle" },
   ],
   MICHAEL: [
     { project: "METTLE", role: "Swim coaching intelligence + athlete motivation", status: "active" },
-    { project: "Saint Andrew's Aquatics", role: "Training analysis + race strategy", status: "active" },
+    { project: "Saint Andrew\'s Aquatics", role: "Training analysis + race strategy", status: "active" },
   ],
   Prophets: [
-    { project: "Daily Scripture", role: "7 AM verse + prayer prompt via Telegram", status: "active" },
-    { project: "Sanctuary", role: "Devotional tracking + reading plans + prayer focus", status: "active" },
-    { project: "Life Guidance", role: "Faith-rooted wisdom for decisions", status: "active" },
+    { project: "Daily Scripture", role: "7 AM verse + prayer via Telegram", status: "active" },
+    { project: "Life Guidance", role: "Faith-rooted wisdom", status: "active" },
   ],
   SELAH: [
-    { project: "METTLE", role: "Sport psychology + athlete mental performance", status: "active" },
-    { project: "Team Wellness", role: "Coach/athlete wellness support + burnout prevention", status: "active" },
-    { project: "Personal Growth", role: "Ramon's peak performance + mindset coaching", status: "idle" },
+    { project: "METTLE", role: "Sport psychology + mental performance", status: "active" },
+    { project: "Team Wellness", role: "Coach/athlete wellness + burnout prevention", status: "active" },
   ],
   MERCURY: [
-    { project: "Parallax Studio", role: "Client acquisition + deals", status: "idle" },
+    { project: "Ramiche Studio", role: "Client acquisition + deals", status: "idle" },
     { project: "Revenue Ops", role: "Pipeline + pricing strategy", status: "idle" },
   ],
   ECHO: [
-    { project: "Community", role: "Discord + social engagement", status: "idle" },
-    { project: "Galactik Antics", role: "Fan community + ambassador program", status: "idle" },
+    { project: "Content Pipeline", role: "Social engagement + community", status: "active" },
+    { project: "Galactik Antics", role: "@galactikantics IG content", status: "active" },
   ],
   HAVEN: [
     { project: "Customer Support", role: "Ticket system + onboarding", status: "idle" },
     { project: "METTLE", role: "Coach/parent support flows", status: "idle" },
   ],
   INK: [
-    { project: "Content Pipeline", role: "Blog + social copy + scripts", status: "idle" },
-    { project: "Galactik Antics", role: "Product descriptions + launch copy", status: "idle" },
+    { project: "Content Pipeline", role: "Blog + social copy + scripts", status: "active" },
+    { project: "Ramiche Studio", role: "Client content + case studies", status: "idle" },
   ],
   NOVA: [
-    { project: "3D Print Studio", role: "Production pipeline + quoting", status: "idle" },
+    { project: "YOLO Builds", role: "Overnight prototype builder", status: "active" },
     { project: "Galactik Antics", role: "Physical merch prototyping", status: "idle" },
   ],
   KIYOSAKI: [
     { project: "METTLE", role: "Financial model + pricing strategy", status: "done" },
-    { project: "Wealth Architecture", role: "Investment analysis + cashflow optimization", status: "idle" },
+    { project: "Wealth Architecture", role: "Investment analysis + cashflow", status: "idle" },
   ],
   TRIAGE: [
     { project: "System Health", role: "Debugging + diagnostics + failure tracing", status: "idle" },
@@ -261,140 +256,144 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
   ],
 };
 
-/* ── PROJECTS / MISSIONS ───────────────────────────────────────────────────── */
+/* ── PROJECTS / MISSIONS ───────────────────────────────────────────────────────────── */
 const MISSIONS = [
   {
-    name: "Galactik Antics", accent: "#00f0ff", status: "active" as const,
-    desc: "AI art merch \u2192 Shopify store", priority: "HIGH",
-    tasks: [
-      { t: "Batch A art matched to 5 designs", done: true },
-      { t: "Source files copied to iPhone case folders", done: true },
-      { t: "Pre-launch content (4 briefs, 7-day calendar)", done: true },
-      { t: "Product lineup confirmed (13 cases, 5 posters, 5 tees)", done: true },
-      { t: "Weavy renders for 5 Batch A designs", done: false },
-      { t: "Shopify store created \u2014 API token needed for product upload", done: false },
-      { t: "Upload products + variants + pricing", done: false },
-      { t: "Collector tier system (5 tiers, Shopify Flows)", done: false },
-    ],
-    link: { label: "Printful", href: "https://www.printful.com/dashboard" },
-  },
-  {
     name: "METTLE", accent: "#C9A84C", status: "active" as const,
-    desc: "Gamified swim training \u2014 LIVE BETA \u2014 Stripe checkout live", priority: "CRITICAL",
+    desc: "Gamified athlete SaaS — BETA with Saint Andrew\'s Aquatics (240+ athletes)", priority: "CRITICAL",
     tasks: [
-      { t: "Game engine + check-ins", done: true },
-      { t: "Coach dashboard + leaderboard", done: true },
       { t: "Three-portal architecture (Coach/Athlete/Parent)", done: true },
-      { t: "Multi-roster expansion (240+ athletes, 7 groups)", done: true },
-      { t: "Stripe billing \u2014 3 tiers ($149/$349/$549)", done: true },
-      { t: "CI/CD pipeline (GitHub Actions + Husky + Vitest)", done: true },
+      { t: "Game engine + level system (Rookie → Legend)", done: true },
+      { t: "Meet management (Hy-Tek parser, seeds, heat/lane, results)", done: true },
+      { t: "Stripe billing — 3 tiers ($149/$349/$549)", done: true },
+      { t: "CI/CD pipeline + security scanning (0 errors)", done: true },
+      { t: "ByteByteGo: 52/52 items implemented", done: true },
       { t: "Copyright filed (Feb 17, 2026)", done: true },
-      { t: "Hy-Tek import (.hy3/.ev3) — iOS fix deployed", done: true },
-      { t: "Quest flow UX polish", done: false },
-      { t: "Firebase backend (v2) deploy", done: false },
+      { t: "Beta invite system + CSV import + setup wizard", done: true },
+      { t: "Patent filing at USPTO ($65 micro entity)", done: false },
+      { t: "Trademark: Class 9+41+42", done: false },
     ],
     link: { label: "Open App", href: "/apex-athlete" },
   },
   {
-    name: "Parallax Studio", accent: "#a855f7", status: "active" as const,
-    desc: "Creative Services \u2014 48h Sprint $300-500", priority: "HIGH",
+    name: "Command Center", accent: "#7c3aed", status: "active" as const,
+    desc: "Live operations dashboard — bridge API + real-time sync", priority: "HIGH",
     tasks: [
-      { t: "Landing page live", done: true },
-      { t: "Portfolio + case studies", done: false },
-      { t: "Social proof / testimonials", done: false },
-      { t: "Stripe integration", done: false },
+      { t: "Bridge API (agent status, crons, links, activity)", done: true },
+      { t: "Frontend wired to bridge with 60s polling", done: true },
+      { t: "Bridge sync script (iMac → Firestore)", done: true },
+      { t: "Chat relay to agents", done: true },
+      { t: "Task approval API", done: true },
+      { t: "Cron CRUD API", done: true },
+      { t: "Live data rendering (replace hardcoded)", done: false },
+      { t: "Office page redesign", done: false },
+    ],
+    link: { label: "Command Center", href: "/command-center" },
+  },
+  {
+    name: "Parallax Site", accent: "#a855f7", status: "active" as const,
+    desc: "Agent marketplace + Claude Skills — 19 routes LIVE", priority: "HIGH",
+    tasks: [
+      { t: "White-label system (115 files, 7,554 LOC, 20 agents)", done: true },
+      { t: "Agent marketplace + payment-to-delivery e2e", done: true },
+      { t: "/forge creative tools hub (6 tools)", done: true },
+      { t: "Setup service verified e2e", done: true },
+      { t: "Linear restyle (agents page)", done: true },
+      { t: "Remaining pages audit + polish", done: false },
+    ],
+    link: { label: "Parallax Site", href: "https://parallax-site-ashen.vercel.app" },
+  },
+  {
+    name: "Parallax Publish", accent: "#38bdf8", status: "active" as const,
+    desc: "Social media publishing — 3 platforms LIVE (Twitter, Bluesky, LinkedIn)", priority: "HIGH",
+    tasks: [
+      { t: "Twitter OAuth2 + posting", done: true },
+      { t: "Bluesky AT Protocol + posting", done: true },
+      { t: "LinkedIn OAuth2 + posting", done: true },
+      { t: "6-tab UI (Compose, History, Calendar, Accounts, Analytics, AI Writer)", done: true },
+      { t: "Instagram OAuth (blocked on Facebook Developer Portal)", done: false },
+      { t: "Scheduling backend (SQLite → hosted DB)", done: false },
+      { t: "Facebook/Threads/TikTok/YouTube", done: false },
+    ],
+    link: { label: "Parallax Publish", href: "https://parallax-publish.vercel.app" },
+  },
+  {
+    name: "Ramiche Studio", accent: "#e879f9", status: "active" as const,
+    desc: "Creative services — $400/$1,500/$3,000/$6,000+", priority: "HIGH",
+    tasks: [
+      { t: "Landing page + inquiry form + checkout", done: true },
+      { t: "4-platform DM scripts + email sequences", done: true },
+      { t: "UGC video scripts + SOPs + onboarding runbook", done: true },
+      { t: "Niche outreach kit (skincare, coffee, supplements, pet)", done: true },
+      { t: "Stripe integration (needs STRIPE_SECRET_KEY)", done: false },
+      { t: "First UGC video filmed", done: false },
+      { t: "First 5 warm DMs sent", done: false },
     ],
     link: { label: "Studio", href: "/studio" },
   },
   {
-    name: "Parallax", accent: "#e879f9", status: "active" as const,
-    desc: "Parent company \u2014 head of all brands \u2014 Yauggy, Niko Biswas, Gabe Greyson", priority: "MED",
+    name: "Galactik Antics", accent: "#00f0ff", status: "active" as const,
+    desc: "AI art + merch — @galactikantics on IG", priority: "MED",
     tasks: [
-      { t: "Artist roster page", done: false },
-      { t: "Distribution pipeline", done: false },
-      { t: "Label branding + identity", done: false },
-      { t: "Revenue split structure", done: false },
+      { t: "Product lineup confirmed (13 cases, 5 posters, 5 tees)", done: true },
+      { t: "Pre-launch content (4 briefs, 7-day calendar)", done: true },
+      { t: "Shopify store + API credentials (blocked on Ramon)", done: false },
+      { t: "Upload products + variants + pricing", done: false },
     ],
     link: null,
   },
   {
-    name: "SCOWW", accent: "#22d3ee", status: "active" as const,
-    desc: "Swim meet \u2014 sponsors locked, Meta ad live", priority: "HIGH",
+    name: "ClawGuard Pro", accent: "#22d3ee", status: "active" as const,
+    desc: "Security scanner — $299/$799/$1,499 — LIVE", priority: "MED",
     tasks: [
-      { t: "Sponsor packages locked", done: true },
-      { t: "Meta ad campaign live", done: true },
-      { t: "Event logistics finalized", done: false },
-      { t: "Registration page", done: false },
+      { t: "Scanner live + Stripe wired", done: true },
+      { t: "GitHub integration", done: true },
+      { t: "Customer onboarding flow", done: false },
     ],
-    link: null,
-  },
-  {
-    name: "Music Pipeline", accent: "#e879f9", status: "paused" as const,
-    desc: "Track production & release automation", priority: "LOW",
-    tasks: [
-      { t: "music.json system of record", done: true },
-      { t: "Status dashboard", done: true },
-      { t: "Stalled-track detection", done: false },
-      { t: "Momentum reports", done: false },
-    ],
-    link: null,
-  },
-  {
-    name: "Replit Projects", accent: "#22d3ee", status: "active" as const,
-    desc: "Social Cross-Poster, Sports Betting Engine, TBD", priority: "MED",
-    tasks: [
-      { t: "Social Cross-Poster MVP", done: false },
-      { t: "Sports Betting Engine prototype", done: false },
-      { t: "Additional project scoping", done: false },
-    ],
-    link: null,
+    link: { label: "ClawGuard", href: "https://parallax-site-ashen.vercel.app/clawguard" },
   },
 ];
 
-/* ── OPPORTUNITIES ─────────────────────────────────────────────────────────── */
+/* ── OPPORTUNITIES ───────────────────────────────────────────────────────────────── */
 const OPPS = [
-  { title: "AI Product Photos", rev: "$99-349", tag: "READY", accent: "#00f0ff", desc: "Weavy pipeline as a service" },
-  { title: "Brand-in-a-Box", rev: "$300-500", tag: "READY", accent: "#a855f7", desc: "48h Creative Direction Sprint" },
-  { title: "Shopify Setup", rev: "$500-1.5K", tag: "SOON", accent: "#f59e0b", desc: "Done-for-you store" },
-  { title: "AI Agent Consulting", rev: "$1-3K", tag: "SOON", accent: "#e879f9", desc: "OpenClaw-style setup" },
-  { title: "Content Repurposing", rev: "$200-500/mo", tag: "IDEA", accent: "#22d3ee", desc: "Multi-platform pipeline" },
+  { title: "Ramiche Studio Sprint", rev: "$400", tag: "LIVE", accent: "#e879f9", desc: "48h Creative Direction Sprint" },
+  { title: "Ramiche Studio Starter", rev: "$1,500", tag: "LIVE", accent: "#a855f7", desc: "Full brand kit + strategy" },
+  { title: "Ramiche Studio Pro", rev: "$3,000", tag: "LIVE", accent: "#7c3aed", desc: "Complete brand transformation" },
+  { title: "Ramiche Studio Elite", rev: "$6,000+", tag: "LIVE", accent: "#C9A84C", desc: "Enterprise-level creative ops" },
+  { title: "ClawGuard Pro", rev: "$299-$1,499", tag: "LIVE", accent: "#22d3ee", desc: "Security scanning as a service" },
+  { title: "Claude Skills", rev: "$149-$499", tag: "LIVE", accent: "#a855f7", desc: "Agent skills marketplace" },
+  { title: "AI Agent Setup", rev: "$1-3K", tag: "SOON", accent: "#00f0ff", desc: "OpenClaw-style full setup" },
 ];
 
-/* ── QUICK LINKS ───────────────────────────────────────────────────────────── */
+/* ── QUICK LINKS ─────────────────────────────────────────────────────────────────── */
 const LINKS = [
   { label: "METTLE", href: "https://ramiche-site.vercel.app/apex-athlete", icon: "M", accent: "#C9A84C" },
   { label: "Parallax Site", href: "https://parallax-site-ashen.vercel.app", icon: "P", accent: "#a855f7" },
-  { label: "YOLO Builds", href: "/command-center/yolo", icon: "Y", accent: "#f59e0b" },
-  { label: "Hijack", href: "https://ramiche-site.vercel.app/hijack", icon: "H", accent: "#ef4444" },
   { label: "Parallax Publish", href: "https://parallax-publish.vercel.app", icon: "PP", accent: "#38bdf8" },
   { label: "ClawGuard Pro", href: "https://parallax-site-ashen.vercel.app/clawguard", icon: "CG", accent: "#22d3ee" },
+  { label: "YOLO Builds", href: "/command-center/yolo", icon: "Y", accent: "#f59e0b" },
   { label: "Vercel", href: "https://vercel.com/dashboard", icon: "V", accent: "#ffffff" },
-  { label: "GitHub", href: "https://github.com", icon: "GH", accent: "#737373" },
+  { label: "GitHub", href: "https://github.com/ramicheAi", icon: "GH", accent: "#737373" },
+  { label: "Firebase", href: "https://console.firebase.google.com/project/apex-athlete-73755", icon: "FB", accent: "#f59e0b" },
   { label: "Shopify", href: "https://admin.shopify.com", icon: "S", accent: "#96bf48" },
   { label: "GoMotion", href: "https://www.gomotionapp.com", icon: "G", accent: "#34d399" },
 ];
 
-/* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
+/* ── ACTIVITY LOG ────────────────────────────────────────────────────────────────── */
 const LOG = [
-  { time: "Feb 24", text: "Command Center upgrade initiated — Parallax branding + agent approvals", color: "#C9A84C" },
-  { time: "Feb 24", text: "ClawGuard Pro scan: 95/100 — all security issues resolved except firewall", color: "#ef4444" },
-  { time: "Feb 24", text: "ByteByteGo PDF: 52/52 topics fully implemented across ecosystem", color: "#00f0ff" },
-  { time: "Feb 24", text: "METTLE brand v5 (Forged M) locked — biblical colors, gold-outlined edges", color: "#C9A84C" },
-  { time: "Feb 24", text: "15-strategy conversion playbook deployed site-wide (all products)", color: "#ec4899" },
-  { time: "Feb 24", text: "Social listening cron live + Berman engagement thread posted", color: "#38bdf8" },
-  { time: "Feb 24", text: "Desktop layouts fixed — full screen real estate, breathing room, symmetry", color: "#34d399" },
-  { time: "Feb 24", text: "Agent knowledge bases updated — Vee, Mercury, Simons all have marketing playbook", color: "#a855f7" },
-  { time: "Feb 23", text: "18 PRs merged in one day — security, monitoring, rate limiting, meet mgmt, onboarding", color: "#00f0ff" },
-  { time: "Feb 23", text: "METTLE declared beta-ready for Saint Andrew's (240+ athletes)", color: "#C9A84C" },
-  { time: "Feb 23", text: "Firestore security rules deployed and locked down", color: "#ef4444" },
-  { time: "Feb 23", text: "ClawGuard Pro product page + Stripe checkout — 3 tiers ($299/$799/$1499)", color: "#fbbf24" },
-  { time: "Feb 23", text: "METTLE invite link system — no more PIN sharing for onboarding", color: "#34d399" },
-  { time: "Feb 23", text: "Content posted to X + LinkedIn — Monday AI Agents theme", color: "#38bdf8" },
-  { time: "Feb 21", text: "First external deployment — Derrick (Windows), Enterprise bundle, 4 agents", color: "#a855f7" },
-  { time: "Feb 21", text: "Upwork account live — 2 proposals submitted at $50/hr", color: "#fbbf24" },
-  { time: "Feb 18", text: "METTLE name locked + provisional patent draft delivered", color: "#C9A84C" },
-  { time: "Feb 17", text: "Copyright filed for METTLE at eco.copyright.gov — $65 paid", color: "#a855f7" },
-  { time: "Feb 17", text: "Stripe checkout confirmed — all 3 tiers working end-to-end", color: "#34d399" },
+  { time: "Mar 5", text: "Chat listener built — Command Center messages now reach agents", color: "#7c3aed" },
+  { time: "Mar 5", text: "Bridge sync live — 21 agents, 39 crons syncing to Firestore every 60s", color: "#059669" },
+  { time: "Mar 5", text: "Command Center backend wired — task approval, cron CRUD, chat relay APIs deployed", color: "#7c3aed" },
+  { time: "Mar 5", text: "Daily content posting schedule built — weekly rotation, VEE/INK/ECHO pipeline", color: "#a855f7" },
+  { time: "Mar 5", text: "Inter-agent communication system — directory, escalation protocol, comms log", color: "#00f0ff" },
+  { time: "Mar 5", text: "Smart cron system — scheduling playbook, audit trail, budget caps", color: "#f59e0b" },
+  { time: "Mar 4", text: "SHURI: Agents page + CC main page Linear restyle deployed", color: "#e879f9" },
+  { time: "Mar 3", text: "Parallax Publish — 3 platforms live (Twitter, Bluesky, LinkedIn)", color: "#38bdf8" },
+  { time: "Mar 2", text: "Service worker ban enforced — self-destruct SW deployed across all apps", color: "#ef4444" },
+  { time: "Mar 1", text: "Ramiche Studio client acquisition kit COMPLETE — all assets built", color: "#e879f9" },
+  { time: "Feb 28", text: "Context+ MCP server installed — AST parsing, semantic search, blast radius", color: "#22d3ee" },
+  { time: "Feb 27", text: "Parallax Publish launched — Twitter + Bluesky + LinkedIn OAuth2", color: "#38bdf8" },
+  { time: "Feb 24", text: "ByteByteGo: 52/52 topics fully implemented across ecosystem", color: "#00f0ff" },
 ];
 
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
@@ -531,21 +530,23 @@ export default function CommandCenter() {
           const data = await res.json();
           setBridgeData(data);
           // Update agent status from bridge if available
-          if (data?.agents?.items && Array.isArray(data.agents.items)) {
-            // Map bridge agent data to match hardcoded AGENTS shape
-            const mapped = data.agents.items.map((a: any, i: number) => {
-              const match = AGENTS.find(ha => ha.name.toLowerCase() === (a.name || '').toLowerCase());
+          const agentsObj = data?.agents?.directory?.agents;
+          const recentlyActive = data?.agents?.recentlyActive || [];
+          if (agentsObj && typeof agentsObj === 'object') {
+            const mapped = Object.entries(agentsObj).map(([name, a]: [string, any]) => {
+              const match = AGENTS.find(ha => ha.name.toLowerCase() === name.toLowerCase());
+              const isActive = recentlyActive.includes(name);
               return {
-                name: a.name || `Agent ${i}`,
+                name: name.charAt(0).toUpperCase() + name.slice(1),
                 model: a.model || match?.model || '',
                 role: a.role || match?.role || '',
-                status: (a.status === 'active' ? 'active' : a.status === 'done' ? 'done' : 'idle') as 'active' | 'idle' | 'done',
+                status: (isActive ? 'active' : 'idle') as 'active' | 'idle' | 'done',
                 color: match?.color || '#737373',
                 icon: match?.icon || '🤖',
-                desc: match?.desc || a.capabilities || '',
+                desc: match?.desc || (Array.isArray(a.capabilities) ? a.capabilities.join(', ') : '') || '',
                 connections: match?.connections || [],
                 credits: match?.credits || { used: 0, limit: 5000 },
-                activeTask: a.activeTask || a.lastTask || match?.activeTask || 'Standing by',
+                activeTask: match?.activeTask || 'Standing by',
               };
             });
             if (mapped.length > 0) setLiveAgents(mapped);

@@ -71,27 +71,59 @@ export async function POST(req: NextRequest) {
 
 export async function GET() {
   try {
-    const res = await fetch(
-      `${FIRESTORE_BASE}/command-center-crons?pageSize=100`,
-      { cache: "no-store" }
-    );
-    if (!res.ok) return NextResponse.json({ items: [] });
+    // Fetch from both sources: user-created crons + bridge-synced OpenClaw crons
+    const [userRes, bridgeRes] = await Promise.all([
+      fetch(`${FIRESTORE_BASE}/command-center-crons?pageSize=100`, { cache: "no-store" }).catch(() => null),
+      fetch(`${FIRESTORE_BASE}/command-center/crons`, { cache: "no-store" }).catch(() => null),
+    ]);
 
-    const data = await res.json();
-    const crons = (data.documents || []).map((doc: { fields: Record<string, { stringValue?: string }> }) => {
-      const f = doc.fields || {};
-      return {
-        id: f.id?.stringValue || "",
-        name: f.name?.stringValue || "",
-        schedule: f.schedule?.stringValue || "",
-        agent: f.agent?.stringValue || "",
-        task: f.task?.stringValue || "",
-        status: f.status?.stringValue || "unknown",
-        createdAt: f.createdAt?.stringValue || "",
-      };
-    });
+    const userCrons: Array<Record<string, string>> = [];
+    if (userRes?.ok) {
+      const data = await userRes.json();
+      (data.documents || []).forEach((doc: { fields: Record<string, { stringValue?: string }> }) => {
+        const f = doc.fields || {};
+        userCrons.push({
+          id: f.id?.stringValue || "",
+          name: f.name?.stringValue || "",
+          schedule: f.schedule?.stringValue || "",
+          agent: f.agent?.stringValue || "",
+          task: f.task?.stringValue || "",
+          status: f.status?.stringValue || "unknown",
+          createdAt: f.createdAt?.stringValue || "",
+          source: "user",
+        });
+      });
+    }
 
-    return NextResponse.json({ items: crons, count: crons.length });
+    const bridgeCrons: Array<Record<string, string>> = [];
+    if (bridgeRes?.ok) {
+      const data = await bridgeRes.json();
+      // Bridge syncs crons as { jobs: { jobs: [...] } }
+      const jobs = data?.fields?.jobs?.mapValue?.fields?.jobs?.arrayValue?.values || [];
+      jobs.forEach((v: any) => {
+        const f = v?.mapValue?.fields || {};
+        const name = f.name?.stringValue || "";
+        const id = f.id?.stringValue || "";
+        const schedule = f.schedule?.mapValue?.fields;
+        const scheduleStr = schedule?.cron?.stringValue ||
+          (schedule?.everyMs?.integerValue ? `every ${Math.round(Number(schedule.everyMs.integerValue) / 60000)}min` : "") ||
+          (schedule?.kind?.stringValue || "");
+        const agent = f.payload?.mapValue?.fields?.model?.stringValue || "system";
+        const enabled = f.enabled?.booleanValue !== false;
+        bridgeCrons.push({
+          id,
+          name,
+          schedule: scheduleStr,
+          agent,
+          task: f.payload?.mapValue?.fields?.message?.stringValue?.slice(0, 80) || "",
+          status: enabled ? "active" : "disabled",
+          source: "openclaw",
+        });
+      });
+    }
+
+    const allCrons = [...bridgeCrons, ...userCrons];
+    return NextResponse.json({ items: allCrons, count: allCrons.length });
   } catch (e) {
     return NextResponse.json({ items: [], error: String(e) });
   }
