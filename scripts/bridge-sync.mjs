@@ -520,6 +520,18 @@ async function pollTriggerQueue() {
       inbox += entry;
       writeFileSync(inboxPath, inbox);
       console.log(`[trigger] Wrote task "${trigger.title}" to inbox for ${trigger.agent}`);
+
+      // Immediately spawn the agent by sending to their session
+      const agentLower = trigger.agent.toLowerCase();
+      try {
+        execSync(
+          `openclaw sessions send "agent:${agentLower}:main" "You have a new HIGH PRIORITY task from Command Center: ${trigger.title}. Check agents/inbox.md for details and begin immediately."`,
+          { encoding: "utf8", timeout: 15_000 }
+        );
+        console.log(`[trigger] Spawned/notified ${trigger.agent} via sessions_send`);
+      } catch (e) {
+        console.log(`[trigger] Could not reach ${trigger.agent} live (${e.message}). Task queued in inbox for next cron run.`);
+      }
     }
 
     // Clear the trigger queue by writing empty pending array
