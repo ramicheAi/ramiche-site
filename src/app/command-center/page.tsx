@@ -531,11 +531,13 @@ export default function CommandCenter() {
           setBridgeData(data);
           // Update agent status from bridge if available
           const agentsObj = data?.agents?.directory?.agents;
-          const recentlyActive = data?.agents?.recentlyActive || [];
+          const rawActive = data?.agents?.recentlyActive || '';
+          const activeList = (typeof rawActive === 'string' ? rawActive.split(',') : Array.isArray(rawActive) ? rawActive : []).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
           if (agentsObj && typeof agentsObj === 'object') {
             const mapped = Object.entries(agentsObj).map(([name, a]: [string, any]) => {
-              const match = AGENTS.find(ha => ha.name.toLowerCase() === name.toLowerCase());
-              const isActive = recentlyActive.includes(name);
+              const normalize = (s: string) => s.toLowerCase().replace(/[\s._-]+/g, '').replace(/^the/, '');
+              const match = AGENTS.find(ha => normalize(ha.name) === normalize(name));
+              const isActive = activeList.includes(name.toLowerCase());
               return {
                 name: name.charAt(0).toUpperCase() + name.slice(1),
                 model: a.model || match?.model || '',
