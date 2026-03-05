@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "type and data required" }, { status: 400 });
     }
 
-    const validTypes = ["agents", "crons", "activity", "projects", "memory", "links"];
+    const validTypes = ["agents", "crons", "activity", "projects", "memory", "links", "missions", "schedule", "notifications", "opportunities"];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: `invalid type. use: ${validTypes.join(", ")}` }, { status: 400 });
     }
