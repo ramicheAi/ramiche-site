@@ -429,21 +429,21 @@ export default function AgentManagement() {
   const totalTokens = "9.6M";
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fafafa", color: "#1a1a5e", fontFamily: "Inter, system-ui, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5", fontFamily: "Inter, system-ui, sans-serif" }}>
       {/* ── Ambient background ── */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 600px 400px at 15% 20%, rgba(26,26,94,0.03) 0%, transparent 100%), radial-gradient(ellipse 500px 500px at 85% 15%, rgba(201,168,76,0.04) 0%, transparent 100%)" }} />
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 600px 400px at 15% 20%, rgba(201,168,76,0.03) 0%, transparent 100%), radial-gradient(ellipse 500px 500px at 85% 15%, rgba(201,168,76,0.04) 0%, transparent 100%)" }} />
 
       <div style={{ position: "relative", zIndex: 1, width: "100%", maxWidth: 1400, margin: "0 auto", padding: "32px 24px 80px" }}>
         {/* ── Header ── */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
           <div>
-            <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: "#1a1a5e", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" as const, color: "#737373", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, transition: "all 0.15s" }}>
               <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
             </Link>
-            <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, background: "linear-gradient(135deg, #1a1a5e 0%, #C9A84C 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 800, margin: 0, color: "#e5e5e5" }}>
               Agent Management
             </h1>
-            <p style={{ fontSize: 13, color: "rgba(26,26,94,0.5)", margin: "4px 0 0" }}>
+            <p style={{ fontSize: 13, color: "#737373", margin: "4px 0 0" }}>
               {activeCount} active &middot; {AGENTS.length} total &middot; {totalTokens} tokens this week
             </p>
           </div>
@@ -455,9 +455,9 @@ export default function AgentManagement() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              padding: "10px 16px", borderRadius: 10, border: "2px solid rgba(26,26,94,0.1)",
-              background: "#fff", color: "#1a1a5e", fontSize: 13, width: 220,
-              outline: "none", fontFamily: "inherit",
+              padding: "10px 16px", borderRadius: 10, border: "1px solid #1e1e1e",
+              background: "#111111", color: "#e5e5e5", fontSize: 13, width: 220,
+              outline: "none", fontFamily: "inherit", transition: "all 0.15s",
             }}
           />
         </div>
@@ -470,24 +470,24 @@ export default function AgentManagement() {
                 key={f}
                 onClick={() => setFilter(f)}
                 style={{
-                  padding: "8px 16px", borderRadius: 8, border: `2px solid ${filter === f ? "rgba(201,168,76,0.5)" : "rgba(26,26,94,0.08)"}`,
-                  background: filter === f ? "rgba(201,168,76,0.08)" : "#fff",
-                  color: filter === f ? "#C9A84C" : "rgba(26,26,94,0.5)",
+                  padding: "8px 16px", borderRadius: 8, border: `1px solid ${filter === f ? "rgba(201,168,76,0.5)" : "#1e1e1e"}`,
+                  background: filter === f ? "rgba(201,168,76,0.08)" : "#111111",
+                  color: filter === f ? "#C9A84C" : "#737373",
                   fontSize: 12, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: "0.06em",
-                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+                  cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
                 }}
               >
                 {f === "all" ? `ALL (${AGENTS.length})` : `${f.toUpperCase()} (${AGENTS.filter((a) => a.status === f).length})`}
               </button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 4, background: "#fff", borderRadius: 10, border: "2px solid rgba(26,26,94,0.08)", padding: 3 }}>
+          <div style={{ display: "flex", gap: 4, background: "#111111", borderRadius: 10, border: "1px solid #1e1e1e", padding: 3 }}>
             {(["grid", "workspace"] as const).map((v) => (
               <button key={v} onClick={() => setViewMode(v)} style={{
                 padding: "6px 14px", borderRadius: 7, border: "none", fontSize: 11, fontWeight: 700,
-                background: viewMode === v ? "linear-gradient(135deg, #1a1a5e, #3730a3)" : "transparent",
-                color: viewMode === v ? "#fff" : "rgba(26,26,94,0.4)",
-                cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s", letterSpacing: "0.06em",
+                background: viewMode === v ? "#e5e5e5" : "transparent",
+                color: viewMode === v ? "#0a0a0a" : "#737373",
+                cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", letterSpacing: "0.06em",
                 textTransform: "uppercase" as const,
               }}>
                 {v === "grid" ? "GRID" : "3D WORKSPACE"}
@@ -502,7 +502,7 @@ export default function AgentManagement() {
             className="hangar-container"
             style={{
               width: "100%", borderRadius: 20,
-              border: "2px solid rgba(26,26,94,0.12)", background: "#0a0a1a",
+              border: "1px solid #1e1e1e", background: "#0a0a1a",
               overflow: "auto", position: "relative", maxHeight: "90vh",
             }}
           >
@@ -708,11 +708,11 @@ export default function AgentManagement() {
                   key={agent.name}
                   onClick={() => setSelectedAgent(isSelected ? null : agent)}
                   style={{
-                    padding: 20, borderRadius: 14, cursor: "pointer", transition: "all 0.2s",
-                    border: `2px solid ${isSelected ? agent.color + "60" : "rgba(26,26,94,0.08)"}`,
-                    background: isSelected ? `${agent.color}08` : "#fff",
+                    padding: 20, borderRadius: 14, cursor: "pointer", transition: "all 0.15s",
+                    border: `1px solid ${isSelected ? agent.color + "60" : "#1e1e1e"}`,
+                    background: isSelected ? `${agent.color}08` : "#111111",
                     position: "relative", overflow: "hidden",
-                    boxShadow: isSelected ? `0 4px 20px ${agent.color}15` : "0 1px 4px rgba(26,26,94,0.05)",
+                    boxShadow: isSelected ? `0 4px 20px ${agent.color}15` : "none",
                   }}
                 >
                   {/* Top accent line for active */}
@@ -734,7 +734,7 @@ export default function AgentManagement() {
 
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                        <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1a5e" }}>{agent.name}</span>
+                        <span style={{ fontSize: 15, fontWeight: 700, color: "#e5e5e5" }}>{agent.name}</span>
                         {/* Status dot */}
                         <span style={{
                           width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
@@ -748,21 +748,21 @@ export default function AgentManagement() {
                         <span style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: tier.bg, color: tier.color, fontWeight: 700, letterSpacing: "0.06em" }}>
                           {tier.label}
                         </span>
-                        <span style={{ fontSize: 10, color: "rgba(26,26,94,0.4)" }}>{agent.model}</span>
+                        <span style={{ fontSize: 10, color: "#737373" }}>{agent.model}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Credits bar */}
                   <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: "rgba(26,26,94,0.06)", overflow: "hidden" }}>
+                    <div style={{ flex: 1, height: 4, borderRadius: 2, background: "#1e1e1e", overflow: "hidden" }}>
                       <div style={{ height: "100%", borderRadius: 2, width: `${creditPct}%`, background: agent.color, boxShadow: `0 0 6px ${agent.color}30`, transition: "width 0.5s" }} />
                     </div>
                     <span style={{ fontSize: 10, color: agent.color, fontVariantNumeric: "tabular-nums" }}>{creditPct}%</span>
                   </div>
 
                   {/* Active task */}
-                  <div style={{ marginTop: 8, fontSize: 11, color: "rgba(26,26,94,0.45)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#737373", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
                     {agent.activeTask}
                   </div>
                 </div>
@@ -784,13 +784,13 @@ export default function AgentManagement() {
         {chatOpen && (
           <div style={{
             position: "fixed", bottom: 24, right: 24, width: 400, maxHeight: 520,
-            borderRadius: 16, border: "2px solid rgba(26,26,94,0.12)", background: "#fff",
-            boxShadow: "0 16px 48px rgba(26,26,94,0.15)", zIndex: 100, display: "flex",
+            borderRadius: 16, border: "1px solid #1e1e1e", background: "#111111",
+            boxShadow: "0 16px 48px rgba(0,0,0,0.4)", zIndex: 100, display: "flex",
             flexDirection: "column" as const, overflow: "hidden",
           }}>
             {/* Chat header */}
             <div style={{
-              padding: "14px 18px", borderBottom: "2px solid rgba(26,26,94,0.06)",
+              padding: "14px 18px", borderBottom: "1px solid #1e1e1e",
               display: "flex", alignItems: "center", justifyContent: "space-between",
               background: isGroupChat ? "linear-gradient(135deg, rgba(26,26,94,0.04), rgba(201,168,76,0.04))" : `${chatAgent?.color || "#1a1a5e"}08`,
             }}>
@@ -805,10 +805,10 @@ export default function AgentManagement() {
                   </div>
                 )}
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a5e" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#e5e5e5" }}>
                     {isGroupChat ? `Group Chat (${groupAgents.length})` : chatAgent?.name || "Chat"}
                   </div>
-                  <div style={{ fontSize: 10, color: "rgba(26,26,94,0.4)" }}>
+                  <div style={{ fontSize: 10, color: "#737373" }}>
                     {isGroupChat ? groupAgents.join(", ") : chatAgent?.role}
                   </div>
                 </div>
@@ -821,10 +821,10 @@ export default function AgentManagement() {
                   }}
                   style={{
                     padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 600,
-                    border: `2px solid ${isGroupChat ? "#C9A84C40" : "rgba(26,26,94,0.1)"}`,
+                    border: `1px solid ${isGroupChat ? "#C9A84C40" : "#1e1e1e"}`,
                     background: isGroupChat ? "rgba(201,168,76,0.08)" : "transparent",
-                    color: isGroupChat ? "#C9A84C" : "rgba(26,26,94,0.4)", cursor: "pointer",
-                    fontFamily: "inherit",
+                    color: isGroupChat ? "#C9A84C" : "#737373", cursor: "pointer",
+                    fontFamily: "inherit", transition: "all 0.15s",
                   }}
                 >
                   {isGroupChat ? "GROUP" : "1:1"}
@@ -832,9 +832,9 @@ export default function AgentManagement() {
                 <button
                   onClick={() => setChatOpen(false)}
                   style={{
-                    width: 24, height: 24, borderRadius: 6, border: "2px solid rgba(26,26,94,0.1)",
-                    background: "transparent", color: "#1a1a5e", fontSize: 12, cursor: "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit",
+                    width: 24, height: 24, borderRadius: 6, border: "1px solid #1e1e1e",
+                    background: "transparent", color: "#e5e5e5", fontSize: 12, cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit", transition: "all 0.15s",
                   }}
                 >&times;</button>
               </div>
@@ -842,7 +842,7 @@ export default function AgentManagement() {
 
             {/* Group agent selector */}
             {isGroupChat && (
-              <div style={{ padding: "8px 14px", borderBottom: "2px solid rgba(26,26,94,0.06)", display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
+              <div style={{ padding: "8px 14px", borderBottom: "1px solid #1e1e1e", display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
                 {AGENTS.map((a) => (
                   <button
                     key={a.name}
@@ -851,10 +851,10 @@ export default function AgentManagement() {
                     )}
                     style={{
                       padding: "3px 8px", borderRadius: 4, fontSize: 9, fontWeight: 600,
-                      border: `1px solid ${groupAgents.includes(a.name) ? a.color + "50" : "rgba(26,26,94,0.08)"}`,
+                      border: `1px solid ${groupAgents.includes(a.name) ? a.color + "50" : "#1e1e1e"}`,
                       background: groupAgents.includes(a.name) ? `${a.color}12` : "transparent",
-                      color: groupAgents.includes(a.name) ? a.color : "rgba(26,26,94,0.35)",
-                      cursor: "pointer", fontFamily: "inherit",
+                      color: groupAgents.includes(a.name) ? a.color : "#737373",
+                      cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
                     }}
                   >
                     {a.name}
@@ -866,7 +866,7 @@ export default function AgentManagement() {
             {/* Chat messages */}
             <div style={{ flex: 1, overflowY: "auto" as const, padding: 14, display: "flex", flexDirection: "column" as const, gap: 10, minHeight: 200 }}>
               {chatMessages.length === 0 && (
-                <div style={{ textAlign: "center", padding: 40, color: "rgba(26,26,94,0.25)", fontSize: 12 }}>
+                <div style={{ textAlign: "center", padding: 40, color: "#737373", fontSize: 12 }}>
                   {isGroupChat ? "Start a group conversation" : `Start chatting with ${chatAgent?.name || "an agent"}`}
                 </div>
               )}
@@ -877,21 +877,21 @@ export default function AgentManagement() {
                 }}>
                   <div style={{
                     padding: "10px 14px", borderRadius: 12,
-                    background: msg.from === "You" ? "linear-gradient(135deg, #1a1a5e, #3730a3)" : "rgba(26,26,94,0.04)",
-                    color: msg.from === "You" ? "#fff" : "#1a1a5e",
-                    border: msg.from === "You" ? "none" : "2px solid rgba(26,26,94,0.06)",
+                    background: msg.from === "You" ? "#e5e5e5" : "#0a0a0a",
+                    color: msg.from === "You" ? "#0a0a0a" : "#e5e5e5",
+                    border: msg.from === "You" ? "none" : "1px solid #1e1e1e",
                     fontSize: 13, lineHeight: 1.5,
                   }}>
-                    {msg.from !== "You" && <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(26,26,94,0.5)", marginBottom: 3 }}>{msg.from}</div>}
+                    {msg.from !== "You" && <div style={{ fontSize: 10, fontWeight: 700, color: "#737373", marginBottom: 3 }}>{msg.from}</div>}
                     {msg.text}
                   </div>
-                  <div style={{ fontSize: 9, color: "rgba(26,26,94,0.3)", marginTop: 2, textAlign: msg.from === "You" ? "right" : "left" }}>{msg.time}</div>
+                  <div style={{ fontSize: 9, color: "#737373", marginTop: 2, textAlign: msg.from === "You" ? "right" : "left" }}>{msg.time}</div>
                 </div>
               ))}
             </div>
 
             {/* Chat input */}
-            <div style={{ padding: 12, borderTop: "2px solid rgba(26,26,94,0.06)", display: "flex", gap: 8 }}>
+            <div style={{ padding: 12, borderTop: "1px solid #1e1e1e", display: "flex", gap: 8 }}>
               <input
                 type="text"
                 placeholder={isGroupChat ? "Message the group..." : `Message ${chatAgent?.name || "agent"}...`}
@@ -916,8 +916,8 @@ export default function AgentManagement() {
                   }
                 }}
                 style={{
-                  flex: 1, padding: "10px 14px", borderRadius: 10, border: "2px solid rgba(26,26,94,0.1)",
-                  background: "#fafafa", color: "#1a1a5e", fontSize: 13, outline: "none", fontFamily: "inherit",
+                  flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #1e1e1e",
+                  background: "#0a0a0a", color: "#e5e5e5", fontSize: 13, outline: "none", fontFamily: "inherit", transition: "all 0.15s",
                 }}
               />
               <button
@@ -929,8 +929,8 @@ export default function AgentManagement() {
                 }}
                 style={{
                   padding: "10px 16px", borderRadius: 10, border: "none",
-                  background: "linear-gradient(135deg, #1a1a5e, #3730a3)", color: "#fff",
-                  fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                  background: "#e5e5e5", color: "#0a0a0a",
+                  fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
                 }}
               >
                 Send
@@ -1056,15 +1056,15 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
   return (
     <div className="agent-detail-panel" style={{
       position: "sticky", top: 32, borderRadius: 16, padding: 24,
-      border: `2px solid ${agent.color}30`, background: "#fff",
-      boxShadow: `0 8px 32px rgba(26,26,94,0.08)`, maxHeight: "calc(100vh - 64px)", overflowY: "auto" as const,
+      border: `1px solid ${agent.color}30`, background: "#111111",
+      boxShadow: `0 8px 32px rgba(0,0,0,0.4)`, maxHeight: "calc(100vh - 64px)", overflowY: "auto" as const,
     }}>
       {/* Close */}
       <button onClick={onClose} style={{
         position: "absolute", top: 12, right: 12, width: 28, height: 28, borderRadius: "50%",
-        border: "2px solid rgba(26,26,94,0.1)", background: "rgba(26,26,94,0.03)",
-        color: "#1a1a5e", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        fontFamily: "inherit",
+        border: "1px solid #1e1e1e", background: "transparent",
+        color: "#e5e5e5", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "inherit", transition: "all 0.15s",
       }}>&times;</button>
 
       {/* Avatar + name */}
@@ -1077,7 +1077,7 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
         }}>
           <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
         </div>
-        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: "#1a1a5e" }}>{agent.name}</h2>
+        <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: "#e5e5e5" }}>{agent.name}</h2>
         <span style={{ fontSize: 12, color: agent.color, marginTop: 2 }}>{agent.role}</span>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
           <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 4, background: tier.bg, color: tier.color, fontWeight: 700, letterSpacing: "0.08em" }}>
@@ -1086,9 +1086,9 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
           <button
             onClick={() => setShowModelPicker(!showModelPicker)}
             style={{
-              fontSize: 11, color: "rgba(26,26,94,0.5)", cursor: "pointer", background: "none",
-              border: "1px dashed rgba(26,26,94,0.15)", borderRadius: 4, padding: "2px 8px",
-              fontFamily: "inherit", transition: "all 0.2s",
+              fontSize: 11, color: "#737373", cursor: "pointer", background: "none",
+              border: "1px dashed #1e1e1e", borderRadius: 4, padding: "2px 8px",
+              fontFamily: "inherit", transition: "all 0.15s",
             }}
           >
             {selectedModel} ▾
@@ -1098,8 +1098,8 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
         {/* Model picker dropdown */}
         {showModelPicker && (
           <div style={{
-            marginTop: 8, padding: 8, borderRadius: 10, border: "2px solid rgba(26,26,94,0.1)",
-            background: "#fff", boxShadow: "0 4px 16px rgba(26,26,94,0.08)",
+            marginTop: 8, padding: 8, borderRadius: 10, border: "1px solid #1e1e1e",
+            background: "#0a0a0a", boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
             display: "flex", flexDirection: "column" as const, gap: 4,
           }}>
             {AVAILABLE_MODELS.map((m) => (
@@ -1107,17 +1107,17 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
                 key={m.id}
                 onClick={() => { setSelectedModel(m.label); setShowModelPicker(false); }}
                 style={{
-                  padding: "8px 12px", borderRadius: 8, border: `2px solid ${selectedModel === m.label ? agent.color + "40" : "rgba(26,26,94,0.06)"}`,
+                  padding: "8px 12px", borderRadius: 8, border: `1px solid ${selectedModel === m.label ? agent.color + "40" : "#1e1e1e"}`,
                   background: selectedModel === m.label ? `${agent.color}08` : "transparent",
                   cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between",
-                  fontFamily: "inherit", textAlign: "left" as const,
+                  fontFamily: "inherit", textAlign: "left" as const, transition: "all 0.15s",
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1a5e" }}>{m.label}</div>
-                  <div style={{ fontSize: 9, color: "rgba(26,26,94,0.4)" }}>{m.provider}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e5e5e5" }}>{m.label}</div>
+                  <div style={{ fontSize: 9, color: "#737373" }}>{m.provider}</div>
                 </div>
-                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: "rgba(26,26,94,0.04)", color: "rgba(26,26,94,0.4)", letterSpacing: "0.05em" }}>
+                <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 6px", borderRadius: 3, background: "#1e1e1e", color: "#737373", letterSpacing: "0.05em" }}>
                   {m.tier}
                 </span>
               </button>
@@ -1130,9 +1130,9 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
           onClick={() => onChat(agent)}
           style={{
             marginTop: 12, width: "100%", padding: "10px 16px", borderRadius: 10,
-            border: `2px solid ${agent.color}35`, background: `${agent.color}08`,
+            border: `1px solid ${agent.color}35`, background: `${agent.color}08`,
             color: agent.color, fontSize: 13, fontWeight: 700, cursor: "pointer",
-            fontFamily: "inherit", transition: "all 0.2s", letterSpacing: "0.03em",
+            fontFamily: "inherit", transition: "all 0.15s", letterSpacing: "0.03em",
           }}
         >
           Chat with {agent.name}
@@ -1142,7 +1142,7 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
       {/* Status + credits */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)" }}>STATUS</span>
+          <span style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "#737373" }}>STATUS</span>
           <span style={{
             fontSize: 10, padding: "3px 10px", borderRadius: 999, fontWeight: 700, letterSpacing: "0.06em",
             background: agent.status === "active" ? "rgba(34,197,94,0.1)" : agent.status === "done" ? "rgba(6,182,212,0.1)" : "rgba(250,204,21,0.1)",
@@ -1153,14 +1153,14 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
           </span>
         </div>
 
-        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 6 }}>CREDITS</div>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "#737373", marginBottom: 6 }}>CREDITS</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-          <div style={{ flex: 1, height: 6, borderRadius: 3, background: "rgba(26,26,94,0.06)", overflow: "hidden" }}>
+          <div style={{ flex: 1, height: 6, borderRadius: 3, background: "#1e1e1e", overflow: "hidden" }}>
             <div style={{ height: "100%", borderRadius: 3, width: `${creditPct}%`, background: `linear-gradient(90deg, ${agent.color}90, ${agent.color})`, boxShadow: `0 0 8px ${agent.color}30` }} />
           </div>
           <span style={{ fontSize: 11, color: agent.color, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{creditPct}%</span>
         </div>
-        <div style={{ fontSize: 10, color: "rgba(26,26,94,0.35)" }}>{agent.credits.used.toLocaleString()} / {agent.credits.limit.toLocaleString()} credits</div>
+        <div style={{ fontSize: 10, color: "#737373" }}>{agent.credits.used.toLocaleString()} / {agent.credits.limit.toLocaleString()} credits</div>
       </div>
 
       {/* Stats grid */}
@@ -1171,8 +1171,8 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
           { label: "Avg Response", value: agent.stats.avgResponseTime, color: "#9333ea" },
           { label: "Uptime", value: agent.stats.uptime, color: "#ca8a04" },
         ].map((s) => (
-          <div key={s.label} style={{ padding: 12, borderRadius: 10, border: "2px solid rgba(26,26,94,0.06)", background: "rgba(26,26,94,0.02)" }}>
-            <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 4 }}>{s.label}</div>
+          <div key={s.label} style={{ padding: 12, borderRadius: 10, border: "1px solid #1e1e1e", background: "#0a0a0a" }}>
+            <div style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "#737373", marginBottom: 4 }}>{s.label}</div>
             <div style={{ fontSize: 18, fontWeight: 700, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
           </div>
         ))}
@@ -1180,52 +1180,52 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
 
       {/* Active task */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 6 }}>CURRENT TASK</div>
-        <div style={{ fontSize: 12, color: "rgba(26,26,94,0.65)", lineHeight: 1.5, padding: 12, borderRadius: 8, background: "rgba(26,26,94,0.02)", border: "2px solid rgba(26,26,94,0.06)" }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "#737373", marginBottom: 6 }}>CURRENT TASK</div>
+        <div style={{ fontSize: 12, color: "#e5e5e5", lineHeight: 1.5, padding: 12, borderRadius: 8, background: "#0a0a0a", border: "1px solid #1e1e1e" }}>
           {agent.activeTask}
         </div>
       </div>
 
       {/* Description */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 6 }}>PROFILE</div>
-        <div style={{ fontSize: 12, color: "rgba(26,26,94,0.55)", lineHeight: 1.6 }}>{agent.desc}</div>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "#737373", marginBottom: 6 }}>PROFILE</div>
+        <div style={{ fontSize: 12, color: "#e5e5e5", lineHeight: 1.6 }}>{agent.desc}</div>
       </div>
 
       {/* Skills */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "rgba(26,26,94,0.4)", marginBottom: 8 }}>
+        <div style={{ fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" as const, color: "#737373", marginBottom: 8 }}>
           SKILLS ({localSkills.length})
         </div>
         {localSkills.length === 0 ? (
-          <div style={{ fontSize: 11, color: "rgba(26,26,94,0.3)", fontStyle: "italic" }}>No skills assigned</div>
+          <div style={{ fontSize: 11, color: "#737373", fontStyle: "italic" }}>No skills assigned</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
             {localSkills.map((skill, idx) => (
               <div key={skill.name} style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8,
-                background: skill.enabled ? `${agent.color}08` : "rgba(26,26,94,0.02)",
-                border: `2px solid ${skill.enabled ? agent.color + "25" : "rgba(26,26,94,0.06)"}`,
-                transition: "all 0.2s",
+                background: skill.enabled ? `${agent.color}08` : "#0a0a0a",
+                border: `1px solid ${skill.enabled ? agent.color + "25" : "#1e1e1e"}`,
+                transition: "all 0.15s",
               }}>
                 <button
                   onClick={() => toggleSkill(idx)}
                   style={{
                     width: 32, height: 18, borderRadius: 9, border: "none", cursor: "pointer",
-                    background: skill.enabled ? agent.color : "rgba(26,26,94,0.12)",
-                    position: "relative", transition: "background 0.2s", flexShrink: 0,
+                    background: skill.enabled ? agent.color : "#1e1e1e",
+                    position: "relative", transition: "background 0.15s", flexShrink: 0,
                   }}
                 >
                   <div style={{
-                    width: 14, height: 14, borderRadius: "50%", background: "#fff",
-                    position: "absolute", top: 2, transition: "left 0.2s",
+                    width: 14, height: 14, borderRadius: "50%", background: "#e5e5e5",
+                    position: "absolute", top: 2, transition: "left 0.15s",
                     left: skill.enabled ? 16 : 2,
                     boxShadow: "0 1px 3px rgba(0,0,0,0.15)",
                   }} />
                 </button>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: skill.enabled ? "#1a1a5e" : "rgba(26,26,94,0.35)" }}>{skill.name}</div>
-                  <div style={{ fontSize: 10, color: "rgba(26,26,94,0.4)", marginTop: 1 }}>{skill.description}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: skill.enabled ? "#e5e5e5" : "#737373" }}>{skill.name}</div>
+                  <div style={{ fontSize: 10, color: "#737373", marginTop: 1 }}>{skill.description}</div>
                 </div>
               </div>
             ))}
