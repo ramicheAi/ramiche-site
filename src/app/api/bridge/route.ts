@@ -79,7 +79,7 @@ function fromFirestoreFields(fields: Record<string, Record<string, unknown>>): R
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
-  const validTypes = ["agents", "crons", "activity", "projects", "links"];
+  const validTypes = ["agents", "crons", "activity", "projects", "links", "missions", "schedule", "notifications", "opportunities"];
 
   try {
     if (type === "all") {

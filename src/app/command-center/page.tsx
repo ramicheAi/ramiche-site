@@ -553,6 +553,25 @@ export default function CommandCenter() {
             });
             if (mapped.length > 0) setLiveAgents(mapped);
           }
+          // Populate other live data sections
+          if (data?.missions?.items && Array.isArray(data.missions.items) && data.missions.items.length > 0) {
+            setLiveMissions(data.missions.items);
+          }
+          if (data?.schedule?.items && Array.isArray(data.schedule.items) && data.schedule.items.length > 0) {
+            setLiveSchedule(data.schedule.items);
+          }
+          if (data?.notifications?.items && Array.isArray(data.notifications.items)) {
+            setLiveNotifications(data.notifications.items);
+          }
+          if (data?.opportunities?.items && Array.isArray(data.opportunities.items) && data.opportunities.items.length > 0) {
+            setLiveOpps(data.opportunities.items);
+          }
+          if (data?.activity?.items && Array.isArray(data.activity.items) && data.activity.items.length > 0) {
+            setLiveActivity(data.activity.items);
+          }
+          if (data?.links?.items && Array.isArray(data.links.items) && data.links.items.length > 0) {
+            setLiveLinks(data.links.items);
+          }
         }
       } catch { /* silent — fallback to hardcoded */ }
     };
@@ -560,6 +579,14 @@ export default function CommandCenter() {
     const id = setInterval(fetchBridge, 60000);
     return () => clearInterval(id);
   }, []);
+
+  /* ── live data from bridge ── */
+  const [liveMissions, setLiveMissions] = useState<any[] | null>(null);
+  const [liveSchedule, setLiveSchedule] = useState<any[] | null>(null);
+  const [liveNotifications, setLiveNotifications] = useState<any[] | null>(null);
+  const [liveOpps, setLiveOpps] = useState<any[] | null>(null);
+  const [liveActivity, setLiveActivity] = useState<any[] | null>(null);
+  const [liveLinks, setLiveLinks] = useState<any[] | null>(null);
 
   /* ── live CRUD state ── */
   const [liveCrons, setLiveCrons] = useState<any[]>([]);
@@ -1085,12 +1112,24 @@ export default function CommandCenter() {
 
   if (!mounted) return null;
 
+  /* ── resolved data: live first, fallback to hardcoded ── */
+  const missions = liveMissions || MISSIONS;
+  const schedule = liveSchedule || SCHEDULE;
+  const notifications = liveNotifications || NOTIFICATIONS;
+  const opps = liveOpps || OPPS;
+  const activityLog = liveActivity || LOG;
+  const links = liveLinks || LINKS;
+
   /* ── computed ── */
-  const totalT = MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
-  const doneT = MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
+  const totalT = liveMissions
+    ? missions.reduce((s: number, p: any) => s + (p.totalTasks || 0), 0)
+    : MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
+  const doneT = liveMissions
+    ? missions.reduce((s: number, p: any) => s + (p.completedTasks || 0), 0)
+    : MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
   const pct = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
   const activeAgents = agents.filter((a) => a.status === "active").length;
-  const activeMissions = MISSIONS.filter((m) => m.status === "active").length;
+  const activeMissions = missions.filter((m: any) => m.status === "active").length;
 
   /* ══════════════════════════════════════════════════════════════════════════
      RENDER
@@ -1192,45 +1231,59 @@ export default function CommandCenter() {
 
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
 
-          {/* ═══════ WHAT'S NEXT — #1 PRIORITY ═══════ */}
-          <div style={{ marginBottom: 24 }}>
-            <div className="heartbeat-btn" style={{ display: 'block', padding: '24px 28px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', transition: 'all 150ms ease-in-out' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, background: 'rgba(124,58,237,0.15)', color: '#a855f7', border: '1px solid rgba(124,58,237,0.3)' }}>
-                    #1
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: '#888888' }}>
-                      WHAT&apos;S NEXT
-                    </span>
-                    <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', letterSpacing: '0.1em', color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4 }}>
-                      CRITICAL
-                    </span>
+          {/* ═══════ WHAT'S NEXT — #1 PRIORITY (DYNAMIC) ═══════ */}
+          {(() => {
+            const topMission = missions.find((m: any) => m.priority === "CRITICAL" || m.priority === 1) || missions[0];
+            const mName = topMission?.name || "METTLE";
+            const mDesc = topMission?.desc || topMission?.description || "";
+            const mAccent = topMission?.accent || "#C9A84C";
+            const mLink = topMission?.link || (typeof topMission?.link === 'object' ? (topMission as any)?.link?.href : "/apex-athlete");
+            const mPriority = topMission?.priority || "HIGH";
+            const mDone = topMission?.completedTasks ?? (topMission?.tasks?.filter((t: any) => t.done).length ?? 0);
+            const mTotal = topMission?.totalTasks ?? (topMission?.tasks?.length ?? 0);
+            return (
+            <div style={{ marginBottom: 24 }}>
+              <div className="heartbeat-btn" style={{ display: 'block', padding: '24px 28px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', transition: 'all 150ms ease-in-out' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                  <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, background: `${mAccent}20`, color: mAccent, border: `1px solid ${mAccent}40` }}>
+                      #1
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-[#e5e5e5] leading-snug">
-                    Command Center live backend + Agent mailbox system
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: '#888888' }}>
+                        WHAT&apos;S NEXT
+                      </span>
+                      <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', letterSpacing: '0.1em', color: mPriority === 'CRITICAL' || mPriority === 1 ? '#ef4444' : '#f59e0b', background: mPriority === 'CRITICAL' || mPriority === 1 ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.08)', border: `1px solid ${mPriority === 'CRITICAL' || mPriority === 1 ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}`, borderRadius: 4 }}>
+                        {typeof mPriority === 'number' ? (mPriority === 1 ? 'CRITICAL' : 'HIGH') : mPriority}
+                      </span>
+                    </div>
+                    <div className="text-base sm:text-lg font-bold text-[#e5e5e5] leading-snug">
+                      {mName}
+                    </div>
+                    <div className="text-[10px] font-mono text-[#888888] mt-1">
+                      {mDesc} {mTotal > 0 ? `· ${mDone}/${mTotal} tasks` : ''}
+                    </div>
                   </div>
-                  <div className="text-[10px] font-mono text-[#888888] mt-1">
-                    Bridge sync live · Chat relay · Cron CRUD · Task approval · 60s auto-refresh
+                  {mLink && (
+                  <div className="hidden sm:block flex-shrink-0">
+                    <Link
+                      href={mLink}
+                      className="game-btn px-5 py-2.5 text-[9px] font-mono uppercase tracking-wider transition-all hover:scale-[1.03]"
+                      style={{
+                        background: `${mAccent}18`,
+                        color: mAccent,
+                        border: `1px solid ${mAccent}40`,
+                      }}
+                    >
+                      OPEN {mName} &rarr;
+                    </Link>
                   </div>
-                </div>
-                <div className="hidden sm:block flex-shrink-0">
-                  <Link
-                    href="/apex-athlete"
-                    className="game-btn px-5 py-2.5 text-[9px] font-mono uppercase tracking-wider transition-all hover:scale-[1.03]"
-                    style={{
-                      background: "rgba(245,158,11,0.12)",
-                      color: "#f59e0b",
-                      border: "1px solid rgba(245,158,11,0.3)",
-                    }}
-                  >
-                    OPEN METTLE &rarr;
-                  </Link>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
+            );
+          })()}
 
           {/* ═══════ NOTIFICATIONS / INBOX ═══════ */}
           <div className="mb-6">
@@ -1248,7 +1301,7 @@ export default function CommandCenter() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {NOTIFICATIONS.map((n, i) => (
+              {notifications.map((n: any, i: number) => (
                 <div
                   key={i}
                   className="relative p-4 flex items-center gap-3 group cursor-pointer"
@@ -1430,7 +1483,7 @@ export default function CommandCenter() {
               { label: "MISSIONS", href: "/command-center/missions", icon: "\u2726", accent: "#C9A84C", desc: `${activeMissions} active \u00B7 ${doneT}/${totalT} tasks`, sub: "Projects, progress, checklists" },
               { label: "VITALS", href: "/command-center/vitals", icon: "\u2665", accent: "#10b981", desc: "Health \u00B7 Spiritual \u00B7 Weather", sub: "Steps, water, sleep, scripture" },
               { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#d97706", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
-              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${((bridgeData as any)?.activity?.items || LOG).length} recent events`, sub: "Feed, schedule, history" },
+              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${activityLog.length} recent events`, sub: "Feed, schedule, history" },
               { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
               { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
               { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },

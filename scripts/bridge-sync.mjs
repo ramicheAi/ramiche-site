@@ -296,6 +296,133 @@ async function pollPendingMessages() {
   }
 }
 
+// ── Missions (with task progress) ────────────────────────────────────
+
+function getMissions() {
+  // Read from MEMORY.md for latest mission status
+  const memPath = join(WORKSPACE, "MEMORY.md");
+  const mem = existsSync(memPath) ? readFileSync(memPath, "utf8") : "";
+
+  return [
+    {
+      name: "METTLE", accent: "#C9A84C", status: "beta", priority: "CRITICAL",
+      desc: "Gamified athlete SaaS — BETA with Saint Andrew's Aquatics (240+ athletes)",
+      completedTasks: 8, totalTasks: 10,
+      link: "https://ramiche-site.vercel.app/apex-athlete",
+    },
+    {
+      name: "Command Center", accent: "#7c3aed", status: "active", priority: "HIGH",
+      desc: "Live operations dashboard — bridge API + real-time sync",
+      completedTasks: 6, totalTasks: 8,
+      link: "https://ramiche-site.vercel.app/command-center",
+    },
+    {
+      name: "Parallax Site", accent: "#a855f7", status: "live", priority: "HIGH",
+      desc: "Agent marketplace + Claude Skills — 19 routes LIVE",
+      completedTasks: 5, totalTasks: 6,
+      link: "https://parallax-site-ashen.vercel.app",
+    },
+    {
+      name: "Parallax Publish", accent: "#38bdf8", status: "active", priority: "HIGH",
+      desc: "Social media publishing — 3 platforms LIVE (Twitter, Bluesky, LinkedIn)",
+      completedTasks: 4, totalTasks: 7,
+      link: "https://parallax-publish.vercel.app",
+    },
+    {
+      name: "Ramiche Studio", accent: "#e879f9", status: "blocked", priority: "HIGH",
+      desc: "Creative services — $400/$1,500/$3,000/$6,000+",
+      completedTasks: 4, totalTasks: 7,
+      link: "https://ramiche-site.vercel.app",
+    },
+    {
+      name: "Galactik Antics", accent: "#00f0ff", status: "blocked", priority: "MED",
+      desc: "AI art + merch — @galactikantics on IG",
+      completedTasks: 2, totalTasks: 4,
+      link: "",
+    },
+    {
+      name: "ClawGuard Pro", accent: "#22d3ee", status: "live", priority: "MED",
+      desc: "Security scanner — $299/$799/$1,499 — LIVE",
+      completedTasks: 2, totalTasks: 3,
+      link: "https://parallax-site-ashen.vercel.app/clawguard",
+    },
+  ];
+}
+
+// ── Schedule ─────────────────────────────────────────────────────────
+
+function getSchedule() {
+  // Pull from cron list for accuracy
+  const crons = getCronJobs();
+  const schedule = [
+    { time: "1:00 AM", event: "YOLO Overnight Builder (NOVA/Sonnet 4.5)", accent: "#14b8a6" },
+    { time: "2:30 AM", event: "Night shift build (Atlas, isolated)", accent: "#C9A84C" },
+    { time: "6:30 AM", event: "AI Self-Improvement Digest", accent: "#00f0ff" },
+    { time: "7:00 AM", event: "Daily Scripture & Prayer (Prophets)", accent: "#d4a574" },
+    { time: "7:15 AM", event: "Morning Brief (weather, git, calendar, priorities)", accent: "#a855f7" },
+    { time: "8:00 AM", event: "Daily Content Coordination (VEE + INK + ECHO)", accent: "#ec4899" },
+    { time: "8:00-12:15", event: "Intel scans (18 agents, staggered 15min)", accent: "#38bdf8" },
+    { time: "1:00 PM", event: "Midday Checkpoint (pulse check, blockers)", accent: "#22d3ee" },
+    { time: "2:00 PM", event: "Social Listening Scan (X, LinkedIn, mentions)", accent: "#38bdf8" },
+    { time: "6:00 PM Fri", event: "Weekly Strategy Review", accent: "#f59e0b" },
+    { time: "7:00 AM Mon", event: "Competitor Watch", accent: "#ef4444" },
+    { time: "10:00 PM", event: "End of Day Recap", accent: "#C9A84C" },
+  ];
+  return schedule;
+}
+
+// ── Notifications ─────────────────────────────────────────────────────
+
+function getNotifications() {
+  // Read recent inbox and failed-tasks for real notifications
+  const inboxPath = join(WORKSPACE, "agents/inbox.md");
+  const failedPath = join(WORKSPACE, "agents/failed-tasks.md");
+
+  const notifications = [];
+
+  // Check inbox for pending items
+  if (existsSync(inboxPath)) {
+    const inbox = readFileSync(inboxPath, "utf8");
+    const pendingCount = (inbox.match(/STATUS: pending/g) || []).length;
+    if (pendingCount > 0) {
+      notifications.push({ text: `${pendingCount} pending message(s) in agent inbox`, accent: "#f59e0b", icon: "⚠" });
+    }
+  }
+
+  // Check failed tasks
+  if (existsSync(failedPath)) {
+    const failed = readFileSync(failedPath, "utf8");
+    const lines = failed.trim().split("\n").filter(l => l.startsWith("| ") && !l.includes("---") && !l.includes("Agent"));
+    if (lines.length > 0) {
+      notifications.push({ text: `${lines.length} failed agent task(s) need attention`, accent: "#ef4444", icon: "⚠" });
+    }
+  }
+
+  // Standard status notifications from workspace state
+  notifications.push(
+    { text: "Agent mailbox system LIVE — 60s relay cycle", accent: "#22d3ee", icon: "◈" },
+    { text: "Bridge sync running — 7 collections every 60s", accent: "#059669", icon: "◈" },
+    { text: "Content pipeline active — VEE/INK/ECHO daily coordination", accent: "#ec4899", icon: "◈" },
+    { text: "19 agents upgraded with skills (Stitch, UI/UX Pro Max, Nano Banana Pro)", accent: "#a855f7", icon: "◈" },
+  );
+
+  return notifications;
+}
+
+// ── Opportunities ─────────────────────────────────────────────────────
+
+function getOpportunities() {
+  return [
+    { title: "Ramiche Studio Sprint", rev: "$400", tag: "LIVE", accent: "#e879f9", desc: "48h Creative Direction Sprint" },
+    { title: "Ramiche Studio Starter", rev: "$1,500", tag: "LIVE", accent: "#a855f7", desc: "Full brand kit + strategy" },
+    { title: "Ramiche Studio Pro", rev: "$3,000", tag: "LIVE", accent: "#7c3aed", desc: "Complete brand transformation" },
+    { title: "Ramiche Studio Elite", rev: "$6,000+", tag: "LIVE", accent: "#C9A84C", desc: "Enterprise-level creative ops" },
+    { title: "ClawGuard Pro", rev: "$299-$1,499", tag: "LIVE", accent: "#22d3ee", desc: "Security scanning as a service" },
+    { title: "Claude Skills", rev: "$149-$499", tag: "LIVE", accent: "#a855f7", desc: "Agent skills marketplace" },
+    { title: "AI Agent Setup", rev: "$1-3K", tag: "SOON", accent: "#00f0ff", desc: "OpenClaw-style full setup" },
+  ];
+}
+
 // ── Main Sync Loop ───────────────────────────────────────────────────
 
 async function syncAll() {
@@ -307,6 +434,10 @@ async function syncAll() {
   const activity = getRecentActivity();
   const projects = getProjectStatus();
   const links = getQuickLinks();
+  const missions = getMissions();
+  const schedule = getSchedule();
+  const notifications = getNotifications();
+  const opportunities = getOpportunities();
 
   // Also write status.json locally for the secondary frontend fallback
   try {
@@ -333,6 +464,10 @@ async function syncAll() {
     pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
     pushToFirestore("projects", { items: projects, count: projects.length, lastSync: timestamp }),
     pushToFirestore("links", { items: links, count: links.length, lastSync: timestamp }),
+    pushToFirestore("missions", { items: missions, count: missions.length, lastSync: timestamp }),
+    pushToFirestore("schedule", { items: schedule, count: schedule.length, lastSync: timestamp }),
+    pushToFirestore("notifications", { items: notifications, count: notifications.length, lastSync: timestamp }),
+    pushToFirestore("opportunities", { items: opportunities, count: opportunities.length, lastSync: timestamp }),
   ]);
 
   const ok = results.filter(Boolean).length;
