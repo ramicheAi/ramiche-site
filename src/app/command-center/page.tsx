@@ -952,7 +952,7 @@ export default function CommandCenter() {
      RENDER
      ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <main className="min-h-screen w-full relative overflow-x-hidden" style={{ background: '#ffffff', color: '#0f172a', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <main className="min-h-screen w-full relative overflow-x-hidden" style={{ background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
       <ParticleField variant="gold" theme="light" opacity={0.1} count={50} interactive connections />
 
@@ -960,18 +960,18 @@ export default function CommandCenter() {
           LAYER 0: HOLOGRAPHIC BACKGROUND SYSTEM
           ═══════════════════════════════════════════════════════════════════ */}
 
-      {/* Parallax-style subtle background */}
+      {/* Linear-style subtle dot grid background */}
       <div className="fixed inset-0 z-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)',
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
         backgroundSize: '60px 60px', opacity: 0.4,
       }} />
       <div className="fixed z-0 pointer-events-none" style={{
         top: '10%', left: '5%', width: 500, height: 500, borderRadius: '50%',
-        background: 'rgba(26,26,94,0.04)', filter: 'blur(120px)', position: 'absolute',
+        background: 'rgba(124,58,237,0.04)', filter: 'blur(120px)', position: 'absolute',
       }} />
       <div className="fixed z-0 pointer-events-none" style={{
         bottom: '10%', right: '5%', width: 500, height: 500, borderRadius: '50%',
-        background: 'rgba(124,58,237,0.04)', filter: 'blur(120px)', position: 'absolute',
+        background: 'rgba(59,130,246,0.03)', filter: 'blur(120px)', position: 'absolute',
       }} />
 
       {/* Clean light theme — no CRT scan lines */}
@@ -982,19 +982,19 @@ export default function CommandCenter() {
       <div className="relative z-10 w-full">
 
         {/* ═══════ TOP NAV — MATCHING PARALLAX SITE (WHITE/GLASS) ═══════ */}
-        <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+        <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e1e1e' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: 'contain' }} />
-              <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#1a1a5e' }}>PARALLAX</span>
-              <span style={{ color: 'rgba(0,0,0,0.2)', fontSize: 14 }}>|</span>
-              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#64748b' }}>COMMAND CENTER</span>
+              <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#e5e5e5' }}>PARALLAX</span>
+              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#888888' }}>COMMAND CENTER</span>
             </Link>
             <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
               {NAV.map((n) => (
                 <Link key={n.href} href={n.href} style={{
                   fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
-                  color: n.active ? '#1a1a5e' : '#64748b', transition: 'color 0.2s',
+                  color: n.active ? '#e5e5e5' : '#888888', transition: 'color 150ms ease-in-out',
                 }}>{n.label}</Link>
               ))}
             </div>
@@ -1003,45 +1003,45 @@ export default function CommandCenter() {
 
         {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
         <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 60px', position: 'relative' }}>
-          <div style={{ display: 'inline-block', padding: '6px 16px', borderRadius: 20, border: '1px solid rgba(26,26,94,0.15)', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#1a1a5e' }}>
+          <div style={{ display: 'inline-block', padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
             MISSION CONTROL &middot; LIVE
           </div>
           <h1 style={{ fontSize: 'clamp(40px, 7vw, 72px)', fontWeight: 800, lineHeight: 1.05, marginBottom: 16 }}>
-            <span style={{ color: '#0f172a' }}>Command</span>{' '}
+            <span style={{ color: '#e5e5e5' }}>Command</span>{' '}
             <span className="gradient-text">Center.</span>
           </h1>
-          <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: '#475569', lineHeight: 1.6, maxWidth: 600, margin: '0 auto 24px' }}>
+          <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: '#888888', lineHeight: 1.6, maxWidth: 600, margin: '0 auto 24px' }}>
             Mission control for the Parallax ecosystem. 19 agents. 6 divisions. One coordinated operation.
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: '#94a3b8', fontSize: 12, fontWeight: 500 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: '#888888', fontSize: 12, fontWeight: 500 }}>
             <span style={{ fontFamily: 'monospace' }}>{time}</span>
-            <span>|</span>
+            <span style={{ color: '#333' }}>|</span>
             <span style={{ fontFamily: 'monospace' }}>{dateStr}</span>
-            <span>|</span>
+            <span style={{ color: '#333' }}>|</span>
             <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>LIVE <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#059669', display: 'inline-block' }} /></span>
           </div>
         </section>
 
         {/* ═══════ SYSTEM STATUS STRIP ═══════ */}
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px 24px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '12px 20px', borderRadius: 12, background: 'rgba(26,26,94,0.03)', border: '1px solid rgba(26,26,94,0.08)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', padding: '12px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669' }} />
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#1a1a5e', letterSpacing: '0.05em' }}>ALL SYSTEMS NOMINAL</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: '#e5e5e5', letterSpacing: '0.05em' }}>ALL SYSTEMS NOMINAL</span>
               </div>
-              <span style={{ color: 'rgba(0,0,0,0.12)', fontSize: 14 }}>|</span>
-              <span style={{ fontSize: 11, color: '#475569' }}><strong style={{ color: '#1a1a5e' }}>{activeAgents}</strong>/{agents.length} Agents</span>
-              <span style={{ color: 'rgba(0,0,0,0.12)', fontSize: 14 }}>|</span>
-              <span style={{ fontSize: 11, color: '#475569' }}><strong style={{ color: '#7c3aed' }}>{activeMissions}</strong> Active Missions</span>
-              <span style={{ color: 'rgba(0,0,0,0.12)', fontSize: 14 }}>|</span>
-              <span style={{ fontSize: 11, color: '#475569' }}>Tasks <strong style={{ color: '#059669' }}>{doneT}</strong>/{totalT}</span>
+              <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 11, color: '#888888' }}><strong style={{ color: '#e5e5e5' }}>{activeAgents}</strong>/{agents.length} Agents</span>
+              <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 11, color: '#888888' }}><strong style={{ color: '#7c3aed' }}>{activeMissions}</strong> Active Missions</span>
+              <span style={{ color: 'rgba(255,255,255,0.1)', fontSize: 14 }}>|</span>
+              <span style={{ fontSize: 11, color: '#888888' }}>Tasks <strong style={{ color: '#059669' }}>{doneT}</strong>/{totalT}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '0 1 200px', minWidth: 120 }}>
-              <div style={{ flex: 1, height: 6, background: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #1a1a5e, #7c3aed)', transition: 'width 1s ease' }} />
+              <div style={{ flex: 1, height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${pct}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #7c3aed, #a855f7)', transition: 'width 1s ease' }} />
               </div>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#1a1a5e', fontFamily: 'monospace' }}>{pct}%</span>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#e5e5e5', fontFamily: 'monospace' }}>{pct}%</span>
             </div>
           </div>
         </div>
@@ -1050,24 +1050,24 @@ export default function CommandCenter() {
 
           {/* ═══════ WHAT'S NEXT — #1 PRIORITY ═══════ */}
           <div style={{ marginBottom: 24 }}>
-            <div className="heartbeat-btn" style={{ display: 'block', padding: '24px 28px', borderRadius: 16, background: 'linear-gradient(135deg, rgba(26,26,94,0.04), rgba(124,58,237,0.03))', border: '1px solid rgba(26,26,94,0.15)', transition: 'all 0.3s' }}>
+            <div className="heartbeat-btn" style={{ display: 'block', padding: '24px 28px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', transition: 'all 150ms ease-in-out' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, background: 'linear-gradient(135deg, #1a1a5e, #7c3aed)', color: '#ffffff' }}>
+                <div style={{ flexShrink: 0, width: 52, height: 52, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 900, background: 'rgba(124,58,237,0.15)', color: '#a855f7', border: '1px solid rgba(124,58,237,0.3)' }}>
                     #1
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: '#1a1a5e' }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', color: '#888888' }}>
                       WHAT&apos;S NEXT
                     </span>
-                    <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', letterSpacing: '0.1em', color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 600, padding: '2px 8px', letterSpacing: '0.1em', color: '#ef4444', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4 }}>
                       CRITICAL
                     </span>
                   </div>
-                  <div className="text-base sm:text-lg font-bold text-[#0f172a] leading-snug">
+                  <div className="text-base sm:text-lg font-bold text-[#e5e5e5] leading-snug">
                     Quest flow UX polish + Firebase v2 deploy for METTLE
                   </div>
-                  <div className="text-[10px] font-mono text-[#94a3b8] mt-1">
+                  <div className="text-[10px] font-mono text-[#888888] mt-1">
                     Stripe live · Copyright filed · CI/CD deployed — now polish + scale
                   </div>
                 </div>
@@ -1091,42 +1091,42 @@ export default function CommandCenter() {
           {/* ═══════ NOTIFICATIONS / INBOX ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-px flex-1 bg-gradient-to-r from-[#f59e0b]/20 to-transparent" />
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(245,158,11,0.2), transparent)' }} />
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <div className="w-2 h-2 rounded-full bg-[#f59e0b]"
                     style={{ boxShadow: "0 0 8px rgba(245,158,11,0.6)" }} />
                   <div className="absolute inset-0 w-2 h-2 rounded-full bg-[#f59e0b] notif-ping" />
                 </div>
-                <h2 className="text-xs tracking-[0.25em] uppercase text-[#94a3b8] font-medium">Notifications</h2>
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Notifications</h2>
               </div>
-              <div className="h-px flex-1 bg-gradient-to-l from-[#f59e0b]/20 to-transparent" />
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(245,158,11,0.2), transparent)' }} />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {NOTIFICATIONS.map((n, i) => (
                 <div
                   key={i}
-                  className="relative p-4 flex items-center gap-3 group transition-all duration-300 hover:-translate-y-0.5 cursor-pointer"
+                  className="relative p-4 flex items-center gap-3 group cursor-pointer"
                   style={{
-                    background: `rgba(255,255,255,0.9)`,
-                    border: `1px solid rgba(0,0,0,0.08)`,
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid #1e1e1e',
                     borderRadius: 12,
                     borderLeft: `3px solid ${n.accent}`,
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                    transition: 'all 150ms ease-in-out',
                   }}
                 >
                   <div
                     className="w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold flex-shrink-0"
                     style={{
-                      background: `${n.accent}15`,
+                      background: `${n.accent}12`,
                       color: n.accent,
-                      border: `1px solid ${n.accent}30`,
+                      border: `1px solid ${n.accent}25`,
                     }}
                   >
                     {n.icon}
                   </div>
-                  <span className="text-sm text-[#475569] group-hover:text-[#0f172a] transition-colors leading-snug min-w-0">
+                  <span className="text-sm text-[#888888] group-hover:text-[#e5e5e5] leading-snug min-w-0" style={{ transition: 'color 150ms ease-in-out' }}>
                     {n.text}
                   </span>
                 </div>
@@ -1153,28 +1153,28 @@ export default function CommandCenter() {
               <Link
                 key={card.href}
                 href={card.href}
-                className="group relative p-6 flex flex-col justify-between min-h-[160px] transition-all duration-300 hover:-translate-y-1"
-                style={{ background: 'rgba(255,255,255,0.95)', border: '2px solid rgba(0,0,0,0.12)', borderRadius: 16, borderLeft: `4px solid ${card.accent}`, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+                className="group relative p-6 flex flex-col justify-between min-h-[160px]"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 12, borderLeft: `3px solid ${card.accent}`, transition: 'all 150ms ease-in-out' }}
               >
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, background: `${card.accent}18`, color: card.accent, border: `2px solid ${card.accent}40` }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, background: `${card.accent}10`, color: card.accent, border: `1px solid ${card.accent}30` }}>
                       {card.icon}
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.12em', color: '#0f172a' }}>{card.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.12em', color: '#e5e5e5' }}>{card.label}</span>
                   </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{card.desc}</div>
-                  <div style={{ fontSize: 12, color: '#64748b', fontWeight: 500 }}>{card.sub}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#e5e5e5', marginBottom: 4 }}>{card.desc}</div>
+                  <div style={{ fontSize: 12, color: '#888888', fontWeight: 500 }}>{card.sub}</div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                  <span className="group-hover:translate-x-1 transition-transform" style={{ fontSize: 14, fontWeight: 700, color: card.accent }}>&rarr;</span>
+                  <span className="group-hover:translate-x-1" style={{ fontSize: 14, fontWeight: 700, color: card.accent, transition: 'transform 150ms ease-in-out' }}>&rarr;</span>
                 </div>
               </Link>
             ))}
           </div>
           {/* ═══════ FOOTER ═══════ */}
-          <footer className="text-center py-8 border-t border-white/[0.03]">
-            <div className="text-[9px] font-mono text-[#e2e8f0] tracking-[0.4em] uppercase">
+          <footer className="text-center py-8" style={{ borderTop: '1px solid #1e1e1e' }}>
+            <div className="text-[9px] font-mono text-[#888888] tracking-[0.4em] uppercase">
               COMMAND CENTER v6 // PARALLAX OPERATIONS // SIGNAL FIRST // {new Date().getFullYear()}
             </div>
           </footer>
@@ -1291,7 +1291,7 @@ function AgentCard({
           </div>
           {/* Status dot */}
           <div
-            className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#030108] ${
+            className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#0a0a0a] ${
               isActive ? "animate-pulse" : ""
             }`}
             style={{
@@ -1304,12 +1304,12 @@ function AgentCard({
         {/* Name + role below avatar */}
         <div className="mt-2 text-center">
           <div
-            className="text-sm font-bold leading-tight transition-colors duration-200"
-            style={{ color: isHovered ? agent.color : "rgba(255,255,255,0.9)" }}
+            className="text-sm font-bold leading-tight"
+            style={{ color: isHovered ? agent.color : "#e5e5e5", transition: 'color 150ms ease-in-out' }}
           >
             {agent.name}
           </div>
-          <div className="text-[10px] font-mono mt-0.5" style={{ color: `${agent.color}50` }}>
+          <div className="text-[10px] font-mono mt-0.5" style={{ color: '#888888' }}>
             {agent.role}
           </div>
         </div>
@@ -1331,9 +1331,9 @@ function AgentCard({
             isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
           }`}
           style={{
-            background: "rgba(3,1,8,0.95)",
-            border: `1px solid ${agent.color}30`,
-            boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 20px ${agent.color}10`,
+            background: "#141414",
+            border: `1px solid #1e1e1e`,
+            boxShadow: `0 8px 32px rgba(0,0,0,0.5)`,
             backdropFilter: "blur(16px)",
             zIndex: 50,
           }}
@@ -1342,11 +1342,11 @@ function AgentCard({
             <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: agent.color, background: `${agent.color}10`, border: `1px solid ${agent.color}18` }}>
               {agent.model}
             </span>
-            <span className="text-[9px] font-mono" style={{ color: isActive ? "#00ff88" : "rgba(255,255,255,0.3)" }}>
+            <span className="text-[9px] font-mono" style={{ color: isActive ? "#00ff88" : "#888888" }}>
               {isActive ? "● ONLINE" : "○ SLEEP"}
             </span>
           </div>
-          <div className="text-[10px] text-[#94a3b8] font-mono leading-relaxed mb-2">{agent.desc}</div>
+          <div className="text-[10px] text-[#888888] font-mono leading-relaxed mb-2">{agent.desc}</div>
           {agent.activeTask && (
             <div className="text-[9px] font-mono truncate" style={{ color: `${agent.color}60` }}>
               → {agent.activeTask}
@@ -1391,7 +1391,7 @@ function VitalCard({
     <div
       className="glass-card relative p-5 group transition-all duration-300"
     >
-      <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3" style={{ color: `${color}` }}>
+      <div className="text-[10px] font-mono uppercase tracking-[0.25em] mb-3" style={{ color: '#888888' }}>
         {label}
       </div>
       <div className="flex items-baseline gap-1.5 mb-3">
@@ -1402,22 +1402,23 @@ function VitalCard({
           {value}
         </span>
         {unit && (
-          <span className="text-[10px] font-mono text-[#94a3b8]">{unit}</span>
+          <span className="text-[10px] font-mono text-[#888888]">{unit}</span>
         )}
       </div>
 
       {/* Mini progress ring */}
       <div className="flex items-center gap-3 mb-3">
-        <div className="flex-1 h-1 bg-black/[0.06] rounded-full overflow-hidden">
+        <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
           <div
-            className="h-full rounded-full transition-all duration-500"
+            className="h-full rounded-full"
             style={{
               width: `${fillPct}%`,
               background: `linear-gradient(90deg, ${color}90, ${color})`,
+              transition: 'all 500ms ease-in-out',
             }}
           />
         </div>
-        <span className="text-[8px] font-mono tabular-nums" style={{ color: `${color}50` }}>
+        <span className="text-[8px] font-mono tabular-nums" style={{ color: '#888888' }}>
           {fillPct}%
         </span>
       </div>
@@ -1425,24 +1426,26 @@ function VitalCard({
       <div className="flex gap-1.5">
         <button
           onClick={onDec}
-          className="flex-1 h-8 text-xs font-mono flex items-center justify-center transition-all rounded-lg hover:bg-black/[0.04]"
+          className="flex-1 h-8 text-xs font-mono flex items-center justify-center rounded-lg"
           style={{
-            background: `${color}08`,
+            background: 'rgba(255,255,255,0.03)',
             color,
-            border: `1px solid ${color}20`,
+            border: '1px solid #1e1e1e',
             borderRadius: 8,
+            transition: 'all 150ms ease-in-out',
           }}
         >
           &minus;
         </button>
         <button
           onClick={onInc}
-          className="flex-1 h-8 text-xs font-mono flex items-center justify-center transition-all rounded-lg hover:bg-black/[0.04]"
+          className="flex-1 h-8 text-xs font-mono flex items-center justify-center rounded-lg"
           style={{
-            background: `${color}08`,
+            background: 'rgba(255,255,255,0.03)',
             color,
-            border: `1px solid ${color}20`,
+            border: '1px solid #1e1e1e',
             borderRadius: 8,
+            transition: 'all 150ms ease-in-out',
           }}
         >
           +
