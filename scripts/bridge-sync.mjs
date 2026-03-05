@@ -50,37 +50,36 @@ async function pushToFirestore(type, data) {
 function getAgentStatus() {
   // Read directory.json for agent list
   const dirPath = join(WORKSPACE, "agents/directory.json");
-  if (!existsSync(dirPath)) return [];
+  if (!existsSync(dirPath)) return { directory: { agents: {} }, recentlyActive: [] };
 
   const dir = JSON.parse(readFileSync(dirPath, "utf8"));
-  const agents = Object.entries(dir.agents).map(([name, info]) => ({
-    name,
-    model: info.model,
-    provider: info.provider,
-    role: info.role,
-    capabilities: (info.capabilities || []).join(", "),
-    status: "idle", // Default — will be enriched by session check
-  }));
+  const recentlyActive = [];
 
-  // Try to get active sessions
+  // Try to get active sessions to determine who's active
   const sessionOutput = run("openclaw sessions list --format json 2>/dev/null || echo '[]'");
   try {
     const sessions = JSON.parse(sessionOutput);
     if (Array.isArray(sessions)) {
       for (const s of sessions) {
-        const agent = agents.find(a =>
-          s.agentId?.toLowerCase().includes(a.name) ||
-          s.label?.toLowerCase().includes(a.name)
-        );
-        if (agent) {
-          agent.status = s.status || "active";
-          agent.lastActive = s.lastActive || new Date().toISOString();
+        for (const agentName of Object.keys(dir.agents)) {
+          if (
+            s.agentId?.toLowerCase().includes(agentName) ||
+            s.label?.toLowerCase().includes(agentName)
+          ) {
+            if (s.status === "active" || s.status === "busy") {
+              recentlyActive.push(agentName);
+            }
+          }
         }
       }
     }
   } catch { /* sessions not available */ }
 
-  return agents;
+  // Return full directory structure — frontend reads data.agents.directory.agents
+  return {
+    directory: dir,
+    recentlyActive: [...new Set(recentlyActive)].join(","),
+  };
 }
 
 // ── Cron Jobs ────────────────────────────────────────────────────────
@@ -296,14 +295,14 @@ async function syncAll() {
   // Also write status.json locally for the secondary frontend fallback
   try {
     const statusPath = join(WORKSPACE, "../../ramiche-site/public/status.json");
+    const recentlyActiveList = agents.recentlyActive ? agents.recentlyActive.split(",").filter(Boolean) : [];
     const statusData = {
-      agents: agents.map(a => ({
-        name: a.name,
+      agents: Object.entries(agents.directory?.agents || {}).map(([name, a]) => ({
+        name,
         model: a.model,
         role: a.role,
-        status: a.status || "idle",
-        task: a.lastTask || "Standing by",
-        color: a.color || "#737373",
+        status: recentlyActiveList.includes(name) ? "active" : "idle",
+        task: "Standing by",
       })),
       lastSync: timestamp,
     };
@@ -313,7 +312,7 @@ async function syncAll() {
   }
 
   const results = await Promise.all([
-    pushToFirestore("agents", { items: agents, count: agents.length, lastSync: timestamp }),
+    pushToFirestore("agents", { ...agents, lastSync: timestamp }),
     pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
     pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
     pushToFirestore("projects", { items: projects, count: projects.length, lastSync: timestamp }),
