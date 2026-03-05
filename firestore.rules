@@ -20,6 +20,13 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Command Center bridge data ───────────────────────────
+    match /command-center/{docId} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().size() < 100
+                   && request.resource.size() < 1048576;
+    }
+
     // ── Everything else: deny by default ────────────────────
     match /{document=**} {
       allow read, write: if false;

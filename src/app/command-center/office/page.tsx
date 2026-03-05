@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   3D OFFICE — Immersive Agent Workspace
-   Isometric 3D office where each agent has a workstation with live status
+   3D OFFICE v2 — Living Agent Workspace
+   Isometric floor with live status from bridge API, ambient lighting,
+   typing/thinking animations, room atmosphere
    ══════════════════════════════════════════════════════════════════════════════ */
 
 interface Agent {
@@ -15,32 +16,31 @@ interface Agent {
   model: string;
   status: "online" | "idle" | "busy" | "offline";
   task?: string;
-  avatar: string;
   color: string;
-  deskType: "engineering" | "strategy" | "creative" | "security" | "analytics" | "comms";
+  room: "engineering" | "strategy" | "creative" | "security" | "analytics" | "comms";
 }
 
-const AGENTS: Agent[] = [
-  { name: "Atlas", role: "Operations Lead", model: "Opus 4.6", status: "online", task: "Building 3D Office", avatar: "/agents/atlas-3d.png", color: "#8B5CF6", deskType: "strategy" },
-  { name: "SHURI", role: "Engineering", model: "DeepSeek V3.2", status: "idle", task: "Awaiting task", avatar: "/agents/shuri-3d.png", color: "#EC4899", deskType: "engineering" },
-  { name: "TRIAGE", role: "Diagnostics", model: "Sonnet 4.5", status: "idle", avatar: "/agents/triage-3d.png", color: "#EF4444", deskType: "engineering" },
-  { name: "NOVA", role: "Fabrication", model: "Sonnet 4.5", status: "busy", task: "YOLO Build #33", avatar: "/agents/nova-3d.png", color: "#F59E0B", deskType: "creative" },
-  { name: "PROXIMON", role: "Architecture", model: "Gemini 3 Pro", status: "idle", avatar: "/agents/proximon-3d.png", color: "#06B6D4", deskType: "strategy" },
-  { name: "AETHERION", role: "Meta-Systems", model: "Gemini 3 Pro", status: "offline", avatar: "/agents/aetherion-3d.png", color: "#A855F7", deskType: "strategy" },
-  { name: "MERCURY", role: "Sales", model: "Gemini 3 Pro", status: "idle", avatar: "/agents/mercury-3d.png", color: "#10B981", deskType: "analytics" },
-  { name: "VEE", role: "Brand Strategy", model: "Kimi K2.5", status: "idle", avatar: "/agents/vee-3d.png", color: "#F472B6", deskType: "creative" },
-  { name: "INK", role: "Copywriting", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/ink-3d.png", color: "#6366F1", deskType: "creative" },
-  { name: "ECHO", role: "Community", model: "Kimi K2.5", status: "idle", avatar: "/agents/echo-3d.png", color: "#22D3EE", deskType: "comms" },
-  { name: "HAVEN", role: "Support", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/haven-3d.png", color: "#34D399", deskType: "comms" },
-  { name: "WIDOW", role: "Security", model: "Haiku 3.5", status: "online", task: "Perimeter scan", avatar: "/agents/widow-3d.png", color: "#DC2626", deskType: "security" },
-  { name: "DR STRANGE", role: "Forecasting", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/drstrange-3d.png", color: "#7C3AED", deskType: "analytics" },
-  { name: "KIYOSAKI", role: "Finance", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/kiyosaki-3d.png", color: "#059669", deskType: "analytics" },
-  { name: "SIMONS", role: "Data Analysis", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/simons-3d.png", color: "#2563EB", deskType: "analytics" },
-  { name: "MICHAEL", role: "Swim Coach", model: "GLM 4.6", status: "idle", avatar: "/agents/michael-3d.png", color: "#0EA5E9", deskType: "strategy" },
-  { name: "SELAH", role: "Psychology", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/selah-3d.png", color: "#D946EF", deskType: "comms" },
-  { name: "PROPHETS", role: "Wisdom", model: "Kimi K2.5", status: "idle", avatar: "/agents/prophets-3d.png", color: "#F59E0B", deskType: "comms" },
-  { name: "TheMAESTRO", role: "Music", model: "DeepSeek V3.2", status: "idle", avatar: "/agents/themaestro-3d.png", color: "#E11D48", deskType: "creative" },
-  { name: "THEMIS", role: "Governance", model: "Sonnet 4.5", status: "online", task: "Protocol watch", avatar: "/agents/themis-3d.png", color: "#CA8A04", deskType: "security" },
+const FALLBACK_AGENTS: Agent[] = [
+  { name: "Atlas", role: "Operations Lead", model: "Opus 4.6", status: "online", task: "Orchestrating squad", color: "#8B5CF6", room: "strategy" },
+  { name: "SHURI", role: "Engineering", model: "DeepSeek V3.2", status: "busy", task: "Building features", color: "#EC4899", room: "engineering" },
+  { name: "TRIAGE", role: "Diagnostics", model: "Sonnet 4.5", status: "idle", color: "#EF4444", room: "engineering" },
+  { name: "NOVA", role: "Fabrication", model: "Sonnet 4.5", status: "busy", task: "YOLO Build", color: "#F59E0B", room: "creative" },
+  { name: "PROXIMON", role: "Architecture", model: "Gemini 3 Pro", status: "idle", color: "#06B6D4", room: "strategy" },
+  { name: "AETHERION", role: "Meta-Systems", model: "Gemini 3 Pro", status: "offline", color: "#A855F7", room: "strategy" },
+  { name: "MERCURY", role: "Sales", model: "Gemini 3 Pro", status: "idle", color: "#10B981", room: "analytics" },
+  { name: "VEE", role: "Brand Strategy", model: "Kimi K2.5", status: "idle", color: "#F472B6", room: "creative" },
+  { name: "INK", role: "Copywriting", model: "DeepSeek V3.2", status: "idle", color: "#6366F1", room: "creative" },
+  { name: "ECHO", role: "Community", model: "Kimi K2.5", status: "idle", color: "#22D3EE", room: "comms" },
+  { name: "HAVEN", role: "Support", model: "DeepSeek V3.2", status: "idle", color: "#34D399", room: "comms" },
+  { name: "WIDOW", role: "Security", model: "Haiku 3.5", status: "online", task: "Perimeter scan", color: "#DC2626", room: "security" },
+  { name: "DR STRANGE", role: "Forecasting", model: "DeepSeek V3.2", status: "idle", color: "#7C3AED", room: "analytics" },
+  { name: "KIYOSAKI", role: "Finance", model: "DeepSeek V3.2", status: "idle", color: "#059669", room: "analytics" },
+  { name: "SIMONS", role: "Data Analysis", model: "DeepSeek V3.2", status: "idle", color: "#2563EB", room: "analytics" },
+  { name: "MICHAEL", role: "Swim Coach", model: "GLM 4.6", status: "idle", color: "#0EA5E9", room: "strategy" },
+  { name: "SELAH", role: "Psychology", model: "DeepSeek V3.2", status: "idle", color: "#D946EF", room: "comms" },
+  { name: "PROPHETS", role: "Wisdom", model: "Kimi K2.5", status: "idle", color: "#F59E0B", room: "comms" },
+  { name: "TheMAESTRO", role: "Music", model: "DeepSeek V3.2", status: "idle", color: "#E11D48", room: "creative" },
+  { name: "THEMIS", role: "Governance", model: "Sonnet 4.5", status: "online", task: "Protocol watch", color: "#CA8A04", room: "security" },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -50,7 +50,7 @@ const STATUS_COLORS: Record<string, string> = {
   offline: "#374151",
 };
 
-const DESK_ICONS: Record<string, string> = {
+const ROOM_ICONS: Record<string, string> = {
   engineering: "⌨️",
   strategy: "🗺️",
   creative: "🎨",
@@ -59,89 +59,157 @@ const DESK_ICONS: Record<string, string> = {
   comms: "📡",
 };
 
-export default function OfficePage() {
-  const [selected, setSelected] = useState<Agent | null>(null);
-  const [time, setTime] = useState(0);
+const ROOM_AMBIENT: Record<string, string> = {
+  engineering: "rgba(139,92,246,0.04)",
+  strategy: "rgba(6,182,212,0.04)",
+  creative: "rgba(244,114,182,0.04)",
+  security: "rgba(220,38,38,0.04)",
+  analytics: "rgba(37,99,235,0.04)",
+  comms: "rgba(34,211,238,0.04)",
+};
 
+export default function OfficePage() {
+  const [agents, setAgents] = useState<Agent[]>(FALLBACK_AGENTS);
+  const [selected, setSelected] = useState<Agent | null>(null);
+  const [tick, setTick] = useState(0);
+  const [lastSync, setLastSync] = useState<string>("");
+
+  // Heartbeat tick for animations
   useEffect(() => {
-    const t = setInterval(() => setTime((p) => p + 1), 2000);
+    const t = setInterval(() => setTick((p) => p + 1), 1500);
     return () => clearInterval(t);
   }, []);
 
+  // Fetch live agent data from bridge API
+  const fetchAgents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bridge?type=agents", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?._syncedAt) setLastSync(data._syncedAt);
+      if (data?.directory?.agents) {
+        const dir = data.directory.agents;
+        const updated = FALLBACK_AGENTS.map((fa) => {
+          const key = fa.name.toLowerCase().replace(/\s+/g, "-");
+          const live = dir[key];
+          if (live) {
+            return {
+              ...fa,
+              model: live.model || fa.model,
+              role: live.role || fa.role,
+              status: (live.status as Agent["status"]) || fa.status,
+            };
+          }
+          return fa;
+        });
+        setAgents(updated);
+      }
+    } catch { /* fallback to static */ }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+    const id = setInterval(fetchAgents, 30000);
+    return () => clearInterval(id);
+  }, [fetchAgents]);
+
   const statusCounts = {
-    online: AGENTS.filter((a) => a.status === "online").length,
-    busy: AGENTS.filter((a) => a.status === "busy").length,
-    idle: AGENTS.filter((a) => a.status === "idle").length,
-    offline: AGENTS.filter((a) => a.status === "offline").length,
+    online: agents.filter((a) => a.status === "online").length,
+    busy: agents.filter((a) => a.status === "busy").length,
+    idle: agents.filter((a) => a.status === "idle").length,
+    offline: agents.filter((a) => a.status === "offline").length,
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0F] text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#060609] text-white relative overflow-hidden">
       <ParticleField />
 
-      {/* Header */}
-      <div className="relative z-10 border-b-2 border-purple-500/30 bg-[#0D0D15]/90 backdrop-blur-sm">
-        <div className="px-4 py-3 flex items-center justify-between">
+      {/* Header — Linear-clean */}
+      <div className="relative z-10 border-b border-[#1a1a24] bg-[#0a0a10]/95 backdrop-blur-md">
+        <div className="px-4 py-3 flex items-center justify-between max-w-[1600px] mx-auto">
           <div className="flex items-center gap-3">
-            <Link href="/command-center" className="text-gray-400 hover:text-white text-sm">
+            <Link href="/command-center" className="text-[#666] hover:text-white text-sm transition-colors duration-150">
               ← Command Center
             </Link>
-            <span className="text-[#555]">|</span>
-            <h1 className="text-lg font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
+            <span className="text-[#333]">|</span>
+            <h1 className="text-sm font-semibold tracking-wide text-[#e5e5e5]">
               THE OFFICE
             </h1>
           </div>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500" /> {statusCounts.online} online</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-500" /> {statusCounts.busy} busy</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#737373]" /> {statusCounts.idle} idle</span>
+          <div className="flex items-center gap-4 text-xs text-[#888]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
+              {statusCounts.online}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]" />
+              {statusCounts.busy}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#555]" />
+              {statusCounts.idle}
+            </span>
+            {lastSync && (
+              <span className="text-[10px] text-[#444]">
+                synced {new Date(lastSync).toLocaleTimeString()}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* 3D Office Floor */}
-      <div className="relative z-10 p-4">
+      {/* 3D Office Floor — Enhanced */}
+      <div className="relative z-10 p-4 hidden md:block">
         <div
           className="mx-auto"
           style={{
-            perspective: "1200px",
-            perspectiveOrigin: "50% 30%",
-            maxWidth: "1400px",
+            perspective: "1400px",
+            perspectiveOrigin: "50% 25%",
+            maxWidth: "1500px",
           }}
         >
-          {/* Office Floor Plane */}
           <div
             style={{
               transform: "rotateX(55deg) rotateZ(-45deg)",
               transformStyle: "preserve-3d",
               position: "relative",
               width: "100%",
-              paddingBottom: "60%",
+              paddingBottom: "55%",
             }}
           >
-            {/* Grid floor */}
+            {/* Grid floor with ambient glow */}
             <div
               className="absolute inset-0 rounded-xl"
               style={{
                 background: `
-                  linear-gradient(rgba(139,92,246,0.08) 1px, transparent 1px),
-                  linear-gradient(90deg, rgba(139,92,246,0.08) 1px, transparent 1px)
+                  radial-gradient(ellipse at 30% 30%, rgba(139,92,246,0.06) 0%, transparent 50%),
+                  radial-gradient(ellipse at 70% 70%, rgba(6,182,212,0.04) 0%, transparent 50%),
+                  linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)
                 `,
-                backgroundSize: "40px 40px",
-                border: "2px solid rgba(139,92,246,0.15)",
-                boxShadow: "0 0 60px rgba(139,92,246,0.1)",
+                backgroundSize: "100% 100%, 100% 100%, 35px 35px, 35px 35px",
+                border: "1px solid rgba(255,255,255,0.06)",
               }}
             />
 
+            {/* Room zone overlays */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-0 left-0 w-1/2 h-1/2 rounded-tl-xl" style={{ background: ROOM_AMBIENT.engineering }} />
+              <div className="absolute top-0 right-0 w-1/2 h-1/2 rounded-tr-xl" style={{ background: ROOM_AMBIENT.strategy }} />
+              <div className="absolute bottom-0 left-0 w-1/2 h-1/2 rounded-bl-xl" style={{ background: ROOM_AMBIENT.creative }} />
+              <div className="absolute bottom-0 right-0 w-1/2 h-1/2 rounded-br-xl" style={{ background: ROOM_AMBIENT.security }} />
+            </div>
+
             {/* Agent Workstations */}
-            {AGENTS.map((agent, i) => {
+            {agents.map((agent, i) => {
               const cols = 5;
               const row = Math.floor(i / cols);
               const col = i % cols;
-              const xPct = 8 + col * 18;
-              const yPct = 8 + row * 22;
+              const xPct = 6 + col * 18;
+              const yPct = 6 + row * 22;
               const isActive = agent.status === "online" || agent.status === "busy";
-              const pulse = isActive && time % 2 === 0;
+              const isTyping = isActive && tick % 3 !== 0;
+              const breathe = isActive ? Math.sin(tick * 0.5) * 0.15 + 0.85 : 0.6;
 
               return (
                 <div
@@ -151,57 +219,74 @@ export default function OfficePage() {
                   style={{
                     left: `${xPct}%`,
                     top: `${yPct}%`,
-                    width: "14%",
+                    width: "15%",
                     transform: "rotateZ(45deg) rotateX(-55deg)",
                     transformStyle: "preserve-3d",
                     zIndex: 20 - row,
+                    opacity: breathe,
+                    transition: "opacity 1.5s ease-in-out",
                   }}
                 >
-                  {/* Desk surface */}
+                  {/* Desk with depth shadow */}
                   <div
-                    className="rounded-lg p-2 transition-all duration-300 group-hover:scale-105"
+                    className="rounded-lg p-2.5 transition-all duration-300 group-hover:scale-110 relative"
                     style={{
-                      background: `linear-gradient(135deg, ${agent.color}15, ${agent.color}08)`,
-                      border: `2px solid ${agent.color}${isActive ? "60" : "25"}`,
+                      background: `linear-gradient(145deg, ${agent.color}18, ${agent.color}06)`,
+                      border: `1px solid ${agent.color}${isActive ? "50" : "18"}`,
                       boxShadow: isActive
-                        ? `0 0 20px ${agent.color}30, inset 0 0 15px ${agent.color}10`
-                        : `0 0 8px ${agent.color}10`,
-                      animation: pulse ? "pulse 2s ease-in-out infinite" : undefined,
+                        ? `0 4px 25px ${agent.color}20, 0 0 40px ${agent.color}08, inset 0 1px 0 ${agent.color}15`
+                        : `0 2px 8px rgba(0,0,0,0.3)`,
                     }}
                   >
-                    {/* Status dot */}
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] sm:text-[10px] font-bold truncate" style={{ color: agent.color }}>
+                    {/* Agent name + status */}
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] font-semibold tracking-tight truncate" style={{ color: agent.color }}>
                         {agent.name}
                       </span>
                       <span
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{
                           backgroundColor: STATUS_COLORS[agent.status],
-                          boxShadow: isActive ? `0 0 6px ${STATUS_COLORS[agent.status]}` : undefined,
+                          boxShadow: isActive ? `0 0 8px ${STATUS_COLORS[agent.status]}, 0 0 16px ${STATUS_COLORS[agent.status]}40` : undefined,
+                          animation: isActive ? "statusPulse 2s ease-in-out infinite" : undefined,
                         }}
                       />
                     </div>
 
-                    {/* Desk icon + role */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px]">{DESK_ICONS[agent.deskType]}</span>
-                      <span className="text-[8px] text-gray-500 truncate">{agent.role}</span>
+                    {/* Room icon + role */}
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[9px]">{ROOM_ICONS[agent.room]}</span>
+                      <span className="text-[8px] text-[#555] truncate">{agent.role}</span>
                     </div>
 
-                    {/* Task (if active) */}
-                    {agent.task && (
-                      <div className="mt-1 text-[7px] text-gray-400 truncate bg-white/5 rounded px-1 py-0.5">
+                    {/* Current task or typing indicator */}
+                    {agent.task ? (
+                      <div className="text-[7px] text-[#777] truncate bg-white/[0.03] rounded px-1.5 py-0.5 border border-white/[0.04]">
                         {agent.task}
                       </div>
-                    )}
+                    ) : isActive ? (
+                      <div className="flex gap-0.5 items-center h-3">
+                        {[0, 1, 2].map((dot) => (
+                          <span
+                            key={dot}
+                            className="w-1 h-1 rounded-full"
+                            style={{
+                              backgroundColor: agent.color,
+                              opacity: isTyping && tick % 3 === dot ? 1 : 0.3,
+                              transition: "opacity 0.3s",
+                            }}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
 
-                    {/* Monitor glow effect */}
+                    {/* Screen glow for active agents */}
                     {isActive && (
                       <div
-                        className="absolute -top-1 left-1/2 -translate-x-1/2 w-3 h-2 rounded-t-sm"
+                        className="absolute -top-2 left-1/4 right-1/4 h-3 rounded-t-md pointer-events-none"
                         style={{
-                          background: `linear-gradient(to top, ${agent.color}40, transparent)`,
+                          background: `linear-gradient(to top, ${agent.color}25, transparent)`,
+                          filter: "blur(3px)",
                         }}
                       />
                     )}
@@ -210,128 +295,147 @@ export default function OfficePage() {
               );
             })}
 
-            {/* Room labels */}
-            <div
-              className="absolute text-[10px] text-purple-400/40 font-mono uppercase tracking-widest"
-              style={{ left: "3%", top: "2%", transform: "rotateZ(45deg) rotateX(-55deg)" }}
-            >
-              Engineering Bay
-            </div>
-            <div
-              className="absolute text-[10px] text-cyan-400/40 font-mono uppercase tracking-widest"
-              style={{ right: "3%", top: "2%", transform: "rotateZ(45deg) rotateX(-55deg)" }}
-            >
-              Strategy Wing
-            </div>
-            <div
-              className="absolute text-[10px] text-pink-400/40 font-mono uppercase tracking-widest"
-              style={{ left: "3%", bottom: "8%", transform: "rotateZ(45deg) rotateX(-55deg)" }}
-            >
-              Creative Lab
-            </div>
-            <div
-              className="absolute text-[10px] text-red-400/40 font-mono uppercase tracking-widest"
-              style={{ right: "3%", bottom: "8%", transform: "rotateZ(45deg) rotateX(-55deg)" }}
-            >
-              Security Ops
-            </div>
+            {/* Room labels — subtle */}
+            {[
+              { label: "Engineering Bay", pos: { left: "3%", top: "1%" }, color: "rgba(139,92,246,0.25)" },
+              { label: "Strategy Wing", pos: { right: "3%", top: "1%" }, color: "rgba(6,182,212,0.25)" },
+              { label: "Creative Lab", pos: { left: "3%", bottom: "6%" }, color: "rgba(244,114,182,0.25)" },
+              { label: "Security Ops", pos: { right: "3%", bottom: "6%" }, color: "rgba(220,38,38,0.25)" },
+            ].map((room) => (
+              <div
+                key={room.label}
+                className="absolute text-[9px] font-mono uppercase tracking-[0.15em]"
+                style={{
+                  ...room.pos,
+                  color: room.color,
+                  transform: "rotateZ(45deg) rotateX(-55deg)",
+                }}
+              >
+                {room.label}
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Flat grid fallback for mobile */}
-      <div className="relative z-10 px-4 pb-6 md:hidden">
-        <h2 className="text-xs text-gray-500 uppercase tracking-wider mb-3 text-center">Agent Grid</h2>
-        <div className="grid grid-cols-4 gap-2">
-          {AGENTS.map((agent) => {
+      {/* Mobile grid — compact 4-col */}
+      <div className="relative z-10 px-3 pb-6 md:hidden">
+        <h2 className="text-[10px] text-[#444] uppercase tracking-widest mb-3 text-center font-mono">
+          Agent Grid
+        </h2>
+        <div className="grid grid-cols-4 gap-1.5">
+          {agents.map((agent) => {
             const isActive = agent.status === "online" || agent.status === "busy";
             return (
               <div
-                key={agent.name + "-mobile"}
+                key={agent.name + "-m"}
                 onClick={() => setSelected(agent)}
-                className="rounded-lg p-2 cursor-pointer transition-all hover:scale-105"
+                className="rounded-md p-1.5 cursor-pointer transition-all duration-150 active:scale-95"
                 style={{
-                  background: `linear-gradient(135deg, ${agent.color}12, ${agent.color}06)`,
-                  border: `2px solid ${agent.color}${isActive ? "50" : "20"}`,
+                  background: `${agent.color}08`,
+                  border: `1px solid ${agent.color}${isActive ? "40" : "15"}`,
                 }}
               >
                 <div className="flex items-center justify-between mb-0.5">
                   <span
-                    className="w-2 h-2 rounded-full"
+                    className="w-1.5 h-1.5 rounded-full"
                     style={{
                       backgroundColor: STATUS_COLORS[agent.status],
                       boxShadow: isActive ? `0 0 4px ${STATUS_COLORS[agent.status]}` : undefined,
                     }}
                   />
-                  <span className="text-[8px]">{DESK_ICONS[agent.deskType]}</span>
+                  <span className="text-[7px]">{ROOM_ICONS[agent.room]}</span>
                 </div>
-                <div className="text-[9px] font-bold truncate" style={{ color: agent.color }}>
+                <div className="text-[8px] font-semibold truncate" style={{ color: agent.color }}>
                   {agent.name}
                 </div>
-                <div className="text-[7px] text-gray-500 truncate">{agent.role}</div>
+                <div className="text-[6px] text-[#555] truncate">{agent.role}</div>
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Detail Panel */}
+      {/* Room legend */}
+      <div className="relative z-10 px-4 pb-4">
+        <div className="max-w-[1500px] mx-auto flex flex-wrap gap-4 justify-center">
+          {Object.entries(ROOM_ICONS).map(([room, icon]) => {
+            const count = agents.filter((a) => a.room === room).length;
+            const active = agents.filter((a) => a.room === room && (a.status === "online" || a.status === "busy")).length;
+            return (
+              <div key={room} className="flex items-center gap-1.5 text-[10px] text-[#555]">
+                <span>{icon}</span>
+                <span className="capitalize">{room}</span>
+                <span className="text-[#333]">
+                  {active}/{count}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Agent Detail Panel */}
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm"
           onClick={() => setSelected(null)}
         >
           <div
-            className="w-full sm:max-w-md bg-[#12121A] border-2 rounded-t-2xl sm:rounded-2xl p-6"
-            style={{ borderColor: `${selected.color}40` }}
+            className="w-full sm:max-w-md bg-[#0d0d12] border rounded-t-2xl sm:rounded-2xl p-6"
+            style={{ borderColor: `${selected.color}30` }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold"
-                  style={{ background: `${selected.color}20`, color: selected.color }}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center text-lg font-bold"
+                  style={{
+                    background: `linear-gradient(135deg, ${selected.color}20, ${selected.color}08)`,
+                    color: selected.color,
+                    border: `1px solid ${selected.color}30`,
+                  }}
                 >
                   {selected.name[0]}
                 </div>
                 <div>
-                  <h3 className="font-bold text-white">{selected.name}</h3>
-                  <p className="text-xs text-gray-400">{selected.role} · {selected.model}</p>
+                  <h3 className="font-semibold text-white text-sm">{selected.name}</h3>
+                  <p className="text-xs text-[#666]">{selected.role} · {selected.model}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <span
-                  className="w-3 h-3 rounded-full"
+                  className="w-2.5 h-2.5 rounded-full"
                   style={{
                     backgroundColor: STATUS_COLORS[selected.status],
                     boxShadow: `0 0 8px ${STATUS_COLORS[selected.status]}`,
                   }}
                 />
-                <span className="text-xs capitalize text-gray-400">{selected.status}</span>
+                <span className="text-[11px] capitalize text-[#888]">{selected.status}</span>
               </div>
             </div>
 
             {selected.task && (
-              <div className="bg-white/5 rounded-lg p-3 mb-4">
-                <p className="text-xs text-gray-500 mb-1">Current Task</p>
-                <p className="text-sm text-white">{selected.task}</p>
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3 mb-4">
+                <p className="text-[10px] text-[#555] uppercase tracking-wider mb-1">Active Task</p>
+                <p className="text-sm text-[#ccc]">{selected.task}</p>
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Desk Type</p>
-                <p className="text-sm text-white">{DESK_ICONS[selected.deskType]} {selected.deskType}</p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
+                <p className="text-[10px] text-[#555] uppercase tracking-wider">Room</p>
+                <p className="text-sm text-[#ccc] mt-0.5">{ROOM_ICONS[selected.room]} {selected.room}</p>
               </div>
-              <div className="bg-white/5 rounded-lg p-3">
-                <p className="text-xs text-gray-500">Model</p>
-                <p className="text-sm text-white">{selected.model}</p>
+              <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-3">
+                <p className="text-[10px] text-[#555] uppercase tracking-wider">Model</p>
+                <p className="text-sm text-[#ccc] mt-0.5">{selected.model}</p>
               </div>
             </div>
 
             <button
               onClick={() => setSelected(null)}
-              className="w-full py-2 rounded-lg bg-white/10 hover:bg-white/15 text-sm text-gray-300 transition-all"
+              className="w-full py-2.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.08] text-sm text-[#888] transition-all duration-150 border border-white/[0.06]"
             >
               Close
             </button>
@@ -339,11 +443,11 @@ export default function OfficePage() {
         </div>
       )}
 
-      {/* Pulse animation */}
+      {/* Animations */}
       <style jsx>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.85; }
+        @keyframes statusPulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.4); opacity: 0.7; }
         }
       `}</style>
     </div>

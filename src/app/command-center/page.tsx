@@ -542,6 +542,106 @@ export default function CommandCenter() {
     return () => clearInterval(id);
   }, []);
 
+  /* ── live CRUD state ── */
+  const [liveCrons, setLiveCrons] = useState<any[]>([]);
+  const [liveTasks, setLiveTasks] = useState<any[]>([]);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatAgent, setChatAgent] = useState('atlas');
+  const [cronModal, setCronModal] = useState(false);
+  const [taskModal, setTaskModal] = useState(false);
+  const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
+  const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', priority: 'medium' });
+
+  /* ── fetch crons (mount + every 60s) ── */
+  useEffect(() => {
+    const fetchCrons = async () => {
+      try {
+        const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
+        if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
+      } catch { /* silent */ }
+    };
+    fetchCrons();
+    const id = setInterval(fetchCrons, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ── fetch tasks (mount + every 60s) ── */
+  useEffect(() => {
+    const fetchTasks = async () => {
+      try {
+        const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
+        if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
+      } catch { /* silent */ }
+    };
+    fetchTasks();
+    const id = setInterval(fetchTasks, 60000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ── fetch chat (mount + every 30s) ── */
+  useEffect(() => {
+    const fetchChat = async () => {
+      try {
+        const res = await fetch('/api/bridge/chat', { cache: 'no-store' });
+        if (res.ok) { const data = await res.json(); setChatMessages(data.items || data.messages || []); }
+      } catch { /* silent */ }
+    };
+    fetchChat();
+    const id = setInterval(fetchChat, 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  /* ── CRUD handlers ── */
+  const bridgeHeaders = { 'Content-Type': 'application/json', 'x-bridge-secret': 'parallax-bridge-2026' };
+
+  const handleCreateCron = async (name: string, schedule: string, agent: string, task: string) => {
+    try {
+      await fetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', name, schedule, agent, task }) });
+      const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
+      if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
+    } catch { /* silent */ }
+  };
+
+  const handleDeleteCron = async (cronId: string) => {
+    try {
+      await fetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'delete', cronId }) });
+      setLiveCrons(prev => prev.filter(c => c.id !== cronId && c.cronId !== cronId));
+    } catch { /* silent */ }
+  };
+
+  const handleCreateTask = async (title: string, description: string, assignee: string, priority: string) => {
+    try {
+      await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', title, description, assignee, priority }) });
+      const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
+      if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
+    } catch { /* silent */ }
+  };
+
+  const handleApproveTask = async (taskId: string) => {
+    try {
+      await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'approve', taskId }) });
+      setLiveTasks(prev => prev.map(t => (t.id === taskId || t.taskId === taskId) ? { ...t, status: 'approved' } : t));
+    } catch { /* silent */ }
+  };
+
+  const handleRejectTask = async (taskId: string) => {
+    try {
+      await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'reject', taskId }) });
+      setLiveTasks(prev => prev.map(t => (t.id === taskId || t.taskId === taskId) ? { ...t, status: 'rejected' } : t));
+    } catch { /* silent */ }
+  };
+
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+    try {
+      await fetch('/api/bridge/chat', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ targetAgent: chatAgent, message: chatInput, sender: 'commander' }) });
+      setChatMessages(prev => [{ sender: 'commander', targetAgent: chatAgent, message: chatInput, timestamp: new Date().toISOString() }, ...prev]);
+      setChatInput('');
+    } catch { /* silent */ }
+  };
+
+
   /* ── load health vitals from localStorage ── */
   useEffect(() => {
     try {
@@ -1159,6 +1259,151 @@ export default function CommandCenter() {
             </div>
           </div>
 
+          {/* ═══════ CRON MANAGEMENT ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(6,182,212,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#06b6d4]" style={{ boxShadow: '0 0 8px rgba(6,182,212,0.6)' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Cron Management</h2>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(6,182,212,0.2), transparent)' }} />
+            </div>
+            <div style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 12, padding: 20 }}>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-semibold text-[#e5e5e5]">{liveCrons.length} Active Crons</span>
+                <button onClick={() => setCronModal(!cronModal)} className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider" style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+                  {cronModal ? 'Cancel' : '+ Add Cron'}
+                </button>
+              </div>
+              {cronModal && (
+                <div className="mb-4 p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    {(['name', 'schedule', 'agent', 'task'] as const).map(field => (
+                      <input key={field} placeholder={field.charAt(0).toUpperCase() + field.slice(1)} value={cronForm[field]} onChange={e => setCronForm(p => ({ ...p, [field]: e.target.value }))}
+                        className="w-full px-3 py-2 text-sm rounded-md" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
+                    ))}
+                  </div>
+                  <button onClick={() => { handleCreateCron(cronForm.name, cronForm.schedule, cronForm.agent, cronForm.task); setCronForm({ name: '', schedule: '', agent: '', task: '' }); setCronModal(false); }}
+                    className="px-4 py-2 text-[10px] font-mono uppercase tracking-wider" style={{ background: 'rgba(6,182,212,0.15)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+                    Create Cron
+                  </button>
+                </div>
+              )}
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {liveCrons.length === 0 && <div className="text-sm text-[#888888] text-center py-4">No crons loaded — data fetches on mount</div>}
+                {liveCrons.map((cron, i) => (
+                  <div key={cron.id || cron.cronId || i} className="flex items-center justify-between p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-[#e5e5e5] truncate">{cron.name || cron.label || 'Unnamed'}</div>
+                      <div className="text-[10px] font-mono text-[#888888]">{cron.schedule || cron.cron || '—'} · {cron.agent || '—'}</div>
+                    </div>
+                    <button onClick={() => handleDeleteCron(cron.id || cron.cronId)} className="ml-2 px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, cursor: 'pointer' }}>
+                      Del
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════ TASK APPROVAL ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(139,92,246,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" style={{ boxShadow: '0 0 8px rgba(139,92,246,0.6)' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Task Approval</h2>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(139,92,246,0.2), transparent)' }} />
+            </div>
+            <div style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 12, padding: 20 }}>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm font-semibold text-[#e5e5e5]">{liveTasks.filter(t => t.status === 'pending').length} Pending · {liveTasks.length} Total</span>
+                <button onClick={() => setTaskModal(!taskModal)} className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider" style={{ background: 'rgba(139,92,246,0.12)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+                  {taskModal ? 'Cancel' : '+ New Task'}
+                </button>
+              </div>
+              {taskModal && (
+                <div className="mb-4 p-4" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                    <input placeholder="Title" value={taskForm.title} onChange={e => setTaskForm(p => ({ ...p, title: e.target.value }))} className="w-full px-3 py-2 text-sm rounded-md" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
+                    <input placeholder="Assignee" value={taskForm.assignee} onChange={e => setTaskForm(p => ({ ...p, assignee: e.target.value }))} className="w-full px-3 py-2 text-sm rounded-md" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
+                    <input placeholder="Description" value={taskForm.description} onChange={e => setTaskForm(p => ({ ...p, description: e.target.value }))} className="w-full px-3 py-2 text-sm rounded-md col-span-1 sm:col-span-2" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
+                    <select value={taskForm.priority} onChange={e => setTaskForm(p => ({ ...p, priority: e.target.value }))} className="w-full px-3 py-2 text-sm rounded-md" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }}>
+                      <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
+                    </select>
+                  </div>
+                  <button onClick={() => { handleCreateTask(taskForm.title, taskForm.description, taskForm.assignee, taskForm.priority); setTaskForm({ title: '', description: '', assignee: '', priority: 'medium' }); setTaskModal(false); }}
+                    className="px-4 py-2 text-[10px] font-mono uppercase tracking-wider" style={{ background: 'rgba(139,92,246,0.15)', color: '#8b5cf6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 6, cursor: 'pointer' }}>
+                    Create Task
+                  </button>
+                </div>
+              )}
+              <div className="space-y-2 max-h-72 overflow-y-auto">
+                {liveTasks.length === 0 && <div className="text-sm text-[#888888] text-center py-4">No tasks loaded — data fetches on mount</div>}
+                {liveTasks.map((task, i) => {
+                  const statusColor = task.status === 'approved' ? '#059669' : task.status === 'rejected' ? '#ef4444' : task.status === 'pending' ? '#f59e0b' : '#888888';
+                  const prioColor = task.priority === 'critical' ? '#ef4444' : task.priority === 'high' ? '#f59e0b' : task.priority === 'medium' ? '#06b6d4' : '#888888';
+                  return (
+                    <div key={task.id || task.taskId || i} className="flex items-center justify-between p-3 gap-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold text-[#e5e5e5] truncate">{task.title || 'Untitled'}</span>
+                          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${prioColor}15`, color: prioColor, border: `1px solid ${prioColor}30` }}>{(task.priority || 'med').toUpperCase()}</span>
+                          <span className="text-[8px] font-mono px-1.5 py-0.5 rounded" style={{ background: `${statusColor}15`, color: statusColor, border: `1px solid ${statusColor}30` }}>{(task.status || 'unknown').toUpperCase()}</span>
+                        </div>
+                        <div className="text-[10px] text-[#888888]">{task.assignee || '—'}{task.description ? ` · ${task.description}` : ''}</div>
+                      </div>
+                      {(task.status === 'pending' || !task.status) && (
+                        <div className="flex gap-1.5 flex-shrink-0">
+                          <button onClick={() => handleApproveTask(task.id || task.taskId)} className="px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 4, cursor: 'pointer' }}>OK</button>
+                          <button onClick={() => handleRejectTask(task.id || task.taskId)} className="px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, cursor: 'pointer' }}>Rej</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* ═══════ LIVE CHAT ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(52,211,153,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#34d399]" style={{ boxShadow: '0 0 8px rgba(52,211,153,0.6)' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Live Chat</h2>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(52,211,153,0.2), transparent)' }} />
+            </div>
+            <div style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 12, padding: 20 }}>
+              <div className="flex gap-2 mb-4">
+                <select value={chatAgent} onChange={e => setChatAgent(e.target.value)} className="px-3 py-2 text-sm rounded-md flex-shrink-0" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }}>
+                  {['atlas','shuri','vee','mercury','echo','simons','widow','proximon','aetherion','michael','prophets','selah','haven','ink','nova','kiyosaki','triage','themaestro','dr. strange'].map(a => (
+                    <option key={a} value={a}>{a.charAt(0).toUpperCase() + a.slice(1)}</option>
+                  ))}
+                </select>
+                <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSendChat(); }} placeholder="Message an agent..." className="flex-1 px-3 py-2 text-sm rounded-md" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
+                <button onClick={handleSendChat} className="px-4 py-2 text-[10px] font-mono uppercase tracking-wider flex-shrink-0" style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, cursor: 'pointer' }}>Send</button>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {chatMessages.length === 0 && <div className="text-sm text-[#888888] text-center py-4">No messages yet — send one above</div>}
+                {chatMessages.slice(0, 20).map((msg, i) => (
+                  <div key={i} className="p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-[10px] font-mono font-bold" style={{ color: msg.sender === 'commander' ? '#34d399' : '#f59e0b' }}>{(msg.sender || 'system').toUpperCase()}</span>
+                      {msg.targetAgent && <span className="text-[10px] text-[#888888]">→ {msg.targetAgent}</span>}
+                      {msg.timestamp && <span className="text-[9px] font-mono text-[#555]">{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>}
+                    </div>
+                    <div className="text-sm text-[#e5e5e5]">{msg.message || msg.text || ''}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {/* ═══════ NAVIGATION CARDS — SUB-PAGES ═══════ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {[
@@ -1166,7 +1411,7 @@ export default function CommandCenter() {
               { label: "MISSIONS", href: "/command-center/missions", icon: "\u2726", accent: "#C9A84C", desc: `${activeMissions} active \u00B7 ${doneT}/${totalT} tasks`, sub: "Projects, progress, checklists" },
               { label: "VITALS", href: "/command-center/vitals", icon: "\u2665", accent: "#10b981", desc: "Health \u00B7 Spiritual \u00B7 Weather", sub: "Steps, water, sleep, scripture" },
               { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#d97706", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
-              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${LOG.length} recent events`, sub: "Feed, schedule, history" },
+              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${((bridgeData as any)?.activity?.items || LOG).length} recent events`, sub: "Feed, schedule, history" },
               { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
               { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
               { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },
