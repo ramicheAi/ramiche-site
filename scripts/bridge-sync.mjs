@@ -212,6 +212,75 @@ function getQuickLinks() {
   ];
 }
 
+// ── Chat Listener ───────────────────────────────────────────────────
+
+const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/apex-athlete-73755/databases/(default)/documents`;
+
+async function pollPendingMessages() {
+  try {
+    // Fetch pending messages from Firestore
+    const res = await fetch(
+      `${FIRESTORE_BASE}/command-center-chat?pageSize=20`,
+      { cache: "no-store" }
+    );
+    if (!res.ok) return;
+
+    const data = await res.json();
+    const docs = data.documents || [];
+
+    for (const doc of docs) {
+      const f = doc.fields || {};
+      const status = f.status?.stringValue;
+      if (status !== "pending") continue;
+
+      const id = f.id?.stringValue;
+      const targetAgent = f.targetAgent?.stringValue;
+      const message = f.message?.stringValue;
+      const sender = f.sender?.stringValue || "ramon";
+
+      if (!targetAgent || !message) continue;
+
+      console.log(`[chat] Routing message ${id} → ${targetAgent}`);
+
+      // Route to agent via OpenClaw sessions send
+      let response = "";
+      let newStatus = "delivered";
+      try {
+        const agentKey = targetAgent.toLowerCase().replace(/\s+/g, "-");
+        const sendResult = run(
+          `openclaw sessions send --to "${agentKey}" --message "${message.replace(/"/g, '\\"')}" 2>&1`
+        );
+        response = sendResult || "Message delivered to agent session";
+      } catch (e) {
+        response = `Delivery failed: ${e.message}`;
+        newStatus = "failed";
+      }
+
+      // Update message status in Firestore
+      const updateData = {
+        fields: {
+          ...Object.fromEntries(
+            Object.entries(f).map(([k, v]) => [k, v])
+          ),
+          status: { stringValue: newStatus },
+          response: { stringValue: response },
+          deliveredAt: { stringValue: new Date().toISOString() },
+        },
+      };
+
+      await fetch(`${FIRESTORE_BASE}/command-center-chat/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updateData),
+      });
+
+      console.log(`[chat] ${id} → ${newStatus}`);
+    }
+  } catch (e) {
+    console.error("[chat] poll error:", e.message);
+  }
+}
+
 // ── Main Sync Loop ───────────────────────────────────────────────────
 
 async function syncAll() {
@@ -234,6 +303,9 @@ async function syncAll() {
 
   const ok = results.filter(Boolean).length;
   console.log(`[bridge] synced ${ok}/${results.length} collections`);
+
+  // Poll for pending chat messages and route to agents
+  await pollPendingMessages();
 }
 
 // ── Start ────────────────────────────────────────────────────────────
