@@ -1209,10 +1209,10 @@ export default function CommandCenter() {
                     </span>
                   </div>
                   <div className="text-base sm:text-lg font-bold text-[#e5e5e5] leading-snug">
-                    Quest flow UX polish + Firebase v2 deploy for METTLE
+                    Command Center live backend + Agent mailbox system
                   </div>
                   <div className="text-[10px] font-mono text-[#888888] mt-1">
-                    Stripe live · Copyright filed · CI/CD deployed — now polish + scale
+                    Bridge sync live · Chat relay · Cron CRUD · Task approval · 60s auto-refresh
                   </div>
                 </div>
                 <div className="hidden sm:block flex-shrink-0">
