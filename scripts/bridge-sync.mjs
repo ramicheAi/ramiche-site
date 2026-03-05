@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ── Bridge Sync Service ─────────────────────────────────────────────
-// Runs locally on Mac Mini. Syncs OpenClaw state → Firestore every 60s.
+// Runs locally on iMac. Syncs OpenClaw state → Firestore every 60s.
 // Listens for Firestore writes (cron CRUD, chat, task approval) and executes locally.
 //
 // Usage: node scripts/bridge-sync.mjs
@@ -88,8 +88,17 @@ function getAgentStatus() {
 function getCronJobs() {
   const cronOutput = run("openclaw cron list --json 2>/dev/null || echo '[]'");
   try {
-    const crons = JSON.parse(cronOutput);
-    return Array.isArray(crons) ? crons : [];
+    const parsed = JSON.parse(cronOutput);
+    const jobs = parsed.jobs || (Array.isArray(parsed) ? parsed : []);
+    return jobs.map(j => ({
+      id: j.id,
+      name: j.name,
+      enabled: j.enabled,
+      agent: j.agentId || "atlas",
+      schedule: j.schedule?.expr || (j.schedule?.everyMs ? `every ${Math.round(j.schedule.everyMs / 60000)}m` : ""),
+      lastRun: j.state?.lastRunStatus || "unknown",
+      nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "",
+    }));
   } catch {
     return [];
   }
