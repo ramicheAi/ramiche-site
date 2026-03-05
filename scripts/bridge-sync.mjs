@@ -241,18 +241,34 @@ async function pollPendingMessages() {
 
       console.log(`[chat] Routing message ${id} → ${targetAgent}`);
 
-      // Route to agent via OpenClaw sessions send
+      // Route to agent — try direct session first, fallback to mailbox
       let response = "";
       let newStatus = "delivered";
-      try {
-        const agentKey = targetAgent.toLowerCase().replace(/\s+/g, "-");
-        const sendResult = run(
-          `openclaw sessions send --to "${agentKey}" --message "${message.replace(/"/g, '\\"')}" 2>&1`
-        );
+      const agentKey = targetAgent.toLowerCase().replace(/\s+/g, "-");
+      const agentUpper = targetAgent.toUpperCase().replace(/\s+/g, " ");
+
+      // Try direct session send first
+      const sendResult = run(
+        `openclaw sessions send --to "${agentKey}" --message "${message.replace(/"/g, '\\"')}" 2>&1`
+      );
+
+      if (sendResult && !sendResult.includes("not found") && !sendResult.includes("error") && !sendResult.includes("Error")) {
         response = sendResult || "Message delivered to agent session";
-      } catch (e) {
-        response = `Delivery failed: ${e.message}`;
-        newStatus = "failed";
+      } else {
+        // Fallback: write to mailbox inbox
+        const inboxPath = join(WORKSPACE, "agents/inbox.md");
+        const timestamp = new Date().toISOString().replace("T", " ").slice(0, 16);
+        const entry = `\n## [${timestamp}] FROM: ${sender} → TO: ${agentUpper}\nSTATUS: pending\nPRIORITY: normal\nSOURCE: command-center-chat\nMESSAGE: ${message}\n---\n`;
+
+        try {
+          const existing = existsSync(inboxPath) ? readFileSync(inboxPath, "utf8") : "";
+          writeFileSync(inboxPath, existing + entry);
+          response = `Agent ${agentUpper} has no active session. Message queued in mailbox — will be delivered on next run.`;
+          newStatus = "queued";
+        } catch (e) {
+          response = `Delivery failed: ${e.message}`;
+          newStatus = "failed";
+        }
       }
 
       // Update message status in Firestore
