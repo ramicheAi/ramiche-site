@@ -521,6 +521,27 @@ export default function CommandCenter() {
     return () => clearInterval(id);
   }, []);
 
+  /* ── live bridge data (auto-refresh every 60s) ── */
+  const [bridgeData, setBridgeData] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    const fetchBridge = async () => {
+      try {
+        const res = await fetch("/api/bridge?type=all", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          setBridgeData(data);
+          // Update agent status from bridge if available
+          if (data?.agents?.list && Array.isArray(data.agents.list)) {
+            setLiveAgents(data.agents.list);
+          }
+        }
+      } catch { /* silent — fallback to hardcoded */ }
+    };
+    fetchBridge();
+    const id = setInterval(fetchBridge, 60000);
+    return () => clearInterval(id);
+  }, []);
+
   /* ── load health vitals from localStorage ── */
   useEffect(() => {
     try {
