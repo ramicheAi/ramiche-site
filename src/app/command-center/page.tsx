@@ -362,12 +362,16 @@ const OPPS = [
 
 /* ── QUICK LINKS ───────────────────────────────────────────────────────────── */
 const LINKS = [
-  { label: "Printful", href: "https://www.printful.com/dashboard", icon: "P", accent: "#00f0ff" },
-  { label: "Shopify Admin", href: "https://admin.shopify.com", icon: "S", accent: "#96bf48" },
+  { label: "METTLE", href: "https://ramiche-site.vercel.app/apex-athlete", icon: "M", accent: "#C9A84C" },
+  { label: "Parallax Site", href: "https://parallax-site-ashen.vercel.app", icon: "P", accent: "#a855f7" },
+  { label: "YOLO Builds", href: "/command-center/yolo", icon: "Y", accent: "#f59e0b" },
+  { label: "Hijack", href: "https://ramiche-site.vercel.app/hijack", icon: "H", accent: "#ef4444" },
+  { label: "Parallax Publish", href: "https://parallax-publish.vercel.app", icon: "PP", accent: "#38bdf8" },
+  { label: "ClawGuard Pro", href: "https://parallax-site-ashen.vercel.app/clawguard", icon: "CG", accent: "#22d3ee" },
   { label: "Vercel", href: "https://vercel.com/dashboard", icon: "V", accent: "#ffffff" },
-  { label: "GoMotion", href: "https://www.gomotionapp.com", icon: "G", accent: "#f59e0b" },
-  { label: "GitHub", href: "https://github.com", icon: "H", accent: "#a855f7" },
-  { label: "Replit", href: "https://replit.com", icon: "R", accent: "#e879f9" },
+  { label: "GitHub", href: "https://github.com", icon: "GH", accent: "#737373" },
+  { label: "Shopify", href: "https://admin.shopify.com", icon: "S", accent: "#96bf48" },
+  { label: "GoMotion", href: "https://www.gomotionapp.com", icon: "G", accent: "#34d399" },
 ];
 
 /* ── ACTIVITY LOG ──────────────────────────────────────────────────────────── */
