@@ -1,0 +1,4 @@
+# Temporarily exclude problematic API routes for CSV import deployment
+src/app/api/notifications/
+src/app/api/push/
+src/app/api/stripe/
