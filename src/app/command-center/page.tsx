@@ -177,46 +177,46 @@ const AGENTS = [
 /* ── AGENT → PROJECT ASSIGNMENTS ─────────────────────────────────────────────────── */
 const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "active" | "idle" | "done" }[]> = {
   Atlas: [
-    { project: "METTLE", role: "Lead architect + game engine", status: "active" },
-    { project: "Command Center", role: "Live backend + bridge sync", status: "active" },
-    { project: "Parallax Site", role: "Marketplace + deployment", status: "active" },
+    { project: "METTLE", role: "Lead architect — beta launch with Saint Andrew's", status: "active" },
+    { project: "Command Center", role: "Live backend + bridge sync + task board", status: "active" },
+    { project: "Agent Ecosystem", role: "Mailbox relay, delegation, 19-agent coordination", status: "active" },
   ],
   TheMAESTRO: [
-    { project: "Music Pipeline", role: "Production direction + sound design", status: "idle" },
-    { project: "Parallax", role: "Artist A&R + creative guidance", status: "idle" },
+    { project: "Music Pipeline", role: "Production + sound design", status: "idle" },
+    { project: "The Baba Studio", role: "Audio division creative lead", status: "idle" },
   ],
   SIMONS: [
+    { project: "METTLE", role: "Growth analytics + data insights", status: "active" },
     { project: "Revenue Optimization", role: "Pricing models + market analysis", status: "idle" },
-    { project: "METTLE", role: "Growth analytics", status: "idle" },
   ],
   "Dr. Strange": [
-    { project: "METTLE", role: "Attrition prediction + forecasting", status: "idle" },
-    { project: "Business Strategy", role: "Scenario planning + risk analysis", status: "idle" },
+    { project: "METTLE", role: "Attrition prediction + scenario modeling", status: "active" },
+    { project: "Business Strategy", role: "Strategic forecasting", status: "idle" },
   ],
   SHURI: [
-    { project: "Command Center", role: "Office page redesign", status: "active" },
     { project: "METTLE", role: "UI/UX + rapid prototyping", status: "active" },
-    { project: "Parallax Site", role: "Linear restyle", status: "done" },
+    { project: "Command Center", role: "Frontend live data wiring", status: "active" },
+    { project: "Parallax Publish", role: "3-platform social publishing", status: "active" },
   ],
   Widow: [
-    { project: "ClawGuard Pro", role: "Security scanning + threat detection", status: "active" },
-    { project: "Competitive Intel", role: "Market monitoring + threat scan", status: "idle" },
+    { project: "ClawGuard Pro", role: "Security scanning ($299-$1499)", status: "active" },
+    { project: "System Security", role: "Vulnerability monitoring", status: "active" },
   ],
   PROXIMON: [
     { project: "Command Center", role: "Systems architecture", status: "active" },
-    { project: "METTLE", role: "Scaling architecture", status: "idle" },
+    { project: "METTLE", role: "Scaling architecture", status: "active" },
   ],
   Vee: [
     { project: "Content Pipeline", role: "Daily content lead + brand voice", status: "active" },
     { project: "Ramiche Studio", role: "Client acquisition + positioning", status: "active" },
   ],
   Aetherion: [
-    { project: "Multi-Agent Architecture", role: "Agent collaboration patterns", status: "active" },
-    { project: "Infrastructure", role: "Cross-project integration", status: "idle" },
+    { project: "Creative Direction", role: "Master image + animation design", status: "active" },
+    { project: "Brand Systems", role: "Visual identity across all brands", status: "active" },
   ],
   MICHAEL: [
-    { project: "METTLE", role: "Swim coaching intelligence + athlete motivation", status: "active" },
-    { project: "Saint Andrew\'s Aquatics", role: "Training analysis + race strategy", status: "active" },
+    { project: "METTLE", role: "Swim coaching intelligence + race strategy", status: "active" },
+    { project: "Saint Andrew's Aquatics", role: "240+ athlete beta program", status: "active" },
   ],
   Prophets: [
     { project: "Daily Scripture", role: "7 AM verse + prayer via Telegram", status: "active" },
@@ -224,35 +224,39 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
   ],
   SELAH: [
     { project: "METTLE", role: "Sport psychology + mental performance", status: "active" },
-    { project: "Team Wellness", role: "Coach/athlete wellness + burnout prevention", status: "active" },
+    { project: "Team Wellness", role: "Coach/athlete wellness", status: "active" },
   ],
   MERCURY: [
-    { project: "Ramiche Studio", role: "Client acquisition + deals", status: "idle" },
-    { project: "Revenue Ops", role: "Pipeline + pricing strategy", status: "idle" },
+    { project: "Ramiche Studio", role: "Client acquisition + deals", status: "active" },
+    { project: "METTLE", role: "Sales strategy + pricing", status: "active" },
   ],
   ECHO: [
     { project: "Content Pipeline", role: "Social engagement + community", status: "active" },
-    { project: "Galactik Antics", role: "@galactikantics IG content", status: "active" },
+    { project: "Galactik Antics", role: "@galactikantics IG (16K followers)", status: "active" },
   ],
   HAVEN: [
-    { project: "Customer Support", role: "Ticket system + onboarding", status: "idle" },
-    { project: "METTLE", role: "Coach/parent support flows", status: "idle" },
+    { project: "METTLE", role: "Coach/parent onboarding + support", status: "active" },
+    { project: "Customer Support", role: "Ticket system + FAQ", status: "idle" },
   ],
   INK: [
-    { project: "Content Pipeline", role: "Blog + social copy + scripts", status: "active" },
-    { project: "Ramiche Studio", role: "Client content + case studies", status: "idle" },
+    { project: "Content Pipeline", role: "Copy + marketing (23 tactics)", status: "active" },
+    { project: "Ramiche Studio", role: "Client content + case studies", status: "active" },
   ],
   NOVA: [
-    { project: "YOLO Builds", role: "Overnight prototype builder", status: "active" },
+    { project: "YOLO Builds", role: "1 AM overnight prototype builder", status: "active" },
     { project: "Galactik Antics", role: "Physical merch prototyping", status: "idle" },
   ],
   KIYOSAKI: [
-    { project: "METTLE", role: "Financial model + pricing strategy", status: "done" },
+    { project: "METTLE", role: "Financial model + pricing", status: "done" },
     { project: "Wealth Architecture", role: "Investment analysis + cashflow", status: "idle" },
   ],
   TRIAGE: [
-    { project: "System Health", role: "Debugging + diagnostics + failure tracing", status: "idle" },
-    { project: "METTLE", role: "Code review + performance audit", status: "idle" },
+    { project: "System Health", role: "Debugging + failure tracing", status: "active" },
+    { project: "METTLE", role: "Code review + performance audit", status: "active" },
+  ],
+  THEMIS: [
+    { project: "Governance", role: "Rule enforcement + token efficiency", status: "active" },
+    { project: "Agent Audit", role: "Cron health + agent dashboard", status: "active" },
   ],
 };
 
