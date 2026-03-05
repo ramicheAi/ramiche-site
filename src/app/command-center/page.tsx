@@ -529,29 +529,10 @@ export default function CommandCenter() {
         if (res.ok) {
           const data = await res.json();
           setBridgeData(data);
-          // Update agent status from bridge if available
-          const agentsObj = data?.agents?.directory?.agents;
-          const rawActive = data?.agents?.recentlyActive || '';
-          const activeList = (typeof rawActive === 'string' ? rawActive.split(',') : Array.isArray(rawActive) ? rawActive : []).map((s: string) => s.trim().toLowerCase()).filter(Boolean);
-          if (agentsObj && typeof agentsObj === 'object') {
-            const mapped = Object.entries(agentsObj).map(([name, a]: [string, any]) => {
-              const normalize = (s: string) => s.toLowerCase().replace(/[\s._-]+/g, '').replace(/^the/, '');
-              const match = AGENTS.find(ha => normalize(ha.name) === normalize(name));
-              const isActive = activeList.includes(name.toLowerCase());
-              return {
-                name: name.charAt(0).toUpperCase() + name.slice(1),
-                model: a.model || match?.model || '',
-                role: a.role || match?.role || '',
-                status: (isActive ? 'active' : 'idle') as 'active' | 'idle' | 'done',
-                color: match?.color || '#737373',
-                icon: match?.icon || '🤖',
-                desc: match?.desc || (Array.isArray(a.capabilities) ? a.capabilities.join(', ') : '') || '',
-                connections: match?.connections || [],
-                credits: match?.credits || { used: 0, limit: 5000 },
-                activeTask: match?.activeTask || 'Standing by',
-              };
-            });
-            if (mapped.length > 0) setLiveAgents(mapped);
+          // Update agent status from bridge display array (pre-formatted by sync script)
+          const displayAgents = data?.agents?.display;
+          if (Array.isArray(displayAgents) && displayAgents.length > 0) {
+            setLiveAgents(displayAgents);
           }
           // Populate other live data sections
           if (data?.missions?.items && Array.isArray(data.missions.items) && data.missions.items.length > 0) {

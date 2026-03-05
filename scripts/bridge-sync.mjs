@@ -47,38 +47,83 @@ async function pushToFirestore(type, data) {
 
 // ── Agent Status ─────────────────────────────────────────────────────
 
+// Display metadata for agents (colors, icons, descriptions)
+const AGENT_DISPLAY = {
+  atlas:       { color: "#C9A84C", icon: "🧭", label: "Atlas", desc: "Operations Lead — orchestrates 19 agents, memory, mission control" },
+  themaestro:  { color: "#f59e0b", icon: "🎵", label: "TheMAESTRO", desc: "Music Production — Ye + Quincy + Babyface creative direction" },
+  simons:      { color: "#22d3ee", icon: "📊", label: "SIMONS", desc: "Data analysis, pattern recognition, pricing models" },
+  "dr-strange":{ color: "#a855f7", icon: "🔮", label: "Dr. Strange", desc: "Scenario analysis, strategic foresight, risk assessment" },
+  shuri:       { color: "#34d399", icon: "⚡", label: "SHURI", desc: "Creative coding, design systems, rapid builds" },
+  widow:       { color: "#ef4444", icon: "🕷", label: "Widow", desc: "Cybersecurity, threat monitoring, security audits" },
+  proximon:    { color: "#f97316", icon: "🏗", label: "PROXIMON", desc: "Systems architecture, infrastructure design" },
+  vee:         { color: "#ec4899", icon: "📣", label: "Vee", desc: "Brand strategy, marketing, positioning" },
+  aetherion:   { color: "#818cf8", icon: "🌀", label: "Aetherion", desc: "Creative Director — image gen, animation, visual identity" },
+  michael:     { color: "#06b6d4", icon: "🏊", label: "MICHAEL", desc: "Swim coaching, race strategy, athlete development" },
+  selah:       { color: "#fb923c", icon: "🧠", label: "SELAH", desc: "Psychology, mental performance, mindset coaching" },
+  prophets:    { color: "#d4a574", icon: "📜", label: "Prophets", desc: "Spiritual counsel, wisdom, scripture" },
+  mercury:     { color: "#fbbf24", icon: "💰", label: "MERCURY", desc: "Sales strategy, pricing, revenue modeling" },
+  echo:        { color: "#14b8a6", icon: "📡", label: "ECHO", desc: "Community engagement, social interaction" },
+  haven:       { color: "#a3e635", icon: "🏠", label: "HAVEN", desc: "Support automation, onboarding systems" },
+  ink:         { color: "#f472b6", icon: "✍️", label: "INK", desc: "Copywriting, content generation" },
+  kiyosaki:    { color: "#facc15", icon: "📈", label: "KIYOSAKI", desc: "Financial analysis, capital strategy" },
+  nova:        { color: "#7dd3fc", icon: "🌟", label: "NOVA", desc: "Overnight builds, 3D design, fabrication" },
+  triage:      { color: "#fb7185", icon: "🔍", label: "TRIAGE", desc: "Debugging, failure tracing, log analysis" },
+  themis:      { color: "#c084fc", icon: "⚖️", label: "THEMIS", desc: "Governance, rule enforcement, token discipline" },
+  archivist:   { color: "#94a3b8", icon: "📚", label: "Archivist", desc: "Workspace indexer, codebase queries" },
+};
+
 function getAgentStatus() {
-  // Read directory.json for agent list
   const dirPath = join(WORKSPACE, "agents/directory.json");
-  if (!existsSync(dirPath)) return { directory: { agents: {} }, recentlyActive: [] };
+  if (!existsSync(dirPath)) return { directory: { agents: {} }, recentlyActive: "", display: [] };
 
   const dir = JSON.parse(readFileSync(dirPath, "utf8"));
   const recentlyActive = [];
 
-  // Try to get active sessions to determine who's active
-  const sessionOutput = run("openclaw sessions list --format json 2>/dev/null || echo '[]'");
+  // Try to get active sessions
+  const sessionOutput = run("openclaw sessions --json 2>/dev/null || echo '[]'");
   try {
-    const sessions = JSON.parse(sessionOutput);
-    if (Array.isArray(sessions)) {
-      for (const s of sessions) {
-        for (const agentName of Object.keys(dir.agents)) {
-          if (
-            s.agentId?.toLowerCase().includes(agentName) ||
-            s.label?.toLowerCase().includes(agentName)
-          ) {
-            if (s.status === "active" || s.status === "busy") {
-              recentlyActive.push(agentName);
-            }
+    const parsed = JSON.parse(sessionOutput);
+    const sessions = parsed.sessions || (Array.isArray(parsed) ? parsed : []);
+    for (const s of sessions) {
+      for (const agentName of Object.keys(dir.agents)) {
+        if (
+          s.agentId?.toLowerCase().includes(agentName) ||
+          s.label?.toLowerCase().includes(agentName) ||
+          s.key?.toLowerCase().includes(agentName)
+        ) {
+          if (s.status === "active" || s.status === "busy") {
+            recentlyActive.push(agentName);
           }
         }
       }
     }
   } catch { /* sessions not available */ }
 
-  // Return full directory structure — frontend reads data.agents.directory.agents
+  const activeSet = new Set(recentlyActive);
+
+  // Build display-ready agent array for the frontend
+  const display = Object.entries(dir.agents).map(([name, a]) => {
+    const d = AGENT_DISPLAY[name] || {};
+    return {
+      name: d.label || name.charAt(0).toUpperCase() + name.slice(1),
+      key: name,
+      model: a.model || "",
+      role: a.role || "",
+      status: activeSet.has(name) ? "active" : "idle",
+      color: d.color || "#737373",
+      icon: d.icon || "🤖",
+      desc: d.desc || (Array.isArray(a.capabilities) ? a.capabilities.join(", ") : ""),
+      skills: a.skills || [],
+      connections: [],
+      credits: { used: 0, limit: 5000 },
+      activeTask: activeSet.has(name) ? "Working..." : "Standing by",
+    };
+  });
+
   return {
     directory: dir,
-    recentlyActive: [...new Set(recentlyActive)].join(","),
+    recentlyActive: [...activeSet].join(","),
+    display,
   };
 }
 
@@ -459,7 +504,7 @@ async function syncAll() {
   }
 
   const results = await Promise.all([
-    pushToFirestore("agents", { ...agents, lastSync: timestamp }),
+    pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
     pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
     pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
     pushToFirestore("projects", { items: projects, count: projects.length, lastSync: timestamp }),
