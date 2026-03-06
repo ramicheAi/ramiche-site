@@ -17,57 +17,10 @@ interface Build {
   takeaway: string;
   folder: string;
   agent: string;
+  reviewStatus?: "approved" | "rejected" | "pending";
 }
 
 type ReviewStatus = "pending" | "approved" | "rejected";
-
-const BUILDS: Build[] = [
-  {
-    date: "2026-03-05",
-    name: "PrintQueue — Production Queue Manager",
-    idea: "Real-time print job queue manager with priority ordering, material stock validation, cost tracking, live progress simulation, machine status panel, and activity logging",
-    status: "working",
-    takeaway: "32KB single HTML file. Full job lifecycle management with priority-sorted queue and material stock validation.",
-    folder: "2026-03-05-print-queue-dashboard",
-    agent: "Nova",
-  },
-  {
-    date: "2026-03-03",
-    name: "FilaTrack — Filament Inventory & Cost Tracker",
-    idea: "Interactive filament inventory manager with spool tracking, print logging with auto-deduction, cost-per-gram analytics, low-stock alerts, and data export",
-    status: "working",
-    takeaway: "1137-line single HTML file. Covers full spool lifecycle: add inventory, log prints, track material costs, surface low-stock alerts.",
-    folder: "2026-03-03-filament-tracker",
-    agent: "Nova",
-  },
-  {
-    date: "2026-03-02",
-    name: "PrintDiag — 3D Print Failure Analyzer",
-    idea: "Interactive FDM failure diagnostic tool with 10 failure modes, step-by-step flowcharts, slicer quick-fix tables, and material-specific notes",
-    status: "working",
-    takeaway: "690-line single HTML file covering the 10 most common FDM failures with symptoms, root causes, and concrete slicer fixes.",
-    folder: "2026-03-02-print-failure-analyzer",
-    agent: "Nova",
-  },
-  {
-    date: "2026-03-02",
-    name: "PrintFlow Storefront",
-    idea: "Full drag-and-drop 3D print quoting storefront — Three.js STL viewer, instant cost calculator, material selector, order form. 1064 lines.",
-    status: "working",
-    takeaway: "NOVA built 1064 lines of real code at 1AM. Three.js STL viewer with instant quoting.",
-    folder: "2026-03-02-printflow-storefront",
-    agent: "Nova",
-  },
-  {
-    date: "2026-03-02",
-    name: "Squad Status Board",
-    idea: "Live dashboard showing all 19 agents with capability badges, model info, and provider",
-    status: "working",
-    takeaway: "Exposed capability gaps: DeepSeek/Kimi/GLM agents lack native vision — need OpenClaw image tool routing.",
-    folder: "2026-03-02-squad-status-board",
-    agent: "Atlas",
-  },
-];
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   working:  { label: "Working",  color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
@@ -78,22 +31,15 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function YoloBuildsPage() {
-  const [reviews, setReviews] = useState<Record<string, ReviewStatus>>(() => {
-    if (typeof window === 'undefined') return {};
-    try {
-      const saved = localStorage.getItem('yolo-reviews');
-      return saved ? JSON.parse(saved) : {};
-    } catch {
-      return {};
-    }
-  });
+  const [builds, setBuilds] = useState<Build[]>([]);
   const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('yolo-reviews', JSON.stringify(reviews));
-    } catch {}
-  }, [reviews]);
+    fetch("/api/yolo-review")
+      .then((res) => res.json())
+      .then((data: Build[]) => setBuilds(data))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!toast) return;
@@ -101,8 +47,20 @@ export default function YoloBuildsPage() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const setReview = (folder: string, status: ReviewStatus) => {
-    setReviews((prev) => ({ ...prev, [folder]: status }));
+  const setReview = async (folder: string, status: ReviewStatus) => {
+    try {
+      const res = await fetch("/api/yolo-review", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder, reviewStatus: status }),
+      });
+      const updated: Build = await res.json();
+      setBuilds((prev) =>
+        prev.map((b) => (b.folder === folder ? updated : b)),
+      );
+    } catch {
+      /* ignore */
+    }
     if (status === "approved") {
       setToast({ message: "Build approved \u2014 status saved", color: "#22c55e" });
     } else if (status === "rejected") {
@@ -144,15 +102,15 @@ export default function YoloBuildsPage() {
             <p className="text-white/40 text-sm mt-1">Every night, the squad generates a wild idea and builds a working prototype.</p>
           </div>
           <div className="text-right text-sm text-white/30">
-            <div>{BUILDS.length} builds</div>
-            <div>{BUILDS.filter(b => b.status === "working").length} working</div>
+            <div>{builds.length} builds</div>
+            <div>{builds.filter(b => b.status === "working").length} working</div>
           </div>
         </div>
 
         {/* Build Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {BUILDS.map((build) => {
-            const review = reviews[build.folder] ?? "pending";
+          {builds.map((build) => {
+            const review = build.reviewStatus ?? "pending";
             const isApproved = review === "approved";
             const isRejected = review === "rejected";
             const s = isApproved
