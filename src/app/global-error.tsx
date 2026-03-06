@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 export default function GlobalError({
   error,
   reset,
@@ -7,6 +9,8 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
     <html lang="en">
       <body
@@ -38,14 +42,20 @@ export default function GlobalError({
               color: "#94a3b8",
               fontSize: "1rem",
               lineHeight: 1.6,
-              marginBottom: "2rem",
+              marginBottom: "1rem",
             }}
           >
-            The app hit an unexpected error. Please try again.
+            {error.message || "An unexpected error occurred."}
           </p>
 
           <button
-            onClick={reset}
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.reload();
+              } else {
+                reset();
+              }
+            }}
             style={{
               background: "linear-gradient(135deg, #1a1a5e, #2a2a7e)",
               color: "#fff",
@@ -59,6 +69,43 @@ export default function GlobalError({
           >
             Try Again
           </button>
+
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            style={{
+              display: "block",
+              margin: "1rem auto 0",
+              background: "none",
+              border: "none",
+              color: "#475569",
+              fontSize: "0.8rem",
+              cursor: "pointer",
+            }}
+          >
+            {showDetails ? "Hide details" : "Show error details"}
+          </button>
+
+          {showDetails && (
+            <pre
+              style={{
+                marginTop: "1rem",
+                padding: "1rem",
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 8,
+                color: "#ef4444",
+                fontSize: "0.7rem",
+                textAlign: "left",
+                overflow: "auto",
+                maxHeight: 200,
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              {error.stack || error.message || "No details available"}
+              {error.digest && `\nDigest: ${error.digest}`}
+            </pre>
+          )}
         </div>
       </body>
     </html>

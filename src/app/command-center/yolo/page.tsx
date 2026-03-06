@@ -87,6 +87,7 @@ export default function YoloBuildsPage() {
       return {};
     }
   });
+  const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
 
   useEffect(() => {
     try {
@@ -94,13 +95,46 @@ export default function YoloBuildsPage() {
     } catch {}
   }, [reviews]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
   const setReview = (folder: string, status: ReviewStatus) => {
     setReviews((prev) => ({ ...prev, [folder]: status }));
+    if (status === "approved") {
+      setToast({ message: "Build approved \u2014 status saved", color: "#22c55e" });
+    } else if (status === "rejected") {
+      setToast({ message: "Build rejected \u2014 status saved", color: "#ef4444" });
+    } else {
+      setToast({ message: "Review reset to pending", color: "#a3a3a3" });
+    }
   };
 
   return (
     <div className="relative min-h-screen bg-[#0a0a0a] text-white">
       <ParticleField />
+      {/* Toast notification */}
+      {toast && (
+        <div
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-lg text-sm font-medium shadow-lg backdrop-blur-md transition-all duration-300"
+          style={{
+            background: `${toast.color}20`,
+            border: `1px solid ${toast.color}40`,
+            color: toast.color,
+            animation: "toastSlideIn 0.3s ease-out",
+          }}
+        >
+          {toast.message}
+        </div>
+      )}
+      <style jsx>{`
+        @keyframes toastSlideIn {
+          from { opacity: 0; transform: translate(-50%, -12px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
       <div className="relative z-10 p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
