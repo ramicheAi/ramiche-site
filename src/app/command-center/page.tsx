@@ -61,7 +61,7 @@ const AGENTS = [
     activeTask: "DELIVERED: ClawGuard Pro (12-domain, $299-$1499) + CSP headers + Firestore rules + API security",
   },
   {
-    name: "PROXIMON", model: "Gemini 3.0 Pro", role: "Systems Architect",
+    name: "PROXIMON", model: "DeepSeek V3.2", role: "Systems Architect",
     status: "done" as const, color: "#f97316", icon: "🏗",
     desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
     connections: [0, 3, 4],
@@ -109,7 +109,7 @@ const AGENTS = [
     activeTask: "DELIVERED: Wellness check-in + journal + meditation in athlete portal",
   },
   {
-    name: "MERCURY", model: "Gemini 3.0 Pro", role: "Sales & Revenue Ops",
+    name: "MERCURY", model: "DeepSeek V3.2", role: "Sales & Revenue Ops",
     status: "active" as const, color: "#fbbf24", icon: "💰",
     desc: "Razor-sharp dealmaker — reads people and numbers simultaneously. Architects wins.",
     connections: [0, 7],
@@ -289,7 +289,7 @@ const MISSIONS = [
       { t: "Chat relay to agents", done: true },
       { t: "Task approval API", done: true },
       { t: "Cron CRUD API", done: true },
-      { t: "Live data rendering (replace hardcoded)", done: false },
+      { t: "Live data rendering (replace hardcoded)", done: true },
       { t: "Office page redesign", done: false },
     ],
     link: { label: "Command Center", href: "/command-center" },
