@@ -1461,6 +1461,26 @@ export default function CommandCenter() {
             </div>
           </div>
 
+          {/* ═══════ QUICK LINKS ═══════ */}
+          <div className="mb-6">
+            <h3 className="text-xs font-bold tracking-widest text-white/40 mb-3">QUICK LINKS</h3>
+            <div className="flex flex-wrap gap-2">
+              {links.map((l: { label: string; href: string; icon: string; accent: string }) => (
+                <a
+                  key={l.label}
+                  href={l.href}
+                  target={l.href.startsWith("http") ? "_blank" : undefined}
+                  rel={l.href.startsWith("http") ? "noopener noreferrer" : undefined}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-colors text-sm"
+                >
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${l.accent}22`, color: l.accent }}>{l.icon}</span>
+                  <span className="text-white/70">{l.label}</span>
+                  {l.href.startsWith("http") && <span className="text-white/30 text-xs">↗</span>}
+                </a>
+              ))}
+            </div>
+          </div>
+
           {/* ═══════ NAVIGATION CARDS — SUB-PAGES ═══════ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {[
