@@ -279,16 +279,16 @@ function calcAttributes(a: Athlete) {
   const attendance = Math.min(100, Math.round((attended / Math.max(attended, a.weekTarget * 4)) * 100));
   // Effort = weighted combination of: total checkpoints completed across all sessions,
   // bonus reps earned, weight room extra sets, and streak consistency
-  const totalCpDone = Object.values(a.checkpoints).filter(Boolean).length;
-  const weightCpDone = Object.values(a.weightCheckpoints || {}).filter(Boolean).length;
-  const meetCpDone = Object.values(a.meetCheckpoints || {}).filter(Boolean).length;
-  const hasBonusRep = a.checkpoints["bonus-rep"] ? 1 : 0;
-  const hasExtraSets = (a.weightCheckpoints || {})["w-extra-sets"] ? 1 : 0;
-  const effortScore = totalCpDone + weightCpDone + meetCpDone + (hasBonusRep * 5) + (hasExtraSets * 5) + Math.min(a.streak, 14);
+  const totalCpDone = Object.values(a.checkpoints ?? {}).filter(Boolean).length;
+  const weightCpDone = Object.values(a.weightCheckpoints ?? {}).filter(Boolean).length;
+  const meetCpDone = Object.values(a.meetCheckpoints ?? {}).filter(Boolean).length;
+  const hasBonusRep = (a.checkpoints ?? {})["bonus-rep"] ? 1 : 0;
+  const hasExtraSets = (a.weightCheckpoints ?? {})["w-extra-sets"] ? 1 : 0;
+  const effortScore = totalCpDone + weightCpDone + meetCpDone + (hasBonusRep * 5) + (hasExtraSets * 5) + Math.min(a.streak ?? 0, 14);
   const effort = Math.min(100, Math.round((effortScore / 35) * 100));
-  const improvement = Math.min(100, Math.round((a.xp / 2500) * 100));
-  const consistency = Math.min(100, Math.round((a.streak / 30) * 100));
-  const questsDone = Object.values(a.quests).filter(v => v === "done").length;
+  const improvement = Math.min(100, Math.round(((a.xp ?? 0) / 2500) * 100));
+  const consistency = Math.min(100, Math.round(((a.streak ?? 0) / 30) * 100));
+  const questsDone = Object.values(a.quests ?? {}).filter(v => v === "done").length;
   const leadership = Math.min(100, Math.round((questsDone / 5) * 100));
   return { attendance, effort, improvement, consistency, leadership };
 }
@@ -798,11 +798,11 @@ export default function AthletePortal() {
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
-  const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
-  const nextLevel = athlete ? getNextLevel(athlete.xp) : LEVELS[1];
-  const progress = athlete ? getLevelProgress(athlete.xp) : { percent: 0, remaining: 300 };
-  const streak = athlete ? fmtStreak(athlete.streak) : fmtStreak(0);
-  const streakMult = athlete ? getStreakMult(athlete.streak) : 1;
+  const level = athlete ? getLevel(athlete.xp ?? 0) : LEVELS[0];
+  const nextLevel = athlete ? getNextLevel(athlete.xp ?? 0) : LEVELS[1];
+  const progress = athlete ? getLevelProgress(athlete.xp ?? 0) : { percent: 0, remaining: 300 };
+  const streak = athlete ? fmtStreak(athlete.streak ?? 0) : fmtStreak(0);
+  const streakMult = athlete ? getStreakMult(athlete.streak ?? 0) : 1;
   const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
 
   const saveJournalEntry = () => {
@@ -930,7 +930,7 @@ export default function AthletePortal() {
     if (!athlete) return { leaderboard: [] as Athlete[], athleteRank: 0 };
     const genderFiltered = roster
       .filter(a => a.gender === athlete.gender && a.group === athlete.group)
-      .sort((a, b) => b.xp - a.xp);
+      .sort((a, b) => (b.xp ?? 0) - (a.xp ?? 0));
     const rank = genderFiltered.findIndex(a => a.id === athlete.id) + 1;
     return { leaderboard: genderFiltered, athleteRank: rank };
   }, [athlete, roster]);
@@ -1300,7 +1300,7 @@ export default function AthletePortal() {
             <div className="space-y-4">
               {(() => {
                 const match = selectedOnboardAthlete;
-                const lv = getLevel(match.xp);
+                const lv = getLevel(match.xp ?? 0);
                 return (
                   <>
                     <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-6 text-center">
@@ -1309,7 +1309,7 @@ export default function AthletePortal() {
                       </div>
                       <p className="text-white font-bold text-xl mb-1">{match.name}</p>
                       <p className="text-white/60 text-sm mb-2">{match.group.toUpperCase()} · Age {match.age}</p>
-                      <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp} XP</span>
+                      <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp ?? 0} XP</span>
                       <div className="mt-3 pt-3 border-t border-white/5">
                         <div className="flex items-center justify-center gap-2">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
@@ -1415,18 +1415,18 @@ export default function AthletePortal() {
         <div className="flex items-center justify-between mb-4 lg:mb-8">
           <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
           <div className="text-center">
-            <h2 className="text-white font-bold text-lg lg:text-4xl xl:text-5xl">{athlete.name}</h2>
+            <h2 className="text-white font-bold text-lg lg:text-4xl xl:text-5xl">{athlete?.name ?? ""}</h2>
             <div className="flex items-center justify-center gap-2 lg:gap-3 mt-0.5 lg:mt-2">
               <span style={{ color: level.color }} className="text-sm lg:text-xl font-bold">{level.icon} {level.name}</span>
               <span className="text-white/50 text-xs lg:text-base">·</span>
-              <span className="text-white/60 text-xs lg:text-lg">{athlete.group.toUpperCase()}</span>
+              <span className="text-white/60 text-xs lg:text-lg">{(athlete?.group ?? "").toUpperCase()}</span>
             </div>
             <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-white/50 text-sm font-mono">Age {athlete.age}</span>
-              {athlete.usaSwimmingId && (
+              <span className="text-white/50 text-sm font-mono">Age {athlete?.age ?? 0}</span>
+              {athlete?.usaSwimmingId && (
                 <>
                   <span className="text-white/60 text-sm">·</span>
-                  <span className="text-[#00f0ff]/90 text-sm font-mono">USA-S {athlete.usaSwimmingId}</span>
+                  <span className="text-[#00f0ff]/90 text-sm font-mono">USA-S {athlete?.usaSwimmingId}</span>
                 </>
               )}
             </div>
@@ -1445,7 +1445,7 @@ export default function AthletePortal() {
         {/* XP Bar */}
         <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
-            <span className="text-white text-xs lg:text-base font-bold font-mono">Level {LEVELS.indexOf(level) + 1} — <AnimatedCounter value={athlete.xp} />/{nextLevel ? nextLevel.xp : level.xp} XP</span>
+            <span className="text-white text-xs lg:text-base font-bold font-mono">Level {LEVELS.indexOf(level) + 1} — <AnimatedCounter value={athlete?.xp ?? 0} />/{nextLevel ? nextLevel.xp : level.xp} XP</span>
             {nextLevel ? (
               <span className="text-[#A78BFA] text-xs font-mono">{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
@@ -1461,18 +1461,18 @@ export default function AthletePortal() {
         {/* Quick Stats Row */}
         <div className="grid grid-cols-3 gap-3 lg:gap-6 mb-5 lg:mb-10 w-full">
           <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white flex items-center justify-center gap-1"><StreakFlame streak={athlete.streak} size={32} /> {athlete.streak}</div>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white flex items-center justify-center gap-1"><StreakFlame streak={athlete?.streak ?? 0} size={32} /> {athlete?.streak ?? 0}</div>
             <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>
           <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.totalPractices}</div>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete?.totalPractices ?? 0}</div>
             <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2">PRACTICES</div>
           </div>
           <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{(athlete?.weekSessions ?? 0) + (athlete?.weekWeightSessions ?? 0)}/{getWeekTarget(athlete?.group ?? "")}</div>
             <div className="text-white/60 text-xs lg:text-base xl:text-lg font-mono tracking-wider mt-1">
-              {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
+              {athlete?.weekSessions ?? 0}🏊 {athlete?.weekWeightSessions ?? 0}🏋️ / {getGroupTargets(athlete?.group ?? "").pool}+{getGroupTargets(athlete?.group ?? "").weight}
             </div>
             <div className="text-white/60 text-xs lg:text-base font-mono tracking-wider">THIS WEEK</div>
           </div>
@@ -1547,15 +1547,15 @@ export default function AthletePortal() {
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8">TODAY&apos;S EFFORT</h3>
               <div className="grid grid-cols-3 gap-3 lg:gap-8">
                 <div className="text-center">
-                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#60a5fa]">{athlete?.dailyXP?.pool ?? 0}</div>
                   <div className="text-sm lg:text-lg text-white/60">Pool</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#f59e0b]">{athlete.dailyXP?.weight || 0}</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#f59e0b]">{athlete?.dailyXP?.weight ?? 0}</div>
                   <div className="text-sm lg:text-lg text-white/60">Weight</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#ef4444]">{athlete.dailyXP?.meet || 0}</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#ef4444]">{athlete?.dailyXP?.meet ?? 0}</div>
                   <div className="text-sm lg:text-lg text-white/60">Meet</div>
                 </div>
               </div>
@@ -1565,12 +1565,12 @@ export default function AthletePortal() {
               </div>
             </div>
 
-            {athlete.weightStreak > 0 && (
+            {(athlete?.weightStreak ?? 0) > 0 && (
               <div className="p-5 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#f59e0b]/20">
                 <h3 className="text-white/50 text-xs lg:text-sm font-mono tracking-wider mb-3">IRON DISCIPLINE</h3>
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl font-black text-[#f59e0b]">{athlete.weightStreak}</span>
-                  <span className="text-white/60 text-xs">sessions · {athlete.weekWeightSessions} this week</span>
+                  <span className="text-2xl font-black text-[#f59e0b]">{athlete?.weightStreak ?? 0}</span>
+                  <span className="text-white/60 text-xs">sessions · {athlete?.weekWeightSessions ?? 0} this week</span>
                 </div>
               </div>
             )}
@@ -1600,7 +1600,7 @@ export default function AthletePortal() {
                     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                     // Check if athlete practiced on this day (check journal or daily XP)
                     const hadPractice = journal.some(j => j.date === dateStr) ||
-                      (athlete.dailyXP?.date === dateStr && (athlete.dailyXP.pool + athlete.dailyXP.weight + athlete.dailyXP.meet) > 0) ||
+                      (athlete?.dailyXP?.date === dateStr && ((athlete?.dailyXP?.pool ?? 0) + (athlete?.dailyXP?.weight ?? 0) + (athlete?.dailyXP?.meet ?? 0)) > 0) ||
                       times.some(t => t.date === dateStr);
                     const isToday = dateStr === todayStr;
                     days.push({ date: dateStr, active: hadPractice, isToday, day: d.getDate() });
@@ -1695,14 +1695,14 @@ export default function AthletePortal() {
               const shortStroke = (s: string) => strokeNames[s] || s;
               const courseOrder = ["SCY", "LCM", "SCM"] as const;
               const byCourse: Record<string, typeof athlete.bestTimes> = {};
-              for (const bt of athlete.bestTimes) {
+              for (const bt of athlete.bestTimes ?? []) {
                 const c = bt.course || "SCY";
                 if (!byCourse[c]) byCourse[c] = [];
                 byCourse[c].push(bt);
               }
               // Sort each course's times by distance then stroke
               for (const c of Object.keys(byCourse)) {
-                byCourse[c].sort((a, b) => {
+                (byCourse[c] ?? []).sort((a, b) => {
                   const dA = parseInt(a.event) || 0, dB = parseInt(b.event) || 0;
                   if (dA !== dB) return dA - dB;
                   return (a.stroke || "").localeCompare(b.stroke || "");
@@ -1727,7 +1727,7 @@ export default function AthletePortal() {
                         <span className="text-white/30 text-xs">{c === "SCY" ? "Short Course Yards" : c === "LCM" ? "Long Course Meters" : "Short Course Meters"}</span>
                       </div>
                       <div className="grid gap-1.5">
-                        {byCourse[c].map((bt, i) => (
+                        {(byCourse[c] ?? []).map((bt, i) => (
                           <div key={`${c}-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/5 min-h-[48px]">
                             <span className="text-white text-sm font-bold">{bt.event} {shortStroke(bt.stroke)}</span>
                             <div className="text-right flex items-center gap-3">
@@ -2260,13 +2260,13 @@ export default function AthletePortal() {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">SIDE QUESTS</h3>
               <span className="text-white/25 text-xs font-mono">
-                {Object.values(athlete.quests || {}).filter(s => s === "done").length}/{QUEST_DEFS.length} done
+                {Object.values(athlete?.quests ?? {}).filter(s => s === "done").length}/{QUEST_DEFS.length} done
               </span>
             </div>
             <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             {QUEST_DEFS.map(q => {
-              const status = athlete.quests?.[q.id] || "pending";
-              const note = athlete.questNotes?.[q.id] || "";
+              const status = (athlete?.quests ?? {})[q.id] ?? "pending";
+              const note = (athlete?.questNotes ?? {})[q.id] ?? "";
               return (
                 <div key={q.id} className={`p-4 rounded-xl border transition-all ${
                   status === "done" ? "bg-emerald-500/5 border-emerald-500/20" :
@@ -2465,8 +2465,8 @@ export default function AthletePortal() {
               <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
             </div>
             {leaderboard.map((a, i) => {
-              const lv = getLevel(a.xp);
-              const isMe = a.id === athlete.id;
+              const lv = getLevel(a.xp ?? 0);
+              const isMe = a.id === athlete?.id;
               const rank = i + 1;
               return (
                 <div key={a.id} id={isMe ? "my-rank" : undefined}
@@ -2485,8 +2485,8 @@ export default function AthletePortal() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
-                    <span className="text-white/60 text-xs font-mono">{a.xp} XP</span>
-                    {a.streak >= 3 && <span className="text-sm text-[#ef4444]">{a.streak}d</span>}
+                    <span className="text-white/60 text-xs font-mono">{a?.xp ?? 0} XP</span>
+                    {(a?.streak ?? 0) >= 3 && <span className="text-sm text-[#ef4444]">{a?.streak ?? 0}d</span>}
                   </div>
                 </div>
               );
@@ -2655,8 +2655,8 @@ export default function AthletePortal() {
         {/* ── MEETS TAB ── */}
         {tab === "meets" && (() => {
           const meets: MeetData[] = (() => { try { return JSON.parse(localStorage.getItem("apex-meets-v1") || "[]"); } catch { return []; } })();
-          const myMeets = meets.filter(m => m.status !== "completed" && m.events?.some(e => e.entries?.some(en => en.athleteId === athlete.id)));
-          const myRsvpMeets = meets.filter(m => m.status !== "completed" && (m.rsvps?.[athlete.id] !== undefined || m.events?.some(e => e.entries?.some(en => en.athleteId === athlete.id))));
+          const myMeets = meets.filter(m => m.status !== "completed" && (m.events ?? []).some(e => (e.entries ?? []).some(en => en.athleteId === athlete?.id)));
+          const myRsvpMeets = meets.filter(m => m.status !== "completed" && ((m.rsvps ?? {})[athlete?.id ?? ""] !== undefined || (m.events ?? []).some(e => (e.entries ?? []).some(en => en.athleteId === athlete?.id))));
           const allUpcoming = myMeets.length > 0 ? myMeets : myRsvpMeets;
 
           return (
@@ -2671,8 +2671,8 @@ export default function AthletePortal() {
                 </div>
               ) : (
                 allUpcoming.map(meet => {
-                  const myEvents = meet.events?.filter(e => e.entries?.some(en => en.athleteId === athlete.id)) || [];
-                  const myRsvp = meet.rsvps?.[athlete.id] || "pending";
+                  const myEvents = (meet.events ?? []).filter(e => (e.entries ?? []).some(en => en.athleteId === athlete?.id));
+                  const myRsvp = (meet.rsvps ?? {})[athlete?.id ?? ""] ?? "pending";
                   const meetDate = new Date(meet.date + "T00:00:00");
                   const daysUntil = Math.ceil((meetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                   const rsvpDeadline = meet.rsvpDeadline ? new Date(meet.rsvpDeadline + "T00:00:00") : null;
@@ -2707,7 +2707,7 @@ export default function AthletePortal() {
                           <span className="text-white/60 text-sm font-mono tracking-wider block mb-2">YOUR EVENTS</span>
                           <div className="space-y-1.5">
                             {myEvents.map(ev => {
-                              const myEntry = ev.entries?.find(en => en.athleteId === athlete.id);
+                              const myEntry = (ev.entries ?? []).find(en => en.athleteId === athlete?.id);
                               return (
                                 <div key={ev.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                                   <span className="text-white/70 text-sm font-medium">{ev.name}</span>
@@ -2737,10 +2737,10 @@ export default function AthletePortal() {
                       </div>
 
                       {/* Broadcasts */}
-                      {meet.broadcasts && meet.broadcasts.length > 0 && (
+                      {((meet.broadcasts ?? []).length > 0) && (
                         <div className="mt-3 pt-3 border-t border-white/5">
                           <span className="text-white/60 text-sm font-mono tracking-wider block mb-2">COACH UPDATES</span>
-                          {meet.broadcasts.slice(-2).map(b => (
+                          {(meet.broadcasts ?? []).slice(-2).map(b => (
                             <div key={b.id} className="p-2 rounded-lg bg-[#00f0ff]/5 border border-[#00f0ff]/10 mb-1.5">
                               <p className="text-white/50 text-sm">{b.message}</p>
                               <span className="text-white/50 text-sm">{new Date(b.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>

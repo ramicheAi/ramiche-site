@@ -356,7 +356,7 @@ export default function Home() {
               <h2 className="text-xs tracking-[0.25em] uppercase text-[#f59e0b]/60 font-medium">Needs Your Input</h2>
             </div>
             <div className="space-y-3">
-              {data.blockers.map((b, i) => (
+              {data?.blockers?.map((b, i) => (
                 <div key={i} className="flex items-start gap-3">
                   <span className={`w-2 h-2 rounded-full mt-1 ${b.severity === "high" ? "bg-[#ef4444]" : "bg-[#f59e0b]"}`} />
                   <div>
@@ -379,7 +379,7 @@ export default function Home() {
             <div className="h-px flex-1 bg-gradient-to-l from-[#00f0ff]/20 to-transparent" />
           </div>
           <div className="space-y-2">
-            {data.recentActivity.slice(0, 8).map((item, i) => (
+            {data?.recentActivity?.slice(0, 8).map((item, i) => (
               <div key={i} className="flex items-center gap-3 py-1.5">
                 <span className="text-[10px] text-white/20 w-16 shrink-0 text-right font-mono">{item.time}</span>
                 <span className="w-1 h-1 rounded-full" style={{ background: item.color }} />
