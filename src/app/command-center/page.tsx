@@ -507,6 +507,7 @@ export default function CommandCenter() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentNetRef = useRef<HTMLCanvasElement>(null);
   const cmdInputRef = useRef<HTMLInputElement>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   /* ── live clock ── */
   useEffect(() => {
@@ -533,6 +534,7 @@ export default function CommandCenter() {
         if (res.ok) {
           const data = await res.json();
           setBridgeData(data);
+          setLastUpdated(new Date());
           // Update agent status from bridge display array (pre-formatted by sync script)
           const displayAgents = data?.agents?.display;
           if (Array.isArray(displayAgents) && displayAgents.length > 0) {
@@ -561,7 +563,7 @@ export default function CommandCenter() {
       } catch { /* silent — fallback to hardcoded */ }
     };
     fetchBridge();
-    const id = setInterval(fetchBridge, 60000);
+    const id = setInterval(fetchBridge, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -593,7 +595,7 @@ export default function CommandCenter() {
       } catch { /* silent */ }
     };
     fetchCrons();
-    const id = setInterval(fetchCrons, 60000);
+    const id = setInterval(fetchCrons, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -606,7 +608,7 @@ export default function CommandCenter() {
       } catch { /* silent */ }
     };
     fetchTasks();
-    const id = setInterval(fetchTasks, 60000);
+    const id = setInterval(fetchTasks, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -619,7 +621,7 @@ export default function CommandCenter() {
       } catch { /* silent */ }
     };
     fetchChat();
-    const id = setInterval(fetchChat, 30000);
+    const id = setInterval(fetchChat, 10000);
     return () => clearInterval(id);
   }, []);
 
@@ -950,24 +952,29 @@ export default function CommandCenter() {
     localStorage.setItem("cc-reading-plan", JSON.stringify(newPlan));
   };
 
-  /* ── fetch live agent data from status.json ── */
+  /* ── fetch live agent data from status.json (mount + every 15s) ── */
   useEffect(() => {
-    fetch("/status.json", { cache: "no-store" })
-      .then(r => r.json())
-      .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
-        if (!data.agents) return;
-        const merged = AGENTS.map(a => {
-          const live = data.agents!.find(la => la.name === a.name);
-          if (!live) return a;
-          return {
-            ...a,
-            status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as typeof a.status,
-            activeTask: live.task || a.activeTask,
-          };
-        });
-        setLiveAgents(merged);
-      })
-      .catch(() => { /* fallback to hardcoded */ });
+    const fetchStatus = () => {
+      fetch("/status.json", { cache: "no-store" })
+        .then(r => r.json())
+        .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
+          if (!data.agents) return;
+          const merged = AGENTS.map(a => {
+            const live = data.agents!.find(la => la.name === a.name);
+            if (!live) return a;
+            return {
+              ...a,
+              status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as typeof a.status,
+              activeTask: live.task || a.activeTask,
+            };
+          });
+          setLiveAgents(merged);
+        })
+        .catch(() => { /* fallback to hardcoded */ });
+    };
+    fetchStatus();
+    const id = setInterval(fetchStatus, 15000);
+    return () => clearInterval(id);
   }, []);
 
   /* ── resolved agents: live data when available, fallback to static ── */
@@ -1157,6 +1164,14 @@ export default function CommandCenter() {
               <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#e5e5e5' }}>PARALLAX</span>
               <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 14 }}>|</span>
               <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#888888' }}>COMMAND CENTER</span>
+              {lastUpdated && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e', animation: 'pulse 2s infinite' }} />
+                  <span style={{ fontSize: 10, color: '#666', fontVariantNumeric: 'tabular-nums' }}>
+                    {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                  </span>
+                </span>
+              )}
             </Link>
             <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
               {NAV.map((n) => (
