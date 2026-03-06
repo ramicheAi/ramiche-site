@@ -130,6 +130,8 @@ export default function TaskBoardPage() {
   const [newDesc, setNewDesc] = useState("");
   const [newAssignee, setNewAssignee] = useState("Atlas");
   const [newPriority, setNewPriority] = useState<Task["priority"]>("MEDIUM");
+  const [reviseTask, setReviseTask] = useState<Task | null>(null);
+  const [reviseFeedback, setReviseFeedback] = useState("");
 
   // Fetch live tasks from bridge API
   useEffect(() => {
@@ -206,6 +208,30 @@ export default function TaskBoardPage() {
         body: JSON.stringify({ type: "tasks", taskId: task.id, update: { ...task, status: "backlog" } }),
       });
     } catch {}
+  };
+
+  // Send revision back to agent with feedback
+  const submitRevision = async (task: Task) => {
+    if (!reviseFeedback.trim()) return;
+    // Move task back to in-progress
+    quickAction(task, "review", "in-progress");
+    // Trigger agent re-spawn with feedback via bridge API
+    try {
+      await fetch("/api/bridge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "trigger",
+          taskId: task.id,
+          fromCol: "review",
+          agent: task.assignee,
+          title: `[REVISION] ${task.title}`,
+          description: `REVISION FEEDBACK: ${reviseFeedback.trim()}. Original task: ${task.description}`,
+        }),
+      });
+    } catch {}
+    setReviseTask(null);
+    setReviseFeedback("");
   };
 
   // Quick action: move task to next column + trigger agent
@@ -498,7 +524,7 @@ export default function TaskBoardPage() {
                             <button
                               className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                               style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
-                              onClick={() => quickAction(task, col.id, "in-progress")}
+                              onClick={() => { setReviseTask(task); setReviseFeedback(""); }}
                             >
                               Revise
                             </button>
@@ -595,6 +621,53 @@ export default function TaskBoardPage() {
                 className="px-6 py-3 rounded-xl text-sm"
                 style={{ color: "rgba(255,255,255,0.4)" }}
                 onClick={() => setShowNewTask(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Revision Feedback Modal ──────────────────────────────────────── */}
+      {reviseTask && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setReviseTask(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6 space-y-4"
+            style={{ background: "#12121a", border: "2px solid rgba(245,158,11,0.2)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold" style={{ color: "#e2e8f0" }}>
+              Revise: {reviseTask.title}
+            </h2>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Tell {reviseTask.assignee} what needs to change. They&apos;ll be re-spawned with your feedback.
+            </p>
+            <textarea
+              className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              placeholder="What needs to change?"
+              rows={4}
+              value={reviseFeedback}
+              onChange={(e) => setReviseFeedback(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-3 pt-2">
+              <button
+                className="flex-1 py-3 rounded-xl text-sm font-medium transition-all hover:scale-105"
+                style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "2px solid rgba(245,158,11,0.3)" }}
+                onClick={() => submitRevision(reviseTask)}
+              >
+                Send Revision
+              </button>
+              <button
+                className="px-6 py-3 rounded-xl text-sm"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+                onClick={() => setReviseTask(null)}
               >
                 Cancel
               </button>

@@ -1,126 +1,152 @@
 {
-  "lastUpdated": "2026-02-17T18:30:00Z",
-  "stats": {
-    "activeProjects": 6,
-    "tasksShipped": 95,
-    "agentsOnline": 19,
-    "athletesBeta": "240+"
-  },
   "agents": [
-    { "name": "Atlas", "model": "Opus 4.6", "role": "Lead Strategist", "status": "active", "task": "Auto-update system + page fixes + meet management", "color": "#00f0ff" },
-    { "name": "SHURI", "model": "DeepSeek V3.2", "role": "Creative Coding", "status": "idle", "task": "Three-portal UI build complete — awaiting next assignment", "color": "#34d399" },
-    { "name": "PROXIMON", "model": "Gemini 3.0 Pro", "role": "Systems Architect", "status": "idle", "task": "Firebase v2 spec delivered — awaiting deploy", "color": "#f97316" },
-    { "name": "MICHAEL", "model": "GLM 4.6", "role": "Swim Training AI", "status": "done", "task": "Practice schedule builder — 7 group templates DELIVERED", "color": "#06b6d4" },
-    { "name": "KIYOSAKI", "model": "DeepSeek V3.2", "role": "Financial Intelligence", "status": "done", "task": "Financial model delivered — tiered pricing validated", "color": "#fcd34d" },
-    { "name": "INK", "model": "DeepSeek V3.2", "role": "Content Creator", "status": "done", "task": "5-piece Apex launch content package DELIVERED", "color": "#c084fc" },
-    { "name": "Vee", "model": "Kimi K2.5", "role": "Brand & Marketing", "status": "done", "task": "GA pre-launch + Shopify copy + Studio outreach DELIVERED", "color": "#ec4899" },
-    { "name": "ECHO", "model": "Kimi K2.5", "role": "Community & Social", "status": "done", "task": "Discord architecture + community strategy DELIVERED", "color": "#38bdf8" },
-    { "name": "Aetherion", "model": "Gemini 3.0 Pro", "role": "Visionary Architect", "status": "done", "task": "5 blueprints + Phase 1 matrix + SHARED_CONTEXT delivered", "color": "#818cf8" },
-    { "name": "SELAH", "model": "DeepSeek V3.2", "role": "Wellness & Sport Psychology", "status": "done", "task": "Meditation library + journaling system + athlete check-in", "color": "#10b981" },
-    { "name": "Widow", "model": "Haiku 3.5", "role": "Cybersecurity & Intel", "status": "idle", "task": "Queued: API audit + COPPA compliance check", "color": "#ef4444" },
-    { "name": "TheMAESTRO", "model": "DeepSeek V3.2", "role": "Music Production", "status": "blocked", "task": "BLOCKED: Needs release timeline from Ramon", "color": "#f59e0b" },
-    { "name": "SIMONS", "model": "DeepSeek V3.2", "role": "Algorithmic Analysis", "status": "idle", "task": "Queued: Competitor pricing validation", "color": "#22d3ee" },
-    { "name": "Dr. Strange", "model": "DeepSeek V3.2", "role": "Forecasting & Decisions", "status": "idle", "task": "Queued: Kickstarter landscape analysis", "color": "#a855f7" },
-    { "name": "MERCURY", "model": "Gemini 3.0 Pro", "role": "Sales & Revenue Ops", "status": "idle", "task": "Queued: Studio pricing + outreach targets", "color": "#fbbf24" },
-    { "name": "HAVEN", "model": "DeepSeek V3.2", "role": "Customer Success", "status": "idle", "task": "Queued: Apex onboarding flows + coach welcome", "color": "#4ade80" },
-    { "name": "NOVA", "model": "DeepSeek V3.2", "role": "3D Fabrication", "status": "idle", "task": "Research: Bambu Lab A1 inventory pipeline", "color": "#14b8a6" },
-    { "name": "Prophets", "model": "Kimi K2.5", "role": "Spiritual Wisdom", "status": "idle", "task": "Available: Daily Scripture + morale check-ins", "color": "#d4a574" },
-    { "name": "TRIAGE", "model": "Sonnet 4.5", "role": "System Doctor", "status": "standby", "task": "On-demand: diagnostics + debugging (SWE-bench 77.2%)", "color": "#f472b6" }
-  ],
-  "projects": [
-    { "name": "Apex Athlete", "status": "active", "priority": "CRITICAL", "progress": 84, "accent": "#f59e0b", "blockers": ["Quest flow UX polish", "Firebase v2 deploy"] },
-    { "name": "Galactik Antics", "status": "active", "priority": "HIGH", "progress": 48, "accent": "#00f0ff", "blockers": ["Shopify API token needed", "Weavy product renders pending"] },
-    { "name": "Parallax Studio", "status": "active", "priority": "HIGH", "progress": 40, "accent": "#a855f7", "blockers": ["Portfolio + case studies needed"] },
-    { "name": "SCOWW", "status": "active", "priority": "HIGH", "progress": 55, "accent": "#22d3ee", "blockers": ["Event logistics finalization", "Registration page"] },
-    { "name": "The Baba Studio", "status": "blocked", "priority": "MED", "progress": 15, "accent": "#e879f9", "blockers": ["Needs release timeline from Ramon"] },
-    { "name": "Parallax", "status": "active", "priority": "MED", "progress": 15, "accent": "#e879f9", "blockers": ["Artist roster page", "Distribution pipeline"] }
-  ],
-  "recentActivity": [
-    { "time": "1:36 PM", "text": "Atlas: All pages now auto-update from status.json — no more stale data", "color": "#00f0ff" },
-    { "time": "9:41 AM", "text": "Stripe checkout confirmed working — all 3 tiers ($149/$349/$549)", "color": "#34d399" },
-    { "time": "9:32 AM", "text": "Ramon: Copyright filed for Apex Athlete at eco.copyright.gov ($65)", "color": "#a855f7" },
-    { "time": "Feb 16 PM", "text": "Atlas: CI/CD pipeline deployed (GitHub Actions + Husky + Vitest)", "color": "#00f0ff" },
-    { "time": "Feb 16 PM", "text": "Atlas: Billing page rebuilt — 3 tiers, full features at every level", "color": "#f59e0b" },
-    { "time": "Feb 16 PM", "text": "Atlas: Competitor research — TeamUnify, ARI, TeamSnap analyzed", "color": "#22d3ee" },
-    { "time": "Feb 16 AM", "text": "Ramon: Pricing model locked — $149/$349/$549 + Enterprise", "color": "#fcd34d" },
-    { "time": "Feb 10", "text": "KIYOSAKI: Financial model delivered — tiered projections complete", "color": "#fcd34d" },
-    { "time": "Feb 9", "text": "Model tiers LOCKED — 19 agents assigned", "color": "#00f0ff" },
-    { "time": "Feb 7", "text": "Apex Athlete v1 first live test — ALL checkpoints working", "color": "#f59e0b" }
-  ],
-  "blockers": [
-    { "title": "Firebase v2 Deploy", "desc": "Spec ready from PROXIMON — needs deploy to Vercel", "severity": "high" },
-    { "title": "Quest Flow UX", "desc": "Polish quest unlock/submit flow for athletes", "severity": "medium" },
-    { "title": "Baba Studio Timeline", "desc": "TheMAESTRO needs release dates for music pipeline", "severity": "medium" }
-  ],
-  "financial": {
-    "apexARR": "$3.72M",
-    "apexTarget": "Y1 Base (1K teams)",
-    "gaProducts": 23,
-    "gaProductsBreakdown": "13 cases + 5 posters + 5 tees",
-    "studioRevenue": "$300-500 per sprint",
-    "investmentReadiness": "9/12 (copyright filed)",
-    "unitEconomics": { "cac": "$15", "ltv": "$588", "ltvCacRatio": "39:1" },
-    "pricing": {
-      "tiers": [
-        { "name": "Starter", "price": "$149/mo", "athletes": "Up to 50 athletes", "features": "All core features included", "support": "Email support (48h response)", "color": "#22d3ee" },
-        { "name": "Club", "price": "$349/mo", "athletes": "Up to 150 athletes", "features": "All core features + priority support", "support": "Priority support (24h response)", "color": "#00f0ff", "featured": true },
-        { "name": "Program", "price": "$549/mo", "athletes": "Up to 300 athletes", "features": "All core features + dedicated manager", "support": "Dedicated success manager", "color": "#a855f7" },
-        { "name": "Enterprise", "price": "Custom", "athletes": "300+ athletes", "features": "Contact us for custom pricing", "support": "Full onboarding + custom SLA", "color": "#fcd34d" }
-      ],
-      "philosophy": "Full features at every tier. Scale by team size & support."
+    {
+      "name": "archivist",
+      "model": "gemini-3.1-flash-lite-preview",
+      "role": "workspace-indexer",
+      "status": "idle",
+      "task": "Standing by"
     },
-    "projections": [
-      { "year": "Y1 (Conservative)", "arr": "$1.86M", "teams": "500", "arpu": "$310", "churn": "5%", "color": "#60a5fa" },
-      { "year": "Y1 (Base)", "arr": "$3.72M", "teams": "1,000", "arpu": "$310", "churn": "4%", "color": "#f59e0b" },
-      { "year": "Y1 (Aggressive)", "arr": "$9.3M", "teams": "2,500", "arpu": "$310", "churn": "3%", "color": "#ef4444" },
-      { "year": "Y3 (Base)", "arr": "$14.9M", "teams": "4,000", "arpu": "$310", "churn": "3%", "color": "#a855f7" }
-    ],
-    "brands": [
-      {
-        "name": "Apex Athlete", "accent": "#f59e0b", "icon": "\u2726",
-        "streams": [
-          { "name": "SaaS Subscriptions ($149-$549/mo)", "status": "active", "monthly": "Beta (Stripe live)", "potential": "$310K/mo @ 1K teams" },
-          { "name": "App Store (v3)", "status": "planned", "monthly": "\u2014", "potential": "$50K+/mo (30% premium)" }
-        ]
-      },
-      {
-        "name": "Galactik Antics", "accent": "#00f0ff", "icon": "\u2606",
-        "streams": [
-          { "name": "Phone Cases", "status": "ready", "monthly": "\u2014", "potential": "$5K\u2013$15K/mo" },
-          { "name": "Framed Posters", "status": "ready", "monthly": "\u2014", "potential": "$3K\u2013$8K/mo" },
-          { "name": "T-Shirts", "status": "planned", "monthly": "\u2014", "potential": "$2K\u2013$6K/mo" },
-          { "name": "Collector Tiers", "status": "planned", "monthly": "\u2014", "potential": "$1K\u2013$5K/mo (recurring)" }
-        ]
-      },
-      {
-        "name": "Parallax Studio", "accent": "#a855f7", "icon": "\u2662",
-        "streams": [
-          { "name": "48h Sprint ($300\u2013$500)", "status": "active", "monthly": "\u2014", "potential": "$3K\u2013$10K/mo" },
-          { "name": "AI Agent Setup ($1K\u2013$3K)", "status": "soon", "monthly": "\u2014", "potential": "$5K\u2013$15K/mo" },
-          { "name": "Shopify Setup ($500\u20131.5K)", "status": "soon", "monthly": "\u2014", "potential": "$2K\u2013$6K/mo" }
-        ]
-      },
-      {
-        "name": "The Baba Studio", "accent": "#e879f9", "icon": "\u266B",
-        "streams": [
-          { "name": "Music Releases", "status": "blocked", "monthly": "\u2014", "potential": "TBD (needs timeline)" },
-          { "name": "Artist Management", "status": "planned", "monthly": "\u2014", "potential": "Revenue splits TBD" }
-        ]
-      }
-    ],
-    "readiness": [
-      { "item": "Live beta with real users (240+ athletes)", "done": true },
-      { "item": "Successful live test (Feb 7)", "done": true },
-      { "item": "Financial model with 3 scenarios + unit economics", "done": true },
-      { "item": "19-agent AI operations team (model tiers locked)", "done": true },
-      { "item": "Multi-brand portfolio (4 active brands)", "done": true },
-      { "item": "Shopify store created (GALAKTIK ANTICS)", "done": true },
-      { "item": "Stripe checkout — 3 tiers wired + tested", "done": true },
-      { "item": "CI/CD pipeline (GitHub Actions + Husky + Vitest)", "done": true },
-      { "item": "Copyright filed (Feb 17, 2026)", "done": true },
-      { "item": "Firebase backend (v2) — deploy pending", "done": false },
-      { "item": "App Store deployment (v3)", "done": false },
-      { "item": "Revenue / paying customers", "done": false }
-    ]
-  }
+    {
+      "name": "atlas",
+      "model": "claude-opus-4-6",
+      "role": "operations-lead",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "triage",
+      "model": "claude-sonnet-4-5",
+      "role": "debugging",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "shuri",
+      "model": "deepseek-v3.2",
+      "role": "engineering",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "proximon",
+      "model": "gemini-3-pro",
+      "role": "architecture",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "aetherion",
+      "model": "gemini-3-pro",
+      "role": "creative-director",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "simons",
+      "model": "deepseek-v3.2",
+      "role": "data-analysis",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "mercury",
+      "model": "gemini-3-pro",
+      "role": "sales",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "vee",
+      "model": "kimi-k2.5",
+      "role": "brand-strategy",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "ink",
+      "model": "deepseek-v3.2",
+      "role": "copywriting",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "echo",
+      "model": "kimi-k2.5",
+      "role": "community",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "haven",
+      "model": "deepseek-v3.2",
+      "role": "support",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "widow",
+      "model": "claude-3.5-haiku",
+      "role": "security",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "dr-strange",
+      "model": "deepseek-v3.2",
+      "role": "forecasting",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "kiyosaki",
+      "model": "deepseek-v3.2",
+      "role": "finance",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "michael",
+      "model": "glm-4.6",
+      "role": "swim-coaching",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "selah",
+      "model": "deepseek-v3.2",
+      "role": "psychology",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "prophets",
+      "model": "kimi-k2.5",
+      "role": "spiritual",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "themaestro",
+      "model": "deepseek-v3.2",
+      "role": "music",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "nova",
+      "model": "claude-sonnet-4-5",
+      "role": "fabrication",
+      "status": "idle",
+      "task": "Standing by"
+    },
+    {
+      "name": "themis",
+      "model": "claude-sonnet-4-5",
+      "role": "governance",
+      "status": "idle",
+      "task": "Standing by"
+    }
+  ],
+  "lastSync": "2026-03-06T01:09:35.592Z"
 }

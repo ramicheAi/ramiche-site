@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "Parallax",
   },
   other: {
-    "theme-color": "#1a1a5e",
+    "theme-color": "#0a0a0a",
   },
 };
 
@@ -44,21 +44,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" style={{ colorScheme: "dark" }}>
+    <html lang="en" className="dark" style={{ colorScheme: "dark", backgroundColor: "#0a0a0a" }}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `
-          if('serviceWorker' in navigator){
-            navigator.serviceWorker.getRegistrations().then(function(regs){
-              regs.forEach(function(r){r.unregister()});
-            });
-            caches.keys().then(function(keys){
-              keys.forEach(function(k){caches.delete(k)});
-            });
-          }
+          try{
+            if('serviceWorker' in navigator){
+              navigator.serviceWorker.getRegistrations().then(function(regs){
+                regs.forEach(function(r){r.unregister()});
+              }).catch(function(){});
+              caches.keys().then(function(keys){
+                keys.forEach(function(k){caches.delete(k)});
+              }).catch(function(){});
+            }
+          }catch(e){}
         `}} />
       </head>
 
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable}`} style={{ backgroundColor: "#0a0a0a", color: "#ededed" }}>
         {children}
         <SpeedInsights />
         <Analytics />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
@@ -78,7 +78,21 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
 };
 
 export default function YoloBuildsPage() {
-  const [reviews, setReviews] = useState<Record<string, ReviewStatus>>({});
+  const [reviews, setReviews] = useState<Record<string, ReviewStatus>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const saved = localStorage.getItem('yolo-reviews');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('yolo-reviews', JSON.stringify(reviews));
+    } catch {}
+  }, [reviews]);
 
   const setReview = (folder: string, status: ReviewStatus) => {
     setReviews((prev) => ({ ...prev, [folder]: status }));

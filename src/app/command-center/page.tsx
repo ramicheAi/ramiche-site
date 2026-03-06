@@ -474,6 +474,7 @@ export default function CommandCenter() {
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<{text: string; time: string; status: "sent"|"done"}[]>([]);
   const [readingPlan, setReadingPlan] = useState<{book: string; chapter: number; progress: number}>(() => {
+    if (typeof window === 'undefined') return { book: "Proverbs", chapter: 1, progress: 3 };
     try {
       const saved = localStorage.getItem("cc-reading-plan");
       return saved ? JSON.parse(saved) : { book: "Proverbs", chapter: 1, progress: 3 };
@@ -485,6 +486,7 @@ export default function CommandCenter() {
     return focuses[dayIndex];
   });
   const [spiritualStreak, setSpiritualStreak] = useState<number>(() => {
+    if (typeof window === 'undefined') return 0;
     try {
       const saved = localStorage.getItem("cc-spiritual-streak");
       if (!saved) return 0;
@@ -497,6 +499,7 @@ export default function CommandCenter() {
     } catch { return 0; }
   });
   const [devotionalCheckedIn, setDevotionalCheckedIn] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
     try {
       const saved = localStorage.getItem("cc-spiritual-streak");
       if (!saved) return false;
