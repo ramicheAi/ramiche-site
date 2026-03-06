@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import { db, hasConfig } from "@/lib/firebase";
+import { collection, getDocs, doc, setDoc, query, orderBy } from "firebase/firestore";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    YOLO BUILDS — Overnight prototype gallery
@@ -35,10 +37,23 @@ export default function YoloBuildsPage() {
   const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/yolo-review")
-      .then((res) => res.json())
-      .then((data: Build[]) => setBuilds(data))
-      .catch(() => {});
+    async function loadBuilds() {
+      if (db && hasConfig) {
+        try {
+          const q = query(collection(db, "yolo_builds"), orderBy("date", "desc"));
+          const snap = await getDocs(q);
+          const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as unknown as Build));
+          if (data.length > 0) { setBuilds(data); return; }
+        } catch {}
+      }
+      // Fallback to API
+      try {
+        const res = await fetch("/api/yolo-review");
+        const data = await res.json();
+        setBuilds(data);
+      } catch {}
+    }
+    loadBuilds();
   }, []);
 
   useEffect(() => {
@@ -48,23 +63,21 @@ export default function YoloBuildsPage() {
   }, [toast]);
 
   const setReview = async (folder: string, status: ReviewStatus) => {
-    try {
-      const res = await fetch("/api/yolo-review", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ folder, reviewStatus: status }),
-      });
-      const updated: Build = await res.json();
-      setBuilds((prev) =>
-        prev.map((b) => (b.folder === folder ? updated : b)),
-      );
-    } catch {
-      /* ignore */
+    // Update Firestore
+    if (db && hasConfig) {
+      try {
+        const docRef = doc(db, "yolo_builds", folder);
+        await setDoc(docRef, { reviewStatus: status, reviewedAt: new Date().toISOString() }, { merge: true });
+      } catch {}
     }
+    // Update local state
+    setBuilds((prev) =>
+      prev.map((b) => (b.folder === folder ? { ...b, reviewStatus: status } : b)),
+    );
     if (status === "approved") {
-      setToast({ message: "Build approved \u2014 status saved", color: "#22c55e" });
+      setToast({ message: "Build approved \u2014 saved to Firestore", color: "#22c55e" });
     } else if (status === "rejected") {
-      setToast({ message: "Build rejected \u2014 status saved", color: "#ef4444" });
+      setToast({ message: "Build rejected \u2014 saved to Firestore", color: "#ef4444" });
     } else {
       setToast({ message: "Review reset to pending", color: "#a3a3a3" });
     }
