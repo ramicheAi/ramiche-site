@@ -76,7 +76,7 @@ export default function Home() {
     { name: "METTLE", role: "SaaS Platform" },
   ];
 
-  const stats = data
+  const stats = data?.stats
     ? [
         { label: "Active Projects", value: String(data.stats.activeProjects), accent: "cyan" as const },
         { label: "Tasks Shipped", value: String(data.stats.tasksShipped), accent: "purple" as const },
@@ -116,9 +116,9 @@ export default function Home() {
 
   if (!mounted) return null;
 
-  const activeAgents = data?.agents.filter(a => a.status === "active") || [];
-  const doneAgents = data?.agents.filter(a => a.status === "done") || [];
-  const blockedAgents = data?.agents.filter(a => a.status === "blocked") || [];
+  const activeAgents = data?.agents?.filter(a => a.status === "active") || [];
+  const doneAgents = data?.agents?.filter(a => a.status === "done") || [];
+  const blockedAgents = data?.agents?.filter(a => a.status === "blocked") || [];
 
   return (
     <main className="relative min-h-screen bg-[#06020f] text-white overflow-hidden">
@@ -306,7 +306,7 @@ export default function Home() {
       )}
 
       {/* ── project progress ──────────────────────────────────── */}
-      {data && (
+      {data?.projects?.length > 0 && (
         <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
@@ -348,7 +348,7 @@ export default function Home() {
       )}
 
       {/* ── blockers ──────────────────────────────────────────── */}
-      {data && data.blockers.length > 0 && (
+      {data?.blockers?.length > 0 && (
         <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="game-panel game-panel-border border-[#f59e0b]/20 bg-[#f59e0b]/5 p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -371,7 +371,7 @@ export default function Home() {
       )}
 
       {/* ── recent activity ───────────────────────────────────── */}
-      {data && (
+      {data?.recentActivity?.length > 0 && (
         <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
