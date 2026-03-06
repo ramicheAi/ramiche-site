@@ -473,40 +473,14 @@ export default function CommandCenter() {
   const [expandedAgent, setExpandedAgent] = useState<string | null>(null);
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<{text: string; time: string; status: "sent"|"done"}[]>([]);
-  const [readingPlan, setReadingPlan] = useState<{book: string; chapter: number; progress: number}>(() => {
-    if (typeof window === 'undefined') return { book: "Proverbs", chapter: 1, progress: 3 };
-    try {
-      const saved = localStorage.getItem("cc-reading-plan");
-      return saved ? JSON.parse(saved) : { book: "Proverbs", chapter: 1, progress: 3 };
-    } catch { return { book: "Proverbs", chapter: 1, progress: 3 }; }
-  });
+  const [readingPlan, setReadingPlan] = useState<{book: string; chapter: number; progress: number}>({ book: "Proverbs", chapter: 1, progress: 3 });
   const [prayerFocus, setPrayerFocus] = useState<string>(() => {
     const focuses = ["Discipline & Focus", "God's Vision for My Life", "Financial Wisdom", "Spiritual Growth", "Health & Strength", "Gratitude & Praise", "Family & Relationships"];
     const dayIndex = new Date().getDay();
     return focuses[dayIndex];
   });
-  const [spiritualStreak, setSpiritualStreak] = useState<number>(() => {
-    if (typeof window === 'undefined') return 0;
-    try {
-      const saved = localStorage.getItem("cc-spiritual-streak");
-      if (!saved) return 0;
-      const { count, lastDate } = JSON.parse(saved);
-      const today = new Date().toDateString();
-      const yesterday = new Date(Date.now() - 86400000).toDateString();
-      if (lastDate === today) return count;
-      if (lastDate === yesterday) return count; // hasn't checked in yet today
-      return 0; // streak broken
-    } catch { return 0; }
-  });
-  const [devotionalCheckedIn, setDevotionalCheckedIn] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      const saved = localStorage.getItem("cc-spiritual-streak");
-      if (!saved) return false;
-      const { lastDate } = JSON.parse(saved);
-      return lastDate === new Date().toDateString();
-    } catch { return false; }
-  });
+  const [spiritualStreak, setSpiritualStreak] = useState<number>(0);
+  const [devotionalCheckedIn, setDevotionalCheckedIn] = useState<boolean>(false);
   const agentNetRef = useRef<HTMLCanvasElement>(null);
   const cmdInputRef = useRef<HTMLInputElement>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);

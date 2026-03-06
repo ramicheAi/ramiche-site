@@ -32,6 +32,14 @@ const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }
   rejected: { label: "Rejected", color: "#ef4444", bg: "rgba(239,68,68,0.25)" },
 };
 
+const SEED_BUILDS: Build[] = [
+  { date: "2026-03-05", name: "PrintQueue — Production Queue Manager", idea: "Real-time print job queue manager with priority ordering, material stock validation, cost tracking, live progress simulation", status: "working", takeaway: "32KB single HTML file. Full job lifecycle. Seeded with Parallax ecosystem data.", folder: "2026-03-05-print-queue-dashboard", agent: "Nova" },
+  { date: "2026-03-03", name: "FilaTrack — Filament Inventory & Cost Tracker", idea: "Interactive filament inventory manager with spool tracking, print logging, cost-per-gram analytics, low-stock alerts", status: "working", takeaway: "1137-line single HTML. Full spool lifecycle: add, log prints, track costs, low-stock alerts.", folder: "2026-03-03-filament-tracker", agent: "Nova" },
+  { date: "2026-03-02", name: "PrintDiag — 3D Print Failure Analyzer", idea: "Interactive FDM failure diagnostic tool with 10 failure modes, step-by-step flowcharts, slicer quick-fix tables", status: "working", takeaway: "690-line single HTML covering 10 FDM failures with diagnostic flowcharts.", folder: "2026-03-02-print-failure-analyzer", agent: "Nova" },
+  { date: "2026-03-02", name: "PrintFlow Storefront", idea: "Full drag-and-drop 3D print quoting storefront — Three.js STL viewer, instant cost calculator, material selector", status: "working", takeaway: "1064 lines. Three.js STL viewer with live cost calculation.", folder: "2026-03-02-printflow-storefront", agent: "Nova" },
+  { date: "2026-03-02", name: "Squad Status Board", idea: "Live dashboard showing all 19 agents with capability badges, model info, and provider", status: "working", takeaway: "Exposed capability gaps across the squad.", folder: "2026-03-02-squad-status-board", agent: "Atlas" },
+];
+
 export default function YoloBuildsPage() {
   const [builds, setBuilds] = useState<Build[]>([]);
   const [toast, setToast] = useState<{ message: string; color: string } | null>(null);
@@ -44,14 +52,16 @@ export default function YoloBuildsPage() {
           const snap = await getDocs(q);
           const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as unknown as Build));
           if (data.length > 0) { setBuilds(data); return; }
+          // Firestore empty — seed it
+          for (const build of SEED_BUILDS) {
+            await setDoc(doc(db, "yolo_builds", build.folder), { ...build, reviewStatus: "pending" }, { merge: true });
+          }
+          setBuilds(SEED_BUILDS.map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus })));
+          return;
         } catch {}
       }
-      // Fallback to API
-      try {
-        const res = await fetch("/api/yolo-review");
-        const data = await res.json();
-        setBuilds(data);
-      } catch {}
+      // No Firestore — use seed data directly
+      setBuilds(SEED_BUILDS.map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus })));
     }
     loadBuilds();
   }, []);

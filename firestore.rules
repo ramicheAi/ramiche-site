@@ -27,6 +27,13 @@ service cloud.firestore {
                    && request.resource.size() < 1048576;
     }
 
+    // ── YOLO builds (approve/reject from Command Center) ────
+    match /yolo_builds/{buildId} {
+      allow read: if true;
+      allow write: if request.resource.data.keys().size() < 30
+                   && request.resource.size() < 1048576;
+    }
+
     // ── Everything else: deny by default ────────────────────
     match /{document=**} {
       allow read, write: if false;
