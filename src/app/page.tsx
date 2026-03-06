@@ -306,7 +306,7 @@ export default function Home() {
       )}
 
       {/* ── project progress ──────────────────────────────────── */}
-      {data?.projects?.length > 0 && (
+      {(data?.projects?.length ?? 0) > 0 && (
         <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#a855f7]/20 to-transparent" />
@@ -314,7 +314,7 @@ export default function Home() {
             <div className="h-px flex-1 bg-gradient-to-l from-[#a855f7]/20 to-transparent" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
-            {data.projects.map(p => (
+            {data?.projects?.map(p => (
               <div key={p.name} className="border rounded-sm p-5 lg:p-6" style={{ borderColor: `${p.accent}30`, background: `${p.accent}08` }}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-sm font-bold" style={{ color: p.accent }}>{p.name}</span>
@@ -348,7 +348,7 @@ export default function Home() {
       )}
 
       {/* ── blockers ──────────────────────────────────────────── */}
-      {data?.blockers?.length > 0 && (
+      {(data?.blockers?.length ?? 0) > 0 && (
         <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="game-panel game-panel-border border-[#f59e0b]/20 bg-[#f59e0b]/5 p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -371,7 +371,7 @@ export default function Home() {
       )}
 
       {/* ── recent activity ───────────────────────────────────── */}
-      {data?.recentActivity?.length > 0 && (
+      {(data?.recentActivity?.length ?? 0) > 0 && (
         <section className="relative z-10 mx-auto max-w-[2000px] px-4 sm:px-6 lg:px-10 xl:px-16 pb-12">
           <div className="flex items-center gap-3 mb-6">
             <div className="h-px flex-1 bg-gradient-to-r from-[#00f0ff]/20 to-transparent" />
