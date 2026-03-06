@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function GlobalError({
   error,
@@ -9,6 +9,8 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [showDetails, setShowDetails] = useState(false);
+
   useEffect(() => {
     console.error("[Parallax Error]", error);
   }, [error]);
@@ -43,10 +45,10 @@ export default function GlobalError({
             color: "#94a3b8",
             fontSize: "1rem",
             lineHeight: 1.6,
-            marginBottom: "2rem",
+            marginBottom: "1rem",
           }}
         >
-          An unexpected error occurred. This has been logged.
+          {error.message || "An unexpected error occurred."}
         </p>
 
         <button
@@ -66,15 +68,42 @@ export default function GlobalError({
           Try Again
         </button>
 
-        <p
+        <button
+          onClick={() => setShowDetails(!showDetails)}
           style={{
+            display: "block",
+            margin: "1rem auto 0",
+            background: "none",
+            border: "none",
             color: "#475569",
             fontSize: "0.8rem",
-            marginTop: "2rem",
+            cursor: "pointer",
           }}
         >
-          If this keeps happening, clear your browser cache and reload.
-        </p>
+          {showDetails ? "Hide details" : "Show error details"}
+        </button>
+
+        {showDetails && (
+          <pre
+            style={{
+              marginTop: "1rem",
+              padding: "1rem",
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              borderRadius: 8,
+              color: "#ef4444",
+              fontSize: "0.7rem",
+              textAlign: "left",
+              overflow: "auto",
+              maxHeight: 200,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+            }}
+          >
+            {error.stack || error.message || "No details available"}
+            {error.digest && `\nDigest: ${error.digest}`}
+          </pre>
+        )}
       </div>
     </div>
   );

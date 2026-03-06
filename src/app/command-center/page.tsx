@@ -507,7 +507,6 @@ export default function CommandCenter() {
       return lastDate === new Date().toDateString();
     } catch { return false; }
   });
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const agentNetRef = useRef<HTMLCanvasElement>(null);
   const cmdInputRef = useRef<HTMLInputElement>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -701,112 +700,11 @@ export default function CommandCenter() {
     } catch { /* silent */ }
   }, [steps, waterG, sleepH, workedOut, vitalsLoaded]);
 
-  /* ── holographic particle canvas ── */
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    let animId: number;
-    const particles: {
-      x: number; y: number; vx: number; vy: number;
-      r: number; a: number; color: string; pulseOffset: number;
-    }[] = [];
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = document.documentElement.scrollHeight;
-    };
-    resize();
-    window.addEventListener("resize", resize);
-
-    const colors = [
-      "rgba(0,240,255,",
-      "rgba(168,85,247,",
-      "rgba(245,158,11,",
-      "rgba(232,121,249,",
-      "rgba(34,211,238,",
-    ];
-
-    for (let i = 0; i < 90; i++) {
-      particles.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        vx: (Math.random() - 0.5) * 0.25,
-        vy: (Math.random() - 0.5) * 0.25,
-        r: Math.random() * 2 + 0.3,
-        a: Math.random() * 0.35 + 0.08,
-        color: colors[Math.floor(Math.random() * colors.length)],
-        pulseOffset: Math.random() * Math.PI * 2,
-      });
-    }
-
-    let frameCount = 0;
-    const draw = () => {
-      frameCount++;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const time = frameCount * 0.02;
-
-      particles.forEach((p) => {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (p.x < -20) p.x = canvas.width + 20;
-        if (p.x > canvas.width + 20) p.x = -20;
-        if (p.y < -20) p.y = canvas.height + 20;
-        if (p.y > canvas.height + 20) p.y = -20;
-
-        const pulse = Math.sin(time + p.pulseOffset) * 0.3 + 0.7;
-        const currentAlpha = p.a * pulse;
-
-        // Glow trail
-        const gradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 8);
-        gradient.addColorStop(0, `${p.color}${currentAlpha * 0.4})`);
-        gradient.addColorStop(0.4, `${p.color}${currentAlpha * 0.1})`);
-        gradient.addColorStop(1, `${p.color}0)`);
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * 8, 0, Math.PI * 2);
-        ctx.fillStyle = gradient;
-        ctx.fill();
-
-        // Core
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r * pulse, 0, Math.PI * 2);
-        ctx.fillStyle = `${p.color}${currentAlpha})`;
-        ctx.fill();
-      });
-
-      // Connection lines
-      for (let i = 0; i < particles.length; i++) {
-        for (let j = i + 1; j < particles.length; j++) {
-          const dx = particles[i].x - particles[j].x;
-          const dy = particles[i].y - particles[j].y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 150) {
-            const alpha = 0.04 * (1 - dist / 150);
-            ctx.beginPath();
-            ctx.moveTo(particles[i].x, particles[i].y);
-            ctx.lineTo(particles[j].x, particles[j].y);
-            ctx.strokeStyle = `rgba(0,240,255,${alpha})`;
-            ctx.lineWidth = 0.5;
-            ctx.stroke();
-          }
-        }
-      }
-
-      animId = requestAnimationFrame(draw);
-    };
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animId);
-      window.removeEventListener("resize", resize);
-    };
-  }, []);
-
   /* ── agent network SVG lines canvas ── */
   useEffect(() => {
+    try {
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) return; // Skip agent network canvas on mobile
     const canvas = agentNetRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -898,6 +796,7 @@ export default function CommandCenter() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };
+    } catch { /* canvas/window not available */ }
   }, []);
 
   /* ── fetchers ── */
@@ -933,7 +832,9 @@ export default function CommandCenter() {
 
   const copyVerse = () => {
     if (!verse) return;
-    navigator.clipboard.writeText(`"${verse.text}" \u2014 ${verse.ref}`);
+    try {
+      navigator.clipboard.writeText(`"${verse.text}" \u2014 ${verse.ref}`);
+    } catch { /* clipboard not available */ }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -1070,11 +971,11 @@ export default function CommandCenter() {
             {Array.from({length: 12}).map((_, i) => (
               <div key={i} className="absolute w-[2px] rounded-full"
                 style={{
-                  height: `${8 + Math.random() * 10}px`,
+                  height: `${8 + (i * 1.3) % 10}px`,
                   left: `${5 + i * 8}%`,
                   background: "linear-gradient(180deg, rgba(0,240,255,0.5), rgba(0,240,255,0.1))",
-                  animation: `rainDrop ${0.5 + Math.random() * 0.4}s linear infinite`,
-                  animationDelay: `${Math.random() * 0.5}s`,
+                  animation: `rainDrop ${0.5 + (i * 0.037) % 0.4}s linear infinite`,
+                  animationDelay: `${(i * 0.047) % 0.5}s`,
                   top: 0,
                 }}
               />
@@ -1132,7 +1033,7 @@ export default function CommandCenter() {
   return (
     <main className="min-h-screen w-full relative overflow-x-hidden" style={{ background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
-      <ParticleField variant="gold" theme="light" opacity={0.1} count={50} interactive connections />
+      <ParticleField variant="gold" theme="light" opacity={0.1} count={20} />
 
       {/* ═══════════════════════════════════════════════════════════════════
           LAYER 0: HOLOGRAPHIC BACKGROUND SYSTEM

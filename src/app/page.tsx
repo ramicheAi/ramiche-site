@@ -131,7 +131,7 @@ export default function Home() {
       </div>
 
       {/* ── Living particles — ambient depth field ── */}
-      <ParticleField count={50} variant="cyan" speed={0.6} opacity={0.25} interactive connections />
+      <ParticleField count={20} variant="cyan" speed={0.6} opacity={0.25} />
 
       {/* ── HUD navigation bar ─────────────────────────────────── */}
       <nav className="relative z-10 border-b border-white/5 bg-[#06020f]/80 backdrop-blur-md">
