@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
@@ -17,6 +18,8 @@ interface Build {
   folder: string;
   agent: string;
 }
+
+type ReviewStatus = "pending" | "approved" | "rejected";
 
 const BUILDS: Build[] = [
   {
@@ -67,12 +70,20 @@ const BUILDS: Build[] = [
 ];
 
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
-  working: { label: "Working", color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
-  partial: { label: "Partial", color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
-  failed:  { label: "Failed",  color: "#ef4444", bg: "rgba(239,68,68,0.15)" },
+  working:  { label: "Working",  color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
+  partial:  { label: "Partial",  color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
+  failed:   { label: "Failed",   color: "#ef4444", bg: "rgba(239,68,68,0.15)" },
+  approved: { label: "Approved", color: "#22c55e", bg: "rgba(34,197,94,0.25)" },
+  rejected: { label: "Rejected", color: "#ef4444", bg: "rgba(239,68,68,0.25)" },
 };
 
 export default function YoloBuildsPage() {
+  const [reviews, setReviews] = useState<Record<string, ReviewStatus>>({});
+
+  const setReview = (folder: string, status: ReviewStatus) => {
+    setReviews((prev) => ({ ...prev, [folder]: status }));
+  };
+
   return (
     <div className="relative min-h-screen bg-[#0a0a0a] text-white">
       <ParticleField />
@@ -93,11 +104,35 @@ export default function YoloBuildsPage() {
         {/* Build Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {BUILDS.map((build) => {
-            const s = STATUS_STYLES[build.status];
+            const review = reviews[build.folder] ?? "pending";
+            const isApproved = review === "approved";
+            const isRejected = review === "rejected";
+            const s = isApproved
+              ? STATUS_STYLES.approved
+              : isRejected
+              ? STATUS_STYLES.rejected
+              : STATUS_STYLES[build.status];
+
             return (
               <div
                 key={build.folder}
-                className="rounded-xl border-2 border-white/[0.08] bg-white/[0.02] p-5 flex flex-col gap-3 hover:border-white/[0.15] transition-colors"
+                className="rounded-xl border-2 p-5 flex flex-col gap-3 transition-all duration-300"
+                style={{
+                  borderColor: isApproved
+                    ? "rgba(34,197,94,0.4)"
+                    : isRejected
+                    ? "rgba(239,68,68,0.3)"
+                    : "rgba(255,255,255,0.08)",
+                  background: isApproved
+                    ? "rgba(34,197,94,0.05)"
+                    : isRejected
+                    ? "rgba(239,68,68,0.03)"
+                    : "rgba(255,255,255,0.02)",
+                  boxShadow: isApproved
+                    ? "0 0 20px rgba(34,197,94,0.15)"
+                    : "none",
+                  opacity: isRejected ? 0.6 : 1,
+                }}
               >
                 {/* Top row: status + date */}
                 <div className="flex items-center justify-between">
@@ -107,8 +142,23 @@ export default function YoloBuildsPage() {
                   <span className="text-xs text-white/30">{build.date}</span>
                 </div>
 
-                {/* Name */}
-                <h3 className="text-base font-bold text-white/90 leading-tight">{build.name}</h3>
+                {/* Name — clickable link to build */}
+                <a
+                  href={`/yolo-builds/${build.folder}/index.html`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group"
+                >
+                  <h3
+                    className="text-base font-bold leading-tight group-hover:underline"
+                    style={{
+                      color: isRejected ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.9)",
+                      textDecoration: isRejected ? "line-through" : "none",
+                    }}
+                  >
+                    {build.name}
+                  </h3>
+                </a>
 
                 {/* Idea */}
                 <p className="text-sm text-white/50 line-clamp-3">{build.idea}</p>
@@ -120,17 +170,35 @@ export default function YoloBuildsPage() {
                 <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/[0.06]">
                   <span className="text-xs text-white/40">Built by <span className="text-white/60 font-medium">{build.agent}</span></span>
                   <div className="flex gap-2">
-                    <button
-                      onClick={() => alert("Coming soon — approval workflow")}
-                      className="text-xs px-2 py-1 rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-colors"
+                    <a
+                      href={`/yolo-builds/${build.folder}/index.html`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs px-2 py-1 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors"
                     >
-                      Approve
+                      Test
+                    </a>
+                    <button
+                      onClick={() => setReview(build.folder, isApproved ? "pending" : "approved")}
+                      className="text-xs px-2 py-1 rounded border transition-colors"
+                      style={{
+                        borderColor: isApproved ? "rgba(34,197,94,0.6)" : "rgba(34,197,94,0.3)",
+                        color: isApproved ? "#fff" : "#4ade80",
+                        background: isApproved ? "rgba(34,197,94,0.3)" : "transparent",
+                      }}
+                    >
+                      {isApproved ? "Approved" : "Approve"}
                     </button>
                     <button
-                      onClick={() => alert("Coming soon — rejection workflow")}
-                      className="text-xs px-2 py-1 rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors"
+                      onClick={() => setReview(build.folder, isRejected ? "pending" : "rejected")}
+                      className="text-xs px-2 py-1 rounded border transition-colors"
+                      style={{
+                        borderColor: isRejected ? "rgba(239,68,68,0.6)" : "rgba(239,68,68,0.3)",
+                        color: isRejected ? "#fff" : "#f87171",
+                        background: isRejected ? "rgba(239,68,68,0.3)" : "transparent",
+                      }}
                     >
-                      Reject
+                      {isRejected ? "Rejected" : "Reject"}
                     </button>
                   </div>
                 </div>
