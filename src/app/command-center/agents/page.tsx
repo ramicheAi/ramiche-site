@@ -624,14 +624,10 @@ export default function AgentManagement() {
                     {/* Avatar */}
                     <div style={{ position: "relative", marginBottom: 2 }}>
                       <div className="hangar-avatar" style={{
-                        width: 28, height: 28, borderRadius: "50%", overflow: "hidden",
-                        border: `1.5px solid ${agent.color}70`,
-                        background: `radial-gradient(circle at 35% 35%, ${agent.color}20 0%, #1a1a2e 70%)`,
-                        boxShadow: `0 0 ${isHovered ? 16 : 6}px ${agent.color}40`,
+                        width: 28, height: 28, overflow: "hidden",
                         animation: agent.status === "active" ? "floatAvatar 3s ease-in-out infinite" : "none",
-                        transition: "box-shadow 0.3s",
                       }}>
-                        <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 2 }} />
+                        <img src={agent.avatar} alt={agent.name} style={{ width: 28, height: 28, objectFit: "contain" }} />
                       </div>
                       {/* Status indicator */}
                       <div style={{
@@ -723,13 +719,10 @@ export default function AgentManagement() {
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     {/* Avatar */}
                     <div style={{
-                      width: 56, height: 56, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
-                      border: `2px solid ${agent.color}40`,
-                      background: `radial-gradient(circle at 35% 35%, ${agent.color}15 0%, #f0f0f5 70%)`,
-                      display: "flex", alignItems: "center", justifyContent: "center", padding: 6,
-                      boxShadow: agent.status === "active" ? `0 0 16px ${agent.color}25` : "none",
+                      width: 56, height: 56, overflow: "hidden", flexShrink: 0,
+                      display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
-                      <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                      <img src={agent.avatar} alt={agent.name} style={{ width: 56, height: 56, objectFit: "contain" }} />
                     </div>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -797,11 +790,9 @@ export default function AgentManagement() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 {chatAgent && !isGroupChat && (
                   <div style={{
-                    width: 32, height: 32, borderRadius: "50%", overflow: "hidden",
-                    border: `2px solid ${chatAgent.color}40`, padding: 3,
-                    background: `radial-gradient(circle, ${chatAgent.color}15, #f0f0f5)`,
+                    width: 32, height: 32, overflow: "hidden",
                   }}>
-                    <img src={chatAgent.avatar} alt={chatAgent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                    <img src={chatAgent.avatar} alt={chatAgent.name} style={{ width: 32, height: 32, objectFit: "contain" }} />
                   </div>
                 )}
                 <div>
@@ -1070,12 +1061,9 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
       {/* Avatar + name */}
       <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", marginBottom: 24, paddingTop: 8 }}>
         <div style={{
-          width: 80, height: 80, borderRadius: "50%", overflow: "hidden", marginBottom: 12,
-          border: `3px solid ${agent.color}40`, padding: 8,
-          background: `radial-gradient(circle at 35% 35%, ${agent.color}15 0%, #f0f0f5 70%)`,
-          boxShadow: `0 0 30px ${agent.color}12`,
+          width: 80, height: 80, overflow: "hidden", marginBottom: 12,
         }}>
-          <img src={agent.avatar} alt={agent.name} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+          <img src={agent.avatar} alt={agent.name} style={{ width: 80, height: 80, objectFit: "contain" }} />
         </div>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: "#e5e5e5" }}>{agent.name}</h2>
         <span style={{ fontSize: 12, color: agent.color, marginTop: 2 }}>{agent.role}</span>
