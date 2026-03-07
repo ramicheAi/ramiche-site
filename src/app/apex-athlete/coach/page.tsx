@@ -2617,7 +2617,6 @@ export default function ApexAthletePage() {
     if (matchedCoach) { setUnlocked(true); setPinError(false); return; }
     setPinError(true);
   };
-  const resetPin = () => { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); setPinInput(""); setPinError(false); };
 
   if (!unlocked && (view === "coach" || view === "schedule" || view === "staff")) {
     return (
@@ -2627,6 +2626,7 @@ export default function ApexAthletePage() {
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
             <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Athlete Performance System</div>
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4" style={{ filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))' }} />
             <h1 className="text-4xl font-black mb-2 tracking-tighter" style={{background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'}}>METTLE</h1>
             <div className="text-[#a855f7]/30 text-xs tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
@@ -2649,11 +2649,6 @@ export default function ApexAthletePage() {
               className="text-[#00f0ff]/20 text-xs hover:text-[#00f0ff]/50 transition-colors mt-2 min-h-[44px] font-mono tracking-wider uppercase block text-center">
               Parent / Read-Only Access
             </a>
-            {pinError && (
-              <button onClick={resetPin} className="text-white/50 text-xs hover:text-white/60 transition-colors font-mono">
-                RESET PIN
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -2680,16 +2675,19 @@ export default function ApexAthletePage() {
         <div className="pt-6 pb-2">
           {/* Title row — compact */}
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
-              background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundSize: '200% 200%',
-              animation: 'gradientShift 4s ease-in-out infinite',
-              filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'
-            }}>
-              METTLE
-            </h1>
+            <div className="flex items-center gap-3">
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-9 h-9 sm:w-10 sm:h-10" style={{ filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.2))' }} />
+              <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
+                background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundSize: '200% 200%',
+                animation: 'gradientShift 4s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'
+              }}>
+                METTLE
+              </h1>
+            </div>
             <div className="flex items-center gap-2">
               <button onClick={togglePushNotifications} disabled={pushLoading}
                 className={`game-btn w-10 h-10 flex items-center justify-center text-sm transition-all ${
@@ -3226,7 +3224,7 @@ export default function ApexAthletePage() {
             {coaches.length === 0 && (
               <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-8 text-center">
                 <p className="text-white/60 text-sm font-mono">No coaches added yet.</p>
-                <p className="text-white/40 text-xs font-mono mt-2">Master PIN ({coachPin}) has full access to all groups.</p>
+                <p className="text-white/40 text-xs font-mono mt-2">Master PIN has full access to all groups.</p>
               </div>
             )}
             {coaches.map(c => {
@@ -3401,7 +3399,7 @@ export default function ApexAthletePage() {
           <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#a855f7]/10 p-5 mb-10">
             <h3 className="text-[#a855f7]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">// Access Control</h3>
             <div className="space-y-2 text-[11px] text-white/60 font-mono">
-              <p><span className="text-[#f59e0b]/60">Master PIN ({coachPin})</span> — Full admin access to all groups</p>
+              <p><span className="text-[#f59e0b]/60">Master PIN</span> — Full admin access to all groups</p>
               <p><span className="text-[#f59e0b]/60">Head Coach</span> — Access to all groups</p>
               <p><span className="text-[#00f0ff]/60">Assistant</span> — Access only to assigned groups</p>
             </div>

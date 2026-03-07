@@ -2376,7 +2376,6 @@ export default function ApexAthletePage() {
     else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); setActiveCoachGroups(["all"]); try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {} }
     else setPinError(true);
   };
-  const resetPin = () => { setCoachPin(MASTER_PIN); save(K.PIN, MASTER_PIN); setPinInput(""); setPinError(false); };
 
   if (!unlocked && (view === "coach" || view === "schedule")) {
     return (
@@ -2459,11 +2458,6 @@ export default function ApexAthletePage() {
                     style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #B8860B)',color:'#06020f',animation:'coachBtnPulse 2s ease-in-out infinite'}}>
                     Authenticate
                   </button>
-                  {pinError && (
-                    <button onClick={resetPin} className="text-white/40 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px] text-center">
-                      RESET PIN
-                    </button>
-                  )}
                 </div>
               </div>
               <p className="text-white/20 text-xs text-center mt-6 font-mono">Secure • Encrypted • Private Beta</p>
