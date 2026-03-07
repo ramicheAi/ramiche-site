@@ -1213,12 +1213,12 @@ export default function ApexAthletePage() {
     // Load broadcasts + absence reports
     try { setAllBroadcasts(JSON.parse(localStorage.getItem("apex-broadcasts-v1") || "[]")); } catch { /* empty */ }
     try { setAbsenceReports(JSON.parse(localStorage.getItem("apex-absences-v1") || "[]")); } catch { /* empty */ }
-    // Service worker
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).then(reg => {
-        reg.update();
-        reg.pushManager.getSubscription().then(sub => { setPushEnabled(!!sub); });
+    // Kill ALL service workers — no re-registration, no caching, ever.
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(r => r.unregister());
       });
+      caches.keys().then(keys => keys.forEach(k => caches.delete(k)));
     }
 
     // ── Firestore-first data loading ──
