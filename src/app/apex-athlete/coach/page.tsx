@@ -797,6 +797,7 @@ function save(key: string, val: unknown) {
   localStorage.setItem(key, JSON.stringify(val));
   if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
     fbSaveRoster("all", val).catch(() => {});
+    fbSaveRoster("platinum", val).catch(() => {});
   }
 }
 
@@ -1258,30 +1259,33 @@ export default function ApexAthletePage() {
           }
         }
 
-        // 2. Load roster from Firestore (go DIRECT — bypass localStorage to avoid stale seed data)
+        // 2. Load roster from Firestore — try ALL paths, pick the one with the most XP
         let firestoreRoster: Athlete[] = [];
         try {
-          // Try "rosters/all" first (canonical path), then "rosters/platinum" (legacy path)
+          let bestXP = 0;
           for (const fbPath of ["rosters/all", "rosters/platinum"]) {
-            const raw = await fbGet<Record<string, unknown>>(fbPath);
-            if (raw) {
-              // Unwrap _items wrapper or athletes wrapper
-              let arr: Athlete[] | null = null;
-              if ("_items" in raw && Array.isArray(raw._items)) arr = raw._items as Athlete[];
-              else if ("athletes" in raw && Array.isArray(raw.athletes)) arr = raw.athletes as Athlete[];
-              else {
-                // Legacy: numeric keys from broken array spread
-                const keys = Object.keys(raw).filter(k => k !== "_updatedAt" && k !== "groupId");
-                if (keys.length > 0 && keys.every(k => /^\d+$/.test(k))) {
-                  arr = keys.sort((a, b) => Number(a) - Number(b)).map(k => raw[k]) as Athlete[];
+            try {
+              const raw = await fbGet<Record<string, unknown>>(fbPath);
+              if (raw) {
+                let arr: Athlete[] | null = null;
+                if ("_items" in raw && Array.isArray(raw._items)) arr = raw._items as Athlete[];
+                else if ("athletes" in raw && Array.isArray(raw.athletes)) arr = raw.athletes as Athlete[];
+                else {
+                  const keys = Object.keys(raw).filter(k => k !== "_updatedAt" && k !== "groupId");
+                  if (keys.length > 0 && keys.every(k => /^\d+$/.test(k))) {
+                    arr = keys.sort((a, b) => Number(a) - Number(b)).map(k => raw[k]) as Athlete[];
+                  }
+                }
+                if (arr && arr.length > 0) {
+                  const xp = rosterXP(arr);
+                  console.log("[Sync] Firestore", fbPath, ":", arr.length, "athletes, XP:", xp);
+                  if (xp > bestXP || firestoreRoster.length === 0) {
+                    firestoreRoster = arr;
+                    bestXP = xp;
+                  }
                 }
               }
-              if (arr && arr.length > 0) {
-                firestoreRoster = arr;
-                console.log("[Sync] Firestore roster from", fbPath, ":", firestoreRoster.length, "athletes, total XP:", rosterXP(firestoreRoster));
-                break;
-              }
-            }
+            } catch (pathErr) { console.warn("[Sync] Error reading", fbPath, pathErr); }
           }
         } catch (e) { console.warn("[Sync] Firestore read failed (using local):", e); }
 

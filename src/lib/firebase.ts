@@ -145,6 +145,23 @@ export async function fbListCollection<T>(path: string): Promise<T[]> {
 // ── Apex-specific operations ───────────────────────────────────────
 
 export async function fbSaveRoster(groupId: string, athletes: unknown[]) {
+  // GUARD: Never overwrite Firestore with zero-XP data if real data exists ANYWHERE
+  const totalXP = (athletes as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
+  if (totalXP === 0) {
+    try {
+      // Check both rosters/all and rosters/platinum — if EITHER has XP, block the write
+      for (const checkPath of [`rosters/${groupId}`, "rosters/all", "rosters/platinum"]) {
+        const existing = await fbGet<{ athletes: { xp?: number }[] }>(checkPath);
+        if (existing?.athletes) {
+          const existingXP = existing.athletes.reduce((s, a) => s + (a.xp || 0), 0);
+          if (existingXP > 0) {
+            console.warn(`[Firebase] BLOCKED: refusing to overwrite rosters/${groupId} (${checkPath} has ${existingXP} XP) with zero-XP data`);
+            return false;
+          }
+        }
+      }
+    } catch { /* proceed if check fails */ }
+  }
   return fbSet(`rosters/${groupId}`, { athletes, groupId });
 }
 
