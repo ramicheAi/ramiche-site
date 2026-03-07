@@ -676,7 +676,7 @@ function EnrollmentForm({ roster, onComplete }: {
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
-        <div className="relative z-10 w-full max-w-md lg:max-w-2xl xl:max-w-3xl">
+        <div className="relative z-10 w-full max-w-7xl">
           <div className="text-center mb-16 lg:mb-20">
             <div className="w-16 h-16 lg:w-20 lg:h-20 mx-auto mb-8 lg:mb-10 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "rgba(52,211,153,0.1)", border: "2px solid rgba(52,211,153,0.3)" }}>
@@ -1232,7 +1232,7 @@ export default function ParentPortal() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-xs lg:max-w-6xl lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-0">
+        <div className="relative z-10 w-full max-w-xs lg:max-w-7xl lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-0">
 
           {/* ── Desktop branding panel (hidden on mobile) ── */}
           <div className="hidden lg:flex flex-col items-center justify-center px-16">
@@ -1575,7 +1575,7 @@ export default function ParentPortal() {
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
             <div className="flex items-center gap-2 mb-8">
               <SvgCalendar size={18} color="#f59e0b" />
               <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
@@ -1691,7 +1691,7 @@ export default function ParentPortal() {
 
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
             <div className="flex items-center gap-2 mb-8">
               <SvgSwimWave size={18} color="#60a5fa" />
               <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
@@ -1736,7 +1736,7 @@ export default function ParentPortal() {
         <div className="border-b border-white/10 mb-10" />
 
         {/* ── Absence Reporting ─────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
+        <div className="mb-10 p-10 lg:p-12 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/20">
           <div className="flex items-center gap-2 mb-8">
             <SvgClipboardX size={18} color="#f97316" />
             <h3 className="text-[#f97316]/90 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
@@ -1849,7 +1849,7 @@ export default function ParentPortal() {
         <div className="border-b border-white/10 mb-10" />
 
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
           <div className="flex items-center gap-2 mb-5">
             <SvgMegaphone size={18} color="#a855f7" />
             <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
