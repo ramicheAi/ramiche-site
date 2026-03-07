@@ -86,7 +86,7 @@ export default function MettleLanding() {
   // Cinematic page entry — brief delay after boot, then fade in
   useEffect(() => {
     if (bootDone) {
-      const t = setTimeout(() => setPageReady(true), 100);
+      const t = setTimeout(() => setPageReady(true), 300);
       return () => clearTimeout(t);
     }
   }, [bootDone]);
@@ -161,6 +161,7 @@ export default function MettleLanding() {
         opacity: pageReady ? 1 : 0,
         transform: pageReady ? "none" : "translateY(12px)",
         transition: "opacity 0.8s ease-out, transform 0.8s ease-out",
+        willChange: "opacity, transform",
       }}
     >
 
@@ -403,6 +404,7 @@ export default function MettleLanding() {
                     minHeight: "clamp(280px, 32vw, 500px)",
                     borderTopWidth: "4px",
                     borderTopColor: p.brightColor,
+                    willChange: "transform, box-shadow",
                   } as React.CSSProperties)
                 }}
               >
