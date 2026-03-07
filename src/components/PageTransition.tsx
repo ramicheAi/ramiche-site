@@ -14,7 +14,6 @@ export default function PageTransition({
 }) {
   const pathname = usePathname();
   const [visible, setVisible] = useState(true);
-  const [displayChildren, setDisplayChildren] = useState(children);
   const prevPathname = useRef(pathname);
 
   useEffect(() => {
@@ -22,7 +21,6 @@ export default function PageTransition({
       // Route changed — fade out, swap content, fade in
       setVisible(false);
       const t = setTimeout(() => {
-        setDisplayChildren(children);
         prevPathname.current = pathname;
         // Brief pause before fade-in
         requestAnimationFrame(() => {
@@ -30,10 +28,8 @@ export default function PageTransition({
         });
       }, 350); // match fade-out duration
       return () => clearTimeout(t);
-    } else {
-      setDisplayChildren(children);
     }
-  }, [pathname, children]);
+  }, [pathname]);
 
   return (
     <div
@@ -45,7 +41,7 @@ export default function PageTransition({
         minHeight: "100vh",
       }}
     >
-      {displayChildren}
+      {children}
     </div>
   );
 }

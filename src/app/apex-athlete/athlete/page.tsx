@@ -1068,7 +1068,7 @@ export default function AthletePortal() {
           </div>
           <input type="text" placeholder="Search by name..." value={nameInput}
             onChange={e => setNameInput(e.target.value)}
-            className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-4" autoFocus />
+            className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-4" />
           <div className="max-h-[60vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 40)).map(a => {
               const lv = getLevel(a.xp || 0);
@@ -1160,8 +1160,7 @@ export default function AthletePortal() {
               <div className="relative">
                 <input type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setOnboardError(""); }}
                   placeholder="Start typing your name..."
-                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]"
-                  autoFocus />
+                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]" />
                 {searchResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50 shadow-xl shadow-black/50">
                     {searchResults.map(a => {
@@ -1213,8 +1212,7 @@ export default function AthletePortal() {
                     onChange={e => { setIdInput(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase()); setOnboardError(""); }}
                     placeholder="XXXX-XXXXXX"
                     maxLength={15}
-                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]"
-                    autoFocus />
+                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]" />
                   {/* Format hint */}
                   {idInput.length > 0 && (
                     <div className="absolute -bottom-6 left-0 right-0 text-center">

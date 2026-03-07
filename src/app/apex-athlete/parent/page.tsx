@@ -609,21 +609,20 @@ function EnrollmentForm({ roster, onComplete }: {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [childName, setChildName] = useState("");
-  const [matchResults, setMatchResults] = useState<Athlete[]>([]);
   const [selectedMatch, setSelectedMatch] = useState<Athlete | null>(null);
   const [step, setStep] = useState<"form" | "confirm">("form");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Auto-match child name against roster
-  useEffect(() => {
-    if (childName.length < 2) { setMatchResults([]); return; }
+  // Derived state — computed from childName, doesn't need useEffect
+  const matchResults = useMemo(() => {
+    if (childName.length < 2) return [];
     const q = childName.toLowerCase().trim();
-    const results = roster.filter(a => {
+    return roster.filter(a => {
       const name = a.name.toLowerCase();
       // Match on full name, first name, or last name
       return name.includes(q) || name.split(" ").some(part => part.startsWith(q));
     }).slice(0, 5);
-    setMatchResults(results);
   }, [childName, roster]);
 
   const validate = (): boolean => {
@@ -806,9 +805,8 @@ function EnrollmentForm({ roster, onComplete }: {
               value={parentName}
               onChange={e => { setParentName(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.parentName; return n; }); }}
               placeholder="e.g., Sarah Johnson"
-              className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "border-white/10 focus:border-[#f59e0b]/40"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/50"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
-              autoFocus
             />
             {errors.parentName && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.parentName}</p>}
           </div>
@@ -824,7 +822,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={email}
               onChange={e => { setEmail(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.email; return n; }); }}
               placeholder="parent@email.com"
-              className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "border-white/10 focus:border-[#60a5fa]/40"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/50"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
               autoComplete="email"
             />
@@ -842,7 +840,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={phone}
               onChange={e => { setPhone(formatPhone(e.target.value)); setErrors(prev => { const n = { ...prev }; delete n.phone; return n; }); }}
               placeholder="(555) 123-4567"
-              className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "border-white/10 focus:border-[#34d399]/40"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/50"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
               inputMode="tel"
               autoComplete="tel"
@@ -862,7 +860,7 @@ function EnrollmentForm({ roster, onComplete }: {
                 value={childName}
                 onChange={e => { setChildName(e.target.value); setSelectedMatch(null); setErrors(prev => { const n = { ...prev }; delete n.childName; return n; }); }}
                 placeholder="Type to search the roster..."
-                className={`w-full px-4 py-4 bg-[#0a0518] border rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "border-white/10 focus:border-[#a855f7]/40"}`}
+                className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "focus:border-[#a855f7]/50"}`}
                 style={{ fontSize: "16px", minHeight: "52px" }}
               />
               {selectedMatch && (
@@ -973,7 +971,6 @@ export default function ParentPortal() {
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
-  const [searchResults, setSearchResults] = useState<Athlete[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
   const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
   const [addingAnother, setAddingAnother] = useState(false);
@@ -1067,10 +1064,11 @@ export default function ParentPortal() {
     }
   }, [mounted]);
 
-  useEffect(() => {
-    if (nameInput.length < 2) { setSearchResults([]); return; }
+  // Derived state — computed from nameInput, doesn't need useEffect
+  const searchResults = useMemo(() => {
+    if (nameInput.length < 2) return [];
     const q = nameInput.toLowerCase();
-    setSearchResults(roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8));
+    return roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8);
   }, [nameInput, roster]);
 
   const linkChild = (a: Athlete) => {
@@ -1079,7 +1077,6 @@ export default function ParentPortal() {
     localStorage.setItem("apex-parent-links", JSON.stringify(updated));
     setAthlete(a);
     setNameInput("");
-    setSearchResults([]);
     setPendingAthlete(null);
     setOnboardStep("swimid");
     setIdInput("");
@@ -1330,7 +1327,6 @@ export default function ParentPortal() {
               type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
               placeholder="Type your swimmer's name..."
               className="w-full px-5 py-4 bg-[#0a0518] border border-[#f59e0b]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#f59e0b]/50 transition-all"
-              autoFocus
             />
             {searchResults.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#f59e0b]/20 rounded-xl overflow-hidden z-50">
@@ -1762,7 +1758,7 @@ export default function ParentPortal() {
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">YOUR NAME</label>
               <input type="text" value={parentNameInput} onChange={e => setParentNameInput(e.target.value)}
                 placeholder="e.g., Sarah Johnson"
-                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#f97316]/40 transition-all"
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/50 transition-all"
                 style={{ minHeight: "44px" }} />
             </div>
 
@@ -1770,7 +1766,7 @@ export default function ParentPortal() {
             <div>
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">REASON</label>
               <select value={absenceReason} onChange={e => setAbsenceReason(e.target.value)}
-                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all appearance-none cursor-pointer"
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/50 transition-all appearance-none cursor-pointer"
                 style={{ minHeight: "44px", backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
                 <option value="Illness">Illness</option>
                 <option value="Family Emergency">Family Emergency</option>
@@ -1785,14 +1781,14 @@ export default function ParentPortal() {
               <div>
                 <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">START DATE</label>
                 <input type="date" value={absenceDateStart} onChange={e => setAbsenceDateStart(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all [color-scheme:dark]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/50 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
               <div>
                 <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">END DATE <span className="text-white/50">(optional)</span></label>
                 <input type="date" value={absenceDateEnd} onChange={e => setAbsenceDateEnd(e.target.value)}
                   min={absenceDateStart || undefined}
-                  className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm focus:outline-none focus:border-[#f97316]/40 transition-all [color-scheme:dark]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/50 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
             </div>
@@ -1803,7 +1799,7 @@ export default function ParentPortal() {
               <textarea value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
                 placeholder="Any details the coach should know..."
                 rows={2}
-                className="w-full px-4 py-3 bg-[#0a0518] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#f97316]/40 transition-all resize-none" />
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/50 transition-all resize-none" />
             </div>
 
             {/* Submit */}
