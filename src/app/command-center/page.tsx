@@ -1051,6 +1051,15 @@ export default function CommandCenter() {
                 </span>
               )}
             </Link>
+            <button
+              onClick={() => window.location.reload()}
+              title="Hard refresh"
+              style={{ marginLeft: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', color: '#888', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, cursor: 'pointer', transition: 'all 150ms' }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = '#e5e5e5'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+            >
+              ↻ REFRESH
+            </button>
             <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
               {NAV.map((n) => (
                 <Link key={n.href} href={n.href} style={{
