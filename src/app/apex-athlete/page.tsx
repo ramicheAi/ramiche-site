@@ -901,6 +901,7 @@ export default function ApexAthletePage() {
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [rosterSearch, setRosterSearch] = useState("");
   const [sessionMode, setSessionMode] = useState<"pool" | "weight" | "meet">("pool");
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(new Date().getHours() < 12 ? "am" : "pm");
@@ -3038,6 +3039,212 @@ export default function ApexAthletePage() {
             Remove Athlete
           </button>
         )}
+      </div>
+    );
+  };
+
+  // ── ATHLETE DRILL-DOWN DETAIL VIEW (full-width, replaces roster grid) ──
+  const AthleteDetailView = ({ athlete }: { athlete: Athlete }) => {
+    const lv = getLevel(athlete.xp);
+    const prog = getLevelProgress(athlete.xp);
+    const nxt = getNextLevel(athlete.xp);
+    const sk = fmtStreak(athlete.streak);
+    const wsk = fmtWStreak(athlete.weightStreak);
+    const growth = getPersonalGrowth(athlete);
+    const recentAudit = auditLog.filter(e => e.athleteId === athlete.id).slice(0, 10);
+
+    return (
+      <div className="transition-all duration-300 border-2 border-[#a855f7]/25 rounded-2xl p-6 sm:p-8 lg:p-10 bg-[#06020f]/80 backdrop-blur-xl">
+        {/* Back button */}
+        <button onClick={() => setSelectedAthleteId(null)}
+          className="text-[#a855f7] hover:text-white cursor-pointer text-sm font-bold mb-6 flex items-center gap-2 transition-colors min-h-[44px]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+          Back to Roster
+        </button>
+
+        {/* Header — name, avatar, level badge, XP bar */}
+        <div className="flex items-center gap-6 mb-8">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-black text-white shrink-0"
+            style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `3px solid ${lv.color}60`, boxShadow: `0 0 30px ${lv.color}20` }}>
+            {athlete.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-white font-bold text-2xl">{athlete.name}</div>
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              <span className="text-white/50 text-sm">{athlete.age}y · {athlete.gender === "M" ? "Male" : "Female"}</span>
+              <span className="text-sm font-bold px-3 py-1 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>
+                {lv.icon} {lv.name}
+              </span>
+              {athlete.streak > 0 && (
+                <span className="text-sm font-bold px-3 py-1 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]">
+                  {sk.label} · {sk.mult}
+                </span>
+              )}
+              {athlete.present && <span className="text-emerald-400 text-sm font-bold">PRESENT</span>}
+            </div>
+            <div className="mt-3 max-w-md">
+              <div className="flex justify-between text-sm mb-1">
+                <span className="text-white/60 font-bold">{athlete.xp} XP</span>
+                <span className="text-white/50">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
+              </div>
+              <div className="h-3 rounded-full bg-white/[0.04] overflow-hidden">
+                <div className="h-full rounded-full xp-shimmer transition-all duration-500" style={{ width: `${prog.percent}%` }} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+          {[
+            { label: "Total Sessions", val: athlete.totalPractices, color: "#00f0ff" },
+            { label: "Total XP", val: athlete.xp, color: "#f59e0b" },
+            { label: "Pool Streak", val: `${athlete.streak}d`, color: "#a855f7" },
+            { label: "Weight Streak", val: `${athlete.weightStreak}d`, color: "#f59e0b" },
+          ].map(s => (
+            <Card key={s.label} className="py-5 px-4 text-center">
+              <div className="text-white font-black text-xl tabular-nums whitespace-nowrap" style={{ textShadow: `0 0 12px ${s.color}20` }}>{s.val}</div>
+              <div className="text-white/50 text-xs uppercase tracking-wider font-medium mt-1">{s.label}</div>
+            </Card>
+          ))}
+        </div>
+
+        {/* Streak details */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+          <Card className="px-5 py-4 flex items-center justify-between">
+            <div>
+              <div className="text-white/60 text-xs uppercase tracking-wider">Pool Streak</div>
+              <div className="text-white font-bold text-lg">{athlete.streak}d <span className="text-[#a855f7] text-sm">{sk.label}</span></div>
+            </div>
+            <span className="text-[#a855f7] font-bold">{sk.mult}</span>
+          </Card>
+          <Card className="px-5 py-4 flex items-center justify-between">
+            <div>
+              <div className="text-white/60 text-xs uppercase tracking-wider">Weight Streak</div>
+              <div className="text-white font-bold text-lg">{athlete.weightStreak}d <span className="text-[#f59e0b] text-sm">{wsk.label}</span></div>
+            </div>
+            <span className="text-[#f59e0b] font-bold">{wsk.mult}</span>
+          </Card>
+        </div>
+
+        {/* Best Times */}
+        {athlete.bestTimes && athlete.bestTimes.length > 0 && (
+          <div className="mb-8">
+            <h4 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-4">{"// Best Times"}</h4>
+            <Card className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="text-left text-white/50 font-bold uppercase text-xs tracking-wider px-5 py-3">Event</th>
+                    <th className="text-left text-white/50 font-bold uppercase text-xs tracking-wider px-5 py-3">Stroke</th>
+                    <th className="text-right text-white/50 font-bold uppercase text-xs tracking-wider px-5 py-3">Time</th>
+                    <th className="text-right text-white/50 font-bold uppercase text-xs tracking-wider px-5 py-3">Course</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {athlete.bestTimes.map((bt, i) => (
+                    <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors">
+                      <td className="text-white font-medium px-5 py-3">{bt.event}</td>
+                      <td className="text-white/70 px-5 py-3">{bt.stroke}</td>
+                      <td className="text-[#00f0ff] font-bold font-mono text-right px-5 py-3">{bt.time}</td>
+                      <td className="text-white/40 text-right px-5 py-3">{bt.course}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          </div>
+        )}
+
+        {/* Quest Progress */}
+        <div className="mb-8">
+          <h4 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-4">{"// Quest Progress"}</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {QUEST_DEFS.map(q => {
+              const st = athlete.quests[q.id] || "pending";
+              return (
+                <Card key={q.id} className={`px-5 py-4 ${st === "done" ? "border-emerald-500/20" : st === "active" ? "border-[#a855f7]/20" : ""}`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                      st === "done" ? "border-emerald-400 bg-emerald-400/20" : st === "active" ? "border-[#a855f7] bg-[#a855f7]/20" : "border-white/15"
+                    }`}>
+                      {st === "done" ? (
+                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      ) : st === "active" ? (
+                        <svg className="w-3.5 h-3.5 text-[#a855f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9" strokeWidth="2"/></svg>
+                      ) : (
+                        <div className="w-2 h-2 rounded-full bg-white/20" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white text-sm font-medium truncate">{q.name}</div>
+                      <div className="text-white/40 text-xs">{st === "done" ? "Completed" : st === "active" ? "In progress" : "Not started"} · +{q.xp} xp</div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        {recentAudit.length > 0 && (
+          <div className="mb-8">
+            <h4 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-4">{"// Recent Activity"}</h4>
+            <Card className="divide-y divide-white/[0.04]">
+              {recentAudit.map((e, i) => (
+                <div key={i} className="px-5 py-3 flex items-center justify-between">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-white text-sm">{e.action}</span>
+                    {e.xpDelta !== 0 && (
+                      <span className={`ml-2 text-xs font-bold ${e.xpDelta > 0 ? "text-emerald-400" : "text-red-400"}`}>
+                        {e.xpDelta > 0 ? "+" : ""}{e.xpDelta} XP
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-white/30 text-xs font-mono shrink-0 ml-3">{new Date(e.timestamp).toLocaleDateString()}</span>
+                </div>
+              ))}
+            </Card>
+          </div>
+        )}
+
+        {/* Personal growth */}
+        {growth && (
+          <div className="mb-8">
+            <h4 className="text-[#00f0ff]/40 text-xs uppercase tracking-[0.2em] font-bold font-mono mb-4">{"// Growth vs Last Month"}</h4>
+            <div className="grid grid-cols-3 gap-4">
+              {[
+                { label: "XP Gained", val: `${growth.xpGain > 0 ? "+" : ""}${growth.xpGain}`, positive: growth.xpGain > 0, negative: growth.xpGain < 0 },
+                { label: "Streak Change", val: `${growth.streakDelta > 0 ? "+" : ""}${growth.streakDelta}d`, positive: growth.streakDelta > 0, negative: growth.streakDelta < 0 },
+                { label: "Total Sessions", val: String(athlete.totalPractices), positive: false, negative: false },
+              ].map(g => (
+                <Card key={g.label} className="py-5 px-4 text-center">
+                  <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${g.positive ? "text-emerald-400" : g.negative ? "text-red-400" : "text-white"}`}>{g.val}</div>
+                  <div className="text-white/50 text-xs uppercase mt-1">{g.label}</div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Shoutout + Feedback quick actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={(e) => giveShoutout(athlete.id, e)}
+            className="flex-1 game-btn px-5 py-4 bg-[#f59e0b]/10 text-[#f59e0b] text-sm font-bold font-mono tracking-wider border border-[#f59e0b]/20 hover:bg-[#f59e0b]/20 transition-all active:scale-[0.97] rounded-xl flex items-center justify-center gap-2 min-h-[52px]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            SHOUTOUT +{SHOUTOUT_XP} XP
+          </button>
+          <button
+            onClick={() => { setFeedbackAthleteId(athlete.id); setExpandedId(athlete.id); setSelectedAthleteId(null); }}
+            className="flex-1 px-5 py-4 bg-[#00f0ff]/10 text-[#00f0ff] text-sm font-bold font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl flex items-center justify-center gap-2 min-h-[52px]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+            SEND FEEDBACK
+          </button>
+        </div>
       </div>
     );
   };
