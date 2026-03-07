@@ -2425,8 +2425,8 @@ export default function ApexAthletePage() {
           <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
             <div className="w-full max-w-md">
               {/* Mobile-only branding */}
-              <div className="lg:hidden text-center mb-8">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
+              <div className="lg:hidden flex flex-col items-center justify-center text-center mb-8 w-full">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4 block" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
                 <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #D4A843, #FFD700)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
                 <div className="text-[#D4A843]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
               </div>
