@@ -691,17 +691,17 @@ function EnrollmentForm({ roster, onComplete }: {
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR NAME</div>
               <div className="text-white font-semibold">{parentName}</div>
             </div>
-            <div className="border-t border-white/5" />
+            <div className="border-t border-[#a855f7]/5" />
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">EMAIL</div>
               <div className="text-white/80">{email}</div>
             </div>
-            <div className="border-t border-white/5" />
+            <div className="border-t border-[#a855f7]/5" />
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">PHONE</div>
               <div className="text-white/80">{phone}</div>
             </div>
-            <div className="border-t border-white/5" />
+            <div className="border-t border-[#a855f7]/5" />
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR SWIMMER</div>
               {selectedMatch ? (
@@ -874,14 +874,14 @@ function EnrollmentForm({ roster, onComplete }: {
             {/* Auto-match dropdown */}
             {matchResults.length > 0 && !selectedMatch && (
               <div className="mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden">
-                <div className="px-3 py-2 border-b border-white/5">
+                <div className="px-3 py-2 border-b border-[#a855f7]/5">
                   <span className="text-white/40 text-xs font-mono tracking-wider">ROSTER MATCHES</span>
                 </div>
                 {matchResults.map(a => {
                   const lv = getLevel(a.xp);
                   return (
                     <button key={a.id} onClick={() => { setSelectedMatch(a); setChildName(a.name); }}
-                      className="w-full px-4 py-3.5 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
+                      className="w-full px-4 py-3.5 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-[#a855f7]/5 last:border-0"
                       style={{ minHeight: "48px" }}>
                       <div className="flex items-center gap-10">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center"
@@ -1307,8 +1307,8 @@ export default function ParentPortal() {
         <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           {isCoach && (
             <div className="grid grid-cols-3 gap-2 mb-8">
-              <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Coach</a>
-              <a href="/apex-athlete/athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Athlete</a>
+              <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-[#a855f7]/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(168,85,247,0.15)', color: 'rgba(168,85,247,0.4)' }}>Coach</a>
+              <a href="/apex-athlete/athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-[#a855f7]/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(168,85,247,0.15)', color: 'rgba(168,85,247,0.4)' }}>Athlete</a>
               <span className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]" style={{ background: '#f59e0b1a', borderColor: '#f59e0b66', color: '#f59e0b' }}>Parent</span>
             </div>
           )}
@@ -1334,7 +1334,7 @@ export default function ParentPortal() {
                   const lv = getLevel(a.xp);
                   return (
                     <button key={a.id} onClick={() => setAthlete(a)}
-                      className="w-full px-5 py-3 min-h-[48px] text-left hover:bg-[#f59e0b]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
+                      className="w-full px-5 py-3 min-h-[48px] text-left hover:bg-[#f59e0b]/10 transition-colors flex items-center justify-between border-b border-[#a855f7]/5 last:border-0">
                       <span className="text-white font-semibold">{a.name}</span>
                       <span className="text-xs flex items-center gap-1.5" style={{ color: lv.color }}>
                         <LevelIcon name={lv.name} size={14} color={lv.color} />
@@ -1378,12 +1378,12 @@ export default function ParentPortal() {
             className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-xl transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
               (p as any).active
                 ? "border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
-                : "border hover:border-white/20 active:scale-[0.97]"
+                : "border hover:border-[#a855f7]/20 active:scale-[0.97]"
             }`}
             style={{
               background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
-              borderColor: (p as any).active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
-              color: (p as any).active ? p.color : 'rgba(255,255,255,0.25)',
+              borderColor: (p as any).active ? `${p.color}66` : 'rgba(168,85,247,0.12)',
+              color: (p as any).active ? p.color : 'rgba(168,85,247,0.4)',
             }}>
             {p.label}
           </a>
@@ -1459,19 +1459,19 @@ export default function ParentPortal() {
         {/* Highlights Row — pulse on non-zero */}
         <div className="grid grid-cols-3 gap-10 lg:gap-10 mb-10">
           <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
-            style={{ borderColor: athlete.streak > 0 ? `${streak.color}30` : "rgba(255,255,255,0.08)", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
+            style={{ borderColor: athlete.streak > 0 ? `${streak.color}30` : "rgba(168,85,247,0.15)", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm mt-0.5">day streak</div>
           </div>
           <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
-            style={{ borderColor: athlete.totalPractices > 0 ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.08)", animationDelay: "0.3s", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
+            style={{ borderColor: athlete.totalPractices > 0 ? "rgba(96,165,250,0.2)" : "rgba(168,85,247,0.15)", animationDelay: "0.3s", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{athlete.totalPractices}</div>
             <div className="text-white/60 text-sm font-mono tracking-wider mt-1">PRACTICES</div>
             <div className="text-white/50 text-sm mt-0.5">total</div>
           </div>
           <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
-            style={{ borderColor: earnedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.08)", animationDelay: "0.6s", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
+            style={{ borderColor: earnedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(168,85,247,0.15)", animationDelay: "0.6s", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{earnedCount}</div>
             <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider mt-1">BADGES</div>
             <div className="text-white/50 text-sm mt-0.5">earned</div>
@@ -1494,13 +1494,13 @@ export default function ParentPortal() {
             </div>
             {/* Mini bar chart — last 7 days */}
             {last7Days.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/5">
+              <div className="mt-3 pt-3 border-t border-[#a855f7]/5">
                 <div className="text-white/50 text-sm font-mono tracking-wider mb-1">DAILY XP (LAST 7 DAYS)</div>
                 <MiniBarChart data={last7Days} />
               </div>
             )}
             {growth.avgDaily > 0 && (
-              <div className="mt-2 pt-3 border-t border-white/5 text-center">
+              <div className="mt-2 pt-3 border-t border-[#a855f7]/5 text-center">
                 <span className="text-white/50 text-xs">Averaging </span>
                 <span className="text-emerald-400 text-sm font-bold">{growth.avgDaily} XP/day</span>
               </div>
@@ -1523,8 +1523,8 @@ export default function ParentPortal() {
                     boxShadow: `0 0 14px ${badge.color}40, 0 0 4px ${badge.color}20`,
                     border: `1.5px solid ${badge.color}50`,
                   } : {
-                    backgroundColor: "rgba(255,255,255,0.03)",
-                    border: "1px solid rgba(255,255,255,0.05)",
+                    backgroundColor: "rgba(168,85,247,0.03)",
+                    border: "1px solid rgba(168,85,247,0.08)",
                   }}>
                   {badge.earned ? (
                     <BadgeIcon label={badge.label} size={18} color={badge.color} />
@@ -1593,9 +1593,9 @@ export default function ParentPortal() {
                   <div key={meet.id} className="p-5 rounded-xl border transition-all"
                     style={{
                       backgroundColor: existingRsvp?.status === "committed" ? "rgba(52,211,153,0.04)" :
-                        existingRsvp?.status === "declined" ? "rgba(239,68,68,0.04)" : "rgba(255,255,255,0.02)",
+                        existingRsvp?.status === "declined" ? "rgba(239,68,68,0.04)" : "rgba(168,85,247,0.03)",
                       borderColor: existingRsvp?.status === "committed" ? "rgba(52,211,153,0.15)" :
-                        existingRsvp?.status === "declined" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
+                        existingRsvp?.status === "declined" ? "rgba(239,68,68,0.1)" : "rgba(168,85,247,0.1)",
                     }}>
                     <div className="flex items-start justify-between gap-10 mb-2">
                       <div className="flex-1 min-w-0">
@@ -1709,7 +1709,7 @@ export default function ParentPortal() {
                     </div>
                     <div className="space-y-1.5">
                       {entries.map((entry, i) => (
-                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04]">
+                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-[#a855f7]/[0.04]">
                           <span className="text-white/70 text-sm font-medium">{entry.event}</span>
                           {entry.seedTime ? (
                             <span className="text-[#60a5fa] text-sm font-mono font-bold">{entry.seedTime}</span>
@@ -1808,10 +1808,10 @@ export default function ParentPortal() {
               className="w-full py-3 rounded-lg font-bold text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-30 disabled:cursor-not-allowed"
               style={{
                 minHeight: "44px",
-                backgroundColor: absenceDateStart && parentNameInput.trim() ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.03)",
+                backgroundColor: absenceDateStart && parentNameInput.trim() ? "rgba(249,115,22,0.15)" : "rgba(168,85,247,0.03)",
                 borderWidth: "1px",
-                borderColor: absenceDateStart && parentNameInput.trim() ? "rgba(249,115,22,0.25)" : "rgba(255,255,255,0.05)",
-                color: absenceDateStart && parentNameInput.trim() ? "#f97316" : "rgba(255,255,255,0.2)",
+                borderColor: absenceDateStart && parentNameInput.trim() ? "rgba(249,115,22,0.25)" : "rgba(168,85,247,0.1)",
+                color: absenceDateStart && parentNameInput.trim() ? "#f97316" : "rgba(168,85,247,0.3)",
               }}>
               <SvgClipboardX size={16} color={absenceDateStart && parentNameInput.trim() ? "#f97316" : "#666"} />
               Submit Absence Report
@@ -1820,11 +1820,11 @@ export default function ParentPortal() {
 
           {/* Recent absence reports */}
           {myAbsences.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-white/5">
+            <div className="mt-4 pt-4 border-t border-[#a855f7]/5">
               <div className="text-white/50 text-sm font-mono tracking-wider mb-8">RECENT REPORTS</div>
               <div className="space-y-2">
                 {myAbsences.slice(0, 5).map(report => (
-                  <div key={report.id} className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-start justify-between gap-10">
+                  <div key={report.id} className="p-4 rounded-xl bg-white/[0.02] border border-[#a855f7]/[0.04] flex items-start justify-between gap-10">
                     <div className="min-w-0">
                       <div className="text-white/50 text-xs font-semibold">{report.reason}</div>
                       <div className="text-white/50 text-sm mt-0.5">
@@ -1880,8 +1880,8 @@ export default function ParentPortal() {
                 return (
                   <div key={b.id || i} className="p-4 rounded-xl border transition-all"
                     style={{
-                      backgroundColor: isNew ? "rgba(168,85,247,0.04)" : "rgba(255,255,255,0.015)",
-                      borderColor: isNew ? "rgba(168,85,247,0.12)" : "rgba(255,255,255,0.04)",
+                      backgroundColor: isNew ? "rgba(168,85,247,0.04)" : "rgba(168,85,247,0.02)",
+                      borderColor: isNew ? "rgba(168,85,247,0.12)" : "rgba(168,85,247,0.06)",
                     }}>
                     <div className="flex items-start gap-2">
                       {isNew && <div className="w-1.5 h-1.5 rounded-full bg-[#a855f7] mt-1.5 shrink-0 aa-value-pulse" />}
