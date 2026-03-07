@@ -6518,6 +6518,12 @@ export default function ApexAthletePage() {
             </div>
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
+            {selectedAthleteId && roster.find(a => a.id === selectedAthleteId) ? (
+              <div className="mb-10">
+                <AthleteDetailView athlete={roster.find(a => a.id === selectedAthleteId)!} />
+              </div>
+            ) : (
+              <>
             <div className="flex items-center gap-4 mb-4 flex-wrap">
               <h3 className="text-[#00f0ff]/30 text-xs uppercase tracking-[0.2em] font-bold font-mono">{"// Roster Check-In"}</h3>
               <input
@@ -6599,7 +6605,7 @@ export default function ApexAthletePage() {
                             : <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
                           }
                         </button>
-                        <div className="flex items-center gap-4 flex-1 min-w-0" onClick={() => setExpandedId(isExp ? null : a.id)}>
+                        <div className="flex items-center gap-4 flex-1 min-w-0" onClick={() => setSelectedAthleteId(a.id)}>
                         <div className="w-14 h-14 rounded-full flex items-center justify-center text-sm font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
                           style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `2.5px solid ${lv.color}${hasCk ? "90" : "35"}`, boxShadow: hasCk ? `0 0 25px ${lv.color}25, 0 0 50px ${lv.color}08` : `0 0 10px ${lv.color}10` }}
                         >
@@ -6633,6 +6639,8 @@ export default function ApexAthletePage() {
                 );
               })}
             </div>
+              </>
+            )}
 
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
