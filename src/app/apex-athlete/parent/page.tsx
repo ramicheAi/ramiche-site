@@ -686,7 +686,7 @@ function EnrollmentForm({ roster, onComplete }: {
             <p className="text-white/60 text-sm">Let&apos;s make sure everything looks right.</p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#6b21a8]/30 space-y-10 mb-10">
+          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#2d1b4e]/60 space-y-10 mb-10">
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR NAME</div>
               <div className="text-white font-semibold">{parentName}</div>
@@ -732,7 +732,7 @@ function EnrollmentForm({ roster, onComplete }: {
 
           <div className="flex gap-6">
             <button onClick={() => setStep("form")}
-              className="flex-1 py-4 rounded-xl bg-[#a855f7]/[0.04] border-2 border-[#6b21a8]/30 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
+              className="flex-1 py-4 rounded-xl bg-[#a855f7]/[0.04] border-2 border-[#2d1b4e]/60 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
               style={{ minHeight: "52px" }}>
               Go back
             </button>
@@ -791,7 +791,7 @@ function EnrollmentForm({ roster, onComplete }: {
         </div>
 
         {/* Form card */}
-        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#6b21a8]/30 space-y-10 mb-12"
+        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#2d1b4e]/60 space-y-10 mb-12"
           style={{ boxShadow: "0 4px 30px rgba(0,0,0,0.3)" }}>
 
           {/* Parent Name */}
@@ -805,7 +805,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={parentName}
               onChange={e => { setParentName(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.parentName; return n; }); }}
               placeholder="e.g., Sarah Johnson"
-              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#6b21a8]/50"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#7c3aed]/50"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
             />
             {errors.parentName && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.parentName}</p>}
@@ -822,7 +822,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={email}
               onChange={e => { setEmail(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.email; return n; }); }}
               placeholder="parent@email.com"
-              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#6b21a8]/50"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#7c3aed]/50"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
               autoComplete="email"
             />
@@ -840,7 +840,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={phone}
               onChange={e => { setPhone(formatPhone(e.target.value)); setErrors(prev => { const n = { ...prev }; delete n.phone; return n; }); }}
               placeholder="(555) 123-4567"
-              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#6b21a8]/50"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#7c3aed]/50"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
               inputMode="tel"
               autoComplete="tel"
@@ -860,7 +860,7 @@ function EnrollmentForm({ roster, onComplete }: {
                 value={childName}
                 onChange={e => { setChildName(e.target.value); setSelectedMatch(null); setErrors(prev => { const n = { ...prev }; delete n.childName; return n; }); }}
                 placeholder="Type to search the roster..."
-                className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "focus:border-[#6b21a8]/50"}`}
+                className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "focus:border-[#7c3aed]/50"}`}
                 style={{ fontSize: "16px", minHeight: "52px" }}
               />
               {selectedMatch && (
@@ -1255,7 +1255,7 @@ export default function ParentPortal() {
                 <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
                   onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
                   onKeyDown={e => e.key === "Enter" && handlePin()}
-                  className={`w-full px-5 py-4 lg:py-5 bg-[#06020f] border-2 rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/40 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#6b21a8]/30 focus:border-[#f59e0b]/50"}`}
+                  className={`w-full px-5 py-4 lg:py-5 bg-[#06020f] border-2 rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/40 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#2d1b4e]/60 focus:border-[#f59e0b]/50"}`}
                   placeholder="····" autoFocus />
                 <button onClick={handlePin}
                   className="w-full py-4 lg:py-5 rounded-xl lg:rounded-2xl font-black text-lg lg:text-xl tracking-wide transition-all min-h-[56px]"
@@ -1326,10 +1326,10 @@ export default function ParentPortal() {
             <input
               type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
               placeholder="Type your swimmer's name..."
-              className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#6b21a8]/50 transition-all"
+              className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#7c3aed]/50 transition-all"
             />
             {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl overflow-hidden z-50">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl overflow-hidden z-50">
                 {searchResults.map(a => {
                   const lv = getLevel(a.xp);
                   return (
@@ -1480,7 +1480,7 @@ export default function ParentPortal() {
 
         {/* Weekly Growth Trend */}
         {growth && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#6b21a8]/30 aa-breathe" style={{ animationDelay: "1s" }}>
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#2d1b4e]/60 aa-breathe" style={{ animationDelay: "1s" }}>
             <h3 className="text-white/50 text-xs font-mono tracking-wider mb-8">THIS WEEK&apos;S GROWTH</h3>
             <div className="grid grid-cols-2 gap-6">
               <div>
@@ -1511,7 +1511,7 @@ export default function ParentPortal() {
         {/* Right column on desktop */}
         <div>
         {/* Achievement Badges */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#6b21a8]/30 aa-breathe" style={{ animationDelay: "2s" }}>
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#2d1b4e]/60 aa-breathe" style={{ animationDelay: "2s" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">ACHIEVEMENTS</h3>
           <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-10 lg:gap-5">
             {achievements.map((badge, i) => (
@@ -1541,7 +1541,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Encouragement Section — animated gradient */}
-        <div className="mb-10 p-10 lg:p-12 rounded-xl border-2 border-[#6b21a8]/30 aa-gradient-bg aa-breathe"
+        <div className="mb-10 p-10 lg:p-12 rounded-xl border-2 border-[#2d1b4e]/60 aa-gradient-bg aa-breathe"
           style={{ animationDelay: "3s", background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">HIGHLIGHTS</h3>
           <div className="space-y-2">
@@ -1575,7 +1575,7 @@ export default function ParentPortal() {
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#6b21a8]/30">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#2d1b4e]/60">
             <div className="flex items-center gap-2 mb-8">
               <SvgCalendar size={18} color="#f59e0b" />
               <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
@@ -1666,7 +1666,7 @@ export default function ParentPortal() {
                           Count us in!
                         </button>
                         <button onClick={() => handleRsvp(meet.id, "declined")}
-                          className="flex-1 py-3 rounded-lg bg-[#a855f7]/[0.04] border-2 border-[#6b21a8]/30 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          className="flex-1 py-3 rounded-lg bg-[#a855f7]/[0.04] border-2 border-[#2d1b4e]/60 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           style={{ minHeight: "44px" }}>
                           <SvgXCircle size={16} color="#94a3b8" />
                           Can&apos;t make it
@@ -1679,7 +1679,7 @@ export default function ParentPortal() {
             </div>
             {upcomingMeets.length > 5 && (
               <button onClick={() => setShowAllMeets(!showAllMeets)}
-                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border-2 border-[#6b21a8]/30 transition-all min-h-[44px]">
+                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border-2 border-[#2d1b4e]/60 transition-all min-h-[44px]">
                 {showAllMeets ? "Show less" : `Show ${upcomingMeets.length - 5} more meets`}
               </button>
             )}
@@ -1691,7 +1691,7 @@ export default function ParentPortal() {
 
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#6b21a8]/30">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#2d1b4e]/60">
             <div className="flex items-center gap-2 mb-8">
               <SvgSwimWave size={18} color="#60a5fa" />
               <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
@@ -1736,7 +1736,7 @@ export default function ParentPortal() {
         <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Absence Reporting ─────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-xl bg-[#0a0518]/80 border-2 border-[#6b21a8]/30">
+        <div className="mb-10 p-10 lg:p-12 rounded-xl bg-[#0a0518]/80 border-2 border-[#2d1b4e]/60">
           <div className="flex items-center gap-2 mb-8">
             <SvgClipboardX size={18} color="#f97316" />
             <h3 className="text-[#f97316]/90 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
@@ -1758,7 +1758,7 @@ export default function ParentPortal() {
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">YOUR NAME</label>
               <input type="text" value={parentNameInput} onChange={e => setParentNameInput(e.target.value)}
                 placeholder="e.g., Sarah Johnson"
-                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#6b21a8]/50 transition-all"
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#7c3aed]/50 transition-all"
                 style={{ minHeight: "44px" }} />
             </div>
 
@@ -1766,7 +1766,7 @@ export default function ParentPortal() {
             <div>
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">REASON</label>
               <select value={absenceReason} onChange={e => setAbsenceReason(e.target.value)}
-                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white focus:outline-none focus:border-[#6b21a8]/50 transition-all appearance-none cursor-pointer"
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white focus:outline-none focus:border-[#7c3aed]/50 transition-all appearance-none cursor-pointer"
                 style={{ minHeight: "44px", backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
                 <option value="Illness">Illness</option>
                 <option value="Family Emergency">Family Emergency</option>
@@ -1781,14 +1781,14 @@ export default function ParentPortal() {
               <div>
                 <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">START DATE</label>
                 <input type="date" value={absenceDateStart} onChange={e => setAbsenceDateStart(e.target.value)}
-                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white focus:outline-none focus:border-[#6b21a8]/50 transition-all [color-scheme:dark]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white focus:outline-none focus:border-[#7c3aed]/50 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
               <div>
                 <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">END DATE <span className="text-white/50">(optional)</span></label>
                 <input type="date" value={absenceDateEnd} onChange={e => setAbsenceDateEnd(e.target.value)}
                   min={absenceDateStart || undefined}
-                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white focus:outline-none focus:border-[#6b21a8]/50 transition-all [color-scheme:dark]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white focus:outline-none focus:border-[#7c3aed]/50 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
             </div>
@@ -1799,7 +1799,7 @@ export default function ParentPortal() {
               <textarea value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
                 placeholder="Any details the coach should know..."
                 rows={2}
-                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#6b21a8]/30 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#6b21a8]/50 transition-all resize-none" />
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#2d1b4e]/60 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#7c3aed]/50 transition-all resize-none" />
             </div>
 
             {/* Submit */}
@@ -1849,7 +1849,7 @@ export default function ParentPortal() {
         <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#6b21a8]/30">
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#2d1b4e]/60">
           <div className="flex items-center gap-2 mb-5">
             <SvgMegaphone size={18} color="#a855f7" />
             <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
@@ -1905,7 +1905,7 @@ export default function ParentPortal() {
               })}
               {allBroadcasts.length > 5 && (
                 <button onClick={() => setShowAllBroadcasts(!showAllBroadcasts)}
-                  className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#a855f7]/70 hover:text-[#a855f7] bg-[#a855f7]/5 hover:bg-[#a855f7]/10 border border-[#6b21a8]/30 transition-all min-h-[44px]">
+                  className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#a855f7]/70 hover:text-[#a855f7] bg-[#a855f7]/5 hover:bg-[#a855f7]/10 border border-[#2d1b4e]/60 transition-all min-h-[44px]">
                   {showAllBroadcasts ? "Show less" : `Show ${allBroadcasts.length - 5} more updates`}
                 </button>
               )}
