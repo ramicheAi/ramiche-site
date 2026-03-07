@@ -3279,6 +3279,45 @@ export default function ApexAthletePage() {
                 </div>
               </Card>
 
+              {/* Daily Check-In Checkpoints */}
+              {(() => {
+                const cps = sessionMode === "pool" ? currentCPs : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
+                const cpMap = sessionMode === "pool" ? athlete.checkpoints : sessionMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
+                const autoPool = sessionMode === "pool";
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h3>
+                      <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp today</span>
+                    </div>
+                    {!athlete.present ? (
+                      <Card className="px-5 py-4">
+                        <div className="text-white/40 text-sm text-center">Tap present on the roster to check in</div>
+                      </Card>
+                    ) : (
+                      <Card className="divide-y divide-white/[0.04]">
+                        {(autoPool ? AUTO_POOL_CPS : cps).map(cp => {
+                          const done = cpMap[cp.id];
+                          return (
+                            <button key={cp.id} onClick={() => toggleCheckpoint(athlete.id, cp.id, cp.xp, sessionMode === "pool" ? "pool" : sessionMode === "weight" ? "weight" : "meet")}
+                              className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${done ? "bg-emerald-500/5" : "hover:bg-white/[0.02]"}`}>
+                              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-emerald-400 bg-emerald-500" : "border-white/15"}`}>
+                                {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white text-sm font-medium">{cp.name}</div>
+                                <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                              </div>
+                              <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-white/30"}`}>+{cp.xp}</span>
+                            </button>
+                          );
+                        })}
+                      </Card>
+                    )}
+                  </div>
+                );
+              })()}
+
               {/* Quests */}
               <div>
                 <div className="flex items-center justify-between mb-4">
