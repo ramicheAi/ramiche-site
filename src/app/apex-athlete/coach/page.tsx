@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
-import { fbSaveRoster } from "@/lib/firebase";
+import { fbSaveRoster, fbGet } from "@/lib/firebase";
 import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
@@ -842,7 +842,7 @@ export default function ApexAthletePage() {
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(true);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
@@ -1124,6 +1124,7 @@ export default function ApexAthletePage() {
     const savedGroup = load<GroupId>(K.GROUP, "platinum");
     setSelectedGroup(savedGroup);
     let r = load<Athlete[]>(K.ROSTER, []);
+    const hadLocalData = r.length > 0;
     // Migrate from older roster versions — carry forward existing data
     if (r.length === 0) {
       const oldKeys = ["apex-athlete-roster-v4", "apex-athlete-roster-v3", "apex-athlete-roster-v2", "apex-athlete-roster-v1", "apex-athlete-roster"];
@@ -1139,12 +1140,12 @@ export default function ApexAthletePage() {
         }
       }
     }
-    if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); save(K.ROSTER, r); }
+    if (r.length === 0) { r = INITIAL_ROSTER.map(makeAthlete); /* DON'T save to localStorage — let Firestore sync handle it */ }
     // If roster exists but is smaller than full roster, add missing athletes
     if (r.length > 0 && r.length < INITIAL_ROSTER.length) {
       const existingIds = new Set(r.map(a => a.id));
       const missing = INITIAL_ROSTER.filter(e => !existingIds.has(e.name.toLowerCase().replace(/\s+/g, "-"))).map(makeAthlete);
-      if (missing.length > 0) { r = [...r, ...missing]; save(K.ROSTER, r); }
+      if (missing.length > 0) { r = [...r, ...missing]; }
     }
     // Backfill PINs on athletes that don't have one
     let pinBackfilled = false;
@@ -1155,6 +1156,7 @@ export default function ApexAthletePage() {
     if (pinBackfilled) {
       save(K.ROSTER, r);
       // Sync PINs to Firestore so athletes can log in from any device
+      fbSaveRoster("all", r).catch(() => {});
       fbSaveRoster("platinum", r).catch(() => {});
     }
     // Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
@@ -1198,7 +1200,9 @@ export default function ApexAthletePage() {
       }
       return a;
     });
-    save(K.ROSTER, r);
+    // Only save to localStorage if we had REAL local data (not seed).
+    // If localStorage was empty, don't save seed data — let Firestore sync load the real data.
+    if (hadLocalData) save(K.ROSTER, r);
     setRoster(r);
     setAuditLog(load<AuditEntry[]>(K.AUDIT, []));
     setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
@@ -1255,13 +1259,30 @@ export default function ApexAthletePage() {
           }
         }
 
-        // 2. Load roster from Firestore
+        // 2. Load roster from Firestore (go DIRECT — bypass localStorage to avoid stale seed data)
         let firestoreRoster: Athlete[] = [];
         try {
-          const remote = await syncLoad<Athlete[]>(K.ROSTER, "rosters/all");
-          if (remote && Array.isArray(remote) && remote.length > 0) {
-            firestoreRoster = remote;
-            console.log("[Sync] Firestore roster:", firestoreRoster.length, "athletes, total XP:", rosterXP(firestoreRoster));
+          // Try "rosters/all" first (canonical path), then "rosters/platinum" (legacy path)
+          for (const fbPath of ["rosters/all", "rosters/platinum"]) {
+            const raw = await fbGet<Record<string, unknown>>(fbPath);
+            if (raw) {
+              // Unwrap _items wrapper or athletes wrapper
+              let arr: Athlete[] | null = null;
+              if ("_items" in raw && Array.isArray(raw._items)) arr = raw._items as Athlete[];
+              else if ("athletes" in raw && Array.isArray(raw.athletes)) arr = raw.athletes as Athlete[];
+              else {
+                // Legacy: numeric keys from broken array spread
+                const keys = Object.keys(raw).filter(k => k !== "_updatedAt" && k !== "groupId");
+                if (keys.length > 0 && keys.every(k => /^\d+$/.test(k))) {
+                  arr = keys.sort((a, b) => Number(a) - Number(b)).map(k => raw[k]) as Athlete[];
+                }
+              }
+              if (arr && arr.length > 0) {
+                firestoreRoster = arr;
+                console.log("[Sync] Firestore roster from", fbPath, ":", firestoreRoster.length, "athletes, total XP:", rosterXP(firestoreRoster));
+                break;
+              }
+            }
           }
         } catch (e) { console.warn("[Sync] Firestore read failed (using local):", e); }
 
@@ -1653,7 +1674,7 @@ export default function ApexAthletePage() {
   }, [mounted, roster, teamChallenges]);
 
   // ── persist helpers ──────────────────────────────────────
-  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); fbSaveRoster("platinum", r).catch(() => {}); }, []);
+  const saveRoster = useCallback((r: Athlete[]) => { setRoster(r); save(K.ROSTER, r); fbSaveRoster("all", r).catch(() => {}); fbSaveRoster("platinum", r).catch(() => {}); }, []);
   const saveCulture = useCallback((c: TeamCulture) => { setCulture(c); save(K.CULTURE, c); }, []);
   const saveSchedules = useCallback((s: GroupSchedule[]) => { setSchedules(s); save(K.SCHEDULES, s); }, []);
 
@@ -2121,7 +2142,7 @@ export default function ApexAthletePage() {
   }, [roster, saveRoster, selectedGroup]);
 
   // ── group switching ─────────────────────────────────────
-  const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); setExpandedId(null); }, []);
+  const switchGroup = useCallback((g: GroupId) => { setSelectedGroup(g); save(K.GROUP, g); }, []);
   const currentGroupDef = ROSTER_GROUPS.find(g => g.id === selectedGroup) || ROSTER_GROUPS[0];
 
   // ── coach management ──────────────────────────────────
@@ -3616,18 +3637,37 @@ export default function ApexAthletePage() {
 
   // ── PARENT VIEW ──────────────────────────────────────────
   if (view === "parent") {
+    const parentAthleteId = selectedAthlete;
+    const parentAthlete = parentAthleteId ? roster.find(a => a.id === parentAthleteId) : null;
+
+    if (parentAthlete) {
+      return (
+        <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+          <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts /><ComboCounter />
+          <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
+            <GameHUDHeader />
+            <div className="mb-4 flex items-center gap-2">
+              <span className="bg-[#6b21a8]/20 text-[#a855f7] text-[10px] font-mono font-bold px-2 py-0.5 rounded">PARENT PREVIEW</span>
+            </div>
+            <AthleteDetailView athlete={parentAthlete} onBack={() => setSelectedAthlete(null)} />
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
         <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts /><ComboCounter />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
-          <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Read-only — athlete progress & growth</p>
+          <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Tap an athlete to preview what their parent sees</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {roster.sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+            {[...roster].sort((a, b) => b.xp - a.xp).map(a => {
               const lv = getLevel(a.xp); const prog = getLevelProgress(a.xp); const growth = getPersonalGrowth(a);
               return (
-                <Card key={a.id} className="p-5">
+                <div key={a.id} onClick={() => setSelectedAthlete(a.id)} className="cursor-pointer active:scale-[0.98] transition-all">
+                <Card className="p-5">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-10 h-10 rounded-full bg-[#6b21a8]/20 border border-[#6b21a8]/15 flex items-center justify-center text-xs font-bold text-white">
                       {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
@@ -3639,6 +3679,7 @@ export default function ApexAthletePage() {
                         <span className="text-white/50 text-xs">{a.xp} XP</span>
                       </div>
                     </div>
+                    <span className="text-white/20 text-xs">→</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-2">
                     <div className="h-full rounded-full xp-shimmer transition-all" style={{ width: `${prog.percent}%` }} />
@@ -3660,6 +3701,7 @@ export default function ApexAthletePage() {
                     </div>
                   </div>
                 </Card>
+                </div>
               );
             })}
           </div>
@@ -5080,19 +5122,18 @@ export default function ApexAthletePage() {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
                 const sk = fmtStreak(a.streak);
-                const isExp = expandedId === a.id;
                 const hasCk = Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean);
                 const dailyUsed = a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0;
 
                 return (
-                  <div key={a.id} className={`relative overflow-hidden transition-all duration-200 game-card ${isExp ? "ambient-pulse" : ""}`}>
+                  <div key={a.id} className="relative overflow-hidden transition-all duration-200 game-card">
                     <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: `linear-gradient(180deg, ${hasCk ? "#00f0ff" : lv.color}${hasCk ? "80" : "25"}, transparent)`, boxShadow: hasCk ? `0 0 8px ${lv.color}40` : "none" }} />
                     <div className={`game-panel-sm bg-[#06020f]/70 backdrop-blur-xl border transition-all duration-200 ${
-                      isExp ? "border-[#00f0ff]/30 shadow-[0_0_30px_rgba(0,240,255,0.1)]" : hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
+                      hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
                         className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-150 rounded-2xl group tap-feedback"
-                        onClick={() => setExpandedId(isExp ? null : a.id)}
+                        onClick={() => setSelectedAthlete(a.id)}
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
                         <button
@@ -5116,7 +5157,7 @@ export default function ApexAthletePage() {
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <button className="text-white text-sm font-semibold truncate hover:text-[#00f0ff] transition-colors text-left" onClick={(e) => { e.stopPropagation(); setSelectedAthlete(a.id); }}>{a.name}</button>
+                          <div className="text-white text-sm font-semibold truncate">{a.name}</div>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
                             {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><StreakFlame streak={a.streak} size={12} /> {a.streak}d · {sk.mult}</span>}
@@ -5130,12 +5171,7 @@ export default function ApexAthletePage() {
                           {dailyUsed > 0 && <div className="text-xs text-[#f59e0b]/60 font-bold mt-1">+{dailyUsed}</div>}
                         </div>
                       </div>
-                      <div className={`athlete-card-wrapper ${isExp ? "open" : ""}`}>
-                      <div>
-                        {isExp && <div className="px-4 sm:px-5 pb-5 expand-in"><AthleteExpanded athlete={a} /></div>}
                       </div>
-                    </div>
-                    </div>
                   </div>
                 );
               })}
