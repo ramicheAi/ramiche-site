@@ -618,7 +618,7 @@ export default function AthletePortal() {
   const [activeMeditation, setActiveMeditation] = useState<string|null>(null);
   const [meditationModal, setMeditationModal] = useState<string|null>(null);
   const [completedMeditations, setCompletedMeditations] = useState<{meditationId: string; completedAt: number}[]>([]);
-  const [searchResults, setSearchResults] = useState<Athlete[]>([]);
+  // searchResults derived via useMemo below
   const [celebration, setCelebration] = useState<{ level: string; color: string } | null>(null);
   const prevLevelRef = { current: "" };
   // Auto-detect AM/PM from schedule (same logic as coach portal)
@@ -722,17 +722,16 @@ export default function AthletePortal() {
     });
   }, [mounted]);
 
-  // Name search — only used during onboarding, matches name + shows for confirmation
-  useEffect(() => {
-    if (nameInput.length < 2) { setSearchResults([]); return; }
+  // Name search — derived from nameInput, no extra render cycle needed
+  const searchResults = useMemo(() => {
+    if (nameInput.length < 2) return [];
     const q = nameInput.toLowerCase();
-    setSearchResults(roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8));
+    return roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8);
   }, [nameInput, roster]);
 
   const loadAthleteData = (a: Athlete) => {
     setAthlete(a);
     setNameInput("");
-    setSearchResults([]);
     setJournal(load<JournalEntry[]>(`${K.JOURNAL}-${a.id}`, []));
     setTimes(load<TimeEntry[]>(`${K.TIMES}-${a.id}`, []));
     setFeedback(load<FeedbackEntry[]>(`${K.FEEDBACK}-${a.id}`, []));
@@ -1169,7 +1168,6 @@ export default function AthletePortal() {
                         <button key={a.id} onClick={() => {
                           setNameInput(a.name);
                           setSelectedOnboardAthlete(a);
-                          setSearchResults([]);
                           setOnboardStep("swimid");
                         }}
                           className="w-full px-5 py-4 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0 min-h-[48px]">
@@ -2267,11 +2265,13 @@ export default function AthletePortal() {
                         rows={2}
                         value={note}
                         onChange={e => {
-                          const newNotes = { ...(athlete.questNotes || {}), [q.id]: e.target.value };
-                          const roster = load<Athlete[]>(K.ROSTER, []);
-                          const idx = roster.findIndex(a => a.id === athlete.id);
-                          if (idx >= 0) { roster[idx] = { ...roster[idx], questNotes: newNotes }; save(K.ROSTER, roster); }
+                          const newNotes = { ...(athlete?.questNotes || {}), [q.id]: e.target.value };
                           setAthlete(prev => prev ? { ...prev, questNotes: newNotes } : prev);
+                        }}
+                        onBlur={() => {
+                          const roster = load<Athlete[]>(K.ROSTER, []);
+                          const idx = roster.findIndex(a => a.id === athlete?.id);
+                          if (idx >= 0) { roster[idx] = { ...roster[idx], questNotes: athlete?.questNotes || {} }; save(K.ROSTER, roster); }
                         }}
                       />
                       <button
