@@ -2685,7 +2685,7 @@ export default function ApexAthletePage() {
               {secondaryTabs.slice(0, 4).map(t => {
                 const active = view === t.id;
                 return (
-                  <button key={t.id} onClick={() => setView(t.id)}
+                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
                     className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                       active
                         ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
@@ -2700,7 +2700,7 @@ export default function ApexAthletePage() {
               {secondaryTabs.slice(4).map(t => {
                 const active = view === t.id;
                 return (
-                  <button key={t.id} onClick={() => setView(t.id)}
+                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
                     className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                       active
                         ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
@@ -2716,7 +2716,7 @@ export default function ApexAthletePage() {
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
-                <button key={t.id} onClick={() => setView(t.id)}
+                <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); }}
                   className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
