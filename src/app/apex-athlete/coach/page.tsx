@@ -2690,6 +2690,24 @@ export default function ApexAthletePage() {
             </span>
           </div>
 
+          {/* Portal switcher — Coach / Athlete / Parent */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {[
+              { label: "COACH", href: null },
+              { label: "ATHLETE", href: "/apex-athlete/athlete" },
+              { label: "PARENT", href: "/apex-athlete/parent" },
+            ].map(p => (
+              <button key={p.label} onClick={() => { if (p.href) window.location.href = p.href; }}
+                className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                  !p.href
+                    ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                    : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+
           {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
           <div className="md:hidden space-y-2 mb-4">
             <div className="grid grid-cols-4 gap-2">
