@@ -23,51 +23,8 @@ const SFX = {
   shoutout: () => { try { const c = new AudioContext(); [523, 659, 784, 1047].forEach((f, i) => { const o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = f; o.type = "triangle"; g.gain.setValueAtTime(0, c.currentTime + i * 0.06); g.gain.linearRampToValueAtTime(0.07, c.currentTime + i * 0.06 + 0.02); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + i * 0.06 + 0.2); o.start(c.currentTime + i * 0.06); o.stop(c.currentTime + i * 0.06 + 0.2); }); } catch {} },
 };
 
-// ── game engine ──────────────────────────────────────────────
-
-const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8", gradient: "from-slate-400 to-slate-300" },
-  { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa", gradient: "from-violet-400 to-purple-300" },
-  { name: "Warrior", xp: 600, icon: "🔥", color: "#60a5fa", gradient: "from-blue-400 to-cyan-300" },
-  { name: "Elite", xp: 1000, icon: "💎", color: "#f59e0b", gradient: "from-amber-400 to-yellow-300" },
-  { name: "Captain", xp: 1500, icon: "⭐", color: "#f97316", gradient: "from-orange-400 to-amber-300" },
-  { name: "Legend", xp: 2500, icon: "👑", color: "#ef4444", gradient: "from-red-500 to-orange-400" },
-] as const;
-
-function getLevel(xp: number) {
-  for (let i = LEVELS.length - 1; i >= 0; i--) if (xp >= LEVELS[i].xp) return LEVELS[i];
-  return LEVELS[0];
-}
-function getNextLevel(xp: number) {
-  for (const lv of LEVELS) if (xp < lv.xp) return lv;
-  return null;
-}
-function getLevelProgress(xp: number) {
-  const cur = getLevel(xp), nxt = getNextLevel(xp);
-  if (!nxt) return { percent: 100, remaining: 0 };
-  const range = nxt.xp - cur.xp, prog = xp - cur.xp;
-  return { percent: Math.min(100, Math.round((prog / range) * 100)), remaining: nxt.xp - xp };
-}
-function getStreakMult(s: number) {
-  if (s >= 60) return 2.5; if (s >= 30) return 2.0; if (s >= 14) return 1.75;
-  if (s >= 7) return 1.5; if (s >= 3) return 1.25; return 1.0;
-}
-function getWeightStreakMult(s: number) {
-  if (s >= 7) return 1.5; if (s >= 3) return 1.25; return 1.0;
-}
-function fmtStreak(s: number) {
-  if (s >= 60) return { label: "MYTHIC", mult: "2.5x", tier: 5 };
-  if (s >= 30) return { label: "LEGENDARY", mult: "2.0x", tier: 4 };
-  if (s >= 14) return { label: "GOLD", mult: "1.75x", tier: 3 };
-  if (s >= 7) return { label: "SILVER", mult: "1.5x", tier: 2 };
-  if (s >= 3) return { label: "BRONZE", mult: "1.25x", tier: 1 };
-  return { label: "STARTER", mult: "1.0x", tier: 0 };
-}
-function fmtWStreak(s: number) {
-  if (s >= 7) return { label: "IRON", mult: "1.5x", tier: 2 };
-  if (s >= 3) return { label: "STEEL", mult: "1.25x", tier: 1 };
-  return { label: "START", mult: "1.0x", tier: 0 };
-}
+// ── game engine (shared) ────────────────────────────────────
+import { LEVELS, getLevel, getNextLevel, getLevelProgress, getStreakMult, getWeightStreakMult, fmtStreak, fmtWStreak } from "../lib/game-engine";
 
 const DAILY_XP_CAP = 150;
 const PRESENT_XP = 5; // Base XP just for showing up
@@ -884,6 +841,7 @@ export default function ApexAthletePage() {
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(true);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
   // Pending mode switch — requires confirmation tap to actually switch
@@ -3207,6 +3165,179 @@ export default function ApexAthletePage() {
     );
   };
 
+  // ── ATHLETE DETAIL DRILL-DOWN VIEW ───────────────────────
+  const AthleteDetailView = ({ athlete, onBack }: { athlete: Athlete; onBack: () => void }) => {
+    const lv = getLevel(athlete.xp);
+    const prog = getLevelProgress(athlete.xp);
+    const nxt = getNextLevel(athlete.xp);
+    const sk = fmtStreak(athlete.streak);
+    const wsk = fmtWStreak(athlete.weightStreak);
+    const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
+    const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
+
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs />
+        <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
+          <div className="w-full max-w-3xl mx-auto py-6 sm:py-8">
+
+            {/* Back button */}
+            <button onClick={onBack}
+              className="flex items-center gap-2 text-[#00f0ff]/60 hover:text-[#00f0ff] transition-colors mb-6 group min-h-[44px]">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="transition-transform group-hover:-translate-x-1">
+                <path d="M13 4L7 10L13 16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+              <span className="text-sm font-bold font-mono tracking-wider uppercase">Back to Dashboard</span>
+            </button>
+
+            <div className="space-y-6">
+              {/* Profile header */}
+              <Card className="p-6 sm:p-8">
+                <div className="flex items-center gap-5">
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-black text-white shrink-0"
+                    style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `3px solid ${lv.color}60`, boxShadow: `0 0 30px ${lv.color}20` }}>
+                    {athlete.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-white font-black text-2xl tracking-tight">{athlete.name}</h2>
+                    <div className="flex items-center gap-3 mt-2 flex-wrap">
+                      <span className="text-white/60 text-sm">{athlete.age}y · {athlete.gender === "M" ? "Male" : "Female"}</span>
+                      <span className="text-sm font-bold px-3 py-1 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>
+                        {lv.icon} {lv.name}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* XP progress bar */}
+                <div className="mt-6">
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-white font-bold">Level {LEVELS.indexOf(lv) + 1} — <AnimatedCounter value={athlete.xp} />/{nxt ? nxt.xp : lv.xp} XP</span>
+                    <span className="text-white/50">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
+                  </div>
+                  <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{ width: `${prog.percent}%`, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)' }} />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: "Total XP", val: athlete.xp, color: "#A78BFA" },
+                  { label: "Sessions", val: athlete.totalPractices, color: "#00f0ff" },
+                  { label: "Pool Streak", val: `${athlete.streak}d`, color: "#a855f7" },
+                  { label: "Weight Streak", val: `${athlete.weightStreak}d`, color: "#f59e0b" },
+                ].map(s => (
+                  <Card key={s.label} className="py-5 px-4 text-center">
+                    <div className="text-2xl font-black tabular-nums whitespace-nowrap" style={{ color: s.color }}>{s.val}</div>
+                    <div className="text-white/50 text-xs uppercase tracking-wider font-bold mt-1">{s.label}</div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Streaks detail */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Card className="p-5 flex items-center justify-between">
+                  <div>
+                    <div className="text-white/50 text-xs uppercase tracking-wider font-bold">Pool Streak</div>
+                    <div className="text-white font-black text-xl mt-1 flex items-center gap-2">
+                      <StreakFlame streak={athlete.streak} size={20} />
+                      {athlete.streak}d
+                      <span className="text-[#a855f7] text-sm font-bold">{sk.label}</span>
+                    </div>
+                  </div>
+                  <span className="text-[#a855f7] font-black text-lg">{sk.mult}</span>
+                </Card>
+                <Card className="p-5 flex items-center justify-between">
+                  <div>
+                    <div className="text-white/50 text-xs uppercase tracking-wider font-bold">Weight Streak</div>
+                    <div className="text-white font-black text-xl mt-1">{athlete.weightStreak}d
+                      <span className="text-[#f59e0b] text-sm font-bold ml-2">{wsk.label}</span>
+                    </div>
+                  </div>
+                  <span className="text-[#f59e0b] font-black text-lg">{wsk.mult}</span>
+                </Card>
+              </div>
+
+              {/* Daily XP usage */}
+              <Card className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily XP</h3>
+                  <span className={`text-sm font-bold tabular-nums ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-white/60"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
+                </div>
+                <div className="h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${dailyUsed >= DAILY_XP_CAP ? "bg-red-500" : ""}`}
+                    style={{ width: `${(dailyUsed / DAILY_XP_CAP) * 100}%`, ...( dailyUsed < DAILY_XP_CAP ? { background: 'linear-gradient(90deg, #7C3AED, #A78BFA)' } : {}) }} />
+                </div>
+                <div className="flex justify-between text-xs text-white/40 mt-2">
+                  <span>Pool: {dxp.pool}</span>
+                  <span>Weight: {dxp.weight}</span>
+                  <span>Meet: {dxp.meet}</span>
+                </div>
+              </Card>
+
+              {/* Quests */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Quests</h3>
+                  <span className="text-white/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
+                </div>
+                <Card className="divide-y divide-white/[0.04]">
+                  {QUEST_DEFS.map(q => {
+                    const st = athlete.quests[q.id] || "pending";
+                    return (
+                      <div key={q.id} className="flex items-center gap-4 px-5 py-4">
+                        <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                          st === "done" ? "border-emerald-400 bg-emerald-500" :
+                          st === "submitted" ? "border-[#f59e0b] bg-[#f59e0b]/20" :
+                          st === "active" ? "border-[#a855f7] bg-[#a855f7]/10" :
+                          "border-white/15"
+                        }`}>
+                          {st === "done" && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          {st === "submitted" && <span className="text-xs">!</span>}
+                          {st === "active" && <span className="text-xs text-[#a855f7]">●</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-white text-sm font-bold">{q.name}</div>
+                          <div className="text-white/40 text-xs mt-0.5">{q.desc}</div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[q.cat] || "text-white/30"}`}>{q.cat}</span>
+                          <span className="text-white/30 text-xs font-bold">+{q.xp}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Card>
+              </div>
+
+              {/* Week overview */}
+              <Card className="p-5">
+                <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">This Week</h3>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-xl font-black tabular-nums text-white">{athlete.weekSessions}</div>
+                    <div className="text-white/50 text-xs uppercase mt-1">Pool Sessions</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-black tabular-nums text-white">{athlete.weekWeightSessions}</div>
+                    <div className="text-white/50 text-xs uppercase mt-1">Weight Sessions</div>
+                  </div>
+                  <div>
+                    <div className="text-xl font-black tabular-nums text-white">{athlete.weekTarget}</div>
+                    <div className="text-white/50 text-xs uppercase mt-1">Target</div>
+                  </div>
+                </div>
+              </Card>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── STAFF VIEW ───────────────────────────────────────────
   if (view === "staff") {
     // Only head coach / admin (master PIN) can manage staff
@@ -4395,6 +4526,15 @@ export default function ApexAthletePage() {
   const present = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
   const totalXpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
 
+  // ── Athlete detail drill-down ──────────────────────────
+  if (selectedAthlete) {
+    const detailAthlete = roster.find(a => a.id === selectedAthlete);
+    if (detailAthlete) {
+      return <AthleteDetailView athlete={detailAthlete} onBack={() => setSelectedAthlete(null)} />;
+    }
+    setSelectedAthlete(null);
+  }
+
   return (
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
@@ -4807,8 +4947,8 @@ export default function ApexAthletePage() {
             )}
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Roster Check-In</h3>
-            <div className="space-y-2 mb-10">
+            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">// Roster Check-In</h3>
+            <div className="space-y-3 mb-12">
               {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
                 const lv = getLevel(a.xp);
                 const prog = getLevelProgress(a.xp);
@@ -4849,7 +4989,7 @@ export default function ApexAthletePage() {
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-semibold truncate">{a.name}</div>
+                          <button className="text-white text-sm font-semibold truncate hover:text-[#00f0ff] transition-colors text-left" onClick={(e) => { e.stopPropagation(); setSelectedAthlete(a.id); }}>{a.name}</button>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
                             {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><StreakFlame streak={a.streak} size={12} /> {a.streak}d · {sk.mult}</span>}

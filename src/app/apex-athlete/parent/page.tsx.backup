@@ -455,7 +455,7 @@ function WelcomeOverlay({ name, levelName, levelColor }: { name: string; levelNa
         animation: phase === "in" ? "aa-welcome-in 0.6s ease-out forwards" : "aa-welcome-out 0.5s ease-in forwards",
       }}>
         <div className="text-center" style={{ animation: "aa-gold-glow 1.5s ease-in-out infinite" }}>
-          <div className="flex justify-center mb-8">
+          <div className="flex justify-center mb-4">
             <div className="w-20 h-20 rounded-full flex items-center justify-center"
               style={{ backgroundColor: `${levelColor}15`, border: `2px solid ${levelColor}50` }}>
               <LevelIcon name={levelName} size={40} color={levelColor} />
@@ -678,8 +678,8 @@ function EnrollmentForm({ roster, onComplete }: {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
         <div className="relative z-10 w-full max-w-md lg:max-w-2xl xl:max-w-3xl">
-          <div className="text-center mb-16 lg:mb-20">
-            <div className="w-16 h-16 lg:w-20 lg:h-20 mx-auto mb-8 lg:mb-10 rounded-full flex items-center justify-center"
+          <div className="text-center mb-8 lg:mb-12">
+            <div className="w-16 h-16 lg:w-20 lg:h-20 mx-auto mb-4 lg:mb-6 rounded-full flex items-center justify-center"
               style={{ backgroundColor: "rgba(52,211,153,0.1)", border: "2px solid rgba(52,211,153,0.3)" }}>
               <SvgCheckCircle size={32} color="#34d399" />
             </div>
@@ -687,7 +687,7 @@ function EnrollmentForm({ roster, onComplete }: {
             <p className="text-white/60 text-sm">Let&apos;s make sure everything looks right.</p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/15 space-y-10 mb-10">
+          <div className="p-5 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/15 space-y-4 mb-6">
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR NAME</div>
               <div className="text-white font-semibold">{parentName}</div>
@@ -706,7 +706,7 @@ function EnrollmentForm({ roster, onComplete }: {
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR SWIMMER</div>
               {selectedMatch ? (
-                <div className="flex items-center gap-10">
+                <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: `${getLevel(selectedMatch.xp).color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp).color}40` }}>
                     <LevelIcon name={getLevel(selectedMatch.xp).name} size={16} color={getLevel(selectedMatch.xp).color} />
@@ -731,14 +731,14 @@ function EnrollmentForm({ roster, onComplete }: {
             </div>
           </div>
 
-          <div className="flex gap-6">
+          <div className="flex gap-3">
             <button onClick={() => setStep("form")}
               className="flex-1 py-4 rounded-xl bg-white/[0.03] border border-white/10 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
               style={{ minHeight: "52px" }}>
               Go back
             </button>
             <button onClick={handleSubmit}
-              className="flex-1 py-4 min-h-[44px] rounded-xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="flex-1 py-4 rounded-xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
               style={{
                 minHeight: "52px",
                 background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,179,8,0.15))",
@@ -771,7 +771,7 @@ function EnrollmentForm({ roster, onComplete }: {
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10 py-8 sm:py-14">
         {/* Welcome header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-5 rounded-full flex items-center justify-center relative"
             style={{
               background: "linear-gradient(135deg, rgba(245,158,11,0.1), rgba(168,85,247,0.08))",
@@ -783,7 +783,7 @@ function EnrollmentForm({ roster, onComplete }: {
               <SvgWave size={14} color="#34d399" />
             </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black text-white mb-8">
+          <h1 className="text-3xl sm:text-4xl font-black text-white mb-3">
             Welcome, swim parent!
           </h1>
           <p className="text-white/60 text-base leading-relaxed max-w-sm mx-auto">
@@ -792,7 +792,7 @@ function EnrollmentForm({ roster, onComplete }: {
         </div>
 
         {/* Form card */}
-        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 space-y-10 mb-12"
+        <div className="p-5 sm:p-6 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 space-y-5 mb-6"
           style={{ boxShadow: "0 4px 30px rgba(0,0,0,0.3)" }}>
 
           {/* Parent Name */}
@@ -885,7 +885,7 @@ function EnrollmentForm({ roster, onComplete }: {
                     <button key={a.id} onClick={() => { setSelectedMatch(a); setChildName(a.name); }}
                       className="w-full px-4 py-3.5 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0"
                       style={{ minHeight: "48px" }}>
-                      <div className="flex items-center gap-10">
+                      <div className="flex items-center gap-3">
                         <div className="w-7 h-7 rounded-full flex items-center justify-center"
                           style={{ backgroundColor: `${lv.color}15`, border: `1px solid ${lv.color}30` }}>
                           <LevelIcon name={lv.name} size={14} color={lv.color} />
@@ -903,7 +903,7 @@ function EnrollmentForm({ roster, onComplete }: {
 
             {/* Selected match badge */}
             {selectedMatch && (
-              <div className="mt-2 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 flex items-center gap-10">
+              <div className="mt-2 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center"
                   style={{ backgroundColor: `${getLevel(selectedMatch.xp).color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp).color}40` }}>
                   <LevelIcon name={getLevel(selectedMatch.xp).name} size={16} color={getLevel(selectedMatch.xp).color} />
@@ -932,7 +932,7 @@ function EnrollmentForm({ roster, onComplete }: {
 
         {/* Submit button */}
         <button onClick={handleContinue}
-          className="w-full py-4 min-h-[44px] rounded-xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          className="w-full py-4 rounded-xl font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2"
           style={{
             minHeight: "56px",
             background: "linear-gradient(135deg, rgba(245,158,11,0.2), rgba(234,179,8,0.15))",
@@ -1001,9 +1001,6 @@ export default function ParentPortal() {
   const [isCoach, setIsCoach] = useState(false);
   const [meetGuideOpen, setMeetGuideOpen] = useState(false);
   const [conversationOpen, setConversationOpen] = useState(false);
-  const [showAllMeets, setShowAllMeets] = useState(false);
-  const [showAllEvents, setShowAllEvents] = useState(false);
-  const [showAllBroadcasts, setShowAllBroadcasts] = useState(false);
   useEffect(() => {
     setMounted(true);
     // Load enrollment data from localStorage
@@ -1240,8 +1237,8 @@ export default function ParentPortal() {
           {/* ── Desktop branding panel (hidden on mobile) ── */}
           <div className="hidden lg:flex flex-col items-center justify-center px-16">
             <div className="flex flex-col items-center">
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-44 h-44 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mb-10" style={{ filter: "drop-shadow(0 0 80px rgba(245,158,11,0.4))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
-              <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black tracking-tight mb-8" style={{ background: "linear-gradient(180deg, #fff 30%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-44 h-44 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mb-8" style={{ filter: "drop-shadow(0 0 80px rgba(245,158,11,0.4))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
+              <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black tracking-tight mb-4" style={{ background: "linear-gradient(180deg, #fff 30%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
             </div>
             <p className="text-xl text-white/40 text-center max-w-md font-light">Their growth. Your front row.</p>
           </div>
@@ -1250,11 +1247,11 @@ export default function ParentPortal() {
           <div className="w-full flex items-center justify-center lg:px-12 xl:px-16">
             <div className="w-full max-w-xs lg:max-w-md text-center p-8 lg:p-12 xl:p-14 rounded-2xl lg:rounded-3xl border-2 lg:border-[3px]" style={{ background: "rgba(10,5,24,0.7)", borderColor: "rgba(245,158,11,0.25)", boxShadow: "0 0 60px rgba(245,158,11,0.08), inset 0 1px 0 rgba(255,255,255,0.03)" }}>
               {/* Mobile-only logo */}
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-8 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
-              <p className="text-white/30 text-xs font-mono tracking-[0.3em] uppercase mb-3 lg:mb-8">// Secure Access</p>
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
+              <p className="text-white/30 text-xs font-mono tracking-[0.3em] uppercase mb-3 lg:mb-4">// Secure Access</p>
               <h1 className="text-2xl lg:text-3xl xl:text-4xl font-black text-white mb-2 lg:mb-3">Parent Portal</h1>
-              <p className="text-white/50 text-sm lg:text-base mb-10 lg:mb-10">Enter PIN to view your swimmer&apos;s growth</p>
-              <div className="space-y-10 lg:space-y-10">
+              <p className="text-white/50 text-sm lg:text-base mb-8 lg:mb-10">Enter PIN to view your swimmer&apos;s growth</p>
+              <div className="space-y-5 lg:space-y-7">
                 <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
                   onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
                   onKeyDown={e => e.key === "Enter" && handlePin()}
@@ -1309,15 +1306,15 @@ export default function ParentPortal() {
         </div>
         <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           {isCoach && (
-            <div className="grid grid-cols-3 gap-2 mb-8">
+            <div className="grid grid-cols-3 gap-2 mb-6">
               <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Coach</a>
               <a href="/apex-athlete/athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-white/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' }}>Athlete</a>
               <span className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]" style={{ background: '#f59e0b1a', borderColor: '#f59e0b66', color: '#f59e0b' }}>Parent</span>
             </div>
           )}
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             {isCoach && <div className="inline-block px-3 py-2.5 rounded-full bg-[#00f0ff]/10 border border-[#00f0ff]/30 text-[#00f0ff] text-sm font-bold mb-3">COACH VIEW</div>}
-            <svg className="w-14 h-14 mx-auto mb-8" viewBox="0 0 64 64" fill="none">
+            <svg className="w-14 h-14 mx-auto mb-4" viewBox="0 0 64 64" fill="none">
               <circle cx="32" cy="32" r="26" stroke="#f59e0b" strokeWidth="2" fill="rgba(245,158,11,0.06)"/>
               <circle cx="32" cy="26" r="8" stroke="#f59e0b" strokeWidth="1.8" fill="rgba(245,158,11,0.1)"/>
               <path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="#f59e0b" strokeWidth="1.8" strokeLinecap="round" fill="rgba(245,158,11,0.05)"/>
@@ -1338,7 +1335,7 @@ export default function ParentPortal() {
                   const lv = getLevel(a.xp);
                   return (
                     <button key={a.id} onClick={() => setAthlete(a)}
-                      className="w-full px-5 py-3 min-h-[48px] text-left hover:bg-[#f59e0b]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
+                      className="w-full px-5 py-3 text-left hover:bg-[#f59e0b]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0">
                       <span className="text-white font-semibold">{a.name}</span>
                       <span className="text-xs flex items-center gap-1.5" style={{ color: lv.color }}>
                         <LevelIcon name={lv.name} size={14} color={lv.color} />
@@ -1372,7 +1369,7 @@ export default function ParentPortal() {
     <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
       <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
       {/* Portal switcher — full-width grid */}
-      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-10 px-4 lg:px-6 xl:px-8 2xl:px-10 pt-3 pb-2">
+      <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-6 xl:px-8 2xl:px-10 pt-3 pb-2">
         {[
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
@@ -1401,8 +1398,8 @@ export default function ParentPortal() {
 
       <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header */}
-        <div className="flex items-center justify-between mb-16 lg:mb-20">
-          <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px] px-2">← Switch</button>
+        <div className="flex items-center justify-between mb-8 lg:mb-12">
+          <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors">← Switch</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg lg:text-2xl">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
@@ -1421,7 +1418,7 @@ export default function ParentPortal() {
         <div className="lg:grid lg:grid-cols-2 xl:grid-cols-3 lg:gap-10 xl:gap-12 aa-tab-transition">
         <div>
         {/* Level Progress — animated ring */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 text-center relative overflow-hidden" style={{ borderColor: "rgba(245,158,11,0.2)", animation: "aa-glow-pulse 4s ease-in-out infinite", boxShadow: "0 0 30px rgba(245,158,11,0.05)" }}>
+        <div className="mb-8 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center relative overflow-hidden" style={{ borderColor: "rgba(245,158,11,0.2)", animation: "aa-glow-pulse 4s ease-in-out infinite", boxShadow: "0 0 30px rgba(245,158,11,0.05)" }}>
           {/* Subtle orbit decoration */}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ opacity: 0.06 }}>
             <div className="w-48 h-48 rounded-full border border-current" style={{ color: level.color, animation: "aa-orbit 20s linear infinite" }}>
@@ -1461,20 +1458,20 @@ export default function ParentPortal() {
         </div>
 
         {/* Highlights Row — pulse on non-zero */}
-        <div className="grid grid-cols-3 gap-10 lg:gap-10 mb-10">
-          <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
+        <div className="grid grid-cols-3 gap-4 lg:gap-6 mb-8">
+          <div className={`p-5 lg:p-6 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
             style={{ borderColor: athlete.streak > 0 ? `${streak.color}30` : "rgba(255,255,255,0.08)", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm mt-0.5">day streak</div>
           </div>
-          <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
+          <div className={`p-5 lg:p-6 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
             style={{ borderColor: athlete.totalPractices > 0 ? "rgba(96,165,250,0.2)" : "rgba(255,255,255,0.08)", animationDelay: "0.3s", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{athlete.totalPractices}</div>
             <div className="text-white/60 text-sm font-mono tracking-wider mt-1">PRACTICES</div>
             <div className="text-white/50 text-sm mt-0.5">total</div>
           </div>
-          <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
+          <div className={`p-5 lg:p-6 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
             style={{ borderColor: earnedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(255,255,255,0.08)", animationDelay: "0.6s", boxShadow: "0 0 20px rgba(255,255,255,0.02)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{earnedCount}</div>
             <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider mt-1">BADGES</div>
@@ -1484,8 +1481,8 @@ export default function ParentPortal() {
 
         {/* Weekly Growth Trend */}
         {growth && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "1s" }}>
-            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-8">THIS WEEK&apos;S GROWTH</h3>
+          <div className="mb-8 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "1s" }}>
+            <h3 className="text-white/50 text-xs font-mono tracking-wider mb-4">THIS WEEK&apos;S GROWTH</h3>
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <div className="text-xl font-bold text-emerald-400">{growth.weekXP}</div>
@@ -1515,9 +1512,9 @@ export default function ParentPortal() {
         {/* Right column on desktop */}
         <div>
         {/* Achievement Badges */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "2s" }}>
+        <div className="mb-8 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "2s" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">ACHIEVEMENTS</h3>
-          <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-10 lg:gap-5">
+          <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4 lg:gap-5">
             {achievements.map((badge, i) => (
               <div key={i} className={`text-center transition-all ${badge.earned ? "aa-badge-pop" : "opacity-25"}`}
                 style={badge.earned ? { animationDelay: `${i * 0.05}s` } : {}}>
@@ -1545,9 +1542,9 @@ export default function ParentPortal() {
         </div>
 
         {/* Encouragement Section — animated gradient */}
-        <div className="mb-10 p-10 lg:p-12 rounded-xl border border-[#f59e0b]/10 aa-gradient-bg aa-breathe"
+        <div className="mb-8 p-6 lg:p-7 rounded-xl border border-[#f59e0b]/10 aa-gradient-bg aa-breathe"
           style={{ animationDelay: "3s", background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
-          <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">HIGHLIGHTS</h3>
+          <h3 className="text-white/50 text-xs font-mono tracking-wider mb-3">HIGHLIGHTS</h3>
           <div className="space-y-2">
             {athlete.streak >= 7 && (
               <p className="text-white/60 text-sm">Your swimmer has maintained a <span className="text-[#f59e0b] font-bold">{athlete.streak}-day streak</span> — that&apos;s incredible consistency!</p>
@@ -1575,18 +1572,18 @@ export default function ParentPortal() {
             ═══════════════════════════════════════════════════════════ */}
 
         {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
+        <div className="border-b border-white/10 mb-8" />
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
-            <div className="flex items-center gap-2 mb-8">
+          <div className="mb-8 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2">
+            <div className="flex items-center gap-2 mb-4">
               <SvgCalendar size={18} color="#f59e0b" />
               <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
             </div>
-            <p className="text-white/60 text-xs mb-8">Let your coach know if your swimmer can make it. A quick tap is all it takes!</p>
-            <div className="space-y-6">
-              {(showAllMeets ? upcomingMeets : upcomingMeets.slice(0, 5)).map(meet => {
+            <p className="text-white/60 text-xs mb-4">Let your coach know if your swimmer can make it. A quick tap is all it takes!</p>
+            <div className="space-y-3">
+              {upcomingMeets.map(meet => {
                 const existingRsvp = getRsvpStatus(meet.id);
                 const athleteEntries = meet.entries?.filter(e => e.athleteId === athlete.id) || [];
                 const deadlinePassed = meet.rsvpDeadline ? new Date(meet.rsvpDeadline) < new Date() : false;
@@ -1594,17 +1591,17 @@ export default function ParentPortal() {
                 const daysUntil = Math.ceil((meetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
                 return (
-                  <div key={meet.id} className="p-5 rounded-xl border transition-all"
+                  <div key={meet.id} className="p-4 rounded-xl border transition-all"
                     style={{
                       backgroundColor: existingRsvp?.status === "committed" ? "rgba(52,211,153,0.04)" :
                         existingRsvp?.status === "declined" ? "rgba(239,68,68,0.04)" : "rgba(255,255,255,0.02)",
                       borderColor: existingRsvp?.status === "committed" ? "rgba(52,211,153,0.15)" :
                         existingRsvp?.status === "declined" ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.05)",
                     }}>
-                    <div className="flex items-start justify-between gap-10 mb-2">
+                    <div className="flex items-start justify-between gap-3 mb-2">
                       <div className="flex-1 min-w-0">
                         <div className="text-white font-bold text-sm truncate">{meet.name}</div>
-                        <div className="flex items-center gap-10 mt-1 flex-wrap">
+                        <div className="flex items-center gap-3 mt-1 flex-wrap">
                           <span className="flex items-center gap-1 text-white/60 text-xs">
                             <SvgClock size={12} color="#94a3b8" />
                             {meetDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -1644,7 +1641,7 @@ export default function ParentPortal() {
                     {deadlinePassed ? (
                       <div className="text-white/50 text-xs italic">RSVP deadline has passed</div>
                     ) : existingRsvp ? (
-                      <div className="flex items-center gap-10">
+                      <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1.5">
                           {existingRsvp.status === "committed" ? (
                             <SvgCheckCircle size={16} color="#34d399" />
@@ -1681,31 +1678,22 @@ export default function ParentPortal() {
                 );
               })}
             </div>
-            {upcomingMeets.length > 5 && (
-              <button onClick={() => setShowAllMeets(!showAllMeets)}
-                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border border-[#f59e0b]/10 transition-all min-h-[44px]">
-                {showAllMeets ? "Show less" : `Show ${upcomingMeets.length - 5} more meets`}
-              </button>
-            )}
           </div>
         )}
 
-        {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
-
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
-            <div className="flex items-center gap-2 mb-8">
+          <div className="mb-8 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2">
+            <div className="flex items-center gap-2 mb-4">
               <SvgSwimWave size={18} color="#60a5fa" />
               <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
             </div>
-            <p className="text-white/60 text-xs mb-8">Here&apos;s what {athlete.name.split(" ")[0]} is signed up for. Seed times help set race pace expectations.</p>
-            <div className="space-y-6">
-              {(showAllEvents ? meetsWithEntries : meetsWithEntries.slice(0, 5)).map(meet => {
+            <p className="text-white/60 text-xs mb-4">Here&apos;s what {athlete.name.split(" ")[0]} is signed up for. Seed times help set race pace expectations.</p>
+            <div className="space-y-3">
+              {meetsWithEntries.map(meet => {
                 const entries = meet.entries?.filter(e => e.athleteId === athlete.id) || [];
                 return (
-                  <div key={meet.id} className="p-5 rounded-xl bg-[#60a5fa]/[0.03] border border-[#60a5fa]/10">
+                  <div key={meet.id} className="p-3 rounded-lg bg-[#60a5fa]/[0.03] border border-[#60a5fa]/10">
                     <div className="text-white/60 text-xs font-bold mb-2">{meet.name}</div>
                     <div className="text-white/50 text-sm mb-2">
                       {new Date(meet.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
@@ -1727,21 +1715,12 @@ export default function ParentPortal() {
                 );
               })}
             </div>
-            {meetsWithEntries.length > 5 && (
-              <button onClick={() => setShowAllEvents(!showAllEvents)}
-                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#60a5fa]/70 hover:text-[#60a5fa] bg-[#60a5fa]/5 hover:bg-[#60a5fa]/10 border border-[#60a5fa]/10 transition-all min-h-[44px]">
-                {showAllEvents ? "Show less" : `Show ${meetsWithEntries.length - 5} more events`}
-              </button>
-            )}
           </div>
         )}
 
-        {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
-
         {/* ── Absence Reporting ─────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
-          <div className="flex items-center gap-2 mb-8">
+        <div className="mb-8 p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2">
+          <div className="flex items-center gap-2 mb-4">
             <SvgClipboardX size={18} color="#f97316" />
             <h3 className="text-[#f97316]/90 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
           </div>
@@ -1750,13 +1729,13 @@ export default function ParentPortal() {
           </p>
 
           {absenceSubmitted && (
-            <div className="mb-8 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-6">
+            <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2">
               <SvgCheckCircle size={18} color="#34d399" />
               <span className="text-emerald-400 text-sm font-semibold">Got it! The coach has been notified. Hope your swimmer feels better soon.</span>
             </div>
           )}
 
-          <div className="space-y-5">
+          <div className="space-y-3">
             {/* Parent name */}
             <div>
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">YOUR NAME</label>
@@ -1825,10 +1804,10 @@ export default function ParentPortal() {
           {/* Recent absence reports */}
           {myAbsences.length > 0 && (
             <div className="mt-4 pt-4 border-t border-white/5">
-              <div className="text-white/50 text-sm font-mono tracking-wider mb-8">RECENT REPORTS</div>
+              <div className="text-white/50 text-sm font-mono tracking-wider mb-3">RECENT REPORTS</div>
               <div className="space-y-2">
                 {myAbsences.slice(0, 5).map(report => (
-                  <div key={report.id} className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] flex items-start justify-between gap-10">
+                  <div key={report.id} className="p-3 rounded-lg bg-white/[0.02] border border-white/[0.04] flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="text-white/50 text-xs font-semibold">{report.reason}</div>
                       <div className="text-white/50 text-sm mt-0.5">
@@ -1849,12 +1828,9 @@ export default function ParentPortal() {
           )}
         </div>
 
-        {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
-
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2">
-          <div className="flex items-center gap-2 mb-5">
+        <div className="mb-6 p-5 lg:p-7 rounded-2xl bg-[#0a0518]/80 border-2">
+          <div className="flex items-center gap-2 mb-3">
             <SvgMegaphone size={18} color="#a855f7" />
             <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
             {allBroadcasts.length > 0 && (
@@ -1870,8 +1846,8 @@ export default function ParentPortal() {
               <p className="text-white/60 text-xs mt-1">When your coach sends updates, they&apos;ll show up here.</p>
             </div>
           ) : (
-            <div className="space-y-3" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(168,85,247,0.2) transparent" }}>
-              {(showAllBroadcasts ? allBroadcasts : allBroadcasts.slice(0, 5)).map((b, i) => {
+            <div className="space-y-2 max-h-[320px] overflow-y-auto" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(168,85,247,0.2) transparent" }}>
+              {allBroadcasts.map((b, i) => {
                 const ts = new Date(b.timestamp);
                 const now = new Date();
                 const diffMs = now.getTime() - ts.getTime();
@@ -1882,7 +1858,7 @@ export default function ParentPortal() {
                 const isNew = diffMs < 86400000; // less than 24h
 
                 return (
-                  <div key={b.id || i} className="p-4 rounded-xl border transition-all"
+                  <div key={b.id || i} className="p-3 rounded-lg border transition-all"
                     style={{
                       backgroundColor: isNew ? "rgba(168,85,247,0.04)" : "rgba(255,255,255,0.015)",
                       borderColor: isNew ? "rgba(168,85,247,0.12)" : "rgba(255,255,255,0.04)",
@@ -1907,28 +1883,19 @@ export default function ParentPortal() {
                   </div>
                 );
               })}
-              {allBroadcasts.length > 5 && (
-                <button onClick={() => setShowAllBroadcasts(!showAllBroadcasts)}
-                  className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#a855f7]/70 hover:text-[#a855f7] bg-[#a855f7]/5 hover:bg-[#a855f7]/10 border border-[#a855f7]/10 transition-all min-h-[44px]">
-                  {showAllBroadcasts ? "Show less" : `Show ${allBroadcasts.length - 5} more updates`}
-                </button>
-              )}
             </div>
           )}
         </div>
 
-        {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
-
         {/* Meet Day Guide — collapsible */}
-        <div className="mb-10 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(6,182,212,0.15)" }}>
+        <div className="mb-6 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(6,182,212,0.15)" }}>
           <button onClick={() => setMeetGuideOpen(!meetGuideOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors">
             <h3 className="text-cyan-400/90 text-xs font-mono tracking-wider">MEET DAY GUIDE FOR PARENTS</h3>
             <span className="text-white/40 text-lg transition-transform" style={{ transform: meetGuideOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>▾</span>
           </button>
           <div className="aa-collapsible-content" style={{ maxHeight: meetGuideOpen ? "600px" : "0", opacity: meetGuideOpen ? 1 : 0 }}>
-            <div className="px-6 pb-6 lg:px-8 lg:pb-8 space-y-5">
-              <div className="p-5 rounded-xl bg-emerald-500/5 border-2 border-emerald-500/10">
+            <div className="px-5 pb-5 lg:px-7 lg:pb-7 space-y-3">
+              <div className="p-4 rounded-xl bg-emerald-500/5 border-2 border-emerald-500/10">
                 <span className="text-emerald-400 text-xs font-bold block mb-2">BEFORE THE RACE</span>
                 <ul className="text-white/60 text-sm space-y-1.5">
                   <li>• &quot;Have fun out there&quot; — keep it simple</li>
@@ -1937,7 +1904,7 @@ export default function ParentPortal() {
                   <li>• Trust their coach&apos;s race plan</li>
                 </ul>
               </div>
-              <div className="p-5 rounded-xl bg-amber-500/5 border-2 border-amber-500/10">
+              <div className="p-4 rounded-xl bg-amber-500/5 border-2 border-amber-500/10">
                 <span className="text-amber-400 text-xs font-bold block mb-2">AFTER THE RACE</span>
                 <ul className="text-white/60 text-sm space-y-1.5">
                   <li>• &quot;I love watching you swim&quot; — always works</li>
@@ -1946,7 +1913,7 @@ export default function ParentPortal() {
                   <li>• Win or lose — celebrate the effort</li>
                 </ul>
               </div>
-              <div className="p-5 rounded-xl bg-red-500/5 border-2 border-red-500/10">
+              <div className="p-4 rounded-xl bg-red-500/5 border-2 border-red-500/10">
                 <span className="text-red-400/90 text-xs font-bold block mb-2">AVOID</span>
                 <ul className="text-white/60 text-sm space-y-1.5">
                   <li>• Coaching from the stands</li>
@@ -1960,14 +1927,14 @@ export default function ParentPortal() {
         </div>
 
         {/* Conversation Starters — collapsible */}
-        <div className="mb-10 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
+        <div className="mb-6 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
           <button onClick={() => setConversationOpen(!conversationOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors">
             <h3 className="text-violet-400/90 text-xs font-mono tracking-wider">CONVERSATION STARTERS</h3>
             <span className="text-white/40 text-lg transition-transform" style={{ transform: conversationOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>▾</span>
           </button>
           <div className="aa-collapsible-content" style={{ maxHeight: conversationOpen ? "500px" : "0", opacity: conversationOpen ? 1 : 0 }}>
-            <div className="px-6 pb-6 lg:px-8 lg:pb-8">
-              <p className="text-white/50 text-sm mb-5">Great questions to ask your swimmer this week:</p>
+            <div className="px-5 pb-5 lg:px-7 lg:pb-7">
+              <p className="text-white/50 text-sm mb-3">Great questions to ask your swimmer this week:</p>
               <div className="space-y-2">
                 {[
                   { q: "What was the best part of practice today?", why: "Opens positive reflection" },
@@ -1976,7 +1943,7 @@ export default function ParentPortal() {
                   { q: "Are you getting enough sleep before practice?", why: "Recovery matters — shows support" },
                   { q: "What do you like most about being on the team?", why: "Keeps the fun in focus" },
                 ].map((item, i) => (
-                  <div key={i} className="p-5 rounded-xl bg-violet-500/5 border-2 border-violet-500/10">
+                  <div key={i} className="p-4 rounded-xl bg-violet-500/5 border-2 border-violet-500/10">
                     <span className="text-white/60 text-sm block">&quot;{item.q}&quot;</span>
                     <span className="text-violet-400/70 text-sm">{item.why}</span>
                   </div>
