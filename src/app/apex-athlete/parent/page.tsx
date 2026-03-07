@@ -686,7 +686,7 @@ function EnrollmentForm({ roster, onComplete }: {
             <p className="text-white/60 text-sm">Let&apos;s make sure everything looks right.</p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/10 space-y-10 mb-10">
+          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 space-y-10 mb-10">
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR NAME</div>
               <div className="text-white font-semibold">{parentName}</div>
@@ -732,7 +732,7 @@ function EnrollmentForm({ roster, onComplete }: {
 
           <div className="flex gap-6">
             <button onClick={() => setStep("form")}
-              className="flex-1 py-4 rounded-xl bg-white/[0.03] border-2 border-[#a855f7]/10 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
+              className="flex-1 py-4 rounded-xl bg-[#a855f7]/[0.04] border-2 border-[#a855f7]/25 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
               style={{ minHeight: "52px" }}>
               Go back
             </button>
@@ -791,7 +791,7 @@ function EnrollmentForm({ roster, onComplete }: {
         </div>
 
         {/* Form card */}
-        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/10 space-y-10 mb-12"
+        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 space-y-10 mb-12"
           style={{ boxShadow: "0 4px 30px rgba(0,0,0,0.3)" }}>
 
           {/* Parent Name */}
@@ -805,7 +805,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={parentName}
               onChange={e => { setParentName(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.parentName; return n; }); }}
               placeholder="e.g., Sarah Johnson"
-              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/25"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.parentName ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/25"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
             />
             {errors.parentName && <p className="text-red-400 text-xs mt-1.5 ml-1">{errors.parentName}</p>}
@@ -822,7 +822,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={email}
               onChange={e => { setEmail(e.target.value); setErrors(prev => { const n = { ...prev }; delete n.email; return n; }); }}
               placeholder="parent@email.com"
-              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/25"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.email ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/25"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
               autoComplete="email"
             />
@@ -840,7 +840,7 @@ function EnrollmentForm({ roster, onComplete }: {
               value={phone}
               onChange={e => { setPhone(formatPhone(e.target.value)); setErrors(prev => { const n = { ...prev }; delete n.phone; return n; }); }}
               placeholder="(555) 123-4567"
-              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/25"}`}
+              className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.phone ? "border-red-500/50 focus:border-red-500/70" : "focus:border-[#a855f7]/25"}`}
               style={{ fontSize: "16px", minHeight: "52px" }}
               inputMode="tel"
               autoComplete="tel"
@@ -860,7 +860,7 @@ function EnrollmentForm({ roster, onComplete }: {
                 value={childName}
                 onChange={e => { setChildName(e.target.value); setSelectedMatch(null); setErrors(prev => { const n = { ...prev }; delete n.childName; return n; }); }}
                 placeholder="Type to search the roster..."
-                className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "focus:border-[#a855f7]/25"}`}
+                className={`w-full px-4 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none transition-all ${errors.childName ? "border-red-500/50 focus:border-red-500/70" : selectedMatch ? "border-emerald-500/40" : "focus:border-[#a855f7]/25"}`}
                 style={{ fontSize: "16px", minHeight: "52px" }}
               />
               {selectedMatch && (
@@ -1307,8 +1307,8 @@ export default function ParentPortal() {
         <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           {isCoach && (
             <div className="grid grid-cols-3 gap-2 mb-8">
-              <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-[#a855f7]/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(168,85,247,0.15)', color: 'rgba(168,85,247,0.4)' }}>Coach</a>
-              <a href="/apex-athlete/athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-[#a855f7]/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(168,85,247,0.15)', color: 'rgba(168,85,247,0.4)' }}>Athlete</a>
+              <a href="/apex-athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-[#a855f7]/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(168,85,247,0.25)', color: 'rgba(168,85,247,0.4)' }}>Coach</a>
+              <a href="/apex-athlete/athlete" className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border hover:border-[#a855f7]/20 active:scale-[0.97]" style={{ background: 'rgba(6,2,15,0.6)', borderColor: 'rgba(168,85,247,0.25)', color: 'rgba(168,85,247,0.4)' }}>Athlete</a>
               <span className="py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]" style={{ background: '#f59e0b1a', borderColor: '#f59e0b66', color: '#f59e0b' }}>Parent</span>
             </div>
           )}
@@ -1326,10 +1326,10 @@ export default function ParentPortal() {
             <input
               type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
               placeholder="Type your swimmer's name..."
-              className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/25 transition-all"
+              className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/25 transition-all"
             />
             {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl overflow-hidden z-50">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl overflow-hidden z-50">
                 {searchResults.map(a => {
                   const lv = getLevel(a.xp);
                   return (
@@ -1459,19 +1459,19 @@ export default function ParentPortal() {
         {/* Highlights Row — pulse on non-zero */}
         <div className="grid grid-cols-3 gap-10 lg:gap-10 mb-10">
           <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.streak > 0 ? "aa-value-pulse" : ""}`}
-            style={{ borderColor: athlete.streak > 0 ? `${streak.color}30` : "rgba(168,85,247,0.15)", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
+            style={{ borderColor: athlete.streak > 0 ? `${streak.color}30` : "rgba(168,85,247,0.25)", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{athlete.streak}</div>
             <div className="text-sm font-mono tracking-wider mt-1" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm mt-0.5">day streak</div>
           </div>
           <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${athlete.totalPractices > 0 ? "aa-value-pulse" : ""}`}
-            style={{ borderColor: athlete.totalPractices > 0 ? "rgba(96,165,250,0.2)" : "rgba(168,85,247,0.15)", animationDelay: "0.3s", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
+            style={{ borderColor: athlete.totalPractices > 0 ? "rgba(96,165,250,0.2)" : "rgba(168,85,247,0.25)", animationDelay: "0.3s", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{athlete.totalPractices}</div>
             <div className="text-white/60 text-sm font-mono tracking-wider mt-1">PRACTICES</div>
             <div className="text-white/50 text-sm mt-0.5">total</div>
           </div>
           <div className={`p-6 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 text-center aa-breathe ${earnedCount > 0 ? "aa-value-pulse" : ""}`}
-            style={{ borderColor: earnedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(168,85,247,0.15)", animationDelay: "0.6s", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
+            style={{ borderColor: earnedCount > 0 ? "rgba(245,158,11,0.2)" : "rgba(168,85,247,0.25)", animationDelay: "0.6s", boxShadow: "0 0 20px rgba(168,85,247,0.03)" }}>
             <div className="text-3xl lg:text-4xl font-black text-white">{earnedCount}</div>
             <div className="text-[#f59e0b]/80 text-sm font-mono tracking-wider mt-1">BADGES</div>
             <div className="text-white/50 text-sm mt-0.5">earned</div>
@@ -1480,7 +1480,7 @@ export default function ParentPortal() {
 
         {/* Weekly Growth Trend */}
         {growth && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/10 aa-breathe" style={{ animationDelay: "1s" }}>
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 aa-breathe" style={{ animationDelay: "1s" }}>
             <h3 className="text-white/50 text-xs font-mono tracking-wider mb-8">THIS WEEK&apos;S GROWTH</h3>
             <div className="grid grid-cols-2 gap-6">
               <div>
@@ -1511,7 +1511,7 @@ export default function ParentPortal() {
         {/* Right column on desktop */}
         <div>
         {/* Achievement Badges */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/10 aa-breathe" style={{ animationDelay: "2s" }}>
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 aa-breathe" style={{ animationDelay: "2s" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">ACHIEVEMENTS</h3>
           <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-10 lg:gap-5">
             {achievements.map((badge, i) => (
@@ -1541,7 +1541,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Encouragement Section — animated gradient */}
-        <div className="mb-10 p-10 lg:p-12 rounded-xl border-2 border-[#a855f7]/10 aa-gradient-bg aa-breathe"
+        <div className="mb-10 p-10 lg:p-12 rounded-xl border-2 border-[#a855f7]/25 aa-gradient-bg aa-breathe"
           style={{ animationDelay: "3s", background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">HIGHLIGHTS</h3>
           <div className="space-y-2">
@@ -1575,7 +1575,7 @@ export default function ParentPortal() {
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/10">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/25">
             <div className="flex items-center gap-2 mb-8">
               <SvgCalendar size={18} color="#f59e0b" />
               <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
@@ -1666,7 +1666,7 @@ export default function ParentPortal() {
                           Count us in!
                         </button>
                         <button onClick={() => handleRsvp(meet.id, "declined")}
-                          className="flex-1 py-3 rounded-lg bg-white/[0.03] border-2 border-[#a855f7]/10 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          className="flex-1 py-3 rounded-lg bg-[#a855f7]/[0.04] border-2 border-[#a855f7]/25 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           style={{ minHeight: "44px" }}>
                           <SvgXCircle size={16} color="#94a3b8" />
                           Can&apos;t make it
@@ -1679,7 +1679,7 @@ export default function ParentPortal() {
             </div>
             {upcomingMeets.length > 5 && (
               <button onClick={() => setShowAllMeets(!showAllMeets)}
-                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border-2 border-[#a855f7]/10 transition-all min-h-[44px]">
+                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border-2 border-[#a855f7]/25 transition-all min-h-[44px]">
                 {showAllMeets ? "Show less" : `Show ${upcomingMeets.length - 5} more meets`}
               </button>
             )}
@@ -1691,7 +1691,7 @@ export default function ParentPortal() {
 
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/10">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/25">
             <div className="flex items-center gap-2 mb-8">
               <SvgSwimWave size={18} color="#60a5fa" />
               <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
@@ -1709,7 +1709,7 @@ export default function ParentPortal() {
                     </div>
                     <div className="space-y-1.5">
                       {entries.map((entry, i) => (
-                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02] border border-[#a855f7]/[0.04]">
+                        <div key={i} className="flex items-center justify-between px-3 py-2 rounded-lg bg-[#a855f7]/[0.03] border border-[#a855f7]/[0.04]">
                           <span className="text-white/70 text-sm font-medium">{entry.event}</span>
                           {entry.seedTime ? (
                             <span className="text-[#60a5fa] text-sm font-mono font-bold">{entry.seedTime}</span>
@@ -1736,7 +1736,7 @@ export default function ParentPortal() {
         <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Absence Reporting ─────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/10">
+        <div className="mb-10 p-10 lg:p-12 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25">
           <div className="flex items-center gap-2 mb-8">
             <SvgClipboardX size={18} color="#f97316" />
             <h3 className="text-[#f97316]/90 text-xs font-mono tracking-wider">REPORT AN ABSENCE</h3>
@@ -1758,7 +1758,7 @@ export default function ParentPortal() {
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">YOUR NAME</label>
               <input type="text" value={parentNameInput} onChange={e => setParentNameInput(e.target.value)}
                 placeholder="e.g., Sarah Johnson"
-                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/25 transition-all"
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/25 transition-all"
                 style={{ minHeight: "44px" }} />
             </div>
 
@@ -1766,7 +1766,7 @@ export default function ParentPortal() {
             <div>
               <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">REASON</label>
               <select value={absenceReason} onChange={e => setAbsenceReason(e.target.value)}
-                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/25 transition-all appearance-none cursor-pointer"
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/25 transition-all appearance-none cursor-pointer"
                 style={{ minHeight: "44px", backgroundImage: `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3 5l3 3 3-3' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" }}>
                 <option value="Illness">Illness</option>
                 <option value="Family Emergency">Family Emergency</option>
@@ -1781,14 +1781,14 @@ export default function ParentPortal() {
               <div>
                 <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">START DATE</label>
                 <input type="date" value={absenceDateStart} onChange={e => setAbsenceDateStart(e.target.value)}
-                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/25 transition-all [color-scheme:dark]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/25 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
               <div>
                 <label className="text-white/60 text-sm font-mono tracking-wider block mb-1">END DATE <span className="text-white/50">(optional)</span></label>
                 <input type="date" value={absenceDateEnd} onChange={e => setAbsenceDateEnd(e.target.value)}
                   min={absenceDateStart || undefined}
-                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/25 transition-all [color-scheme:dark]"
+                  className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white focus:outline-none focus:border-[#a855f7]/25 transition-all [color-scheme:dark]"
                   style={{ minHeight: "44px" }} />
               </div>
             </div>
@@ -1799,7 +1799,7 @@ export default function ParentPortal() {
               <textarea value={absenceNote} onChange={e => setAbsenceNote(e.target.value)}
                 placeholder="Any details the coach should know..."
                 rows={2}
-                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/25 transition-all resize-none" />
+                className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#a855f7]/25 transition-all resize-none" />
             </div>
 
             {/* Submit */}
@@ -1824,7 +1824,7 @@ export default function ParentPortal() {
               <div className="text-white/50 text-sm font-mono tracking-wider mb-8">RECENT REPORTS</div>
               <div className="space-y-2">
                 {myAbsences.slice(0, 5).map(report => (
-                  <div key={report.id} className="p-4 rounded-xl bg-white/[0.02] border border-[#a855f7]/[0.04] flex items-start justify-between gap-10">
+                  <div key={report.id} className="p-4 rounded-xl bg-[#a855f7]/[0.03] border border-[#a855f7]/[0.04] flex items-start justify-between gap-10">
                     <div className="min-w-0">
                       <div className="text-white/50 text-xs font-semibold">{report.reason}</div>
                       <div className="text-white/50 text-sm mt-0.5">
@@ -1849,7 +1849,7 @@ export default function ParentPortal() {
         <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/10">
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/25">
           <div className="flex items-center gap-2 mb-5">
             <SvgMegaphone size={18} color="#a855f7" />
             <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
@@ -1905,7 +1905,7 @@ export default function ParentPortal() {
               })}
               {allBroadcasts.length > 5 && (
                 <button onClick={() => setShowAllBroadcasts(!showAllBroadcasts)}
-                  className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#a855f7]/70 hover:text-[#a855f7] bg-[#a855f7]/5 hover:bg-[#a855f7]/10 border border-[#a855f7]/10 transition-all min-h-[44px]">
+                  className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#a855f7]/70 hover:text-[#a855f7] bg-[#a855f7]/5 hover:bg-[#a855f7]/10 border border-[#a855f7]/25 transition-all min-h-[44px]">
                   {showAllBroadcasts ? "Show less" : `Show ${allBroadcasts.length - 5} more updates`}
                 </button>
               )}
@@ -1918,7 +1918,7 @@ export default function ParentPortal() {
 
         {/* Meet Day Guide — collapsible */}
         <div className="mb-10 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(6,182,212,0.15)" }}>
-          <button onClick={() => setMeetGuideOpen(!meetGuideOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors">
+          <button onClick={() => setMeetGuideOpen(!meetGuideOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-[#a855f7]/[0.03] transition-colors">
             <h3 className="text-cyan-400/90 text-xs font-mono tracking-wider">MEET DAY GUIDE FOR PARENTS</h3>
             <span className="text-white/40 text-lg transition-transform" style={{ transform: meetGuideOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>▾</span>
           </button>
@@ -1957,7 +1957,7 @@ export default function ParentPortal() {
 
         {/* Conversation Starters — collapsible */}
         <div className="mb-10 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(139,92,246,0.15)" }}>
-          <button onClick={() => setConversationOpen(!conversationOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-white/[0.02] transition-colors">
+          <button onClick={() => setConversationOpen(!conversationOpen)} className="w-full p-5 lg:p-7 flex items-center justify-between text-left hover:bg-[#a855f7]/[0.03] transition-colors">
             <h3 className="text-violet-400/90 text-xs font-mono tracking-wider">CONVERSATION STARTERS</h3>
             <span className="text-white/40 text-lg transition-transform" style={{ transform: conversationOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.3s ease" }}>▾</span>
           </button>
