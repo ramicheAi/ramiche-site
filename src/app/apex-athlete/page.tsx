@@ -2453,7 +2453,7 @@ export default function ApexAthletePage() {
                       className={`w-full text-center text-3xl tracking-[0.5em] py-5 bg-[#06020f]/60 border-2 rounded-xl text-[#D4A843] placeholder:text-[#D4A843]/15 focus:outline-none transition-all font-mono ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#D4A843]/20 focus:border-[#D4A843]/50 focus:shadow-[0_0_30px_rgba(212,168,67,0.2)]"}`}
                     />
                   </div>
-                  {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED. Default: {MASTER_PIN}.</p>}
+                  {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED. Try again or contact your admin.</p>}
                   <button onClick={tryUnlock}
                     className="w-full py-6 rounded-xl font-black text-lg tracking-widest uppercase transition-all active:scale-[0.97] min-h-[70px]"
                     style={{background:'linear-gradient(135deg, #D4A843, #FFD700, #B8860B)',color:'#06020f',animation:'coachBtnPulse 2s ease-in-out infinite'}}>
@@ -2461,7 +2461,7 @@ export default function ApexAthletePage() {
                   </button>
                   {pinError && (
                     <button onClick={resetPin} className="text-white/40 text-sm hover:text-white/60 transition-colors font-mono min-h-[44px] text-center">
-                      RESET PIN → {MASTER_PIN}
+                      RESET PIN
                     </button>
                   )}
                 </div>
