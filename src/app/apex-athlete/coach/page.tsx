@@ -2656,7 +2656,7 @@ export default function ApexAthletePage() {
       { id: "coach" as const, label: "Check-In" },
       { id: "meets" as const, label: "Meets" },
       { id: "schedule" as const, label: "Schedule" },
-      { id: "parent" as const, label: "Parent" },
+      { id: "parent" as const, label: "Family" },
       { id: "staff" as const, label: "Staff" },
       { id: "comms" as const, label: "Comms" },
       { id: "analytics" as const, label: "Analytics" },
