@@ -2580,11 +2580,11 @@ export default function ApexAthletePage() {
     return (
       <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
         <BgOrbs />
-        <div className="text-center max-w-xs w-full relative z-10">
+        <div className="text-center max-w-xs w-full relative z-10 flex flex-col items-center">
           {/* HUD access terminal */}
-          <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
+          <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6 w-full flex flex-col items-center">
             <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Athlete Performance System</div>
-            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-4" style={{ filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))' }} />
+            <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mb-4" style={{ filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))' }} />
             <h1 className="text-4xl font-black mb-2 tracking-tighter" style={{background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', filter: 'drop-shadow(0 0 30px rgba(201,168,76,0.3))'}}>METTLE</h1>
             <div className="text-[#a855f7]/30 text-xs tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
