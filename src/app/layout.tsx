@@ -46,6 +46,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" style={{ colorScheme: "dark", backgroundColor: "#0a0a0a" }}>
       <head>
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
         <script dangerouslySetInnerHTML={{ __html: `
           try{
             if('serviceWorker' in navigator){

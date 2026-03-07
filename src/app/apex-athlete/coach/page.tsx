@@ -2765,6 +2765,10 @@ export default function ApexAthletePage() {
             <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
           </div>
         </div>
+        {/* Build version — tiny, for cache verification */}
+        <div className="text-center py-0.5">
+          <span className="text-white/10 text-[9px] font-mono">v2026.03.07a</span>
+        </div>
       </div>
     );
   };
