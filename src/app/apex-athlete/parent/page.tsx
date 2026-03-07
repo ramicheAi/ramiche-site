@@ -1480,7 +1480,7 @@ export default function ParentPortal() {
 
         {/* Weekly Growth Trend */}
         {growth && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "1s" }}>
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/15 aa-breathe" style={{ animationDelay: "1s" }}>
             <h3 className="text-white/50 text-xs font-mono tracking-wider mb-8">THIS WEEK&apos;S GROWTH</h3>
             <div className="grid grid-cols-2 gap-6">
               <div>
@@ -1511,7 +1511,7 @@ export default function ParentPortal() {
         {/* Right column on desktop */}
         <div>
         {/* Achievement Badges */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 aa-breathe" style={{ animationDelay: "2s" }}>
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/15 aa-breathe" style={{ animationDelay: "2s" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">ACHIEVEMENTS</h3>
           <div className="grid grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-10 lg:gap-5">
             {achievements.map((badge, i) => (
