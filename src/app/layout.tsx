@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
+import { getPageSEO } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,8 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Parallax Operations",
-  description: "Automation dock — all projects, all signals, one view",
+  ...getPageSEO("home"),
   manifest: "/manifest.json",
   icons: {
     icon: "/parallax-icon-192.png",

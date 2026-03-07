@@ -1,18 +1,7 @@
 import type { Metadata } from "next";
+import { generateMettleSEO } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "METTLE — Parent Portal",
-  description: "Stay connected to your child's training. View progress, milestones, and communicate with coaches.",
-  openGraph: {
-    title: "METTLE — Parent Portal",
-    description: "Stay connected to your child's training. View progress, milestones, and communicate with coaches.",
-  },
-  twitter: {
-    card: "summary",
-    title: "METTLE — Parent Portal",
-    description: "Stay connected to your child's training progress.",
-  },
-};
+export const metadata: Metadata = generateMettleSEO("mettleParent");
 
 export default function ParentLayout({ children }: { children: React.ReactNode }) {
   return children;

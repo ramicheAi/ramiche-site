@@ -1,18 +1,7 @@
 import type { Metadata } from "next";
+import { generateMettleSEO } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "METTLE — Billing & Subscription",
-  description: "Manage your METTLE subscription, billing details, and plan.",
-  openGraph: {
-    title: "METTLE — Billing & Subscription",
-    description: "Manage your METTLE subscription, billing details, and plan.",
-  },
-  twitter: {
-    card: "summary",
-    title: "METTLE — Billing & Subscription",
-    description: "Manage your METTLE subscription and plan.",
-  },
-};
+export const metadata: Metadata = generateMettleSEO("mettleBilling");
 
 export default function BillingLayout({ children }: { children: React.ReactNode }) {
   return children;

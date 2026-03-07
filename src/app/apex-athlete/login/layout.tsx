@@ -1,18 +1,7 @@
 import type { Metadata } from "next";
+import { generateMettleSEO } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "METTLE — Log In",
-  description: "Log in to your METTLE account. Access your coach, athlete, or parent dashboard.",
-  openGraph: {
-    title: "METTLE — Log In",
-    description: "Log in to your METTLE account. Access your coach, athlete, or parent dashboard.",
-  },
-  twitter: {
-    card: "summary",
-    title: "METTLE — Log In",
-    description: "Log in to your METTLE account.",
-  },
-};
+export const metadata: Metadata = generateMettleSEO("mettleLogin");
 
 export default function LoginLayout({ children }: { children: React.ReactNode }) {
   return children;
