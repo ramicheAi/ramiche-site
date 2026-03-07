@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { MASTER_PIN } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
@@ -835,6 +836,7 @@ const BgOrbs = () => (
    ══════════════════════════════════════════════════════════════ */
 
 export default function ApexAthletePage() {
+  const router = useRouter();
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [coachPin, setCoachPin] = useState("");
   const [pinInput, setPinInput] = useState("");
@@ -943,6 +945,15 @@ export default function ApexAthletePage() {
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTouchEndRef = useRef(0);
+
+  // ── Auth gate: redirect to PIN screen if not authenticated ──
+  useEffect(() => {
+    try {
+      const auth = sessionStorage.getItem("apex-coach-auth");
+      if (auth !== "1") { router.push("/apex-athlete"); }
+    } catch {}
+  }, [router]);
+
   useEffect(() => {
     const markScrolling = () => {
       isScrollingRef.current = true;

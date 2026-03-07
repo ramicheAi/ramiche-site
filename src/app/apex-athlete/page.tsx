@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   syncSave,
   syncSaveRoster,
@@ -895,6 +896,7 @@ const BgOrbs = () => (
    ══════════════════════════════════════════════════════════════ */
 
 export default function ApexAthletePage() {
+  const router = useRouter();
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [coachPin, setCoachPin] = useState("");
   const [pinInput, setPinInput] = useState("");
@@ -1165,6 +1167,14 @@ export default function ApexAthletePage() {
   const [calendarView, setCalendarView] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+
+  // ── Auto-redirect to /apex-athlete/coach if already authenticated ──
+  useEffect(() => {
+    try {
+      const auth = sessionStorage.getItem("apex-coach-auth");
+      if (auth === "1") { router.push("/apex-athlete/coach"); }
+    } catch {}
+  }, [router]);
 
   // ── mount & load ─────────────────────────────────────────
   useEffect(() => {
@@ -2365,17 +2375,13 @@ export default function ApexAthletePage() {
   // ── PIN gate ─────────────────────────────────────────────
   const tryUnlock = () => {
     const match = coaches.find(c => c.pin === pinInput);
-    if (match) {
-      setUnlocked(true); setPinError(false); setActiveCoach(match.name); setActiveCoachGroups(match.groups);
-      // Auto-select first allowed group if current selection is not allowed
-      if (!match.groups.includes("all") && !match.groups.includes(selectedGroup)) {
-        const firstAllowed = match.groups[0] as GroupId;
-        if (firstAllowed) switchGroup(firstAllowed);
-      }
+    if (match || pinInput === coachPin) {
+      // Store auth + redirect to the real coach dashboard
       try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {}
+      router.push("/apex-athlete/coach");
+      return;
     }
-    else if (pinInput === coachPin) { setUnlocked(true); setPinError(false); setActiveCoach("Head Coach"); setActiveCoachGroups(["all"]); try { sessionStorage.setItem("apex-coach-auth", "1"); localStorage.setItem("apex-coach-auth", Date.now().toString()); } catch {} }
-    else setPinError(true);
+    setPinError(true);
   };
 
   if (!unlocked && (view === "coach" || view === "schedule")) {
