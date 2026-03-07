@@ -41,7 +41,7 @@ export interface StoredParentAccount {
 const AUTH_SESSION_KEY = "apex-auth-session";
 const COACH_ACCOUNTS_KEY = "apex-auth-coach-accounts";
 const PARENT_ACCOUNTS_KEY = "apex-auth-parent-accounts";
-const MASTER_PIN = process.env.NEXT_PUBLIC_MASTER_PIN || "2451";
+const MASTER_PIN = process.env.NEXT_PUBLIC_MASTER_PIN || "";
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ── Helpers ─────────────────────────────────────────────────
