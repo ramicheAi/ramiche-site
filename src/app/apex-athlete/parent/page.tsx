@@ -686,7 +686,7 @@ function EnrollmentForm({ roster, onComplete }: {
             <p className="text-white/60 text-sm">Let&apos;s make sure everything looks right.</p>
           </div>
 
-          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/15 space-y-10 mb-10">
+          <div className="p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/20 space-y-10 mb-10">
             <div>
               <div className="text-white/40 text-xs font-mono tracking-wider mb-1">YOUR NAME</div>
               <div className="text-white font-semibold">{parentName}</div>
@@ -791,7 +791,7 @@ function EnrollmentForm({ roster, onComplete }: {
         </div>
 
         {/* Form card */}
-        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border border-[#f59e0b]/10 space-y-10 mb-12"
+        <div className="p-8 sm:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/20 space-y-10 mb-12"
           style={{ boxShadow: "0 4px 30px rgba(0,0,0,0.3)" }}>
 
           {/* Parent Name */}
@@ -1326,10 +1326,10 @@ export default function ParentPortal() {
             <input
               type="text" value={nameInput} onChange={e => setNameInput(e.target.value)}
               placeholder="Type your swimmer's name..."
-              className="w-full px-5 py-4 bg-[#0a0518] border border-[#f59e0b]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#f59e0b]/50 transition-all"
+              className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all"
             />
             {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#f59e0b]/20 rounded-xl overflow-hidden z-50">
+              <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl overflow-hidden z-50">
                 {searchResults.map(a => {
                   const lv = getLevel(a.xp);
                   return (
@@ -1541,7 +1541,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Encouragement Section — animated gradient */}
-        <div className="mb-10 p-10 lg:p-12 rounded-xl border border-[#f59e0b]/10 aa-gradient-bg aa-breathe"
+        <div className="mb-10 p-10 lg:p-12 rounded-xl border-2 border-[#a855f7]/20 aa-gradient-bg aa-breathe"
           style={{ animationDelay: "3s", background: "linear-gradient(135deg, rgba(245,158,11,0.06), rgba(168,85,247,0.06), rgba(96,165,250,0.04), rgba(245,158,11,0.06))", backgroundSize: "200% 200%" }}>
           <h3 className="text-white/50 text-xs font-mono tracking-wider mb-5">HIGHLIGHTS</h3>
           <div className="space-y-2">
@@ -1575,7 +1575,7 @@ export default function ParentPortal() {
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/20">
             <div className="flex items-center gap-2 mb-8">
               <SvgCalendar size={18} color="#f59e0b" />
               <h3 className="text-[#f59e0b]/90 text-xs font-mono tracking-wider">UPCOMING MEETS</h3>
@@ -1679,7 +1679,7 @@ export default function ParentPortal() {
             </div>
             {upcomingMeets.length > 5 && (
               <button onClick={() => setShowAllMeets(!showAllMeets)}
-                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border border-[#f59e0b]/10 transition-all min-h-[44px]">
+                className="mt-4 w-full py-3 rounded-xl text-sm font-bold text-[#f59e0b]/70 hover:text-[#f59e0b] bg-[#f59e0b]/5 hover:bg-[#f59e0b]/10 border-2 border-[#a855f7]/15 transition-all min-h-[44px]">
                 {showAllMeets ? "Show less" : `Show ${upcomingMeets.length - 5} more meets`}
               </button>
             )}
@@ -1691,7 +1691,7 @@ export default function ParentPortal() {
 
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
-          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
+          <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/20">
             <div className="flex items-center gap-2 mb-8">
               <SvgSwimWave size={18} color="#60a5fa" />
               <h3 className="text-[#60a5fa]/90 text-xs font-mono tracking-wider">YOUR SWIMMER&apos;S EVENTS</h3>
@@ -1849,7 +1849,7 @@ export default function ParentPortal() {
         <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
-        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
+        <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border-2 border-[#a855f7]/20">
           <div className="flex items-center gap-2 mb-5">
             <SvgMegaphone size={18} color="#a855f7" />
             <h3 className="text-[#a855f7]/90 text-xs font-mono tracking-wider">COACH UPDATES</h3>
