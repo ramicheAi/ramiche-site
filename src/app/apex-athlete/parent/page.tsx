@@ -732,7 +732,7 @@ function EnrollmentForm({ roster, onComplete }: {
 
           <div className="flex gap-6">
             <button onClick={() => setStep("form")}
-              className="flex-1 py-4 rounded-xl bg-white/[0.03] border border-white/10 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
+              className="flex-1 py-4 rounded-xl bg-white/[0.03] border-2 border-[#a855f7]/25 text-white/60 font-bold text-base hover:bg-white/[0.06] active:scale-[0.98] transition-all"
               style={{ minHeight: "52px" }}>
               Go back
             </button>
@@ -1255,7 +1255,7 @@ export default function ParentPortal() {
                 <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
                   onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
                   onKeyDown={e => e.key === "Enter" && handlePin()}
-                  className={`w-full px-5 py-4 lg:py-5 bg-[#06020f] border-2 rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/40 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-white/10 focus:border-[#f59e0b]/50"}`}
+                  className={`w-full px-5 py-4 lg:py-5 bg-[#06020f] border-2 rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/40 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#a855f7]/25 focus:border-[#f59e0b]/50"}`}
                   placeholder="····" autoFocus />
                 <button onClick={handlePin}
                   className="w-full py-4 lg:py-5 rounded-xl lg:rounded-2xl font-black text-lg lg:text-xl tracking-wide transition-all min-h-[56px]"
@@ -1571,7 +1571,7 @@ export default function ParentPortal() {
             ═══════════════════════════════════════════════════════════ */}
 
         {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
+        <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Meet RSVP ─────────────────────────────────────────── */}
         {upcomingMeets.length > 0 && (
@@ -1666,7 +1666,7 @@ export default function ParentPortal() {
                           Count us in!
                         </button>
                         <button onClick={() => handleRsvp(meet.id, "declined")}
-                          className="flex-1 py-3 rounded-lg bg-white/[0.03] border border-white/10 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+                          className="flex-1 py-3 rounded-lg bg-white/[0.03] border-2 border-[#a855f7]/25 text-white/60 text-sm font-bold hover:bg-white/[0.06] active:scale-[0.98] transition-all flex items-center justify-center gap-2"
                           style={{ minHeight: "44px" }}>
                           <SvgXCircle size={16} color="#94a3b8" />
                           Can&apos;t make it
@@ -1687,7 +1687,7 @@ export default function ParentPortal() {
         )}
 
         {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
+        <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Upcoming Events ───────────────────────────────────── */}
         {meetsWithEntries.length > 0 && (
@@ -1733,7 +1733,7 @@ export default function ParentPortal() {
         )}
 
         {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
+        <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Absence Reporting ─────────────────────────────────── */}
         <div className="mb-10 p-10 lg:p-12 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/20">
@@ -1846,7 +1846,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
+        <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* ── Coach Broadcasts ──────────────────────────────────── */}
         <div className="mb-10 p-10 lg:p-12 rounded-2xl bg-[#0a0518]/60 border border-[#a855f7]/15">
@@ -1914,7 +1914,7 @@ export default function ParentPortal() {
         </div>
 
         {/* Section divider */}
-        <div className="border-b border-white/10 mb-10" />
+        <div className="border-b border-[#a855f7]/15 mb-10" />
 
         {/* Meet Day Guide — collapsible */}
         <div className="mb-10 rounded-2xl bg-[#0a0518]/80 border-2 overflow-hidden" style={{ borderColor: "rgba(6,182,212,0.15)" }}>

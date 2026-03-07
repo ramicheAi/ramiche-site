@@ -1073,7 +1073,7 @@ export default function AthletePortal() {
               const lv = getLevel(a.xp || 0);
               return (
                 <button key={a.id} onClick={() => loadAthleteData(a)}
-                  className="w-full text-left px-5 py-4 rounded-xl bg-[#0a0518]/80 border-2 border-white/10 hover:border-[#a855f7]/40 transition-all flex items-center gap-4 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                  className="w-full text-left px-5 py-4 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 hover:border-[#a855f7]/40 transition-all flex items-center gap-4 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold" style={{background:`${lv.color}20`,color:lv.color}}>{a.name[0]}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-semibold text-sm lg:text-base truncate">{a.name}</div>
@@ -1139,7 +1139,7 @@ export default function AthletePortal() {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
                   i < currentStepIdx ? "bg-[#a855f7]/20 border-[#a855f7]/40 text-[#a855f7]"
                     : i === currentStepIdx ? "bg-[#a855f7] border-[#a855f7] text-white"
-                    : "bg-white/5 border-white/10 text-white/50"
+                    : "bg-white/5 border-[#a855f7]/20 text-white/50"
                 }`}>
                   {i < currentStepIdx ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
@@ -1422,16 +1422,16 @@ export default function AthletePortal() {
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-3 gap-3 lg:gap-6 mb-5 lg:mb-10 w-full">
-          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white flex items-center justify-center gap-1"><StreakFlame streak={athlete?.streak ?? 0} size={32} /> {athlete?.streak ?? 0}</div>
             <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>
-          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete?.totalPractices ?? 0}</div>
             <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2">PRACTICES</div>
           </div>
-          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
             <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{(athlete?.weekSessions ?? 0) + (athlete?.weekWeightSessions ?? 0)}/{getWeekTarget(athlete?.group ?? "")}</div>
             <div className="text-white/60 text-xs lg:text-base xl:text-lg font-mono tracking-wider mt-1">
               {athlete?.weekSessions ?? 0}🏊 {athlete?.weekWeightSessions ?? 0}🏋️ / {getGroupTargets(athlete?.group ?? "").pool}+{getGroupTargets(athlete?.group ?? "").weight}
@@ -1541,7 +1541,7 @@ export default function AthletePortal() {
             {/* Column 3: Consistency calendar */}
             <div className="w-full xl:col-span-1 lg:col-span-2 xl:col-auto">
             {/* Attendance Calendar — last 28 days heatmap */}
-            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-white/10" style={{ animation: "aa-glow-breathe 5s ease-in-out 1.5s infinite" }}>
+            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25" style={{ animation: "aa-glow-breathe 5s ease-in-out 1.5s infinite" }}>
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8">YOUR CONSISTENCY — LAST 28 DAYS</h3>
               <div className="grid grid-cols-7 gap-1.5 lg:gap-3 xl:gap-4 w-full">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
@@ -1602,28 +1602,28 @@ export default function AthletePortal() {
               </h3>
               <div className="grid grid-cols-2 gap-3 lg:gap-4 mb-3 lg:mb-4">
                 <select value={newTime.event} onChange={e => setNewTime(p => ({ ...p, event: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
                   {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
                 </select>
                 <select value={newTime.stroke} onChange={e => setNewTime(p => ({ ...p, stroke: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3 lg:gap-4 mb-3 lg:mb-4">
                 <input type="text" placeholder="Time (M:SS.hh)" value={newTime.time}
                   onChange={e => setNewTime(p => ({ ...p, time: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30" />
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30" />
                 <button onClick={() => setNewTime(p => ({ ...p, meet: !p.meet }))}
                   className={`rounded-lg px-3 py-2.5 text-sm font-bold border transition-all ${
-                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/60 border-white/10"
+                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/60 border-[#a855f7]/20"
                   }`}>
                   {newTime.meet ? "MEET TIME" : "PRACTICE"}
                 </button>
               </div>
               <input type="text" placeholder="Notes (optional)" value={newTime.notes}
                 onChange={e => setNewTime(p => ({ ...p, notes: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
+                className="w-full bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
               <button onClick={saveTime} disabled={!newTime.time}
                 className="w-full py-2.5 rounded-lg bg-[#00f0ff]/15 border border-[#00f0ff]/25 text-[#00f0ff] text-sm font-bold disabled:opacity-30 hover:bg-[#00f0ff]/25 transition-all min-h-[44px]">
                 Save Time
@@ -1793,7 +1793,7 @@ export default function AthletePortal() {
                       <div className="overflow-x-auto -mx-2 px-2">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="border-b border-white/10">
+                            <tr className="border-b border-[#a855f7]/20">
                               <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
                               {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT", "US_OPEN", "WR"] as StandardLevel[]).map(lv => {
                                 const hasCol = events.some(ev => getAllStandards(g, ev, stroke, goalCourse)[lv]);
@@ -1845,7 +1845,7 @@ export default function AthletePortal() {
                     <div className="overflow-x-auto -mx-2 px-2">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-white/10">
+                          <tr className="border-b border-[#a855f7]/20">
                             <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
                             {STROKES.map(s => {
                               const fgcTable = g === "M" ? FGC_SCY_BOYS : FGC_SCY_GIRLS;
@@ -1932,11 +1932,11 @@ export default function AthletePortal() {
 
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <select value={goalEvent} onChange={e => setGoalEvent(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
                   {EVENTS_BY_COURSE[goalCourse].map(e => <option key={e} value={e}>{e}{UNIT_LABEL[goalCourse]}</option>)}
                 </select>
                 <select value={goalStroke} onChange={e => setGoalStroke(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -2102,7 +2102,7 @@ export default function AthletePortal() {
                     const achieved = prSecs && targetSecs ? prSecs <= targetSecs : false;
                     return (
                       <button key={i} onClick={() => { setGoalEvent(g.event); setGoalStroke(g.stroke); }}
-                        className={`w-full p-3 rounded-lg border text-left transition-all ${achieved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/[0.02] border-white/5 hover:border-white/10"}`}>
+                        className={`w-full p-3 rounded-lg border text-left transition-all ${achieved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/[0.02] border-white/5 hover:border-[#a855f7]/20"}`}>
                         <div className="flex items-center justify-between">
                           <span className="text-white text-sm font-bold">{g.event}m {g.stroke}</span>
                           <span className="text-sm px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[g.targetLevel]}15`, color: STANDARD_COLORS[g.targetLevel] }}>
@@ -2132,11 +2132,11 @@ export default function AthletePortal() {
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <select value={rpEvent} onChange={e => setRpEvent(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
                   {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
                 </select>
                 <select value={rpStroke} onChange={e => setRpStroke(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -2145,13 +2145,13 @@ export default function AthletePortal() {
                   <label className="text-white/60 text-sm font-mono block mb-1">CURRENT BEST</label>
                   <input type="text" placeholder="1:05.30" value={rpCurrent}
                     onChange={e => setRpCurrent(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
+                    className="w-full bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
                 </div>
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">GOAL TIME</label>
                   <input type="text" placeholder="1:02.00" value={rpGoal}
                     onChange={e => setRpGoal(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
+                    className="w-full bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
                 </div>
               </div>
               <button onClick={generateRacePrep} disabled={!rpCurrent || !rpGoal}
@@ -2261,7 +2261,7 @@ export default function AthletePortal() {
                     <div className="mt-3 pt-3 border-t border-white/5">
                       <textarea
                         placeholder="What did you do? (optional)"
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-2.5 text-white text-xs placeholder:text-white/20 resize-none focus:border-[#a855f7]/30 focus:outline-none"
+                        className="w-full bg-white/[0.03] border-2 border-[#a855f7]/25 rounded-lg p-2.5 text-white text-xs placeholder:text-white/20 resize-none focus:border-[#a855f7]/30 focus:outline-none"
                         rows={2}
                         value={note}
                         onChange={e => {
@@ -2328,19 +2328,19 @@ export default function AthletePortal() {
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">WINS TODAY</label>
                   <textarea value={journalDraft.wentWell} onChange={e => setJournalDraft(d => ({ ...d, wentWell: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border-2 border-[#a855f7]/25 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="I nailed my flip turns today..." />
                 </div>
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">WHAT I&apos;LL WORK ON</label>
                   <textarea value={journalDraft.workOn} onChange={e => setJournalDraft(d => ({ ...d, workOn: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border-2 border-[#a855f7]/25 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="Need to focus on breathing pattern..." />
                 </div>
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">MY GOALS</label>
                   <textarea value={journalDraft.goals} onChange={e => setJournalDraft(d => ({ ...d, goals: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border-2 border-[#a855f7]/25 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="Drop 2 seconds on my 100 free..." />
                 </div>
                 <button onClick={saveJournalEntry}
@@ -2515,7 +2515,7 @@ export default function AthletePortal() {
               <p className="text-white/60 text-sm mb-3">4 seconds in · 4 hold · 4 out · 4 hold. Calms your nervous system before races.</p>
               <div className="flex flex-col items-center">
                 <div className={`w-28 h-28 rounded-full flex items-center justify-center border-2 transition-all duration-1000 ${
-                  breathPhase === "idle" ? "border-white/10" :
+                  breathPhase === "idle" ? "border-[#a855f7]/20" :
                   breathPhase === "inhale" ? "border-cyan-400 scale-110 bg-cyan-500/10" :
                   breathPhase === "hold" ? "border-amber-400 bg-amber-500/5" :
                   "border-indigo-400 scale-90 bg-indigo-500/10"
@@ -2586,7 +2586,7 @@ export default function AthletePortal() {
                   <div key={med.id}>
                     <button onClick={() => setActiveMeditation(activeMeditation === med.id ? null : med.id)}
                       className={`w-full text-left p-3 rounded-xl border transition-all ${
-                        activeMeditation === med.id ? "bg-violet-500/10 border-violet-500/20" : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                        activeMeditation === med.id ? "bg-violet-500/10 border-violet-500/20" : "bg-white/[0.02] border-white/5 hover:border-[#a855f7]/20"
                       }`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
