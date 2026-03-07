@@ -27,9 +27,16 @@ const nextConfig: NextConfig = {
   experimental: {
     staleTimes: {
       dynamic: 0,
-      static: 30,
+      static: 0,
     },
   },
+  redirects: async () => [
+    {
+      source: "/apex-athlete",
+      destination: "/apex-athlete/coach",
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: "/(.*)",
