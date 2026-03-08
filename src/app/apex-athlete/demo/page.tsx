@@ -209,7 +209,7 @@ export default function DemoPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="relative z-10 w-full px-4 sm:px-8 lg:px-12 py-10 space-y-10">
+      <div className="relative z-10 w-full px-4 sm:px-8 lg:px-12 xl:px-16 py-12 space-y-10">
         {tab === "coach" && <CoachView checkedCPs={checkedCPs} toggleCP={toggleCP} />}
         {tab === "athlete" && <AthleteView />}
         {tab === "parent" && <ParentView />}
@@ -219,14 +219,14 @@ export default function DemoPage() {
       <section className="relative z-10 border-t border-[#00f0ff]/10 bg-[#06020f]/80">
         <div className="w-full px-4 sm:px-8 py-16">
           <h2 className="text-2xl font-bold text-white mb-8 text-center font-mono tracking-wide">Platform Features</h2>
-          <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+          <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {features.map((f, i) => (
-              <div key={i} className="border-2 border-[#00f0ff]/10 rounded-xl p-8 bg-[#06020f]/60 hover:border-[#00f0ff]/30 hover:shadow-[0_0_30px_rgba(0,240,255,0.06)] transition-all duration-300 group">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg border border-[#00f0ff]/20 bg-[#00f0ff]/[0.05] flex items-center justify-center text-[#00f0ff] group-hover:bg-[#00f0ff]/10 transition-colors">
-                    <Icon type={f.icon} />
+              <div key={i} className="border-2 border-[#00f0ff]/10 rounded-xl p-8 sm:p-10 bg-[#06020f]/60 hover:border-[#00f0ff]/30 hover:shadow-[0_0_40px_rgba(0,240,255,0.08)] hover:-translate-y-1 transition-all duration-300 group">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-lg border-2 border-[#00f0ff]/20 bg-[#00f0ff]/[0.05] flex items-center justify-center text-[#00f0ff] group-hover:bg-[#00f0ff]/10 group-hover:border-[#00f0ff]/40 transition-all duration-300">
+                    <Icon type={f.icon} className="w-6 h-6" />
                   </div>
-                  <h3 className="font-bold text-white text-sm">{f.title}</h3>
+                  <h3 className="font-bold text-white text-base">{f.title}</h3>
                 </div>
                 <p className="text-white/40 text-sm leading-relaxed">{f.desc}</p>
               </div>
@@ -288,6 +288,10 @@ export default function DemoPage() {
               28% { transform: scale(1); }
               42% { transform: scale(1.06); }
               56% { transform: scale(1); }
+            }
+            @keyframes levelPulse {
+              0%, 100% { box-shadow: 0 0 40px rgba(249,115,22,0.15), 0 0 80px rgba(249,115,22,0.05); }
+              50% { box-shadow: 0 0 50px rgba(249,115,22,0.25), 0 0 100px rgba(249,115,22,0.1); }
             }
           `}</style>
         </div>
@@ -398,21 +402,28 @@ function AthleteView() {
   return (
     <div className="space-y-8">
       {/* Level Badge */}
-      <div className="border-2 border-[#f97316]/20 rounded-xl bg-[#06020f]/60 p-10 text-center">
-        <div
-          className="inline-flex items-center justify-center w-28 h-28 rounded-full border-4 mb-4"
-          style={{ borderColor: "#f97316", background: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)" }}
-        >
-          <div>
-            <div className="text-3xl font-black text-[#f97316]">5</div>
-            <div className="text-[10px] font-mono tracking-wider text-[#f97316]/60 uppercase">Captain</div>
+      <div className="border-2 border-[#f97316]/20 rounded-xl bg-[#06020f]/60 p-10 sm:p-12 text-center relative overflow-hidden">
+        <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.08) 0%, transparent 60%)" }} />
+        <div className="relative">
+          <div
+            className="inline-flex items-center justify-center w-32 h-32 rounded-full border-4 mb-5"
+            style={{
+              borderColor: "#f97316",
+              background: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)",
+              boxShadow: "0 0 40px rgba(249,115,22,0.15), 0 0 80px rgba(249,115,22,0.05)",
+              animation: "levelPulse 3s ease-in-out infinite",
+            }}
+          >
+            <div>
+              <div className="text-4xl font-black text-[#f97316]">5</div>
+              <div className="text-[10px] font-mono tracking-wider text-[#f97316]/60 uppercase">Captain</div>
+            </div>
           </div>
-        </div>
-        <h3 className="text-xl font-bold text-white">Sarah Johnson</h3>
-        <p className="text-white/30 text-sm font-mono mt-1">1,699 / 2,500 XP to Legend</p>
-        <div className="mt-4 max-w-xs mx-auto">
-          <XPBar percent={68} color="#f97316" height="h-4" />
-        </div>
+          <h3 className="text-2xl font-bold text-white">Sarah Johnson</h3>
+          <p className="text-white/30 text-sm font-mono mt-1">1,699 / 2,500 XP to Legend</p>
+          <div className="mt-5 max-w-md mx-auto">
+            <XPBar percent={68} color="#f97316" height="h-4" />
+          </div>
         <div className="mt-6 flex justify-center gap-6">
           <div className="text-center">
             <div className="text-2xl font-black text-[#f59e0b]">28</div>
@@ -428,6 +439,7 @@ function AthleteView() {
             <div className="text-2xl font-black text-[#a855f7]">3</div>
             <div className="text-[10px] text-white/20 font-mono uppercase">Quests Done</div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -482,7 +494,8 @@ function ParentView() {
   return (
     <div className="space-y-8">
       {/* Child Summary */}
-      <div className="border-2 border-[#a855f7]/20 rounded-xl bg-[#06020f]/60 p-10">
+      <div className="border-2 border-[#a855f7]/20 rounded-xl bg-[#06020f]/60 p-10 sm:p-12 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ background: "radial-gradient(ellipse at 0% 50%, rgba(168,85,247,0.06) 0%, transparent 60%)" }} />
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full border-2 border-[#f97316] flex items-center justify-center" style={{ background: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)" }}>
             <span className="text-[#f97316] font-black text-lg">SJ</span>
