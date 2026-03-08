@@ -272,7 +272,7 @@ export default function DemoPage() {
           <p className="text-white/25 text-sm text-center mb-10 font-mono">Rookie → Legend — earn XP through consistency, effort, and leadership</p>
           <div className="relative">
             {/* Connecting line */}
-            <div className="hidden md:block absolute top-1/2 left-[8%] right-[8%] h-px bg-gradient-to-r from-[#94a3b8]/20 via-[#f59e0b]/30 to-[#ef4444]/20" />
+            <div className="hidden md:block absolute top-1/2 left-[8%] right-[8%] h-[2px] bg-gradient-to-r from-[#94a3b8]/20 via-[#f59e0b]/30 to-[#ef4444]/20" style={{ boxShadow: "0 0 8px rgba(245,158,11,0.15)" }} />
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-5">
               {LEVELS.map((lv, i) => (
                 <div
@@ -288,11 +288,14 @@ export default function DemoPage() {
                 >
                   <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ boxShadow: `0 0 50px ${lv.color}30, inset 0 0 30px ${lv.color}10` }} />
                   <div className="relative">
-                    <div className="w-14 h-14 rounded-full border-2 mx-auto mb-3 flex items-center justify-center" style={{ borderColor: `${lv.color}60`, background: `${lv.color}15` }}>
+                    <div className="w-14 h-14 rounded-full border-2 mx-auto mb-3 flex items-center justify-center group-hover:scale-110 transition-transform duration-300" style={{ borderColor: `${lv.color}60`, background: `${lv.color}15`, boxShadow: `0 0 20px ${lv.color}20` }}>
                       <div className="text-2xl font-black" style={{ color: lv.color }}>{i + 1}</div>
                     </div>
                     <div className="text-sm font-bold text-white">{lv.name}</div>
                     <div className="text-[10px] text-white/30 font-mono mt-1">{lv.xp}+ XP</div>
+                    <div className="mt-3 h-1 rounded-full bg-white/[0.06] overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((i + 1) / LEVELS.length) * 100)}%`, background: `linear-gradient(90deg, ${lv.color}, ${lv.color}88)`, boxShadow: `0 0 6px ${lv.color}40` }} />
+                    </div>
                     {i === 4 && <div className="mt-2 text-[9px] font-mono px-2 py-0.5 rounded bg-[#f97316]/10 text-[#f97316] inline-block">DEMO</div>}
                   </div>
                 </div>
