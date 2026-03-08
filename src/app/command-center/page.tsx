@@ -532,12 +532,21 @@ export default function CommandCenter() {
           setLiveActivity(data.activity.items);
         }
         if (data?.links?.items && Array.isArray(data.links.items) && data.links.items.length > 0) {
-          setLiveLinks(data.links.items.map((l: any) => ({
-            ...l,
-            href: l.href || l.url,
-            icon: l.icon?.length > 3 ? l.label?.slice(0, 2).toUpperCase() : l.icon,
-            accent: l.accent || "#a855f7",
-          })));
+          // Merge bridge links with hardcoded — bridge updates existing, hardcoded fills gaps
+          const bridgeMap = new Map<string, any>(data.links.items.map((l: any) => [(l.label || l.name || "").toLowerCase(), l]));
+          const merged = LINKS.map((hc: any) => {
+            const bridge: any = bridgeMap.get(hc.label.toLowerCase());
+            if (bridge) {
+              bridgeMap.delete(hc.label.toLowerCase());
+              return { ...hc, href: bridge.url || bridge.href || hc.href };
+            }
+            return hc;
+          });
+          // Append any bridge-only links not in hardcoded
+          bridgeMap.forEach((l: any) => {
+            merged.push({ label: l.name || l.label, href: l.url || l.href, icon: (l.name || l.label || "").slice(0, 2).toUpperCase(), accent: l.accent || "#a855f7" });
+          });
+          setLiveLinks(merged);
         }
       }
     } catch { /* silent — fallback to hardcoded */ }
