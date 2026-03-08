@@ -7,7 +7,7 @@
 // Or: BRIDGE_URL=https://ramiche-site.vercel.app/api/bridge node scripts/bridge-sync.mjs
 
 import { execSync } from "child_process";
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
@@ -185,60 +185,71 @@ function getRecentActivity() {
   return activities.slice(-30); // Last 30 items
 }
 
-// ── Projects ─────────────────────────────────────────────────────────
+// ── Projects (LIVE from workspace/projects/) ─────────────────────────
+
+function parseTasks(content) {
+  const tasks = [];
+  for (const line of content.split("\n")) {
+    const doneMatch = line.match(/^-\s*\[x\]\s+(.+)/i);
+    const todoMatch = line.match(/^-\s*\[\s\]\s+(.+)/);
+    if (doneMatch) tasks.push({ t: doneMatch[1].trim(), done: true });
+    else if (todoMatch) tasks.push({ t: todoMatch[1].trim(), done: false });
+  }
+  return tasks;
+}
 
 function getProjectStatus() {
-  return [
-    {
-      name: "METTLE",
-      status: "beta",
-      priority: 1,
-      url: "https://ramiche-site.vercel.app/apex-athlete",
-      description: "Gamified athlete SaaS - beta with Saint Andrew's Aquatics",
-    },
-    {
-      name: "Parallax Site",
-      status: "live",
-      priority: 2,
-      url: "https://parallax-site-ashen.vercel.app",
-      description: "Agent marketplace + Claude Skills",
-    },
-    {
-      name: "Parallax Publish",
-      status: "active",
-      priority: 3,
-      url: "https://parallax-publish.vercel.app",
-      description: "Social media publishing - 3 platforms live",
-    },
-    {
-      name: "Ramiche Studio",
-      status: "blocked",
-      priority: 4,
-      url: "https://ramiche-site.vercel.app",
-      description: "Creative services - blocked on Stripe key",
-    },
-    {
-      name: "Galactik Antics",
-      status: "blocked",
-      priority: 5,
-      url: "",
-      description: "AI art + merch - blocked on Shopify API + art assets",
-    },
-    {
-      name: "ClawGuard Pro",
-      status: "live",
-      priority: 6,
-      url: "https://parallax-site-ashen.vercel.app/clawguard",
-      description: "Security scanner - $299/$799/$1499",
-    },
-    {
-      name: "Command Center",
-      status: "active",
-      priority: 7,
-      url: "https://ramiche-site.vercel.app/command-center",
-      description: "Operations dashboard - building live data bridge",
-    },
-  ];
+  const projectsDir = join(WORKSPACE, "projects");
+  if (!existsSync(projectsDir)) return [];
+
+  const entries = readdirSync(projectsDir);
+  const projects = [];
+
+  for (const entry of entries) {
+    if (entry.startsWith(".") || entry === "PRE-BUILD-CHECKLIST.md") continue;
+    const dir = join(projectsDir, entry);
+    try {
+      const s = statSync(dir);
+      if (!s.isDirectory()) continue;
+    } catch { continue; }
+
+    // Read META.json for project metadata
+    const metaPath = join(dir, "META.json");
+    let meta = {};
+    if (existsSync(metaPath)) {
+      try { meta = JSON.parse(readFileSync(metaPath, "utf8")); } catch {}
+    }
+
+    // Read TASKS.md for live task data
+    const tasksPath = join(dir, "TASKS.md");
+    let tasks = [];
+    if (existsSync(tasksPath)) {
+      try { tasks = parseTasks(readFileSync(tasksPath, "utf8")); } catch {}
+    }
+
+    // Read available docs
+    const allFiles = readdirSync(dir);
+    const docs = allFiles.filter(f => ["ARCHITECTURE.md", "DECISIONS.md", "MEMORY.md", "PIPELINE.md", "TASKS.md"].includes(f));
+
+    projects.push({
+      name: meta.name || entry,
+      slug: meta.slug || entry,
+      accent: meta.accent || "#737373",
+      status: meta.status || "active",
+      desc: meta.desc || "",
+      priority: meta.priority || 99,
+      priorityLabel: meta.priorityLabel || "MED",
+      agents: meta.agents || [],
+      lead: meta.lead || "Atlas",
+      tasks,
+      blockers: meta.blockers || [],
+      link: meta.link || null,
+      docs,
+    });
+  }
+
+  projects.sort((a, b) => a.priority - b.priority);
+  return projects;
 }
 
 // ── Quick Links ──────────────────────────────────────────────────────
@@ -341,57 +352,20 @@ async function pollPendingMessages() {
   }
 }
 
-// ── Missions (with task progress) ────────────────────────────────────
+// ── Missions (LIVE from projects — derived from getProjectStatus) ────
 
 function getMissions() {
-  // Read from MEMORY.md for latest mission status
-  const memPath = join(WORKSPACE, "MEMORY.md");
-  const mem = existsSync(memPath) ? readFileSync(memPath, "utf8") : "";
-
-  return [
-    {
-      name: "METTLE", accent: "#C9A84C", status: "beta", priority: "CRITICAL",
-      desc: "Gamified athlete SaaS — BETA with Saint Andrew's Aquatics (240+ athletes)",
-      completedTasks: 8, totalTasks: 10,
-      link: "https://ramiche-site.vercel.app/apex-athlete",
-    },
-    {
-      name: "Command Center", accent: "#7c3aed", status: "active", priority: "HIGH",
-      desc: "Live operations dashboard — bridge API + real-time sync",
-      completedTasks: 6, totalTasks: 8,
-      link: "https://ramiche-site.vercel.app/command-center",
-    },
-    {
-      name: "Parallax Site", accent: "#a855f7", status: "live", priority: "HIGH",
-      desc: "Agent marketplace + Claude Skills — 19 routes LIVE",
-      completedTasks: 5, totalTasks: 6,
-      link: "https://parallax-site-ashen.vercel.app",
-    },
-    {
-      name: "Parallax Publish", accent: "#38bdf8", status: "active", priority: "HIGH",
-      desc: "Social media publishing — 3 platforms LIVE (Twitter, Bluesky, LinkedIn)",
-      completedTasks: 4, totalTasks: 7,
-      link: "https://parallax-publish.vercel.app",
-    },
-    {
-      name: "Ramiche Studio", accent: "#e879f9", status: "blocked", priority: "HIGH",
-      desc: "Creative services — $400/$1,500/$3,000/$6,000+",
-      completedTasks: 4, totalTasks: 7,
-      link: "https://ramiche-site.vercel.app",
-    },
-    {
-      name: "Galactik Antics", accent: "#00f0ff", status: "blocked", priority: "MED",
-      desc: "AI art + merch — @galactikantics on IG",
-      completedTasks: 2, totalTasks: 4,
-      link: "",
-    },
-    {
-      name: "ClawGuard Pro", accent: "#22d3ee", status: "live", priority: "MED",
-      desc: "Security scanner — $299/$799/$1,499 — LIVE",
-      completedTasks: 2, totalTasks: 3,
-      link: "https://parallax-site-ashen.vercel.app/clawguard",
-    },
-  ];
+  const projects = getProjectStatus();
+  return projects.map(p => ({
+    name: p.name,
+    accent: p.accent,
+    status: p.status,
+    priority: p.priorityLabel,
+    desc: p.desc,
+    completedTasks: p.tasks.filter(t => t.done).length,
+    totalTasks: p.tasks.length,
+    link: p.link?.href || "",
+  }));
 }
 
 // ── Schedule ─────────────────────────────────────────────────────────
@@ -560,13 +534,24 @@ async function syncAll() {
   const agents = getAgentStatus();
   const crons = getCronJobs();
   const activity = getRecentActivity();
-  const projects = getProjectStatus();
+  const projects = getProjectStatus(); // Now reads LIVE from workspace/projects/
   const links = getQuickLinks();
-  const missions = getMissions();
+  const missions = getMissions(); // Derived from live projects
   const schedule = getSchedule();
   const notifications = getNotifications();
   const opportunities = getOpportunities();
   const tasks = getTasks();
+
+  // Also sync public/projects from workspace (keep Vercel fallback in sync)
+  try {
+    const srcDir = join(WORKSPACE, "projects");
+    const destDir = join(WORKSPACE, "../../ramiche-site/public/projects");
+    if (existsSync(srcDir) && existsSync(destDir)) {
+      execSync(`rsync -a --delete --exclude='.DS_Store' --exclude='skills/' "${srcDir}/" "${destDir}/"`, { timeout: 10_000 });
+    }
+  } catch (e) {
+    console.error("[bridge] rsync projects error:", e.message);
+  }
 
   // Also write status.json locally for the secondary frontend fallback
   try {
@@ -591,7 +576,7 @@ async function syncAll() {
     pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
     pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
     pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
-    pushToFirestore("projects", { items: projects, count: projects.length, lastSync: timestamp }),
+    pushToFirestore("projects", { projects, items: projects, count: projects.length, lastSync: timestamp }),
     pushToFirestore("links", { items: links, count: links.length, lastSync: timestamp }),
     pushToFirestore("missions", { items: missions, count: missions.length, lastSync: timestamp }),
     pushToFirestore("schedule", { items: schedule, count: schedule.length, lastSync: timestamp }),
