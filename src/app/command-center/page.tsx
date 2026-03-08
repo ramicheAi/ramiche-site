@@ -502,47 +502,46 @@ export default function CommandCenter() {
     return () => clearInterval(id);
   }, []);
 
-  /* ── live bridge data (auto-refresh every 60s) ── */
+  /* ── live bridge data (auto-refresh every 15s) ── */
   const [bridgeData, setBridgeData] = useState<Record<string, unknown> | null>(null);
-  useEffect(() => {
-    const fetchBridge = async () => {
-      try {
-        const res = await fetch("/api/bridge?type=all", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          setBridgeData(data);
-          setLastUpdated(new Date());
-          // Update agent status from bridge display array (pre-formatted by sync script)
-          const displayAgents = data?.agents?.display;
-          if (Array.isArray(displayAgents) && displayAgents.length > 0) {
-            setLiveAgents(displayAgents);
-          }
-          // Populate other live data sections
-          if (data?.missions?.items && Array.isArray(data.missions.items) && data.missions.items.length > 0) {
-            setLiveMissions(data.missions.items);
-          }
-          if (data?.schedule?.items && Array.isArray(data.schedule.items) && data.schedule.items.length > 0) {
-            setLiveSchedule(data.schedule.items);
-          }
-          if (data?.notifications?.items && Array.isArray(data.notifications.items)) {
-            setLiveNotifications(data.notifications.items);
-          }
-          if (data?.opportunities?.items && Array.isArray(data.opportunities.items) && data.opportunities.items.length > 0) {
-            setLiveOpps(data.opportunities.items);
-          }
-          if (data?.activity?.items && Array.isArray(data.activity.items) && data.activity.items.length > 0) {
-            setLiveActivity(data.activity.items);
-          }
-          if (data?.links?.items && Array.isArray(data.links.items) && data.links.items.length > 0) {
-            setLiveLinks(data.links.items);
-          }
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const fetchBridge = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bridge?type=all", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        setBridgeData(data);
+        setLastUpdated(new Date());
+        const displayAgents = data?.agents?.display;
+        if (Array.isArray(displayAgents) && displayAgents.length > 0) {
+          setLiveAgents(displayAgents);
         }
-      } catch { /* silent — fallback to hardcoded */ }
-    };
+        if (data?.missions?.items && Array.isArray(data.missions.items) && data.missions.items.length > 0) {
+          setLiveMissions(data.missions.items);
+        }
+        if (data?.schedule?.items && Array.isArray(data.schedule.items) && data.schedule.items.length > 0) {
+          setLiveSchedule(data.schedule.items);
+        }
+        if (data?.notifications?.items && Array.isArray(data.notifications.items)) {
+          setLiveNotifications(data.notifications.items);
+        }
+        if (data?.opportunities?.items && Array.isArray(data.opportunities.items) && data.opportunities.items.length > 0) {
+          setLiveOpps(data.opportunities.items);
+        }
+        if (data?.activity?.items && Array.isArray(data.activity.items) && data.activity.items.length > 0) {
+          setLiveActivity(data.activity.items);
+        }
+        if (data?.links?.items && Array.isArray(data.links.items) && data.links.items.length > 0) {
+          setLiveLinks(data.links.items);
+        }
+      }
+    } catch { /* silent — fallback to hardcoded */ }
+  }, []);
+  useEffect(() => {
     fetchBridge();
     const id = setInterval(fetchBridge, 15000);
     return () => clearInterval(id);
-  }, []);
+  }, [fetchBridge]);
 
   /* ── live data from bridge ── */
   const [liveMissions, setLiveMissions] = useState<any[] | null>(null);
@@ -563,31 +562,31 @@ export default function CommandCenter() {
   const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', priority: 'medium' });
 
-  /* ── fetch crons (mount + every 60s) ── */
+  /* ── fetch crons (mount + every 15s) ── */
+  const fetchCrons = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
+      if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
+    } catch { /* silent */ }
+  }, []);
   useEffect(() => {
-    const fetchCrons = async () => {
-      try {
-        const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
-        if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
-      } catch { /* silent */ }
-    };
     fetchCrons();
     const id = setInterval(fetchCrons, 15000);
     return () => clearInterval(id);
-  }, []);
+  }, [fetchCrons]);
 
-  /* ── fetch tasks (mount + every 60s) ── */
+  /* ── fetch tasks (mount + every 15s) ── */
+  const fetchTasks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
+      if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
+    } catch { /* silent */ }
+  }, []);
   useEffect(() => {
-    const fetchTasks = async () => {
-      try {
-        const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
-        if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
-      } catch { /* silent */ }
-    };
     fetchTasks();
     const id = setInterval(fetchTasks, 15000);
     return () => clearInterval(id);
-  }, []);
+  }, [fetchTasks]);
 
   /* ── fetch chat (mount + every 30s) ── */
   useEffect(() => {
@@ -1053,13 +1052,18 @@ export default function CommandCenter() {
               )}
             </Link>
             <button
-              onClick={() => window.location.reload()}
-              title="Hard refresh"
-              style={{ marginLeft: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', color: '#888', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 6, cursor: 'pointer', transition: 'all 150ms' }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#e5e5e5'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}
+              onClick={async () => {
+                setIsRefreshing(true);
+                await Promise.all([fetchBridge(), fetchCrons(), fetchTasks()]);
+                setIsRefreshing(false);
+              }}
+              title="Refresh all data"
+              style={{ marginLeft: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', color: isRefreshing ? '#f59e0b' : '#888', background: isRefreshing ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isRefreshing ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, cursor: 'pointer', transition: 'all 150ms' }}
+              onMouseEnter={(e) => { if (!isRefreshing) { e.currentTarget.style.color = '#e5e5e5'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}}
+              onMouseLeave={(e) => { if (!isRefreshing) { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}}
+              disabled={isRefreshing}
             >
-              ↻ REFRESH
+              {isRefreshing ? '⟳ SYNCING…' : '↻ REFRESH'}
             </button>
             <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
               {NAV.map((n) => (
