@@ -16,7 +16,7 @@ export interface SportConfig {
   };
   metrics: string[];
   positions: string[];
-  levels: { name: string; xpThreshold: number; color: string }[];
+  levels: { name: string; xpThreshold: number; color: string; icon: string }[];
   questTemplates: string[];
 }
 
@@ -41,12 +41,12 @@ export const SWIMMING_CONFIG: SportConfig = {
   ],
   positions: [],
   levels: [
-    { name: "Rookie", xpThreshold: 0, color: "#94a3b8" },
-    { name: "Contender", xpThreshold: 300, color: "#a78bfa" },
-    { name: "Warrior", xpThreshold: 600, color: "#60a5fa" },
-    { name: "Elite", xpThreshold: 1000, color: "#f59e0b" },
-    { name: "Captain", xpThreshold: 1500, color: "#f97316" },
-    { name: "Legend", xpThreshold: 2500, color: "#ef4444" },
+    { name: "Rookie", xpThreshold: 0, color: "#94a3b8", icon: "🌱" },
+    { name: "Contender", xpThreshold: 300, color: "#a78bfa", icon: "⚡" },
+    { name: "Warrior", xpThreshold: 600, color: "#60a5fa", icon: "🔥" },
+    { name: "Elite", xpThreshold: 1000, color: "#f59e0b", icon: "💎" },
+    { name: "Captain", xpThreshold: 1500, color: "#f97316", icon: "⭐" },
+    { name: "Legend", xpThreshold: 2500, color: "#ef4444", icon: "👑" },
   ],
   questTemplates: [
     "Drop 2 seconds in your 100 Free",
@@ -88,12 +88,12 @@ export const FOOTBALL_CONFIG: SportConfig = {
     "K", "P", "LS", "KR", "PR",
   ],
   levels: [
-    { name: "Rookie", xpThreshold: 0, color: "#94a3b8" },
-    { name: "Starter", xpThreshold: 300, color: "#a78bfa" },
-    { name: "Captain", xpThreshold: 600, color: "#60a5fa" },
-    { name: "MVP", xpThreshold: 1000, color: "#f59e0b" },
-    { name: "Hall of Fame", xpThreshold: 1500, color: "#f97316" },
-    { name: "GOAT", xpThreshold: 2500, color: "#ef4444" },
+    { name: "Rookie", xpThreshold: 0, color: "#94a3b8", icon: "🥬" },
+    { name: "Starter", xpThreshold: 300, color: "#a78bfa", icon: "⚡" },
+    { name: "Captain", xpThreshold: 600, color: "#60a5fa", icon: "📣" },
+    { name: "MVP", xpThreshold: 1000, color: "#f59e0b", icon: "🏆" },
+    { name: "Hall of Fame", xpThreshold: 1500, color: "#f97316", icon: "🏅" },
+    { name: "GOAT", xpThreshold: 2500, color: "#ef4444", icon: "🐐" },
   ],
   questTemplates: [
     "Complete 10 passes in practice",

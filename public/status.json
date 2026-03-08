@@ -30,7 +30,7 @@
     },
     {
       "name": "proximon",
-      "model": "gemini-3-pro",
+      "model": "deepseek-v3.2",
       "role": "architecture",
       "status": "idle",
       "task": "Standing by"
@@ -51,7 +51,7 @@
     },
     {
       "name": "mercury",
-      "model": "gemini-3-pro",
+      "model": "deepseek-v3.2",
       "role": "sales",
       "status": "idle",
       "task": "Standing by"
@@ -148,5 +148,5 @@
       "task": "Standing by"
     }
   ],
-  "lastSync": "2026-03-06T01:09:35.592Z"
+  "lastSync": "2026-03-08T13:14:08.407Z"
 }

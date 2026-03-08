@@ -1,4 +1,6 @@
 // ── Game Constants ──────────────────────────────────────────────────
+// DEPRECATED: Use sport-constants.ts for sport-aware level definitions
+// Keeping for backward compatibility during migration
 
 export const LEVELS = [
   { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8" },

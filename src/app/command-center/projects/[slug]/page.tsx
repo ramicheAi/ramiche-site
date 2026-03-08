@@ -3,12 +3,27 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { PROJECTS, getProgress } from "../../shared-projects";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PROJECT HQ — Per-Project Dashboard with Doc Viewer
-   Everything about one project in one place.
+   Now fetches LIVE data from /api/command-center/projects (workspace files).
    ══════════════════════════════════════════════════════════════════════════════ */
+
+interface ProjectTask { t: string; done: boolean }
+interface Project {
+  name: string;
+  slug: string;
+  accent: string;
+  status: string;
+  desc: string;
+  priority: number;
+  priorityLabel: string;
+  agents: string[];
+  lead: string;
+  tasks: ProjectTask[];
+  blockers?: string[];
+  link: { label: string; href: string } | null;
+}
 
 const DOC_LABELS: Record<string, { label: string; icon: string; desc: string }> = {
   "ARCHITECTURE.md": { label: "Architecture", icon: "◈", desc: "Stack, routes, infrastructure" },
@@ -33,11 +48,17 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   paused: { bg: "rgba(100,116,139,0.08)", text: "#94a3b8", border: "#94a3b8" },
 };
 
+function getProgress(p: Project): number {
+  if (p.tasks.length === 0) return 0;
+  return Math.round((p.tasks.filter(t => t.done).length / p.tasks.length) * 100);
+}
+
 export default function ProjectHQ() {
   const params = useParams();
   const slug = params?.slug as string;
 
-  const project = PROJECTS.find((p) => p.slug === slug);
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
   const [docs, setDocs] = useState<string[]>([]);
   const [activeDoc, setActiveDoc] = useState<string | null>(null);
   const [docContent, setDocContent] = useState<string>("");
@@ -45,15 +66,33 @@ export default function ProjectHQ() {
   const [copied, setCopied] = useState(false);
   const [tab, setTab] = useState<"overview" | "docs" | "tasks">("overview");
 
-  // Fetch available docs for this project
+  // Fetch project data from API
   useEffect(() => {
     if (!slug) return;
     fetch(`/api/command-center/projects?slug=${slug}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.docs) setDocs(data.docs);
+        // Build project object from API response
+        if (data.name) {
+          setProject({
+            name: data.name,
+            slug: data.slug || slug,
+            accent: data.accent || "#7c3aed",
+            status: data.status || "active",
+            desc: data.desc || "",
+            priority: data.priority || 99,
+            priorityLabel: data.priorityLabel || "",
+            agents: data.agents || [],
+            lead: data.lead || "Atlas",
+            tasks: data.tasks || [],
+            blockers: data.blockers || [],
+            link: data.link || null,
+          });
+        }
+        setLoading(false);
       })
-      .catch(() => {});
+      .catch(() => setLoading(false));
   }, [slug]);
 
   // Fetch doc content
@@ -88,12 +127,22 @@ export default function ProjectHQ() {
     }
   }, [docs]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (loading) {
+    return (
+      <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, sans-serif" }}>
+        <div style={{ padding: "120px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.1em', color: '#94a3b8' }}>LOADING PROJECT…</div>
+        </div>
+      </main>
+    );
+  }
+
   if (!project) {
     return (
-      <main className="min-h-screen w-full" style={{ background: "#ffffff", color: "#0f172a", fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, sans-serif" }}>
         <div style={{ padding: "120px 24px", textAlign: "center" }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800 }}>Project not found</h1>
-          <Link href="/command-center/projects" style={{ color: "#7c3aed", marginTop: 16, display: "inline-block" }}>← Back to Projects</Link>
+          <h1 style={{ fontSize: 32, fontWeight: 800, color: '#e2e8f0' }}>Project not found</h1>
+          <Link href="/command-center/projects" style={{ color: "#c4b5fd", marginTop: 16, display: "inline-block" }}>← Back to Projects</Link>
         </div>
       </main>
     );
@@ -104,25 +153,25 @@ export default function ProjectHQ() {
   const doneTasks = project.tasks.filter((t) => t.done).length;
 
   return (
-    <main className="min-h-screen w-full" style={{ background: "#ffffff", color: "#0f172a", fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
       {/* Grid background */}
       <div className="fixed inset-0 z-0 pointer-events-none" style={{
-        backgroundImage: "linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px)",
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
         backgroundSize: "60px 60px", opacity: 0.4,
       }} />
 
       {/* Nav */}
-      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "rgba(255,255,255,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "rgba(10,10,20,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: "contain" }} />
-            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "0.1em", color: "#1a1a5e" }}>PARALLAX</span>
-            <span style={{ color: "rgba(0,0,0,0.2)", fontSize: 14 }}>|</span>
-            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", color: "#64748b" }}>PROJECT HQ</span>
+            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "0.1em", color: "#c4b5fd" }}>PARALLAX</span>
+            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 14 }}>|</span>
+            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", color: "#94a3b8" }}>PROJECT HQ</span>
           </Link>
           <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
             {NAV.map((n) => (
-              <Link key={n.label} href={n.href} style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.05em", color: "#64748b", transition: "color 0.2s" }}>
+              <Link key={n.label} href={n.href} style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.05em", color: "#94a3b8", transition: "color 0.2s" }}>
                 {n.label}
               </Link>
             ))}
@@ -132,7 +181,7 @@ export default function ProjectHQ() {
 
       <div className="relative z-10 w-full" style={{ maxWidth: 1400, margin: "0 auto", padding: "100px 24px 48px" }}>
         {/* Back link */}
-        <Link href="/command-center/projects" style={{ fontSize: 12, color: "#64748b", marginBottom: 16, display: "inline-block" }}>
+        <Link href="/command-center/projects" style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16, display: "inline-block" }}>
           ← Back to Projects
         </Link>
 
@@ -147,8 +196,8 @@ export default function ProjectHQ() {
                 {project.name.charAt(0)}
               </div>
               <div>
-                <h1 style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, lineHeight: 1.1, margin: 0 }}>{project.name}</h1>
-                <p style={{ fontSize: 14, color: "#64748b", margin: "4px 0 0" }}>{project.desc}</p>
+                <h1 style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, lineHeight: 1.1, margin: 0, color: '#e2e8f0' }}>{project.name}</h1>
+                <p style={{ fontSize: 14, color: "#94a3b8", margin: "4px 0 0" }}>{project.desc}</p>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -156,10 +205,10 @@ export default function ProjectHQ() {
                 fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
                 padding: "3px 10px", borderRadius: 10, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}30`,
               }}>{project.status}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "rgba(0,0,0,0.04)", color: "#64748b" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "rgba(255,255,255,0.04)", color: "#94a3b8" }}>
                 Priority #{project.priority}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "rgba(0,0,0,0.04)", color: "#64748b" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "rgba(255,255,255,0.04)", color: "#94a3b8" }}>
                 Lead: {project.lead}
               </span>
             </div>
@@ -171,7 +220,7 @@ export default function ProjectHQ() {
         </div>
 
         {/* Progress bar */}
-        <div style={{ height: 8, background: "rgba(0,0,0,0.04)", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
+        <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
           <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${project.accent}, ${project.accent}80)`, borderRadius: 4, transition: "width 0.5s ease" }} />
         </div>
 
@@ -196,12 +245,12 @@ export default function ProjectHQ() {
         </div>
 
         {/* Tab switcher */}
-        <div style={{ display: "flex", gap: 0, marginBottom: 32, borderBottom: "2px solid rgba(0,0,0,0.06)" }}>
+        <div style={{ display: "flex", gap: 0, marginBottom: 32, borderBottom: "2px solid rgba(255,255,255,0.06)" }}>
           {(["overview", "docs", "tasks"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: "12px 24px", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
               cursor: "pointer", background: "transparent", border: "none", borderBottom: tab === t ? `3px solid ${project.accent}` : "3px solid transparent",
-              color: tab === t ? "#0f172a" : "#94a3b8", transition: "all 0.2s", marginBottom: -2,
+              color: tab === t ? "#e2e8f0" : "#94a3b8", transition: "all 0.2s", marginBottom: -2,
             }}>
               {t === "docs" ? `Documents (${docs.length})` : t === "tasks" ? `Tasks (${project.tasks.length})` : "Overview"}
             </button>
@@ -212,27 +261,27 @@ export default function ProjectHQ() {
         {tab === "overview" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
             {/* Quick Stats */}
-            <div style={{ background: "rgba(255,255,255,0.95)", border: "2px solid rgba(0,0,0,0.06)", borderRadius: 14, padding: 24 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Quick Stats</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>Progress</span>
+                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Progress</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: sc.text }}>{progress}%</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>Tasks Complete</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{doneTasks}/{project.tasks.length}</span>
+                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Tasks Complete</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{doneTasks}/{project.tasks.length}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>Team Size</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{project.agents.length} agents</span>
+                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Team Size</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{project.agents.length} agents</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>Documents</span>
-                  <span style={{ fontSize: 13, fontWeight: 700 }}>{docs.length} files</span>
+                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Documents</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{docs.length} files</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#64748b" }}>Blockers</span>
+                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Blockers</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: project.blockers?.length ? "#ef4444" : "#059669" }}>
                     {project.blockers?.length || 0}
                   </span>
@@ -241,7 +290,7 @@ export default function ProjectHQ() {
             </div>
 
             {/* Documents Quick Access */}
-            <div style={{ background: "rgba(255,255,255,0.95)", border: "2px solid rgba(0,0,0,0.06)", borderRadius: 14, padding: 24 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Documents</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {docs.map((d) => {
@@ -249,12 +298,12 @@ export default function ProjectHQ() {
                   return (
                     <button key={d} onClick={() => { setTab("docs"); loadDoc(d); }} style={{
                       display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10,
-                      background: "rgba(0,0,0,0.02)", border: "1px solid rgba(0,0,0,0.06)", cursor: "pointer",
+                      background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer",
                       transition: "all 0.2s", textAlign: "left", width: "100%",
                     }}>
                       <span style={{ fontSize: 16, color: project.accent }}>{info.icon}</span>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>{info.label}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{info.label}</div>
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{info.desc}</div>
                       </div>
                     </button>
@@ -265,18 +314,18 @@ export default function ProjectHQ() {
             </div>
 
             {/* Recent Tasks */}
-            <div style={{ background: "rgba(255,255,255,0.95)", border: "2px solid rgba(0,0,0,0.06)", borderRadius: 14, padding: 24 }}>
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Tasks</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {project.tasks.slice(0, 8).map((t, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                     <span style={{
                       width: 16, height: 16, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10,
-                      background: t.done ? "rgba(34,197,94,0.08)" : "rgba(0,0,0,0.02)",
-                      border: t.done ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(0,0,0,0.08)",
+                      background: t.done ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.02)",
+                      border: t.done ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(255,255,255,0.08)",
                       color: t.done ? "#059669" : "#94a3b8", flexShrink: 0,
                     }}>{t.done ? "✓" : ""}</span>
-                    <span style={{ color: t.done ? "#94a3b8" : "#334155", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1, lineHeight: 1.3 }}>{t.t}</span>
+                    <span style={{ color: t.done ? "#64748b" : "#e2e8f0", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1, lineHeight: 1.3 }}>{t.t}</span>
                   </div>
                 ))}
                 {project.tasks.length > 8 && (
@@ -289,7 +338,7 @@ export default function ProjectHQ() {
 
             {/* Link */}
             {project.link && (
-              <div style={{ background: "rgba(255,255,255,0.95)", border: "2px solid rgba(0,0,0,0.06)", borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
                 <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Quick Link</div>
                 <Link href={project.link.href} style={{
                   display: "inline-block", padding: "12px 28px", borderRadius: 10, fontSize: 13, fontWeight: 700,
@@ -315,14 +364,14 @@ export default function ProjectHQ() {
                 return (
                   <button key={d} onClick={() => loadDoc(d)} style={{
                     display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10,
-                    background: isActive ? `${project.accent}08` : "rgba(255,255,255,0.95)",
-                    border: isActive ? `2px solid ${project.accent}30` : "2px solid rgba(0,0,0,0.06)",
+                    background: isActive ? `${project.accent}08` : "rgba(255,255,255,0.03)",
+                    border: isActive ? `2px solid ${project.accent}30` : "2px solid rgba(255,255,255,0.06)",
                     cursor: "pointer", transition: "all 0.2s", textAlign: "left", width: "100%",
                   }}>
                     <span style={{ fontSize: 16, color: isActive ? project.accent : "#94a3b8" }}>{info.icon}</span>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "#0f172a" : "#64748b" }}>{info.label}</div>
-                      <div style={{ fontSize: 10, color: "#94a3b8" }}>{info.desc}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "#e2e8f0" : "#94a3b8" }}>{info.label}</div>
+                      <div style={{ fontSize: 10, color: "#64748b" }}>{info.desc}</div>
                     </div>
                   </button>
                 );
@@ -331,23 +380,23 @@ export default function ProjectHQ() {
 
             {/* Doc content viewer */}
             {activeDoc && (
-              <div style={{ background: "rgba(255,255,255,0.95)", border: "2px solid rgba(0,0,0,0.06)", borderRadius: 14, padding: 0, overflow: "hidden" }}>
+              <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: 0, overflow: "hidden" }}>
                 {/* Doc header */}
                 <div style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px",
-                  borderBottom: "1px solid rgba(0,0,0,0.06)", background: "rgba(0,0,0,0.01)",
+                  borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)",
                 }}>
                   <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#0f172a" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#e2e8f0" }}>
                       {DOC_LABELS[activeDoc]?.icon} {DOC_LABELS[activeDoc]?.label || activeDoc}
                     </h3>
-                    <span style={{ fontSize: 11, color: "#94a3b8" }}>{slug}/{activeDoc}</span>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>{slug}/{activeDoc}</span>
                   </div>
                   <button onClick={shareDoc} style={{
                     padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    background: copied ? "rgba(34,197,94,0.08)" : "rgba(0,0,0,0.04)",
-                    border: copied ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(0,0,0,0.08)",
-                    color: copied ? "#059669" : "#64748b", transition: "all 0.2s",
+                    background: copied ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.04)",
+                    border: copied ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(255,255,255,0.08)",
+                    color: copied ? "#059669" : "#94a3b8", transition: "all 0.2s",
                   }}>
                     {copied ? "✓ Copied!" : "Share Link"}
                   </button>
@@ -360,7 +409,7 @@ export default function ProjectHQ() {
                   ) : (
                     <pre style={{
                       fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
-                      fontSize: 13, lineHeight: 1.7, color: "#334155", whiteSpace: "pre-wrap", wordBreak: "break-word",
+                      fontSize: 13, lineHeight: 1.7, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word",
                       margin: 0, background: "transparent",
                     }}>
                       {docContent}
@@ -384,15 +433,15 @@ export default function ProjectHQ() {
             {project.tasks.map((t, i) => (
               <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 10,
-                background: "rgba(255,255,255,0.95)", border: "2px solid rgba(0,0,0,0.06)", transition: "all 0.2s",
+                background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.06)", transition: "all 0.2s",
               }}>
                 <span style={{
                   width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
-                  background: t.done ? "rgba(34,197,94,0.08)" : "rgba(0,0,0,0.02)",
-                  border: t.done ? "2px solid rgba(34,197,94,0.25)" : "2px solid rgba(0,0,0,0.08)",
+                  background: t.done ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.02)",
+                  border: t.done ? "2px solid rgba(34,197,94,0.25)" : "2px solid rgba(255,255,255,0.08)",
                   color: t.done ? "#059669" : "#94a3b8",
                 }}>{t.done ? "✓" : ""}</span>
-                <span style={{ fontSize: 14, color: t.done ? "#94a3b8" : "#0f172a", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1 }}>{t.t}</span>
+                <span style={{ fontSize: 14, color: t.done ? "#64748b" : "#e2e8f0", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1 }}>{t.t}</span>
               </div>
             ))}
           </div>

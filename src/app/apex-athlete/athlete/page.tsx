@@ -14,7 +14,7 @@ import StreakFlame from "../components/StreakFlame";
    ══════════════════════════════════════════════════════════════ */
 
 // ── game engine (shared) ────────────────────────────────────
-import { LEVELS, getLevel, getNextLevel, getLevelProgress, getStreakMult, fmtStreak } from "../lib/game-engine";
+import { getLevel, getNextLevel, getLevelProgress, getStreakMult, fmtStreak } from "../lib/game-engine";
 
 // ── storage keys (same as coach) ────────────────────────────
 const K = {
@@ -763,9 +763,10 @@ export default function AthletePortal() {
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
-  const level = athlete ? getLevel(athlete.xp ?? 0) : LEVELS[0];
-  const nextLevel = athlete ? getNextLevel(athlete.xp ?? 0) : LEVELS[1];
-  const progress = athlete ? getLevelProgress(athlete.xp ?? 0) : { percent: 0, remaining: 300 };
+  const sport = "swimming"; // TODO: get from athlete.group
+  const level = athlete ? getLevel(athlete.xp ?? 0, sport) : getLevel(0, sport);
+  const nextLevel = athlete ? getNextLevel(athlete.xp ?? 0, sport) : getNextLevel(0, sport);
+  const progress = athlete ? getLevelProgress(athlete.xp ?? 0, sport) : { percent: 0, remaining: 300 };
   const streak = athlete ? fmtStreak(athlete.streak ?? 0) : fmtStreak(0);
   const streakMult = athlete ? getStreakMult(athlete.streak ?? 0) : 1;
   const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
@@ -916,9 +917,9 @@ export default function AthletePortal() {
   // Level-up celebration detection
   useEffect(() => {
     if (!athlete) return;
-    const curLevel = getLevel(athlete.xp).name;
+    const curLevel = getLevel(athlete.xp, "swimming").name;
     if (prevLevelRef.current && prevLevelRef.current !== curLevel) {
-      const lv = getLevel(athlete.xp);
+      const lv = getLevel(athlete.xp, "swimming");
       setCelebration({ level: lv.name, color: lv.color });
       setTimeout(() => setCelebration(null), 4000);
     }
@@ -1070,7 +1071,7 @@ export default function AthletePortal() {
             className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-4" />
           <div className="max-h-[60vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 40)).map(a => {
-              const lv = getLevel(a.xp || 0);
+              const lv = getLevel(a.xp || 0, "swimming");
               return (
                 <button key={a.id} onClick={() => loadAthleteData(a)}
                   className="w-full text-left px-5 py-4 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 hover:border-[#a855f7]/40 transition-all flex items-center gap-4 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
@@ -1163,7 +1164,7 @@ export default function AthletePortal() {
                 {searchResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50 shadow-xl shadow-black/50">
                     {searchResults.map(a => {
-                      const lv = getLevel(a.xp);
+                      const lv = getLevel(a.xp, "swimming");
                       return (
                         <button key={a.id} onClick={() => {
                           setNameInput(a.name);
@@ -1262,7 +1263,7 @@ export default function AthletePortal() {
             <div className="space-y-4">
               {(() => {
                 const match = selectedOnboardAthlete;
-                const lv = getLevel(match.xp ?? 0);
+                const lv = getLevel(match.xp ?? 0, "swimming");
                 return (
                   <>
                     <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-6 text-center">
@@ -1407,7 +1408,7 @@ export default function AthletePortal() {
         {/* XP Bar */}
         <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
-            <span className="text-white text-xs lg:text-base font-bold font-mono">Level {LEVELS.indexOf(level) + 1} — <AnimatedCounter value={athlete?.xp ?? 0} />/{nextLevel ? nextLevel.xp : level.xp} XP</span>
+            <span className="text-white text-xs lg:text-base font-bold font-mono">Level {level.name} — <AnimatedCounter value={athlete?.xp ?? 0} />/{nextLevel ? nextLevel.xpThreshold : level.xpThreshold} XP</span>
             {nextLevel ? (
               <span className="text-[#A78BFA] text-xs font-mono">{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
@@ -2429,7 +2430,7 @@ export default function AthletePortal() {
               <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
             </div>
             {leaderboard.map((a, i) => {
-              const lv = getLevel(a.xp ?? 0);
+              const lv = getLevel(a.xp ?? 0, "swimming");
               const isMe = a.id === athlete?.id;
               const rank = i + 1;
               return (

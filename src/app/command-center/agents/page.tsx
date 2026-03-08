@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -35,7 +35,7 @@ interface Agent {
   stats: { tasksCompleted: number; tokensUsed: string; avgResponseTime: string; uptime: string };
 }
 
-const AGENTS: Agent[] = [
+const FALLBACK_AGENTS: Agent[] = [
   {
     name: "Atlas", model: "Opus 4.6", role: "Operations Lead",
     status: "active", color: "#C9A84C", avatar: "/agents/atlas-3d.png",
@@ -406,7 +406,62 @@ const AVAILABLE_MODELS = [
   { id: "haiku", label: "Haiku 4.5", provider: "OpenRouter", tier: "LITE" },
 ];
 
+/* ── Map API model IDs to display names ───────────────────────────────── */
+const MODEL_DISPLAY: Record<string, string> = {
+  "claude-opus-4-6": "Opus 4.6",
+  "claude-sonnet-4-5": "Sonnet 4.5",
+  "gemini-3-pro": "Gemini 3.0 Pro",
+  "gemini-3.1-flash-lite-preview": "Flash-Lite",
+  "deepseek-v3.2": "DeepSeek V3.2",
+  "kimi-k2.5": "Kimi K2.5",
+  "glm-4.6": "GLM 4.6",
+  "claude-3.5-haiku": "Haiku 4.5",
+};
+
+const ROLE_COLORS: Record<string, string> = {
+  "operations-lead": "#C9A84C",
+  engineering: "#22d3ee",
+  architecture: "#f97316",
+  "creative-director": "#f472b6",
+  "data-analysis": "#22d3ee",
+  sales: "#f97316",
+  "brand-strategy": "#818cf8",
+  copywriting: "#22d3ee",
+  community: "#818cf8",
+  support: "#22d3ee",
+  security: "#94a3b8",
+  forecasting: "#22d3ee",
+  finance: "#22d3ee",
+  "swim-coaching": "#06b6d4",
+  psychology: "#22d3ee",
+  spiritual: "#818cf8",
+  music: "#22d3ee",
+  fabrication: "#f472b6",
+  governance: "#f472b6",
+  debugging: "#f472b6",
+  "workspace-indexer": "#94a3b8",
+};
+
+function mapApiAgent(a: any): Agent {
+  const displayModel = MODEL_DISPLAY[a.model] || a.model;
+  return {
+    name: a.name,
+    model: displayModel,
+    role: (a.role || "").replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
+    status: (a.status as "active" | "idle" | "done") || "idle",
+    color: ROLE_COLORS[a.role] || "#94a3b8",
+    desc: `${(a.capabilities || []).join(", ")}`,
+    avatar: `/agents/${a.id}-3d.png`,
+    credits: { used: 0, limit: 5000 },
+    activeTask: "",
+    skills: (a.skills || []).map((s: string) => ({ name: s, enabled: true, description: s })),
+    tools: [],
+    stats: { tasksCompleted: 0, tokensUsed: "—", avgResponseTime: "—", uptime: "—" },
+  };
+}
+
 export default function AgentManagement() {
+  const [agents, setAgents] = useState<Agent[]>(FALLBACK_AGENTS);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [filter, setFilter] = useState<"all" | "active" | "idle" | "done">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -419,13 +474,45 @@ export default function AgentManagement() {
   const [viewMode, setViewMode] = useState<"grid" | "workspace">("grid");
   const [hoveredStation, setHoveredStation] = useState<string | null>(null);
 
-  const filteredAgents = AGENTS.filter((a) => {
+  const fetchAgents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.agents?.length) {
+        const mapped = data.agents.map(mapApiAgent);
+        // Merge: keep fallback enrichment (desc, avatar, credits) where available
+        const merged = mapped.map((live: Agent) => {
+          const fb = FALLBACK_AGENTS.find((f) => f.name.toLowerCase() === live.name.toLowerCase());
+          if (!fb) return live;
+          return {
+            ...live,
+            desc: fb.desc || live.desc,
+            avatar: fb.avatar || live.avatar,
+            credits: fb.credits,
+            activeTask: fb.activeTask || live.activeTask,
+            tools: fb.tools?.length ? fb.tools : live.tools,
+            stats: fb.stats?.tasksCompleted ? fb.stats : live.stats,
+          };
+        });
+        setAgents(merged);
+      }
+    } catch { /* keep fallback */ }
+  }, []);
+
+  useEffect(() => {
+    fetchAgents();
+    const iv = setInterval(fetchAgents, 30_000);
+    return () => clearInterval(iv);
+  }, [fetchAgents]);
+
+  const filteredAgents = agents.filter((a) => {
     if (filter !== "all" && a.status !== filter) return false;
     if (searchQuery && !a.name.toLowerCase().includes(searchQuery.toLowerCase()) && !a.role.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
 
-  const activeCount = AGENTS.filter((a) => a.status === "active").length;
+  const activeCount = agents.filter((a) => a.status === "active").length;
   const totalTokens = "9.6M";
 
   return (
@@ -444,7 +531,7 @@ export default function AgentManagement() {
               Agent Management
             </h1>
             <p style={{ fontSize: 13, color: "#737373", margin: "4px 0 0" }}>
-              {activeCount} active &middot; {AGENTS.length} total &middot; {totalTokens} tokens this week
+              {activeCount} active &middot; {agents.length} total &middot; {totalTokens} tokens this week
             </p>
           </div>
 
@@ -477,7 +564,7 @@ export default function AgentManagement() {
                   cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s",
                 }}
               >
-                {f === "all" ? `ALL (${AGENTS.length})` : `${f.toUpperCase()} (${AGENTS.filter((a) => a.status === f).length})`}
+                {f === "all" ? `ALL (${agents.length})` : `${f.toUpperCase()} (${agents.filter((a) => a.status === f).length})`}
               </button>
             ))}
           </div>
@@ -522,9 +609,9 @@ export default function AgentManagement() {
               {/* Agent count HUD */}
               <div style={{ display: "flex", gap: 8 }}>
                 {[
-                  { label: "ONLINE", count: AGENTS.filter(a => a.status === "active").length, color: "#22c55e" },
-                  { label: "IDLE", count: AGENTS.filter(a => a.status === "idle").length, color: "#fbbf24" },
-                  { label: "DONE", count: AGENTS.filter(a => a.status === "done").length, color: "#06b6d4" },
+                  { label: "ONLINE", count: agents.filter(a => a.status === "active").length, color: "#22c55e" },
+                  { label: "IDLE", count: agents.filter(a => a.status === "idle").length, color: "#fbbf24" },
+                  { label: "DONE", count: agents.filter(a => a.status === "done").length, color: "#06b6d4" },
                 ].map(h => (
                   <div key={h.label} style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 14, fontWeight: 800, color: h.color, fontVariantNumeric: "tabular-nums", textShadow: `0 0 12px ${h.color}50` }}>{h.count}</div>
@@ -834,7 +921,7 @@ export default function AgentManagement() {
             {/* Group agent selector */}
             {isGroupChat && (
               <div style={{ padding: "8px 14px", borderBottom: "1px solid #1e1e1e", display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
-                {AGENTS.map((a) => (
+                {agents.map((a) => (
                   <button
                     key={a.name}
                     onClick={() => setGroupAgents((prev) =>

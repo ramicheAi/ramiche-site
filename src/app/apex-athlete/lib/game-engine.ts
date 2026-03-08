@@ -1,6 +1,10 @@
 // ── Apex Athlete — Shared Game Engine ─────────────────────
 // Single source of truth for levels, XP, streaks, multipliers.
+// NOW DEPRECATED: Use sport-config.ts and sport-constants.ts for sport-aware definitions
 
+import { getSportConfig } from "./sport-config";
+
+// Keep for backward compatibility during migration
 export const LEVELS = [
   { name: "Rookie", xp: 0, icon: "🌱", color: "#94a3b8", gradient: "from-slate-400 to-slate-300" },
   { name: "Contender", xp: 300, icon: "⚡", color: "#a78bfa", gradient: "from-violet-400 to-purple-300" },
@@ -12,21 +16,34 @@ export const LEVELS = [
 
 export type Level = (typeof LEVELS)[number];
 
-export function getLevel(xp: number): Level {
-  for (let i = LEVELS.length - 1; i >= 0; i--) if (xp >= LEVELS[i].xp) return LEVELS[i];
-  return LEVELS[0];
+// Sport-aware versions (returns SportLevel)
+export function getLevel(xp: number, sport = "swimming"): { name: string; xpThreshold: number; color: string; icon: string } {
+  const levels = getSportConfig(sport).levels;
+  for (let i = levels.length - 1; i >= 0; i--) if (xp >= levels[i].xpThreshold) return levels[i];
+  return levels[0];
 }
 
-export function getNextLevel(xp: number): Level | null {
-  for (const lv of LEVELS) if (xp < lv.xp) return lv;
+export function getNextLevel(xp: number, sport = "swimming"): { name: string; xpThreshold: number; color: string; icon: string } | null {
+  const levels = getSportConfig(sport).levels;
+  for (const lv of levels) if (xp < lv.xpThreshold) return lv;
   return null;
 }
 
-export function getLevelProgress(xp: number) {
-  const cur = getLevel(xp), nxt = getNextLevel(xp);
+// Backward compatibility layer (deprecated)
+export function getLevelLegacy(xp: number): Level {
+  return getLevel(xp, "swimming") as unknown as Level;
+}
+
+export function getNextLevelLegacy(xp: number): Level | null {
+  const result = getNextLevel(xp, "swimming");
+  return result as unknown as Level | null;
+}
+
+export function getLevelProgress(xp: number, sport = "swimming") {
+  const cur = getLevel(xp, sport), nxt = getNextLevel(xp, sport);
   if (!nxt) return { percent: 100, remaining: 0 };
-  const range = nxt.xp - cur.xp, prog = xp - cur.xp;
-  return { percent: Math.min(100, Math.round((prog / range) * 100)), remaining: nxt.xp - xp };
+  const range = nxt.xpThreshold - cur.xpThreshold, prog = xp - cur.xpThreshold;
+  return { percent: Math.min(100, Math.round((prog / range) * 100)), remaining: nxt.xpThreshold - xp };
 }
 
 export function getStreakMult(s: number) {

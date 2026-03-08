@@ -26,6 +26,7 @@ const SFX = {
 
 // ── game engine (shared) ────────────────────────────────────
 import { LEVELS, getLevel, getNextLevel, getLevelProgress, getStreakMult, getWeightStreakMult, fmtStreak, fmtWStreak } from "../lib/game-engine";
+import { getSportConfig } from "../lib/sport-config";
 
 const DAILY_XP_CAP = 150;
 const PRESENT_XP = 5; // Base XP just for showing up
@@ -431,6 +432,12 @@ function getCPsForSport(sport: string) {
   if (sport === "diving") return DIVING_CPS;
   if (sport === "waterpolo") return WATERPOLO_CPS;
   return POOL_CPS;
+}
+
+// Helper to get sport from athlete group
+function getSportForAthlete(athlete: { group: string }): string {
+  const groupDef = ROSTER_GROUPS.find(g => g.id === athlete.group);
+  return groupDef?.sport || "swimming";
 }
 
 // ── INITIAL ROSTERS BY GROUP ────────────────────────────────
@@ -1546,8 +1553,8 @@ export default function ApexAthletePage() {
     const dailyXPs = groupRoster.map(a => ({
       name: a.name,
       xp: a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0,
-      level: getLevel(a.xp).name,
-      color: getLevel(a.xp).color,
+      level: getLevel(a.xp, getSportForAthlete(a)).name,
+      color: getLevel(a.xp, getSportForAthlete(a)).color,
     })).sort((a, b) => b.xp - a.xp);
     const streaksActive = groupRoster.filter(a => a.streak > 0).length;
     const longestStreak = groupRoster.reduce((best, a) => a.streak > best.streak ? { name: a.name, streak: a.streak } : best, { name: "", streak: 0 });
@@ -1723,11 +1730,11 @@ export default function ApexAthletePage() {
     } catch { /* silent fail if audio unavailable */ }
   }, []);
 
-  const checkLevelUp = useCallback((oldXP: number, newXP: number, name: string) => {
-    const oldLv = getLevel(oldXP);
-    const newLv = getLevel(newXP);
+  const checkLevelUp = useCallback((oldXP: number, newXP: number, athleteObj: { name: string; group: string }) => {
+    const oldLv = getLevel(oldXP, getSportForAthlete(athleteObj));
+    const newLv = getLevel(newXP, getSportForAthlete(athleteObj));
     if (newLv.name !== oldLv.name) {
-      setLevelUpName(name);
+      setLevelUpName(athleteObj.name);
       setLevelUpLevel(newLv.name);
       setLevelUpIcon(newLv.icon);
       setLevelUpColor(newLv.color);
@@ -1844,7 +1851,7 @@ export default function ApexAthletePage() {
     a.xp += awarded;
     a.seasonXP = (a.seasonXP || 0) + awarded;
     a.dailyXP[category] += awarded;
-    checkLevelUp(oldXP, a.xp, a.name);
+    checkLevelUp(oldXP, a.xp, a);
     return { newAthlete: a, awarded };
   }, [checkLevelUp]);
 
@@ -2214,7 +2221,7 @@ export default function ApexAthletePage() {
 
   const exportCSV = useCallback(() => {
     const header = "Name,Age,Gender,XP,Level,Streak,WeightStreak,TotalPractices\n";
-    const rows = roster.map(a => `${a.name},${a.age},${a.gender},${a.xp},${getLevel(a.xp).name},${a.streak},${a.weightStreak},${a.totalPractices}`).join("\n");
+    const rows = roster.map(a => `${a.name},${a.age},${a.gender},${a.xp},${getLevel(a.xp, getSportForAthlete(a)).name},${a.streak},${a.weightStreak},${a.totalPractices}`).join("\n");
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a"); link.href = url; link.download = `apex-athlete-${today()}.csv`;
@@ -2879,9 +2886,9 @@ export default function ApexAthletePage() {
 
   // ── expanded athlete detail ─────────────────────────────
   const AthleteExpanded = ({ athlete }: { athlete: Athlete }) => {
-    const lv = getLevel(athlete.xp);
-    const prog = getLevelProgress(athlete.xp);
-    const nxt = getNextLevel(athlete.xp);
+    const lv = getLevel(athlete.xp, getSportForAthlete(athlete));
+    const prog = getLevelProgress(athlete.xp, getSportForAthlete(athlete));
+    const nxt = getNextLevel(athlete.xp, getSportForAthlete(athlete));
     const sk = fmtStreak(athlete.streak);
     const wsk = fmtWStreak(athlete.weightStreak);
     const combos = checkCombos(athlete);
@@ -3225,9 +3232,9 @@ export default function ApexAthletePage() {
 
   // ── ATHLETE DETAIL DRILL-DOWN VIEW ───────────────────────
   const AthleteDetailView = ({ athlete, onBack }: { athlete: Athlete; onBack: () => void }) => {
-    const lv = getLevel(athlete.xp);
-    const prog = getLevelProgress(athlete.xp);
-    const nxt = getNextLevel(athlete.xp);
+    const lv = getLevel(athlete.xp, getSportForAthlete(athlete));
+    const prog = getLevelProgress(athlete.xp, getSportForAthlete(athlete));
+    const nxt = getNextLevel(athlete.xp, getSportForAthlete(athlete));
     const sk = fmtStreak(athlete.streak);
     const wsk = fmtWStreak(athlete.weightStreak);
     const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
@@ -3270,7 +3277,7 @@ export default function ApexAthletePage() {
                 {/* XP progress bar */}
                 <div className="mt-6">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white font-bold">Level {LEVELS.indexOf(lv) + 1} — <AnimatedCounter value={athlete.xp} />/{nxt ? nxt.xp : lv.xp} XP</span>
+                    <span className="text-white font-bold">{lv.name} — <AnimatedCounter value={athlete.xp} />/{nxt ? nxt.xpThreshold : lv.xpThreshold} XP</span>
                     <span className="text-white/50">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
                   </div>
                   <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden">
@@ -3666,7 +3673,7 @@ export default function ApexAthletePage() {
           <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Tap an athlete to preview what their parent sees</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[...roster].sort((a, b) => b.xp - a.xp).map(a => {
-              const lv = getLevel(a.xp); const prog = getLevelProgress(a.xp); const growth = getPersonalGrowth(a);
+              const lv = getLevel(a.xp, getSportForAthlete(a)); const prog = getLevelProgress(a.xp, getSportForAthlete(a)); const growth = getPersonalGrowth(a);
               return (
                 <div key={a.id} onClick={() => setSelectedAthlete(a.id)} className="cursor-pointer active:scale-[0.98] transition-all">
                 <Card className="p-5">
@@ -4430,7 +4437,7 @@ export default function ApexAthletePage() {
               </div>
               <div className="space-y-3">
                 {atRiskAthletes.slice(0, 8).map(a => {
-                  const lv = getLevel(a.xp);
+                  const lv = getLevel(a.xp, getSportForAthlete(a));
                   return (
                     <div key={a.id} className="flex items-center gap-4 py-3 px-4 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-red-500/20 transition-all">
                       <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold shrink-0" style={{ background: `${lv.color}15`, border: `1px solid ${lv.color}30`, color: lv.color }}>
@@ -4439,7 +4446,7 @@ export default function ApexAthletePage() {
                       <div className="flex-1 min-w-0">
                         <div className="text-white text-sm font-medium truncate">{a.name}</div>
                         <div className="text-white/60 text-xs">
-                          Streak: {a.streak}d · {a.totalPractices} sessions · {getLevel(a.xp).name}
+                          Streak: {a.streak}d · {a.totalPractices} sessions · {getLevel(a.xp, getSportForAthlete(a)).name}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -4560,7 +4567,7 @@ export default function ApexAthletePage() {
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <span className="text-white font-bold">{tlAthlete.name}</span>
-                  <span className="text-[#f59e0b] text-sm">{getLevel(tlAthlete.xp).icon} {tlAthlete.xp} XP</span>
+                  <span className="text-[#f59e0b] text-sm">{getLevel(tlAthlete.xp, getSportForAthlete(tlAthlete)).icon} {tlAthlete.xp} XP</span>
                   <span className={`text-xs font-bold ml-auto ${riskColor(getAttritionRisk(tlAthlete))}`}>
                     Risk: {getAttritionRisk(tlAthlete)}/100
                   </span>
@@ -4793,7 +4800,7 @@ export default function ApexAthletePage() {
                 <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] lg:max-w-[1000px] mx-auto items-end">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
-                    const lv = getLevel(a.xp);
+                    const lv = getLevel(a.xp, getSportForAthlete(a));
                     const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
                     const medals = ["🥇", "🥈", "🥉"];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
@@ -4841,7 +4848,7 @@ export default function ApexAthletePage() {
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
               {sorted.map((a, i) => {
-                const lv = getLevel(a.xp);
+                const lv = getLevel(a.xp, getSportForAthlete(a));
                 const sk = fmtStreak(a.streak);
                 const rank = i + 1;
                 const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
@@ -5121,8 +5128,8 @@ export default function ApexAthletePage() {
             <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">// Roster Check-In</h3>
             <div className="space-y-3 mb-12">
               {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
-                const lv = getLevel(a.xp);
-                const prog = getLevelProgress(a.xp);
+                const lv = getLevel(a.xp, getSportForAthlete(a));
+                const prog = getLevelProgress(a.xp, getSportForAthlete(a));
                 const sk = fmtStreak(a.streak);
                 const hasCk = Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean);
                 const dailyUsed = a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0;

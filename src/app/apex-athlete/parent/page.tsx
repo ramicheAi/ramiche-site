@@ -707,14 +707,14 @@ function EnrollmentForm({ roster, onComplete }: {
               {selectedMatch ? (
                 <div className="flex items-center gap-10">
                   <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{ backgroundColor: `${getLevel(selectedMatch.xp).color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp).color}40` }}>
-                    <LevelIcon name={getLevel(selectedMatch.xp).name} size={16} color={getLevel(selectedMatch.xp).color} />
+                    style={{ backgroundColor: `${getLevel(selectedMatch.xp, "swimming").color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp, "swimming").color}40` }}>
+                    <LevelIcon name={getLevel(selectedMatch.xp, "swimming").name} size={16} color={getLevel(selectedMatch.xp, "swimming").color} />
                   </div>
                   <div>
                     <div className="text-white font-semibold">{selectedMatch.name}</div>
-                    <div className="text-xs flex items-center gap-1.5" style={{ color: getLevel(selectedMatch.xp).color }}>
-                      <LevelIcon name={getLevel(selectedMatch.xp).name} size={12} color={getLevel(selectedMatch.xp).color} />
-                      {getLevel(selectedMatch.xp).name} <span className="text-white/40">in</span> {selectedMatch.group}
+                    <div className="text-xs flex items-center gap-1.5" style={{ color: getLevel(selectedMatch.xp, "swimming").color }}>
+                      <LevelIcon name={getLevel(selectedMatch.xp, "swimming").name} size={12} color={getLevel(selectedMatch.xp, "swimming").color} />
+                      {getLevel(selectedMatch.xp, "swimming").name} <span className="text-white/40">in</span> {selectedMatch.group}
                     </div>
                   </div>
                 </div>
@@ -903,12 +903,12 @@ function EnrollmentForm({ roster, onComplete }: {
             {selectedMatch && (
               <div className="mt-2 p-3 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/15 flex items-center gap-10">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center"
-                  style={{ backgroundColor: `${getLevel(selectedMatch.xp).color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp).color}40` }}>
-                  <LevelIcon name={getLevel(selectedMatch.xp).name} size={16} color={getLevel(selectedMatch.xp).color} />
+                  style={{ backgroundColor: `${getLevel(selectedMatch.xp, "swimming").color}15`, border: `1.5px solid ${getLevel(selectedMatch.xp, "swimming").color}40` }}>
+                  <LevelIcon name={getLevel(selectedMatch.xp, "swimming").name} size={16} color={getLevel(selectedMatch.xp, "swimming").color} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-white font-semibold text-sm">{selectedMatch.name}</div>
-                  <div className="text-emerald-400/70 text-xs">{selectedMatch.group} -- {getLevel(selectedMatch.xp).name}</div>
+                  <div className="text-emerald-400/70 text-xs">{selectedMatch.group} -- {getLevel(selectedMatch.xp, "swimming").name}</div>
                 </div>
                 <button onClick={() => { setSelectedMatch(null); setChildName(""); }}
                   className="text-white/40 hover:text-white/60 transition-colors p-1"
@@ -1208,9 +1208,11 @@ export default function ParentPortal() {
     return absences.filter(a => a.athleteId === athlete.id).slice(0, 10);
   }, [absences, athlete]);
 
-  const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
-  const nextLevel = athlete ? getNextLevel(athlete.xp) : LEVELS[1];
-  const progress = athlete ? getLevelProgress(athlete.xp) : { percent: 0, remaining: 300 };
+  // Default to swimming if athlete sport unknown
+  const sport = "swimming";
+  const level = athlete ? getLevel(athlete.xp, sport) : getLevel(0, sport);
+  const nextLevel = athlete ? getNextLevel(athlete.xp, sport) : getNextLevel(0, sport);
+  const progress = athlete ? getLevelProgress(athlete.xp, sport) : { percent: 0, remaining: 300 };
   const streak = athlete ? fmtStreak(athlete.streak) : fmtStreak(0);
   const achievements = useMemo(() => athlete ? getAchievements(athlete) : [], [athlete]);
   const growth = useMemo(() => athlete ? getGrowthTrend(athlete, snapshots) : null, [athlete, snapshots]);
