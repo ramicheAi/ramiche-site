@@ -1,33 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile, readdir } from "fs/promises";
+import { readFile, readdir, stat } from "fs/promises";
 import { join } from "path";
 
 const PROJECTS_DIR = join(process.env.HOME || "/Users/admin", ".openclaw/workspace/projects");
 
-const ALLOWED_SLUGS = ["mettle", "parallax-site", "parallax-publish", "galactik-antics"];
 const ALLOWED_DOCS = ["ARCHITECTURE.md", "DECISIONS.md", "MEMORY.md", "PIPELINE.md", "TASKS.md"];
+
+// Slug must be lowercase alphanumeric + hyphens only
+const SLUG_RE = /^[a-z0-9-]+$/;
+
+export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const slug = req.nextUrl.searchParams.get("slug");
   const doc = req.nextUrl.searchParams.get("doc");
 
-  // List all projects with their available docs
+  // List all projects with their available docs (scan directory)
   if (!slug) {
     const results: { slug: string; docs: string[] }[] = [];
-    for (const s of ALLOWED_SLUGS) {
-      try {
-        const files = await readdir(join(PROJECTS_DIR, s));
-        const docs = files.filter((f: string) => ALLOWED_DOCS.includes(f));
-        results.push({ slug: s, docs });
-      } catch {
-        results.push({ slug: s, docs: [] });
+    try {
+      const entries = await readdir(PROJECTS_DIR);
+      for (const entry of entries) {
+        if (entry.startsWith(".") || !SLUG_RE.test(entry)) continue;
+        try {
+          const s = await stat(join(PROJECTS_DIR, entry));
+          if (!s.isDirectory()) continue;
+          const files = await readdir(join(PROJECTS_DIR, entry));
+          const docs = files.filter((f: string) => ALLOWED_DOCS.includes(f));
+          if (docs.length > 0) results.push({ slug: entry, docs });
+        } catch { /* skip unreadable */ }
       }
-    }
+    } catch { /* projects dir missing */ }
     return NextResponse.json({ projects: results });
   }
 
-  // Validate slug
-  if (!ALLOWED_SLUGS.includes(slug)) {
+  // Validate slug format
+  if (!SLUG_RE.test(slug)) {
     return NextResponse.json({ error: "Invalid project" }, { status: 400 });
   }
 
