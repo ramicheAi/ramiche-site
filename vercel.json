@@ -1,5 +1,11 @@
 {
-  "redirects": [],
+  "redirects": [
+    {
+      "source": "/apex-athlete",
+      "destination": "/apex-athlete/coach",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/apex-athlete/:path*",

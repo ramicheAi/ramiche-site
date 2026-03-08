@@ -953,15 +953,12 @@ export default function ApexAthletePage() {
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTouchEndRef = useRef(0);
 
-  // ── Auth gate: redirect to login if not a coach/admin ──
+  // ── Auth gate: redirect to PIN screen if not authenticated ──
   useEffect(() => {
     try {
-      const { getSession } = require("../auth");
-      const session = getSession();
-      if (!session || (session.role !== "coach" && session.role !== "admin")) {
-        router.push("/apex-athlete/login");
-      }
-    } catch { router.push("/apex-athlete/login"); }
+      const auth = sessionStorage.getItem("apex-coach-auth");
+      if (auth !== "1") { router.push("/apex-athlete"); }
+    } catch {}
   }, [router]);
 
   useEffect(() => {
@@ -4789,42 +4786,6 @@ export default function ApexAthletePage() {
   const present = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
   const totalXpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
 
-  // ── Bulk Best Times Fetch ──────────────────────────────
-  const [bulkFetchState, setBulkFetchState] = useState<"idle" | "fetching" | "done">("idle");
-  const [bulkFetchProgress, setBulkFetchProgress] = useState({ current: 0, total: 0, name: "" });
-  const [bulkFetchResults, setBulkFetchResults] = useState<Record<string, { times: Array<{ event: string; stroke: string; time: string; course: string; meet: string; date: string }>; swimmer?: string; swimmerUrl?: string; error?: string }>>({});
-  const bulkFetchRef = useRef(false);
-
-  const fetchAllBestTimes = async () => {
-    if (bulkFetchState === "fetching") { bulkFetchRef.current = false; return; }
-    setBulkFetchState("fetching");
-    bulkFetchRef.current = true;
-    const athletes = filteredRoster;
-    setBulkFetchProgress({ current: 0, total: athletes.length, name: "" });
-    const results: typeof bulkFetchResults = {};
-    for (let i = 0; i < athletes.length; i++) {
-      if (!bulkFetchRef.current) break;
-      const a = athletes[i];
-      setBulkFetchProgress({ current: i + 1, total: athletes.length, name: a.name });
-      try {
-        const res = await fetch("/api/swimcloud", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: a.name, usaSwimmingId: a.usaSwimmingId }),
-        });
-        const data = await res.json();
-        results[a.id] = data;
-      } catch {
-        results[a.id] = { times: [], error: "Network error" };
-      }
-      setBulkFetchResults({ ...results });
-      // Respect rate limit: 15 req/min → 4s between requests
-      if (i < athletes.length - 1 && bulkFetchRef.current) await new Promise(r => setTimeout(r, 4200));
-    }
-    setBulkFetchState("done");
-    bulkFetchRef.current = false;
-  };
-
   // ── Athlete detail drill-down ──────────────────────────
   if (selectedAthlete) {
     const detailAthlete = roster.find(a => a.id === selectedAthlete);
@@ -4869,35 +4830,6 @@ export default function ApexAthletePage() {
           <div className="text-center mt-3 text-xs font-mono text-white/60">
             {currentGroupDef.icon} {currentGroupDef.name} — {currentGroupDef.sport.toUpperCase()} — {filteredRoster.length} athletes
           </div>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════
-           FETCH ALL BEST TIMES — BULK ACTION
-           ══════════════════════════════════════════════════════ */}
-        <div className="py-3 flex items-center justify-center gap-3">
-          <button onClick={fetchAllBestTimes}
-            className={`game-btn px-5 py-2.5 text-xs font-bold font-mono tracking-wider border transition-all min-h-[40px] ${
-              bulkFetchState === "fetching"
-                ? "bg-amber-500/15 text-amber-400 border-amber-500/40 animate-pulse"
-                : bulkFetchState === "done"
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/40"
-                : "bg-[#00f0ff]/10 text-[#00f0ff] border-[#00f0ff]/30 hover:bg-[#00f0ff]/20"
-            }`}>
-            {bulkFetchState === "fetching"
-              ? `FETCHING ${bulkFetchProgress.current}/${bulkFetchProgress.total} — ${bulkFetchProgress.name}`
-              : bulkFetchState === "done"
-              ? `✓ ${Object.values(bulkFetchResults).filter(r => r.times.length > 0).length}/${filteredRoster.length} ATHLETES WITH TIMES`
-              : "FETCH ALL BEST TIMES"}
-          </button>
-          {bulkFetchState === "fetching" && (
-            <div className="w-32 h-2 rounded-full bg-white/[0.06] overflow-hidden">
-              <div className="h-full rounded-full bg-[#00f0ff] transition-all duration-300" style={{ width: `${(bulkFetchProgress.current / Math.max(1, bulkFetchProgress.total)) * 100}%` }} />
-            </div>
-          )}
-          {bulkFetchState === "done" && (
-            <button onClick={() => { setBulkFetchState("idle"); setBulkFetchResults({}); }}
-              className="text-white/40 text-xs hover:text-white/60 transition-colors min-h-[32px]">Clear</button>
-          )}
         </div>
 
         {/* ══════════════════════════════════════════════════════

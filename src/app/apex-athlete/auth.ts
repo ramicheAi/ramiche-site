@@ -41,8 +41,8 @@ export interface StoredParentAccount {
 const AUTH_SESSION_KEY = "apex-auth-session";
 const COACH_ACCOUNTS_KEY = "apex-auth-coach-accounts";
 const PARENT_ACCOUNTS_KEY = "apex-auth-parent-accounts";
-const MASTER_PIN = process.env.NEXT_PUBLIC_MASTER_PIN || "2451";
-const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const MASTER_PIN = process.env.NEXT_PUBLIC_MASTER_PIN || "";
+const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 // ── Helpers ─────────────────────────────────────────────────
 function loadJSON<T>(key: string, fallback: T): T {
@@ -303,7 +303,7 @@ export function loginParent(email: string, code: string): { success: boolean; se
 
 export function getRedirectForRole(role: AuthRole): string {
   switch (role) {
-    case "admin": return "/apex-athlete/coach";
+    case "admin": return "/apex-athlete";
     case "coach": return "/apex-athlete/coach";
     case "parent": return "/apex-athlete/parent";
     case "athlete": return "/apex-athlete/athlete";
