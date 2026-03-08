@@ -118,6 +118,33 @@ function useFadeIn(delay = 0) {
   };
 }
 
+// ── Animated Counter ──────────────────────────────────────
+function AnimCounter({ to, duration = 1200, prefix = "", suffix = "", delay = 0 }: { to: number; duration?: number; prefix?: string; suffix?: string; delay?: number }) {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const start = performance.now();
+      const step = (now: number) => {
+        const elapsed = now - start;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        setVal(Math.round(eased * to));
+        if (progress < 1) requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }, delay);
+    return () => clearTimeout(timeout);
+  }, [to, duration, delay]);
+  return <>{prefix}{val.toLocaleString()}{suffix}</>;
+}
+
+// ── micro sound effects ───────────────────────────────────
+const SFX = {
+  tick: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 1200; o.type = "sine"; g.gain.setValueAtTime(0.12, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.08); o.start(); o.stop(c.currentTime + 0.08); } catch {} },
+  untick: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 600; o.type = "sine"; g.gain.setValueAtTime(0.06, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.06); o.start(); o.stop(c.currentTime + 0.06); } catch {} },
+  tabSwitch: () => { try { const c = new AudioContext(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; o.type = "sine"; g.gain.setValueAtTime(0.05, c.currentTime); g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + 0.05); o.start(); o.stop(c.currentTime + 0.05); } catch {} },
+};
+
 export default function DemoPage() {
   const [tab, setTab] = useState<DemoTab>("coach");
   const [checkedCPs, setCheckedCPs] = useState<Set<string>>(new Set(["on-deck", "gear-ready", "warmup"]));
@@ -125,7 +152,7 @@ export default function DemoPage() {
   const toggleCP = (id: string) => {
     setCheckedCPs(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) { next.delete(id); SFX.untick(); } else { next.add(id); SFX.tick(); }
       return next;
     });
   };
@@ -147,10 +174,10 @@ export default function DemoPage() {
       {/* ── Hero ── */}
       <section className="relative z-10 border-b border-[#00f0ff]/10">
         <div className="absolute inset-0 bg-gradient-to-b from-[#00f0ff]/[0.02] to-transparent pointer-events-none" />
-        <div className="w-full px-4 sm:px-8 py-16 sm:py-20 text-center relative">
-          <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#C9A84C]/30 font-mono mb-3">{"<"} athlete.relations.manager {"/"+">"}</div>
+        <div className="w-full px-4 sm:px-8 py-16 sm:py-24 text-center relative">
+          <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#C9A84C]/30 font-mono mb-4 animate-[fadeInUp_0.8s_ease-out_both]">{"<"} athlete.relations.manager {"/"+">"}</div>
           <h1
-            className="text-5xl sm:text-7xl font-black tracking-[-0.04em] leading-[0.85] mb-6"
+            className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-[-0.04em] leading-[0.85] mb-6 animate-[fadeInUp_1s_ease-out_0.2s_both]"
             style={{
               background: "linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)",
               WebkitBackgroundClip: "text",
@@ -160,20 +187,20 @@ export default function DemoPage() {
           >
             METTLE
           </h1>
-          <p className="text-white/50 text-lg sm:text-xl font-light">
+          <p className="text-white/50 text-lg sm:text-xl font-light animate-[fadeInUp_1s_ease-out_0.4s_both]">
             Where athletic development becomes a game worth playing
           </p>
 
           {/* Live HUD stats strip */}
-          <div className="mt-10 inline-flex items-center gap-4 sm:gap-6 border border-[#00f0ff]/10 rounded-lg bg-[#06020f]/60 backdrop-blur px-5 py-3">
+          <div className="mt-10 inline-flex items-center gap-4 sm:gap-6 border-2 border-[#00f0ff]/15 rounded-xl bg-[#06020f]/60 backdrop-blur px-6 py-4 animate-[fadeInUp_1s_ease-out_0.6s_both]">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)] animate-pulse" />
-              <span className="text-[#00f0ff] text-sm font-mono font-bold">24<span className="text-white/15">/30</span></span>
+              <span className="text-[#00f0ff] text-sm font-mono font-bold"><AnimCounter to={24} delay={400} /><span className="text-white/15">/30</span></span>
               <span className="text-[#00f0ff]/30 text-[10px] font-mono uppercase">present</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
             <div className="flex items-center gap-2">
-              <span className="text-[#f59e0b] text-sm font-mono font-bold">1,847</span>
+              <span className="text-[#f59e0b] text-sm font-mono font-bold"><AnimCounter to={1847} delay={600} prefix="" /></span>
               <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
             </div>
             <div className="w-px h-4 bg-[#00f0ff]/10" />
@@ -191,7 +218,7 @@ export default function DemoPage() {
             return (
               <button
                 key={v}
-                onClick={() => setTab(v)}
+                onClick={() => { setTab(v); SFX.tabSwitch(); }}
                 className={`relative flex-1 py-4 text-[11px] font-bold font-mono tracking-[0.25em] uppercase transition-all duration-300 ${
                   active ? "text-[#00f0ff] bg-[#00f0ff]/[0.08]" : "text-white/15 hover:text-[#00f0ff]/60"
                 }`}
@@ -209,7 +236,7 @@ export default function DemoPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="relative z-10 w-full px-4 sm:px-8 lg:px-12 xl:px-16 py-12 space-y-10">
+      <div className="relative z-10 w-full px-4 sm:px-6 lg:px-12 xl:px-16 py-10 sm:py-12 space-y-8 sm:space-y-10">
         {tab === "coach" && <CoachView checkedCPs={checkedCPs} toggleCP={toggleCP} />}
         {tab === "athlete" && <AthleteView />}
         {tab === "parent" && <ParentView />}
@@ -238,35 +265,46 @@ export default function DemoPage() {
       {/* ── Level Progression ── */}
       <section className="relative z-10 border-t border-[#00f0ff]/10">
         <div className="w-full px-4 sm:px-8 py-16">
-          <h2 className="text-2xl font-bold text-white mb-8 text-center font-mono tracking-wide">Level Progression</h2>
-          <div className="flex flex-wrap justify-center gap-4 items-end">
-            {LEVELS.map((lv, i) => (
-              <div
-                key={i}
-                className="border-2 rounded-xl px-6 py-5 text-center min-w-[130px] transition-all duration-300 hover:scale-105 relative group"
-                style={{
-                  borderColor: `${lv.color}40`,
-                  background: `${lv.color}08`,
-                  boxShadow: `0 0 20px ${lv.color}10`,
-                }}
-              >
-                <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ boxShadow: `0 0 40px ${lv.color}25, inset 0 0 20px ${lv.color}08` }} />
-                <div className="relative">
-                  <div className="text-3xl font-black mb-1" style={{ color: lv.color }}>{i + 1}</div>
-                  <div className="text-sm font-bold text-white">{lv.name}</div>
-                  <div className="text-[10px] text-white/30 font-mono mt-1">{lv.xp}+ XP</div>
+          <h2 className="text-2xl font-bold text-white mb-3 text-center font-mono tracking-wide">Level Progression</h2>
+          <p className="text-white/25 text-sm text-center mb-10 font-mono">Rookie → Legend — earn XP through consistency, effort, and leadership</p>
+          <div className="relative">
+            {/* Connecting line */}
+            <div className="hidden md:block absolute top-1/2 left-[8%] right-[8%] h-px bg-gradient-to-r from-[#94a3b8]/20 via-[#f59e0b]/30 to-[#ef4444]/20" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-5">
+              {LEVELS.map((lv, i) => (
+                <div
+                  key={i}
+                  className="border-2 rounded-xl px-4 py-6 text-center transition-all duration-500 hover:scale-110 relative group"
+                  style={{
+                    borderColor: `${lv.color}40`,
+                    background: `${lv.color}08`,
+                    boxShadow: `0 0 20px ${lv.color}10`,
+                    animationDelay: `${i * 0.15}s`,
+                    animation: `fadeInUp 0.6s ease-out ${i * 0.15}s both`,
+                  }}
+                >
+                  <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ boxShadow: `0 0 50px ${lv.color}30, inset 0 0 30px ${lv.color}10` }} />
+                  <div className="relative">
+                    <div className="w-14 h-14 rounded-full border-2 mx-auto mb-3 flex items-center justify-center" style={{ borderColor: `${lv.color}60`, background: `${lv.color}15` }}>
+                      <div className="text-2xl font-black" style={{ color: lv.color }}>{i + 1}</div>
+                    </div>
+                    <div className="text-sm font-bold text-white">{lv.name}</div>
+                    <div className="text-[10px] text-white/30 font-mono mt-1">{lv.xp}+ XP</div>
+                    {i === 4 && <div className="mt-2 text-[9px] font-mono px-2 py-0.5 rounded bg-[#f97316]/10 text-[#f97316] inline-block">DEMO</div>}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── CTA ── */}
-      <section className="relative z-10 border-t border-[#00f0ff]/10">
-        <div className="w-full px-4 sm:px-8 py-20 text-center">
-          <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Ready to transform your program?</h2>
-          <p className="text-white/40 text-lg mb-10">
+      <section className="relative z-10 border-t border-[#00f0ff]/10 overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 100%, rgba(201,168,76,0.04) 0%, transparent 60%)" }} />
+        <div className="w-full px-4 sm:px-8 py-24 text-center relative">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white mb-4">Ready to transform your program?</h2>
+          <p className="text-white/40 text-lg mb-12 max-w-xl mx-auto">
             Join coaches who use METTLE to build culture, track progress, and engage parents.
           </p>
           <a
@@ -293,6 +331,18 @@ export default function DemoPage() {
               0%, 100% { box-shadow: 0 0 40px rgba(249,115,22,0.15), 0 0 80px rgba(249,115,22,0.05); }
               50% { box-shadow: 0 0 50px rgba(249,115,22,0.25), 0 0 100px rgba(249,115,22,0.1); }
             }
+            @keyframes fadeInUp {
+              from { opacity: 0; transform: translateY(20px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes shimmer {
+              0% { background-position: -200% 0; }
+              100% { background-position: 200% 0; }
+            }
+            @keyframes glowPulse {
+              0%, 100% { opacity: 0.4; }
+              50% { opacity: 1; }
+            }
           `}</style>
         </div>
       </section>
@@ -314,10 +364,10 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
         </div>
         <div className="divide-y divide-white/[0.04]">
           {mockAthletes.map((a, i) => (
-            <div key={i} className="flex items-center gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors">
+            <div key={i} className={`flex items-center gap-4 px-6 py-4 transition-all duration-200 ${i < 3 ? "bg-[#f59e0b]/[0.02] hover:bg-[#f59e0b]/[0.05]" : "hover:bg-white/[0.02]"}`}>
               <div className="w-8 text-center">
                 {i < 3 ? (
-                  <span className="text-[#f59e0b] font-black text-lg">{i + 1}</span>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm" style={{ background: i === 0 ? "linear-gradient(135deg, #FFD700, #C9A84C)" : i === 1 ? "linear-gradient(135deg, #C0C0C0, #8A8A8A)" : "linear-gradient(135deg, #CD7F32, #8B4513)", color: "#06020f" }}>{i + 1}</div>
                 ) : (
                   <span className="text-white/20 font-mono text-sm">{i + 1}</span>
                 )}
@@ -424,20 +474,20 @@ function AthleteView() {
           <div className="mt-5 max-w-md mx-auto">
             <XPBar percent={68} color="#f97316" height="h-4" />
           </div>
-        <div className="mt-6 flex justify-center gap-6">
+        <div className="mt-8 flex justify-center gap-8">
           <div className="text-center">
-            <div className="text-2xl font-black text-[#f59e0b]">28</div>
-            <div className="text-[10px] text-white/20 font-mono uppercase">Day Streak</div>
+            <div className="text-3xl font-black text-[#f59e0b]"><AnimCounter to={28} delay={800} /></div>
+            <div className="text-[10px] text-white/20 font-mono uppercase mt-1">Day Streak</div>
           </div>
           <div className="w-px bg-white/10" />
           <div className="text-center">
-            <div className="text-2xl font-black text-[#00f0ff]">96%</div>
-            <div className="text-[10px] text-white/20 font-mono uppercase">Attendance</div>
+            <div className="text-3xl font-black text-[#00f0ff]"><AnimCounter to={96} delay={1000} suffix="%" /></div>
+            <div className="text-[10px] text-white/20 font-mono uppercase mt-1">Attendance</div>
           </div>
           <div className="w-px bg-white/10" />
           <div className="text-center">
-            <div className="text-2xl font-black text-[#a855f7]">3</div>
-            <div className="text-[10px] text-white/20 font-mono uppercase">Quests Done</div>
+            <div className="text-3xl font-black text-[#a855f7]"><AnimCounter to={3} delay={1200} /></div>
+            <div className="text-[10px] text-white/20 font-mono uppercase mt-1">Quests Done</div>
           </div>
         </div>
         </div>
@@ -518,16 +568,16 @@ function ParentView() {
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">THIS WEEK</h3>
         </div>
         <div className="grid grid-cols-3 divide-x divide-white/[0.04]">
-          <div className="p-5 text-center">
-            <div className="text-2xl font-black text-[#00f0ff]">5/5</div>
+          <div className="p-6 text-center">
+            <div className="text-3xl font-black text-[#00f0ff]"><AnimCounter to={5} delay={400} />/5</div>
             <div className="text-[10px] text-white/20 font-mono uppercase mt-1">Practices</div>
           </div>
-          <div className="p-5 text-center">
-            <div className="text-2xl font-black text-[#f59e0b]">+340</div>
+          <div className="p-6 text-center">
+            <div className="text-3xl font-black text-[#f59e0b]">+<AnimCounter to={340} delay={600} /></div>
             <div className="text-[10px] text-white/20 font-mono uppercase mt-1">XP Earned</div>
           </div>
-          <div className="p-5 text-center">
-            <div className="text-2xl font-black text-[#a855f7]">2</div>
+          <div className="p-6 text-center">
+            <div className="text-3xl font-black text-[#a855f7]"><AnimCounter to={2} delay={800} /></div>
             <div className="text-[10px] text-white/20 font-mono uppercase mt-1">PRs Set</div>
           </div>
         </div>
