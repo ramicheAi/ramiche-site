@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MASTER_PIN } from "../auth";
+import { MASTER_PIN, getSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
@@ -953,12 +953,12 @@ export default function ApexAthletePage() {
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTouchEndRef = useRef(0);
 
-  // ── Auth gate: redirect to PIN screen if not authenticated ──
+  // ── Auth gate: redirect to login if not coach/admin ──
   useEffect(() => {
-    try {
-      const auth = sessionStorage.getItem("apex-coach-auth");
-      if (auth !== "1") { router.push("/apex-athlete"); }
-    } catch {}
+    const session = getSession();
+    if (!session || (session.role !== "coach" && session.role !== "admin")) {
+      router.push("/apex-athlete/login");
+    }
   }, [router]);
 
   useEffect(() => {

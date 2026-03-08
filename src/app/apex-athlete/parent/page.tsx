@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN } from "../auth";
+import { MASTER_PIN, getSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
@@ -1010,18 +1010,23 @@ export default function ParentPortal() {
         setEnrollment(JSON.parse(enrollmentData));
       }
     } catch { /* ignore */ }
-    try {
-      if (sessionStorage.getItem("apex-coach-auth")) {
+    const session = getSession();
+    if (session) {
+      // Athletes don't belong here — redirect them
+      if (session.role === "athlete") {
+        window.location.href = "/apex-athlete/athlete";
+        return;
+      }
+      // Parents auto-unlock
+      if (session.role === "parent") {
+        setUnlocked(true);
+      }
+      // Coaches/admins auto-unlock with coach view
+      if (session.role === "coach" || session.role === "admin") {
         setUnlocked(true);
         setIsCoach(true);
-      } else {
-        const ls = localStorage.getItem("apex-coach-auth");
-        if (ls && Date.now() - parseInt(ls) < 3600000) {
-          setUnlocked(true);
-          setIsCoach(true);
-        }
       }
-    } catch {}
+    }
   }, []);
 
   const handlePin = () => {
