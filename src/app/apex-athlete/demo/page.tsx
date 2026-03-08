@@ -355,10 +355,13 @@ export default function DemoPage() {
 // COACH VIEW
 // ═══════════════════════════════════════════════════════════
 function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP: (id: string) => void }) {
+  const fade1 = useFadeIn(100);
+  const fade2 = useFadeIn(300);
+  const fade3 = useFadeIn(500);
   return (
     <div className="space-y-8">
       {/* Leaderboard */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div {...fade1} className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade1.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10 flex items-center justify-between">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">TEAM LEADERBOARD</h3>
           <span className="text-[#00f0ff]/30 text-[10px] font-mono">{mockAthletes.length} ATHLETES</span>
@@ -395,7 +398,7 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
       </div>
 
       {/* Checkpoints */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade2.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">DAILY CHECKPOINTS</h3>
           <p className="text-white/20 text-xs mt-1">Tap to toggle — each awards XP</p>
@@ -425,7 +428,7 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
       </div>
 
       {/* Active Quests */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade3.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">ACTIVE QUESTS</h3>
         </div>
@@ -450,10 +453,13 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
 // ATHLETE VIEW
 // ═══════════════════════════════════════════════════════════
 function AthleteView() {
+  const fade1 = useFadeIn(100);
+  const fade2 = useFadeIn(300);
+  const fade3 = useFadeIn(500);
   return (
     <div className="space-y-8">
       {/* Level Badge */}
-      <div className="border-2 border-[#f97316]/20 rounded-xl bg-[#06020f]/60 p-10 sm:p-12 text-center relative overflow-hidden">
+      <div className={`border-2 border-[#f97316]/20 rounded-xl bg-[#06020f]/60 p-10 sm:p-12 text-center relative overflow-hidden ${fade1.className}`}>
         <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ background: "radial-gradient(ellipse at 50% 0%, rgba(249,115,22,0.08) 0%, transparent 60%)" }} />
         <div className="relative">
           <div
@@ -495,7 +501,7 @@ function AthleteView() {
       </div>
 
       {/* Recent Times */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade2.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">RECENT TIMES</h3>
         </div>
@@ -515,7 +521,7 @@ function AthleteView() {
       </div>
 
       {/* Today's Checkpoints */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade3.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">TODAY&apos;S CHECKPOINTS</h3>
         </div>
@@ -542,10 +548,14 @@ function AthleteView() {
 // PARENT VIEW
 // ═══════════════════════════════════════════════════════════
 function ParentView() {
+  const fade1 = useFadeIn(100);
+  const fade2 = useFadeIn(300);
+  const fade3 = useFadeIn(500);
+  const fade4 = useFadeIn(700);
   return (
     <div className="space-y-8">
       {/* Child Summary */}
-      <div className="border-2 border-[#a855f7]/20 rounded-xl bg-[#06020f]/60 p-10 sm:p-12 relative overflow-hidden">
+      <div className={`border-2 border-[#a855f7]/20 rounded-xl bg-[#06020f]/60 p-10 sm:p-12 relative overflow-hidden ${fade1.className}`}>
         <div className="absolute inset-0 opacity-30 pointer-events-none" style={{ background: "radial-gradient(ellipse at 0% 50%, rgba(168,85,247,0.06) 0%, transparent 60%)" }} />
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full border-2 border-[#f97316] flex items-center justify-center" style={{ background: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)" }}>
@@ -564,7 +574,7 @@ function ParentView() {
       </div>
 
       {/* Weekly Summary */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade2.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">THIS WEEK</h3>
         </div>
@@ -585,7 +595,7 @@ function ParentView() {
       </div>
 
       {/* Recent Achievements */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade3.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">RECENT ACHIEVEMENTS</h3>
         </div>
@@ -601,7 +611,7 @@ function ParentView() {
       </div>
 
       {/* Coach Communication */}
-      <div className="border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden">
+      <div className={`border-2 border-[#00f0ff]/10 rounded-xl bg-[#06020f]/60 overflow-hidden ${fade4.className}`}>
         <div className="px-6 py-4 border-b border-[#00f0ff]/10">
           <h3 className="font-bold text-white text-sm font-mono tracking-wide">COACH NOTES</h3>
         </div>
