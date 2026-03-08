@@ -1,0 +1,12 @@
+{
+  "name": "Command Center",
+  "slug": "command-center",
+  "accent": "#3b82f6",
+  "status": "active",
+  "desc": "Mission Control dashboard — holographic ops hub",
+  "priority": 9,
+  "priorityLabel": "MED",
+  "agents": ["Atlas", "SHURI", "NOVA", "TRIAGE"],
+  "lead": "Atlas",
+  "link": { "label": "Open", "href": "/command-center" }
+}
