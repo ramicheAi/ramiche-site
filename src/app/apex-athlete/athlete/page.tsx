@@ -670,6 +670,11 @@ export default function AthletePortal() {
     setMounted(true);
     const session = getSession();
     if (!session) return;
+    // Parents must use parent portal — redirect them
+    if (session.role === "parent") {
+      window.location.href = "/apex-athlete/parent";
+      return;
+    }
     if (session.role === "athlete") {
       setUnlocked(true);
     } else if (session.role === "coach" || session.role === "admin") {
@@ -680,10 +685,9 @@ export default function AthletePortal() {
   }, []);
 
   const handlePin = async () => {
-    if (MASTER_PIN && pinInput === MASTER_PIN) { setUnlocked(true); setPinError(false); return; }
-    // Check athlete PIN against Firestore
+    // Check athlete PIN against Firestore (no master PIN bypass — coaches use coach portal)
     const result = await loginWithPin(pinInput.trim());
-    if (result.success) { setUnlocked(true); setPinError(false); return; }
+    if (result.success && (result.session?.role === "athlete" || result.session?.role === "coach" || result.session?.role === "admin")) { setUnlocked(true); setPinError(false); return; }
     // Fallback: check localStorage custom admin PIN
     let stored = "";
     if (typeof window !== "undefined") {

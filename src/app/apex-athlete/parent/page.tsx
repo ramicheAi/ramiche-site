@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN, getSession } from "../auth";
+import { getSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
@@ -1011,6 +1011,11 @@ export default function ParentPortal() {
       }
     } catch { /* ignore */ }
     const session = getSession();
+    // Athletes must use athlete portal — redirect them
+    if (session && session.role === "athlete") {
+      window.location.href = "/apex-athlete/athlete";
+      return;
+    }
     if (session && (session.role === "coach" || session.role === "admin")) {
       setUnlocked(true);
       setIsCoach(true);
@@ -1020,7 +1025,8 @@ export default function ParentPortal() {
   }, []);
 
   const handlePin = () => {
-    if (MASTER_PIN && pinInput === MASTER_PIN) { setUnlocked(true); setPinError(false); return; }
+    // No master PIN bypass — coaches use coach portal, athletes use athlete portal
+    // Parent portal only accepts parent verification code
     let stored = "";
     if (typeof window !== "undefined") {
       const raw = localStorage.getItem("apex-athlete-pin");

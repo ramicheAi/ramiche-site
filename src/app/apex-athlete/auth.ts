@@ -303,7 +303,7 @@ export function loginParent(email: string, code: string): { success: boolean; se
 
 export function getRedirectForRole(role: AuthRole): string {
   switch (role) {
-    case "admin": return "/apex-athlete";
+    case "admin": return "/apex-athlete/coach";
     case "coach": return "/apex-athlete/coach";
     case "parent": return "/apex-athlete/parent";
     case "athlete": return "/apex-athlete/athlete";
