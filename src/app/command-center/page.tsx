@@ -1129,7 +1129,8 @@ export default function CommandCenter() {
             const mName = topMission?.name || "METTLE";
             const mDesc = topMission?.desc || topMission?.description || "";
             const mAccent = topMission?.accent || "#C9A84C";
-            const mLink = topMission?.link || (typeof topMission?.link === 'object' ? (topMission as any)?.link?.href : "/apex-athlete");
+            const rawLink = topMission?.link;
+            const mLink = typeof rawLink === 'string' ? rawLink : rawLink?.href || "/apex-athlete";
             const mPriority = topMission?.priority || "HIGH";
             const mDone = topMission?.completedTasks ?? (topMission?.tasks?.filter((t: any) => t.done).length ?? 0);
             const mTotal = topMission?.totalTasks ?? (topMission?.tasks?.length ?? 0);
