@@ -991,12 +991,8 @@ export default function CommandCenter() {
   const links = liveLinks || LINKS;
 
   /* ── computed ── */
-  const totalT = liveMissions
-    ? missions.reduce((s: number, p: any) => s + (p.totalTasks || 0), 0)
-    : MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
-  const doneT = liveMissions
-    ? missions.reduce((s: number, p: any) => s + (p.completedTasks || 0), 0)
-    : MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
+  const totalT = missions.reduce((s: number, p: any) => s + (p.totalTasks ?? (Array.isArray(p.tasks) ? p.tasks.length : 0)), 0);
+  const doneT = missions.reduce((s: number, p: any) => s + (p.completedTasks ?? (Array.isArray(p.tasks) ? p.tasks.filter((t: any) => t.done).length : 0)), 0);
   const pct = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
   const activeAgents = agents.filter((a) => a.status === "active").length;
   const activeMissions = missions.filter((m: any) => m.status === "active").length;
