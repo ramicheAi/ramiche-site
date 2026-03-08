@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ApexAthleteRedirect() {
-  redirect("/apex-athlete/coach");
+  redirect("/apex-athlete/login");
 }

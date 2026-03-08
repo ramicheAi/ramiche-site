@@ -668,26 +668,15 @@ export default function AthletePortal() {
   const [coachGroup, setCoachGroup] = useState<string>("");
   useEffect(() => {
     setMounted(true);
-    // Auto-unlock for athletes with valid auth session
     const session = getSession();
-    if (session && session.role === "athlete") {
+    if (!session) return;
+    if (session.role === "athlete") {
       setUnlocked(true);
+    } else if (session.role === "coach" || session.role === "admin") {
+      setUnlocked(true);
+      setIsCoach(true);
+      setCoachGroup(localStorage.getItem("apex-coach-group") || "");
     }
-    // Auto-unlock for coaches who already authenticated in the coach portal
-    try {
-      if (sessionStorage.getItem("apex-coach-auth")) {
-        setUnlocked(true);
-        setIsCoach(true);
-        setCoachGroup(localStorage.getItem("apex-coach-group") || "");
-      } else {
-        const ls = localStorage.getItem("apex-coach-auth");
-        if (ls && Date.now() - parseInt(ls) < 3600000) {
-          setUnlocked(true);
-          setIsCoach(true);
-          setCoachGroup(localStorage.getItem("apex-coach-group") || "");
-        }
-      }
-    } catch {}
   }, []);
 
   const handlePin = async () => {
