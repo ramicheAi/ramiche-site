@@ -54,11 +54,22 @@ export default function ProjectTracker() {
   const [lastSync, setLastSync] = useState<string>("");
 
   const fetchProjects = useCallback(() => {
-    fetch("/api/command-center/projects")
+    // Primary: bridge API (Firestore, synced from workspace)
+    // Fallback: command-center API (filesystem)
+    fetch("/api/bridge?type=projects")
       .then(r => r.json())
       .then(data => {
-        if (data.projects) setProjects(data.projects);
-        setLastSync(new Date().toLocaleTimeString());
+        const list = data?.projects;
+        if (Array.isArray(list) && list.length > 0) {
+          setProjects(list);
+          setLastSync(data._syncedAt || new Date().toISOString());
+        } else {
+          // Fallback to command-center API
+          return fetch("/api/command-center/projects").then(r => r.json()).then(fb => {
+            if (fb.projects) setProjects(fb.projects);
+            setLastSync(new Date().toLocaleTimeString());
+          });
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -105,9 +116,14 @@ export default function ProjectTracker() {
           <h1 style={{ fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 800, lineHeight: 1.1, marginBottom: 8 }}>
             Project <span style={{ background: 'linear-gradient(135deg, #c4b5fd, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tracker</span>
           </h1>
-          <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 24 }}>
+          <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 8 }}>
             {loading ? "Loading..." : `${projects.length} projects · ${projects.filter(p => p.status === "active").length} active · ${projects.filter(p => p.status === "blocked").length} blocked`}
           </p>
+          {lastSync && (
+            <p style={{ fontSize: 11, color: '#64748b', marginBottom: 24, fontFamily: 'monospace' }}>
+              LIVE · Last synced: {new Date(lastSync).toLocaleString()} · Auto-refresh 30s
+            </p>
+          )}
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {["all", "active", "blocked", "shipped", "planning", "paused"].map(f => (
