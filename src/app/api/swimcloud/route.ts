@@ -2,6 +2,28 @@ import { NextResponse } from "next/server";
 import { rateLimit, rateLimitResponse, getClientIp } from "@/lib/rate-limit";
 import { withRetry } from "@/lib/retry";
 
+export const dynamic = "force-dynamic";
+
+const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+async function getDb() {
+  const { getApps, initializeApp, cert } = await import("firebase-admin/app");
+  const { getFirestore } = await import("firebase-admin/firestore");
+  if (!getApps().length) {
+    const cred = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
+    if (cred) {
+      initializeApp({ credential: cert(JSON.parse(cred)) });
+    } else {
+      initializeApp({ projectId: "apex-athlete-73755" });
+    }
+  }
+  return getFirestore();
+}
+
+function cacheKey(name: string): string {
+  return name.toLowerCase().trim().replace(/\s+/g, "-");
+}
+
 /* ── SwimCloud Best Times Scraper v2 ─────────────────────────
    Fetches best times for ALL courses (SCY, LCM, SCM).
    Step 1: /api/search/?q=NAME → JSON array of {name, url, team}
@@ -69,10 +91,34 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name } = body;
+    const { name, usaSwimmingId } = body;
 
     if (!name) {
       return NextResponse.json({ error: "Name required" }, { status: 400 });
+    }
+
+    // ── Cache check: return cached times if <7 days old ──
+    const forceRefresh = body.forceRefresh === true;
+    try {
+      if (!forceRefresh) {
+        const db = await getDb();
+        const cacheDoc = await db.collection("swimcloud_cache").doc(cacheKey(name)).get();
+        if (cacheDoc.exists) {
+          const cached = cacheDoc.data();
+          if (cached && cached.fetchedAt) {
+            const age = Date.now() - cached.fetchedAt;
+            if (age < CACHE_TTL_MS) {
+              return NextResponse.json({
+                ...cached.response,
+                cached: true,
+                cacheAge: Math.round(age / (1000 * 60 * 60)), // hours
+              });
+            }
+          }
+        }
+      }
+    } catch {
+      // Cache read failed — proceed with live fetch
     }
 
     // Step 1: Search via JSON API (with retry)
@@ -106,11 +152,23 @@ export async function POST(req: Request) {
       });
     }
 
-    // Pick best match — prefer exact name match, then partial
+    // Pick best match — prefer USA Swimming ID match, then exact name, then first result
     let best = searchResults[0];
     const target = name.toLowerCase().trim();
-    for (const r of searchResults) {
-      if (r.name.toLowerCase().trim() === target) { best = r; break; }
+
+    // Priority 1: Match by USA Swimming ID (most accurate)
+    if (usaSwimmingId) {
+      const idMatch = searchResults.find(
+        (r) => r.id === `sdif.swimmer.${usaSwimmingId}` || r.url === `/swimmer/${usaSwimmingId}/`
+      );
+      if (idMatch) { best = idMatch; }
+    }
+
+    // Priority 2: Exact name match (fallback when no ID match)
+    if (!usaSwimmingId || best === searchResults[0]) {
+      for (const r of searchResults) {
+        if (r.name.toLowerCase().trim() === target) { best = r; break; }
+      }
     }
 
     const swimmerUrl = best.url; // e.g. "/swimmer/2429607"
@@ -155,6 +213,21 @@ export async function POST(req: Request) {
       const seconds = parseTime(timeStr);
       if (seconds <= 0) continue;
 
+      // Extract meet name from link text in the row (e.g. <a href="/results/...">Meet Name</a>)
+      const meetMatch = row.match(/<a\s+href="\/results\/\d+[^"]*"\s*>([^<]+)<\/a>/g);
+      let meetName = "";
+      if (meetMatch) {
+        // The time link is the first match; the meet name link is typically the second
+        for (const m of meetMatch) {
+          const text = m.replace(/<[^>]+>/g, "").trim();
+          if (text !== timeStr && text.length > 3) { meetName = text; break; }
+        }
+      }
+
+      // Extract date (formats: "MM/DD/YYYY", "Mon DD, YYYY", etc.)
+      const dateMatch = row.match(/(\d{1,2}\/\d{1,2}\/\d{4}|\w{3}\s+\d{1,2},?\s+\d{4})/);
+      const meetDate = dateMatch ? dateMatch[1] : "";
+
       const key = `${parsed.distance}-${parsed.stroke}-${parsed.course}`;
       const existing = bestMap.get(key);
       if (!existing || seconds < existing.seconds) {
@@ -164,8 +237,8 @@ export async function POST(req: Request) {
           time: timeStr,
           seconds,
           course: parsed.course,
-          meet: "",
-          date: "",
+          meet: meetName,
+          date: meetDate,
           source: "swimcloud",
         });
       }
@@ -219,14 +292,28 @@ export async function POST(req: Request) {
       return a.stroke.localeCompare(b.stroke);
     });
 
-    return NextResponse.json({
+    const response = {
       times,
       swimmer: best.name,
       team: best.team,
       swimmerUrl: `https://www.swimcloud.com${swimmerUrl}`,
       count: times.length,
       source: "swimcloud",
-    });
+    };
+
+    // ── Cache write: save to Firestore ──
+    try {
+      const db = await getDb();
+      await db.collection("swimcloud_cache").doc(cacheKey(name)).set({
+        response,
+        fetchedAt: Date.now(),
+        searchName: name.trim(),
+      });
+    } catch {
+      // Cache write failed — not critical
+    }
+
+    return NextResponse.json(response);
   } catch (err) {
     console.error("SwimCloud API error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
