@@ -1,0 +1,13 @@
+{
+  "name": "SCOWW",
+  "slug": "scoww",
+  "accent": "#22d3ee",
+  "status": "active",
+  "desc": "Swim meet — sponsors locked, Meta ad live",
+  "priority": 7,
+  "priorityLabel": "HIGH",
+  "agents": ["MICHAEL", "Vee"],
+  "lead": "Michael",
+  "blockers": [],
+  "link": null
+}

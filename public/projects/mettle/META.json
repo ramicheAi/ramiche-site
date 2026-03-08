@@ -1,0 +1,13 @@
+{
+  "name": "METTLE",
+  "slug": "mettle",
+  "accent": "#C9A84C",
+  "status": "active",
+  "desc": "Gamified swim training — LIVE BETA — Stripe checkout live",
+  "priority": 1,
+  "priorityLabel": "CRITICAL",
+  "agents": ["Atlas", "SHURI", "PROXIMON", "MICHAEL", "SELAH", "KIYOSAKI", "TRIAGE"],
+  "lead": "Atlas",
+  "blockers": ["STRIPE_SECRET_KEY for live payments"],
+  "link": { "label": "Open App", "href": "/apex-athlete" }
+}

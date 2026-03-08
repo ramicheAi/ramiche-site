@@ -1,0 +1,13 @@
+{
+  "name": "ClawGuard Pro",
+  "slug": "clawguard",
+  "accent": "#ef4444",
+  "status": "shipped",
+  "desc": "Security scanner — LIVE — $299/$799/$1499",
+  "priority": 4,
+  "priorityLabel": "HIGH",
+  "agents": ["Widow", "Atlas"],
+  "lead": "Widow",
+  "blockers": [],
+  "link": { "label": "ClawGuard", "href": "/clawguard" }
+}

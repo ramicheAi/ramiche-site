@@ -1,0 +1,13 @@
+{
+  "name": "Parallax",
+  "slug": "parallax-site",
+  "accent": "#e879f9",
+  "status": "shipped",
+  "desc": "Parent company — agents + skills marketplace",
+  "priority": 6,
+  "priorityLabel": "MED",
+  "agents": ["Atlas", "Aetherion"],
+  "lead": "Atlas",
+  "blockers": [],
+  "link": { "label": "Site", "href": "https://parallax-site-ashen.vercel.app" }
+}
