@@ -2,7 +2,6 @@
 
 ## In Progress
 
-- [ ] Demo page UI/UX enhancement (step 2+: animations, counters, game-like polish)
 - [ ] Best Times Fetch implementation (research done, coding pending)
 
 ## Backlog (Priority Order)
@@ -26,6 +25,7 @@
 - [x] Portal switcher (COACH | ATHLETE | PARENT)
 - [x] Duplicate Parent tab removal
 - [x] Demo page step 1 (spacing, pulse, hover effects)
+- [x] Demo page step 2-5 (animations, counters, level glow, heartbeat CTA, sound effects)
 - [x] CI/CD pipeline (GitHub Actions + security scanning)
 - [x] Invite system (token-based, role-specific)
 - [x] CSV import for athletes
