@@ -106,6 +106,18 @@ function XPBar({ percent, color, height = "h-2", delay = 0 }: { percent: number;
 // ── Tab type ───────────────────────────────────────────────
 type DemoTab = "coach" | "athlete" | "parent";
 
+// ── Staggered fade-in hook ────────────────────────────────
+function useFadeIn(delay = 0) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setVisible(true), delay);
+    return () => clearTimeout(t);
+  }, [delay]);
+  return {
+    className: `transition-all duration-700 ease-out ${visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`,
+  };
+}
+
 export default function DemoPage() {
   const [tab, setTab] = useState<DemoTab>("coach");
   const [checkedCPs, setCheckedCPs] = useState<Set<string>>(new Set(["on-deck", "gear-ready", "warmup"]));
@@ -148,7 +160,7 @@ export default function DemoPage() {
           >
             METTLE
           </h1>
-          <p className="text-white/50 text-lg sm:text-xl max-w-2xl mx-auto font-light">
+          <p className="text-white/50 text-lg sm:text-xl font-light">
             Where athletic development becomes a game worth playing
           </p>
 
@@ -197,7 +209,7 @@ export default function DemoPage() {
       </div>
 
       {/* ── Content ── */}
-      <div className="relative z-10 w-full px-4 sm:px-8 py-10 space-y-10">
+      <div className="relative z-10 w-full px-4 sm:px-8 lg:px-12 py-10 space-y-10">
         {tab === "coach" && <CoachView checkedCPs={checkedCPs} toggleCP={toggleCP} />}
         {tab === "athlete" && <AthleteView />}
         {tab === "parent" && <ParentView />}
@@ -207,9 +219,9 @@ export default function DemoPage() {
       <section className="relative z-10 border-t border-[#00f0ff]/10 bg-[#06020f]/80">
         <div className="w-full px-4 sm:px-8 py-16">
           <h2 className="text-2xl font-bold text-white mb-8 text-center font-mono tracking-wide">Platform Features</h2>
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
+          <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
             {features.map((f, i) => (
-              <div key={i} className="border-2 border-[#00f0ff]/10 rounded-xl p-6 bg-[#06020f]/60 hover:border-[#00f0ff]/25 transition-colors group">
+              <div key={i} className="border-2 border-[#00f0ff]/10 rounded-xl p-8 bg-[#06020f]/60 hover:border-[#00f0ff]/30 hover:shadow-[0_0_30px_rgba(0,240,255,0.06)] transition-all duration-300 group">
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-10 h-10 rounded-lg border border-[#00f0ff]/20 bg-[#00f0ff]/[0.05] flex items-center justify-center text-[#00f0ff] group-hover:bg-[#00f0ff]/10 transition-colors">
                     <Icon type={f.icon} />
@@ -227,12 +239,23 @@ export default function DemoPage() {
       <section className="relative z-10 border-t border-[#00f0ff]/10">
         <div className="w-full px-4 sm:px-8 py-16">
           <h2 className="text-2xl font-bold text-white mb-8 text-center font-mono tracking-wide">Level Progression</h2>
-          <div className="flex flex-wrap justify-center gap-3">
+          <div className="flex flex-wrap justify-center gap-4 items-end">
             {LEVELS.map((lv, i) => (
-              <div key={i} className="border-2 rounded-xl px-5 py-4 text-center min-w-[120px]" style={{ borderColor: `${lv.color}33`, background: `${lv.color}08` }}>
-                <div className="text-2xl font-black mb-1" style={{ color: lv.color }}>{i + 1}</div>
-                <div className="text-sm font-bold text-white">{lv.name}</div>
-                <div className="text-[10px] text-white/30 font-mono mt-1">{lv.xp}+ XP</div>
+              <div
+                key={i}
+                className="border-2 rounded-xl px-6 py-5 text-center min-w-[130px] transition-all duration-300 hover:scale-105 relative group"
+                style={{
+                  borderColor: `${lv.color}40`,
+                  background: `${lv.color}08`,
+                  boxShadow: `0 0 20px ${lv.color}10`,
+                }}
+              >
+                <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ boxShadow: `0 0 40px ${lv.color}25, inset 0 0 20px ${lv.color}08` }} />
+                <div className="relative">
+                  <div className="text-3xl font-black mb-1" style={{ color: lv.color }}>{i + 1}</div>
+                  <div className="text-sm font-bold text-white">{lv.name}</div>
+                  <div className="text-[10px] text-white/30 font-mono mt-1">{lv.xp}+ XP</div>
+                </div>
               </div>
             ))}
           </div>
@@ -243,7 +266,7 @@ export default function DemoPage() {
       <section className="relative z-10 border-t border-[#00f0ff]/10">
         <div className="w-full px-4 sm:px-8 py-20 text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white mb-4">Ready to transform your program?</h2>
-          <p className="text-white/40 text-lg mb-10 max-w-xl mx-auto">
+          <p className="text-white/40 text-lg mb-10">
             Join coaches who use METTLE to build culture, track progress, and engage parents.
           </p>
           <a
@@ -252,11 +275,21 @@ export default function DemoPage() {
             style={{
               background: "linear-gradient(135deg, #C9A84C, #FFD700, #C9A84C)",
               boxShadow: "0 0 40px rgba(201,168,76,0.3), 0 0 80px rgba(201,168,76,0.1)",
+              animation: "heartbeat 2.4s ease-in-out infinite",
             }}
           >
             Get Started
             <Icon type="arrow" className="w-5 h-5" />
           </a>
+          <style>{`
+            @keyframes heartbeat {
+              0%, 100% { transform: scale(1); }
+              14% { transform: scale(1.04); }
+              28% { transform: scale(1); }
+              42% { transform: scale(1.06); }
+              56% { transform: scale(1); }
+            }
+          `}</style>
         </div>
       </section>
     </div>
@@ -363,9 +396,9 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
 // ═══════════════════════════════════════════════════════════
 function AthleteView() {
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="space-y-8">
       {/* Level Badge */}
-      <div className="border-2 border-[#f97316]/20 rounded-xl bg-[#06020f]/60 p-8 text-center">
+      <div className="border-2 border-[#f97316]/20 rounded-xl bg-[#06020f]/60 p-10 text-center">
         <div
           className="inline-flex items-center justify-center w-28 h-28 rounded-full border-4 mb-4"
           style={{ borderColor: "#f97316", background: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)" }}
@@ -447,9 +480,9 @@ function AthleteView() {
 // ═══════════════════════════════════════════════════════════
 function ParentView() {
   return (
-    <div className="max-w-2xl mx-auto space-y-8">
+    <div className="space-y-8">
       {/* Child Summary */}
-      <div className="border-2 border-[#a855f7]/20 rounded-xl bg-[#06020f]/60 p-8">
+      <div className="border-2 border-[#a855f7]/20 rounded-xl bg-[#06020f]/60 p-10">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-14 h-14 rounded-full border-2 border-[#f97316] flex items-center justify-center" style={{ background: "radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%)" }}>
             <span className="text-[#f97316] font-black text-lg">SJ</span>
