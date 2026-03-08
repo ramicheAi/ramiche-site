@@ -191,9 +191,13 @@ export async function POST(req: Request) {
     const bestMap = new Map<string, BestTimeEntry>();
 
     // ── Source 1: HTML best times table (current season, primary course) ──
+    // Collect unique meet IDs from time links for batch meet info fetch
+    const meetIdSet = new Set<string>();
     const rowRegex = /<tr[\s\S]*?<\/tr>/gi;
     const rows = html.match(rowRegex) || [];
 
+    // First pass: extract times + collect meet IDs
+    const htmlTimes: Array<{ key: string; entry: BestTimeEntry; meetId: string }> = [];
     for (const row of rows) {
       if (row.includes("<th")) continue;
 
@@ -203,44 +207,52 @@ export async function POST(req: Request) {
       const eventRaw = eventMatch[1].trim();
       if (eventRaw.includes("Relay") || eventRaw.includes("Split")) continue;
 
-      const timeMatch = row.match(/<a\s+href="\/results\/[^"]*">(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})<\/a>/);
+      const timeMatch = row.match(/<a\s+href="\/results\/(\d+)\/[^"]*">(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})<\/a>/);
       if (!timeMatch) continue;
 
+      const meetId = timeMatch[1];
+      const timeStr = timeMatch[2];
       const parsed = parseEventString(eventRaw);
       if (!parsed) continue;
 
-      const timeStr = timeMatch[1];
       const seconds = parseTime(timeStr);
       if (seconds <= 0) continue;
 
-      // Extract meet name from link text in the row (e.g. <a href="/results/...">Meet Name</a>)
-      const meetMatch = row.match(/<a\s+href="\/results\/\d+[^"]*"\s*>([^<]+)<\/a>/g);
-      let meetName = "";
-      if (meetMatch) {
-        // The time link is the first match; the meet name link is typically the second
-        for (const m of meetMatch) {
-          const text = m.replace(/<[^>]+>/g, "").trim();
-          if (text !== timeStr && text.length > 3) { meetName = text; break; }
-        }
-      }
-
-      // Extract date (formats: "MM/DD/YYYY", "Mon DD, YYYY", etc.)
-      const dateMatch = row.match(/(\d{1,2}\/\d{1,2}\/\d{4}|\w{3}\s+\d{1,2},?\s+\d{4})/);
-      const meetDate = dateMatch ? dateMatch[1] : "";
-
+      meetIdSet.add(meetId);
       const key = `${parsed.distance}-${parsed.stroke}-${parsed.course}`;
+      htmlTimes.push({
+        key,
+        meetId,
+        entry: { event: parsed.distance, stroke: parsed.stroke, time: timeStr, seconds, course: parsed.course, meet: "", date: "", source: "swimcloud" },
+      });
+    }
+
+    // Batch fetch meet names (usually 2-5 unique meets)
+    const meetInfoMap = new Map<string, { name: string; date: string }>();
+    const meetIds = Array.from(meetIdSet).slice(0, 8); // cap at 8 to avoid too many requests
+    await Promise.all(
+      meetIds.map(async (mid) => {
+        try {
+          const res = await fetch(`https://www.swimcloud.com/results/${mid}/`, { headers: { "User-Agent": UA } });
+          if (!res.ok) return;
+          const meetHtml = await res.text();
+          const nameMatch = meetHtml.match(/<h1[^>]*>([^<]+)/);
+          const dateMatch = meetHtml.match(/"startDate":\s*"([^"]+)"/);
+          meetInfoMap.set(mid, {
+            name: nameMatch ? nameMatch[1].trim() : "",
+            date: dateMatch ? dateMatch[1].trim() : "",
+          });
+        } catch { /* skip failed meet fetches */ }
+      })
+    );
+
+    // Second pass: merge times with meet info
+    for (const { key, meetId, entry } of htmlTimes) {
+      const meetInfo = meetInfoMap.get(meetId);
+      if (meetInfo) { entry.meet = meetInfo.name; entry.date = meetInfo.date; }
       const existing = bestMap.get(key);
-      if (!existing || seconds < existing.seconds) {
-        bestMap.set(key, {
-          event: parsed.distance,
-          stroke: parsed.stroke,
-          time: timeStr,
-          seconds,
-          course: parsed.course,
-          meet: meetName,
-          date: meetDate,
-          source: "swimcloud",
-        });
+      if (!existing || entry.seconds < existing.seconds) {
+        bestMap.set(key, entry);
       }
     }
 
@@ -264,14 +276,16 @@ export async function POST(req: Request) {
             const key = `${parsed.distance}-${parsed.stroke}-${parsed.course}`;
             const existing = bestMap.get(key);
             if (!existing || seconds < existing.seconds) {
+              // Preserve meet/date from HTML source if this JSON time matches
+              const keepMeet = existing && Math.abs(existing.seconds - seconds) < 0.01;
               bestMap.set(key, {
                 event: parsed.distance,
                 stroke: parsed.stroke,
                 time: ft.time,
                 seconds,
                 course: parsed.course,
-                meet: "",
-                date: "",
+                meet: keepMeet ? existing.meet : "",
+                date: keepMeet ? existing.date : "",
                 source: "swimcloud",
               });
             }
