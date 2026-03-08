@@ -3435,6 +3435,88 @@ export default function ApexAthletePage() {
                 </div>
               </Card>
 
+              {/* Best Times (SwimCloud) */}
+              {(() => {
+                const [btState, setBtState] = useState<"idle" | "loading" | "done" | "error">("idle");
+                const [btData, setBtData] = useState<{ times: Array<{ event: string; stroke: string; time: string; course: string; meet: string; date: string }>; swimmer?: string; team?: string; swimmerUrl?: string; count?: number; cached?: boolean; message?: string; error?: string } | null>(null);
+
+                const fetchBestTimes = async () => {
+                  setBtState("loading");
+                  try {
+                    const res = await fetch("/api/swimcloud", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ name: athlete.name, usaSwimmingId: athlete.usaSwimmingId }),
+                    });
+                    const data = await res.json();
+                    setBtData(data);
+                    setBtState(data.error ? "error" : "done");
+                  } catch {
+                    setBtState("error");
+                    setBtData({ times: [], error: "Network error" });
+                  }
+                };
+
+                const courseColors: Record<string, string> = { SCY: "#00f0ff", LCM: "#a855f7", SCM: "#f59e0b" };
+
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Best Times</h3>
+                      <button onClick={fetchBestTimes} disabled={btState === "loading"}
+                        className="text-xs font-bold px-3 py-1.5 rounded-full border border-[#00f0ff]/30 text-[#00f0ff] hover:bg-[#00f0ff]/10 transition-colors disabled:opacity-40 min-h-[32px]">
+                        {btState === "loading" ? "Fetching…" : btState === "done" ? "Refresh" : "Fetch from SwimCloud"}
+                      </button>
+                    </div>
+                    {btState === "loading" && (
+                      <Card className="p-6 text-center">
+                        <div className="text-white/40 text-sm animate-pulse">Searching SwimCloud for {athlete.name}…</div>
+                      </Card>
+                    )}
+                    {btState === "error" && (
+                      <Card className="p-5">
+                        <div className="text-red-400 text-sm">{btData?.error || "Failed to fetch times"}</div>
+                        {btData?.message && <div className="text-white/40 text-xs mt-1">{btData.message}</div>}
+                      </Card>
+                    )}
+                    {btState === "done" && btData && (
+                      <Card className="divide-y divide-white/[0.04]">
+                        {btData.swimmer && (
+                          <div className="px-5 py-3 flex items-center justify-between">
+                            <div className="text-white/50 text-xs">
+                              {btData.swimmer} · {btData.team || ""}
+                              {btData.cached && <span className="text-white/30 ml-2">(cached)</span>}
+                            </div>
+                            {btData.swimmerUrl && (
+                              <a href={btData.swimmerUrl} target="_blank" rel="noopener noreferrer"
+                                className="text-[#00f0ff]/60 text-xs hover:text-[#00f0ff] transition-colors">View Profile →</a>
+                            )}
+                          </div>
+                        )}
+                        {btData.times.length === 0 ? (
+                          <div className="px-5 py-4 text-white/40 text-sm text-center">
+                            {btData.message || "No times found"}
+                          </div>
+                        ) : (
+                          btData.times.map((t, i) => (
+                            <div key={i} className="px-5 py-3 flex items-center gap-3">
+                              <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: courseColors[t.course] || "#fff", background: `${courseColors[t.course] || "#fff"}15` }}>
+                                {t.course}
+                              </span>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-white text-sm font-medium">{t.event} {t.stroke}</div>
+                                {(t.meet || t.date) && <div className="text-white/30 text-[10px] truncate">{t.meet}{t.date ? ` · ${t.date}` : ""}</div>}
+                              </div>
+                              <span className="text-white font-black text-lg tabular-nums">{t.time}</span>
+                            </div>
+                          ))
+                        )}
+                      </Card>
+                    )}
+                  </div>
+                );
+              })()}
+
             </div>
           </div>
         </div>
