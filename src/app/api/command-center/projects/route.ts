@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile, readdir, stat } from "fs/promises";
 import { join } from "path";
 
-const PROJECTS_DIR = join(process.env.HOME || "/Users/admin", ".openclaw/workspace/projects");
+const PROJECTS_DIR = join(process.cwd(), "public/projects");
 
 const ALLOWED_DOCS = ["ARCHITECTURE.md", "DECISIONS.md", "MEMORY.md", "PIPELINE.md", "TASKS.md"];
 
