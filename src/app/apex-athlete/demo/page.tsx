@@ -248,7 +248,8 @@ export default function DemoPage() {
           <h2 className="text-2xl font-bold text-white mb-8 text-center font-mono tracking-wide">Platform Features</h2>
           <div className="grid gap-5 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
             {features.map((f, i) => (
-              <div key={i} className="border-2 border-[#00f0ff]/10 rounded-xl p-8 sm:p-10 bg-[#06020f]/60 hover:border-[#00f0ff]/30 hover:shadow-[0_0_40px_rgba(0,240,255,0.08)] hover:-translate-y-1 transition-all duration-300 group">
+              <div key={i} className="border-2 border-[#00f0ff]/10 rounded-xl p-8 sm:p-10 bg-[#06020f]/60 hover:border-[#00f0ff]/30 hover:shadow-[0_0_40px_rgba(0,240,255,0.08)] hover:-translate-y-1 transition-all duration-300 group"
+                style={{ animation: `fadeInUp 0.6s ease-out ${i * 0.12}s both` }}>
                 <div className="flex items-center gap-4 mb-4">
                   <div className="w-12 h-12 rounded-lg border-2 border-[#00f0ff]/20 bg-[#00f0ff]/[0.05] flex items-center justify-center text-[#00f0ff] group-hover:bg-[#00f0ff]/10 group-hover:border-[#00f0ff]/40 transition-all duration-300">
                     <Icon type={f.icon} className="w-6 h-6" />
