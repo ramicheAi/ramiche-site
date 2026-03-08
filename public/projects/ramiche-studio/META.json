@@ -9,5 +9,9 @@
   "agents": ["Vee", "MERCURY"],
   "lead": "Mercury",
   "blockers": ["STRIPE_SECRET_KEY", "Gmail env vars", "First UGC video", "First 5 warm DMs"],
-  "link": { "label": "Studio", "href": "/studio" }
+  "link": { "label": "Studio", "href": "/studio" },
+  "repo": "ramicheAi/ramiche-site",
+  "repoPath": "src/app/studio",
+  "liveUrl": "https://ramiche-site.vercel.app/studio",
+  "stack": ["Next.js 16", "React 19", "Stripe"]
 }

@@ -9,5 +9,9 @@
   "agents": ["Widow", "Atlas"],
   "lead": "Widow",
   "blockers": [],
-  "link": { "label": "ClawGuard", "href": "/clawguard" }
+  "link": { "label": "ClawGuard", "href": "/clawguard" },
+  "repo": "ramicheAi/ramiche-site",
+  "repoPath": "src/app/clawguard",
+  "liveUrl": "https://ramiche-site.vercel.app/clawguard",
+  "stack": ["Next.js 16", "React 19", "Stripe"]
 }

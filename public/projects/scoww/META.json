@@ -9,5 +9,7 @@
   "agents": ["MICHAEL", "Vee"],
   "lead": "Michael",
   "blockers": [],
-  "link": null
+  "link": null,
+  "liveUrl": null,
+  "stack": ["Meta Ads"]
 }
