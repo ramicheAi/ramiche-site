@@ -532,7 +532,12 @@ export default function CommandCenter() {
           setLiveActivity(data.activity.items);
         }
         if (data?.links?.items && Array.isArray(data.links.items) && data.links.items.length > 0) {
-          setLiveLinks(data.links.items);
+          setLiveLinks(data.links.items.map((l: any) => ({
+            ...l,
+            href: l.href || l.url,
+            icon: l.icon?.length > 3 ? l.label?.slice(0, 2).toUpperCase() : l.icon,
+            accent: l.accent || "#a855f7",
+          })));
         }
       }
     } catch { /* silent — fallback to hardcoded */ }
