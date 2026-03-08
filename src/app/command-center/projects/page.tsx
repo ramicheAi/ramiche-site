@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PROJECTS, getProgress } from "../shared-projects";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -27,8 +28,8 @@ const NAV = [
 ];
 
 export default function ProjectTracker() {
+  const router = useRouter();
   const [filter, setFilter] = useState<string>("all");
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   const sorted = [...PROJECTS].sort((a, b) => a.priority - b.priority);
   const filtered = filter === "all" ? sorted : sorted.filter(p => p.status === filter);
@@ -85,40 +86,51 @@ export default function ProjectTracker() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(project => {
             const sc = STATUS_COLORS[project.status] || STATUS_COLORS.active;
-            const isExpanded = expanded === project.slug;
             const progress = getProgress(project);
             const doneTasks = project.tasks.filter(t => t.done).length;
 
             return (
-              <div key={project.slug} onClick={() => setExpanded(isExpanded ? null : project.slug)}
+              <div key={project.slug} onClick={() => router.push(`/command-center/projects/${project.slug}`)}
                 style={{
-                  background: 'rgba(255,255,255,0.95)', border: `2px solid ${isExpanded ? sc.border + "40" : "rgba(0,0,0,0.06)"}`,
+                  background: 'rgba(255,255,255,0.95)', border: '2px solid rgba(0,0,0,0.06)',
                   borderRadius: 14, padding: 20, cursor: 'pointer', transition: 'all 0.2s ease',
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8' }}>#{project.priority}</span>
-                      <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a' }}>{project.name}</h2>
-                      <span style={{
-                        fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
-                        padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}30`,
-                      }}>{project.status}</span>
+                      <div style={{
+                        width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        background: `${project.accent}12`, border: `2px solid ${project.accent}25`, fontSize: 15, fontWeight: 800, color: project.accent, flexShrink: 0,
+                      }}>{project.name.charAt(0)}</div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#0f172a' }}>{project.name}</h2>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
+                            padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}30`,
+                          }}>{project.status}</span>
+                        </div>
+                        <p style={{ fontSize: 13, color: '#64748b', margin: '2px 0 0' }}>{project.desc}</p>
+                      </div>
                     </div>
-                    <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>{project.desc}</p>
                   </div>
                   <div style={{ textAlign: 'right', minWidth: 60 }}>
                     <div style={{ fontSize: 24, fontWeight: 800, color: sc.text }}>{progress}%</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8' }}>{doneTasks}/{project.tasks.length}</div>
                   </div>
                 </div>
 
                 <div style={{ height: 6, background: 'rgba(0,0,0,0.04)', borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
-                  <div style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${sc.text}, ${sc.text}80)`, borderRadius: 3, transition: 'width 0.5s ease' }} />
+                  <div style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${project.accent}, ${project.accent}80)`, borderRadius: 3, transition: 'width 0.5s ease' }} />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#64748b' }}>
-                  <span>Lead: <span style={{ color: project.accent, fontWeight: 600 }}>{project.lead}</span></span>
-                  <span>{doneTasks}/{project.tasks.length} tasks</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#64748b' }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span>Lead: <span style={{ color: project.accent, fontWeight: 600 }}>{project.lead}</span></span>
+                    <span style={{ color: 'rgba(0,0,0,0.15)' }}>|</span>
+                    <span>{project.agents.length} agents</span>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: project.accent, letterSpacing: '0.05em' }}>OPEN HQ →</span>
                 </div>
 
                 {project.blockers && project.blockers.length > 0 && (
@@ -126,39 +138,6 @@ export default function ProjectTracker() {
                     {project.blockers.map((b, i) => (
                       <span key={i} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 8, background: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.15)' }}>{b}</span>
                     ))}
-                  </div>
-                )}
-
-                {isExpanded && (
-                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
-                    <h3 style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', margin: '0 0 10px' }}>Tasks</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {project.tasks.map((t, i) => (
-                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-                          <span style={{
-                            width: 18, height: 18, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11,
-                            background: t.done ? 'rgba(34,197,94,0.08)' : 'rgba(0,0,0,0.02)',
-                            border: t.done ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(0,0,0,0.08)',
-                            color: t.done ? '#059669' : '#94a3b8',
-                          }}>{t.done ? "✓" : ""}</span>
-                          <span style={{ color: t.done ? '#94a3b8' : '#334155', textDecoration: t.done ? 'line-through' : 'none', opacity: t.done ? 0.6 : 1 }}>{t.t}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {(
-                      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        <Link href={`/command-center/projects/${project.slug}`} onClick={e => e.stopPropagation()}
-                          style={{ display: 'inline-block', padding: '8px 20px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#fff', background: project.accent, border: `1px solid ${project.accent}`, transition: 'all 0.2s' }}>
-                          Project HQ →
-                        </Link>
-                        {project.link && (
-                          <Link href={project.link.href} onClick={e => e.stopPropagation()}
-                            style={{ display: 'inline-block', padding: '8px 20px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: project.accent, background: `${project.accent}10`, border: `1px solid ${project.accent}25`, transition: 'all 0.2s' }}>
-                            {project.link.label} →
-                          </Link>
-                        )}
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
