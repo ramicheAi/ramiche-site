@@ -1,15 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { PROJECTS, getProgress } from "../shared-projects";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PROJECT TRACKER — Command Center
-   Progress bars, status, ownership for every major project.
-   Uses shared data source — same data as Missions page.
+   Now fetches LIVE data from /api/command-center/projects (workspace files).
    ══════════════════════════════════════════════════════════════════════════════ */
+
+interface ProjectTask { t: string; done: boolean }
+interface Project {
+  name: string;
+  slug: string;
+  accent: string;
+  status: string;
+  desc: string;
+  priority: number;
+  priorityLabel: string;
+  agents: string[];
+  lead: string;
+  tasks: ProjectTask[];
+  blockers?: string[];
+  link: { label: string; href: string } | null;
+}
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   active: { bg: "rgba(34,197,94,0.08)", text: "#059669", border: "#059669" },
@@ -27,11 +41,36 @@ const NAV = [
   { label: "METTLE", href: "/apex-athlete" },
 ];
 
+function getProgress(p: Project): number {
+  if (p.tasks.length === 0) return 0;
+  return Math.round((p.tasks.filter(t => t.done).length / p.tasks.length) * 100);
+}
+
 export default function ProjectTracker() {
   const router = useRouter();
   const [filter, setFilter] = useState<string>("all");
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [lastSync, setLastSync] = useState<string>("");
 
-  const sorted = [...PROJECTS].sort((a, b) => a.priority - b.priority);
+  const fetchProjects = useCallback(() => {
+    fetch("/api/command-center/projects")
+      .then(r => r.json())
+      .then(data => {
+        if (data.projects) setProjects(data.projects);
+        setLastSync(new Date().toLocaleTimeString());
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    fetchProjects();
+    const interval = setInterval(fetchProjects, 30000);
+    return () => clearInterval(interval);
+  }, [fetchProjects]);
+
+  const sorted = [...projects].sort((a, b) => (a.priority || 99) - (b.priority || 99));
   const filtered = filter === "all" ? sorted : sorted.filter(p => p.status === filter);
 
   return (
@@ -67,7 +106,7 @@ export default function ProjectTracker() {
             Project <span style={{ background: 'linear-gradient(135deg, #c4b5fd, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tracker</span>
           </h1>
           <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 24 }}>
-            {PROJECTS.length} projects · {PROJECTS.filter(p => p.status === "active").length} active · {PROJECTS.filter(p => p.status === "blocked").length} blocked
+            {loading ? "Loading..." : `${projects.length} projects · ${projects.filter(p => p.status === "active").length} active · ${projects.filter(p => p.status === "blocked").length} blocked`}
           </p>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -82,6 +121,12 @@ export default function ProjectTracker() {
             ))}
           </div>
         </div>
+
+        {loading && (
+          <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
+            <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.1em', animation: 'pulse 2s infinite' }}>SYNCING LIVE DATA…</div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(project => {
@@ -128,7 +173,7 @@ export default function ProjectTracker() {
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span>Lead: <span style={{ color: project.accent, fontWeight: 600 }}>{project.lead}</span></span>
                     <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
-                    <span>{project.agents.length} agents</span>
+                    <span>{project.agents?.length || 0} agents</span>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 600, color: project.accent, letterSpacing: '0.05em' }}>OPEN HQ →</span>
                 </div>
