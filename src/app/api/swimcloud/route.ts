@@ -276,16 +276,16 @@ export async function POST(req: Request) {
             const key = `${parsed.distance}-${parsed.stroke}-${parsed.course}`;
             const existing = bestMap.get(key);
             if (!existing || seconds < existing.seconds) {
-              // Preserve meet/date from HTML source if this JSON time matches
-              const keepMeet = existing && Math.abs(existing.seconds - seconds) < 0.01;
+              // Preserve meet/date from HTML source — JSON rarely has meet info
+              const hasMeetFromExisting = existing && existing.meet;
               bestMap.set(key, {
                 event: parsed.distance,
                 stroke: parsed.stroke,
                 time: ft.time,
                 seconds,
                 course: parsed.course,
-                meet: keepMeet ? existing.meet : "",
-                date: keepMeet ? existing.date : "",
+                meet: hasMeetFromExisting ? existing.meet : "",
+                date: hasMeetFromExisting ? existing.date : "",
                 source: "swimcloud",
               });
             }
