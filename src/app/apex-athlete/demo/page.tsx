@@ -63,7 +63,7 @@ const features = [
 ];
 
 // ── SVG Icons ──────────────────────────────────────────────
-function Icon({ type, className = "w-5 h-5" }: { type: string; className?: string }) {
+function Icon({ type, className = "w-5 h-5", style }: { type: string; className?: string; style?: React.CSSProperties }) {
   const paths: Record<string, string> = {
     levels: "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
     meet: "M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z",
@@ -76,7 +76,7 @@ function Icon({ type, className = "w-5 h-5" }: { type: string; className?: strin
     arrow: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z",
   };
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <svg className={className} style={style} viewBox="0 0 24 24" fill="currentColor">
       <path d={paths[type] || paths.check} />
     </svg>
   );
@@ -192,7 +192,9 @@ export default function DemoPage() {
           </p>
 
           {/* Live HUD stats strip */}
-          <div className="mt-10 inline-flex items-center gap-4 sm:gap-6 border-2 border-[#00f0ff]/15 rounded-xl bg-[#06020f]/60 backdrop-blur px-6 py-4 animate-[fadeInUp_1s_ease-out_0.6s_both]">
+          <div className="mt-10 inline-flex items-center gap-4 sm:gap-6 border-2 border-[#00f0ff]/15 rounded-xl bg-[#06020f]/60 backdrop-blur px-6 py-4 animate-[fadeInUp_1s_ease-out_0.6s_both] relative overflow-hidden">
+            {/* Shimmer sweep */}
+            <div className="absolute inset-0 pointer-events-none" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(0,240,255,0.04) 50%, transparent 100%)", backgroundSize: "200% 100%", animation: "shimmer 4s ease-in-out infinite" }} />
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-[#00f0ff] shadow-[0_0_12px_rgba(0,240,255,0.6)] animate-pulse" />
               <span className="text-[#00f0ff] text-sm font-mono font-bold"><AnimCounter to={24} delay={400} /><span className="text-white/15">/30</span></span>
@@ -371,7 +373,7 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
             <div key={i} className={`flex items-center gap-4 px-6 py-4 transition-all duration-200 ${i < 3 ? "bg-[#f59e0b]/[0.02] hover:bg-[#f59e0b]/[0.05]" : "hover:bg-white/[0.02]"}`}>
               <div className="w-8 text-center">
                 {i < 3 ? (
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm" style={{ background: i === 0 ? "linear-gradient(135deg, #FFD700, #C9A84C)" : i === 1 ? "linear-gradient(135deg, #C0C0C0, #8A8A8A)" : "linear-gradient(135deg, #CD7F32, #8B4513)", color: "#06020f" }}>{i + 1}</div>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center font-black text-sm" style={{ background: i === 0 ? "linear-gradient(135deg, #FFD700, #C9A84C)" : i === 1 ? "linear-gradient(135deg, #C0C0C0, #8A8A8A)" : "linear-gradient(135deg, #CD7F32, #8B4513)", color: "#06020f", animation: "glowPulse 2.4s ease-in-out infinite", animationDelay: `${i * 0.3}s`, boxShadow: i === 0 ? "0 0 12px rgba(255,215,0,0.4)" : i === 1 ? "0 0 12px rgba(192,192,192,0.3)" : "0 0 12px rgba(205,127,50,0.3)" }}>{i + 1}</div>
                 ) : (
                   <span className="text-white/20 font-mono text-sm">{i + 1}</span>
                 )}
@@ -390,7 +392,7 @@ function CoachView({ checkedCPs, toggleCP }: { checkedCPs: Set<string>; toggleCP
               </div>
               <div className="text-right shrink-0">
                 <div className="text-sm font-bold font-mono tabular-nums" style={{ color: a.color }}>{a.xp.toLocaleString()}</div>
-                <div className="text-[10px] text-white/20 font-mono">{a.streak}d streak</div>
+                <div className="text-[10px] text-white/20 font-mono flex items-center gap-1 justify-end">{a.streak >= 14 && <Icon type="fire" className="w-3 h-3 text-[#f59e0b]" style={{ animation: "glowPulse 1.5s ease-in-out infinite" } as React.CSSProperties} />}{a.streak}d streak</div>
               </div>
             </div>
           ))}
