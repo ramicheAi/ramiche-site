@@ -145,12 +145,18 @@ export default function ProjectTracker() {
                         </div>
                       ))}
                     </div>
-                    {project.link && (
-                      <div style={{ marginTop: 12 }}>
-                        <Link href={project.link.href} onClick={e => e.stopPropagation()}
-                          style={{ display: 'inline-block', padding: '8px 20px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: project.accent, background: `${project.accent}10`, border: `1px solid ${project.accent}25`, transition: 'all 0.2s' }}>
-                          {project.link.label} →
+                    {(
+                      <div style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Link href={`/command-center/projects/${project.slug}`} onClick={e => e.stopPropagation()}
+                          style={{ display: 'inline-block', padding: '8px 20px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#fff', background: project.accent, border: `1px solid ${project.accent}`, transition: 'all 0.2s' }}>
+                          Project HQ →
                         </Link>
+                        {project.link && (
+                          <Link href={project.link.href} onClick={e => e.stopPropagation()}
+                            style={{ display: 'inline-block', padding: '8px 20px', borderRadius: 8, fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: project.accent, background: `${project.accent}10`, border: `1px solid ${project.accent}25`, transition: 'all 0.2s' }}>
+                            {project.link.label} →
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>
