@@ -54,22 +54,14 @@ export default function ProjectTracker() {
   const [lastSync, setLastSync] = useState<string>("");
 
   const fetchProjects = useCallback(() => {
-    // Primary: bridge API (Firestore, synced from workspace)
-    // Fallback: command-center API (filesystem)
-    fetch("/api/bridge?type=projects")
+    // Live merged data: shared-projects metadata + filesystem TASKS.md
+    fetch("/api/command-center/projects")
       .then(r => r.json())
       .then(data => {
-        const list = data?.projects;
-        if (Array.isArray(list) && list.length > 0) {
-          setProjects(list);
-          setLastSync(data._syncedAt || new Date().toISOString());
-        } else {
-          // Fallback to command-center API
-          return fetch("/api/command-center/projects").then(r => r.json()).then(fb => {
-            if (fb.projects) setProjects(fb.projects);
-            setLastSync(new Date().toLocaleTimeString());
-          });
+        if (Array.isArray(data?.projects) && data.projects.length > 0) {
+          setProjects(data.projects);
         }
+        setLastSync(new Date().toISOString());
       })
       .catch(() => {})
       .finally(() => setLoading(false));
