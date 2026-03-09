@@ -2661,14 +2661,13 @@ export default function ApexAthletePage() {
             <div className="w-full max-w-md">
               {/* Mobile-only branding */}
               <div className="lg:hidden flex flex-col items-center justify-center mb-8">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4" style={{animation:'coachLogoFloat 4s ease-in-out infinite'}} />
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4 mx-auto block" style={{animation:'coachLogoFloat 4s ease-in-out infinite'}} />
                 <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #f59e0b, #fbbf24)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-                <div className="text-[#f59e0b]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">COACH PORTAL</div>
               </div>
               {/* Access card */}
               <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#f59e0b]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
                 <div className="text-center mb-10">
-                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Enter PIN</h2>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Coach Portal</h2>
                 </div>
                 <div className="flex flex-col gap-7">
                   <div>

@@ -974,15 +974,13 @@ export default function AthletePortal() {
             <div className="w-full max-w-md">
               {/* Mobile-only branding */}
               <div className="lg:hidden flex flex-col items-center justify-center mb-8">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4 mx-auto block" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
                 <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #a855f7, #c084fc)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-                <div className="text-[#a855f7]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">ATHLETE PORTAL</div>
               </div>
               {/* Access card */}
               <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#a855f7]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'athletePinGlow 3s ease-in-out infinite'}}>
                 <div className="text-center mb-12">
-                  <div className="text-[#a855f7]/50 text-xs tracking-[0.3em] uppercase font-mono mb-4">{"// SECURE ACCESS"}</div>
-                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Athlete Access</h2>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Athlete Portal</h2>
                 </div>
                 <div className="flex flex-col gap-7">
                   <div>
