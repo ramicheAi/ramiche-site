@@ -1244,7 +1244,7 @@ export default function ParentPortal() {
           {/* ── Desktop branding panel (hidden on mobile) ── */}
           <div className="hidden lg:flex flex-col items-center justify-center px-16">
             <div className="flex flex-col items-center">
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-44 h-44 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mb-10" style={{ filter: "drop-shadow(0 0 80px rgba(245,158,11,0.4))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
+              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-44 h-44 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mb-10" style={{ filter: "drop-shadow(0 0 40px rgba(245,158,11,0.25))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
               <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black tracking-tight mb-8" style={{ background: "linear-gradient(180deg, #fff 30%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
             </div>
             <p className="text-xl text-white/40 text-center max-w-md font-light">Their growth. Your front row.</p>
