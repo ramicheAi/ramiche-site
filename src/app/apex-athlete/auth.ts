@@ -307,7 +307,7 @@ export function getRedirectForRole(role: AuthRole): string {
     case "coach": return "/apex-athlete/coach";
     case "parent": return "/apex-athlete/parent";
     case "athlete": return "/apex-athlete/athlete";
-    default: return "/apex-athlete/login";
+    default: return "/apex-athlete/portal";
   }
 }
 

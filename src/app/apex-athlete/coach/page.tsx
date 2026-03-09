@@ -957,7 +957,7 @@ export default function ApexAthletePage() {
   useEffect(() => {
     const session = getSession();
     if (!session || (session.role !== "coach" && session.role !== "admin")) {
-      router.push("/apex-athlete/login");
+      router.push("/apex-athlete/portal");
     }
   }, [router]);
 
