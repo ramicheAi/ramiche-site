@@ -988,21 +988,7 @@ export default function CommandCenter() {
   const notifications = liveNotifications || NOTIFICATIONS;
   const opps = liveOpps || OPPS;
   const activityLog = liveActivity || LOG;
-  const links = (() => {
-    if (!liveLinks || liveLinks.length === 0) return LINKS;
-    const merged = LINKS.map((h: any) => {
-      const match = liveLinks.find((b: any) => (b.label || b.name || '').toLowerCase() === h.label.toLowerCase());
-      if (match) return { ...h, href: match.href || match.url || h.href };
-      return h;
-    });
-    liveLinks.forEach((b: any) => {
-      const exists = LINKS.some((h: any) => h.label.toLowerCase() === (b.label || b.name || '').toLowerCase());
-      if (!exists && (b.href || b.url)) {
-        merged.push({ label: b.label || b.name || 'Link', href: b.href || b.url, icon: (b.label || b.name || 'L').slice(0, 2).toUpperCase(), accent: b.accent || '#888888' });
-      }
-    });
-    return merged;
-  })();
+  const links = LINKS;
 
   /* ── computed ── */
   const totalT = missions.reduce((s: number, p: any) => s + (p.totalTasks ?? (Array.isArray(p.tasks) ? p.tasks.length : 0)), 0);
@@ -1246,7 +1232,7 @@ export default function CommandCenter() {
             </div>
             <div style={{ background: '#111111', border: '1px solid #1e1e1e', borderRadius: 12, padding: 20 }}>
               <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-semibold text-[#e5e5e5]">{liveCrons.length} Active Crons</span>
+                <span className="text-sm font-semibold text-[#e5e5e5]">{liveCrons.length > 0 ? liveCrons.length : SCHEDULE.length} Active Crons</span>
                 <button onClick={() => setCronModal(!cronModal)} className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider" style={{ background: 'rgba(6,182,212,0.12)', color: '#06b6d4', border: '1px solid rgba(6,182,212,0.3)', borderRadius: 6, cursor: 'pointer' }}>
                   {cronModal ? 'Cancel' : '+ Add Cron'}
                 </button>
@@ -1266,7 +1252,14 @@ export default function CommandCenter() {
                 </div>
               )}
               <div className="space-y-2 max-h-64 overflow-y-auto">
-                {liveCrons.length === 0 && <div className="text-sm text-[#888888] text-center py-4">No crons loaded — data fetches on mount</div>}
+                {liveCrons.length === 0 && SCHEDULE.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-[#e5e5e5] truncate">{s.event}</div>
+                      <div className="text-[10px] font-mono" style={{ color: s.accent }}>{s.time}</div>
+                    </div>
+                  </div>
+                ))}
                 {liveCrons.map((cron, i) => (
                   <div key={cron.id || cron.cronId || i} className="flex items-center justify-between p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
                     <div className="flex-1 min-w-0">
