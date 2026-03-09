@@ -256,14 +256,17 @@ function getProjectStatus() {
 
 function getQuickLinks() {
   return [
-    { label: "METTLE", url: "https://ramiche-site.vercel.app/apex-athlete", icon: "trophy" },
+    { label: "METTLE", url: "https://ramiche-site.vercel.app/apex-athlete/coach", icon: "trophy" },
+    { label: "METTLE Demo", url: "https://ramiche-site.vercel.app/apex-athlete/demo", icon: "demo" },
     { label: "Parallax Site", url: "https://parallax-site-ashen.vercel.app", icon: "globe" },
     { label: "Parallax Publish", url: "https://parallax-publish.vercel.app", icon: "send" },
-    { label: "Command Center", url: "https://ramiche-site.vercel.app/command-center", icon: "terminal" },
-    { label: "ClawGuard", url: "https://parallax-site-ashen.vercel.app/clawguard", icon: "shield" },
+    { label: "ClawGuard Pro", url: "https://parallax-site-ashen.vercel.app/clawguard", icon: "shield" },
+    { label: "YOLO Builds", url: "https://ramiche-site.vercel.app/command-center/yolo", icon: "rocket" },
     { label: "Vercel", url: "https://vercel.com/dashboard", icon: "cloud" },
     { label: "GitHub", url: "https://github.com/ramicheAi", icon: "code" },
     { label: "Firebase", url: "https://console.firebase.google.com/project/apex-athlete-73755", icon: "database" },
+    { label: "Shopify", url: "https://admin.shopify.com", icon: "shop" },
+    { label: "GoMotion", url: "https://www.gomotionapp.com", icon: "swim" },
   ];
 }
 
@@ -362,9 +365,11 @@ function getMissions() {
     status: p.status,
     priority: p.priorityLabel,
     desc: p.desc,
-    completedTasks: p.tasks.filter(t => t.done).length,
-    totalTasks: p.tasks.length,
-    link: p.link?.href || "",
+    tasks: p.tasks,
+    link: p.link || null,
+    blockers: p.blockers || [],
+    lead: p.lead || "Atlas",
+    agents: p.agents || [],
   }));
 }
 
