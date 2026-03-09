@@ -1233,14 +1233,14 @@ export default function ParentPortal() {
   // ── PIN screen ───────────────────────────────────────────
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-[#06020f] relative overflow-hidden flex flex-col items-center justify-center px-5 lg:px-0">
+      <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
         {STYLE_TAG}
         <div className="fixed inset-0 pointer-events-none">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
 
         <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
-          {/* Left panel — branding */}
+          {/* Left panel — branding (desktop only) */}
           <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
             <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(245,158,11,0.08) 0%, transparent 70%)'}} />
             <div className="relative z-10 flex flex-col items-center max-w-lg">
@@ -1260,8 +1260,8 @@ export default function ParentPortal() {
           <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
             <div className="w-full max-w-md">
               {/* Mobile-only branding */}
-              <div className="lg:hidden text-center mb-8">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
+              <div className="lg:hidden flex flex-col items-center justify-center mb-8">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
                 <h1 className="text-3xl font-black mb-1 tracking-tight" style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
                 <div className="text-[#f59e0b]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">PARENT PORTAL</div>
               </div>
