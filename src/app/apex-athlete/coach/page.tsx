@@ -849,7 +849,7 @@ export default function ApexAthletePage() {
   const [coachPin, setCoachPin] = useState("");
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
-  const [unlocked, setUnlocked] = useState(true);
+  const [unlocked, setUnlocked] = useState(false);
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
@@ -953,13 +953,13 @@ export default function ApexAthletePage() {
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTouchEndRef = useRef(0);
 
-  // ── Auth gate: redirect to login if not coach/admin ──
+  // ── Auth gate: auto-unlock if already authenticated ──
   useEffect(() => {
     const session = getSession();
-    if (!session || (session.role !== "coach" && session.role !== "admin")) {
-      router.push("/apex-athlete/portal");
+    if (session && (session.role === "coach" || session.role === "admin")) {
+      setUnlocked(true);
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const markScrolling = () => {
@@ -2618,7 +2618,7 @@ export default function ApexAthletePage() {
     setPinError(true);
   };
 
-  if (!unlocked && (view === "coach" || view === "schedule" || view === "staff")) {
+  if (!unlocked) {
     return (
       <div className="min-h-screen bg-[#06020f] flex items-center justify-center p-6 relative overflow-hidden">
         <BgOrbs />
