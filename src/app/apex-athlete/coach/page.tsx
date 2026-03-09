@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { MASTER_PIN, getSession } from "../auth";
+import { MASTER_PIN, getSession, clearSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
@@ -2737,6 +2737,9 @@ export default function ApexAthletePage() {
               </button>
             ))}
           </div>
+
+          {/* Logout */}
+          <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-white/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
 
           {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
           <div className="md:hidden space-y-2 mb-4">

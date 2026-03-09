@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN, getSession } from "../auth";
+import { MASTER_PIN, getSession, clearSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
@@ -1405,7 +1405,7 @@ export default function ParentPortal() {
       <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-16 lg:mb-20">
-          <button onClick={() => setAthlete(null)} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px] px-2">← Switch</button>
+          <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="text-white/60 hover:text-red-400 text-sm transition-colors min-h-[44px] px-2">Sign Out</button>
           <div className="text-center">
             <h2 className="text-white font-bold text-lg lg:text-2xl">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN, loginWithPin, getSession, loadRosterFromFirestore } from "../auth";
+import { MASTER_PIN, loginWithPin, getSession, clearSession, loadRosterFromFirestore } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
@@ -751,11 +751,13 @@ export default function AthletePortal() {
 
   const logout = () => {
     localStorage.removeItem("apex-athlete-profile-lock");
+    clearSession();
     setAthlete(null);
     setSelectedOnboardAthlete(null);
     setOnboardStep("name");
     setNameInput("");
     setIdInput("");
+    window.location.href = "/apex-athlete/portal";
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
