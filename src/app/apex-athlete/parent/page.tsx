@@ -1405,7 +1405,7 @@ export default function ParentPortal() {
       <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-16 lg:mb-20">
-          <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="text-white/60 hover:text-red-400 text-sm transition-colors min-h-[44px] px-2">Sign Out</button>
+          <div className="w-14" />
           <div className="text-center">
             <h2 className="text-white font-bold text-lg lg:text-2xl">{athlete.name}</h2>
             <div className="flex items-center justify-center gap-2 mt-0.5">
@@ -1417,7 +1417,7 @@ export default function ParentPortal() {
               <span className="text-white/60 text-xs">{athlete.group.toUpperCase()}</span>
             </div>
           </div>
-          <div className="w-14" />
+          <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-9 h-9 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 transition-all" title="Sign Out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
         </div>
 
         {/* Desktop layout — 2 columns on lg, 3 columns on xl */}

@@ -1374,7 +1374,7 @@ export default function AthletePortal() {
       <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4 lg:mb-8">
-          <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
+          <div className="w-14" />
           <div className="text-center">
             <h2 className="text-white font-bold text-lg lg:text-4xl xl:text-5xl">{athlete?.name ?? ""}</h2>
             <div className="flex items-center justify-center gap-2 lg:gap-3 mt-0.5 lg:mt-2">
@@ -1392,15 +1392,18 @@ export default function AthletePortal() {
               )}
             </div>
           </div>
-          {/* AM/PM Toggle */}
-          <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
-              sessionTime === "am"
-                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
-                : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-            }`}>
-            {sessionTime === "am" ? "☀ AM" : "☽ PM"}
-          </button>
+          {/* AM/PM Toggle + Sign Out */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
+                sessionTime === "am"
+                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                  : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+              }`}>
+              {sessionTime === "am" ? "☀ AM" : "☽ PM"}
+            </button>
+            <button onClick={logout} className="w-9 h-9 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 transition-all" title="Sign Out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+          </div>
         </div>
 
         {/* XP Bar */}
