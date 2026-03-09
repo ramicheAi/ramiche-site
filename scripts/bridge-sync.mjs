@@ -80,7 +80,7 @@ function getAgentStatus() {
   const recentlyActive = [];
 
   // Try to get active sessions
-  const sessionOutput = run("openclaw sessions --json 2>/dev/null || echo '[]'");
+  const sessionOutput = run("/usr/local/bin/openclaw sessions --json 2>/dev/null || echo '[]'");
   try {
     const parsed = JSON.parse(sessionOutput);
     const sessions = parsed.sessions || (Array.isArray(parsed) ? parsed : []);
@@ -130,22 +130,43 @@ function getAgentStatus() {
 // ── Cron Jobs ────────────────────────────────────────────────────────
 
 function getCronJobs() {
-  const cronOutput = run("openclaw cron list --json 2>/dev/null || echo '[]'");
+  let jobs = [];
+
+  // Primary: CLI (full path for cron-spawned contexts)
+  const cronOutput = run("/usr/local/bin/openclaw cron list --json 2>/dev/null");
   try {
-    const parsed = JSON.parse(cronOutput);
-    const jobs = parsed.jobs || (Array.isArray(parsed) ? parsed : []);
-    return jobs.map(j => ({
-      id: j.id,
-      name: j.name,
-      enabled: j.enabled,
-      agent: j.agentId || "atlas",
-      schedule: j.schedule?.expr || (j.schedule?.everyMs ? `every ${Math.round(j.schedule.everyMs / 60000)}m` : ""),
-      lastRun: j.state?.lastRunStatus || "unknown",
-      nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "",
-    }));
-  } catch {
-    return [];
+    const jsonStart = cronOutput.indexOf('{');
+    if (jsonStart !== -1) {
+      const parsed = JSON.parse(cronOutput.slice(jsonStart));
+      jobs = parsed.jobs || (Array.isArray(parsed) ? parsed : []);
+    }
+  } catch (e) {
+    console.error("[bridge] getCronJobs CLI parse error:", e.message);
   }
+
+  // Fallback: read jobs.json directly if CLI returned nothing
+  if (jobs.length === 0) {
+    const cronFile = join(process.env.HOME || "/Users/admin", ".openclaw/cron/jobs.json");
+    if (existsSync(cronFile)) {
+      try {
+        const raw = JSON.parse(readFileSync(cronFile, "utf8"));
+        jobs = raw.jobs || (Array.isArray(raw) ? raw : []);
+        console.log(`[bridge] getCronJobs: CLI empty, read ${jobs.length} jobs from jobs.json`);
+      } catch (e) {
+        console.error("[bridge] getCronJobs file fallback error:", e.message);
+      }
+    }
+  }
+
+  return jobs.map(j => ({
+    id: j.id,
+    name: j.name,
+    enabled: j.enabled,
+    agent: j.agentId || "atlas",
+    schedule: j.schedule?.expr || (j.schedule?.everyMs ? `every ${Math.round(j.schedule.everyMs / 60000)}m` : ""),
+    lastRun: j.state?.lastRunStatus || "unknown",
+    nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "",
+  }));
 }
 
 // ── Activity Feed ────────────────────────────────────────────────────
@@ -255,6 +276,7 @@ function getProjectStatus() {
 // ── Quick Links ──────────────────────────────────────────────────────
 
 function getQuickLinks() {
+  // MUST match labels in command-center/page.tsx LINKS exactly (case-sensitive merge)
   return [
     { label: "METTLE", url: "https://ramiche-site.vercel.app/apex-athlete/coach", icon: "trophy" },
     { label: "METTLE Demo", url: "https://ramiche-site.vercel.app/apex-athlete/demo", icon: "demo" },

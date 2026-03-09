@@ -98,24 +98,21 @@ export async function GET() {
     const bridgeCrons: Array<Record<string, string>> = [];
     if (bridgeRes?.ok) {
       const data = await bridgeRes.json();
-      // Bridge syncs crons as { jobs: { jobs: [...] } }
-      const jobs = data?.fields?.jobs?.mapValue?.fields?.jobs?.arrayValue?.values || [];
-      jobs.forEach((v: any) => {
+      // Bridge syncs crons as { items: [...] } via bridge-sync.mjs
+      const items = data?.fields?.items?.arrayValue?.values || [];
+      items.forEach((v: any) => {
         const f = v?.mapValue?.fields || {};
         const name = f.name?.stringValue || "";
         const id = f.id?.stringValue || "";
-        const schedule = f.schedule?.mapValue?.fields;
-        const scheduleStr = schedule?.cron?.stringValue ||
-          (schedule?.everyMs?.integerValue ? `every ${Math.round(Number(schedule.everyMs.integerValue) / 60000)}min` : "") ||
-          (schedule?.kind?.stringValue || "");
-        const agent = f.payload?.mapValue?.fields?.model?.stringValue || "system";
+        const schedule = f.schedule?.stringValue || "";
+        const agent = f.agent?.stringValue || "system";
         const enabled = f.enabled?.booleanValue !== false;
         bridgeCrons.push({
           id,
           name,
-          schedule: scheduleStr,
+          schedule,
           agent,
-          task: f.payload?.mapValue?.fields?.message?.stringValue?.slice(0, 80) || "",
+          task: "",
           status: enabled ? "active" : "disabled",
           source: "openclaw",
         });
