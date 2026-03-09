@@ -371,7 +371,7 @@ const OPPS = [
 
 /* ── QUICK LINKS ─────────────────────────────────────────────────────────────────── */
 const LINKS = [
-  { label: "METTLE", href: "https://ramiche-site.vercel.app/apex-athlete", icon: "M", accent: "#C9A84C" },
+  { label: "METTLE", href: "https://ramiche-site.vercel.app/apex-athlete/coach", icon: "M", accent: "#C9A84C" },
   { label: "METTLE Demo", href: "https://ramiche-site.vercel.app/apex-athlete/demo", icon: "MD", accent: "#f59e0b" },
   { label: "Parallax Site", href: "https://parallax-site-ashen.vercel.app", icon: "P", accent: "#a855f7" },
   { label: "Parallax Publish", href: "https://parallax-publish.vercel.app", icon: "PP", accent: "#38bdf8" },

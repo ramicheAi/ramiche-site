@@ -538,7 +538,7 @@ export default function LoginPage() {
       <div className="fixed inset-0 pointer-events-none overflow-hidden z-[0]">
         <div className="absolute top-[-20%] left-[-10%] w-[600px] lg:w-[900px] h-[600px] lg:h-[900px] rounded-full bg-[radial-gradient(circle,rgba(201,168,76,0.04)_0%,transparent_60%)]" />
         <div className="absolute bottom-[-15%] right-[-5%] w-[500px] lg:w-[800px] h-[500px] lg:h-[800px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.03)_0%,transparent_60%)]" />
-        <div className="absolute top-[30%] right-[15%] w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.025)_0%,transparent_60%)]" />
+        <div className="absolute top-[60%] right-[-10%] w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.015)_0%,transparent_60%)]" />
       </div>
 
       {/* ── Main content ── */}
@@ -870,7 +870,7 @@ export default function LoginPage() {
                 <SvgKey size={40} color="#a855f7" />
               </div>
               <h2 className="text-2xl font-black text-white mb-1">Enter PIN</h2>
-              <p className="text-white/30 text-sm font-mono">Athletes enter 6-digit access PIN</p>
+              <p className="text-white/30 text-sm font-mono">Enter your access PIN to continue</p>
             </div>
 
             <div className="flex flex-col gap-4">
