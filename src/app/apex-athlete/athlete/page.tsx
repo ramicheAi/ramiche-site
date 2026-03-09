@@ -961,12 +961,7 @@ export default function AthletePortal() {
                 <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{animation:'logoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(168,85,247,0.3))'}} />
                 <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #a855f7, #c084fc, #a855f7)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
               </div>
-              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md text-center">Your journey. Your legacy.</p>
-              <div className="flex items-center justify-center gap-3 text-[#a855f7]/40 text-sm font-mono tracking-wider">
-                <span className="w-8 h-px bg-[#a855f7]/20" />
-                ATHLETE PORTAL
-                <span className="w-8 h-px bg-[#a855f7]/20" />
-              </div>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed max-w-md text-center">Your journey. Your legacy.</p>
             </div>
           </div>
           {/* Right panel — PIN form */}

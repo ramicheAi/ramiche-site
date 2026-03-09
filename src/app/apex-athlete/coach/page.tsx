@@ -2648,12 +2648,7 @@ export default function ApexAthletePage() {
                 <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{animation:'coachLogoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(245,158,11,0.3))'}} />
                 <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
               </div>
-              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md text-center">Your journey. Your legacy.</p>
-              <div className="flex items-center justify-center gap-3 text-[#f59e0b]/40 text-sm font-mono tracking-wider">
-                <span className="w-8 h-px bg-[#f59e0b]/20" />
-                COACH PORTAL
-                <span className="w-8 h-px bg-[#f59e0b]/20" />
-              </div>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed max-w-md text-center">Your journey. Your legacy.</p>
             </div>
           </div>
           {/* Right panel — PIN form */}
