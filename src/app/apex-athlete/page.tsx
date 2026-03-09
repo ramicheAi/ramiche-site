@@ -8,7 +8,7 @@ export default function ApexAthleteRedirect() {
     if (session) {
       window.location.href = getRedirectForRole(session.role);
     } else {
-      window.location.href = "/apex-athlete/login";
+      window.location.href = "/apex-athlete/portal";
     }
   }, []);
   return null;
