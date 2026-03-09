@@ -1239,41 +1239,60 @@ export default function ParentPortal() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
         </div>
 
-        <div className="relative z-10 w-full max-w-xs lg:max-w-7xl lg:min-h-[600px] lg:mx-auto lg:grid lg:grid-cols-2 lg:items-center lg:gap-0">
-
-          {/* ── Desktop branding panel (hidden on mobile) ── */}
-          <div className="hidden lg:flex flex-col items-center justify-center px-16">
-            <div className="flex flex-col items-center">
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-44 h-44 xl:w-56 xl:h-56 2xl:w-64 2xl:h-64 mb-10" style={{ filter: "drop-shadow(0 0 40px rgba(245,158,11,0.25))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
-              <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black tracking-tight mb-8" style={{ background: "linear-gradient(180deg, #fff 30%, #f59e0b 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
-            </div>
-            <p className="text-xl text-white/40 text-center max-w-md font-light">Their growth. Your front row.</p>
-          </div>
-
-          {/* ── Form panel ── */}
-          <div className="w-full flex items-center justify-center lg:px-12 xl:px-16">
-            <div className="w-full max-w-xs lg:max-w-md text-center p-8 lg:p-12 xl:p-14 rounded-2xl lg:rounded-3xl border-2 lg:border-[3px]" style={{ background: "rgba(10,5,24,0.7)", borderColor: "rgba(245,158,11,0.25)", boxShadow: "0 0 60px rgba(245,158,11,0.08), inset 0 1px 0 rgba(255,255,255,0.03)" }}>
-              {/* Mobile-only logo */}
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-16 h-16 mx-auto mb-8 lg:hidden" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
-              <p className="text-white/30 text-xs font-mono tracking-[0.3em] uppercase mb-3 lg:mb-8">// Secure Access</p>
-              <h1 className="text-2xl lg:text-3xl xl:text-4xl font-black text-white mb-2 lg:mb-3">Parent Portal</h1>
-              <p className="text-white/50 text-sm lg:text-base mb-10 lg:mb-10">Enter PIN to view your swimmer&apos;s growth</p>
-              <div className="space-y-10 lg:space-y-10">
-                <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
-                  onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
-                  onKeyDown={e => e.key === "Enter" && handlePin()}
-                  className={`w-full px-5 py-4 lg:py-5 bg-[#06020f] border-2 rounded-xl lg:rounded-2xl text-white text-center text-2xl lg:text-3xl tracking-[0.5em] placeholder:text-white/40 focus:outline-none transition-all ${pinError ? "border-red-500/60 animate-pulse" : "border-[#2d1b4e]/60 focus:border-[#f59e0b]/50"}`}
-                  placeholder="····" autoFocus />
-                <button onClick={handlePin}
-                  className="w-full py-4 lg:py-5 rounded-xl lg:rounded-2xl font-black text-lg lg:text-xl tracking-wide transition-all min-h-[56px]"
-                  style={{ background: "linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #f59e0b 100%)", color: "#06020f", boxShadow: "0 0 40px rgba(245,158,11,0.3)", animation: "aa-glow-pulse 2s ease-in-out infinite" }}>
-                  AUTHENTICATE
-                </button>
-                {pinError && <p className="text-red-400 text-sm mt-1">Incorrect PIN</p>}
-                <Link href="/apex-athlete/landing" className="text-white/40 text-sm hover:text-white/60 transition-colors block mt-2 min-h-[44px] flex items-center justify-center">
-                  ← Back to METTLE
-                </Link>
+        <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
+          {/* Left panel — branding */}
+          <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
+            <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(245,158,11,0.08) 0%, transparent 70%)'}} />
+            <div className="relative z-10 flex flex-col items-center max-w-lg">
+              <div className="flex flex-col items-center">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{ filter: "drop-shadow(0 0 40px rgba(245,158,11,0.25))", animation: "aa-gold-glow 3s ease-in-out infinite" }} />
+                <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
               </div>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md text-center">Their growth. Your front row.</p>
+              <div className="flex items-center justify-center gap-3 text-[#f59e0b]/40 text-sm font-mono tracking-wider">
+                <span className="w-8 h-px bg-[#f59e0b]/20" />
+                PARENT PORTAL
+                <span className="w-8 h-px bg-[#f59e0b]/20" />
+              </div>
+            </div>
+          </div>
+          {/* Right panel — PIN form */}
+          <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
+            <div className="w-full max-w-md">
+              {/* Mobile-only branding */}
+              <div className="lg:hidden text-center mb-8">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{ filter: "drop-shadow(0 0 30px rgba(245,158,11,0.3))" }} />
+                <h1 className="text-3xl font-black mb-1 tracking-tight" style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>METTLE</h1>
+                <div className="text-[#f59e0b]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">PARENT PORTAL</div>
+              </div>
+              {/* Access card */}
+              <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#f59e0b]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{ boxShadow: "0 0 60px rgba(245,158,11,0.08)", animation: "aa-glow-pulse 2s ease-in-out infinite" }}>
+                <div className="text-center mb-10">
+                  <div className="text-[#f59e0b]/50 text-xs tracking-[0.3em] uppercase font-mono mb-4">{"// SECURE ACCESS"}</div>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Parent Portal</h2>
+                  <p className="text-white/50 text-sm mt-2">Enter PIN to view your swimmer&apos;s growth</p>
+                </div>
+                <div className="flex flex-col gap-7">
+                  <div>
+                    <label className="text-white/40 text-xs font-mono tracking-wider uppercase mb-3 block">Enter PIN</label>
+                    <input type="password" inputMode="numeric" maxLength={6} value={pinInput}
+                      onChange={e => setPinInput(e.target.value.replace(/\D/g, ""))}
+                      onKeyDown={e => e.key === "Enter" && handlePin()}
+                      className={`w-full text-center text-3xl tracking-[0.5em] py-5 bg-[#06020f]/60 border-2 rounded-xl text-[#f59e0b] placeholder:text-[#f59e0b]/15 focus:outline-none transition-all font-mono ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50 focus:shadow-[0_0_30px_rgba(245,158,11,0.2)]"}`}
+                      placeholder="_ _ _ _" autoFocus />
+                  </div>
+                  {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED</p>}
+                  <button onClick={handlePin}
+                    className="w-full py-6 rounded-xl font-black text-lg tracking-widest uppercase transition-all active:scale-[0.97] min-h-[70px]"
+                    style={{ background: "linear-gradient(135deg, #f59e0b, #fbbf24, #d97706)", color: "#06020f", animation: "aa-glow-pulse 2s ease-in-out infinite" }}>
+                    Authenticate
+                  </button>
+                </div>
+              </div>
+              <p className="text-white/20 text-xs text-center mt-6 font-mono">Secure • Encrypted • Private Beta</p>
+              <Link href="/apex-athlete/portal" className="text-white/30 text-sm hover:text-white/50 transition-colors block mt-4 text-center font-mono">
+                ← Back to Portal
+              </Link>
             </div>
           </div>
         </div>
