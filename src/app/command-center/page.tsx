@@ -988,7 +988,21 @@ export default function CommandCenter() {
   const notifications = liveNotifications || NOTIFICATIONS;
   const opps = liveOpps || OPPS;
   const activityLog = liveActivity || LOG;
-  const links = liveLinks || LINKS;
+  const links = (() => {
+    if (!liveLinks || liveLinks.length === 0) return LINKS;
+    const merged = LINKS.map((h: any) => {
+      const match = liveLinks.find((b: any) => (b.label || b.name || '').toLowerCase() === h.label.toLowerCase());
+      if (match) return { ...h, href: match.href || match.url || h.href };
+      return h;
+    });
+    liveLinks.forEach((b: any) => {
+      const exists = LINKS.some((h: any) => h.label.toLowerCase() === (b.label || b.name || '').toLowerCase());
+      if (!exists && (b.href || b.url)) {
+        merged.push({ label: b.label || b.name || 'Link', href: b.href || b.url, icon: (b.label || b.name || 'L').slice(0, 2).toUpperCase(), accent: b.accent || '#888888' });
+      }
+    });
+    return merged;
+  })();
 
   /* ── computed ── */
   const totalT = missions.reduce((s: number, p: any) => s + (p.totalTasks ?? (Array.isArray(p.tasks) ? p.tasks.length : 0)), 0);
