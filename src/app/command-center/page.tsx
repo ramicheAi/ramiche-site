@@ -436,6 +436,7 @@ const NAV = [
   { label: "PROJECTS", href: "/command-center/projects", icon: "\u25C9" },
   { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE" },
   { label: "DOCS", href: "/command-center/docs", icon: "\u2261" },
+  { label: "CHAT", href: "/command-center/chat", icon: "\u25C8" },
   { label: "OFFICE", href: "/command-center/office", icon: "\u25A3" },
   { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
 ];

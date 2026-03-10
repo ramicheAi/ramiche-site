@@ -3,42 +3,64 @@
 import { useState, useEffect, useRef } from "react";
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   COMMAND CENTER CHAT — METTLE Dark Theme
+   COMMAND CENTER CHAT — Unified Design Language
    Three-column real-time chat interface for agent coordination
+   Matches Command Center v4 design tokens exactly.
    ══════════════════════════════════════════════════════════════════════════════ */
 
-/* ── DESIGN TOKENS ──────────────────────────────────────────────────────────── */
+/* ── DESIGN TOKENS (mirrors command-center/page.tsx) ──────────────────────── */
 const COLORS = {
   bg: {
     main: "#0a0a0a",
-    sidebar: "#111111",
-    card: "#1a1a1a",
-    input: "#222222",
-    hover: "#2a2a2a",
+    card: "rgba(255,255,255,0.02)",
+    elevated: "#111111",
+    input: "#0a0a0a",
+    hover: "rgba(255,255,255,0.04)",
   },
-  border: "#333333",
+  border: {
+    default: "#1e1e1e",
+    subtle: "rgba(255,255,255,0.06)",
+  },
   text: {
     primary: "#e5e5e5",
     secondary: "#888888",
     tertiary: "#666666",
-    accent: "#c4b5fd", // Purple accent
+  },
+  accent: {
+    purple: "#7c3aed",
+    purpleLight: "#a855f7",
+    gold: "#C9A84C",
   },
   agents: {
     atlas: "#C9A84C",
     shuri: "#34d399",
     vee: "#ec4899",
-    triage: "#f97316",
+    triage: "#f472b6",
     proximon: "#f97316",
     mercury: "#fbbf24",
     widow: "#ef4444",
     michael: "#06b6d4",
+    echo: "#38bdf8",
+    prophets: "#d4a574",
+    selah: "#10b981",
+    ink: "#c084fc",
+    nova: "#14b8a6",
+    kiyosaki: "#fcd34d",
+    simons: "#22d3ee",
+    drstrange: "#a855f7",
+    aetherion: "#818cf8",
+    themis: "#8b5cf6",
+    haven: "#4ade80",
+    themaestro: "#f59e0b",
   },
   status: {
     active: "#10b981",
     idle: "#f59e0b",
     offline: "#666666",
-  }
+  },
 };
+
+const FONT_FAMILY = "'Inter', system-ui, -apple-system, sans-serif";
 
 /* ── MOCK DATA ──────────────────────────────────────────────────────────────── */
 const CHANNELS = [
@@ -54,7 +76,7 @@ const AGENTS = [
   { id: "atlas", name: "Atlas", role: "Operations Lead", status: "active", color: COLORS.agents.atlas, unread: 0 },
   { id: "shuri", name: "Shuri", role: "Creative Coding", status: "active", color: COLORS.agents.shuri, unread: 2 },
   { id: "vee", name: "Vee", role: "Brand & Marketing", status: "active", color: COLORS.agents.vee, unread: 0 },
-  { id: "triage", name: "Triage", role: "System Health", status: "idle", color: COLORS.agents.triage, unread: 0 },
+  { id: "triage", name: "Triage", role: "System Doctor", status: "idle", color: COLORS.agents.triage, unread: 0 },
   { id: "proximon", name: "Proximon", role: "Systems Architect", status: "offline", color: COLORS.agents.proximon, unread: 0 },
   { id: "mercury", name: "Mercury", role: "Sales & Revenue", status: "active", color: COLORS.agents.mercury, unread: 1 },
   { id: "widow", name: "Widow", role: "Cybersecurity", status: "offline", color: COLORS.agents.widow, unread: 0 },
@@ -62,203 +84,213 @@ const AGENTS = [
 ];
 
 const MOCK_MESSAGES = [
-  // General messages
-  { 
-    id: "1", 
-    channelId: "mettle", 
+  {
+    id: "1",
+    channelId: "mettle",
     type: "agent",
     sender: "Atlas",
     senderColor: COLORS.agents.atlas,
     content: "METTLE v5 design system is ready for review. Need Shuri to implement the dashboard components.",
     timestamp: "09:42 AM",
     date: "Today",
-    reactions: [
-      { emoji: "👍", count: 3 },
-      { emoji: "🚀", count: 2 }
-    ]
+    reactions: [{ emoji: "thumbsup", count: 3 }, { emoji: "rocket", count: 2 }],
   },
-  { 
-    id: "2", 
-    channelId: "mettle", 
+  {
+    id: "2",
+    channelId: "mettle",
     type: "user",
     sender: "Ramon",
     content: "Perfect. Shuri, can you start on the athlete dashboard first? We need that for the Platinum group demo on Friday.",
     timestamp: "09:45 AM",
-    date: "Today"
+    date: "Today",
   },
-  { 
-    id: "3", 
-    channelId: "mettle", 
+  {
+    id: "3",
+    channelId: "mettle",
     type: "agent",
     sender: "Shuri",
     senderColor: COLORS.agents.shuri,
     content: "On it. I'll build the dashboard components with the new METTLE dark theme. Should have a prototype by EOD.",
     timestamp: "09:47 AM",
     date: "Today",
-    reactions: [
-      { emoji: "⚡", count: 5 }
-    ]
+    reactions: [{ emoji: "zap", count: 5 }],
   },
-  { 
-    id: "4", 
-    channelId: "mettle", 
+  {
+    id: "4",
+    channelId: "mettle",
     type: "agent",
     sender: "Vee",
     senderColor: COLORS.agents.vee,
     content: "Marketing copy is ready. We're positioning METTLE as 'The Operating System for Elite Athletes' - thoughts?",
     timestamp: "09:52 AM",
-    date: "Today"
+    date: "Today",
   },
-  { 
-    id: "5", 
-    channelId: "mettle", 
+  {
+    id: "5",
+    channelId: "mettle",
     type: "user",
     sender: "Ramon",
     content: "Love it. That's exactly right. Keep that positioning consistent across all channels.",
     timestamp: "09:55 AM",
-    date: "Today"
+    date: "Today",
   },
-  // Dev channel messages
-  { 
-    id: "6", 
-    channelId: "dev", 
+  {
+    id: "6",
+    channelId: "dev",
     type: "agent",
     sender: "Proximon",
     senderColor: COLORS.agents.proximon,
     content: "Firestore real-time sync is implemented. Need to add offline fallback for athlete check-ins.",
     timestamp: "Yesterday 3:22 PM",
-    date: "Yesterday"
+    date: "Yesterday",
   },
-  { 
-    id: "7", 
-    channelId: "dev", 
+  {
+    id: "7",
+    channelId: "dev",
     type: "agent",
     sender: "Shuri",
     senderColor: COLORS.agents.shuri,
     content: "I'll handle the offline sync UI. Using IndexedDB for local storage with optimistic updates.",
     timestamp: "Yesterday 3:45 PM",
-    date: "Yesterday"
+    date: "Yesterday",
   },
-  // General channel
-  { 
-    id: "8", 
-    channelId: "general", 
+  {
+    id: "8",
+    channelId: "general",
     type: "agent",
     sender: "Atlas",
     senderColor: COLORS.agents.atlas,
     content: "Weekly sync at 2 PM today. Agenda: 1) METTLE launch timeline 2) Agent workload distribution 3) Q3 goals",
     timestamp: "Yesterday 10:15 AM",
-    date: "Yesterday"
+    date: "Yesterday",
   },
-  // Agent DM messages (simulated for Shuri)
-  { 
-    id: "9", 
-    channelId: "dm-shuri", 
+  {
+    id: "9",
+    channelId: "dm-shuri",
     type: "agent",
     sender: "Shuri",
     senderColor: COLORS.agents.shuri,
     content: "The new component library is ready. Want me to deploy it to the staging environment?",
     timestamp: "Today 08:30 AM",
-    date: "Today"
+    date: "Today",
   },
-  { 
-    id: "10", 
-    channelId: "dm-shuri", 
+  {
+    id: "10",
+    channelId: "dm-shuri",
     type: "user",
     sender: "Ramon",
     content: "Yes, deploy to staging. I'll review it this afternoon.",
     timestamp: "Today 08:35 AM",
-    date: "Today"
+    date: "Today",
   },
 ];
 
 /* ── TYPES ──────────────────────────────────────────────────────────────────── */
-type Channel = typeof CHANNELS[0];
-type Agent = typeof AGENTS[0];
-type Message = typeof MOCK_MESSAGES[0];
+type Channel = (typeof CHANNELS)[0];
+type Agent = (typeof AGENTS)[0];
+type Message = (typeof MOCK_MESSAGES)[0];
 type ViewMode = "channel" | "dm";
 
-/* ── HELPER FUNCTIONS ───────────────────────────────────────────────────────── */
-const formatTime = (timestamp: string) => timestamp;
+/* ── HELPERS ────────────────────────────────────────────────────────────────── */
 const getStatusColor = (status: string) => {
   switch (status) {
-    case "active": return COLORS.status.active;
-    case "idle": return COLORS.status.idle;
-    default: return COLORS.status.offline;
+    case "active":
+      return COLORS.status.active;
+    case "idle":
+      return COLORS.status.idle;
+    default:
+      return COLORS.status.offline;
   }
 };
 
-/* ── MAIN COMPONENT ─────────────────────────────────────────────────────────── */
+const REACTION_MAP: Record<string, string> = {
+  thumbsup: "+1",
+  rocket: ">>",
+  zap: "//",
+  fire: "**",
+  heart: "<3",
+};
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   COMPONENT
+   ══════════════════════════════════════════════════════════════════════════════ */
 export default function CommandCenterChatPage() {
-  // State
-  const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[1]); // Start with #mettle
+  /* ── state ── */
+  const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[1]);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("channel");
   const [messageInput, setMessageInput] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
-  
-  // Refs
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  /* ── refs ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  
-  // Scroll to bottom when messages change
+
+  /* ── mount ── */
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  /* ── scroll to bottom when messages change ── */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeChannel, activeAgent]);
-  
-  // Focus input on channel/agent change
+
+  /* ── focus input on channel/agent change ── */
   useEffect(() => {
     inputRef.current?.focus();
   }, [activeChannel, activeAgent]);
-  
-  // Typing indicator simulation
+
+  /* ── typing indicator simulation ── */
   useEffect(() => {
     if (viewMode === "channel") {
       const interval = setInterval(() => {
         const typingAgents = ["Shuri", "Vee", "Atlas"].filter(() => Math.random() > 0.7);
         setTypingUsers(typingAgents);
       }, 3000);
-      
       return () => clearInterval(interval);
+    } else {
+      setTypingUsers([]);
     }
   }, [viewMode]);
-  
-  // Handle channel selection
+
+  /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
     setActiveChannel(channel);
     setActiveAgent(null);
     setViewMode("channel");
     setThreadMessage(null);
+    setSidebarOpen(false);
   };
-  
-  // Handle agent DM selection
+
   const handleAgentSelect = (agent: Agent) => {
     setActiveAgent(agent);
-    setActiveChannel(CHANNELS[0]); // Reset to general for DM context
+    setActiveChannel(CHANNELS[0]);
     setViewMode("dm");
     setThreadMessage(null);
+    setSidebarOpen(false);
   };
-  
-  // Handle message send
+
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
-    
+
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
       channelId: viewMode === "dm" && activeAgent ? `dm-${activeAgent.id}` : activeChannel.id,
       type: "user",
       sender: "Ramon",
       content: messageInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      date: "Today"
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      date: "Today",
     };
-    
-    setMessages(prev => [...prev, newMessage]);
+
+    setMessages((prev) => [...prev, newMessage]);
     setMessageInput("");
-    
-    // Simulate agent reply
+
     if (viewMode === "dm" && activeAgent) {
       setTimeout(() => {
         const replyMessage: Message = {
@@ -268,317 +300,823 @@ export default function CommandCenterChatPage() {
           sender: activeAgent.name,
           senderColor: activeAgent.color,
           content: `Got it. ${activeAgent.name === "Shuri" ? "I'll implement that right away." : "I'll take a look at that."}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          date: "Today"
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          date: "Today",
         };
-        setMessages(prev => [...prev, replyMessage]);
+        setMessages((prev) => [...prev, replyMessage]);
       }, 1000);
     }
   };
-  
-  // Handle message click for threads
+
   const handleMessageClick = (message: Message) => {
     setThreadMessage(message);
   };
-  
-  // Filter messages based on current view
-  const filteredMessages = messages.filter(msg => {
+
+  /* ── filter messages ── */
+  const filteredMessages = messages.filter((msg) => {
     if (viewMode === "dm" && activeAgent) {
       return msg.channelId === `dm-${activeAgent.id}`;
     }
     return msg.channelId === activeChannel.id;
   });
-  
-  // Group messages by date
-  const groupedMessages = filteredMessages.reduce((groups, msg) => {
-    const date = msg.date;
-    if (!groups[date]) {
-      groups[date] = [];
-    }
-    groups[date].push(msg);
-    return groups;
-  }, {} as Record<string, Message[]>);
-  
+
+  /* ── group messages by date ── */
+  const groupedMessages = filteredMessages.reduce(
+    (groups, msg) => {
+      const date = msg.date;
+      if (!groups[date]) groups[date] = [];
+      groups[date].push(msg);
+      return groups;
+    },
+    {} as Record<string, Message[]>,
+  );
+
+  if (!mounted) return null;
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     RENDER
+     ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="flex h-screen w-screen bg-[#0a0a0a] text-[#e5e5e5] overflow-hidden">
-      
-      {/* ── SIDEBAR (240px) ───────────────────────────────────────────────────── */}
-      <div className="w-60 bg-[#111111] border-r-2 border-[#333333] flex flex-col flex-shrink-0">
-        
-        {/* Logo Header */}
-        <div className="p-4 border-b-2 border-[#333333]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-12 bg-gradient-to-br from-[#7c3aed] to-[#1a1a5e] rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CC</span>
-            </div>
-            <div>
-              <div className="text-[#c4b5fd] font-bold text-lg tracking-[0.2em]">COMMAND</div>
-              <div className="text-[#888888] text-xs font-bold tracking-[0.1em]">CHAT</div>
-            </div>
+    <div
+      style={{
+        display: "flex",
+        height: "100vh",
+        width: "100vw",
+        background: COLORS.bg.main,
+        color: COLORS.text.primary,
+        fontFamily: FONT_FAMILY,
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+
+      {/* ═══════ MOBILE OVERLAY ═══════ */}
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            zIndex: 40,
+          }}
+        />
+      )}
+
+      {/* ═══════ LEFT SIDEBAR ═══════ */}
+      <aside
+        style={{
+          width: 260,
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          background: COLORS.bg.main,
+          borderRight: `1px solid ${COLORS.border.default}`,
+          position: sidebarOpen ? "fixed" : undefined,
+          top: sidebarOpen ? 0 : undefined,
+          left: sidebarOpen ? 0 : undefined,
+          bottom: sidebarOpen ? 0 : undefined,
+          zIndex: sidebarOpen ? 50 : undefined,
+          transform: typeof window !== "undefined" && window.innerWidth < 768 && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
+          transition: "transform 200ms ease",
+        }}
+        className="chat-sidebar"
+      >
+        {/* ── Sidebar Header ── */}
+        <div
+          style={{
+            padding: "16px 20px",
+            borderBottom: `1px solid ${COLORS.border.default}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 10,
+              background: `${COLORS.accent.purple}18`,
+              border: `1px solid ${COLORS.accent.purple}40`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+              fontWeight: 800,
+              color: COLORS.accent.purple,
+            }}
+          >
+            CC
           </div>
-        </div>
-        
-        {/* Channels Section */}
-        <div className="p-4 border-b-2 border-[#333333]">
-          <div className="text-xs font-bold tracking-[0.2em] uppercase text-[#888888] mb-3">
-            CHANNELS
-          </div>
-          <div className="space-y-1">
-            {CHANNELS.map((channel) => (
-              <button
-                key={channel.id}
-                onClick={() => handleChannelSelect(channel)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-all text-left ${
-                  activeChannel.id === channel.id && viewMode === "channel"
-                    ? "bg-[#2a2a2a] text-[#e5e5e5]"
-                    : "hover:bg-[#1a1a1a] text-[#888888] hover:text-[#e5e5e5]"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[#666666]">#</span>
-                  <span className="text-sm font-medium">{channel.name.slice(1)}</span>
-                </div>
-                {channel.unread > 0 && (
-                  <span className="text-xs font-bold px-1.5 py-0.5 rounded-full bg-[#7c3aed] text-white min-w-[20px] text-center">
-                    {channel.unread}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {/* Direct Messages Section */}
-        <div className="p-4 border-b-2 border-[#333333] flex-1">
-          <div className="text-xs font-bold tracking-[0.2em] uppercase text-[#888888] mb-3">
-            DIRECT MESSAGES
-          </div>
-          <div className="space-y-1">
-            {AGENTS.map((agent) => (
-              <button
-                key={agent.id}
-                onClick={() => handleAgentSelect(agent)}
-                className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors text-left ${
-                  activeAgent?.id === agent.id && viewMode === "dm"
-                    ? "bg-[#2a2a2a]"
-                    : "hover:bg-[#1a1a1a]"
-                }`}
-              >
-                {/* Status Indicator */}
-                <div className="relative">
-                  <div 
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                    style={{ backgroundColor: `${agent.color}40` }}
-                  >
-                    {agent.name.charAt(0)}
-                  </div>
-                  <div 
-                    className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#111111]"
-                    style={{ backgroundColor: getStatusColor(agent.status) }}
-                  />
-                </div>
-                
-                {/* Agent Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-semibold text-[#e5e5e5] truncate">
-                    {agent.name}
-                  </div>
-                  <div className="text-xs text-[#666666] truncate">
-                    {agent.role}
-                  </div>
-                </div>
-                
-                {/* Unread Badge */}
-                {agent.unread > 0 && (
-                  <div className="w-5 h-5 rounded-full bg-[#7c3aed] text-white text-xs flex items-center justify-center">
-                    {agent.unread}
-                  </div>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {/* User Profile */}
-        <div className="p-4 border-t-2 border-[#333333]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7c3aed] to-[#1a1a5e] flex items-center justify-center text-white font-bold">
-              R
-            </div>
-            <div className="flex-1">
-              <div className="text-sm font-semibold text-[#e5e5e5]">Ramon</div>
-              <div className="text-xs text-[#666666]">@ramiche</div>
-            </div>
-            <div className="text-xs px-2 py-1 rounded bg-[#10b981] text-white font-bold">
-              ONLINE
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* ── MAIN CHAT PANEL (Flex) ────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        
-        {/* Chat Header */}
-        <div className="p-4 border-b-2 border-[#333333] bg-[#111111] flex items-center justify-between">
           <div>
-            <div className="flex items-center gap-3">
-              <div className={`text-lg font-bold ${
-                viewMode === "dm" ? "text-[#c4b5fd]" : "text-[#e5e5e5]"
-              }`}>
-                {viewMode === "dm" 
-                  ? `💬 ${activeAgent?.name}` 
-                  : activeChannel.name}
-              </div>
-              {viewMode === "dm" ? (
-                <div className="text-sm text-[#888888]">{activeAgent?.role}</div>
-              ) : (
-                <div className="text-sm text-[#888888]">{activeChannel.description}</div>
-              )}
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                color: COLORS.text.primary,
+              }}
+            >
+              CHAT
+            </div>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.15em",
+                color: COLORS.text.secondary,
+              }}
+            >
+              COMMAND CENTER
             </div>
           </div>
-          
-          <div className="flex items-center gap-4">
-            {/* Typing Indicator */}
-            {typingUsers.length > 0 && viewMode === "channel" && (
-              <div className="text-sm text-[#888888] flex items-center gap-2">
-                <div className="flex">
-                  {typingUsers.map((user, i) => (
-                    <div 
-                      key={user}
-                      className="w-6 h-6 rounded-full -ml-2 first:ml-0 border-2 border-[#111111] flex items-center justify-center text-xs font-bold"
-                      style={{ 
-                        backgroundColor: Object.values(COLORS.agents).find(c => 
-                          AGENTS.find(a => a.name === user)?.color === c
-                        ) + "40"
+        </div>
+
+        {/* ── Channels Section ── */}
+        <div style={{ padding: "16px 12px 8px" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+              padding: "0 8px",
+            }}
+          >
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                background: "linear-gradient(to right, rgba(124,58,237,0.2), transparent)",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.25em",
+                color: COLORS.text.secondary,
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Channels
+            </span>
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                background: "linear-gradient(to left, rgba(124,58,237,0.2), transparent)",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {CHANNELS.map((channel) => {
+              const isActive = activeChannel.id === channel.id && viewMode === "channel";
+              return (
+                <button
+                  key={channel.id}
+                  onClick={() => handleChannelSelect(channel)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    cursor: "pointer",
+                    background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
+                    transition: "all 150ms ease",
+                    textAlign: "left" as const,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.background = COLORS.bg.hover;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: COLORS.text.tertiary,
+                        fontWeight: 500,
                       }}
                     >
-                      {user.charAt(0)}
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-1">
-                  <span>{typingUsers.length === 1 ? `${typingUsers[0]} is typing` : `${typingUsers.length} typing`}</span>
-                  <div className="flex gap-1">
-                    <div className="w-1 h-1 rounded-full bg-[#666666] animate-pulse" style={{ animationDelay: '0ms' }} />
-                    <div className="w-1 h-1 rounded-full bg-[#666666] animate-pulse" style={{ animationDelay: '150ms' }} />
-                    <div className="w-1 h-1 rounded-full bg-[#666666] animate-pulse" style={{ animationDelay: '300ms' }} />
+                      #
+                    </span>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        fontWeight: isActive ? 600 : 500,
+                        color: isActive ? COLORS.text.primary : COLORS.text.secondary,
+                        transition: "color 150ms ease",
+                      }}
+                    >
+                      {channel.name.slice(1)}
+                    </span>
                   </div>
+                  {channel.unread > 0 && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "2px 7px",
+                        borderRadius: 10,
+                        background: `${COLORS.accent.purple}20`,
+                        color: COLORS.accent.purpleLight,
+                        border: `1px solid ${COLORS.accent.purple}30`,
+                        minWidth: 20,
+                        textAlign: "center" as const,
+                      }}
+                    >
+                      {channel.unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Direct Messages Section ── */}
+        <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+              padding: "0 8px",
+            }}
+          >
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                background: "linear-gradient(to right, rgba(52,211,153,0.2), transparent)",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.25em",
+                color: COLORS.text.secondary,
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Direct Messages
+            </span>
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                background: "linear-gradient(to left, rgba(52,211,153,0.2), transparent)",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {AGENTS.map((agent) => {
+              const isActive = activeAgent?.id === agent.id && viewMode === "dm";
+              return (
+                <button
+                  key={agent.id}
+                  onClick={() => handleAgentSelect(agent)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    cursor: "pointer",
+                    background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
+                    transition: "all 150ms ease",
+                    textAlign: "left" as const,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.background = COLORS.bg.hover;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {/* Avatar with status dot */}
+                  <div style={{ position: "relative", flexShrink: 0 }}>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: agent.color,
+                        background: `${agent.color}15`,
+                        border: `1px solid ${agent.color}30`,
+                      }}
+                    >
+                      {agent.name.charAt(0)}
+                    </div>
+                    <div
+                      style={{
+                        position: "absolute",
+                        bottom: -1,
+                        right: -1,
+                        width: 10,
+                        height: 10,
+                        borderRadius: "50%",
+                        background: getStatusColor(agent.status),
+                        border: `2px solid ${COLORS.bg.main}`,
+                        boxShadow: agent.status === "active" ? `0 0 6px ${getStatusColor(agent.status)}` : "none",
+                      }}
+                    />
+                  </div>
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: isActive ? COLORS.text.primary : COLORS.text.secondary,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap" as const,
+                        transition: "color 150ms ease",
+                      }}
+                    >
+                      {agent.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 10,
+                        color: COLORS.text.tertiary,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap" as const,
+                      }}
+                    >
+                      {agent.role}
+                    </div>
+                  </div>
+                  {/* Unread badge */}
+                  {agent.unread > 0 && (
+                    <span
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: `${agent.color}20`,
+                        color: agent.color,
+                        border: `1px solid ${agent.color}30`,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {agent.unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── User Profile ── */}
+        <div
+          style={{
+            padding: "12px 16px",
+            borderTop: `1px solid ${COLORS.border.default}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 8,
+              background: `${COLORS.accent.purple}18`,
+              border: `1px solid ${COLORS.accent.purple}40`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 13,
+              fontWeight: 800,
+              color: COLORS.accent.purple,
+            }}
+          >
+            R
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text.primary }}>
+              Ramon
+            </div>
+            <div style={{ fontSize: 10, color: COLORS.text.tertiary }}>@ramiche</div>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: COLORS.status.active,
+                boxShadow: `0 0 6px ${COLORS.status.active}`,
+              }}
+            />
+            <span
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                color: COLORS.status.active,
+              }}
+            >
+              ONLINE
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      {/* ═══════ CENTER PANEL — MESSAGES ═══════ */}
+      <main
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+          minWidth: 0,
+        }}
+      >
+        {/* ── Chat Header ── */}
+        <div
+          style={{
+            padding: "12px 20px",
+            borderBottom: `1px solid ${COLORS.border.default}`,
+            background: "rgba(10,10,10,0.92)",
+            backdropFilter: "blur(20px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            {/* Mobile hamburger */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="chat-mobile-menu"
+              style={{
+                display: "none",
+                padding: 6,
+                borderRadius: 6,
+                border: `1px solid ${COLORS.border.default}`,
+                background: COLORS.bg.card,
+                cursor: "pointer",
+                color: COLORS.text.secondary,
+                flexShrink: 0,
+              }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+
+            {viewMode === "dm" && activeAgent ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: 8,
+                    background: `${activeAgent.color}15`,
+                    border: `1px solid ${activeAgent.color}30`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color: activeAgent.color,
+                    flexShrink: 0,
+                  }}
+                >
+                  {activeAgent.name.charAt(0)}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary }}>
+                    {activeAgent.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: COLORS.text.secondary }}>{activeAgent.role}</div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary }}>
+                  {activeChannel.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: COLORS.text.secondary,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap" as const,
+                  }}
+                >
+                  {activeChannel.description}
                 </div>
               </div>
             )}
-            
-            {/* Member Count */}
-            <div className="text-sm text-[#888888]">
-              {viewMode === "channel" ? "24 members" : "Direct message"}
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+            {/* Typing indicator */}
+            {typingUsers.length > 0 && viewMode === "channel" && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  fontSize: 11,
+                  color: COLORS.text.secondary,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  {typingUsers.map((user) => {
+                    const agentData = AGENTS.find((a) => a.name === user);
+                    return (
+                      <div
+                        key={user}
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: 6,
+                          marginLeft: -4,
+                          border: `1.5px solid ${COLORS.bg.main}`,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: 9,
+                          fontWeight: 700,
+                          color: agentData?.color || COLORS.text.secondary,
+                          background: `${agentData?.color || "#888"}15`,
+                        }}
+                      >
+                        {user.charAt(0)}
+                      </div>
+                    );
+                  })}
+                </div>
+                <span>
+                  {typingUsers.length === 1 ? `${typingUsers[0]} is typing` : `${typingUsers.length} typing`}
+                </span>
+                <div style={{ display: "flex", gap: 3 }}>
+                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite" }} />
+                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
+                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
+                </div>
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.1em",
+                color: COLORS.text.secondary,
+                padding: "4px 10px",
+                borderRadius: 6,
+                background: COLORS.bg.card,
+                border: `1px solid ${COLORS.border.default}`,
+              }}
+            >
+              {viewMode === "channel" ? "24 MEMBERS" : "DM"}
             </div>
           </div>
         </div>
-        
-        {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+
+        {/* ── Messages Container ── */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            padding: "16px 20px",
+          }}
+        >
           {Object.entries(groupedMessages).map(([date, dateMessages]) => (
             <div key={date}>
-              {/* Date Separator */}
-              <div className="flex items-center justify-center my-6">
-                <div className="h-px flex-1 bg-[#333333]" />
-                <div className="mx-4 text-xs text-[#666666] font-bold tracking-wider">
-                  {date.toUpperCase()}
-                </div>
-                <div className="h-px flex-1 bg-[#333333]" />
+              {/* Date Separator — matches command center section dividers */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "24px 0 16px",
+                }}
+              >
+                <div
+                  style={{
+                    height: 1,
+                    flex: 1,
+                    background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)",
+                  }}
+                />
+                <span
+                  style={{
+                    margin: "0 16px",
+                    fontSize: 10,
+                    fontWeight: 600,
+                    letterSpacing: "0.25em",
+                    color: COLORS.text.secondary,
+                    textTransform: "uppercase" as const,
+                  }}
+                >
+                  {date}
+                </span>
+                <div
+                  style={{
+                    height: 1,
+                    flex: 1,
+                    background: "linear-gradient(to left, transparent, rgba(255,255,255,0.06), transparent)",
+                  }}
+                />
               </div>
-              
+
               {/* Messages for this date */}
-              <div className="space-y-4">
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {dateMessages.map((message) => (
-                  <div 
-                    key={message.id} 
+                  <div
+                    key={message.id}
                     onClick={() => handleMessageClick(message)}
-                    className={`group cursor-pointer ${
-                      message.type === "user" ? "flex justify-end" : "flex gap-3"
-                    }`}
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      padding: "10px 12px",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      transition: "background 150ms ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "rgba(255,255,255,0.02)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                    }}
                   >
-                    {/* Agent Avatar (left side) */}
-                    {message.type === "agent" && (
-                      <div className="flex-shrink-0">
-                        <div 
-                          className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm"
-                          style={{ backgroundColor: `${message.senderColor}40` }}
+                    {/* Avatar */}
+                    <div style={{ flexShrink: 0 }}>
+                      {message.type === "agent" ? (
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: message.senderColor || COLORS.text.primary,
+                            background: `${message.senderColor || "#888"}15`,
+                            border: `1px solid ${message.senderColor || "#888"}30`,
+                          }}
                         >
                           {message.sender.charAt(0)}
                         </div>
-                      </div>
-                    )}
-                    
-                    {/* Message Bubble */}
-                    <div className={`max-w-[70%] ${
-                      message.type === "user"
-                        ? "bg-gradient-to-r from-[#7c3aed] to-[#6b21a8] rounded-2xl rounded-br-none"
-                        : "bg-[#1a1a1a] border-2 border-[#333333] rounded-2xl rounded-bl-none"
-                    } p-4 ${message.type === "user" ? "shadow-lg" : ""}`}>
-                      
-                      {/* Message Header (Agent only) */}
-                      {message.type === "agent" && (
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="text-sm font-bold text-[#e5e5e5]">
-                            {message.sender}
-                          </div>
-                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: message.senderColor }} />
-                          <div className="text-xs text-[#666666] font-mono">
-                            {message.timestamp}
-                          </div>
-                          <div className="text-xs px-2 py-0.5 rounded-full bg-[#222222] text-[#888888]">
-                            Agent
-                          </div>
+                      ) : (
+                        <div
+                          style={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 10,
+                            background: `${COLORS.accent.purple}18`,
+                            border: `1px solid ${COLORS.accent.purple}40`,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color: COLORS.accent.purple,
+                          }}
+                        >
+                          R
                         </div>
                       )}
-                      
-                      {/* Message Content */}
-                      <div className={`text-sm leading-relaxed ${
-                        message.type === "user" ? "text-white" : "text-[#e5e5e5]"
-                      }`}>
+                    </div>
+
+                    {/* Content */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {/* Header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <span
+                          style={{
+                            fontSize: 13,
+                            fontWeight: 700,
+                            color:
+                              message.type === "agent"
+                                ? message.senderColor || COLORS.text.primary
+                                : COLORS.text.primary,
+                          }}
+                        >
+                          {message.sender}
+                        </span>
+                        {message.type === "agent" && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              padding: "1px 6px",
+                              borderRadius: 4,
+                              background: `${message.senderColor || "#888"}12`,
+                              color: message.senderColor || COLORS.text.secondary,
+                              border: `1px solid ${message.senderColor || "#888"}25`,
+                              letterSpacing: "0.05em",
+                            }}
+                          >
+                            AGENT
+                          </span>
+                        )}
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: COLORS.text.tertiary,
+                            fontFamily: "monospace",
+                          }}
+                        >
+                          {message.timestamp}
+                        </span>
+                      </div>
+
+                      {/* Body */}
+                      <div
+                        style={{
+                          fontSize: 13,
+                          lineHeight: 1.6,
+                          color: COLORS.text.primary,
+                        }}
+                      >
                         {message.content}
                       </div>
-                      
-                      {/* Message Footer (User only) */}
-                      {message.type === "user" && (
-                        <div className="flex items-center justify-end gap-2 mt-2">
-                          <div className="text-xs text-white/60 font-mono">
-                            {message.timestamp}
-                          </div>
-                          <div className="text-xs text-white/40 group-hover:opacity-100 opacity-0 transition-opacity">
-                            ↗
-                          </div>
-                        </div>
-                      )}
-                      
+
                       {/* Reactions */}
                       {message.reactions && message.reactions.length > 0 && (
-                        <div className={`flex gap-1 mt-3 ${
-                          message.type === "user" ? "justify-end" : ""
-                        }`}>
+                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                           {message.reactions.map((reaction, i) => (
                             <button
                               key={i}
-                              className="px-2 py-1 rounded-lg bg-[#222222] border border-[#333333] text-xs hover:bg-[#2a2a2a] transition-colors flex items-center gap-1"
                               onClick={(e) => e.stopPropagation()}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                padding: "3px 8px",
+                                borderRadius: 6,
+                                background: COLORS.bg.card,
+                                border: `1px solid ${COLORS.border.default}`,
+                                cursor: "pointer",
+                                fontSize: 11,
+                                color: COLORS.text.secondary,
+                                transition: "all 150ms ease",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = COLORS.bg.card;
+                                e.currentTarget.style.borderColor = COLORS.border.default;
+                              }}
                             >
-                              <span>{reaction.emoji}</span>
-                              <span className="text-[#888888]">{reaction.count}</span>
+                              <span style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: COLORS.accent.purpleLight }}>
+                                {REACTION_MAP[reaction.emoji] || reaction.emoji}
+                              </span>
+                              <span style={{ fontWeight: 600, fontFamily: "monospace" }}>{reaction.count}</span>
                             </button>
                           ))}
                         </div>
                       )}
                     </div>
-                    
-                    {/* User Avatar (right side) */}
-                    {message.type === "user" && (
-                      <div className="flex-shrink-0 ml-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7c3aed] to-[#1a1a5e] flex items-center justify-center text-white font-bold">
-                          R
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ))}
               </div>
@@ -586,26 +1124,78 @@ export default function CommandCenterChatPage() {
           ))}
           <div ref={messagesEndRef} />
         </div>
-        
-        {/* Message Input */}
-        <div className="p-4 border-t-2 border-[#333333] bg-[#111111]">
-          <div className="flex gap-3">
-            {/* File Attachment Button */}
-            <button className="p-3 rounded-lg bg-[#1a1a1a] border-2 border-[#333333] hover:bg-[#222222] transition-colors flex-shrink-0">
-              <svg className="w-5 h-5 text-[#888888]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+
+        {/* ── Message Input ── */}
+        <div
+          style={{
+            padding: "12px 20px 16px",
+            borderTop: `1px solid ${COLORS.border.default}`,
+            flexShrink: 0,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "flex-end",
+            }}
+          >
+            {/* Attach */}
+            <button
+              style={{
+                padding: 10,
+                borderRadius: 10,
+                background: COLORS.bg.card,
+                border: `1px solid ${COLORS.border.default}`,
+                cursor: "pointer",
+                color: COLORS.text.secondary,
+                flexShrink: 0,
+                transition: "all 150ms ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                e.currentTarget.style.color = COLORS.text.primary;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = COLORS.border.default;
+                e.currentTarget.style.color = COLORS.text.secondary;
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
               </svg>
             </button>
-            
-            {/* Text Input */}
-            <div className="flex-1 relative">
+
+            {/* Text area */}
+            <div style={{ flex: 1, position: "relative" }}>
               <textarea
                 ref={inputRef}
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={`Message ${viewMode === "dm" ? activeAgent?.name : activeChannel.name}...`}
-                className="w-full bg-[#1a1a1a] border-2 border-[#333333] rounded-xl px-4 py-3 text-[#e5e5e5] text-sm resize-none focus:outline-none focus:border-[#555555] focus:ring-1 focus:ring-[#7c3aed] min-h-[44px] max-h-[200px]"
+                style={{
+                  width: "100%",
+                  background: COLORS.bg.card,
+                  border: `1px solid ${COLORS.border.default}`,
+                  borderRadius: 12,
+                  padding: "10px 100px 10px 14px",
+                  color: COLORS.text.primary,
+                  fontSize: 13,
+                  fontFamily: FONT_FAMILY,
+                  resize: "none",
+                  outline: "none",
+                  minHeight: 44,
+                  maxHeight: 200,
+                  lineHeight: 1.5,
+                  transition: "border-color 150ms ease",
+                }}
                 rows={1}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = `${COLORS.accent.purple}50`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border.default;
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -613,131 +1203,319 @@ export default function CommandCenterChatPage() {
                   }
                 }}
               />
-              
-              {/* Input Actions */}
-              <div className="absolute right-2 bottom-2 flex items-center gap-2">
-                {/* Quick Actions */}
-                <div className="flex gap-1 mr-2">
-                  <button className="p-1.5 rounded hover:bg-[#222222] transition-colors text-xs text-[#888888]">
-                    @
+
+              {/* Inline actions */}
+              <div
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  bottom: 6,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 4,
+                }}
+              >
+                {["@", "#"].map((sym) => (
+                  <button
+                    key={sym}
+                    style={{
+                      padding: "4px 6px",
+                      borderRadius: 4,
+                      border: "none",
+                      background: "transparent",
+                      cursor: "pointer",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: COLORS.text.tertiary,
+                      transition: "color 150ms ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = COLORS.text.primary;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = COLORS.text.tertiary;
+                    }}
+                  >
+                    {sym}
                   </button>
-                  <button className="p-1.5 rounded hover:bg-[#222222] transition-colors text-xs text-[#888888]">
-                    #
-                  </button>
-                  <button className="p-1.5 rounded hover:bg-[#222222] transition-colors text-xs text-[#888888]">
-                    😀
-                  </button>
-                </div>
-                
-                {/* Send Button */}
+                ))}
+
+                {/* Send Button — game-btn style */}
                 <button
                   onClick={handleSendMessage}
                   disabled={!messageInput.trim()}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-                    messageInput.trim()
-                      ? "bg-gradient-to-r from-[#7c3aed] to-[#6b21a8] text-white hover:shadow-[0_0_20px_rgba(124,58,237,0.3)]"
-                      : "bg-[#222222] text-[#666666] cursor-not-allowed"
-                  }`}
+                  className="game-btn"
+                  style={{
+                    padding: "6px 16px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    fontFamily: "monospace",
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase" as const,
+                    borderRadius: 6,
+                    border: `1px solid ${messageInput.trim() ? `${COLORS.accent.purple}50` : COLORS.border.default}`,
+                    background: messageInput.trim() ? `${COLORS.accent.purple}18` : COLORS.bg.card,
+                    color: messageInput.trim() ? COLORS.accent.purpleLight : COLORS.text.tertiary,
+                    cursor: messageInput.trim() ? "pointer" : "not-allowed",
+                    transition: "all 150ms ease",
+                  }}
                 >
-                  Send
+                  SEND
                 </button>
               </div>
             </div>
           </div>
-          
-          {/* Input Help Text */}
-          <div className="text-xs text-[#666666] mt-2 pl-16">
-            Press <span className="px-1.5 py-0.5 rounded bg-[#222222] border border-[#333333]">Enter</span> to send ·{" "}
-            <span className="px-1.5 py-0.5 rounded bg-[#222222] border border-[#333333]">Shift+Enter</span> for new line
+
+          {/* Help text */}
+          <div
+            style={{
+              marginTop: 8,
+              paddingLeft: 52,
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 10,
+              color: COLORS.text.tertiary,
+            }}
+          >
+            <span
+              style={{
+                padding: "1px 6px",
+                borderRadius: 4,
+                background: COLORS.bg.card,
+                border: `1px solid ${COLORS.border.default}`,
+                fontFamily: "monospace",
+                fontSize: 9,
+              }}
+            >
+              Enter
+            </span>
+            <span>to send</span>
+            <span style={{ color: COLORS.border.default }}>|</span>
+            <span
+              style={{
+                padding: "1px 6px",
+                borderRadius: 4,
+                background: COLORS.bg.card,
+                border: `1px solid ${COLORS.border.default}`,
+                fontFamily: "monospace",
+                fontSize: 9,
+              }}
+            >
+              Shift+Enter
+            </span>
+            <span>new line</span>
           </div>
         </div>
-      </div>
-      
-      {/* ── THREAD PANEL (320px, slides in) ──────────────────────────────────── */}
+      </main>
+
+      {/* ═══════ RIGHT PANEL — THREAD (COLLAPSIBLE) ═══════ */}
       {threadMessage && (
-        <div className="w-80 bg-[#111111] border-l-2 border-[#333333] flex flex-col flex-shrink-0 animate-in slide-in-from-right duration-300">
-          
+        <aside
+          style={{
+            width: 340,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            background: COLORS.bg.main,
+            borderLeft: `1px solid ${COLORS.border.default}`,
+            overflow: "hidden",
+          }}
+          className="chat-thread-panel"
+        >
           {/* Thread Header */}
-          <div className="p-4 border-b-2 border-[#333333] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <button 
-                onClick={() => setThreadMessage(null)}
-                className="p-2 rounded-lg hover:bg-[#2a2a2a] transition-colors"
+          <div
+            style={{
+              padding: "12px 16px",
+              borderBottom: `1px solid ${COLORS.border.default}`,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 8,
+                  background: `${COLORS.accent.purple}12`,
+                  border: `1px solid ${COLORS.accent.purple}25`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: COLORS.accent.purpleLight,
+                  fontSize: 12,
+                }}
               >
-                <svg className="w-5 h-5 text-[#888888]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
                 </svg>
-              </button>
+              </div>
               <div>
-                <div className="text-sm font-bold text-[#e5e5e5]">Thread</div>
-                <div className="text-xs text-[#666666]">Reply to message</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text.primary }}>Thread</div>
+                <div style={{ fontSize: 10, color: COLORS.text.tertiary }}>3 replies</div>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => setThreadMessage(null)}
-              className="p-2 rounded-lg hover:bg-[#2a2a2a] transition-colors"
+              style={{
+                padding: 6,
+                borderRadius: 6,
+                border: `1px solid ${COLORS.border.default}`,
+                background: COLORS.bg.card,
+                cursor: "pointer",
+                color: COLORS.text.secondary,
+                transition: "all 150ms ease",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                e.currentTarget.style.color = COLORS.text.primary;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = COLORS.border.default;
+                e.currentTarget.style.color = COLORS.text.secondary;
+              }}
             >
-              <svg className="w-5 h-5 text-[#888888]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
           </div>
-          
+
           {/* Original Message */}
-          <div className="p-4 border-b-2 border-[#333333]">
-            <div className="text-xs text-[#888888] mb-2">ORIGINAL MESSAGE</div>
-            <div className="bg-[#1a1a1a] rounded-xl p-3 border-2 border-[#333333]">
-              <div className="flex items-center gap-2 mb-2">
-                {threadMessage.type === "agent" && (
-                  <div 
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                    style={{ backgroundColor: `${threadMessage.senderColor}40` }}
+          <div style={{ padding: 16, borderBottom: `1px solid ${COLORS.border.default}` }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.25em",
+                color: COLORS.text.secondary,
+                marginBottom: 10,
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Original Message
+            </div>
+            <div
+              style={{
+                background: COLORS.bg.card,
+                border: `1px solid ${COLORS.border.default}`,
+                borderRadius: 12,
+                padding: 14,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                {threadMessage.type === "agent" ? (
+                  <div
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 6,
+                      background: `${threadMessage.senderColor || "#888"}15`,
+                      border: `1px solid ${threadMessage.senderColor || "#888"}30`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: threadMessage.senderColor || COLORS.text.primary,
+                    }}
                   >
                     {threadMessage.sender.charAt(0)}
                   </div>
-                )}
-                {threadMessage.type === "user" && (
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#7c3aed] to-[#1a1a5e] flex items-center justify-center text-xs font-bold text-white">
+                ) : (
+                  <div
+                    style={{
+                      width: 24,
+                      height: 24,
+                      borderRadius: 6,
+                      background: `${COLORS.accent.purple}18`,
+                      border: `1px solid ${COLORS.accent.purple}40`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: COLORS.accent.purple,
+                    }}
+                  >
                     R
                   </div>
                 )}
-                <div className="text-sm font-semibold text-[#e5e5e5]">
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 700,
+                    color:
+                      threadMessage.type === "agent"
+                        ? threadMessage.senderColor || COLORS.text.primary
+                        : COLORS.text.primary,
+                  }}
+                >
                   {threadMessage.sender}
-                </div>
-                <div className="text-xs text-[#666666] font-mono">
+                </span>
+                <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
                   {threadMessage.timestamp}
-                </div>
+                </span>
               </div>
-              <div className="text-sm text-[#e5e5e5]">
+              <div style={{ fontSize: 12, lineHeight: 1.6, color: COLORS.text.primary }}>
                 {threadMessage.content}
               </div>
             </div>
           </div>
-          
+
           {/* Thread Replies */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="text-xs text-[#888888] mb-3">5 REPLIES</div>
-            <div className="space-y-4">
-              {/* Mock replies */}
+          <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.25em",
+                color: COLORS.text.secondary,
+                marginBottom: 12,
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Replies
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {[
-                { id: "r1", sender: "Atlas", content: "I'll follow up on this.", timestamp: "09:48 AM" },
-                { id: "r2", sender: "Shuri", content: "Working on it now.", timestamp: "09:50 AM" },
-                { id: "r3", sender: "Vee", content: "Marketing assets are ready.", timestamp: "09:52 AM" },
+                { id: "r1", sender: "Atlas", color: COLORS.agents.atlas, content: "I'll follow up on this.", timestamp: "09:48 AM" },
+                { id: "r2", sender: "Shuri", color: COLORS.agents.shuri, content: "Working on it now.", timestamp: "09:50 AM" },
+                { id: "r3", sender: "Vee", color: COLORS.agents.vee, content: "Marketing assets are ready.", timestamp: "09:52 AM" },
               ].map((reply) => (
-                <div key={reply.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-[#222222] border-2 border-[#333333] flex items-center justify-center text-xs font-bold text-[#888888]">
+                <div key={reply.id} style={{ display: "flex", gap: 10 }}>
+                  <div
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      background: `${reply.color}15`,
+                      border: `1px solid ${reply.color}30`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: reply.color,
+                      flexShrink: 0,
+                    }}
+                  >
                     {reply.sender.charAt(0)}
                   </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="text-sm font-semibold text-[#e5e5e5]">
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: reply.color }}>
                         {reply.sender}
-                      </div>
-                      <div className="text-xs text-[#666666]">
+                      </span>
+                      <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
                         {reply.timestamp}
-                      </div>
+                      </span>
                     </div>
-                    <div className="text-sm text-[#e5e5e5]">
+                    <div style={{ fontSize: 12, lineHeight: 1.5, color: COLORS.text.primary }}>
                       {reply.content}
                     </div>
                   </div>
@@ -745,22 +1523,106 @@ export default function CommandCenterChatPage() {
               ))}
             </div>
           </div>
-          
+
           {/* Thread Reply Input */}
-          <div className="p-4 border-t-2 border-[#333333]">
-            <div className="flex gap-2">
+          <div style={{ padding: "12px 16px", borderTop: `1px solid ${COLORS.border.default}` }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <textarea
                 placeholder="Reply to thread..."
-                className="flex-1 bg-[#1a1a1a] border-2 border-[#333333] rounded-lg px-3 py-2 text-sm text-[#e5e5e5] resize-none focus:outline-none focus:border-[#555555] min-h-[40px]"
+                style={{
+                  flex: 1,
+                  background: COLORS.bg.card,
+                  border: `1px solid ${COLORS.border.default}`,
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  fontFamily: FONT_FAMILY,
+                  color: COLORS.text.primary,
+                  resize: "none",
+                  outline: "none",
+                  minHeight: 38,
+                  transition: "border-color 150ms ease",
+                }}
                 rows={1}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = `${COLORS.accent.purple}50`;
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = COLORS.border.default;
+                }}
               />
-              <button className="px-4 py-2 bg-gradient-to-r from-[#7c3aed] to-[#6b21a8] text-white text-sm font-semibold rounded-lg hover:shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all">
-                Reply
+              <button
+                className="game-btn"
+                style={{
+                  padding: "8px 14px",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  fontFamily: "monospace",
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase" as const,
+                  borderRadius: 6,
+                  border: `1px solid ${COLORS.accent.purple}50`,
+                  background: `${COLORS.accent.purple}18`,
+                  color: COLORS.accent.purpleLight,
+                  cursor: "pointer",
+                  transition: "all 150ms ease",
+                  flexShrink: 0,
+                }}
+              >
+                REPLY
               </button>
             </div>
           </div>
-        </div>
+        </aside>
       )}
+
+      {/* ═══════ RESPONSIVE STYLES ═══════ */}
+      <style>{`
+        @media (max-width: 767px) {
+          .chat-sidebar {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            bottom: 0 !important;
+            z-index: 50 !important;
+            width: 280px !important;
+          }
+          .chat-mobile-menu {
+            display: flex !important;
+          }
+          .chat-thread-panel {
+            position: fixed !important;
+            top: 0 !important;
+            right: 0 !important;
+            bottom: 0 !important;
+            z-index: 45 !important;
+            width: 100% !important;
+            max-width: 360px !important;
+          }
+        }
+        @media (min-width: 768px) {
+          .chat-sidebar {
+            transform: translateX(0) !important;
+          }
+        }
+        /* Scrollbar styling */
+        div::-webkit-scrollbar {
+          width: 4px;
+        }
+        div::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        div::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.08);
+          border-radius: 2px;
+        }
+        div::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.14);
+        }
+        textarea::placeholder {
+          color: ${COLORS.text.tertiary};
+        }
+      `}</style>
     </div>
   );
 }
