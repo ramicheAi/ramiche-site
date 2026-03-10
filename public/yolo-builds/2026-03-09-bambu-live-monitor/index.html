@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bambu Lab A1 — Live Monitor</title>
+<style>
+  :root {
+    --bg: #0a0e17;
+    --card: #111827;
+    --border: #1e293b;
+    --accent: #00d4aa;
+    --accent-dim: #00d4aa40;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --success: #22c55e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient particles */
+  #particles {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    max-width: 1400px; margin: 0 auto; padding: 24px;
+  }
+
+  /* Header */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 2px solid var(--border);
+  }
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .printer-icon {
+    width: 48px; height: 48px; background: var(--accent-dim);
+    border: 2px solid var(--accent); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px;
+  }
+  .header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  .header .subtitle { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .connection-badge {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; border-radius: 24px;
+    font-size: 13px; font-weight: 600;
+    border: 2px solid var(--border);
+    background: var(--card);
+  }
+  .connection-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--danger);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  .connection-dot.connected { background: var(--success); }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* Grid layout */
+  .dashboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.3s;
+  }
+  .card:hover { border-color: var(--accent-dim); }
+  .card-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1.5px; color: var(--muted); margin-bottom: 12px;
+  }
+
+  /* Progress card — spans full width */
+  .card-progress {
+    grid-column: 1 / -1;
+  }
+  .progress-header {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    margin-bottom: 16px;
+  }
+  .progress-pct { font-size: 56px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .progress-meta { text-align: right; }
+  .progress-meta div { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+  .progress-meta .filename { color: var(--text); font-weight: 600; font-size: 14px; }
+
+  .progress-bar-outer {
+    width: 100%; height: 20px; background: var(--bg);
+    border-radius: 10px; overflow: hidden; border: 1px solid var(--border);
+    position: relative;
+  }
+  .progress-bar-inner {
+    height: 100%; background: linear-gradient(90deg, var(--accent), #00f0c8);
+    border-radius: 10px; transition: width 0.8s ease;
+    position: relative;
+  }
+  .progress-bar-inner::after {
+    content: ''; position: absolute; top: 0; right: 0;
+    width: 40px; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2));
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    0% { opacity: 0; }
+    50% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  .layer-info {
+    display: flex; gap: 32px; margin-top: 12px; font-size: 13px; color: var(--muted);
+  }
+  .layer-info span { color: var(--text); font-weight: 600; }
+
+  /* Temperature cards */
+  .temp-value {
+    font-size: 42px; font-weight: 800; line-height: 1;
+    margin-bottom: 4px;
+  }
+  .temp-target { font-size: 14px; color: var(--muted); }
+  .temp-target span { color: var(--accent); font-weight: 600; }
+  .temp-bar {
+    margin-top: 16px; width: 100%; height: 6px;
+    background: var(--bg); border-radius: 3px; overflow: hidden;
+  }
+  .temp-bar-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.5s ease;
+  }
+  .nozzle-fill { background: linear-gradient(90deg, var(--warn), var(--danger)); }
+  .bed-fill { background: linear-gradient(90deg, #3b82f6, #8b5cf6); }
+
+  /* Speed & Fan */
+  .speed-value { font-size: 42px; font-weight: 800; line-height: 1; color: var(--accent); }
+  .speed-unit { font-size: 16px; color: var(--muted); font-weight: 600; }
+  .speed-profile {
+    margin-top: 12px; display: inline-block;
+    padding: 4px 12px; border-radius: 8px; font-size: 12px;
+    background: var(--accent-dim); color: var(--accent); font-weight: 600;
+  }
+
+  .fan-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .fan-item .fan-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .fan-item .fan-value { font-size: 28px; font-weight: 700; }
+  .fan-item .fan-rpm { font-size: 12px; color: var(--muted); }
+
+  /* Status card */
+  .card-status { grid-column: 1 / -1; }
+  .status-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+  }
+  .status-item {
+    background: var(--bg); padding: 16px; border-radius: 12px;
+    border: 1px solid var(--border); text-align: center;
+  }
+  .status-item .si-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+  .status-item .si-value { font-size: 18px; font-weight: 700; }
+
+  /* Machine state indicator */
+  .machine-state {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; border-radius: 12px;
+    background: var(--bg); border: 2px solid var(--border);
+    margin-bottom: 20px;
+  }
+  .state-icon { font-size: 20px; }
+  .state-text { font-size: 15px; font-weight: 600; }
+  .state-since { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+  /* Event log */
+  .card-log { grid-column: 1 / -1; }
+  .log-entries { max-height: 200px; overflow-y: auto; }
+  .log-entry {
+    display: flex; gap: 12px; padding: 8px 0;
+    border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .log-entry:last-child { border-bottom: none; }
+  .log-time { color: var(--muted); white-space: nowrap; min-width: 80px; }
+  .log-msg { color: var(--text); }
+  .log-type { font-size: 11px; padding: 2px 8px; border-radius: 6px; font-weight: 600; white-space: nowrap; }
+  .log-type-info { background: #1e40af30; color: #60a5fa; }
+  .log-type-warn { background: #92400e30; color: var(--warn); }
+  .log-type-error { background: #7f1d1d30; color: var(--danger); }
+  .log-type-ok { background: #14532d30; color: var(--success); }
+
+  /* MQTT config panel */
+  .config-panel {
+    grid-column: 1 / -1;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  }
+  .config-panel label { font-size: 12px; color: var(--muted); }
+  .config-panel input {
+    background: var(--bg); border: 2px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; color: var(--text); font-family: inherit; font-size: 13px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .config-panel input:focus { border-color: var(--accent); }
+  .config-panel button {
+    background: var(--accent); color: var(--bg); border: none;
+    padding: 10px 20px; border-radius: 8px; font-family: inherit;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .config-panel button:hover { opacity: 0.8; }
+  .config-panel button.disconnect { background: var(--danger); color: white; }
+  .btn-demo {
+    background: transparent !important; color: var(--accent) !important;
+    border: 2px solid var(--accent) !important;
+  }
+  .btn-demo:hover { background: var(--accent-dim) !important; }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .dashboard { grid-template-columns: 1fr 1fr; }
+    .status-grid { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 600px) {
+    .dashboard { grid-template-columns: 1fr; }
+    .status-grid { grid-template-columns: 1fr 1fr; }
+    .progress-pct { font-size: 40px; }
+    .temp-value, .speed-value { font-size: 32px; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <div class="printer-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--accent)">
+          <rect x="6" y="14" width="12" height="6" rx="1"/>
+          <path d="M6 14V6a2 2 0 012-2h8a2 2 0 012 2v8"/>
+          <line x1="10" y1="18" x2="14" y2="18"/>
+          <path d="M4 10h16v4a2 2 0 01-2 2H6a2 2 0 01-2-2v-4z" opacity="0.3"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Bambu Lab A1 — Live Monitor</h1>
+        <div class="subtitle">MQTT Telemetry Dashboard · Ramiche Fabrication Lab</div>
+      </div>
+    </div>
+    <div class="connection-badge">
+      <div class="connection-dot" id="connDot"></div>
+      <span id="connText">Disconnected</span>
+    </div>
+  </div>
+
+  <!-- Machine State -->
+  <div class="machine-state" id="machineState">
+    <span class="state-icon" id="stateIcon">⏸</span>
+    <span class="state-text" id="stateText">Idle</span>
+    <span class="state-since" id="stateSince">—</span>
+  </div>
+
+  <div class="dashboard">
+
+    <!-- Config Panel -->
+    <div class="card config-panel" id="configPanel">
+      <div>
+        <label>Printer IP</label><br>
+        <input type="text" id="printerIp" value="10.0.0.219" style="width:140px">
+      </div>
+      <div>
+        <label>Access Code</label><br>
+        <input type="password" id="accessCode" value="" placeholder="LAN access code" style="width:140px">
+      </div>
+      <div>
+        <label>Serial</label><br>
+        <input type="text" id="serialNum" value="03919D4C1204131" style="width:180px">
+      </div>
+      <div style="display:flex;gap:8px;align-self:flex-end">
+        <button id="btnConnect" onclick="toggleConnection()">Connect</button>
+        <button class="btn-demo" onclick="startDemo()">Demo Mode</button>
+      </div>
+    </div>
+
+    <!-- Print Progress -->
+    <div class="card card-progress">
+      <div class="card-label">Print Progress</div>
+      <div class="progress-header">
+        <div class="progress-pct"><span id="pctVal">0</span><span style="font-size:24px">%</span></div>
+        <div class="progress-meta">
+          <div class="filename" id="fileName">No active print</div>
+          <div>ETA: <span id="etaVal" style="color:var(--text);font-weight:600">—</span></div>
+          <div>Elapsed: <span id="elapsedVal" style="color:var(--text);font-weight:600">—</span></div>
+        </div>
+      </div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progressBar" style="width:0%"></div>
+      </div>
+      <div class="layer-info">
+        Layer: <span id="layerCurrent">—</span> / <span id="layerTotal">—</span>
+        &nbsp;&nbsp;&nbsp;
+        Weight: <span id="weightUsed">—</span>g of <span id="weightTotal">—</span>g
+      </div>
+    </div>
+
+    <!-- Nozzle Temp -->
+    <div class="card">
+      <div class="card-label">Nozzle Temperature</div>
+      <div class="temp-value" id="nozzleTemp" style="color:var(--warn)">0°C</div>
+      <div class="temp-target">Target: <span id="nozzleTarget">—</span>°C</div>
+      <div class="temp-bar">
+        <div class="temp-bar-fill nozzle-fill" id="nozzleBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Bed Temp -->
+    <div class="card">
+      <div class="card-label">Bed Temperature</div>
+      <div class="temp-value" id="bedTemp" style="color:#8b5cf6">0°C</div>
+      <div class="temp-target">Target: <span id="bedTarget">—</span>°C</div>
+      <div class="temp-bar">
+        <div class="temp-bar-fill bed-fill" id="bedBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Speed -->
+    <div class="card">
+      <div class="card-label">Print Speed</div>
+      <div>
+        <span class="speed-value" id="speedVal">0</span>
+        <span class="speed-unit">mm/s</span>
+      </div>
+      <div class="speed-profile" id="speedProfile">Standard</div>
+      <div style="margin-top:16px">
+        <div class="card-label" style="margin-bottom:8px">Fans</div>
+        <div class="fan-grid">
+          <div class="fan-item">
+            <div class="fan-label">Part Cooling</div>
+            <div class="fan-value" id="fanPart">0%</div>
+          </div>
+          <div class="fan-item">
+            <div class="fan-label">Aux Fan</div>
+            <div class="fan-value" id="fanAux">0%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Grid -->
+    <div class="card card-status">
+      <div class="card-label">Machine Vitals</div>
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="si-label">WiFi Signal</div>
+          <div class="si-value" id="wifiSignal">—</div>
+        </div>
+        <div class="status-item">
+          <div class="si-label">Filament</div>
+          <div class="si-value" id="filamentType">—</div>
+        </div>
+        <div class="status-item">
+          <div class="si-label">Nozzle Size</div>
+          <div class="si-value" id="nozzleSize">0.4mm</div>
+        </div>
+        <div class="status-item">
+          <div class="si-label">Print Stage</div>
+          <div class="si-value" id="printStage">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Event Log -->
+    <div class="card card-log">
+      <div class="card-label">Event Log</div>
+      <div class="log-entries" id="logEntries">
+        <div class="log-entry">
+          <span class="log-time">—</span>
+          <span class="log-type log-type-info">SYS</span>
+          <span class="log-msg">Dashboard loaded. Connect to printer or start Demo Mode.</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── Particle Background ───
+(function initParticles() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let particles = [];
+  const COUNT = 50;
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < COUNT; i++) {
+    particles.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 2 + 0.5,
+      o: Math.random() * 0.3 + 0.05
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = canvas.width;
+      if (p.x > canvas.width) p.x = 0;
+      if (p.y < 0) p.y = canvas.height;
+      if (p.y > canvas.height) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0, 212, 170, ${p.o})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ─── State ───
+let connected = false;
+let demoMode = false;
+let demoInterval = null;
+let mqttClient = null;
+let printStartTime = null;
+
+const state = {
+  pct: 0,
+  nozzleTemp: 0, nozzleTarget: 0,
+  bedTemp: 0, bedTarget: 0,
+  speed: 0, speedProfile: 'Standard',
+  fanPart: 0, fanAux: 0,
+  layer: 0, totalLayers: 0,
+  weightUsed: 0, weightTotal: 0,
+  fileName: 'No active print',
+  etaMin: 0,
+  wifiSignal: '—',
+  filamentType: '—',
+  nozzleSize: '0.4mm',
+  printStage: 'Idle',
+  machineState: 'idle'
+};
+
+// ─── UI Update ───
+function updateUI() {
+  document.getElementById('pctVal').textContent = state.pct;
+  document.getElementById('progressBar').style.width = state.pct + '%';
+  document.getElementById('fileName').textContent = state.fileName;
+
+  // ETA
+  if (state.etaMin > 0) {
+    const h = Math.floor(state.etaMin / 60);
+    const m = state.etaMin % 60;
+    document.getElementById('etaVal').textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  } else {
+    document.getElementById('etaVal').textContent = '—';
+  }
+
+  // Elapsed
+  if (printStartTime) {
+    const elapsed = Math.floor((Date.now() - printStartTime) / 60000);
+    const h = Math.floor(elapsed / 60);
+    const m = elapsed % 60;
+    document.getElementById('elapsedVal').textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  // Temps
+  document.getElementById('nozzleTemp').textContent = state.nozzleTemp + '°C';
+  document.getElementById('nozzleTarget').textContent = state.nozzleTarget || '—';
+  document.getElementById('bedTemp').textContent = state.bedTemp + '°C';
+  document.getElementById('bedTarget').textContent = state.bedTarget || '—';
+
+  const nozzlePct = state.nozzleTarget > 0 ? Math.min(100, (state.nozzleTemp / state.nozzleTarget) * 100) : 0;
+  const bedPct = state.bedTarget > 0 ? Math.min(100, (state.bedTemp / state.bedTarget) * 100) : 0;
+  document.getElementById('nozzleBar').style.width = nozzlePct + '%';
+  document.getElementById('bedBar').style.width = bedPct + '%';
+
+  // Nozzle color: gradient from warm to warn to danger
+  const nozzleEl = document.getElementById('nozzleTemp');
+  if (state.nozzleTemp > 230) nozzleEl.style.color = '#ef4444';
+  else if (state.nozzleTemp > 180) nozzleEl.style.color = '#f59e0b';
+  else nozzleEl.style.color = '#64748b';
+
+  // Speed
+  document.getElementById('speedVal').textContent = state.speed;
+  document.getElementById('speedProfile').textContent = state.speedProfile;
+
+  // Fans
+  document.getElementById('fanPart').textContent = state.fanPart + '%';
+  document.getElementById('fanAux').textContent = state.fanAux + '%';
+
+  // Layers
+  document.getElementById('layerCurrent').textContent = state.layer || '—';
+  document.getElementById('layerTotal').textContent = state.totalLayers || '—';
+  document.getElementById('weightUsed').textContent = state.weightUsed || '—';
+  document.getElementById('weightTotal').textContent = state.weightTotal || '—';
+
+  // Vitals
+  document.getElementById('wifiSignal').textContent = state.wifiSignal;
+  document.getElementById('filamentType').textContent = state.filamentType;
+  document.getElementById('nozzleSize').textContent = state.nozzleSize;
+  document.getElementById('printStage').textContent = state.printStage;
+
+  // Machine state
+  const stateMap = {
+    'idle': { icon: '⏸', text: 'Idle', color: 'var(--muted)' },
+    'printing': { icon: '▶', text: 'Printing', color: 'var(--accent)' },
+    'heating': { icon: '🔥', text: 'Heating', color: 'var(--warn)' },
+    'paused': { icon: '⏯', text: 'Paused', color: 'var(--warn)' },
+    'complete': { icon: '✓', text: 'Complete', color: 'var(--success)' },
+    'error': { icon: '✕', text: 'Error', color: 'var(--danger)' },
+    'leveling': { icon: '📐', text: 'Auto-Leveling', color: '#3b82f6' },
+    'calibrating': { icon: '⚙', text: 'Calibrating', color: '#8b5cf6' }
+  };
+  const ms = stateMap[state.machineState] || stateMap.idle;
+  document.getElementById('stateIcon').textContent = ms.icon;
+  document.getElementById('stateText').textContent = ms.text;
+  document.getElementById('stateText').style.color = ms.color;
+}
+
+// ─── Logging ───
+function addLog(msg, type = 'info') {
+  const el = document.getElementById('logEntries');
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const typeClass = { info: 'log-type-info', warn: 'log-type-warn', error: 'log-type-error', ok: 'log-type-ok' }[type] || 'log-type-info';
+  const typeLabel = { info: 'INFO', warn: 'WARN', error: 'ERR', ok: 'OK' }[type] || 'INFO';
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `
+    <span class="log-time">${time}</span>
+    <span class="log-type ${typeClass}">${typeLabel}</span>
+    <span class="log-msg">${msg}</span>
+  `;
+  el.insertBefore(entry, el.firstChild);
+  // Keep max 50 entries
+  while (el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+// ─── Connection ───
+function toggleConnection() {
+  if (connected) {
+    disconnect();
+  } else {
+    connect();
+  }
+}
+
+function setConnected(val) {
+  connected = val;
+  const dot = document.getElementById('connDot');
+  const text = document.getElementById('connText');
+  const btn = document.getElementById('btnConnect');
+  if (val) {
+    dot.classList.add('connected');
+    text.textContent = demoMode ? 'Demo Mode' : 'Connected';
+    btn.textContent = 'Disconnect';
+    btn.classList.add('disconnect');
+  } else {
+    dot.classList.remove('connected');
+    text.textContent = 'Disconnected';
+    btn.textContent = 'Connect';
+    btn.classList.remove('disconnect');
+  }
+}
+
+function connect() {
+  const ip = document.getElementById('printerIp').value.trim();
+  const code = document.getElementById('accessCode').value.trim();
+  const serial = document.getElementById('serialNum').value.trim();
+
+  if (!ip || !code || !serial) {
+    addLog('Missing connection details. Fill in IP, access code, and serial.', 'error');
+    return;
+  }
+
+  addLog(`Attempting MQTT connection to ${ip}:8883...`, 'info');
+
+  // Bambu Lab MQTT connection
+  // Note: Direct browser MQTT over TLS to port 8883 requires a WebSocket proxy.
+  // In production, you'd run a lightweight WS proxy (e.g., websockify or mosquitto with WS).
+  // For now, we detect if a WebSocket endpoint is available.
+  const wsUrl = `wss://${ip}:8884/mqtt`;
+
+  try {
+    // Check for Paho MQTT or native WebSocket MQTT
+    if (typeof Paho !== 'undefined') {
+      connectPaho(ip, code, serial);
+    } else {
+      // Attempt raw WebSocket
+      addLog('No MQTT library loaded. For live connection, add Paho MQTT JS.', 'warn');
+      addLog('Use Demo Mode to preview the dashboard with simulated data.', 'info');
+      addLog('To connect for real: add a WebSocket MQTT proxy on port 8884.', 'info');
+    }
+  } catch (e) {
+    addLog(`Connection error: ${e.message}`, 'error');
+  }
+}
+
+function connectPaho(ip, code, serial) {
+  // Paho MQTT.js client connection to Bambu Lab A1
+  mqttClient = new Paho.MQTT.Client(ip, 8884, 'bambu-monitor-' + Date.now());
+  mqttClient.onConnectionLost = function(resp) {
+    addLog('MQTT connection lost: ' + resp.errorMessage, 'error');
+    setConnected(false);
+  };
+  mqttClient.onMessageArrived = function(msg) {
+    try {
+      const data = JSON.parse(msg.payloadString);
+      processMqttMessage(data);
+    } catch (e) {
+      addLog('Failed to parse MQTT payload', 'warn');
+    }
+  };
+
+  mqttClient.connect({
+    useSSL: true,
+    userName: 'bblp',
+    password: code,
+    onSuccess: function() {
+      setConnected(true);
+      addLog(`Connected to Bambu Lab A1 (${ip})`, 'ok');
+      // Subscribe to the printer report topic
+      mqttClient.subscribe(`device/${serial}/report`);
+      addLog(`Subscribed to device/${serial}/report`, 'info');
+    },
+    onFailure: function(err) {
+      addLog(`MQTT connection failed: ${err.errorMessage}`, 'error');
+    }
+  });
+}
+
+function processMqttMessage(data) {
+  // Bambu Lab X1/P1/A1 MQTT report structure
+  const print = data.print;
+  if (!print) return;
+
+  if (print.mc_percent !== undefined) {
+    state.pct = print.mc_percent;
+    if (state.pct > 0 && !printStartTime) printStartTime = Date.now();
+    if (state.pct >= 100) { state.machineState = 'complete'; printStartTime = null; }
+  }
+  if (print.mc_remaining_time !== undefined) state.etaMin = print.mc_remaining_time;
+  if (print.nozzle_temper !== undefined) state.nozzleTemp = Math.round(print.nozzle_temper);
+  if (print.nozzle_target_temper !== undefined) state.nozzleTarget = Math.round(print.nozzle_target_temper);
+  if (print.bed_temper !== undefined) state.bedTemp = Math.round(print.bed_temper);
+  if (print.bed_target_temper !== undefined) state.bedTarget = Math.round(print.bed_target_temper);
+  if (print.spd_lvl !== undefined) {
+    const profiles = { 1: 'Silent', 2: 'Standard', 3: 'Sport', 4: 'Ludicrous' };
+    state.speedProfile = profiles[print.spd_lvl] || 'Standard';
+  }
+  if (print.spd_mag !== undefined) state.speed = print.spd_mag;
+  if (print.cooling_fan_speed) state.fanPart = Math.round((parseInt(print.cooling_fan_speed) / 15) * 100);
+  if (print.big_fan1_speed) state.fanAux = Math.round((parseInt(print.big_fan1_speed) / 15) * 100);
+  if (print.layer_num !== undefined) state.layer = print.layer_num;
+  if (print.total_layer_num !== undefined) state.totalLayers = print.total_layer_num;
+  if (print.gcode_file) state.fileName = print.gcode_file.split('/').pop();
+  if (print.wifi_signal) state.wifiSignal = print.wifi_signal + ' dBm';
+  if (print.filam_bak && print.filam_bak.length > 0) state.filamentType = print.filam_bak[0].type || '—';
+
+  // Determine machine state
+  if (print.gcode_state) {
+    const stateMap = { IDLE: 'idle', RUNNING: 'printing', PAUSE: 'paused', FINISH: 'complete', FAILED: 'error' };
+    state.machineState = stateMap[print.gcode_state] || 'idle';
+    state.printStage = print.gcode_state;
+  }
+  if (state.nozzleTarget > 0 && state.nozzleTemp < state.nozzleTarget - 10 && state.machineState === 'printing') {
+    state.machineState = 'heating';
+  }
+
+  updateUI();
+}
+
+function disconnect() {
+  if (demoMode) {
+    clearInterval(demoInterval);
+    demoInterval = null;
+    demoMode = false;
+    addLog('Demo mode stopped.', 'info');
+  }
+  if (mqttClient) {
+    try { mqttClient.disconnect(); } catch (e) {}
+    mqttClient = null;
+  }
+  setConnected(false);
+  // Reset state
+  Object.assign(state, {
+    pct: 0, nozzleTemp: 0, nozzleTarget: 0, bedTemp: 0, bedTarget: 0,
+    speed: 0, fanPart: 0, fanAux: 0, layer: 0, totalLayers: 0,
+    weightUsed: 0, weightTotal: 0, fileName: 'No active print',
+    etaMin: 0, wifiSignal: '—', filamentType: '—', printStage: 'Idle',
+    machineState: 'idle'
+  });
+  printStartTime = null;
+  updateUI();
+}
+
+// ─── Demo Mode ───
+function startDemo() {
+  if (connected) disconnect();
+  demoMode = true;
+  setConnected(true);
+  addLog('Demo mode started — simulating Bambu Lab A1 print job.', 'ok');
+
+  // Initialize demo state
+  state.fileName = 'galactik-antics-phone-case-v3.gcode';
+  state.nozzleTarget = 220;
+  state.bedTarget = 60;
+  state.totalLayers = 186;
+  state.weightTotal = 42;
+  state.filamentType = 'PLA';
+  state.wifiSignal = '-42 dBm';
+  state.nozzleSize = '0.4mm';
+  state.speedProfile = 'Standard';
+  state.machineState = 'heating';
+  state.printStage = 'HEATING';
+  state.pct = 0;
+  state.layer = 0;
+  state.nozzleTemp = 28;
+  state.bedTemp = 24;
+
+  printStartTime = Date.now();
+  addLog('Print job queued: galactik-antics-phone-case-v3.gcode', 'info');
+  addLog('Material: PLA · Layers: 186 · Est. weight: 42g', 'info');
+
+  let tick = 0;
+  demoInterval = setInterval(() => {
+    tick++;
+
+    // Phase 1: Heating (first 20 ticks)
+    if (tick <= 20) {
+      state.machineState = 'heating';
+      state.printStage = 'HEATING';
+      state.nozzleTemp = Math.min(220, 28 + tick * 9.6);
+      state.bedTemp = Math.min(60, 24 + tick * 1.8);
+      state.speed = 0;
+      state.fanPart = 0;
+      state.fanAux = 0;
+
+      if (tick === 10) addLog('Nozzle approaching target (150°C)...', 'info');
+      if (tick === 20) {
+        addLog('Temperatures reached. Starting auto-leveling.', 'ok');
+        state.machineState = 'leveling';
+        state.printStage = 'LEVELING';
+      }
+    }
+    // Phase 2: Leveling (ticks 21-25)
+    else if (tick <= 25) {
+      state.machineState = 'leveling';
+      state.printStage = 'LEVELING';
+      if (tick === 25) {
+        addLog('Bed mesh complete. First layer starting.', 'ok');
+        state.machineState = 'printing';
+        state.printStage = 'RUNNING';
+      }
+    }
+    // Phase 3: Printing
+    else if (state.pct < 100) {
+      state.machineState = 'printing';
+      state.printStage = 'RUNNING';
+      state.pct = Math.min(100, state.pct + Math.random() * 1.2 + 0.3);
+      state.layer = Math.min(state.totalLayers, Math.round(state.pct / 100 * state.totalLayers));
+      state.speed = Math.round(80 + Math.random() * 40);
+      state.fanPart = Math.round(80 + Math.random() * 20);
+      state.fanAux = Math.round(40 + Math.random() * 20);
+      state.nozzleTemp = Math.round(218 + Math.random() * 4);
+      state.bedTemp = Math.round(59 + Math.random() * 2);
+      state.weightUsed = Math.round(state.pct / 100 * state.weightTotal * 10) / 10;
+      state.etaMin = Math.max(0, Math.round((100 - state.pct) / 1.5));
+
+      // Occasional events
+      if (tick % 30 === 0) addLog(`Layer ${state.layer}/${state.totalLayers} — ${Math.round(state.pct)}% complete`, 'info');
+      if (tick === 60) addLog('Speed profile changed to Sport mode.', 'info');
+      if (tick === 60) { state.speedProfile = 'Sport'; state.speed = 120; }
+    }
+    // Phase 4: Complete
+    else {
+      state.pct = 100;
+      state.machineState = 'complete';
+      state.printStage = 'FINISH';
+      state.speed = 0;
+      state.fanPart = 100;
+      state.fanAux = 50;
+      state.etaMin = 0;
+      state.layer = state.totalLayers;
+      state.weightUsed = state.weightTotal;
+      addLog('Print complete! galactik-antics-phone-case-v3.gcode finished.', 'ok');
+      clearInterval(demoInterval);
+      demoInterval = null;
+    }
+
+    state.pct = Math.round(state.pct);
+    state.nozzleTemp = Math.round(state.nozzleTemp);
+    state.bedTemp = Math.round(state.bedTemp);
+    updateUI();
+  }, 800);
+}
+
+// ─── Init ───
+updateUI();
+addLog('Bambu Lab A1 Live Monitor v1.0 initialized.', 'info');
+</script>
+</body>
+</html>
