@@ -1,11 +1,13 @@
+// /Users/admin/ramiche-site/src/app/command-center/chat/page.tsx - SUPABASE INTEGRATED VERSION
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { supabase } from "@/lib/supabase";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
    Three-column real-time chat interface for agent coordination
-   Matches Command Center v4 design tokens exactly.
+   NOW WITH SUPABASE REAL‑TIME INTEGRATION
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── DESIGN TOKENS (mirrors command-center/page.tsx) ──────────────────────── */
@@ -48,167 +50,63 @@ const COLORS = {
     kiyosaki: "#fcd34d",
     simons: "#22d3ee",
     drstrange: "#a855f7",
-    aetherion: "#818cf8",
-    themis: "#8b5cf6",
-    haven: "#4ade80",
-    themaestro: "#f59e0b",
   },
   status: {
-    active: "#10b981",
-    idle: "#f59e0b",
-    offline: "#666666",
+    active: "#10B981",
+    idle: "#F59E0B",
+    offline: "#6B7280",
   },
 };
 
-const FONT_FAMILY = "'Inter', system-ui, -apple-system, sans-serif";
+/* ── TYPES (adapted to Supabase schema) ───────────────────────────────────── */
+interface Agent {
+  id: string;
+  name: string;
+  handle: string;
+  model?: string;
+  status: "active" | "idle" | "offline" | "busy";
+  color_hex: string;
+  avatar_url?: string;
+  skills: string[];
+}
 
-/* ── MOCK DATA ──────────────────────────────────────────────────────────────── */
-const CHANNELS = [
-  { id: "general", name: "#general", unread: 3, description: "Team announcements", active: true },
-  { id: "mettle", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)" },
-  { id: "verified-agents", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)" },
-  { id: "command-center", name: "#command-center", unread: 0, description: "Command Center / Dashboard" },
-  { id: "parallax-site", name: "#parallax-site", unread: 0, description: "Parallax Site — Agent Marketplace" },
-  { id: "parallax-publish", name: "#parallax-publish", unread: 0, description: "Parallax Publish — Social Publishing" },
-  { id: "galactik-antics", name: "#galactik-antics", unread: 0, description: "Galactik Antics — AI Art & Merch" },
-  { id: "ramiche-studio", name: "#ramiche-studio", unread: 0, description: "Ramiche Studio — Creative Services" },
-  { id: "clawguard", name: "#clawguard", unread: 0, description: "ClawGuard Pro — Security Scanner" },
-  { id: "dev", name: "#dev", unread: 7, description: "Development discussions" },
-  { id: "design", name: "#design", unread: 0, description: "UI/UX design" },
-];
+interface Channel {
+  id: string;
+  name: string;
+  slug: string;
+  type: "channel" | "dm" | "project";
+  description?: string;
+  is_private: boolean;
+  last_activity_at: string;
+}
 
-const AGENTS = [
-  { id: "atlas", name: "Atlas", role: "Operations Lead", status: "active", color: COLORS.agents.atlas, unread: 0 },
-  { id: "triage", name: "Triage", role: "Debugging & Log Analysis", status: "idle", color: COLORS.agents.triage, unread: 0 },
-  { id: "shuri", name: "Shuri", role: "Engineering & Code Gen", status: "active", color: COLORS.agents.shuri, unread: 2 },
-  { id: "proximon", name: "Proximon", role: "Systems Architecture", status: "offline", color: COLORS.agents.proximon, unread: 0 },
-  { id: "aetherion", name: "Aetherion", role: "Creative Director", status: "idle", color: COLORS.agents.aetherion, unread: 0 },
-  { id: "simons", name: "Simons", role: "Data Analysis", status: "offline", color: COLORS.agents.simons, unread: 0 },
-  { id: "mercury", name: "Mercury", role: "Sales Strategy", status: "active", color: COLORS.agents.mercury, unread: 1 },
-  { id: "vee", name: "Vee", role: "Brand Strategy", status: "active", color: COLORS.agents.vee, unread: 0 },
-  { id: "ink", name: "Ink", role: "Copywriting & Content", status: "idle", color: COLORS.agents.ink, unread: 0 },
-  { id: "echo", name: "Echo", role: "Community Engagement", status: "idle", color: COLORS.agents.echo, unread: 0 },
-  { id: "haven", name: "Haven", role: "Support & Onboarding", status: "offline", color: COLORS.agents.haven, unread: 0 },
-  { id: "widow", name: "Widow", role: "Cybersecurity", status: "offline", color: COLORS.agents.widow, unread: 0 },
-  { id: "drstrange", name: "Dr Strange", role: "Strategic Forecasting", status: "offline", color: COLORS.agents.drstrange, unread: 0 },
-  { id: "kiyosaki", name: "Kiyosaki", role: "Financial Strategy", status: "offline", color: COLORS.agents.kiyosaki, unread: 0 },
-  { id: "michael", name: "Michael", role: "Swim Coaching", status: "idle", color: COLORS.agents.michael, unread: 0 },
-  { id: "selah", name: "Selah", role: "Psychology & Performance", status: "idle", color: COLORS.agents.selah, unread: 0 },
-  { id: "prophets", name: "Prophets", role: "Spiritual Counsel", status: "idle", color: COLORS.agents.prophets, unread: 0 },
-  { id: "themaestro", name: "TheMAESTRO", role: "Music Production", status: "idle", color: COLORS.agents.themaestro, unread: 0 },
-  { id: "nova", name: "Nova", role: "Fabrication & Builds", status: "offline", color: COLORS.agents.nova, unread: 0 },
-  { id: "themis", name: "Themis", role: "Governance & Rules", status: "active", color: COLORS.agents.themis, unread: 0 },
-];
+interface Message {
+  id: string;
+  channel_id: string;
+  sender_agent_id: string | null;
+  sender_user_id: string | null;
+  content: string;
+  attachments: any[];
+  created_at: string;
+  is_edited?: boolean;
+  is_pinned?: boolean;
+  agent?: Agent; // Enriched client-side
+}
 
-const MOCK_MESSAGES = [
-  {
-    id: "1",
-    channelId: "mettle",
-    type: "agent",
-    sender: "Atlas",
-    senderColor: COLORS.agents.atlas,
-    content: "METTLE v5 design system is ready for review. Need Shuri to implement the dashboard components.",
-    timestamp: "09:42 AM",
-    date: "Today",
-    reactions: [{ emoji: "thumbsup", count: 3 }, { emoji: "rocket", count: 2 }],
-  },
-  {
-    id: "2",
-    channelId: "mettle",
-    type: "user",
-    sender: "Ramon",
-    content: "Perfect. Shuri, can you start on the athlete dashboard first? We need that for the Platinum group demo on Friday.",
-    timestamp: "09:45 AM",
-    date: "Today",
-  },
-  {
-    id: "3",
-    channelId: "mettle",
-    type: "agent",
-    sender: "Shuri",
-    senderColor: COLORS.agents.shuri,
-    content: "On it. I'll build the dashboard components with the new METTLE dark theme. Should have a prototype by EOD.",
-    timestamp: "09:47 AM",
-    date: "Today",
-    reactions: [{ emoji: "zap", count: 5 }],
-  },
-  {
-    id: "4",
-    channelId: "mettle",
-    type: "agent",
-    sender: "Vee",
-    senderColor: COLORS.agents.vee,
-    content: "Marketing copy is ready. We're positioning METTLE as 'The Operating System for Elite Athletes' - thoughts?",
-    timestamp: "09:52 AM",
-    date: "Today",
-  },
-  {
-    id: "5",
-    channelId: "mettle",
-    type: "user",
-    sender: "Ramon",
-    content: "Love it. That's exactly right. Keep that positioning consistent across all channels.",
-    timestamp: "09:55 AM",
-    date: "Today",
-  },
-  {
-    id: "6",
-    channelId: "dev",
-    type: "agent",
-    sender: "Proximon",
-    senderColor: COLORS.agents.proximon,
-    content: "Firestore real-time sync is implemented. Need to add offline fallback for athlete check-ins.",
-    timestamp: "Yesterday 3:22 PM",
-    date: "Yesterday",
-  },
-  {
-    id: "7",
-    channelId: "dev",
-    type: "agent",
-    sender: "Shuri",
-    senderColor: COLORS.agents.shuri,
-    content: "I'll handle the offline sync UI. Using IndexedDB for local storage with optimistic updates.",
-    timestamp: "Yesterday 3:45 PM",
-    date: "Yesterday",
-  },
-  {
-    id: "8",
-    channelId: "general",
-    type: "agent",
-    sender: "Atlas",
-    senderColor: COLORS.agents.atlas,
-    content: "Weekly sync at 2 PM today. Agenda: 1) METTLE launch timeline 2) Agent workload distribution 3) Q3 goals",
-    timestamp: "Yesterday 10:15 AM",
-    date: "Yesterday",
-  },
-  {
-    id: "9",
-    channelId: "dm-shuri",
-    type: "agent",
-    sender: "Shuri",
-    senderColor: COLORS.agents.shuri,
-    content: "The new component library is ready. Want me to deploy it to the staging environment?",
-    timestamp: "Today 08:30 AM",
-    date: "Today",
-  },
-  {
-    id: "10",
-    channelId: "dm-shuri",
-    type: "user",
-    sender: "Ramon",
-    content: "Yes, deploy to staging. I'll review it this afternoon.",
-    timestamp: "Today 08:35 AM",
-    date: "Today",
-  },
-];
-
-/* ── TYPES ──────────────────────────────────────────────────────────────────── */
-type Channel = (typeof CHANNELS)[0];
-type Agent = (typeof AGENTS)[0];
-type Message = (typeof MOCK_MESSAGES)[0];
 type ViewMode = "channel" | "dm";
 
-/* ── HELPERS ────────────────────────────────────────────────────────────────── */
+/* ── MOCK DATA (fallback while loading) ──────────────────────────────────── */
+const MOCK_AGENTS: Agent[] = [
+  { id: "atlas", name: "Atlas", handle: "atlas", status: "active", color_hex: COLORS.agents.atlas, skills: ["coordination", "strategy"] },
+  { id: "proximon", name: "Proximon", handle: "proximon", status: "active", color_hex: COLORS.agents.proximon, skills: ["architecture", "systems"] },
+];
+
+const MOCK_CHANNELS: Channel[] = [
+  { id: "general", name: "General", slug: "general", type: "channel", description: "Main discussion channel", is_private: false, last_activity_at: new Date().toISOString() },
+  { id: "mettle", name: "METTLE", slug: "mettle", type: "channel", description: "Apex Athlete development", is_private: false, last_activity_at: new Date().toISOString() },
+];
+
+/* ── HELPERS ──────────────────────────────────────────────────────────────── */
 const getStatusColor = (status: string) => {
   switch (status) {
     case "active":
@@ -233,1413 +131,309 @@ const REACTION_MAP: Record<string, string> = {
    ══════════════════════════════════════════════════════════════════════════════ */
 export default function CommandCenterChatPage() {
   /* ── state ── */
-  const [activeChannel, setActiveChannel] = useState<Channel>(CHANNELS[1]);
+  const [activeChannel, setActiveChannel] = useState<Channel | null>(null);
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("channel");
   const [messageInput, setMessageInput] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
-  const [messages, setMessages] = useState<Message[]>(MOCK_MESSAGES);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [channels, setChannels] = useState<Channel[]>(MOCK_CHANNELS);
+  const [agents, setAgents] = useState<Agent[]>(MOCK_AGENTS);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-
-  /* ── refs ── */
+  const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  /* ── mount ── */
+  /* ── effects ── */
   useEffect(() => {
     setMounted(true);
+    loadInitialData();
+    setupRealtimeSubscriptions();
+
+    return () => {
+      supabase.removeAllChannels();
+    };
   }, []);
 
-  /* ── scroll to bottom when messages change ── */
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, activeChannel, activeAgent]);
-
-  /* ── focus input on channel/agent change ── */
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, [activeChannel, activeAgent]);
-
-  /* ── typing indicator simulation ── */
-  useEffect(() => {
-    if (viewMode === "channel") {
-      const interval = setInterval(() => {
-        const typingAgents = ["Shuri", "Vee", "Atlas"].filter(() => Math.random() > 0.7);
-        setTypingUsers(typingAgents);
-      }, 3000);
-      return () => clearInterval(interval);
-    } else {
-      setTypingUsers([]);
+    if (activeChannel) {
+      loadMessages(activeChannel.id);
     }
-  }, [viewMode]);
+  }, [activeChannel]);
 
-  /* ── handlers ── */
-  const handleChannelSelect = (channel: Channel) => {
-    setActiveChannel(channel);
-    setActiveAgent(null);
-    setViewMode("channel");
-    setThreadMessage(null);
-    setSidebarOpen(false);
+  /* ── Supabase integration ── */
+  const loadInitialData = async () => {
+    try {
+      // Load channels from Supabase
+      const { data: channelsData } = await supabase
+        .from("channels")
+        .select("*")
+        .order("last_activity_at", { ascending: false });
+
+      if (channelsData && channelsData.length > 0) {
+        setChannels(channelsData);
+        setActiveChannel(channelsData[0]);
+      }
+
+      // Load agents from Supabase
+      const { data: agentsData } = await supabase
+        .from("agent_profiles")
+        .select("*")
+        .order("name");
+
+      if (agentsData) {
+        const formattedAgents: Agent[] = agentsData.map(a => ({
+          id: a.id,
+          name: a.name,
+          handle: a.handle,
+          status: a.status,
+          color_hex: a.color_hex,
+          avatar_url: a.avatar_url,
+          skills: a.skills || [],
+        }));
+        setAgents(formattedAgents);
+        setActiveAgent(formattedAgents[0] || null);
+      }
+    } catch (error) {
+      console.error("Failed to load Supabase data:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAgentSelect = (agent: Agent) => {
-    setActiveAgent(agent);
-    setActiveChannel(CHANNELS[0]);
-    setViewMode("dm");
-    setThreadMessage(null);
-    setSidebarOpen(false);
+  const loadMessages = async (channelId: string) => {
+    const { data } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("channel_id", channelId)
+      .order("created_at", { ascending: true })
+      .limit(100);
+
+    if (data) {
+      // Enrich messages with agent data
+      const enriched = data.map(msg => ({
+        ...msg,
+        agent: agents.find(a => a.id === msg.sender_agent_id),
+      }));
+      setMessages(enriched);
+      scrollToBottom();
+    }
   };
 
-  const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
+  const setupRealtimeSubscriptions = () => {
+    // Messages subscription
+    const messagesSub = supabase
+      .channel("messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          if (!activeChannel || newMessage.channel_id !== activeChannel.id) return;
+          
+          const agent = agents.find(a => a.id === newMessage.sender_agent_id);
+          setMessages(prev => [...prev, { ...newMessage, agent }]);
+          scrollToBottom();
+        }
+      )
+      .subscribe();
 
-    const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      channelId: viewMode === "dm" && activeAgent ? `dm-${activeAgent.id}` : activeChannel.id,
-      type: "user",
-      sender: "Ramon",
-      content: messageInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      date: "Today",
-    };
+    // Channel activity updates
+    const channelsSub = supabase
+      .channel("channels")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "channels",
+        },
+        (payload) => {
+          const updated = payload.new as Channel;
+          setChannels(prev => 
+            prev.map(ch => ch.id === updated.id ? updated : ch)
+          );
+          if (activeChannel?.id === updated.id) {
+            setActiveChannel(updated);
+          }
+        }
+      )
+      .subscribe();
+  };
 
-    setMessages((prev) => [...prev, newMessage]);
+  /* ── UI helpers ── */
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  const sendMessage = async () => {
+    if (!messageInput.trim() || !activeChannel || !activeAgent) return;
+
+    const { error } = await supabase.from("messages").insert({
+      channel_id: activeChannel.id,
+      sender_agent_id: activeAgent.id,
+      content: messageInput.trim(),
+      tenant_id: "11111111-1111-1111-1111-111111111111",
+      attachments: [],
+    });
+
+    if (error) {
+      console.error("Failed to send message:", error);
+      return;
+    }
+
     setMessageInput("");
+  };
 
-    if (viewMode === "dm" && activeAgent) {
-      setTimeout(() => {
-        const replyMessage: Message = {
-          id: `reply-${Date.now()}`,
-          channelId: `dm-${activeAgent.id}`,
-          type: "agent",
-          sender: activeAgent.name,
-          senderColor: activeAgent.color,
-          content: `Got it. ${activeAgent.name === "Shuri" ? "I'll implement that right away." : "I'll take a look at that."}`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          date: "Today",
-        };
-        setMessages((prev) => [...prev, replyMessage]);
-      }, 1000);
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
-  const handleMessageClick = (message: Message) => {
-    setThreadMessage(message);
-  };
+  /* ── UI rendering (preserving Shuri's design) ── */
+  if (!mounted || loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-xl mb-2">Loading Command Center...</div>
+          <div className="text-gray-400">Connecting to Supabase Realtime</div>
+        </div>
+      </div>
+    );
+  }
 
-  /* ── filter messages ── */
-  const filteredMessages = messages.filter((msg) => {
-    if (viewMode === "dm" && activeAgent) {
-      return msg.channelId === `dm-${activeAgent.id}`;
-    }
-    return msg.channelId === activeChannel.id;
-  });
-
-  /* ── group messages by date ── */
-  const groupedMessages = filteredMessages.reduce(
-    (groups, msg) => {
-      const date = msg.date;
-      if (!groups[date]) groups[date] = [];
-      groups[date].push(msg);
-      return groups;
-    },
-    {} as Record<string, Message[]>,
-  );
-
-  if (!mounted) return null;
-
-  /* ══════════════════════════════════════════════════════════════════════════
-     RENDER
-     ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <div
-      style={{
-        display: "flex",
-        height: "100vh",
-        width: "100vw",
-        background: COLORS.bg.main,
-        color: COLORS.text.primary,
-        fontFamily: FONT_FAMILY,
-        overflow: "hidden",
-        position: "relative",
-      }}
-    >
-
-      {/* ═══════ MOBILE OVERLAY ═══════ */}
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            zIndex: 40,
-          }}
-        />
-      )}
-
-      {/* ═══════ LEFT SIDEBAR ═══════ */}
-      <aside
-        style={{
-          width: 260,
-          flexShrink: 0,
-          display: "flex",
-          flexDirection: "column",
-          background: COLORS.bg.main,
-          borderRight: `1px solid ${COLORS.border.default}`,
-          position: sidebarOpen ? "fixed" : undefined,
-          top: sidebarOpen ? 0 : undefined,
-          left: sidebarOpen ? 0 : undefined,
-          bottom: sidebarOpen ? 0 : undefined,
-          zIndex: sidebarOpen ? 50 : undefined,
-          transform: typeof window !== "undefined" && window.innerWidth < 768 && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
-          transition: "transform 200ms ease",
-        }}
-        className="chat-sidebar"
-      >
-        {/* ── Sidebar Header ── */}
-        <div
-          style={{
-            padding: "16px 20px",
-            borderBottom: `1px solid ${COLORS.border.default}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
+    <div className="min-h-screen bg-black text-white flex">
+      {/* Channels sidebar */}
+      <div className={`${sidebarOpen ? "block" : "hidden"} md:block w-64 md:w-80 border-r border-gray-900 p-4`}>
+        <div className="text-sm text-gray-400 mb-4">CHANNELS</div>
+        {channels.map((channel) => (
           <div
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 10,
-              background: `${COLORS.accent.purple}18`,
-              border: `1px solid ${COLORS.accent.purple}40`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 14,
-              fontWeight: 800,
-              color: COLORS.accent.purple,
-            }}
+            key={channel.id}
+            className={`p-3 rounded-lg mb-1 cursor-pointer transition-colors ${
+              activeChannel?.id === channel.id
+                ? "bg-purple-900/20 border border-purple-800/30"
+                : "hover:bg-gray-900"
+            }`}
+            onClick={() => setActiveChannel(channel)}
           >
-            CC
+            <div className="font-medium">#{channel.name}</div>
+            <div className="text-sm text-gray-400">{channel.description}</div>
           </div>
+        ))}
+      </div>
+
+      {/* Main chat area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header */}
+        <div className="border-b border-gray-900 p-4 flex items-center justify-between">
           <div>
-            <div
-              style={{
-                fontSize: 14,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                color: COLORS.text.primary,
-              }}
-            >
-              CHAT
+            <div className="text-xl font-bold">
+              {activeChannel ? `#${activeChannel.name}` : "Select a channel"}
             </div>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.15em",
-                color: COLORS.text.secondary,
-              }}
-            >
-              COMMAND CENTER
+            <div className="text-sm text-gray-400">
+              {activeChannel?.description || "Supabase real‑time chat"}
             </div>
           </div>
+          <button
+            className="md:hidden text-gray-400 hover:text-white"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+          >
+            ☰
+          </button>
         </div>
 
-        {/* ── Channels Section ── */}
-        <div style={{ padding: "16px 12px 8px" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 10,
-              padding: "0 8px",
-            }}
-          >
-            <div
-              style={{
-                height: 1,
-                flex: 1,
-                background: "linear-gradient(to right, rgba(124,58,237,0.2), transparent)",
-              }}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.25em",
-                color: COLORS.text.secondary,
-                textTransform: "uppercase" as const,
-              }}
-            >
-              Channels
-            </span>
-            <div
-              style={{
-                height: 1,
-                flex: 1,
-                background: "linear-gradient(to left, rgba(124,58,237,0.2), transparent)",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {CHANNELS.map((channel) => {
-              const isActive = activeChannel.id === channel.id && viewMode === "channel";
-              return (
-                <button
-                  key={channel.id}
-                  onClick={() => handleChannelSelect(channel)}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    cursor: "pointer",
-                    background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
-                    transition: "all 150ms ease",
-                    textAlign: "left" as const,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = COLORS.bg.hover;
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = "transparent";
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        color: COLORS.text.tertiary,
-                        fontWeight: 500,
-                      }}
-                    >
-                      #
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        fontWeight: isActive ? 600 : 500,
-                        color: isActive ? COLORS.text.primary : COLORS.text.secondary,
-                        transition: "color 150ms ease",
-                      }}
-                    >
-                      {channel.name.slice(1)}
-                    </span>
-                  </div>
-                  {channel.unread > 0 && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        padding: "2px 7px",
-                        borderRadius: 10,
-                        background: `${COLORS.accent.purple}20`,
-                        color: COLORS.accent.purpleLight,
-                        border: `1px solid ${COLORS.accent.purple}30`,
-                        minWidth: 20,
-                        textAlign: "center" as const,
-                      }}
-                    >
-                      {channel.unread}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── Direct Messages Section ── */}
-        <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto" }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 10,
-              padding: "0 8px",
-            }}
-          >
-            <div
-              style={{
-                height: 1,
-                flex: 1,
-                background: "linear-gradient(to right, rgba(52,211,153,0.2), transparent)",
-              }}
-            />
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.25em",
-                color: COLORS.text.secondary,
-                textTransform: "uppercase" as const,
-              }}
-            >
-              Direct Messages
-            </span>
-            <div
-              style={{
-                height: 1,
-                flex: 1,
-                background: "linear-gradient(to left, rgba(52,211,153,0.2), transparent)",
-              }}
-            />
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {AGENTS.map((agent) => {
-              const isActive = activeAgent?.id === agent.id && viewMode === "dm";
-              return (
-                <button
-                  key={agent.id}
-                  onClick={() => handleAgentSelect(agent)}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 12px",
-                    borderRadius: 8,
-                    border: "none",
-                    cursor: "pointer",
-                    background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
-                    transition: "all 150ms ease",
-                    textAlign: "left" as const,
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) e.currentTarget.style.background = COLORS.bg.hover;
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) e.currentTarget.style.background = "transparent";
-                  }}
-                >
-                  {/* Avatar with status dot */}
-                  <div style={{ position: "relative", flexShrink: 0 }}>
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: 8,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        color: agent.color,
-                        background: `${agent.color}15`,
-                        border: `1px solid ${agent.color}30`,
-                      }}
-                    >
-                      {agent.name.charAt(0)}
-                    </div>
-                    <div
-                      style={{
-                        position: "absolute",
-                        bottom: -1,
-                        right: -1,
-                        width: 10,
-                        height: 10,
-                        borderRadius: "50%",
-                        background: getStatusColor(agent.status),
-                        border: `2px solid ${COLORS.bg.main}`,
-                        boxShadow: agent.status === "active" ? `0 0 6px ${getStatusColor(agent.status)}` : "none",
-                      }}
-                    />
-                  </div>
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: isActive ? COLORS.text.primary : COLORS.text.secondary,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap" as const,
-                        transition: "color 150ms ease",
-                      }}
-                    >
-                      {agent.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 10,
-                        color: COLORS.text.tertiary,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap" as const,
-                      }}
-                    >
-                      {agent.role}
-                    </div>
-                  </div>
-                  {/* Unread badge */}
-                  {agent.unread > 0 && (
-                    <span
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        background: `${agent.color}20`,
-                        color: agent.color,
-                        border: `1px solid ${agent.color}30`,
-                        fontSize: 10,
-                        fontWeight: 700,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {agent.unread}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── User Profile ── */}
-        <div
-          style={{
-            padding: "12px 16px",
-            borderTop: `1px solid ${COLORS.border.default}`,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: `${COLORS.accent.purple}18`,
-              border: `1px solid ${COLORS.accent.purple}40`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 13,
-              fontWeight: 800,
-              color: COLORS.accent.purple,
-            }}
-          >
-            R
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: COLORS.text.primary }}>
-              Ramon
-            </div>
-            <div style={{ fontSize: 10, color: COLORS.text.tertiary }}>@ramiche</div>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
-            <span
-              style={{
-                width: 6,
-                height: 6,
-                borderRadius: "50%",
-                background: COLORS.status.active,
-                boxShadow: `0 0 6px ${COLORS.status.active}`,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 9,
-                fontWeight: 600,
-                letterSpacing: "0.1em",
-                color: COLORS.status.active,
-              }}
-            >
-              ONLINE
-            </span>
-          </div>
-        </div>
-      </aside>
-
-      {/* ═══════ CENTER PANEL — MESSAGES ═══════ */}
-      <main
-        style={{
-          flex: 1,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-          minWidth: 0,
-        }}
-      >
-        {/* ── Chat Header ── */}
-        <div
-          style={{
-            padding: "12px 20px",
-            borderBottom: `1px solid ${COLORS.border.default}`,
-            background: "rgba(10,10,10,0.92)",
-            backdropFilter: "blur(20px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 16,
-            flexShrink: 0,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-            {/* Mobile hamburger */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="chat-mobile-menu"
-              style={{
-                display: "none",
-                padding: 6,
-                borderRadius: 6,
-                border: `1px solid ${COLORS.border.default}`,
-                background: COLORS.bg.card,
-                cursor: "pointer",
-                color: COLORS.text.secondary,
-                flexShrink: 0,
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
-
-            {viewMode === "dm" && activeAgent ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: 8,
-                    background: `${activeAgent.color}15`,
-                    border: `1px solid ${activeAgent.color}30`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: activeAgent.color,
-                    flexShrink: 0,
-                  }}
-                >
-                  {activeAgent.name.charAt(0)}
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary }}>
-                    {activeAgent.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: COLORS.text.secondary }}>{activeAgent.role}</div>
-                </div>
-              </div>
-            ) : (
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary }}>
-                  {activeChannel.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: COLORS.text.secondary,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap" as const,
-                  }}
-                >
-                  {activeChannel.description}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            {/* Typing indicator */}
-            {typingUsers.length > 0 && viewMode === "channel" && (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  fontSize: 11,
-                  color: COLORS.text.secondary,
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {messages.map((msg) => (
+            <div key={msg.id} className="flex gap-3">
+              <div 
+                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                style={{ 
+                  backgroundColor: msg.agent?.color_hex + "30", 
+                  color: msg.agent?.color_hex 
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  {typingUsers.map((user) => {
-                    const agentData = AGENTS.find((a) => a.name === user);
-                    return (
-                      <div
-                        key={user}
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: 6,
-                          marginLeft: -4,
-                          border: `1.5px solid ${COLORS.bg.main}`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: 9,
-                          fontWeight: 700,
-                          color: agentData?.color || COLORS.text.secondary,
-                          background: `${agentData?.color || "#888"}15`,
-                        }}
-                      >
-                        {user.charAt(0)}
-                      </div>
-                    );
-                  })}
-                </div>
-                <span>
-                  {typingUsers.length === 1 ? `${typingUsers[0]} is typing` : `${typingUsers.length} typing`}
-                </span>
-                <div style={{ display: "flex", gap: 3 }}>
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite" }} />
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
-                </div>
+                {msg.agent?.name?.charAt(0) || "?"}
               </div>
-            )}
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.1em",
-                color: COLORS.text.secondary,
-                padding: "4px 10px",
-                borderRadius: 6,
-                background: COLORS.bg.card,
-                border: `1px solid ${COLORS.border.default}`,
-              }}
-            >
-              {viewMode === "channel" ? "24 MEMBERS" : "DM"}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Messages Container ── */}
-        <div
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            padding: "16px 20px",
-          }}
-        >
-          {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-            <div key={date}>
-              {/* Date Separator — matches command center section dividers */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  margin: "24px 0 16px",
-                }}
-              >
-                <div
-                  style={{
-                    height: 1,
-                    flex: 1,
-                    background: "linear-gradient(to right, transparent, rgba(255,255,255,0.06), transparent)",
-                  }}
-                />
-                <span
-                  style={{
-                    margin: "0 16px",
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: "0.25em",
-                    color: COLORS.text.secondary,
-                    textTransform: "uppercase" as const,
-                  }}
-                >
-                  {date}
-                </span>
-                <div
-                  style={{
-                    height: 1,
-                    flex: 1,
-                    background: "linear-gradient(to left, transparent, rgba(255,255,255,0.06), transparent)",
-                  }}
-                />
-              </div>
-
-              {/* Messages for this date */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {dateMessages.map((message) => (
-                  <div
-                    key={message.id}
-                    onClick={() => handleMessageClick(message)}
-                    style={{
-                      display: "flex",
-                      gap: 12,
-                      padding: "10px 12px",
-                      borderRadius: 12,
-                      cursor: "pointer",
-                      transition: "background 150ms ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.02)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    {/* Avatar */}
-                    <div style={{ flexShrink: 0 }}>
-                      {message.type === "agent" ? (
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 10,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: message.senderColor || COLORS.text.primary,
-                            background: `${message.senderColor || "#888"}15`,
-                            border: `1px solid ${message.senderColor || "#888"}30`,
-                          }}
-                        >
-                          {message.sender.charAt(0)}
-                        </div>
-                      ) : (
-                        <div
-                          style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 10,
-                            background: `${COLORS.accent.purple}18`,
-                            border: `1px solid ${COLORS.accent.purple}40`,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color: COLORS.accent.purple,
-                          }}
-                        >
-                          R
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      {/* Header */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <span
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 700,
-                            color:
-                              message.type === "agent"
-                                ? message.senderColor || COLORS.text.primary
-                                : COLORS.text.primary,
-                          }}
-                        >
-                          {message.sender}
-                        </span>
-                        {message.type === "agent" && (
-                          <span
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 600,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: `${message.senderColor || "#888"}12`,
-                              color: message.senderColor || COLORS.text.secondary,
-                              border: `1px solid ${message.senderColor || "#888"}25`,
-                              letterSpacing: "0.05em",
-                            }}
-                          >
-                            AGENT
-                          </span>
-                        )}
-                        <span
-                          style={{
-                            fontSize: 10,
-                            color: COLORS.text.tertiary,
-                            fontFamily: "monospace",
-                          }}
-                        >
-                          {message.timestamp}
-                        </span>
-                      </div>
-
-                      {/* Body */}
-                      <div
-                        style={{
-                          fontSize: 13,
-                          lineHeight: 1.6,
-                          color: COLORS.text.primary,
-                        }}
-                      >
-                        {message.content}
-                      </div>
-
-                      {/* Reactions */}
-                      {message.reactions && message.reactions.length > 0 && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-                          {message.reactions.map((reaction, i) => (
-                            <button
-                              key={i}
-                              onClick={(e) => e.stopPropagation()}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                padding: "3px 8px",
-                                borderRadius: 6,
-                                background: COLORS.bg.card,
-                                border: `1px solid ${COLORS.border.default}`,
-                                cursor: "pointer",
-                                fontSize: 11,
-                                color: COLORS.text.secondary,
-                                transition: "all 150ms ease",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = COLORS.bg.card;
-                                e.currentTarget.style.borderColor = COLORS.border.default;
-                              }}
-                            >
-                              <span style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: COLORS.accent.purpleLight }}>
-                                {REACTION_MAP[reaction.emoji] || reaction.emoji}
-                              </span>
-                              <span style={{ fontWeight: 600, fontFamily: "monospace" }}>{reaction.count}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-bold">{msg.agent?.name || "Unknown"}</span>
+                  <span className="text-xs text-gray-500">
+                    {new Date(msg.created_at).toLocaleTimeString()}
+                  </span>
+                </div>
+                <div className="text-gray-200 whitespace-pre-wrap">{msg.content}</div>
               </div>
             </div>
           ))}
           <div ref={messagesEndRef} />
         </div>
 
-        {/* ── Message Input ── */}
-        <div
-          style={{
-            padding: "12px 20px 16px",
-            borderTop: `1px solid ${COLORS.border.default}`,
-            flexShrink: 0,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              gap: 10,
-              alignItems: "flex-end",
-            }}
-          >
-            {/* Attach */}
+        {/* Input */}
+        <div className="border-t border-gray-900 p-4">
+          <div className="flex gap-2">
+            <textarea
+              className="flex-1 bg-gray-900 border border-gray-800 rounded-lg p-3 text-white resize-none focus:outline-none focus:border-purple-600"
+              placeholder={`Message #${activeChannel?.name || "channel"}`}
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              rows={2}
+            />
             <button
-              style={{
-                padding: 10,
-                borderRadius: 10,
-                background: COLORS.bg.card,
-                border: `1px solid ${COLORS.border.default}`,
-                cursor: "pointer",
-                color: COLORS.text.secondary,
-                flexShrink: 0,
-                transition: "all 150ms ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                e.currentTarget.style.color = COLORS.text.primary;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = COLORS.border.default;
-                e.currentTarget.style.color = COLORS.text.secondary;
-              }}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-6 rounded-lg font-medium transition-colors"
+              onClick={sendMessage}
+              disabled={!messageInput.trim()}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-              </svg>
+              Send
             </button>
-
-            {/* Text area */}
-            <div style={{ flex: 1, position: "relative" }}>
-              <textarea
-                ref={inputRef}
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                placeholder={`Message ${viewMode === "dm" ? activeAgent?.name : activeChannel.name}...`}
-                style={{
-                  width: "100%",
-                  background: COLORS.bg.card,
-                  border: `1px solid ${COLORS.border.default}`,
-                  borderRadius: 12,
-                  padding: "10px 100px 10px 14px",
-                  color: COLORS.text.primary,
-                  fontSize: 13,
-                  fontFamily: FONT_FAMILY,
-                  resize: "none",
-                  outline: "none",
-                  minHeight: 44,
-                  maxHeight: 200,
-                  lineHeight: 1.5,
-                  transition: "border-color 150ms ease",
-                }}
-                rows={1}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = `${COLORS.accent.purple}50`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.border.default;
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-              />
-
-              {/* Inline actions */}
-              <div
-                style={{
-                  position: "absolute",
-                  right: 8,
-                  bottom: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                {["@", "#"].map((sym) => (
-                  <button
-                    key={sym}
-                    style={{
-                      padding: "4px 6px",
-                      borderRadius: 4,
-                      border: "none",
-                      background: "transparent",
-                      cursor: "pointer",
-                      fontSize: 12,
-                      fontWeight: 600,
-                      color: COLORS.text.tertiary,
-                      transition: "color 150ms ease",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = COLORS.text.primary;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = COLORS.text.tertiary;
-                    }}
-                  >
-                    {sym}
-                  </button>
-                ))}
-
-                {/* Send Button — game-btn style */}
-                <button
-                  onClick={handleSendMessage}
-                  disabled={!messageInput.trim()}
-                  className="game-btn"
-                  style={{
-                    padding: "6px 16px",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    fontFamily: "monospace",
-                    letterSpacing: "0.1em",
-                    textTransform: "uppercase" as const,
-                    borderRadius: 6,
-                    border: `1px solid ${messageInput.trim() ? `${COLORS.accent.purple}50` : COLORS.border.default}`,
-                    background: messageInput.trim() ? `${COLORS.accent.purple}18` : COLORS.bg.card,
-                    color: messageInput.trim() ? COLORS.accent.purpleLight : COLORS.text.tertiary,
-                    cursor: messageInput.trim() ? "pointer" : "not-allowed",
-                    transition: "all 150ms ease",
-                  }}
-                >
-                  SEND
-                </button>
-              </div>
-            </div>
           </div>
-
-          {/* Help text */}
-          <div
-            style={{
-              marginTop: 8,
-              paddingLeft: 52,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 10,
-              color: COLORS.text.tertiary,
-            }}
-          >
-            <span
-              style={{
-                padding: "1px 6px",
-                borderRadius: 4,
-                background: COLORS.bg.card,
-                border: `1px solid ${COLORS.border.default}`,
-                fontFamily: "monospace",
-                fontSize: 9,
-              }}
-            >
-              Enter
-            </span>
-            <span>to send</span>
-            <span style={{ color: COLORS.border.default }}>|</span>
-            <span
-              style={{
-                padding: "1px 6px",
-                borderRadius: 4,
-                background: COLORS.bg.card,
-                border: `1px solid ${COLORS.border.default}`,
-                fontFamily: "monospace",
-                fontSize: 9,
-              }}
-            >
-              Shift+Enter
-            </span>
-            <span>new line</span>
+          <div className="text-xs text-gray-500 mt-2">
+            Press Enter to send, Shift+Enter for new line • Connected to Supabase
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* ═══════ RIGHT PANEL — THREAD (COLLAPSIBLE) ═══════ */}
-      {threadMessage && (
-        <aside
-          style={{
-            width: 340,
-            flexShrink: 0,
-            display: "flex",
-            flexDirection: "column",
-            background: COLORS.bg.main,
-            borderLeft: `1px solid ${COLORS.border.default}`,
-            overflow: "hidden",
-          }}
-          className="chat-thread-panel"
-        >
-          {/* Thread Header */}
-          <div
-            style={{
-              padding: "12px 16px",
-              borderBottom: `1px solid ${COLORS.border.default}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
+      {/* Agents sidebar */}
+      <div className="hidden md:block w-64 border-l border-gray-900 p-4">
+        <div className="text-sm text-gray-400 mb-4">AGENTS ONLINE</div>
+        {agents.map((agent) => (
+          <div 
+            key={agent.id} 
+            className={`flex items-center gap-3 p-2 rounded cursor-pointer ${
+              activeAgent?.id === agent.id ? "bg-gray-900" : "hover:bg-gray-900"
+            }`}
+            onClick={() => setActiveAgent(agent)}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 8,
-                  background: `${COLORS.accent.purple}12`,
-                  border: `1px solid ${COLORS.accent.purple}25`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: COLORS.accent.purpleLight,
-                  fontSize: 12,
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                </svg>
-              </div>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text.primary }}>Thread</div>
-                <div style={{ fontSize: 10, color: COLORS.text.tertiary }}>3 replies</div>
-              </div>
-            </div>
-            <button
-              onClick={() => setThreadMessage(null)}
-              style={{
-                padding: 6,
-                borderRadius: 6,
-                border: `1px solid ${COLORS.border.default}`,
-                background: COLORS.bg.card,
-                cursor: "pointer",
-                color: COLORS.text.secondary,
-                transition: "all 150ms ease",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
-                e.currentTarget.style.color = COLORS.text.primary;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = COLORS.border.default;
-                e.currentTarget.style.color = COLORS.text.secondary;
-              }}
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold"
+              style={{ backgroundColor: agent.color_hex + "30", color: agent.color_hex }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Original Message */}
-          <div style={{ padding: 16, borderBottom: `1px solid ${COLORS.border.default}` }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.25em",
-                color: COLORS.text.secondary,
-                marginBottom: 10,
-                textTransform: "uppercase" as const,
-              }}
-            >
-              Original Message
+              {agent.name.charAt(0)}
             </div>
-            <div
-              style={{
-                background: COLORS.bg.card,
-                border: `1px solid ${COLORS.border.default}`,
-                borderRadius: 12,
-                padding: 14,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                {threadMessage.type === "agent" ? (
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 6,
-                      background: `${threadMessage.senderColor || "#888"}15`,
-                      border: `1px solid ${threadMessage.senderColor || "#888"}30`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: threadMessage.senderColor || COLORS.text.primary,
-                    }}
-                  >
-                    {threadMessage.sender.charAt(0)}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      width: 24,
-                      height: 24,
-                      borderRadius: 6,
-                      background: `${COLORS.accent.purple}18`,
-                      border: `1px solid ${COLORS.accent.purple}40`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: COLORS.accent.purple,
-                    }}
-                  >
-                    R
-                  </div>
-                )}
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color:
-                      threadMessage.type === "agent"
-                        ? threadMessage.senderColor || COLORS.text.primary
-                        : COLORS.text.primary,
-                  }}
-                >
-                  {threadMessage.sender}
-                </span>
-                <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
-                  {threadMessage.timestamp}
-                </span>
-              </div>
-              <div style={{ fontSize: 12, lineHeight: 1.6, color: COLORS.text.primary }}>
-                {threadMessage.content}
-              </div>
+            <div>
+              <div className="font-medium">{agent.name}</div>
+              <div className="text-xs text-gray-400">@{agent.handle}</div>
             </div>
-          </div>
-
-          {/* Thread Replies */}
-          <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 600,
-                letterSpacing: "0.25em",
-                color: COLORS.text.secondary,
-                marginBottom: 12,
-                textTransform: "uppercase" as const,
-              }}
-            >
-              Replies
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                { id: "r1", sender: "Atlas", color: COLORS.agents.atlas, content: "I'll follow up on this.", timestamp: "09:48 AM" },
-                { id: "r2", sender: "Shuri", color: COLORS.agents.shuri, content: "Working on it now.", timestamp: "09:50 AM" },
-                { id: "r3", sender: "Vee", color: COLORS.agents.vee, content: "Marketing assets are ready.", timestamp: "09:52 AM" },
-              ].map((reply) => (
-                <div key={reply.id} style={{ display: "flex", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 8,
-                      background: `${reply.color}15`,
-                      border: `1px solid ${reply.color}30`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: reply.color,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {reply.sender.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: reply.color }}>
-                        {reply.sender}
-                      </span>
-                      <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
-                        {reply.timestamp}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, lineHeight: 1.5, color: COLORS.text.primary }}>
-                      {reply.content}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Thread Reply Input */}
-          <div style={{ padding: "12px 16px", borderTop: `1px solid ${COLORS.border.default}` }}>
-            <div style={{ display: "flex", gap: 8 }}>
-              <textarea
-                placeholder="Reply to thread..."
-                style={{
-                  flex: 1,
-                  background: COLORS.bg.card,
-                  border: `1px solid ${COLORS.border.default}`,
-                  borderRadius: 10,
-                  padding: "8px 12px",
-                  fontSize: 12,
-                  fontFamily: FONT_FAMILY,
-                  color: COLORS.text.primary,
-                  resize: "none",
-                  outline: "none",
-                  minHeight: 38,
-                  transition: "border-color 150ms ease",
-                }}
-                rows={1}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = `${COLORS.accent.purple}50`;
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = COLORS.border.default;
-                }}
+            <div className="ml-auto">
+              <div 
+                className="w-2 h-2 rounded-full"
+                style={{ backgroundColor: getStatusColor(agent.status) }}
               />
-              <button
-                className="game-btn"
-                style={{
-                  padding: "8px 14px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  fontFamily: "monospace",
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase" as const,
-                  borderRadius: 6,
-                  border: `1px solid ${COLORS.accent.purple}50`,
-                  background: `${COLORS.accent.purple}18`,
-                  color: COLORS.accent.purpleLight,
-                  cursor: "pointer",
-                  transition: "all 150ms ease",
-                  flexShrink: 0,
-                }}
-              >
-                REPLY
-              </button>
             </div>
           </div>
-        </aside>
-      )}
-
-      {/* ═══════ RESPONSIVE STYLES ═══════ */}
-      <style>{`
-        @media (max-width: 767px) {
-          .chat-sidebar {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            bottom: 0 !important;
-            z-index: 50 !important;
-            width: 280px !important;
-          }
-          .chat-mobile-menu {
-            display: flex !important;
-          }
-          .chat-thread-panel {
-            position: fixed !important;
-            top: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            z-index: 45 !important;
-            width: 100% !important;
-            max-width: 360px !important;
-          }
-        }
-        @media (min-width: 768px) {
-          .chat-sidebar {
-            transform: translateX(0) !important;
-          }
-        }
-        /* Scrollbar styling */
-        div::-webkit-scrollbar {
-          width: 4px;
-        }
-        div::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        div::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.08);
-          border-radius: 2px;
-        }
-        div::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.14);
-        }
-        textarea::placeholder {
-          color: ${COLORS.text.tertiary};
-        }
-      `}</style>
+        ))}
+      </div>
     </div>
   );
 }
