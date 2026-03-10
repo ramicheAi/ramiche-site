@@ -64,23 +64,40 @@ const FONT_FAMILY = "'Inter', system-ui, -apple-system, sans-serif";
 
 /* ── MOCK DATA ──────────────────────────────────────────────────────────────── */
 const CHANNELS = [
-  { id: "general", name: "#general", unread: 3, description: "Team announcements" },
-  { id: "mettle", name: "#mettle", unread: 12, description: "METTLE product discussion", active: true },
-  { id: "parallax", name: "#parallax", unread: 0, description: "Parallax brand" },
-  { id: "verified-agents", name: "#verified-agents", unread: 0, description: "Agent coordination" },
+  { id: "general", name: "#general", unread: 3, description: "Team announcements", active: true },
+  { id: "mettle", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)" },
+  { id: "verified-agents", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)" },
+  { id: "command-center", name: "#command-center", unread: 0, description: "Command Center / Dashboard" },
+  { id: "parallax-site", name: "#parallax-site", unread: 0, description: "Parallax Site — Agent Marketplace" },
+  { id: "parallax-publish", name: "#parallax-publish", unread: 0, description: "Parallax Publish — Social Publishing" },
+  { id: "galactik-antics", name: "#galactik-antics", unread: 0, description: "Galactik Antics — AI Art & Merch" },
+  { id: "ramiche-studio", name: "#ramiche-studio", unread: 0, description: "Ramiche Studio — Creative Services" },
+  { id: "clawguard", name: "#clawguard", unread: 0, description: "ClawGuard Pro — Security Scanner" },
   { id: "dev", name: "#dev", unread: 7, description: "Development discussions" },
   { id: "design", name: "#design", unread: 0, description: "UI/UX design" },
 ];
 
 const AGENTS = [
   { id: "atlas", name: "Atlas", role: "Operations Lead", status: "active", color: COLORS.agents.atlas, unread: 0 },
-  { id: "shuri", name: "Shuri", role: "Creative Coding", status: "active", color: COLORS.agents.shuri, unread: 2 },
-  { id: "vee", name: "Vee", role: "Brand & Marketing", status: "active", color: COLORS.agents.vee, unread: 0 },
-  { id: "triage", name: "Triage", role: "System Doctor", status: "idle", color: COLORS.agents.triage, unread: 0 },
-  { id: "proximon", name: "Proximon", role: "Systems Architect", status: "offline", color: COLORS.agents.proximon, unread: 0 },
-  { id: "mercury", name: "Mercury", role: "Sales & Revenue", status: "active", color: COLORS.agents.mercury, unread: 1 },
+  { id: "triage", name: "Triage", role: "Debugging & Log Analysis", status: "idle", color: COLORS.agents.triage, unread: 0 },
+  { id: "shuri", name: "Shuri", role: "Engineering & Code Gen", status: "active", color: COLORS.agents.shuri, unread: 2 },
+  { id: "proximon", name: "Proximon", role: "Systems Architecture", status: "offline", color: COLORS.agents.proximon, unread: 0 },
+  { id: "aetherion", name: "Aetherion", role: "Creative Director", status: "idle", color: COLORS.agents.aetherion, unread: 0 },
+  { id: "simons", name: "Simons", role: "Data Analysis", status: "offline", color: COLORS.agents.simons, unread: 0 },
+  { id: "mercury", name: "Mercury", role: "Sales Strategy", status: "active", color: COLORS.agents.mercury, unread: 1 },
+  { id: "vee", name: "Vee", role: "Brand Strategy", status: "active", color: COLORS.agents.vee, unread: 0 },
+  { id: "ink", name: "Ink", role: "Copywriting & Content", status: "idle", color: COLORS.agents.ink, unread: 0 },
+  { id: "echo", name: "Echo", role: "Community Engagement", status: "idle", color: COLORS.agents.echo, unread: 0 },
+  { id: "haven", name: "Haven", role: "Support & Onboarding", status: "offline", color: COLORS.agents.haven, unread: 0 },
   { id: "widow", name: "Widow", role: "Cybersecurity", status: "offline", color: COLORS.agents.widow, unread: 0 },
-  { id: "michael", name: "Michael", role: "Swim Training AI", status: "idle", color: COLORS.agents.michael, unread: 0 },
+  { id: "drstrange", name: "Dr Strange", role: "Strategic Forecasting", status: "offline", color: COLORS.agents.drstrange, unread: 0 },
+  { id: "kiyosaki", name: "Kiyosaki", role: "Financial Strategy", status: "offline", color: COLORS.agents.kiyosaki, unread: 0 },
+  { id: "michael", name: "Michael", role: "Swim Coaching", status: "idle", color: COLORS.agents.michael, unread: 0 },
+  { id: "selah", name: "Selah", role: "Psychology & Performance", status: "idle", color: COLORS.agents.selah, unread: 0 },
+  { id: "prophets", name: "Prophets", role: "Spiritual Counsel", status: "idle", color: COLORS.agents.prophets, unread: 0 },
+  { id: "themaestro", name: "TheMAESTRO", role: "Music Production", status: "idle", color: COLORS.agents.themaestro, unread: 0 },
+  { id: "nova", name: "Nova", role: "Fabrication & Builds", status: "offline", color: COLORS.agents.nova, unread: 0 },
+  { id: "themis", name: "Themis", role: "Governance & Rules", status: "active", color: COLORS.agents.themis, unread: 0 },
 ];
 
 const MOCK_MESSAGES = [
