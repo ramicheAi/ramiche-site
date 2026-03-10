@@ -207,7 +207,7 @@ export async function POST(req: Request) {
       const eventRaw = eventMatch[1].trim();
       if (eventRaw.includes("Relay") || eventRaw.includes("Split")) continue;
 
-      const timeMatch = row.match(/<a\s+href="\/results\/(\d+)\/[^"]*">(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})<\/a>/);
+      const timeMatch = row.match(/<a\s+href="\/results\/(\d+)\/[^"]*?"[^>]*>(\d{1,2}:\d{2}\.\d{2}|\d{2}\.\d{2})<\/a>/);
       if (!timeMatch) continue;
 
       const meetId = timeMatch[1];
@@ -228,23 +228,26 @@ export async function POST(req: Request) {
     }
 
     // Batch fetch meet names (usually 2-5 unique meets)
+    // Serialized with retry to avoid SwimCloud/Cloudflare rate-limiting on Vercel
     const meetInfoMap = new Map<string, { name: string; date: string }>();
-    const meetIds = Array.from(meetIdSet).slice(0, 8); // cap at 8 to avoid too many requests
-    await Promise.all(
-      meetIds.map(async (mid) => {
-        try {
-          const res = await fetch(`https://www.swimcloud.com/results/${mid}/`, { headers: { "User-Agent": UA } });
-          if (!res.ok) return;
-          const meetHtml = await res.text();
-          const nameMatch = meetHtml.match(/<h1[^>]*>([^<]+)/);
-          const dateMatch = meetHtml.match(/"startDate":\s*"([^"]+)"/);
-          meetInfoMap.set(mid, {
-            name: nameMatch ? nameMatch[1].trim() : "",
-            date: dateMatch ? dateMatch[1].trim() : "",
-          });
-        } catch { /* skip failed meet fetches */ }
-      })
-    );
+    const meetIds = Array.from(meetIdSet).slice(0, 8);
+    for (const mid of meetIds) {
+      try {
+        const result = await withRetry(
+          () => fetch(`https://www.swimcloud.com/results/${mid}/`, { headers: { "User-Agent": UA, "Accept": "text/html" } }),
+          { maxAttempts: 2, baseDelayMs: 400, shouldRetry: (_err: unknown, _attempt: number) => true }
+        );
+        const res = result.data;
+        if (!res || !res.ok) continue;
+        const meetHtml = await res.text();
+        const nameMatch = meetHtml.match(/<h1[^>]*>([^<]+)/) || meetHtml.match(/<h2[^>]*>([^<]+)/);
+        const dateMatch = meetHtml.match(/"startDate":\s*"([^"]+)"/);
+        meetInfoMap.set(mid, {
+          name: nameMatch ? nameMatch[1].trim() : "",
+          date: dateMatch ? dateMatch[1].trim() : "",
+        });
+      } catch { /* skip failed meet fetches */ }
+    }
 
     // Second pass: merge times with meet info
     for (const { key, meetId, entry } of htmlTimes) {
