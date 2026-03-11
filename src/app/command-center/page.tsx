@@ -990,7 +990,7 @@ export default function CommandCenter() {
      RENDER
      ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen w-full relative overflow-x-hidden" style={{ background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
+    <div className="min-h-screen relative overflow-x-hidden" style={{ background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", width: '100%' }}>
 
       <ParticleField variant="gold" theme="light" opacity={0.1} count={20} />
 
@@ -999,17 +999,17 @@ export default function CommandCenter() {
           ═══════════════════════════════════════════════════════════════════ */}
 
       {/* Linear-style subtle dot grid background */}
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{
+      <div className="absolute inset-0 z-0 pointer-events-none" style={{
         backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
         backgroundSize: '60px 60px', opacity: 0.4,
       }} />
-      <div className="fixed z-0 pointer-events-none" style={{
+      <div className="absolute z-0 pointer-events-none" style={{
         top: '10%', left: '5%', width: 500, height: 500, borderRadius: '50%',
-        background: 'rgba(124,58,237,0.04)', filter: 'blur(120px)', position: 'absolute',
+        background: 'rgba(124,58,237,0.04)', filter: 'blur(120px)',
       }} />
-      <div className="fixed z-0 pointer-events-none" style={{
+      <div className="absolute z-0 pointer-events-none" style={{
         bottom: '10%', right: '5%', width: 500, height: 500, borderRadius: '50%',
-        background: 'rgba(59,130,246,0.03)', filter: 'blur(120px)', position: 'absolute',
+        background: 'rgba(59,130,246,0.03)', filter: 'blur(120px)',
       }} />
 
       {/* Clean light theme — no CRT scan lines */}
