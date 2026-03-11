@@ -30,7 +30,7 @@ const TENANT_ID   = process.env.RAMICHE_TENANT_ID || "11111111-1111-1111-1111-11
 // Bridge control endpoint — a lightweight Express server on your Mac
 // exposed via ngrok or Tailscale. See bridge-control-server.js.
 const BRIDGE_CTRL = process.env.BRIDGE_CONTROL_URL || "";
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 
 // Agent name → sessionKey
 const AGENT_SESSIONS: Record<string, string> = {
@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
       if (BRIDGE_CTRL) {
         try {
           const res = await fetch(`${BRIDGE_CTRL}/health`, {
-            headers: { "x-bridge-secret": BRIDGE_SECRET },
+            headers: { "x-bridge-secret": BRIDGE_SECRET || "" },
             signal:  AbortSignal.timeout(5000),
           });
           bridgeStatus = { ...bridgeStatus, ...(await res.json()), reachable: res.ok };
@@ -283,7 +283,7 @@ export async function POST(req: NextRequest) {
 
       const res = await fetch(`${BRIDGE_CTRL}/restart`, {
         method:  "POST",
-        headers: { "x-bridge-secret": BRIDGE_SECRET },
+        headers: { "x-bridge-secret": BRIDGE_SECRET || "" },
         signal:  AbortSignal.timeout(10000),
       });
 

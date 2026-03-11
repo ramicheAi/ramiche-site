@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +29,7 @@ export async function GET() {
 // POST: Create/Delete/Toggle cron (writes action to Firestore queue for bridge to pick up)
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
-  if (authHeader !== BRIDGE_SECRET) {
+  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -328,10 +328,15 @@ async function pollPendingMessages() {
       const agentKey = targetAgent.toLowerCase().replace(/\s+/g, "-");
       const agentUpper = targetAgent.toUpperCase().replace(/\s+/g, " ");
 
-      // Try direct session send first
-      const sendResult = run(
-        `openclaw sessions send --to "${agentKey}" --message "${message.replace(/"/g, '\\"')}" 2>&1`
-      );
+      // Try direct session send first (execFileSync to prevent injection)
+      let sendResult = "";
+      try {
+        sendResult = execFileSync(
+          "/usr/local/bin/openclaw",
+          ["sessions", "send", "--to", agentKey, "--message", message],
+          { encoding: "utf8", timeout: 15_000 }
+        ).trim();
+      } catch { sendResult = ""; }
 
       if (sendResult && !sendResult.includes("not found") && !sendResult.includes("error") && !sendResult.includes("Error")) {
         response = sendResult || "Message delivered to agent session";
@@ -575,7 +580,7 @@ async function syncAll() {
     const srcDir = join(WORKSPACE, "projects");
     const destDir = join(WORKSPACE, "../../ramiche-site/public/projects");
     if (existsSync(srcDir) && existsSync(destDir)) {
-      execSync(`rsync -a --delete --exclude='.DS_Store' --exclude='skills/' "${srcDir}/" "${destDir}/"`, { timeout: 10_000 });
+      execFileSync("rsync", ["-a", "--delete", "--exclude=.DS_Store", "--exclude=skills/", `${srcDir}/`, `${destDir}/`], { timeout: 10_000 });
     }
   } catch (e) {
     console.error("[bridge] rsync projects error:", e.message);
