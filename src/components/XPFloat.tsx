@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, type MouseEvent as ReactMouseEvent } from "react";
 
 /* ══════════════════════════════════════════════════════════════
    XP FLOAT — Upward-floating XP numbers
@@ -25,7 +25,7 @@ export function useXPFloat() {
   const [floats, setFloats] = useState<FloatingXP[]>([]);
   const counter = useRef(0);
 
-  const triggerXP = useCallback((amount: number, event?: React.MouseEvent | { clientX: number; clientY: number }) => {
+  const triggerXP = useCallback((amount: number, event?: ReactMouseEvent | { clientX: number; clientY: number }) => {
     const x = event ? event.clientX : window.innerWidth / 2;
     const y = event ? event.clientY : window.innerHeight / 2;
 
