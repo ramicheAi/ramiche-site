@@ -990,7 +990,7 @@ export default function CommandCenter() {
      RENDER
      ══════════════════════════════════════════════════════════════════════════ */
   return (
-    <div className="min-h-screen relative overflow-x-hidden" style={{ background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", width: '100%' }}>
+    <div className="min-h-screen relative overflow-x-hidden" style={{ background: '#0a0a0a', color: '#e5e5e5', fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
 
       <ParticleField variant="gold" theme="light" opacity={0.1} count={20} />
 
