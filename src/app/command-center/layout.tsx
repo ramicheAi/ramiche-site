@@ -8,16 +8,13 @@ export default function CommandCenterLayout({
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a' }}>
       <Sidebar />
-      <div
-        style={{
-          marginLeft: 240,
-          minHeight: '100vh',
-          overflowX: 'hidden',
-        }}
-        className="max-md:!ml-0"
-      >
+      <div id="cc-content" style={{ minHeight: '100vh', overflowX: 'hidden' }}>
         {children}
       </div>
+      <style>{`
+        #cc-content { margin-left: 240px; }
+        @media (max-width: 767px) { #cc-content { margin-left: 0; } }
+      `}</style>
     </div>
   );
 }
