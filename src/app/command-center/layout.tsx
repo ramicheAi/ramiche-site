@@ -6,14 +6,17 @@ export default function CommandCenterLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0a', display: 'flex' }}>
       <Sidebar />
+      {/* Spacer for fixed sidebar — hidden on mobile */}
+      <div className="hidden md:block" style={{ minWidth: 240, flexShrink: 0 }} />
       <main
         style={{
           minHeight: '100vh',
           overflowX: 'hidden',
+          flex: 1,
+          minWidth: 0,
         }}
-        className="ml-0 md:ml-[240px] transition-[margin] duration-200"
       >
         {children}
       </main>
