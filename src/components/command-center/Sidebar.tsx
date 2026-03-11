@@ -15,6 +15,8 @@ const sections = [
     items: [
       { href: '/command-center', label: 'Dashboard', icon: '◇', accent: '#C9A84C' },
       { href: '/command-center/chat', label: 'Chat', icon: '◈', accent: '#7c3aed' },
+      { href: '/command-center/agents', label: 'Agents', icon: '✦', accent: '#34d399' },
+      { href: '/command-center/tasks', label: 'Tasks', icon: '▣', accent: '#f59e0b' },
       { href: '/command-center/health', label: 'System Health', icon: '◉', accent: '#22d3ee' },
       { href: '/command-center/security', label: 'Security', icon: '◆', accent: '#ef4444' },
       { href: '/command-center/settings', label: 'Settings', icon: '⚙', accent: '#888888' },
@@ -42,6 +44,17 @@ const sections = [
     items: [
       { href: '/command-center/wellness', label: 'Wellness', icon: '◈', accent: '#10b981' },
       { href: '/command-center/fabrication', label: 'Fabrication', icon: '⚡', accent: '#14b8a6' },
+    ],
+  },
+  {
+    label: 'WORKSPACE',
+    items: [
+      { href: '/command-center/projects', label: 'Projects', icon: '◉', accent: '#818cf8' },
+      { href: '/command-center/memory', label: 'Memory', icon: '◎', accent: '#a855f7' },
+      { href: '/command-center/calendar', label: 'Calendar', icon: '○', accent: '#38bdf8' },
+      { href: '/command-center/docs', label: 'Docs', icon: '≡', accent: '#666666' },
+      { href: '/command-center/office', label: 'Office', icon: '▣', accent: '#06b6d4' },
+      { href: '/apex-athlete', label: 'METTLE', icon: '✦', accent: '#C9A84C' },
     ],
   },
 ];

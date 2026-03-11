@@ -428,18 +428,6 @@ const NOTIFICATIONS = [
 ];
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
-const NAV = [
-  { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
-  { label: "AGENTS", href: "/command-center/agents", icon: "\u2726" },
-  { label: "TASKS", href: "/command-center/tasks", icon: "\u25A3" },
-  { label: "CALENDAR", href: "/command-center/calendar", icon: "\u25CB" },
-  { label: "PROJECTS", href: "/command-center/projects", icon: "\u25C9" },
-  { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE" },
-  { label: "DOCS", href: "/command-center/docs", icon: "\u2261" },
-  { label: "CHAT", href: "/command-center/chat", icon: "\u25C8" },
-  { label: "OFFICE", href: "/command-center/office", icon: "\u25A3" },
-  { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
-];
 
 /* ── TYPES ─────────────────────────────────────────────────────────────────── */
 interface Weather {
@@ -562,7 +550,6 @@ export default function CommandCenter() {
   const [taskModal, setTaskModal] = useState(false);
   const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', priority: 'medium' });
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   /* ── fetch crons (mount + every 15s) ── */
   const fetchCrons = useCallback(async () => {
@@ -1032,71 +1019,10 @@ export default function CommandCenter() {
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="relative z-10 w-full">
 
-        {/* ═══════ TOP NAV — MATCHING PARALLAX SITE (WHITE/GLASS) ═══════ */}
-        <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e1e1e' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: 'contain' }} />
-              <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#e5e5e5' }}>PARALLAX</span>
-              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 14 }}>|</span>
-              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#888888' }}>COMMAND CENTER</span>
-              {lastUpdated && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
-                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e', animation: 'pulse 2s infinite' }} />
-                  <span style={{ fontSize: 10, color: '#666', fontVariantNumeric: 'tabular-nums' }}>
-                    {lastUpdated.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                  </span>
-                </span>
-              )}
-            </Link>
-            <button
-              onClick={async () => {
-                setIsRefreshing(true);
-                await Promise.all([fetchBridge(), fetchCrons(), fetchTasks()]);
-                setIsRefreshing(false);
-              }}
-              title="Refresh all data"
-              style={{ marginLeft: 8, padding: '4px 10px', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', color: isRefreshing ? '#f59e0b' : '#888', background: isRefreshing ? 'rgba(245,158,11,0.1)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isRefreshing ? 'rgba(245,158,11,0.3)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 6, cursor: 'pointer', transition: 'all 150ms' }}
-              onMouseEnter={(e) => { if (!isRefreshing) { e.currentTarget.style.color = '#e5e5e5'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.25)'; }}}
-              onMouseLeave={(e) => { if (!isRefreshing) { e.currentTarget.style.color = '#888'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'; }}}
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? '⟳ SYNCING…' : '↻ REFRESH'}
-            </button>
-            {/* Desktop nav */}
-            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="hidden md:flex">
-              {NAV.map((n) => (
-                <Link key={n.href} href={n.href} style={{
-                  fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
-                  color: n.active ? '#e5e5e5' : '#888888', transition: 'color 150ms ease-in-out',
-                }}>{n.label}</Link>
-              ))}
-            </div>
-            {/* Mobile hamburger */}
-            <button
-              className="md:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ padding: 8, color: '#e5e5e5', background: 'none', border: 'none', cursor: 'pointer', fontSize: 22 }}
-              aria-label="Menu"
-            >
-              {mobileMenuOpen ? '✕' : '☰'}
-            </button>
-          </div>
-          {/* Mobile nav drawer */}
-          {mobileMenuOpen && (
-            <div style={{ background: 'rgba(10,10,10,0.98)', borderTop: '1px solid #1e1e1e', padding: '12px 24px 20px' }} className="md:hidden">
-              {NAV.map((n) => (
-                <Link key={n.href} href={n.href} onClick={() => setMobileMenuOpen(false)} style={{
-                  display: 'block', padding: '10px 0', fontSize: 14, fontWeight: 600, letterSpacing: '0.05em',
-                  color: n.active ? '#e5e5e5' : '#888888', borderBottom: '1px solid rgba(255,255,255,0.06)',
-                }}>{n.icon} {n.label}</Link>
-              ))}
-            </div>
-          )}
-        </nav>
+        {/* Top nav removed — navigation lives in sidebar now */}
 
         {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
-        <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 60px', position: 'relative' }}>
+        <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 24px 60px', position: 'relative' }}>
           <div style={{ display: 'inline-block', padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
             MISSION CONTROL &middot; LIVE
           </div>
