@@ -6,14 +6,24 @@ export default function CommandCenterLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0a' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0a0a' }}>
       <Sidebar />
-      <div id="cc-content" style={{ minHeight: '100vh', overflowX: 'hidden' }}>
+      <div
+        id="cc-content"
+        style={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: '100vh',
+          marginLeft: 240,
+          overflowX: 'hidden' as const,
+        }}
+      >
         {children}
       </div>
       <style>{`
-        #cc-content { margin-left: 240px; }
-        @media (max-width: 767px) { #cc-content { margin-left: 0; } }
+        @media (max-width: 767px) {
+          #cc-content { margin-left: 0 !important; }
+        }
       `}</style>
     </div>
   );
