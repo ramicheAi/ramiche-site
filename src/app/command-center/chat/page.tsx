@@ -235,6 +235,29 @@ const getStatusColor = (status: string) => {
   }
 };
 
+const AGENT_TIERS: Record<string, { label: string; color: string }> = {
+  atlas: { label: "APEX", color: "#f59e0b" },
+  themis: { label: "APEX", color: "#f59e0b" },
+  triage: { label: "PRO", color: "#a855f7" },
+  proximon: { label: "PRO", color: "#a855f7" },
+  aetherion: { label: "PRO", color: "#a855f7" },
+  mercury: { label: "PRO", color: "#a855f7" },
+  shuri: { label: "CORE", color: "#3b82f6" },
+  simons: { label: "CORE", color: "#3b82f6" },
+  drstrange: { label: "CORE", color: "#3b82f6" },
+  vee: { label: "CORE", color: "#3b82f6" },
+  ink: { label: "CORE", color: "#3b82f6" },
+  haven: { label: "CORE", color: "#3b82f6" },
+  nova: { label: "CORE", color: "#3b82f6" },
+  kiyosaki: { label: "CORE", color: "#3b82f6" },
+  themaestro: { label: "LOCAL", color: "#666666" },
+  michael: { label: "LOCAL", color: "#666666" },
+  prophets: { label: "LOCAL", color: "#666666" },
+  selah: { label: "LOCAL", color: "#666666" },
+  echo: { label: "LOCAL", color: "#666666" },
+  widow: { label: "LOCAL", color: "#666666" },
+};
+
 const REACTION_MAP: Record<string, string> = {
   thumbsup: "+1",
   rocket: ">>",
@@ -260,6 +283,7 @@ export default function CommandCenterChatPage() {
   const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<Channel[]>(DEFAULT_CHANNELS);
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
+  const [waitingForAgent, setWaitingForAgent] = useState(false);
 
   /* ── file attachments ── */
   const [attachments, setAttachments] = useState<{ name: string; size: string; type: string; url: string }[]>([]);
@@ -268,6 +292,7 @@ export default function CommandCenterChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const agentsRef = useRef<Agent[]>(agents);
 
   /* ── mount + cleanup ── */
   useEffect(() => {
@@ -276,6 +301,11 @@ export default function CommandCenterChatPage() {
       supabase?.removeAllChannels();
     };
   }, []);
+
+  /* ── keep agentsRef in sync ── */
+  useEffect(() => {
+    agentsRef.current = agents;
+  }, [agents]);
 
   /* ── load data from Supabase on mount ── */
   useEffect(() => {
@@ -348,16 +378,21 @@ export default function CommandCenterChatPage() {
         .limit(100);
 
       if (data) {
-        const mapped: Message[] = data.map((msg: Record<string, unknown>) => ({
-          id: msg.id as string,
-          channelId: msg.channel_id as string,
-          type: (msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001" ? "user" : "agent",
-          sender: (msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001" ? "Ramon" : (agents.find((a) => a.id === msg.sender_agent_id)?.name || "Unknown"),
-          senderColor: (msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001" ? "#3B82F6" : (agents.find((a) => a.id === msg.sender_agent_id)?.color || "#888"),
-          content: msg.content as string,
-          timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          date: "Today",
-        }));
+        const mapped: Message[] = data.map((msg: Record<string, unknown>) => {
+          const isUser = (msg.sender_type as string) === "user"
+            || (msg.sender_user_id as string) === "00000000-0000-0000-0000-000000000001"
+            || (msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001";
+          return {
+            id: msg.id as string,
+            channelId: msg.channel_id as string,
+            type: isUser ? "user" as const : "agent" as const,
+            sender: isUser ? "Ramon" : (agents.find((a) => a.id === msg.sender_agent_id)?.name || "Unknown"),
+            senderColor: isUser ? "#3B82F6" : (agents.find((a) => a.id === msg.sender_agent_id)?.color || "#888"),
+            content: msg.content as string,
+            timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            date: "Today",
+          };
+        });
         setMessages(mapped);
       }
     };
@@ -367,39 +402,52 @@ export default function CommandCenterChatPage() {
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
     if (!supabase) return;
-    const subscription = supabase
-      .channel("chat-messages")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const msg = payload.new as Record<string, unknown>;
-          if (activeChannel && msg.channel_id === activeChannel.id) {
-            // Skip own messages (already added optimistically)
-            if ((msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001") return;
-            const agent = agents.find((a) => a.id === msg.sender_agent_id);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: msg.id as string,
-                channelId: msg.channel_id as string,
-                type: "agent",
-                sender: agent?.name || "Unknown",
-                senderColor: agent?.color || "#888",
-                content: msg.content as string,
-                timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                date: "Today",
-              },
-            ]);
+    let subscription: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      subscription = supabase
+        .channel("chat-messages")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            const msg = payload.new as Record<string, unknown>;
+            const senderType = msg.sender_type as string | undefined;
+            const agent = agentsRef.current.find((a) => a.id === msg.sender_agent_id);
+            if (senderType !== "user") {
+              setWaitingForAgent(false);
+            }
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === (msg.id as string))) return prev;
+              return [
+                ...prev,
+                {
+                  id: msg.id as string,
+                  channelId: msg.channel_id as string,
+                  type: senderType === "user" ? ("user" as const) : ("agent" as const),
+                  sender: senderType === "user" ? "You" : (agent?.name || "Unknown"),
+                  senderColor: senderType === "user" ? "#3b82f6" : (agent?.color || "#888"),
+                  content: msg.content as string,
+                  timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  date: "Today",
+                },
+              ];
+            });
           }
-        }
-      )
-      .subscribe();
+        )
+        .subscribe((status) => {
+          if (status === "CHANNEL_ERROR") {
+            console.warn("Supabase Realtime channel error — falling back to polling");
+          }
+        });
+    } catch (err) {
+      console.warn("Supabase Realtime unavailable:", err);
+    }
 
     return () => {
-      supabase?.removeChannel(subscription);
+      if (subscription) supabase?.removeChannel(subscription);
     };
-  }, [activeChannel, agents]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* ── scroll to bottom when messages change ── */
   useEffect(() => {
@@ -411,18 +459,14 @@ export default function CommandCenterChatPage() {
     inputRef.current?.focus();
   }, [activeChannel, activeAgent]);
 
-  /* ── typing indicator simulation ── */
+  /* ── typing indicator driven by waitingForAgent ── */
   useEffect(() => {
-    if (viewMode === "channel") {
-      const interval = setInterval(() => {
-        const typingAgents = ["Shuri", "Vee", "Atlas"].filter(() => Math.random() > 0.7);
-        setTypingUsers(typingAgents);
-      }, 3000);
-      return () => clearInterval(interval);
+    if (waitingForAgent && viewMode === "dm" && activeAgent) {
+      setTypingUsers([activeAgent.name]);
     } else {
       setTypingUsers([]);
     }
-  }, [viewMode]);
+  }, [waitingForAgent, viewMode, activeAgent]);
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
@@ -461,14 +505,23 @@ export default function CommandCenterChatPage() {
     };
     setMessages((prev) => [...prev, newMessage]);
 
-    // Persist to Supabase in background
+    // Persist to Supabase — bridge picks up new user messages via Realtime
     if (supabase) {
+      const targetAgent = viewMode === "dm" && activeAgent
+        ? activeAgent.name.toLowerCase()
+        : undefined;
       const { error } = await supabase.from("messages").insert({
         channel_id: activeChannel.id,
-        sender_agent_id: "00000000-0000-0000-0000-000000000001",
+        sender_user_id: "00000000-0000-0000-0000-000000000001",
+        sender_type: "user",
         content: content.trim(),
         tenant_id: "11111111-1111-1111-1111-111111111111",
         attachments: [],
+        metadata: {
+          targetAgent,
+          channelName: activeChannel.name || "general",
+          source: "command-center-ui",
+        },
       });
       if (error) console.error("Supabase send failed:", error);
     }
@@ -476,42 +529,8 @@ export default function CommandCenterChatPage() {
     setMessageInput("");
     setAttachments([]);
 
-    // Relay to OpenClaw agent via command-center chat API
-    const targetAgent = viewMode === "dm" && activeAgent
-      ? activeAgent.name.toLowerCase()
-      : "atlas"; // Default to Atlas for channel messages
-    const matchedAgent = agents.find((a) => a.name.toLowerCase() === targetAgent);
-    try {
-      const res = await fetch("/api/command-center/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: content.trim(),
-          channelId: activeChannel.id,
-          agentName: targetAgent,
-          channelName: activeChannel.name,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.response) {
-          const agentReply: Message = {
-            id: `msg-agent-${Date.now()}`,
-            channelId: viewMode === "dm" && activeAgent ? `dm-${activeAgent.id}` : activeChannel.id,
-            type: "agent",
-            sender: matchedAgent?.name || targetAgent,
-            senderColor: matchedAgent?.color || "#C9A84C",
-            content: data.response,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            date: "Today",
-          };
-          setMessages((prev) => [...prev, agentReply]);
-        }
-      } else {
-        console.error("Agent relay failed:", await res.text());
-      }
-    } catch (err) {
-      console.error("Agent relay error:", err);
+    if (viewMode === "dm" && activeAgent) {
+      setWaitingForAgent(true);
     }
   };
 
@@ -588,6 +607,8 @@ export default function CommandCenterChatPage() {
           background: COLORS.bg.main,
           padding: "0 20px",
           gap: 4,
+          overflowX: "auto",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         <a
@@ -666,10 +687,9 @@ export default function CommandCenterChatPage() {
           left: sidebarOpen ? 0 : undefined,
           bottom: sidebarOpen ? 0 : undefined,
           zIndex: sidebarOpen ? 50 : undefined,
-          transform: typeof window !== "undefined" && window.innerWidth < 768 && !sidebarOpen ? "translateX(-100%)" : "translateX(0)",
           transition: "transform 200ms ease",
         }}
-        className="chat-sidebar"
+        className={`chat-sidebar${sidebarOpen ? " open" : ""}`}
       >
         {/* ── Sidebar Header ── */}
         <div
@@ -933,16 +953,42 @@ export default function CommandCenterChatPage() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div
                       style={{
-                        fontSize: 13,
-                        fontWeight: 600,
-                        color: isActive ? COLORS.text.primary : COLORS.text.secondary,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
                         overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap" as const,
-                        transition: "color 150ms ease",
                       }}
                     >
-                      {agent.name}
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: 600,
+                          color: isActive ? COLORS.text.primary : COLORS.text.secondary,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap" as const,
+                          transition: "color 150ms ease",
+                        }}
+                      >
+                        {agent.name}
+                      </span>
+                      {AGENT_TIERS[agent.id] && (
+                        <span
+                          style={{
+                            fontSize: 8,
+                            fontWeight: 700,
+                            letterSpacing: "0.05em",
+                            padding: "1px 4px",
+                            borderRadius: 3,
+                            background: `${AGENT_TIERS[agent.id].color}18`,
+                            color: AGENT_TIERS[agent.id].color,
+                            border: `1px solid ${AGENT_TIERS[agent.id].color}30`,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {AGENT_TIERS[agent.id].label}
+                        </span>
+                      )}
                     </div>
                     <div
                       style={{
@@ -955,6 +1001,26 @@ export default function CommandCenterChatPage() {
                     >
                       {agent.role}
                     </div>
+                    {(() => {
+                      const lastMsg = [...messages].reverse().find((m) => m.channelId === `dm-${agent.id}`);
+                      if (!lastMsg) return null;
+                      const preview = lastMsg.content.length > 30 ? lastMsg.content.slice(0, 30) + "..." : lastMsg.content;
+                      return (
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: COLORS.text.tertiary,
+                            opacity: 0.7,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap" as const,
+                            marginTop: 2,
+                          }}
+                        >
+                          {preview}
+                        </div>
+                      );
+                    })()}
                   </div>
                   {/* Unread badge */}
                   {agent.unread > 0 && (
@@ -1411,6 +1477,39 @@ export default function CommandCenterChatPage() {
               </div>
             </div>
           ))}
+          {typingUsers.length > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "10px 12px",
+              }}
+            >
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: `${activeAgent?.color || "#888"}15`,
+                  border: `1px solid ${activeAgent?.color || "#888"}30`,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: activeAgent?.color || COLORS.text.secondary,
+                }}
+              >
+                {typingUsers[0]?.charAt(0)}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span className="typing-dot" style={{ animationDelay: "0s" }} />
+                <span className="typing-dot" style={{ animationDelay: "0.2s" }} />
+                <span className="typing-dot" style={{ animationDelay: "0.4s" }} />
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
@@ -1687,7 +1786,7 @@ export default function CommandCenterChatPage() {
               </div>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: COLORS.text.primary }}>Thread</div>
-                <div style={{ fontSize: 10, color: COLORS.text.tertiary }}>3 replies</div>
+                <div style={{ fontSize: 10, color: COLORS.text.tertiary }}>Thread</div>
               </div>
             </div>
             <button
@@ -1814,46 +1913,33 @@ export default function CommandCenterChatPage() {
               Replies
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {[
-                { id: "r1", sender: "Atlas", color: COLORS.agents.atlas, content: "I'll follow up on this.", timestamp: "09:48 AM" },
-                { id: "r2", sender: "Shuri", color: COLORS.agents.shuri, content: "Working on it now.", timestamp: "09:50 AM" },
-                { id: "r3", sender: "Vee", color: COLORS.agents.vee, content: "Marketing assets are ready.", timestamp: "09:52 AM" },
-              ].map((reply) => (
-                <div key={reply.id} style={{ display: "flex", gap: 10 }}>
-                  <div
-                    style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 8,
-                      background: `${reply.color}15`,
-                      border: `1px solid ${reply.color}30`,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: reply.color,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {reply.sender.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: reply.color }}>
-                        {reply.sender}
-                      </span>
-                      <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
-                        {reply.timestamp}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: 12, lineHeight: 1.5, color: COLORS.text.primary }}>
-                      {reply.content}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "40px 20px",
+                gap: 8,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 20,
+                  color: COLORS.text.tertiary,
+                  opacity: 0.5,
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 12, color: COLORS.text.tertiary, fontWeight: 500 }}>
+                No replies yet
+              </div>
+              <div style={{ fontSize: 10, color: COLORS.text.tertiary, opacity: 0.6 }}>
+                Be the first to reply
+              </div>
             </div>
           </div>
 
@@ -1919,6 +2005,10 @@ export default function CommandCenterChatPage() {
             bottom: 0 !important;
             z-index: 50 !important;
             width: 280px !important;
+            transform: translateX(-100%);
+          }
+          .chat-sidebar.open {
+            transform: translateX(0) !important;
           }
           .chat-mobile-menu {
             display: flex !important;
@@ -1954,6 +2044,18 @@ export default function CommandCenterChatPage() {
         }
         textarea::placeholder {
           color: ${COLORS.text.tertiary};
+        }
+        @keyframes typingBounce {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+          30% { transform: translateY(-4px); opacity: 1; }
+        }
+        .typing-dot {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: ${COLORS.text.secondary};
+          animation: typingBounce 1.4s ease-in-out infinite;
+          display: inline-block;
         }
       `}</style>
       </div>
