@@ -1321,66 +1321,7 @@ export default function CommandCenter() {
             </div>
           </div>
 
-          {/* ═══════ QUICK LINKS ═══════ */}
-          <div className="mb-6">
-            <h3 className="text-xs font-bold tracking-widest text-white/40 mb-3">QUICK LINKS</h3>
-            <div className="flex flex-wrap gap-2">
-              {links.filter((l: any) => l?.href).map((l: { label: string; href: string; icon: string; accent: string }) => (
-                <a
-                  key={l.label}
-                  href={l.href}
-                  target={l.href?.startsWith("http") ? "_blank" : undefined}
-                  rel={l.href?.startsWith("http") ? "noopener noreferrer" : undefined}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.07] transition-colors text-sm"
-                >
-                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: `${l.accent}22`, color: l.accent }}>{l.icon}</span>
-                  <span className="text-white/70">{l.label}</span>
-                  {l.href?.startsWith("http") && <span className="text-white/30 text-xs">↗</span>}
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* ═══════ NAVIGATION CARDS — SUB-PAGES ═══════ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            {[
-              { label: "AGENTS", href: "/command-center/agents", icon: "\u25C8", accent: "#7c3aed", desc: `${activeAgents} active \u00B7 ${agents.length} total`, sub: "Usage, skills, tools, config" },
-              { label: "MISSIONS", href: "/command-center/missions", icon: "\u2726", accent: "#C9A84C", desc: `${activeMissions} active \u00B7 ${doneT}/${totalT} tasks`, sub: "Projects, progress, checklists" },
-              { label: "VITALS", href: "/command-center/vitals", icon: "\u2665", accent: "#10b981", desc: "Health \u00B7 Spiritual \u00B7 Weather", sub: "Steps, water, sleep, scripture" },
-              { label: "REVENUE", href: "/command-center/revenue", icon: "\u25C9", accent: "#d97706", desc: "Pipeline \u00B7 Opportunities", sub: "Sales, pricing, deals" },
-              { label: "ACTIVITY", href: "/command-center/activity", icon: "\u25CF", accent: "#2563eb", desc: `${activityLog.length} recent events`, sub: "Feed, schedule, history" },
-              { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
-              { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
-              { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },
-              { label: "PROJECTS", href: "/command-center/projects", icon: "\u25B6", accent: "#10b981", desc: "7 tracked", sub: "Progress, milestones, blockers" },
-              { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE", accent: "#f59e0b", desc: "Agent journal", sub: "Daily logs, search, timeline" },
-              { label: "DOCS", href: "/command-center/docs", icon: "\u2261", accent: "#3b82f6", desc: "Doc viewer", sub: "Plans, SOPs, configs, reports" },
-              { label: "OFFICE", href: "/command-center/office", icon: "\u25A3", accent: "#a855f7", desc: "3D Office", sub: "Isometric workspace, live status" },
-              { label: "CHAT", href: "/command-center/chat", icon: "\u25C8", accent: "#7c3aed", desc: "Live agent chat", sub: "Channels, DMs, real-time" },
-              { label: "FINANCE HQ", href: "/command-center/finance", icon: "\u03A3", accent: "#00ff88", desc: "Simons x Kiyosaki", sub: "Portfolio, signals, risk, Oracle" },
-            ].map((card) => (
-              <Link
-                key={card.href}
-                href={card.href}
-                className="group relative p-6 flex flex-col justify-between min-h-[160px]"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 12, borderLeft: `3px solid ${card.accent}`, transition: 'all 150ms ease-in-out' }}
-              >
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 800, background: `${card.accent}10`, color: card.accent, border: `1px solid ${card.accent}30` }}>
-                      {card.icon}
-                    </div>
-                    <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.12em', color: '#e5e5e5' }}>{card.label}</span>
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#e5e5e5', marginBottom: 4 }}>{card.desc}</div>
-                  <div style={{ fontSize: 12, color: '#888888', fontWeight: 500 }}>{card.sub}</div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                  <span className="group-hover:translate-x-1" style={{ fontSize: 14, fontWeight: 700, color: card.accent, transition: 'transform 150ms ease-in-out' }}>&rarr;</span>
-                </div>
-              </Link>
-            ))}
-          </div>
+          {/* Navigation moved to sidebar */}
           {/* ═══════ FOOTER ═══════ */}
           <footer className="text-center py-8" style={{ borderTop: '1px solid #1e1e1e' }}>
             <div className="text-[9px] font-mono text-[#888888] tracking-[0.4em] uppercase">
