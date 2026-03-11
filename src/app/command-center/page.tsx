@@ -604,7 +604,7 @@ export default function CommandCenter() {
   }, []);
 
   /* ── CRUD handlers ── */
-  const bridgeHeaders = { 'Content-Type': 'application/json', 'x-bridge-secret': 'parallax-bridge-2026' };
+  const bridgeHeaders = { 'Content-Type': 'application/json', 'x-bridge-secret': process.env.NEXT_PUBLIC_BRIDGE_SECRET || '' };
 
   const handleCreateCron = async (name: string, schedule: string, agent: string, task: string) => {
     try {
