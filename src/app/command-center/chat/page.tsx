@@ -312,6 +312,7 @@ export default function CommandCenterChatPage() {
     const loadData = async () => {
       if (!supabase) {
         setActiveChannel(DEFAULT_CHANNELS[1]);
+        setMessages(DEFAULT_MESSAGES);
         setLoading(false);
         return;
       }
@@ -344,15 +345,22 @@ export default function CommandCenterChatPage() {
           .order("name");
 
         if (agentsData && agentsData.length > 0) {
-          const mapped = agentsData.map((a: Record<string, unknown>) => ({
-            id: a.id as string,
-            name: a.name as string,
-            role: (a.handle as string) || "",
-            status: (a.status as string) || "offline",
-            color: (a.color_hex as string) || "#888",
-            unread: 0,
-          }));
-          setAgents(mapped);
+          const supaMap = new Map(
+            agentsData.map((a: Record<string, unknown>) => [
+              (a.handle as string) || (a.name as string)?.toLowerCase(),
+              {
+                id: (a.handle as string) || (a.name as string)?.toLowerCase() || (a.id as string),
+                name: a.name as string,
+                role: (a.handle as string) || "",
+                status: (a.status as string) || "offline",
+                color: (a.color_hex as string) || "#888",
+                unread: 0,
+              },
+            ])
+          );
+          // Merge: Supabase data overrides defaults, but keep all 20 agents
+          const merged = DEFAULT_AGENTS.map((def) => supaMap.get(def.id) || def);
+          setAgents(merged);
         }
       } catch (err) {
         console.error("Supabase load failed, using defaults:", err);
@@ -367,7 +375,11 @@ export default function CommandCenterChatPage() {
 
   /* ── load messages when activeChannel changes ── */
   useEffect(() => {
-    if (!activeChannel || !supabase) return;
+    if (!activeChannel) return;
+    if (!supabase) {
+      setMessages(DEFAULT_MESSAGES);
+      return;
+    }
     const sb = supabase;
     const loadMessages = async () => {
       const { data } = await sb
@@ -401,21 +413,26 @@ export default function CommandCenterChatPage() {
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
-    if (!supabase) return;
-    let subscription: ReturnType<typeof supabase.channel> | null = null;
+    if (!supabase || !activeChannel) return;
+    const sb = supabase;
+    let subscription: ReturnType<typeof sb.channel> | null = null;
     try {
-      subscription = supabase
-        .channel("chat-messages")
+      subscription = sb
+        .channel(`chat-messages-${activeChannel.id}`)
         .on(
           "postgres_changes",
-          { event: "INSERT", schema: "public", table: "messages" },
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "messages",
+            filter: `channel_id=eq.${activeChannel.id}`,
+          },
           (payload) => {
             const msg = payload.new as Record<string, unknown>;
             const senderType = msg.sender_type as string | undefined;
+            if (senderType === "user") return;
             const agent = agentsRef.current.find((a) => a.id === msg.sender_agent_id);
-            if (senderType !== "user") {
-              setWaitingForAgent(false);
-            }
+            setWaitingForAgent(false);
             setMessages((prev) => {
               if (prev.some((m) => m.id === (msg.id as string))) return prev;
               return [
@@ -444,10 +461,9 @@ export default function CommandCenterChatPage() {
     }
 
     return () => {
-      if (subscription) supabase?.removeChannel(subscription);
+      if (subscription) sb.removeChannel(subscription);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeChannel]);
 
   /* ── scroll to bottom when messages change ── */
   useEffect(() => {
@@ -588,7 +604,7 @@ export default function CommandCenterChatPage() {
         display: "flex",
         flexDirection: "column",
         height: "100vh",
-        width: "100vw",
+        width: "100%",
         background: COLORS.bg.main,
         color: COLORS.text.primary,
         fontFamily: FONT_FAMILY,
