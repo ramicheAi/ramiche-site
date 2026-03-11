@@ -9,5 +9,9 @@
   "agents": ["Atlas", "SHURI", "PROXIMON", "MICHAEL", "SELAH", "KIYOSAKI", "TRIAGE"],
   "lead": "Atlas",
   "blockers": ["STRIPE_SECRET_KEY for live payments"],
-  "link": { "label": "Open App", "href": "/apex-athlete" }
+  "link": { "label": "Open App", "href": "/apex-athlete" },
+  "repo": "ramicheAi/ramiche-site",
+  "repoPath": "src/app/apex-athlete",
+  "liveUrl": "https://ramiche-site.vercel.app/apex-athlete",
+  "stack": ["Next.js 16", "React 19", "Firebase", "Tailwind 4", "Stripe"]
 }

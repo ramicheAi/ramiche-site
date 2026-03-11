@@ -2,8 +2,10 @@
 
 ## Status
 - Live at https://parallax-site-ashen.vercel.app
-- 19 routes, 9 functional, 7 marketing-only
+- 21 routes total. Full audit completed Mar 9 (see `memory/night-shift-2026-03-09.md`)
 - Agent marketplace is the revenue engine (/agents has real e2e)
+- 5 marketing-only routes awaiting Ramon's decision: `/studio`, `/engineering`, `/galactik-antics`, `/clawguard`, `/publish`
+- Quick win: replace mailto CTAs on studio/engineering with existing `/intake` form
 
 ## Critical Rules
 - Repo: `/Users/admin/parallax-site/` (NOT repos/ folder, NOT ramiche-site)

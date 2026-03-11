@@ -23,6 +23,10 @@ interface Project {
   tasks: ProjectTask[];
   blockers?: string[];
   link: { label: string; href: string } | null;
+  repo?: string;
+  repoPath?: string;
+  liveUrl?: string | null;
+  stack?: string[];
 }
 
 const DOC_LABELS: Record<string, { label: string; icon: string; desc: string }> = {
@@ -289,6 +293,45 @@ export default function ProjectHQ() {
               </div>
             </div>
 
+            {/* Project Info */}
+            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Project Info</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {project.liveUrl && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#94a3b8" }}>Live URL</span>
+                    <a href={project.liveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: project.accent, textDecoration: "none" }}>
+                      {project.liveUrl.replace(/^https?:\/\//, "").split("/")[0]} ↗
+                    </a>
+                  </div>
+                )}
+                {project.repo && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#94a3b8" }}>Repo</span>
+                    <a href={`https://github.com/${project.repo}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textDecoration: "none" }}>
+                      {project.repo} ↗
+                    </a>
+                  </div>
+                )}
+                {project.repoPath && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "#94a3b8" }}>Path</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", fontFamily: "monospace" }}>{project.repoPath}</span>
+                  </div>
+                )}
+                {project.stack && project.stack.length > 0 && (
+                  <div>
+                    <span style={{ fontSize: 13, color: "#94a3b8", display: "block", marginBottom: 8 }}>Stack</span>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {project.stack.map((s) => (
+                        <span key={s} style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 8, background: `${project.accent}08`, color: project.accent, border: `1px solid ${project.accent}20` }}>{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Documents Quick Access */}
             <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
               <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Documents</div>
@@ -428,24 +471,60 @@ export default function ProjectHQ() {
         )}
 
         {/* ── TASKS TAB ── */}
-        {tab === "tasks" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {project.tasks.map((t, i) => (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 10,
-                background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.06)", transition: "all 0.2s",
-              }}>
-                <span style={{
-                  width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
-                  background: t.done ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.02)",
-                  border: t.done ? "2px solid rgba(34,197,94,0.25)" : "2px solid rgba(255,255,255,0.08)",
-                  color: t.done ? "#059669" : "#94a3b8",
-                }}>{t.done ? "✓" : ""}</span>
-                <span style={{ fontSize: 14, color: t.done ? "#64748b" : "#e2e8f0", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1 }}>{t.t}</span>
+        {tab === "tasks" && (() => {
+          const pending = project.tasks.filter(t => !t.done);
+          const done = project.tasks.filter(t => t.done);
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Pending section */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#e2e8f0", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: project.accent, display: "inline-block" }} />
+                  In Progress ({pending.length})
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {pending.map((t, i) => (
+                    <div key={`p-${i}`} style={{
+                      display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 10,
+                      background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", transition: "all 0.2s",
+                    }}>
+                      <span style={{
+                        width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
+                        background: "rgba(255,255,255,0.02)", border: `2px solid ${project.accent}40`, color: "#94a3b8",
+                      }} />
+                      <span style={{ fontSize: 14, color: "#e2e8f0" }}>{t.t}</span>
+                    </div>
+                  ))}
+                  {pending.length === 0 && <div style={{ fontSize: 13, color: "#94a3b8", padding: "12px 18px" }}>All tasks complete</div>}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+
+              {/* Done section */}
+              {done.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#059669", display: "inline-block" }} />
+                    Completed ({done.length})
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {done.map((t, i) => (
+                      <div key={`d-${i}`} style={{
+                        display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderRadius: 10,
+                        background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.04)", transition: "all 0.2s",
+                      }}>
+                        <span style={{
+                          width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
+                          background: "rgba(34,197,94,0.08)", border: "2px solid rgba(34,197,94,0.25)", color: "#059669",
+                        }}>✓</span>
+                        <span style={{ fontSize: 13, color: "#64748b", textDecoration: "line-through", opacity: 0.7 }}>{t.t}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </main>
   );

@@ -41,8 +41,26 @@
 - Feb 17: Copyright completed
 - Feb 27: ByteByteGo 52/52 items implemented
 - Mar 2: Service workers banned (stale cache fix)
-- Mar 7: Server-side redirect fix (308), rogue app/ dir removal, portal switcher restored, duplicate Parent tab fixed, demo page step 1 polish
-- Mar 8: Project structure verified + updated
+- Mar 7: Server-side redirect fix, rogue app/ dir removal, portal switcher, demo page polish
+- Mar 8: Best Times Fetch (SwimCloud + USA Swimming ID), security hardening (role isolation), 30-day sessions, auto-update pipeline, project docs
+
+## Auth Architecture (Mar 8)
+
+- **Session storage:** localStorage, 30-day expiry
+- **Roles:** coach, admin, athlete, parent
+- **MASTER_PIN:** env var `NEXT_PUBLIC_MASTER_PIN`, fallback "2451"
+- **Portal isolation:** each portal checks `getSession().role` — wrong roles get redirected
+- **MASTER_PIN bypass:** only on admin login, NOT on athlete/parent portals
+- **CRITICAL LESSON (Mar 8):** Never blank MASTER_PIN during auth refactors. Always verify PIN login works after every auth commit.
+
+## Best Times (Mar 8)
+
+- **Source:** SwimCloud HTML scraping (official API is private/403)
+- **Meet Mobile:** No public API, closed app — not viable
+- **Matching:** USA Swimming ID (`sdif.swimmer.{id}`) with name fallback
+- **Cache:** Firestore, 7-day TTL
+- **UI:** "Best Times" section in AthleteDetailView, grouped by course (SCY/LCM/SCM)
+- **Known issue:** meet name + date fields return empty — parser needs fix
 
 ## Critical Rules
 
@@ -51,3 +69,4 @@
 - Service workers BANNED
 - Verify in browser before reporting "done"
 - `no-cache, no-store, must-revalidate` on all METTLE paths
+- AUTH CHANGES — ATOMIC ONLY: one commit per change, verify MASTER_PIN after each

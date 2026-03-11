@@ -562,6 +562,7 @@ export default function CommandCenter() {
   const [taskModal, setTaskModal] = useState(false);
   const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', priority: 'medium' });
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   /* ── fetch crons (mount + every 15s) ── */
   const fetchCrons = useCallback(async () => {
@@ -1062,7 +1063,8 @@ export default function CommandCenter() {
             >
               {isRefreshing ? '⟳ SYNCING…' : '↻ REFRESH'}
             </button>
-            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
+            {/* Desktop nav */}
+            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="hidden md:flex">
               {NAV.map((n) => (
                 <Link key={n.href} href={n.href} style={{
                   fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
@@ -1070,7 +1072,27 @@ export default function CommandCenter() {
                 }}>{n.label}</Link>
               ))}
             </div>
+            {/* Mobile hamburger */}
+            <button
+              className="md:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              style={{ padding: 8, color: '#e5e5e5', background: 'none', border: 'none', cursor: 'pointer', fontSize: 22 }}
+              aria-label="Menu"
+            >
+              {mobileMenuOpen ? '✕' : '☰'}
+            </button>
           </div>
+          {/* Mobile nav drawer */}
+          {mobileMenuOpen && (
+            <div style={{ background: 'rgba(10,10,10,0.98)', borderTop: '1px solid #1e1e1e', padding: '12px 24px 20px' }} className="md:hidden">
+              {NAV.map((n) => (
+                <Link key={n.href} href={n.href} onClick={() => setMobileMenuOpen(false)} style={{
+                  display: 'block', padding: '10px 0', fontSize: 14, fontWeight: 600, letterSpacing: '0.05em',
+                  color: n.active ? '#e5e5e5' : '#888888', borderBottom: '1px solid rgba(255,255,255,0.06)',
+                }}>{n.icon} {n.label}</Link>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
@@ -1408,6 +1430,7 @@ export default function CommandCenter() {
               { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE", accent: "#f59e0b", desc: "Agent journal", sub: "Daily logs, search, timeline" },
               { label: "DOCS", href: "/command-center/docs", icon: "\u2261", accent: "#3b82f6", desc: "Doc viewer", sub: "Plans, SOPs, configs, reports" },
               { label: "OFFICE", href: "/command-center/office", icon: "\u25A3", accent: "#a855f7", desc: "3D Office", sub: "Isometric workspace, live status" },
+              { label: "CHAT", href: "/command-center/chat", icon: "\u25C8", accent: "#7c3aed", desc: "Live agent chat", sub: "Channels, DMs, real-time" },
               { label: "FINANCE HQ", href: "/command-center/finance", icon: "\u03A3", accent: "#00ff88", desc: "Simons x Kiyosaki", sub: "Portfolio, signals, risk, Oracle" },
             ].map((card) => (
               <Link

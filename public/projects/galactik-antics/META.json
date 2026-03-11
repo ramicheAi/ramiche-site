@@ -9,5 +9,7 @@
   "agents": ["Vee", "SHURI", "INK", "NOVA", "Aetherion"],
   "lead": "Aetherion",
   "blockers": ["Shopify API credentials", "GA art assets", "Timeline", "Kickstarter date"],
-  "link": { "label": "Printful", "href": "https://www.printful.com/dashboard" }
+  "link": { "label": "Printful", "href": "https://www.printful.com/dashboard" },
+  "liveUrl": null,
+  "stack": ["Shopify", "Printful"]
 }

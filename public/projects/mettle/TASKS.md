@@ -2,7 +2,7 @@
 
 ## In Progress
 
-- [ ] Best Times Fetch implementation (research done, coding pending)
+- [ ] SwimCloud meet/date parsing fix (times returned but meet name + date fields empty)
 
 ## Backlog (Priority Order)
 
@@ -18,6 +18,10 @@
 
 ## Completed (Recent)
 
+- [x] Best Times Fetch — SwimCloud API with USA Swimming ID matching, Firestore cache, athlete detail UI
+- [x] Security: role-based portal isolation (coach/athlete/parent strict separation)
+- [x] Session extended 24h → 30 days + smart root redirect
+- [x] MASTER_PIN preserved after security hardening (regression fixed)
 - [x] ByteByteGo 52/52 security + performance items
 - [x] Service worker ban + self-destruct pattern
 - [x] Server-side redirect (/apex-athlete → /coach)

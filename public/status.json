@@ -9,7 +9,7 @@
     },
     {
       "name": "atlas",
-      "model": "claude-opus-4-6",
+      "model": "claude-sonnet-4-5-20250929",
       "role": "operations-lead",
       "status": "idle",
       "task": "Standing by"
@@ -72,7 +72,7 @@
     },
     {
       "name": "echo",
-      "model": "kimi-k2.5",
+      "model": "qwen3:14b",
       "role": "community",
       "status": "idle",
       "task": "Standing by"
@@ -86,7 +86,7 @@
     },
     {
       "name": "widow",
-      "model": "claude-3.5-haiku",
+      "model": "qwen3:14b",
       "role": "security",
       "status": "idle",
       "task": "Standing by"
@@ -107,28 +107,28 @@
     },
     {
       "name": "michael",
-      "model": "glm-4.6",
+      "model": "qwen3:14b",
       "role": "swim-coaching",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "selah",
-      "model": "deepseek-v3.2",
+      "model": "qwen3:14b",
       "role": "psychology",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "prophets",
-      "model": "kimi-k2.5",
+      "model": "qwen3:14b",
       "role": "spiritual",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "themaestro",
-      "model": "deepseek-v3.2",
+      "model": "qwen3:14b",
       "role": "music",
       "status": "idle",
       "task": "Standing by"
@@ -148,5 +148,5 @@
       "task": "Standing by"
     }
   ],
-  "lastSync": "2026-03-08T13:14:08.407Z"
+  "lastSync": "2026-03-10T08:52:07.793Z"
 }

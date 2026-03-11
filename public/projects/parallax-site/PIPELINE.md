@@ -8,13 +8,12 @@ QUEUED → IN PROGRESS → REVIEW → DEPLOY → VERIFIED
 
 ### QUEUED
 - Firebase auth integration
-- Route audit (marketing-only → functional or remove)
 
 ### IN PROGRESS
 - GitHub repo creation + Vercel connection
 
 ### REVIEW
-(none)
+- Route audit — audit complete, 5 routes need Ramon's decision (see `memory/night-shift-2026-03-09.md`)
 
 ### DEPLOY
 (none)

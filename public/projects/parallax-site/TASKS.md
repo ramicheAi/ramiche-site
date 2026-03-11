@@ -1,12 +1,10 @@
 # Parallax Site — Task Board
 
 ## In Progress
-- [ ] Create GitHub repo + connect to Vercel (fixes stale prerender issue)
+- [ ] Audit remaining 7 marketing-only routes — **AUDIT DONE** (Mar 9), 5 routes need Ramon's decision: `/studio`, `/engineering`, `/galactik-antics`, `/clawguard`, `/publish`. Details in `memory/night-shift-2026-03-09.md`
 
 ## Backlog (Priority Order)
 - [ ] Add Firebase auth
-- [ ] Fix homepage redirect to /command-center (will resolve with GitHub deploy)
-- [ ] Audit remaining 7 marketing-only routes (add real functionality or remove)
 - [ ] Wire up remaining /forge tools
 
 ## Completed
@@ -14,3 +12,9 @@
 - [x] White-label system (115 files, 20 agents, 7 bundles)
 - [x] First external deployment (Derrick, Windows, Feb 21)
 - [x] /forge creative tools hub (6 tools)
+- [x] GitHub repo created + connected to Vercel (auto-deploy working)
+- [x] Command Center dark mode (all pages)
+- [x] Command Center auto-update (bridge-sync → live missions, schedule, notifications)
+- [x] Project HQ with full doc viewer (8 projects, 6 docs each)
+- [x] Smart refresh button (parallel data fetch, no page reload)
+- [x] Command Center crash fix (href object → string)
