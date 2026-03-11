@@ -30,7 +30,7 @@ const TENANT_ID   = process.env.RAMICHE_TENANT_ID || "11111111-1111-1111-1111-11
 // Bridge control endpoint — a lightweight Express server on your Mac
 // exposed via ngrok or Tailscale. See bridge-control-server.js.
 const BRIDGE_CTRL = process.env.BRIDGE_CONTROL_URL || "";
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "parallax-bridge-2026";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
 
 // Agent name → sessionKey
 const AGENT_SESSIONS: Record<string, string> = {

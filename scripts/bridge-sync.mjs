@@ -6,12 +6,12 @@
 // Usage: node scripts/bridge-sync.mjs
 // Or: BRIDGE_URL=https://ramiche-site.vercel.app/api/bridge node scripts/bridge-sync.mjs
 
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "parallax-bridge-2026";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE || "/Users/admin/.openclaw/workspace";
 const SYNC_INTERVAL = 60_000; // 60 seconds
 
@@ -525,8 +525,9 @@ async function pollTriggerQueue() {
       // Immediately spawn the agent by sending to their session
       const agentLower = trigger.agent.toLowerCase();
       try {
-        execSync(
-          `openclaw sessions send "agent:${agentLower}:main" "You have a new HIGH PRIORITY task from Command Center: ${trigger.title}. Check agents/inbox.md for details and begin immediately."`,
+        execFileSync(
+          "openclaw",
+          ["sessions", "send", `agent:${agentLower}:main`, `You have a new HIGH PRIORITY task from Command Center: ${trigger.title}. Check agents/inbox.md for details and begin immediately.`],
           { encoding: "utf8", timeout: 15_000 }
         );
         console.log(`[trigger] Spawned/notified ${trigger.agent} via sessions_send`);
