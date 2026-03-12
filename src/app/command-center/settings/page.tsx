@@ -42,8 +42,31 @@ function getStatusColor(status: string) {
   return "#6b7280";
 }
 
+const DEFAULT_AGENTS: AgentConfig[] = [
+  { id: "atlas", name: "Atlas", model: "claude-opus-4-6", provider: "claude-max", role: "Operations Lead", capabilities: ["orchestration","delegation","memory"], skills: ["coding-agent","email"], escalationLevel: "APEX", status: "active" },
+  { id: "triage", name: "Triage", model: "claude-sonnet-4-5", provider: "claude-max", role: "System Doctor", capabilities: ["debugging","health-checks"], skills: ["container-debug","app-log-analyzer"], escalationLevel: "PRO", status: "idle" },
+  { id: "shuri", name: "Shuri", model: "deepseek-v3.2", provider: "openrouter", role: "Creative Coding", capabilities: ["code-gen","refactoring","UI"], skills: ["coding-agent","ui-ux-pro-max"], escalationLevel: "CORE", status: "idle" },
+  { id: "proximon", name: "Proximon", model: "gemini-3-pro", provider: "gemini", role: "Systems Architect", capabilities: ["architecture","infrastructure"], skills: ["contextplus"], escalationLevel: "PRO", status: "idle" },
+  { id: "aetherion", name: "Aetherion", model: "gemini-3-pro", provider: "gemini", role: "Meta-Architect", capabilities: ["creative-direction","brand"], skills: ["nano-banana-pro","brand-cog","insta-cog"], escalationLevel: "PRO", status: "idle" },
+  { id: "simons", name: "Simons", model: "deepseek-v3.2", provider: "openrouter", role: "Algorithmic Analysis", capabilities: ["data","quantitative"], skills: ["intellectia-stock-forecast"], escalationLevel: "CORE", status: "idle" },
+  { id: "mercury", name: "Mercury", model: "gemini-3-pro", provider: "gemini", role: "Sales & Revenue", capabilities: ["sales","pricing"], skills: ["clawpify"], escalationLevel: "PRO", status: "idle" },
+  { id: "vee", name: "Vee", model: "kimi-k2.5", provider: "openrouter", role: "Brand & Marketing", capabilities: ["brand","positioning"], skills: ["brand-analyzer","brand-cog"], escalationLevel: "CORE", status: "idle" },
+  { id: "ink", name: "Ink", model: "deepseek-v3.2", provider: "openrouter", role: "Content Creator", capabilities: ["copywriting","content"], skills: ["agent-content-pipeline"], escalationLevel: "CORE", status: "idle" },
+  { id: "echo", name: "Echo", model: "qwen-14b", provider: "ollama", role: "Community & Social", capabilities: ["engagement","social"], skills: ["linkedin-automator"], escalationLevel: "LOCAL", status: "idle" },
+  { id: "haven", name: "Haven", model: "deepseek-v3.2", provider: "openrouter", role: "Customer Success", capabilities: ["support","onboarding"], skills: ["email"], escalationLevel: "CORE", status: "idle" },
+  { id: "widow", name: "Widow", model: "qwen-14b", provider: "ollama", role: "Cybersecurity & Intel", capabilities: ["security","scanning"], skills: ["healthcheck"], escalationLevel: "LOCAL", status: "idle" },
+  { id: "drstrange", name: "Dr. Strange", model: "deepseek-v3.2", provider: "openrouter", role: "Forecasting & Decisions", capabilities: ["scenario-modeling","strategy"], skills: [], escalationLevel: "CORE", status: "idle" },
+  { id: "kiyosaki", name: "Kiyosaki", model: "deepseek-v3.2", provider: "openrouter", role: "Financial Intelligence", capabilities: ["finance","capital"], skills: [], escalationLevel: "CORE", status: "idle" },
+  { id: "michael", name: "Michael", model: "qwen-14b", provider: "ollama", role: "Swim Training AI", capabilities: ["coaching","race-strategy"], skills: [], escalationLevel: "LOCAL", status: "idle" },
+  { id: "selah", name: "Selah", model: "qwen-14b", provider: "ollama", role: "Wellness & Sport Psychology", capabilities: ["psychology","performance"], skills: ["fasting-tracker","habit-tracker"], escalationLevel: "LOCAL", status: "idle" },
+  { id: "prophets", name: "Prophets", model: "qwen-14b", provider: "ollama", role: "Spiritual Wisdom", capabilities: ["discernment","wisdom"], skills: [], escalationLevel: "LOCAL", status: "idle" },
+  { id: "themaestro", name: "TheMAESTRO", model: "qwen-14b", provider: "ollama", role: "Music Production", capabilities: ["music","audio"], skills: ["ai-music-generation","elevenlabs-music"], escalationLevel: "LOCAL", status: "idle" },
+  { id: "nova", name: "Nova", model: "deepseek-v3.2", provider: "openrouter", role: "3D Fabrication", capabilities: ["3d-print","design"], skills: ["bambu-studio-ai"], escalationLevel: "CORE", status: "idle" },
+  { id: "themis", name: "Themis", model: "claude-opus-4-6", provider: "claude-max", role: "Legal & Compliance", capabilities: ["governance","rules"], skills: [], escalationLevel: "APEX", status: "idle" },
+];
+
 export default function SettingsPage() {
-  const [agents, setAgents] = useState<AgentConfig[]>([]);
+  const [agents, setAgents] = useState<AgentConfig[]>(DEFAULT_AGENTS);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
   const [activeTab, setActiveTab] = useState<"agents" | "system">("agents");
@@ -53,10 +76,14 @@ export default function SettingsPage() {
       const res = await fetch("/api/command-center/agents");
       if (res.ok) {
         const data = await res.json();
-        setAgents(data.agents || []);
+        if (data.agents?.length > 0) {
+          // Merge API data with defaults
+          const apiMap = new Map(data.agents.map((a: AgentConfig) => [a.id.toLowerCase(), a]));
+          setAgents(DEFAULT_AGENTS.map(d => ({ ...d, ...(apiMap.get(d.id) || {}) })));
+        }
       }
       setLastSync(new Date().toLocaleTimeString());
-    } catch { /* keep existing */ }
+    } catch { /* keep defaults */ }
     finally { setLoading(false); }
   }, []);
 
