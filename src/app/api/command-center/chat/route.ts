@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
         "X-Title": "Parallax Command Center",
       },
       body: JSON.stringify({
-        model: "deepseek/deepseek-chat-v3-0324:free",
+        model: "deepseek/deepseek-chat-v3-0324",
         messages: [
           {
             role: "system",
-            content: `You are ${displayName}, an AI agent in the Parallax multi-agent system. Your role: ${persona.role}. Your communication style: ${persona.style}\n\nKeep responses concise (under 150 words). Be helpful, direct, and in-character. You work for Parallax — a company building AI agent products, METTLE (athlete SaaS), and creative services. The operator is Ramon.`,
+            content: `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`,
           },
           { role: "user", content: message },
         ],
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
     } else {
       const errText = await res.text().catch(() => "unknown error");
       console.error(`OpenRouter error: ${res.status} ${errText}`);
-      agentResponse = `I'm having trouble connecting right now. Try again in a moment.`;
+      agentResponse = `Sorry, I couldn't process that. Please try again.`;
     }
 
     // Write agent response to Supabase
