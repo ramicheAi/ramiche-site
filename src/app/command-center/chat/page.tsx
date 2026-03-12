@@ -474,6 +474,10 @@ export default function CommandCenterChatPage() {
       }
     };
     loadMessages();
+
+    // Poll every 3s as fallback (realtime may not work due to RLS/replication config)
+    const pollInterval = setInterval(loadMessages, 3000);
+    return () => clearInterval(pollInterval);
   }, [activeChannel, activeAgent, viewMode, agents]);
 
   /* ── real-time subscription for new messages ── */
