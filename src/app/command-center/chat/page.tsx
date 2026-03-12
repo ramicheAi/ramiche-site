@@ -676,6 +676,20 @@ export default function CommandCenterChatPage() {
         },
       });
       if (error) console.error("Supabase send failed:", error);
+
+      // Relay to agent via API so it actually responds
+      const agentName = isDM ? activeAgent!.id : undefined;
+      const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
+      fetch("/api/command-center/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: content.trim(),
+          channelId: targetChannelId,
+          agentName,
+          channelName,
+        }),
+      }).catch((err) => console.error("Agent relay failed:", err));
     }
 
     setMessageInput("");
@@ -683,12 +697,11 @@ export default function CommandCenterChatPage() {
 
     if (viewMode === "dm" && activeAgent) {
       setWaitingForResponse(true);
-      // Auto-clear typing indicator after 5 seconds of no new typing event
       if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
       waitingTimeoutRef.current = setTimeout(() => {
         setWaitingForResponse(false);
         waitingTimeoutRef.current = null;
-      }, 5000);
+      }, 15000);
     }
   };
 
