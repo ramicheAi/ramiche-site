@@ -126,6 +126,14 @@ function getDmChannelId(agentId: string): string {
   return DM_CHANNEL_MAP[agentId] || agentId;
 }
 
+/* ── Reverse map: UUID → short agent ID (for resolving sender_agent_id from Supabase) ── */
+const AGENT_UUID_TO_ID: Record<string, string> = Object.fromEntries(
+  Object.entries(DM_CHANNEL_MAP).map(([id, uuid]) => [uuid, id])
+);
+function resolveAgentId(uuidOrId: string): string {
+  return AGENT_UUID_TO_ID[uuidOrId] || uuidOrId;
+}
+
 const DEFAULT_AGENTS = [
   { id: "atlas", name: "Atlas", role: "Operations Lead", status: "active", color: COLORS.agents.atlas, unread: 0 },
   { id: "triage", name: "Triage", role: "Debugging & Log Analysis", status: "idle", color: COLORS.agents.triage, unread: 0 },
@@ -455,8 +463,8 @@ export default function CommandCenterChatPage() {
             id: msg.id as string,
             channelId: msg.channel_id as string,
             type: isUser ? "user" as const : "agent" as const,
-            sender: isUser ? "Ramon" : (agents.find((a) => a.id === msg.sender_agent_id)?.name || "Unknown"),
-            senderColor: isUser ? "#3B82F6" : (agents.find((a) => a.id === msg.sender_agent_id)?.color || "#888"),
+            sender: isUser ? "Ramon" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.name || "Unknown"),
+            senderColor: isUser ? "#3B82F6" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.color || "#888"),
             content: msg.content as string,
             timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             date: "Today",
@@ -499,14 +507,14 @@ export default function CommandCenterChatPage() {
             event: "INSERT",
             schema: "public",
             table: "messages",
-            filter: `channel_id=eq.'${channelId}'`, // Only receive inserts for this specific channel (UUID must be quoted!)
+            filter: `channel_id=eq.${channelId}`,
           },
           (payload) => {
             console.log(`📨 Realtime INSERT for channel ${channelId}:`, payload.new);
             
             const msg = payload.new as Record<string, unknown>;
             const senderType = msg.sender_type as string | undefined;
-            const agentId = msg.sender_agent_id as string;
+            const agentId = resolveAgentId(msg.sender_agent_id as string);
             const agent = agentsRef.current.find((a) => a.id === agentId);
 
             // Check if this message belongs to our current view
