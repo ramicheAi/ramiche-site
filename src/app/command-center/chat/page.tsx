@@ -455,23 +455,50 @@ export default function CommandCenterChatPage() {
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
     if (!supabase) return;
+    if (!activeChannel && viewMode !== "dm") return;
     const sb = supabase;
+    
+    // Get the correct channel UUID for filtering
+    const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
+    if (!channelId) return;
+
+    // Validate that channelId is a valid UUID format for Supabase filtering
+    const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
+    if (!isValidUUID) {
+      console.warn(`Invalid UUID format for channel filter: ${channelId}. Subscription may not work correctly.`);
+      return;
+    }
+
     let subscription: ReturnType<typeof sb.channel> | null = null;
+    
     try {
+      // Create a unique channel name for this subscription
+      const subscriptionChannelName = `chat-${viewMode === "dm" ? "dm" : "channel"}-${channelId}`;
+      
       subscription = sb
-        .channel("chat-messages-all")
+        .channel(subscriptionChannelName)
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "messages",
+            filter: `channel_id=eq.'${channelId}'`, // Only receive inserts for this specific channel (UUID must be quoted!)
           },
           (payload) => {
+            console.log(`📨 Realtime INSERT for channel ${channelId}:`, payload.new);
+            
             const msg = payload.new as Record<string, unknown>;
             const senderType = msg.sender_type as string | undefined;
             const agentId = msg.sender_agent_id as string;
             const agent = agentsRef.current.find((a) => a.id === agentId);
+
+            // Check if this message belongs to our current view
+            const msgChannelId = msg.channel_id as string;
+            if (msgChannelId !== channelId) {
+              console.log(`⚠️ Ignoring message for different channel: ${msgChannelId} (expected: ${channelId})`);
+              return;
+            }
 
             if (senderType !== "user") {
               setWaitingForResponse(false);
@@ -482,10 +509,15 @@ export default function CommandCenterChatPage() {
             }
 
             setMessages((prev) => {
-              if (prev.some((m) => m.id === (msg.id as string))) return prev;
+              // Prevent duplicate messages
+              if (prev.some((m) => m.id === (msg.id as string))) {
+                console.log(`🔄 Skipping duplicate message: ${msg.id}`);
+                return prev;
+              }
+              
               const newMessage = {
                 id: msg.id as string,
-                channelId: msg.channel_id as string,
+                channelId: msgChannelId,
                 type: senderType === "user" ? ("user" as const) : ("agent" as const),
                 sender: senderType === "user" ? "Ramon" : (agent?.name || "Unknown"),
                 senderColor: senderType === "user" ? "#3b82f6" : (agent?.color || "#888"),
@@ -493,25 +525,39 @@ export default function CommandCenterChatPage() {
                 timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                 date: "Today",
               };
+              
+              console.log(`✅ Adding new message to UI: ${newMessage.sender}: ${newMessage.content.substring(0, 50)}...`);
               return [...prev, newMessage];
             });
           }
         )
         .subscribe((status) => {
           if (status === "SUBSCRIBED") {
-            console.log("✓ Supabase Realtime subscription active");
+            console.log(`✅ Supabase Realtime subscription ACTIVE for ${viewMode === "dm" ? "DM with " + activeAgent?.name : "channel " + activeChannel?.name} (UUID: ${channelId})`);
           } else if (status === "CHANNEL_ERROR") {
-            console.warn("Supabase Realtime channel error");
+            console.error(`❌ Supabase Realtime channel error for ${channelId}`);
+          } else if (status === "TIMED_OUT") {
+            console.warn(`⏰ Supabase Realtime timeout for ${channelId}`);
+          } else if (status === "CLOSED") {
+            console.log(`🔒 Supabase Realtime channel closed for ${channelId}`);
           }
         });
     } catch (err) {
-      console.warn("Supabase Realtime unavailable:", err);
+      console.error("❌ Supabase Realtime subscription error:", err);
     }
 
+    // Cleanup function: unsubscribe when channel/agent changes or component unmounts
     return () => {
-      if (subscription) sb.removeChannel(subscription);
+      if (subscription) {
+        console.log(`🧹 Cleaning up Supabase subscription for ${channelId}`);
+        sb.removeChannel(subscription).then(() => {
+          console.log(`✅ Successfully removed subscription for ${channelId}`);
+        }).catch((err) => {
+          console.warn(`⚠️ Error removing subscription for ${channelId}:`, err);
+        });
+      }
     };
-  }, []);
+  }, [activeChannel, activeAgent, viewMode]);
 
   /* ── scroll to bottom when messages change ── */
   useEffect(() => {
