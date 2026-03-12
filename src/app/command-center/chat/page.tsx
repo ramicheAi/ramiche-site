@@ -78,20 +78,25 @@ const NAV = [
 ];
 
 /* ── DEFAULT DATA (fallback when Supabase unavailable) ──────────────────────── */
+/* type: "project" = Project Chats, "team" = Team Chats (with agent members) */
 const DEFAULT_CHANNELS = [
-  { id: "22222222-2222-2222-2222-222222222222", name: "#general", unread: 3, description: "Team announcements", active: true },
-  { id: "33333333-3333-3333-3333-333333333333", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)" },
-  { id: "55555555-5555-5555-5555-555555555555", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)" },
-  { id: "44444444-4444-4444-4444-444444444444", name: "#parallax", unread: 0, description: "Parallax — Brand System" },
-  { id: "66666666-6666-6666-6666-666666666666", name: "#dev", unread: 7, description: "Development discussions" },
-  { id: "77777777-7777-7777-7777-777777777777", name: "#security-team", unread: 0, description: "Security Team", members: ["widow", "themis", "atlas"] },
-  { id: "88888888-8888-8888-8888-888888888888", name: "#finance-team", unread: 0, description: "Finance Team", members: ["kiyosaki", "simons", "atlas"] },
-  { id: "99999999-9999-9999-9999-999999999999", name: "#sales-team", unread: 0, description: "Sales Team", members: ["mercury", "vee", "echo"] },
-  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "#strategy-team", unread: 0, description: "Strategy Team", members: ["drstrange", "atlas", "themis"] },
-  { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "#legal-team", unread: 0, description: "Legal Team", members: ["themis", "atlas"] },
-  { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", name: "#content-team", unread: 0, description: "Content Team", members: ["ink", "vee", "aetherion"] },
-  { id: "dddddddd-dddd-dddd-dddd-dddddddddddd", name: "#wellness-team", unread: 0, description: "Wellness Team", members: ["selah", "prophets", "haven"] },
-  { id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", name: "#studio-team", unread: 0, description: "Studio Team", members: ["themaestro", "aetherion", "nova"] },
+  // Project Chats
+  { id: "22222222-2222-2222-2222-222222222222", name: "#general", unread: 3, description: "Team announcements", active: true, type: "project" as const },
+  { id: "33333333-3333-3333-3333-333333333333", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)", type: "project" as const },
+  { id: "55555555-5555-5555-5555-555555555555", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)", type: "project" as const },
+  { id: "44444444-4444-4444-4444-444444444444", name: "#parallax", unread: 0, description: "Parallax — Brand System", type: "project" as const },
+  { id: "66666666-6666-6666-6666-666666666666", name: "#dev", unread: 7, description: "Development discussions", type: "project" as const },
+  // Team Chats (with agent members — Atlas included in all)
+  { id: "77777777-7777-7777-7777-777777777777", name: "#security-team", unread: 0, description: "Security Team", type: "team" as const, members: ["atlas", "widow", "themis", "triage"] },
+  { id: "88888888-8888-8888-8888-888888888888", name: "#finance-team", unread: 0, description: "Finance Team", type: "team" as const, members: ["atlas", "kiyosaki", "simons", "mercury"] },
+  { id: "99999999-9999-9999-9999-999999999999", name: "#sales-team", unread: 0, description: "Sales Team", type: "team" as const, members: ["atlas", "mercury", "vee", "echo", "haven"] },
+  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "#strategy-team", unread: 0, description: "Strategy Team", type: "team" as const, members: ["atlas", "drstrange", "themis", "kiyosaki"] },
+  { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "#legal-team", unread: 0, description: "Legal Team", type: "team" as const, members: ["atlas", "themis"] },
+  { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", name: "#content-team", unread: 0, description: "Content Team", type: "team" as const, members: ["atlas", "ink", "vee", "echo", "aetherion"] },
+  { id: "dddddddd-dddd-dddd-dddd-dddddddddddd", name: "#wellness-team", unread: 0, description: "Wellness Team", type: "team" as const, members: ["atlas", "selah", "prophets", "haven", "michael"] },
+  { id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", name: "#studio-team", unread: 0, description: "Studio Team", type: "team" as const, members: ["atlas", "themaestro", "aetherion", "nova"] },
+  { id: "ffffffff-ffff-ffff-ffff-ffffffffffff", name: "#creative-team", unread: 0, description: "Creative Team", type: "team" as const, members: ["atlas", "aetherion", "shuri", "nova", "ink"] },
+  { id: "11111111-1111-1111-1111-111111111111", name: "#engineering-team", unread: 0, description: "Engineering Team", type: "team" as const, members: ["atlas", "shuri", "proximon", "triage", "nova"] },
 ];
 
 /* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
@@ -360,9 +365,11 @@ export default function CommandCenterChatPage() {
             unread: 0,
             description: (ch.description as string) || "",
             active: false,
+            type: ((ch.type as string) || "project") as "project" | "team",
+            ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
           }));
-          setChannels(mapped);
-          setActiveChannel(mapped[0]);
+          setChannels(mapped as Channel[]);
+          setActiveChannel(mapped[0] as Channel);
         } else {
           // Fallback to defaults if no Supabase data
           setActiveChannel(DEFAULT_CHANNELS[1]);
@@ -501,7 +508,9 @@ export default function CommandCenterChatPage() {
             }
 
             if (senderType !== "user") {
+              // Clear typing indicator when a message is received from that agent
               setWaitingForResponse(false);
+              setTypingUsers([]);
               if (waitingTimeoutRef.current) {
                 clearTimeout(waitingTimeoutRef.current);
                 waitingTimeoutRef.current = null;
@@ -586,6 +595,7 @@ export default function CommandCenterChatPage() {
     setThreadMessage(null);
     setSidebarOpen(false);
     setWaitingForResponse(false);
+    setTypingUsers([]);
     if (waitingTimeoutRef.current) {
       clearTimeout(waitingTimeoutRef.current);
       waitingTimeoutRef.current = null;
@@ -652,12 +662,12 @@ export default function CommandCenterChatPage() {
 
     if (viewMode === "dm" && activeAgent) {
       setWaitingForResponse(true);
-      // Auto-clear typing indicator after 30 seconds
+      // Auto-clear typing indicator after 5 seconds of no new typing event
       if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
       waitingTimeoutRef.current = setTimeout(() => {
         setWaitingForResponse(false);
         waitingTimeoutRef.current = null;
-      }, 30000);
+      }, 5000);
     }
   };
 
@@ -870,7 +880,7 @@ export default function CommandCenterChatPage() {
           </div>
         </div>
 
-        {/* ── Channels Section ── */}
+        {/* ── PROJECT CHATS Section ── */}
         <div style={{ padding: "16px 12px 8px", flexShrink: 0 }}>
           <div
             style={{
@@ -894,10 +904,9 @@ export default function CommandCenterChatPage() {
                 fontWeight: 600,
                 letterSpacing: "0.25em",
                 color: COLORS.text.secondary,
-                textTransform: "uppercase" as const,
               }}
             >
-              Channels
+              PROJECT CHATS
             </span>
             <div
               style={{
@@ -909,7 +918,7 @@ export default function CommandCenterChatPage() {
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {channels.map((channel) => {
+            {channels.filter((c) => c.type === "project").map((channel) => {
               const isActive = activeChannel?.id === channel.id && viewMode === "channel";
               return (
                 <button
@@ -979,6 +988,131 @@ export default function CommandCenterChatPage() {
           </div>
         </div>
 
+        {/* ── TEAM CHATS Section ── */}
+        <div style={{ padding: "8px 12px", flexShrink: 0 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 10,
+              padding: "0 8px",
+            }}
+          >
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                background: "linear-gradient(to right, rgba(245,158,11,0.2), transparent)",
+              }}
+            />
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 600,
+                letterSpacing: "0.25em",
+                color: COLORS.text.secondary,
+              }}
+            >
+              TEAM CHATS
+            </span>
+            <div
+              style={{
+                height: 1,
+                flex: 1,
+                background: "linear-gradient(to left, rgba(245,158,11,0.2), transparent)",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {channels.filter((c) => c.type === "team").map((channel) => {
+              const isActive = activeChannel?.id === channel.id && viewMode === "channel";
+              return (
+                <button
+                  key={channel.id}
+                  onClick={() => handleChannelSelect(channel)}
+                  style={{
+                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "8px 12px",
+                    borderRadius: 8,
+                    border: "none",
+                    cursor: "pointer",
+                    background: isActive ? "rgba(255,255,255,0.04)" : "transparent",
+                    transition: "all 150ms ease",
+                    textAlign: "left" as const,
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.background = COLORS.bg.hover;
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: 13,
+                        color: COLORS.text.tertiary,
+                        fontWeight: 500,
+                      }}
+                    >
+                      #
+                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          fontWeight: isActive ? 600 : 500,
+                          color: isActive ? COLORS.text.primary : COLORS.text.secondary,
+                          transition: "color 150ms ease",
+                          display: "block",
+                        }}
+                      >
+                        {channel.name.slice(1)}
+                      </span>
+                      {"members" in channel && channel.members && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: COLORS.text.tertiary,
+                            display: "block",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap" as const,
+                          }}
+                        >
+                          {channel.members.join(", ")}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {channel.unread > 0 && (
+                    <span
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        padding: "2px 7px",
+                        borderRadius: 10,
+                        background: `${COLORS.accent.purple}20`,
+                        color: COLORS.accent.purpleLight,
+                        border: `1px solid ${COLORS.accent.purple}30`,
+                        minWidth: 20,
+                        textAlign: "center" as const,
+                      }}
+                    >
+                      {channel.unread}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* ── Direct Messages Section ── */}
         <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
           <div
@@ -1007,7 +1141,7 @@ export default function CommandCenterChatPage() {
                 textTransform: "uppercase" as const,
               }}
             >
-              Direct Messages
+              PERSONAL CHATS
             </span>
             <div
               style={{
