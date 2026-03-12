@@ -313,6 +313,7 @@ export default function CommandCenterChatPage() {
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ project: false, team: true, personal: false });
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<Channel[]>(DEFAULT_CHANNELS);
@@ -883,12 +884,15 @@ export default function CommandCenterChatPage() {
         {/* ── PROJECT CHATS Section ── */}
         <div style={{ padding: "16px 12px 8px", flexShrink: 0 }}>
           <div
+            onClick={() => setCollapsedSections(s => ({ ...s, project: !s.project }))}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 8,
-              marginBottom: 10,
+              marginBottom: collapsedSections.project ? 0 : 10,
               padding: "0 8px",
+              cursor: "pointer",
+              userSelect: "none" as const,
             }}
           >
             <div
@@ -904,8 +908,12 @@ export default function CommandCenterChatPage() {
                 fontWeight: 600,
                 letterSpacing: "0.25em",
                 color: COLORS.text.secondary,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
               }}
             >
+              <span style={{ fontSize: 8, transition: "transform 150ms ease", transform: collapsedSections.project ? "rotate(-90deg)" : "rotate(0deg)", display: "inline-block" }}>▼</span>
               PROJECT CHATS
             </span>
             <div
@@ -917,7 +925,7 @@ export default function CommandCenterChatPage() {
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {!collapsedSections.project && <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {channels.filter((c) => c.type === "project").map((channel) => {
               const isActive = activeChannel?.id === channel.id && viewMode === "channel";
               return (
@@ -985,18 +993,21 @@ export default function CommandCenterChatPage() {
                 </button>
               );
             })}
-          </div>
+          </div>}
         </div>
 
         {/* ── TEAM CHATS Section ── */}
         <div style={{ padding: "8px 12px", flexShrink: 0 }}>
           <div
+            onClick={() => setCollapsedSections(s => ({ ...s, team: !s.team }))}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 8,
-              marginBottom: 10,
+              marginBottom: collapsedSections.team ? 0 : 10,
               padding: "0 8px",
+              cursor: "pointer",
+              userSelect: "none" as const,
             }}
           >
             <div
@@ -1012,8 +1023,12 @@ export default function CommandCenterChatPage() {
                 fontWeight: 600,
                 letterSpacing: "0.25em",
                 color: COLORS.text.secondary,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
               }}
             >
+              <span style={{ fontSize: 8, transition: "transform 150ms ease", transform: collapsedSections.team ? "rotate(-90deg)" : "rotate(0deg)", display: "inline-block" }}>▼</span>
               TEAM CHATS
             </span>
             <div
@@ -1025,7 +1040,7 @@ export default function CommandCenterChatPage() {
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {!collapsedSections.team && <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {channels.filter((c) => c.type === "team").map((channel) => {
               const isActive = activeChannel?.id === channel.id && viewMode === "channel";
               return (
@@ -1110,19 +1125,22 @@ export default function CommandCenterChatPage() {
                 </button>
               );
             })}
-          </div>
+          </div>}
         </div>
 
         {/* ── Direct Messages Section ── */}
         <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
           <div
+            onClick={() => setCollapsedSections(s => ({ ...s, personal: !s.personal }))}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 8,
-              marginBottom: 10,
+              marginBottom: collapsedSections.personal ? 0 : 10,
               padding: "0 8px",
               flexShrink: 0,
+              cursor: "pointer",
+              userSelect: "none" as const,
             }}
           >
             <div
@@ -1139,8 +1157,12 @@ export default function CommandCenterChatPage() {
                 letterSpacing: "0.25em",
                 color: COLORS.text.secondary,
                 textTransform: "uppercase" as const,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
               }}
             >
+              <span style={{ fontSize: 8, transition: "transform 150ms ease", transform: collapsedSections.personal ? "rotate(-90deg)" : "rotate(0deg)", display: "inline-block" }}>▼</span>
               PERSONAL CHATS
             </span>
             <div
@@ -1152,7 +1174,7 @@ export default function CommandCenterChatPage() {
             />
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {!collapsedSections.personal && <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {agents.map((agent) => {
               const isActive = activeAgent?.id === agent.id && viewMode === "dm";
               return (
@@ -1310,7 +1332,7 @@ export default function CommandCenterChatPage() {
                 </button>
               );
             })}
-          </div>
+          </div>}
         </div>
 
         {/* ── User Profile ── */}
