@@ -313,7 +313,7 @@ export default function CommandCenterChatPage() {
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ project: false, team: true, personal: false });
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({ project: false, team: false, personal: false });
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<Channel[]>(DEFAULT_CHANNELS);
@@ -826,7 +826,8 @@ export default function CommandCenterChatPage() {
           bottom: sidebarOpen ? 0 : undefined,
           zIndex: sidebarOpen ? 50 : undefined,
           transition: "transform 200ms ease",
-          overflow: "hidden",
+          overflowY: "auto",
+          overflowX: "hidden",
         }}
         className={`chat-sidebar${sidebarOpen ? " open" : ""}`}
       >
