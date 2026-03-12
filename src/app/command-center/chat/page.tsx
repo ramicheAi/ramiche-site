@@ -835,8 +835,7 @@ export default function CommandCenterChatPage() {
           zIndex: sidebarOpen ? 50 : undefined,
           transition: "transform 200ms ease",
           height: "100%",
-          overflowY: "auto",
-          overflowX: "hidden",
+          minHeight: 0,
         }}
         className={`chat-sidebar${sidebarOpen ? " open" : ""}`}
       >
@@ -891,6 +890,8 @@ export default function CommandCenterChatPage() {
           </div>
         </div>
 
+        {/* ── Scrollable channel sections ── */}
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minHeight: 0 }}>
         {/* ── PROJECT CHATS Section ── */}
         <div style={{ padding: "16px 12px 8px", flexShrink: 0 }}>
           <div
@@ -1345,6 +1346,7 @@ export default function CommandCenterChatPage() {
           </div>}
         </div>
 
+        </div>
         {/* ── User Profile ── */}
         <div
           style={{
