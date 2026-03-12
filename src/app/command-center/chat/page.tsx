@@ -369,8 +369,16 @@ export default function CommandCenterChatPage() {
             type: ((ch.type as string) || "project") as "project" | "team",
             ...((ch.type === "team" && ch.members) ? { members: ch.members as string[] } : {}),
           }));
-          setChannels(mapped as Channel[]);
-          setActiveChannel(mapped[0] as Channel);
+          // Merge: use Supabase channels + fill in missing types from defaults
+          const hasTeam = mapped.some(c => c.type === "team");
+          const hasProject = mapped.some(c => c.type === "project");
+          const merged = [
+            ...(hasProject ? [] : DEFAULT_CHANNELS.filter(c => c.type === "project")),
+            ...mapped,
+            ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
+          ];
+          setChannels(merged as Channel[]);
+          setActiveChannel((mapped[0] || merged[0]) as Channel);
         } else {
           // Fallback to defaults if no Supabase data
           setActiveChannel(DEFAULT_CHANNELS[1]);
