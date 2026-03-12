@@ -1721,22 +1721,7 @@ export default function CommandCenterChatPage() {
                         >
                           {message.sender}
                         </span>
-                        {message.type === "agent" && (
-                          <span
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 600,
-                              padding: "1px 6px",
-                              borderRadius: 4,
-                              background: `${message.senderColor || "#888"}12`,
-                              color: message.senderColor || COLORS.text.secondary,
-                              border: `1px solid ${message.senderColor || "#888"}25`,
-                              letterSpacing: "0.05em",
-                            }}
-                          >
-                            AGENT
-                          </span>
-                        )}
+                        {/* Clean — no badge, just the name */}
                         <span
                           style={{
                             fontSize: 10,
