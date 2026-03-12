@@ -79,18 +79,47 @@ const NAV = [
 
 /* ── DEFAULT DATA (fallback when Supabase unavailable) ──────────────────────── */
 const DEFAULT_CHANNELS = [
-  { id: "general", name: "#general", unread: 3, description: "Team announcements", active: true },
-  { id: "mettle", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)" },
-  { id: "verified-agents", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)" },
-  { id: "command-center", name: "#command-center", unread: 0, description: "Command Center / Dashboard" },
-  { id: "parallax-site", name: "#parallax-site", unread: 0, description: "Parallax Site — Agent Marketplace" },
-  { id: "parallax-publish", name: "#parallax-publish", unread: 0, description: "Parallax Publish — Social Publishing" },
-  { id: "galactik-antics", name: "#galactik-antics", unread: 0, description: "Galactik Antics — AI Art & Merch" },
-  { id: "ramiche-studio", name: "#ramiche-studio", unread: 0, description: "Ramiche Studio — Creative Services" },
-  { id: "clawguard", name: "#clawguard", unread: 0, description: "ClawGuard Pro — Security Scanner" },
-  { id: "dev", name: "#dev", unread: 7, description: "Development discussions" },
-  { id: "design", name: "#design", unread: 0, description: "UI/UX design" },
+  { id: "22222222-2222-2222-2222-222222222222", name: "#general", unread: 3, description: "Team announcements", active: true },
+  { id: "33333333-3333-3333-3333-333333333333", name: "#mettle", unread: 12, description: "METTLE — Athlete SaaS (#1 priority)" },
+  { id: "55555555-5555-5555-5555-555555555555", name: "#verified-agents", unread: 0, description: "Verified Agent Business (#2 priority)" },
+  { id: "44444444-4444-4444-4444-444444444444", name: "#parallax", unread: 0, description: "Parallax — Brand System" },
+  { id: "66666666-6666-6666-6666-666666666666", name: "#dev", unread: 7, description: "Development discussions" },
+  { id: "77777777-7777-7777-7777-777777777777", name: "#security-team", unread: 0, description: "Security Team", members: ["widow", "themis", "atlas"] },
+  { id: "88888888-8888-8888-8888-888888888888", name: "#finance-team", unread: 0, description: "Finance Team", members: ["kiyosaki", "simons", "atlas"] },
+  { id: "99999999-9999-9999-9999-999999999999", name: "#sales-team", unread: 0, description: "Sales Team", members: ["mercury", "vee", "echo"] },
+  { id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", name: "#strategy-team", unread: 0, description: "Strategy Team", members: ["drstrange", "atlas", "themis"] },
+  { id: "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", name: "#legal-team", unread: 0, description: "Legal Team", members: ["themis", "atlas"] },
+  { id: "cccccccc-cccc-cccc-cccc-cccccccccccc", name: "#content-team", unread: 0, description: "Content Team", members: ["ink", "vee", "aetherion"] },
+  { id: "dddddddd-dddd-dddd-dddd-dddddddddddd", name: "#wellness-team", unread: 0, description: "Wellness Team", members: ["selah", "prophets", "haven"] },
+  { id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", name: "#studio-team", unread: 0, description: "Studio Team", members: ["themaestro", "aetherion", "nova"] },
 ];
+
+/* ── DM Channel UUID Map (Supabase channel_id is UUID, not string) ── */
+const DM_CHANNEL_MAP: Record<string, string> = {
+  atlas: "aa000001-0000-0000-0000-000000000000",
+  triage: "aa000002-0000-0000-0000-000000000000",
+  shuri: "aa000003-0000-0000-0000-000000000000",
+  proximon: "aa000004-0000-0000-0000-000000000000",
+  aetherion: "aa000005-0000-0000-0000-000000000000",
+  simons: "aa000006-0000-0000-0000-000000000000",
+  mercury: "aa000007-0000-0000-0000-000000000000",
+  vee: "aa000008-0000-0000-0000-000000000000",
+  ink: "aa000009-0000-0000-0000-000000000000",
+  echo: "aa000010-0000-0000-0000-000000000000",
+  haven: "aa000011-0000-0000-0000-000000000000",
+  widow: "aa000012-0000-0000-0000-000000000000",
+  drstrange: "aa000013-0000-0000-0000-000000000000",
+  kiyosaki: "aa000014-0000-0000-0000-000000000000",
+  michael: "aa000015-0000-0000-0000-000000000000",
+  selah: "aa000016-0000-0000-0000-000000000000",
+  prophets: "aa000017-0000-0000-0000-000000000000",
+  themaestro: "aa000018-0000-0000-0000-000000000000",
+  nova: "aa000019-0000-0000-0000-000000000000",
+  themis: "aa000020-0000-0000-0000-000000000000",
+};
+function getDmChannelId(agentId: string): string {
+  return DM_CHANNEL_MAP[agentId] || agentId;
+}
 
 const DEFAULT_AGENTS = [
   { id: "atlas", name: "Atlas", role: "Operations Lead", status: "active", color: COLORS.agents.atlas, unread: 0 },
@@ -283,7 +312,8 @@ export default function CommandCenterChatPage() {
   const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<Channel[]>(DEFAULT_CHANNELS);
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
-  const [waitingForAgent, setWaitingForAgent] = useState(false);
+  const [waitingForResponse, setWaitingForResponse] = useState(false);
+  const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   /* ── file attachments ── */
   const [attachments, setAttachments] = useState<{ name: string; size: string; type: string; url: string }[]>([]);
@@ -338,7 +368,7 @@ export default function CommandCenterChatPage() {
           setActiveChannel(DEFAULT_CHANNELS[1]);
         }
 
-        // Load agents
+        // Load agents - always keep all 20 from DEFAULT_AGENTS
         const { data: agentsData } = await supabase
           .from("agent_profiles")
           .select("*")
@@ -346,21 +376,30 @@ export default function CommandCenterChatPage() {
 
         if (agentsData && agentsData.length > 0) {
           const supaMap = new Map(
-            agentsData.map((a: Record<string, unknown>) => [
-              (a.handle as string) || (a.name as string)?.toLowerCase(),
-              {
-                id: (a.handle as string) || (a.name as string)?.toLowerCase() || (a.id as string),
-                name: a.name as string,
-                role: (a.handle as string) || "",
-                status: (a.status as string) || "offline",
-                color: (a.color_hex as string) || "#888",
-                unread: 0,
-              },
-            ])
+            agentsData.map((a: Record<string, unknown>) => {
+              const agentId = ((a.handle as string) || (a.name as string)?.toLowerCase() || (a.id as string)).toLowerCase();
+              return [
+                agentId,
+                {
+                  id: agentId,
+                  name: a.name as string,
+                  role: (a.role as string) || (a.handle as string) || "",
+                  status: (a.status as string) || "offline",
+                  color: (a.color_hex as string) || "#888",
+                  unread: 0,
+                },
+              ];
+            })
           );
-          // Merge: Supabase data overrides defaults, but keep all 20 agents
-          const merged = DEFAULT_AGENTS.map((def) => supaMap.get(def.id) || def);
+          // Merge: Supabase data overrides defaults, but ALWAYS keep all 20 agents from DEFAULT_AGENTS
+          const merged = DEFAULT_AGENTS.map((def) => {
+            const supaData = supaMap.get(def.id.toLowerCase());
+            return supaData || def;
+          });
           setAgents(merged);
+        } else {
+          // No Supabase data - use all defaults
+          setAgents(DEFAULT_AGENTS);
         }
       } catch (err) {
         console.error("Supabase load failed, using defaults:", err);
@@ -373,19 +412,21 @@ export default function CommandCenterChatPage() {
     loadData();
   }, []);
 
-  /* ── load messages when activeChannel changes ── */
+  /* ── load messages when activeChannel/agent changes ── */
   useEffect(() => {
-    if (!activeChannel) return;
+    if (!activeChannel && viewMode !== "dm") return;
     if (!supabase) {
       setMessages(DEFAULT_MESSAGES);
       return;
     }
     const sb = supabase;
+    const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
+    if (!channelId) return;
     const loadMessages = async () => {
       const { data } = await sb
         .from("messages")
         .select("*")
-        .eq("channel_id", activeChannel.id)
+        .eq("channel_id", channelId)
         .order("created_at", { ascending: true })
         .limit(100);
 
@@ -409,51 +450,58 @@ export default function CommandCenterChatPage() {
       }
     };
     loadMessages();
-  }, [activeChannel, agents]);
+  }, [activeChannel, activeAgent, viewMode, agents]);
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
-    if (!supabase || !activeChannel) return;
+    if (!supabase) return;
     const sb = supabase;
     let subscription: ReturnType<typeof sb.channel> | null = null;
     try {
       subscription = sb
-        .channel(`chat-messages-${activeChannel.id}`)
+        .channel("chat-messages-all")
         .on(
           "postgres_changes",
           {
             event: "INSERT",
             schema: "public",
             table: "messages",
-            filter: `channel_id=eq.${activeChannel.id}`,
           },
           (payload) => {
             const msg = payload.new as Record<string, unknown>;
             const senderType = msg.sender_type as string | undefined;
-            if (senderType === "user") return;
-            const agent = agentsRef.current.find((a) => a.id === msg.sender_agent_id);
-            setWaitingForAgent(false);
+            const agentId = msg.sender_agent_id as string;
+            const agent = agentsRef.current.find((a) => a.id === agentId);
+
+            if (senderType !== "user") {
+              setWaitingForResponse(false);
+              if (waitingTimeoutRef.current) {
+                clearTimeout(waitingTimeoutRef.current);
+                waitingTimeoutRef.current = null;
+              }
+            }
+
             setMessages((prev) => {
               if (prev.some((m) => m.id === (msg.id as string))) return prev;
-              return [
-                ...prev,
-                {
-                  id: msg.id as string,
-                  channelId: msg.channel_id as string,
-                  type: senderType === "user" ? ("user" as const) : ("agent" as const),
-                  sender: senderType === "user" ? "You" : (agent?.name || "Unknown"),
-                  senderColor: senderType === "user" ? "#3b82f6" : (agent?.color || "#888"),
-                  content: msg.content as string,
-                  timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                  date: "Today",
-                },
-              ];
+              const newMessage = {
+                id: msg.id as string,
+                channelId: msg.channel_id as string,
+                type: senderType === "user" ? ("user" as const) : ("agent" as const),
+                sender: senderType === "user" ? "Ramon" : (agent?.name || "Unknown"),
+                senderColor: senderType === "user" ? "#3b82f6" : (agent?.color || "#888"),
+                content: msg.content as string,
+                timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                date: "Today",
+              };
+              return [...prev, newMessage];
             });
           }
         )
         .subscribe((status) => {
-          if (status === "CHANNEL_ERROR") {
-            console.warn("Supabase Realtime channel error — falling back to polling");
+          if (status === "SUBSCRIBED") {
+            console.log("✓ Supabase Realtime subscription active");
+          } else if (status === "CHANNEL_ERROR") {
+            console.warn("Supabase Realtime channel error");
           }
         });
     } catch (err) {
@@ -463,7 +511,7 @@ export default function CommandCenterChatPage() {
     return () => {
       if (subscription) sb.removeChannel(subscription);
     };
-  }, [activeChannel]);
+  }, []);
 
   /* ── scroll to bottom when messages change ── */
   useEffect(() => {
@@ -475,14 +523,14 @@ export default function CommandCenterChatPage() {
     inputRef.current?.focus();
   }, [activeChannel, activeAgent]);
 
-  /* ── typing indicator driven by waitingForAgent ── */
+  /* ── typing indicator driven by waitingForResponse ── */
   useEffect(() => {
-    if (waitingForAgent && viewMode === "dm" && activeAgent) {
+    if (waitingForResponse && viewMode === "dm" && activeAgent) {
       setTypingUsers([activeAgent.name]);
     } else {
       setTypingUsers([]);
     }
-  }, [waitingForAgent, viewMode, activeAgent]);
+  }, [waitingForResponse, viewMode, activeAgent]);
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
@@ -491,19 +539,29 @@ export default function CommandCenterChatPage() {
     setViewMode("channel");
     setThreadMessage(null);
     setSidebarOpen(false);
+    setWaitingForResponse(false);
+    if (waitingTimeoutRef.current) {
+      clearTimeout(waitingTimeoutRef.current);
+      waitingTimeoutRef.current = null;
+    }
   };
 
   const handleAgentSelect = (agent: Agent) => {
     setActiveAgent(agent);
-    setActiveChannel(channels[0]);
+    setActiveChannel(null);
     setViewMode("dm");
     setThreadMessage(null);
     setSidebarOpen(false);
+    setWaitingForResponse(false);
+    if (waitingTimeoutRef.current) {
+      clearTimeout(waitingTimeoutRef.current);
+      waitingTimeoutRef.current = null;
+    }
   };
 
   const handleSendMessage = async () => {
     if (!messageInput.trim() && attachments.length === 0) return;
-    if (!activeChannel) return;
+    if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
 
     const content = attachments.length > 0
       ? `${messageInput}${messageInput ? "\n" : ""}${attachments.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
@@ -512,7 +570,7 @@ export default function CommandCenterChatPage() {
     // Always show user's message immediately
     const newMessage: Message = {
       id: `msg-${Date.now()}`,
-      channelId: viewMode === "dm" && activeAgent ? `dm-${activeAgent.id}` : activeChannel.id,
+      channelId: viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222"),
       type: "user",
       sender: "Ramon",
       content,
@@ -523,19 +581,20 @@ export default function CommandCenterChatPage() {
 
     // Persist to Supabase — bridge picks up new user messages via Realtime
     if (supabase) {
-      const targetAgent = viewMode === "dm" && activeAgent
-        ? activeAgent.name.toLowerCase()
-        : undefined;
+      const isDM = viewMode === "dm" && activeAgent;
+      const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
       const { error } = await supabase.from("messages").insert({
-        channel_id: activeChannel.id,
+        channel_id: targetChannelId,
         sender_user_id: "00000000-0000-0000-0000-000000000001",
         sender_type: "user",
         content: content.trim(),
         tenant_id: "11111111-1111-1111-1111-111111111111",
         attachments: [],
         metadata: {
-          targetAgent,
-          channelName: activeChannel.name || "general",
+          targetAgent: isDM ? activeAgent!.id : undefined,
+          isDM: isDM,
+          dmChannelId: isDM ? targetChannelId : undefined,
+          channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
           source: "command-center-ui",
         },
       });
@@ -546,7 +605,13 @@ export default function CommandCenterChatPage() {
     setAttachments([]);
 
     if (viewMode === "dm" && activeAgent) {
-      setWaitingForAgent(true);
+      setWaitingForResponse(true);
+      // Auto-clear typing indicator after 30 seconds
+      if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
+      waitingTimeoutRef.current = setTimeout(() => {
+        setWaitingForResponse(false);
+        waitingTimeoutRef.current = null;
+      }, 30000);
     }
   };
 
@@ -577,7 +642,7 @@ export default function CommandCenterChatPage() {
   /* ── filter messages ── */
   const filteredMessages = messages.filter((msg) => {
     if (viewMode === "dm" && activeAgent) {
-      return msg.channelId === `dm-${activeAgent.id}`;
+      return msg.channelId === getDmChannelId(activeAgent.id);
     }
     return msg.channelId === activeChannel?.id;
   });
@@ -704,6 +769,7 @@ export default function CommandCenterChatPage() {
           bottom: sidebarOpen ? 0 : undefined,
           zIndex: sidebarOpen ? 50 : undefined,
           transition: "transform 200ms ease",
+          overflow: "hidden",
         }}
         className={`chat-sidebar${sidebarOpen ? " open" : ""}`}
       >
@@ -759,7 +825,7 @@ export default function CommandCenterChatPage() {
         </div>
 
         {/* ── Channels Section ── */}
-        <div style={{ padding: "16px 12px 8px" }}>
+        <div style={{ padding: "16px 12px 8px", flexShrink: 0 }}>
           <div
             style={{
               display: "flex",
@@ -868,7 +934,7 @@ export default function CommandCenterChatPage() {
         </div>
 
         {/* ── Direct Messages Section ── */}
-        <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto" }}>
+        <div style={{ padding: "8px 12px", flex: 1, overflowY: "auto", minHeight: 0 }}>
           <div
             style={{
               display: "flex",
@@ -876,6 +942,7 @@ export default function CommandCenterChatPage() {
               gap: 8,
               marginBottom: 10,
               padding: "0 8px",
+              flexShrink: 0,
             }}
           >
             <div
@@ -1018,7 +1085,8 @@ export default function CommandCenterChatPage() {
                       {agent.role}
                     </div>
                     {(() => {
-                      const lastMsg = [...messages].reverse().find((m) => m.channelId === `dm-${agent.id}`);
+                      const dmChannelId = getDmChannelId(agent.id);
+                      const lastMsg = [...messages].reverse().find((m) => m.channelId === dmChannelId);
                       if (!lastMsg) return null;
                       const preview = lastMsg.content.length > 30 ? lastMsg.content.slice(0, 30) + "..." : lastMsg.content;
                       return (
@@ -1073,6 +1141,7 @@ export default function CommandCenterChatPage() {
             display: "flex",
             alignItems: "center",
             gap: 10,
+            flexShrink: 0,
           }}
         >
           <div
