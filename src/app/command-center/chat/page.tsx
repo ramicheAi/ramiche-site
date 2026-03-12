@@ -834,8 +834,9 @@ export default function CommandCenterChatPage() {
           bottom: sidebarOpen ? 0 : undefined,
           zIndex: sidebarOpen ? 50 : undefined,
           transition: "transform 200ms ease",
-          height: "100%",
+          height: sidebarOpen ? "100vh" : "100%",
           minHeight: 0,
+          overflow: "hidden",
         }}
         className={`chat-sidebar${sidebarOpen ? " open" : ""}`}
       >
