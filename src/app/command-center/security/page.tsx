@@ -48,27 +48,12 @@ export default function SecurityPage() {
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
   const [widowStatus, setWidowStatus] = useState("idle");
+  const [scanning, setScanning] = useState(false);
+  const [scanScore, setScanScore] = useState<number | null>(null);
 
   const runChecks = useCallback(async () => {
+    // Client-side checks
     const results: SecurityCheck[] = [];
-    try {
-      const res = await fetch("/api/command-center/agents");
-      if (res.ok) {
-        const data = await res.json();
-        const widow = (data.agents || []).find((a: { id: string }) => a.id === "widow");
-        if (widow) setWidowStatus(widow.status || "idle");
-      }
-      results.push({ name: "API Authentication", status: res.headers.get("x-powered-by") ? "warn" : "pass", detail: res.headers.get("x-powered-by") ? "X-Powered-By header exposed" : "Server identity hidden", category: "Headers" });
-    } catch {
-      results.push({ name: "API Authentication", status: "fail", detail: "Cannot reach API", category: "Headers" });
-    }
-    try {
-      const res = await fetch(window.location.origin, { method: "HEAD" });
-      const csp = res.headers.get("content-security-policy");
-      results.push({ name: "Content Security Policy", status: csp ? "pass" : "warn", detail: csp ? "CSP configured" : "No CSP header detected (may be meta tag)", category: "Headers" });
-    } catch {
-      results.push({ name: "Content Security Policy", status: "checking", detail: "Unable to check", category: "Headers" });
-    }
     results.push({ name: "HTTPS Enforcement", status: window.location.protocol === "https:" ? "pass" : "warn", detail: window.location.protocol === "https:" ? "All traffic encrypted" : "Running on HTTP (dev mode)", category: "Transport" });
     if ("serviceWorker" in navigator) {
       const regs = await navigator.serviceWorker.getRegistrations();
@@ -80,6 +65,27 @@ export default function SecurityPage() {
     setLastSync(new Date().toLocaleTimeString());
     setLoading(false);
   }, []);
+
+  const runFullScan = useCallback(async () => {
+    setScanning(true);
+    setWidowStatus("scanning");
+    try {
+      const res = await fetch("/api/command-center/security", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        const serverChecks: SecurityCheck[] = (data.results || []).map((r: SecurityCheck) => r);
+        // Merge with client checks
+        const clientChecks = checks.filter(c => c.category === "Client" || c.category === "Transport");
+        setChecks([...serverChecks, ...clientChecks]);
+        setScanScore(data.score || null);
+      }
+    } catch { /* keep existing */ }
+    finally {
+      setScanning(false);
+      setWidowStatus("idle");
+      setLastSync(new Date().toLocaleTimeString());
+    }
+  }, [checks]);
 
   useEffect(() => { runChecks(); const interval = setInterval(runChecks, 60_000); return () => clearInterval(interval); }, [runChecks]);
 
@@ -107,13 +113,18 @@ export default function SecurityPage() {
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8 }}>
-                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: widowStatus === "active" ? "#ef4444" : "#6b7280", boxShadow: widowStatus === "active" ? "0 0 8px rgba(239,68,68,0.6)" : "none" }} />
+                <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: widowStatus === "scanning" ? "#ef4444" : widowStatus === "active" ? "#22c55e" : "#6b7280", boxShadow: widowStatus === "scanning" ? "0 0 8px rgba(239,68,68,0.6)" : "none", animation: widowStatus === "scanning" ? "pulse 1.5s infinite" : "none" }} />
                 <span style={{ fontSize: 11, color: "#737373" }}>WIDOW</span>
                 <span style={{ fontSize: 11, color: "#a3a3a3" }}>{widowStatus.toUpperCase()}</span>
               </div>
-              <button onClick={runChecks} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#a3a3a3", cursor: "pointer" }}>
-                RE-SCAN
+              <button onClick={runFullScan} disabled={scanning} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: scanning ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", border: scanning ? "1px solid rgba(239,68,68,0.3)" : "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: scanning ? "#ef4444" : "#a3a3a3", cursor: scanning ? "wait" : "pointer", transition: "all 0.3s" }}>
+                {scanning ? "SCANNING..." : "RE-SCAN"}
               </button>
+              {scanScore !== null && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: scanScore >= 80 ? "#22c55e" : scanScore >= 60 ? "#f59e0b" : "#ef4444" }}>
+                  {scanScore}/100
+                </span>
+              )}
             </div>
           </div>
         </div>

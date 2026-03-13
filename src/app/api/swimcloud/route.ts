@@ -227,26 +227,16 @@ export async function POST(req: Request) {
       });
     }
 
-    // Batch fetch meet names (usually 2-5 unique meets)
-    // Serialized with retry to avoid SwimCloud/Cloudflare rate-limiting on Vercel
+    // Extract meet names + dates from the profile page itself (meet selector sidebar)
+    // Pattern: href="...?meet_id=ID"> <div class="u-text-truncate">NAME</div> <div class="u-color-mute u-text-small">DATE</div>
     const meetInfoMap = new Map<string, { name: string; date: string }>();
-    const meetIds = Array.from(meetIdSet).slice(0, 8);
-    for (const mid of meetIds) {
-      try {
-        const result = await withRetry(
-          () => fetch(`https://www.swimcloud.com/results/${mid}/`, { headers: { "User-Agent": UA, "Accept": "text/html" } }),
-          { maxAttempts: 2, baseDelayMs: 400, shouldRetry: (_err: unknown, _attempt: number) => true }
-        );
-        const res = result.data;
-        if (!res || !res.ok) continue;
-        const meetHtml = await res.text();
-        const nameMatch = meetHtml.match(/<h1[^>]*>([^<]+)/) || meetHtml.match(/<h2[^>]*>([^<]+)/);
-        const dateMatch = meetHtml.match(/"startDate":\s*"([^"]+)"/);
-        meetInfoMap.set(mid, {
-          name: nameMatch ? nameMatch[1].trim() : "",
-          date: dateMatch ? dateMatch[1].trim() : "",
-        });
-      } catch { /* skip failed meet fetches */ }
+    const meetEntryRegex = /meet_id=(\d+)"[\s\S]*?<div[^>]*class="u-text-truncate"[^>]*>([^<]+)<\/div>\s*<div[^>]*class="u-color-mute[^"]*"[^>]*>([^<]+)<\/div>/g;
+    let meetMatch;
+    while ((meetMatch = meetEntryRegex.exec(html)) !== null) {
+      const [, mid, name, date] = meetMatch;
+      if (!meetInfoMap.has(mid)) {
+        meetInfoMap.set(mid, { name: name.trim(), date: date.trim() });
+      }
     }
 
     // Second pass: merge times with meet info

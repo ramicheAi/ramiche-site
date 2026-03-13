@@ -74,7 +74,8 @@ export default function ParticleField({
     const maxAlpha = theme === "light" ? Math.min(opacity, 0.18) : opacity;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
+      const parent = canvas.parentElement;
+      canvas.width = parent ? parent.clientWidth : window.innerWidth;
       canvas.height = window.innerHeight;
     };
     resize();
@@ -236,7 +237,7 @@ export default function ParticleField({
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[1]"
+      className="absolute inset-0 pointer-events-none z-[1]"
       style={{ mixBlendMode: theme === "light" ? "multiply" : "screen" }}
     />
   );

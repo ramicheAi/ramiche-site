@@ -233,14 +233,22 @@ async function handleNewMessage(payload) {
     for (let i = 0; i < 500; i++) processed.delete(arr[i]);
   }
 
-  const channelName = channelCache.get(msg.channel_id) || "general";
+  const channelName = channelCache.get(msg.channel_id) || msg.channel_id || "general";
   const content = msg.content || "";
   const meta = msg.metadata || {};
+  const isDM = msg.channel_id?.startsWith("dm-") || msg.channel_id?.startsWith("aa0000") || msg.metadata?.targetAgent;
 
-  console.log(`[bridge] New message in ${channelName}: ${content.slice(0, 80)}`);
+  console.log(`[bridge] New message in ${channelName}${isDM ? " (DM)" : ""}: ${content.slice(0, 80)}`);
 
-  // Route to agent — prefer explicit target from metadata, then parse @mention
-  const targetHandle = meta.targetAgent || routeMessage(channelName, content);
+  // Route to agent — for DMs, extract agent from channel_id or metadata
+  let targetHandle;
+  if (isDM && meta.targetAgent) {
+    targetHandle = meta.targetAgent;
+  } else if (isDM) {
+    targetHandle = msg.channel_id.replace("dm-", "");
+  } else {
+    targetHandle = meta.targetAgent || routeMessage(channelName, content);
+  }
   const targetUUID = findAgentUUID(targetHandle);
 
   // Call agent (resolve handle → OpenClaw agent ID)
