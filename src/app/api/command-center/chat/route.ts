@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 /* Map agent short IDs to their DM channel UUIDs (used as sender_agent_id so the frontend resolves names) */
@@ -84,57 +86,98 @@ export async function POST(req: NextRequest) {
     const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
     const displayName = target.charAt(0).toUpperCase() + target.slice(1);
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "No API key configured" }, { status: 500 });
-    }
-
-    // Model fallback chain — try each until one succeeds
-    const MODELS = [
-      "google/gemini-2.5-flash",
-      "deepseek/deepseek-chat-v3-0324",
-      "anthropic/claude-sonnet-4",
-    ];
-
-    const chatMessages = [
-      {
-        role: "system",
-        content: `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`,
-      },
-      { role: "user", content: message },
-    ];
+    const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
 
     let agentResponse: string | null = null;
 
-    for (const model of MODELS) {
+    // === Provider 1: Gemini Direct (FREE — uses Google API key) ===
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (!agentResponse && geminiKey) {
+      try {
+        const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: [{ role: "user", parts: [{ text: message }] }],
+            generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          agentResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        } else {
+          console.error(`Gemini direct failed: ${res.status}`);
+        }
+      } catch (err) {
+        console.error("Gemini direct timeout/error:", err);
+      }
+    }
+
+    // === Provider 2: DeepSeek Direct (cheap — uses DeepSeek API key) ===
+    const deepseekKey = process.env.DEEPSEEK_API_KEY;
+    if (!agentResponse && deepseekKey) {
+      try {
+        const res = await fetch(DEEPSEEK_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${deepseekKey}`,
+          },
+          body: JSON.stringify({
+            model: "deepseek-chat",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message },
+            ],
+            max_tokens: 500,
+            temperature: 0.7,
+          }),
+          signal: AbortSignal.timeout(15000),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          agentResponse = data.choices?.[0]?.message?.content || null;
+        } else {
+          console.error(`DeepSeek direct failed: ${res.status}`);
+        }
+      } catch (err) {
+        console.error("DeepSeek direct timeout/error:", err);
+      }
+    }
+
+    // === Provider 3: OpenRouter fallback (only if both direct APIs fail) ===
+    const openrouterKey = process.env.OPENROUTER_API_KEY;
+    if (!agentResponse && openrouterKey) {
       try {
         const res = await fetch(OPENROUTER_URL, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${apiKey}`,
+            "Authorization": `Bearer ${openrouterKey}`,
             "HTTP-Referer": "https://ramiche-site.vercel.app",
             "X-Title": "Parallax Command Center",
           },
           body: JSON.stringify({
-            model,
-            messages: chatMessages,
+            model: "anthropic/claude-sonnet-4",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: message },
+            ],
             max_tokens: 500,
             temperature: 0.7,
           }),
           signal: AbortSignal.timeout(20000),
         });
-
         if (res.ok) {
           const data = await res.json();
           agentResponse = data.choices?.[0]?.message?.content || null;
-          if (agentResponse) break;
         } else {
-          const errText = await res.text().catch(() => "unknown");
-          console.error(`OpenRouter ${model} failed: ${res.status} ${errText}`);
+          console.error(`OpenRouter fallback failed: ${res.status}`);
         }
       } catch (err) {
-        console.error(`OpenRouter ${model} timeout/error:`, err);
+        console.error("OpenRouter fallback timeout/error:", err);
       }
     }
 
