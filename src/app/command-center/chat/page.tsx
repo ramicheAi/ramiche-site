@@ -463,8 +463,8 @@ export default function CommandCenterChatPage() {
             id: msg.id as string,
             channelId: msg.channel_id as string,
             type: isUser ? "user" as const : "agent" as const,
-            sender: isUser ? "Ramon" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.name || "Unknown"),
-            senderColor: isUser ? "#3B82F6" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.color || "#888"),
+            sender: isUser ? "Ramon" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.name || (viewMode === "dm" && activeAgent ? activeAgent.name : "Agent")),
+            senderColor: isUser ? "#3B82F6" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.color || (viewMode === "dm" && activeAgent ? activeAgent.color : "#888")),
             content: msg.content as string,
             timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             date: "Today",
@@ -475,9 +475,8 @@ export default function CommandCenterChatPage() {
     };
     loadMessages();
 
-    // Poll every 3s as fallback (realtime may not work due to RLS/replication config)
-    const pollInterval = setInterval(loadMessages, 3000);
-    return () => clearInterval(pollInterval);
+    // No polling — realtime subscription handles live updates.
+    // Polling caused duplicate messages and race conditions.
   }, [activeChannel, activeAgent, viewMode, agents]);
 
   /* ── real-time subscription for new messages ── */
@@ -528,35 +527,32 @@ export default function CommandCenterChatPage() {
               return;
             }
 
-            if (senderType !== "user") {
-              // Clear typing indicator when a message is received from that agent
-              setWaitingForResponse(false);
-              setTypingUsers([]);
-              if (waitingTimeoutRef.current) {
-                clearTimeout(waitingTimeoutRef.current);
-                waitingTimeoutRef.current = null;
-              }
+            // Skip user messages — already shown optimistically
+            if (senderType === "user") return;
+
+            // Clear typing indicator when agent responds
+            setWaitingForResponse(false);
+            setTypingUsers([]);
+            if (waitingTimeoutRef.current) {
+              clearTimeout(waitingTimeoutRef.current);
+              waitingTimeoutRef.current = null;
             }
 
             setMessages((prev) => {
               // Prevent duplicate messages
-              if (prev.some((m) => m.id === (msg.id as string))) {
-                console.log(`🔄 Skipping duplicate message: ${msg.id}`);
-                return prev;
-              }
-              
+              if (prev.some((m) => m.id === (msg.id as string))) return prev;
+
               const newMessage = {
                 id: msg.id as string,
                 channelId: msgChannelId,
-                type: senderType === "user" ? ("user" as const) : ("agent" as const),
-                sender: senderType === "user" ? "Ramon" : (agent?.name || "Unknown"),
-                senderColor: senderType === "user" ? "#3b82f6" : (agent?.color || "#888"),
+                type: "agent" as const,
+                sender: agent?.name || (activeAgent?.name || "Agent"),
+                senderColor: agent?.color || (activeAgent?.color || "#888"),
                 content: msg.content as string,
                 timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                 date: "Today",
               };
-              
-              console.log(`✅ Adding new message to UI: ${newMessage.sender}: ${newMessage.content.substring(0, 50)}...`);
+
               return [...prev, newMessage];
             });
           }
