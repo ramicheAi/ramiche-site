@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ramiche Studio — Project Tracker</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: rgba(139, 92, 246, 0.25);
+    --border-glow: rgba(139, 92, 246, 0.5);
+    --accent: #8b5cf6;
+    --accent2: #a78bfa;
+    --gold: #f59e0b;
+    --green: #22c55e;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  canvas#particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .app { position: relative; z-index: 1; width: 100%; padding: 20px 32px; }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 28px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    margin-bottom: 24px;
+  }
+  .header h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header .subtitle { color: var(--text-dim); font-size: 0.85rem; margin-top: 2px; }
+  .header-stats {
+    display: flex;
+    gap: 20px;
+  }
+  .stat-box {
+    text-align: center;
+    padding: 8px 16px;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    min-width: 80px;
+  }
+  .stat-box .num { font-size: 1.4rem; font-weight: 700; color: var(--accent2); }
+  .stat-box .label { font-size: 0.7rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 10px 22px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+  }
+  .tab:hover { border-color: var(--border-glow); color: var(--text); }
+  .tab.active {
+    background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.05));
+    border-color: var(--accent);
+    color: var(--accent2);
+  }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Pipeline Board */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 1200px) { .pipeline { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 768px) { .pipeline { grid-template-columns: 1fr; } }
+  .column {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 300px;
+  }
+  .column-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .column-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .column-count {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .col-inquiry .column-title { color: var(--blue); }
+  .col-discovery .column-title { color: var(--accent2); }
+  .col-progress .column-title { color: var(--gold); }
+  .col-review .column-title { color: #f97316; }
+  .col-delivered .column-title { color: var(--green); }
+
+  /* Project Cards */
+  .card {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .card:hover {
+    border-color: var(--border-glow);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(139,92,246,0.15);
+  }
+  .card-name { font-weight: 600; font-size: 0.9rem; margin-bottom: 6px; }
+  .card-client { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; }
+  .card-tier {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tier-sprint { background: rgba(59,130,246,0.2); color: var(--blue); border: 1px solid rgba(59,130,246,0.3); }
+  .tier-starter { background: rgba(139,92,246,0.2); color: var(--accent2); border: 1px solid rgba(139,92,246,0.3); }
+  .tier-pro { background: rgba(245,158,11,0.2); color: var(--gold); border: 1px solid rgba(245,158,11,0.3); }
+  .tier-elite { background: rgba(34,197,94,0.2); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .card-date { font-size: 0.7rem; color: var(--text-dim); margin-top: 8px; }
+  .card-amount { font-size: 0.85rem; font-weight: 700; color: var(--gold); margin-top: 4px; }
+  .card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .card-btn {
+    flex: 1;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .card-btn:hover { border-color: var(--accent); color: var(--text); }
+  .card-btn.advance { border-color: rgba(34,197,94,0.4); color: var(--green); }
+  .card-btn.advance:hover { background: rgba(34,197,94,0.1); }
+
+  /* New Project Form */
+  .form-panel {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 700px;
+  }
+  .form-panel h2 {
+    font-size: 1.2rem;
+    margin-bottom: 20px;
+    color: var(--accent2);
+  }
+  .form-group { margin-bottom: 18px; }
+  .form-group label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .form-group input, .form-group select, .form-group textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.9rem;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-group textarea { resize: vertical; min-height: 100px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-submit {
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--accent), #6d28d9);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .form-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(139,92,246,0.4); }
+
+  /* Tiers Overview */
+  .tiers-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 900px) { .tiers-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .tiers-grid { grid-template-columns: 1fr; } }
+  .tier-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .tier-card:hover {
+    border-color: var(--border-glow);
+    transform: translateY(-2px);
+  }
+  .tier-card .price {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 12px 0 4px;
+  }
+  .tier-card .tier-name {
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+  }
+  .tier-card ul {
+    list-style: none;
+    text-align: left;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .tier-card li { padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .tier-card li::before { content: "→ "; color: var(--accent); }
+  .tier-sprint-card .price { color: var(--blue); }
+  .tier-starter-card .price { color: var(--accent2); }
+  .tier-pro-card .price { color: var(--gold); }
+  .tier-elite-card .price { color: var(--green); }
+
+  /* Revenue Panel */
+  .revenue-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  @media (max-width: 768px) { .revenue-grid { grid-template-columns: 1fr; } }
+  .revenue-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: center;
+  }
+  .revenue-card .big-num {
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--green), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .revenue-card .rev-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 4px;
+  }
+  .recent-activity {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .recent-activity h3 {
+    font-size: 0.9rem;
+    color: var(--accent2);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .activity-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.85rem;
+  }
+  .activity-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .activity-time { color: var(--text-dim); font-size: 0.75rem; margin-left: auto; white-space: nowrap; }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    padding: 28px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+  }
+  .modal h3 { color: var(--accent2); margin-bottom: 16px; }
+  .modal-close {
+    float: right;
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 1.2rem;
+    cursor: pointer;
+  }
+  .modal-field { margin-bottom: 12px; }
+  .modal-field .mf-label { font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase; }
+  .modal-field .mf-value { font-size: 0.9rem; margin-top: 2px; }
+  .modal-notes {
+    width: 100%;
+    padding: 10px;
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    min-height: 80px;
+    resize: vertical;
+    margin-top: 8px;
+  }
+  .modal-btn-row { display: flex; gap: 8px; margin-top: 16px; }
+  .modal-btn {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .modal-btn:hover { border-color: var(--accent); }
+  .modal-btn.danger { border-color: rgba(239,68,68,0.4); color: var(--red); }
+  .modal-btn.danger:hover { background: rgba(239,68,68,0.1); }
+  .modal-btn.primary { background: linear-gradient(135deg, var(--accent), #6d28d9); border-color: var(--accent); }
+
+  /* Heartbeat glow on header */
+  @keyframes heartbeat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(139,92,246,0); }
+    50% { box-shadow: 0 0 20px 2px rgba(139,92,246,0.15); }
+  }
+  .header { animation: heartbeat 2.5s ease-in-out infinite; }
+</style>
+</head>
+<body>
+<canvas id="particles"></canvas>
+
+<div class="app">
+  <div class="header">
+    <div>
+      <h1>Ramiche Studio</h1>
+      <div class="subtitle">Client Projects & Pipeline Tracker</div>
+    </div>
+    <div class="header-stats">
+      <div class="stat-box">
+        <div class="num" id="stat-active">0</div>
+        <div class="label">Active</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-delivered">0</div>
+        <div class="label">Delivered</div>
+      </div>
+      <div class="stat-box">
+        <div class="num" id="stat-revenue">$0</div>
+        <div class="label">Revenue</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="pipeline">Pipeline</div>
+    <div class="tab" data-tab="new">+ New Project</div>
+    <div class="tab" data-tab="tiers">Service Tiers</div>
+    <div class="tab" data-tab="revenue">Revenue</div>
+  </div>
+
+  <!-- Pipeline Panel -->
+  <div class="panel active" id="panel-pipeline">
+    <div class="pipeline">
+      <div class="column col-inquiry" data-stage="inquiry">
+        <div class="column-header">
+          <span class="column-title">Inquiry</span>
+          <span class="column-count" id="count-inquiry">0</span>
+        </div>
+        <div class="card-list" id="list-inquiry"></div>
+      </div>
+      <div class="column col-discovery" data-stage="discovery">
+        <div class="column-header">
+          <span class="column-title">Discovery</span>
+          <span class="column-count" id="count-discovery">0</span>
+        </div>
+        <div class="card-list" id="list-discovery"></div>
+      </div>
+      <div class="column col-progress" data-stage="progress">
+        <div class="column-header">
+          <span class="column-title">In Progress</span>
+          <span class="column-count" id="count-progress">0</span>
+        </div>
+        <div class="card-list" id="list-progress"></div>
+      </div>
+      <div class="column col-review" data-stage="review">
+        <div class="column-header">
+          <span class="column-title">Review</span>
+          <span class="column-count" id="count-review">0</span>
+        </div>
+        <div class="card-list" id="list-review"></div>
+      </div>
+      <div class="column col-delivered" data-stage="delivered">
+        <div class="column-header">
+          <span class="column-title">Delivered</span>
+          <span class="column-count" id="count-delivered">0</span>
+        </div>
+        <div class="card-list" id="list-delivered"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- New Project Panel -->
+  <div class="panel" id="panel-new">
+    <div class="form-panel">
+      <h2>Create New Project</h2>
+      <div class="form-group">
+        <label>Project Name</label>
+        <input type="text" id="f-name" placeholder="e.g. Brand Identity Package">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Client Name</label>
+          <input type="text" id="f-client" placeholder="e.g. Acme Corp">
+        </div>
+        <div class="form-group">
+          <label>Client Email</label>
+          <input type="email" id="f-email" placeholder="client@example.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Service Tier</label>
+          <select id="f-tier">
+            <option value="sprint">Sprint — $400</option>
+            <option value="starter">Starter — $1,500</option>
+            <option value="pro" selected>Pro — $3,000</option>
+            <option value="elite">Elite — $6,000+</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Custom Amount ($)</label>
+          <input type="number" id="f-amount" placeholder="Leave blank for tier default">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Project Description</label>
+        <textarea id="f-desc" placeholder="Describe the deliverables, goals, and any special requirements..."></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Source</label>
+          <select id="f-source">
+            <option value="instagram">Instagram DM</option>
+            <option value="upwork">Upwork</option>
+            <option value="referral">Referral</option>
+            <option value="website">Website Inquiry</option>
+            <option value="linkedin">LinkedIn</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Deadline</label>
+          <input type="date" id="f-deadline">
+        </div>
+      </div>
+      <button class="form-submit" onclick="createProject()">Create Project</button>
+    </div>
+  </div>
+
+  <!-- Tiers Panel -->
+  <div class="panel" id="panel-tiers">
+    <div class="tiers-grid">
+      <div class="tier-card tier-sprint-card">
+        <div class="tier-name">Sprint</div>
+        <div class="price">$400</div>
+        <p style="color:var(--text-dim);font-size:0.8rem;margin-bottom:16px">Quick-turn creative asset</p>
+        <ul>
+          <li>1 primary deliverable</li>
+          <li>2 revision rounds</li>
+          <li>48-hour turnaround</li>
+          <li>Source files included</li>
+        </ul>
+      </div>
+      <div class="tier-card tier-starter-card">
+        <div class="tier-name">Starter</div>
+        <div class="price">$1,500</div>
+        <p style="color:var(--text-dim);font-size:0.8rem;margin-bottom:16px">Brand foundation package</p>
+        <ul>
+          <li>Logo + brand guide</li>
+          <li>3 social templates</li>
+          <li>3 revision rounds</li>
+          <li>5-day turnaround</li>
+          <li>Brand color palette</li>
+        </ul>
+      </div>
+      <div class="tier-card tier-pro-card">
+        <div class="tier-name">Pro</div>
+        <div class="price">$3,000</div>
+        <p style="color:var(--text-dim);font-size:0.8rem;margin-bottom:16px">Full creative suite</p>
+        <ul>
+          <li>Everything in Starter</li>
+          <li>Landing page design</li>
+          <li>Social media kit</li>
+          <li>Email templates</li>
+          <li>Unlimited revisions</li>
+          <li>7-day turnaround</li>
+        </ul>
+      </div>
+      <div class="tier-card tier-elite-card">
+        <div class="tier-name">Elite</div>
+        <div class="price">$6,000+</div>
+        <p style="color:var(--text-dim);font-size:0.8rem;margin-bottom:16px">Full-service partnership</p>
+        <ul>
+          <li>Everything in Pro</li>
+          <li>Custom web app / site</li>
+          <li>Content strategy</li>
+          <li>Ongoing retainer option</li>
+          <li>Priority support</li>
+          <li>14-day turnaround</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Revenue Panel -->
+  <div class="panel" id="panel-revenue">
+    <div class="revenue-grid">
+      <div class="revenue-card">
+        <div class="big-num" id="rev-total">$0</div>
+        <div class="rev-label">Total Revenue</div>
+      </div>
+      <div class="revenue-card">
+        <div class="big-num" id="rev-pipeline">$0</div>
+        <div class="rev-label">Pipeline Value</div>
+      </div>
+      <div class="revenue-card">
+        <div class="big-num" id="rev-avg">$0</div>
+        <div class="rev-label">Avg Project Value</div>
+      </div>
+    </div>
+    <div class="recent-activity">
+      <h3>Activity Log</h3>
+      <div id="activity-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal-overlay" id="detail-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <h3 id="modal-title"></h3>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script>
+const TIERS = { sprint: 400, starter: 1500, pro: 3000, elite: 6000 };
+const STAGES = ['inquiry','discovery','progress','review','delivered'];
+const STAGE_LABELS = { inquiry:'Inquiry', discovery:'Discovery', progress:'In Progress', review:'Review', delivered:'Delivered' };
+
+// LocalStorage persistence
+function loadProjects() {
+  try { return JSON.parse(localStorage.getItem('ramiche_projects') || '[]'); }
+  catch { return []; }
+}
+function saveProjects(p) { localStorage.setItem('ramiche_projects', JSON.stringify(p)); }
+function loadActivity() {
+  try { return JSON.parse(localStorage.getItem('ramiche_activity') || '[]'); }
+  catch { return []; }
+}
+function saveActivity(a) { localStorage.setItem('ramiche_activity', JSON.stringify(a)); }
+
+function addActivity(text, color) {
+  const acts = loadActivity();
+  acts.unshift({ text, color: color || '#8b5cf6', time: new Date().toISOString() });
+  if (acts.length > 50) acts.length = 50;
+  saveActivity(acts);
+}
+
+function generateId() { return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,8); }
+
+// Seed demo data if empty
+function seedDemo() {
+  const projects = loadProjects();
+  if (projects.length > 0) return;
+  const demos = [
+    { id: generateId(), name: 'Brand Identity — Luxe Autos', client: 'Marcus Chen', email: 'marcus@luxeautos.com', tier: 'pro', amount: 3000, desc: 'Full brand identity for luxury car detailing startup. Logo, brand guide, social kit, and landing page.', source: 'instagram', stage: 'progress', deadline: '2026-03-20', created: '2026-03-01', notes: 'Client loves dark + gold color combos. Wants "premium but approachable" feel.' },
+    { id: generateId(), name: 'Social Media Kit — FitHive', client: 'Jasmine Torres', email: 'j@fithive.co', tier: 'starter', amount: 1500, desc: 'Social media template pack for boutique fitness studio. Instagram posts, stories, highlight covers.', source: 'referral', stage: 'review', deadline: '2026-03-15', created: '2026-03-03', notes: 'Revision 2 sent. Waiting on client feedback on font choices.' },
+    { id: generateId(), name: 'Logo Redesign — Coastal Bites', client: 'Derek Williams', email: 'derek@coastalbites.com', tier: 'sprint', amount: 400, desc: 'Quick logo refresh for seafood restaurant. Modernize existing mark while keeping the wave element.', source: 'upwork', stage: 'delivered', deadline: '2026-03-08', created: '2026-03-05', notes: 'Delivered on time. Client loved the simplified wave. Left 5-star review on Upwork.' },
+    { id: generateId(), name: 'E-Commerce Site — Sage & Stone', client: 'Amara Okafor', email: 'amara@sageandstone.com', tier: 'elite', amount: 7500, desc: 'Full Shopify store build for handmade jewelry brand. Custom theme, product photography direction, brand identity.', source: 'website', stage: 'discovery', deadline: '2026-04-01', created: '2026-03-10', notes: 'Discovery call scheduled for Mar 13. Client has existing Etsy store with 200+ products.' },
+    { id: generateId(), name: 'Pitch Deck — NeuroSync', client: 'Tyler Reeves', email: 'tyler@neurosync.ai', tier: 'starter', amount: 1500, desc: 'Investor pitch deck for AI health tech startup. 12-15 slides with data visualization.', source: 'linkedin', stage: 'inquiry', deadline: '2026-03-25', created: '2026-03-11', notes: '' },
+    { id: generateId(), name: 'Album Art — DJ Prism', client: 'DJ Prism', email: 'prism@beatmail.com', tier: 'sprint', amount: 400, desc: 'Cover art for EP release. Abstract, colorful, retro-futuristic vibe.', source: 'instagram', stage: 'inquiry', deadline: '2026-03-18', created: '2026-03-12', notes: 'Sent DM. Waiting for reference images.' }
+  ];
+  saveProjects(demos);
+  addActivity('Demo projects loaded', '#22c55e');
+  demos.forEach(d => addActivity(`Project created: ${d.name} (${d.tier})`, '#3b82f6'));
+}
+
+// Render
+function render() {
+  const projects = loadProjects();
+
+  // Clear lists
+  STAGES.forEach(s => { document.getElementById('list-' + s).innerHTML = ''; });
+
+  // Sort into stages
+  const counts = {};
+  STAGES.forEach(s => counts[s] = 0);
+  let totalRevenue = 0, pipelineValue = 0, projectCount = 0;
+
+  projects.forEach(p => {
+    counts[p.stage] = (counts[p.stage] || 0) + 1;
+    if (p.stage === 'delivered') totalRevenue += p.amount;
+    else pipelineValue += p.amount;
+    projectCount++;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.onclick = () => openDetail(p.id);
+
+    const nextStage = STAGES[STAGES.indexOf(p.stage) + 1];
+    const advanceBtn = nextStage ? `<button class="card-btn advance" onclick="event.stopPropagation();advanceProject('${p.id}')">${STAGE_LABELS[nextStage]} →</button>` : '';
+
+    card.innerHTML = `
+      <div class="card-name">${esc(p.name)}</div>
+      <div class="card-client">${esc(p.client)}</div>
+      <span class="card-tier tier-${p.tier}">${p.tier}</span>
+      <div class="card-amount">$${p.amount.toLocaleString()}</div>
+      <div class="card-date">${p.deadline ? 'Due: ' + p.deadline : 'No deadline'}</div>
+      <div class="card-actions">
+        ${advanceBtn}
+        <button class="card-btn" onclick="event.stopPropagation();openDetail('${p.id}')">Details</button>
+      </div>
+    `;
+    document.getElementById('list-' + p.stage).appendChild(card);
+  });
+
+  // Update counts
+  STAGES.forEach(s => {
+    document.getElementById('count-' + s).textContent = counts[s] || 0;
+  });
+
+  // Stats
+  const active = projectCount - (counts.delivered || 0);
+  document.getElementById('stat-active').textContent = active;
+  document.getElementById('stat-delivered').textContent = counts.delivered || 0;
+  document.getElementById('stat-revenue').textContent = '$' + totalRevenue.toLocaleString();
+
+  // Revenue panel
+  document.getElementById('rev-total').textContent = '$' + totalRevenue.toLocaleString();
+  document.getElementById('rev-pipeline').textContent = '$' + pipelineValue.toLocaleString();
+  const avg = projectCount > 0 ? Math.round((totalRevenue + pipelineValue) / projectCount) : 0;
+  document.getElementById('rev-avg').textContent = '$' + avg.toLocaleString();
+
+  // Activity log
+  const acts = loadActivity();
+  const logEl = document.getElementById('activity-log');
+  logEl.innerHTML = '';
+  acts.slice(0, 20).forEach(a => {
+    const d = new Date(a.time);
+    const timeStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour:'2-digit', minute:'2-digit' });
+    logEl.innerHTML += `
+      <div class="activity-item">
+        <span class="activity-dot" style="background:${a.color}"></span>
+        <span>${esc(a.text)}</span>
+        <span class="activity-time">${timeStr}</span>
+      </div>`;
+  });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function createProject() {
+  const name = document.getElementById('f-name').value.trim();
+  const client = document.getElementById('f-client').value.trim();
+  const email = document.getElementById('f-email').value.trim();
+  const tier = document.getElementById('f-tier').value;
+  const customAmount = document.getElementById('f-amount').value;
+  const desc = document.getElementById('f-desc').value.trim();
+  const source = document.getElementById('f-source').value;
+  const deadline = document.getElementById('f-deadline').value;
+
+  if (!name || !client) { alert('Project name and client name are required.'); return; }
+
+  const amount = customAmount ? parseInt(customAmount) : TIERS[tier];
+  const project = {
+    id: generateId(), name, client, email, tier, amount, desc, source,
+    stage: 'inquiry', deadline, created: new Date().toISOString().split('T')[0], notes: ''
+  };
+
+  const projects = loadProjects();
+  projects.push(project);
+  saveProjects(projects);
+  addActivity(`New project: ${name} — ${client} ($${amount.toLocaleString()})`, '#3b82f6');
+
+  // Reset form
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-client').value = '';
+  document.getElementById('f-email').value = '';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-deadline').value = '';
+
+  // Switch to pipeline
+  switchTab('pipeline');
+  render();
+}
+
+function advanceProject(id) {
+  const projects = loadProjects();
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  const idx = STAGES.indexOf(p.stage);
+  if (idx < STAGES.length - 1) {
+    const oldStage = STAGE_LABELS[p.stage];
+    p.stage = STAGES[idx + 1];
+    const newStage = STAGE_LABELS[p.stage];
+    saveProjects(projects);
+    addActivity(`${p.name} moved: ${oldStage} → ${newStage}`, p.stage === 'delivered' ? '#22c55e' : '#f59e0b');
+    render();
+  }
+}
+
+function openDetail(id) {
+  const projects = loadProjects();
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+
+  document.getElementById('modal-title').textContent = p.name;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-field"><div class="mf-label">Client</div><div class="mf-value">${esc(p.client)}</div></div>
+    <div class="modal-field"><div class="mf-label">Email</div><div class="mf-value">${esc(p.email || 'N/A')}</div></div>
+    <div class="modal-field"><div class="mf-label">Tier</div><div class="mf-value"><span class="card-tier tier-${p.tier}">${p.tier}</span> — $${p.amount.toLocaleString()}</div></div>
+    <div class="modal-field"><div class="mf-label">Stage</div><div class="mf-value">${STAGE_LABELS[p.stage]}</div></div>
+    <div class="modal-field"><div class="mf-label">Source</div><div class="mf-value">${esc(p.source || 'N/A')}</div></div>
+    <div class="modal-field"><div class="mf-label">Deadline</div><div class="mf-value">${p.deadline || 'None set'}</div></div>
+    <div class="modal-field"><div class="mf-label">Created</div><div class="mf-value">${p.created}</div></div>
+    <div class="modal-field"><div class="mf-label">Description</div><div class="mf-value">${esc(p.desc || 'No description')}</div></div>
+    <div class="modal-field">
+      <div class="mf-label">Notes</div>
+      <textarea class="modal-notes" id="modal-notes-field">${esc(p.notes || '')}</textarea>
+    </div>
+    <div class="modal-btn-row">
+      <button class="modal-btn primary" onclick="saveNotes('${p.id}')">Save Notes</button>
+      <button class="modal-btn danger" onclick="deleteProject('${p.id}')">Delete</button>
+    </div>
+  `;
+  document.getElementById('detail-modal').classList.add('active');
+}
+
+function closeModal() { document.getElementById('detail-modal').classList.remove('active'); }
+
+function saveNotes(id) {
+  const projects = loadProjects();
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  p.notes = document.getElementById('modal-notes-field').value;
+  saveProjects(projects);
+  addActivity(`Notes updated: ${p.name}`, '#8b5cf6');
+  closeModal();
+  render();
+}
+
+function deleteProject(id) {
+  if (!confirm('Delete this project? This cannot be undone.')) return;
+  let projects = loadProjects();
+  const p = projects.find(x => x.id === id);
+  projects = projects.filter(x => x.id !== id);
+  saveProjects(projects);
+  if (p) addActivity(`Project deleted: ${p.name}`, '#ef4444');
+  closeModal();
+  render();
+}
+
+// Tabs
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tabId));
+}
+document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+
+// Ambient particles
+function initParticles() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  const particles = [];
+
+  function resize() { w = canvas.width = window.innerWidth; h = canvas.height = window.innerHeight; }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 40; i++) {
+    particles.push({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 2 + 0.5,
+      a: Math.random() * 0.3 + 0.1
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach(p => {
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0) p.x = w; if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h; if (p.y > h) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(139, 92, 246, ${p.a})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// Init
+seedDemo();
+render();
+initParticles();
+
+// Close modal on overlay click
+document.getElementById('detail-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>
