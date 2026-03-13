@@ -107,16 +107,6 @@ export default function LegalPage() {
           </div>
         </div>
 
-        {/* Upcoming Meeting Alert */}
-        <div className="bg-purple-500/5 border-2 border-purple-500/30 rounded-xl p-5 mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] animate-pulse" />
-            <span className="text-xs text-purple-400 tracking-[0.15em] font-medium">UPCOMING — CRITICAL</span>
-          </div>
-          <h3 className="text-sm font-bold mb-1">Wed Mar 12 — Financier Meeting (~$2B AUM)</h3>
-          <p className="text-white/30 text-xs">Verified Agent Business. First vertical: legal (THEMIS). Co-founder: Eric. NOT a lawyer — BIG financier.</p>
-        </div>
-
         {/* IP Portfolio */}
         <h2 className="text-xs text-white/40 tracking-[0.2em] font-medium mb-3">IP PORTFOLIO</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">

@@ -13,7 +13,7 @@ interface Project { slug: string; name: string; priority: string; status: string
 
 const PRIORITIES = [
   { rank: "#1", name: "METTLE", type: "SaaS — Athlete Management", status: "Beta", detail: "ARM (Athlete Relations Manager). Beta: Saint Andrew's Aquatics (240+ athletes). Patent + copyright filed.", color: "#C9A84C" },
-  { rank: "#2", name: "Verified Agent Business", type: "Agent Rental — $100-500/hr", status: "Pre-launch", detail: "First vertical: legal (THEMIS). Wed Mar 12 meeting with BIG financier (~$2B AUM). Co-founder: Eric.", color: "#818cf8" },
+  { rank: "#2", name: "Verified Agent Business", type: "Agent Rental — $100-500/hr", status: "Pre-launch", detail: "First vertical: legal (THEMIS). Co-founder: Eric. Financier meeting completed — next steps pending.", color: "#818cf8" },
   { rank: "#3", name: "Ramiche Studio", type: "Creative Services — $400-$6K+", status: "Kit Complete", detail: "Landing page, inquiry form, checkout, DM scripts, email sequences, onboarding runbook. Blocked on Stripe key + first clients.", color: "#06b6d4" },
   { rank: "#4", name: "Parallax Agent Marketplace", type: "Agent Skills — $149-499", status: "Live", detail: "19 routes, white-label system, Setup Service e2e verified. Claude Skills selling.", color: "#22c55e" },
   { rank: "#5", name: "ClawGuard Pro", type: "Security Scanner — $299-$1,499", status: "Live", detail: "GitHub + Stripe wired. Scanning product live.", color: "#34d399" },
