@@ -15,6 +15,7 @@ import StreakFlame from "../components/StreakFlame";
 
 // ── game engine (shared) ────────────────────────────────────
 import { getLevel, getNextLevel, getLevelProgress, getStreakMult, fmtStreak } from "../lib/game-engine";
+import { ROSTER_GROUPS } from "../constants";
 
 // ── storage keys (same as coach) ────────────────────────────
 const K = {
@@ -761,7 +762,11 @@ export default function AthletePortal() {
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
-  const sport = "swimming"; // TODO: get from athlete.group
+  const sport = useMemo(() => {
+    if (!athlete) return "swimming";
+    const groupDef = ROSTER_GROUPS.find(g => g.id === athlete.group);
+    return groupDef?.sport || "swimming";
+  }, [athlete]);
   const level = athlete ? getLevel(athlete.xp ?? 0, sport) : getLevel(0, sport);
   const nextLevel = athlete ? getNextLevel(athlete.xp ?? 0, sport) : getNextLevel(0, sport);
   const progress = athlete ? getLevelProgress(athlete.xp ?? 0, sport) : { percent: 0, remaining: 300 };

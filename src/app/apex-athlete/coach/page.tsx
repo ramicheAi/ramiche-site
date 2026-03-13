@@ -1285,7 +1285,7 @@ export default function ApexAthletePage() {
                 }
                 if (arr && arr.length > 0) {
                   const xp = rosterXP(arr);
-                  console.log("[Sync] Firestore", fbPath, ":", arr.length, "athletes, XP:", xp);
+                  // Firestore path matched
                   if (xp > bestXP || firestoreRoster.length === 0) {
                     firestoreRoster = arr;
                     bestXP = xp;
@@ -1304,21 +1304,16 @@ export default function ApexAthletePage() {
           const lsXP = rosterXP(localRoster);
           if (fbXP >= lsXP) {
             r = firestoreRoster;
-            console.log("[Sync] Using Firestore roster (XP:", fbXP, "vs local:", lsXP, ")");
           } else {
             r = localRoster;
-            console.log("[Sync] Using localStorage roster (XP:", lsXP, "vs Firestore:", fbXP, ")");
           }
         } else if (firestoreRoster.length > 0) {
           r = firestoreRoster;
-          console.log("[Sync] Using Firestore roster (no local data)");
         } else if (localRoster.length > 0) {
           r = localRoster;
-          console.log("[Sync] Using localStorage roster (no Firestore data)");
         } else {
           // Neither has data — initialize from seed
           r = INITIAL_ROSTER.map(makeAthlete);
-          console.log("[Sync] No data anywhere — initializing from seed roster");
         }
 
         // 4. Ensure all athletes are present (add missing from seed)
@@ -1416,7 +1411,7 @@ export default function ApexAthletePage() {
 
         // Push authoritative roster to Firestore (ensures cloud is always current)
         syncSave(K.ROSTER, r, "rosters/all");
-        console.log("[Sync] Data loaded and synced. Roster:", r.length, "athletes, total XP:", rosterXP(r));
+        // Sync complete
 
       } catch (e) {
         console.warn("[Sync] Firestore sync error — falling back to localStorage:", e);

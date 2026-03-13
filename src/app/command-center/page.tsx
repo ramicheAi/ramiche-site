@@ -1169,6 +1169,41 @@ export default function CommandCenter() {
             </div>
           </div>
 
+          {/* ═══════ QUICK LINKS ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(201,168,76,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#C9A84C]" style={{ boxShadow: '0 0 8px rgba(201,168,76,0.6)' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Quick Links</h2>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(201,168,76,0.2), transparent)' }} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+              {LINKS.map((link, i) => (
+                <a
+                  key={i}
+                  href={link.href}
+                  target={link.href.startsWith('/') ? '_self' : '_blank'}
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-lg border-2 transition-all duration-200 hover:scale-[1.02]"
+                  style={{
+                    borderColor: `${link.accent}20`,
+                    background: `${link.accent}06`,
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-md flex items-center justify-center text-xs font-bold shrink-0"
+                    style={{ background: `${link.accent}15`, color: link.accent }}
+                  >
+                    {link.icon}
+                  </div>
+                  <span className="text-xs font-medium text-white/70 truncate">{link.label}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
           {/* ═══════ CRON MANAGEMENT ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-3">
