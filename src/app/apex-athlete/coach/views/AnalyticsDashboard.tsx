@@ -4,6 +4,7 @@ import Card from "../components/Card";
 import BgOrbs from "../components/BgOrbs";
 import { getLevel } from "../../utils";
 import type { Athlete, DailySnapshot, AuditEntry } from "../types";
+import { getSportForAthlete } from "../types";
 
 interface PeakWindow { day: string; avgXP: number; sessions: number; }
 interface EngagementTrend { delta: number; direction: "up" | "down" | "flat"; }
@@ -22,7 +23,7 @@ interface AnalyticsDashboardProps {
   setComparePeriod: (p: "week" | "month") => void;
   engagementTrend: EngagementTrend;
   cultureScore: number;
-  atRiskAthletes: Athlete[];
+  atRiskAthletes: (Athlete & { risk: number })[];
   snapshots: DailySnapshot[];
   peakWindows: PeakWindow[];
   auditLog: AuditEntry[];
