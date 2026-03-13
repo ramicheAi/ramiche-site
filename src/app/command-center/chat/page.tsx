@@ -685,7 +685,40 @@ export default function CommandCenterChatPage() {
           agentName,
           channelName,
         }),
-      }).catch((err) => console.error("Agent relay failed:", err));
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.ok && data.response) {
+            // Fallback: if realtime hasn't delivered after 2s, show the response directly
+            setTimeout(() => {
+              setMessages((prev) => {
+                // Check if realtime already added a message after the user's last message
+                const lastUserIdx = prev.findLastIndex((m) => m.type === "user");
+                const hasAgentReply = prev.slice(lastUserIdx + 1).some((m) => m.type === "agent");
+                if (hasAgentReply) return prev; // Realtime already delivered
+
+                setWaitingForResponse(false);
+                setTypingUsers([]);
+                if (waitingTimeoutRef.current) {
+                  clearTimeout(waitingTimeoutRef.current);
+                  waitingTimeoutRef.current = null;
+                }
+
+                return [...prev, {
+                  id: `api-${Date.now()}`,
+                  channelId: targetChannelId,
+                  type: "agent" as const,
+                  sender: isDM ? activeAgent!.name : (data.agent || "Agent"),
+                  senderColor: isDM ? (activeAgent!.color || "#888") : "#888",
+                  content: data.response,
+                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  date: "Today",
+                }];
+              });
+            }, 2000);
+          }
+        })
+        .catch((err) => console.error("Agent relay failed:", err));
     }
 
     setMessageInput("");

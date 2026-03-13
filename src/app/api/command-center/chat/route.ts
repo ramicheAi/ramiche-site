@@ -120,6 +120,7 @@ export async function POST(req: NextRequest) {
       await supabase.from("messages").insert({
         channel_id: channelId,
         sender_agent_id: agentUUID,
+        sender_type: "agent",
         content: agentResponse,
         tenant_id: "11111111-1111-1111-1111-111111111111",
         attachments: [],
