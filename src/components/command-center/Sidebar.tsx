@@ -20,6 +20,7 @@ const sections = [
       { href: '/command-center/health', label: 'System Health', icon: '◉', accent: '#22d3ee' },
       { href: '/command-center/security', label: 'Security', icon: '◆', accent: '#ef4444' },
       { href: '/command-center/settings', label: 'Settings', icon: '⚙', accent: '#888888' },
+      { href: '/command-center/yolo', label: 'YOLO Builds', icon: '⚡', accent: '#f59e0b' },
     ],
   },
   {
