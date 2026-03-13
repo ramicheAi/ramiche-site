@@ -597,12 +597,16 @@ export default function CommandCenterChatPage() {
 
   /* ── typing indicator driven by waitingForResponse ── */
   useEffect(() => {
-    if (waitingForResponse && viewMode === "dm" && activeAgent) {
-      setTypingUsers([activeAgent.name]);
+    if (waitingForResponse) {
+      if (viewMode === "dm" && activeAgent) {
+        setTypingUsers([activeAgent.name]);
+      } else if (viewMode === "channel" && activeChannel) {
+        setTypingUsers(["Agent"]);
+      }
     } else {
       setTypingUsers([]);
     }
-  }, [waitingForResponse, viewMode, activeAgent]);
+  }, [waitingForResponse, viewMode, activeAgent, activeChannel]);
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
@@ -722,20 +726,26 @@ export default function CommandCenterChatPage() {
             }, 2000);
           }
         })
-        .catch((err) => console.error("Agent relay failed:", err));
+        .catch((err) => {
+          console.error("Agent relay failed:", err);
+          setWaitingForResponse(false);
+          setTypingUsers([]);
+          if (waitingTimeoutRef.current) {
+            clearTimeout(waitingTimeoutRef.current);
+            waitingTimeoutRef.current = null;
+          }
+        });
     }
 
     setMessageInput("");
     setAttachments([]);
 
-    if (viewMode === "dm" && activeAgent) {
-      setWaitingForResponse(true);
-      if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
-      waitingTimeoutRef.current = setTimeout(() => {
-        setWaitingForResponse(false);
-        waitingTimeoutRef.current = null;
-      }, 15000);
-    }
+    setWaitingForResponse(true);
+    if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
+    waitingTimeoutRef.current = setTimeout(() => {
+      setWaitingForResponse(false);
+      waitingTimeoutRef.current = null;
+    }, 10000);
   };
 
   const handleMessageClick = (message: Message) => {
