@@ -89,39 +89,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No API key configured" }, { status: 500 });
     }
 
-    // Call OpenRouter for agent response
-    const res = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-        "HTTP-Referer": "https://ramiche-site.vercel.app",
-        "X-Title": "Parallax Command Center",
+    // Model fallback chain — try each until one succeeds
+    const MODELS = [
+      "google/gemini-2.5-flash-preview",
+      "deepseek/deepseek-chat-v3-0324",
+      "anthropic/claude-sonnet-4",
+    ];
+
+    const chatMessages = [
+      {
+        role: "system",
+        content: `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`,
       },
-      body: JSON.stringify({
-        model: "deepseek/deepseek-chat-v3-0324",
-        messages: [
-          {
-            role: "system",
-            content: `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`,
+      { role: "user", content: message },
+    ];
+
+    let agentResponse: string | null = null;
+
+    for (const model of MODELS) {
+      try {
+        const res = await fetch(OPENROUTER_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${apiKey}`,
+            "HTTP-Referer": "https://ramiche-site.vercel.app",
+            "X-Title": "Parallax Command Center",
           },
-          { role: "user", content: message },
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-      signal: AbortSignal.timeout(25000),
-    });
+          body: JSON.stringify({
+            model,
+            messages: chatMessages,
+            max_tokens: 500,
+            temperature: 0.7,
+          }),
+          signal: AbortSignal.timeout(20000),
+        });
 
-    let agentResponse: string;
+        if (res.ok) {
+          const data = await res.json();
+          agentResponse = data.choices?.[0]?.message?.content || null;
+          if (agentResponse) break;
+        } else {
+          const errText = await res.text().catch(() => "unknown");
+          console.error(`OpenRouter ${model} failed: ${res.status} ${errText}`);
+        }
+      } catch (err) {
+        console.error(`OpenRouter ${model} timeout/error:`, err);
+      }
+    }
 
-    if (res.ok) {
-      const data = await res.json();
-      agentResponse = data.choices?.[0]?.message?.content || `${displayName} is processing your request.`;
-    } else {
-      const errText = await res.text().catch(() => "unknown error");
-      console.error(`OpenRouter error: ${res.status} ${errText}`);
-      agentResponse = `Sorry, I couldn't process that. Please try again.`;
+    if (!agentResponse) {
+      agentResponse = `${displayName} is temporarily unavailable. Please try again in a moment.`;
     }
 
     // Write agent response to Supabase
