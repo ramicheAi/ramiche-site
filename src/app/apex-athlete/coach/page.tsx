@@ -16,6 +16,9 @@ import ComboCounter from "./components/ComboCounter";
 import PracticeRecapModal, { type RecapData } from "./components/PracticeRecapModal";
 import { useXPEngine } from "./hooks/useXPEngine";
 import GroupSelector from "./components/GroupSelector";
+import StaffView from "./components/StaffView";
+import BgOrbs from "./components/BgOrbs";
+import XpFloats from "./components/XpFloats";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -834,17 +837,7 @@ const Card = ({ children, className = "", glow = false, neon = false }: { childr
   <div style={{animation: 'glowBreathe 4s ease-in-out infinite'}} className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
 );
 
-const BgOrbs = () => (
-  <div className="fixed inset-0 pointer-events-none overflow-hidden z-0">
-    <div className="absolute inset-0 bg-[#06020f]" />
-    <div className="absolute inset-0 data-grid-bg opacity-30" />
-    <div className="nebula-1 absolute -top-[20%] left-[20%] w-[900px] h-[900px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.08)_0%,rgba(107,33,168,0.12)_30%,transparent_60%)]" />
-    <div className="nebula-2 absolute bottom-[-10%] right-[-5%] w-[700px] h-[700px] rounded-full bg-[radial-gradient(circle,rgba(168,85,247,0.1)_0%,rgba(0,240,255,0.04)_40%,transparent_60%)]" />
-    <div className="nebula-3 absolute top-[40%] left-[-10%] w-[500px] h-[500px] rounded-full bg-[radial-gradient(circle,rgba(232,121,249,0.06)_0%,transparent_55%)]" />
-    <div className="nebula-drift absolute top-[15%] right-[10%] w-[400px] h-[400px] rounded-full bg-[radial-gradient(circle,rgba(0,240,255,0.05)_0%,transparent_55%)]" />
-    <div className="scan-line absolute left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#00f0ff]/20 to-transparent" />
-  </div>
-);
+// BgOrbs extracted to ./components/BgOrbs.tsx
 
 /* ══════════════════════════════════════════════════════════════
    MAIN COMPONENT
@@ -950,7 +943,7 @@ export default function ApexAthletePage() {
   const [levelUpIcon, setLevelUpIcon] = useState<string>("");
   const [levelUpColor, setLevelUpColor] = useState<string>("");
   const [levelUpExiting, setLevelUpExiting] = useState(false);
-  const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
+  const [xpFloats, setXpFloats] = useState<import("./components/XpFloats").XpFloat[]>([]);
   const [achieveToasts, setAchieveToasts] = useState<AchievementToast[]>([]);
   const achieveIdRef = useRef(0);
   // ── scroll guard: prevent phantom taps on mobile during/after scroll ──
@@ -2418,18 +2411,8 @@ export default function ApexAthletePage() {
      RENDER
      ════════════════════════════════════════════════════════════ */
 
-  // Card and BgOrbs are defined outside the component to prevent re-render issues
-
-  // ── floating XP numbers ──────────────────────────────────
-  const XpFloats = () => (
-    <div className="fixed inset-0 pointer-events-none z-[200]">
-      {xpFloats.map(f => (
-        <div key={f.id} className="xp-float absolute text-[#f59e0b] font-black text-lg" style={{ left: f.x, top: f.y }}>
-          +{f.xp} XP
-        </div>
-      ))}
-    </div>
-  );
+  // Card is defined outside the component to prevent re-render issues
+  // BgOrbs + XpFloats extracted to ./components/
 
   // ── level-up dismiss handler ──────────────────────────
   const handleLevelUpDismiss = useCallback(() => {
@@ -2645,57 +2628,6 @@ export default function ApexAthletePage() {
     );
   };
 
-  // ── culture header ──────────────────────────────────────
-  const CultureHeader = () => (
-    <Card className="p-6 mb-8">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="text-white font-bold text-lg">Saint Andrew&apos;s Aquatics — {currentGroupDef.icon} {currentGroupDef.name}</h2>
-          {editingCulture ? (
-            <input value={culture.mission} onChange={e => setCulture({ ...culture, mission: e.target.value })}
-              className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1 text-[#f59e0b] text-sm mt-1 w-full focus:outline-none" />
-          ) : (
-            <p className="text-[#f59e0b] text-sm mt-1">{culture.mission}</p>
-          )}
-        </div>
-        {view === "coach" && (
-          <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-            className="text-white/60 text-xs hover:text-white/50 px-3 py-1.5 rounded-lg border border-white/[0.06] transition-colors min-h-[36px]">
-            {editingCulture ? "Save" : "Edit"}
-          </button>
-        )}
-      </div>
-      <div className="mb-3">
-        <div className="flex items-center justify-between text-sm mb-1.5">
-          <span className="text-white/40">
-            {editingCulture ? (
-              <input value={culture.seasonalGoal} onChange={e => setCulture({ ...culture, seasonalGoal: e.target.value })}
-                className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-2 py-0.5 text-white/50 w-52 focus:outline-none" />
-            ) : culture.seasonalGoal}
-          </span>
-          <span className="text-[#f59e0b] font-bold">{culture.goalCurrent}%<span className="text-white/60">/{culture.goalTarget}%</span></span>
-        </div>
-        <div className="h-2 rounded-full bg-white/[0.04] overflow-hidden">
-          <div className="h-full rounded-full xp-shimmer transition-all duration-700" style={{ width: `${Math.min(100, (culture.goalCurrent / culture.goalTarget) * 100)}%` }} />
-        </div>
-      </div>
-      <div className="border-t border-white/[0.04] pt-3">
-        {editingCulture ? (
-          <input value={culture.weeklyQuote} onChange={e => setCulture({ ...culture, weeklyQuote: e.target.value })}
-            className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-1.5 text-white/60 text-sm italic w-full focus:outline-none" />
-        ) : (
-          <p className="text-white/60 text-sm italic text-center">&ldquo;{culture.weeklyQuote}&rdquo;</p>
-        )}
-      </div>
-      {editingCulture && (
-        <div className="mt-3 flex gap-3 text-xs items-center">
-          <label className="text-white/60">Goal %: <input type="number" value={culture.goalTarget}
-            onChange={e => setCulture({ ...culture, goalTarget: parseInt(e.target.value) || 0 })}
-            className="ml-1 w-16 bg-white/[0.04] border border-white/[0.08] rounded px-2 py-0.5 text-white/50 focus:outline-none" /></label>
-        </div>
-      )}
-    </Card>
-  );
 
   // ── expanded athlete detail ─────────────────────────────
   const AthleteExpanded = ({ athlete }: { athlete: Athlete }) => {
@@ -3339,203 +3271,31 @@ export default function ApexAthletePage() {
 
   // ── STAFF VIEW ───────────────────────────────────────────
   if (view === "staff") {
-    // Only head coach / admin (master PIN) can manage staff
     const isAdmin = pinInput === coachPin || !currentCoach || (currentCoach && currentCoach.role === "head");
     return (
-      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-        <BgOrbs />
-        <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
-          <GameHUDHeader />
-          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Coach Staff</h2>
-          <p className="text-[#00f0ff]/25 text-xs mb-8 font-mono">Manage coaching staff &amp; group access</p>
-
-          {/* Current coaches list */}
-          <div className="space-y-4 mb-8">
-            {coaches.length === 0 && (
-              <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-8 text-center">
-                <p className="text-white/60 text-sm font-mono">No coaches added yet.</p>
-                <p className="text-white/40 text-xs font-mono mt-2">Master PIN has full access to all groups.</p>
-              </div>
-            )}
-            {coaches.map(c => {
-              const isEditing = editingCoachId === c.id;
-              return (
-                <div key={c.id} className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/10 p-5" style={{ isolation: 'isolate' }}>
-                  <div className="relative z-[5] flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-black ${
-                        c.role === "head" ? "bg-[#f59e0b]/20 border border-[#f59e0b]/30 text-[#f59e0b]" : "bg-[#00f0ff]/10 border border-[#00f0ff]/20 text-[#00f0ff]"
-                      }`}>
-                        {c.name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="text-white font-bold text-sm">{c.name}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                            c.role === "head" ? "bg-[#f59e0b]/15 text-[#f59e0b]" : "bg-[#00f0ff]/10 text-[#00f0ff]/70"
-                          }`}>
-                            {c.role === "head" ? "HEAD COACH" : "ASSISTANT"}
-                          </span>
-                          <span className="text-white/50 text-xs font-mono">PIN: {c.pin}</span>
-                        </div>
-                      </div>
-                    </div>
-                    {isAdmin && (
-                      <div className="flex gap-2">
-                        <button onClick={() => setEditingCoachId(isEditing ? null : c.id)}
-                          className="game-btn px-3 py-1.5 text-xs font-mono tracking-wider text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all min-h-[32px]">
-                          {isEditing ? "CANCEL" : "EDIT"}
-                        </button>
-                        <button onClick={() => removeCoach(c.id)}
-                          className="game-btn px-3 py-1.5 text-xs font-mono tracking-wider text-red-400/30 border border-red-400/10 hover:text-red-400/70 hover:border-red-400/30 transition-all min-h-[32px]">
-                          REMOVE
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Group assignments */}
-                  <div className="mt-3">
-                    <span className="text-white/60 text-xs font-mono uppercase tracking-wider">Groups: </span>
-                    {c.role === "head" ? (
-                      <span className="text-[#f59e0b]/60 text-xs font-mono">ALL GROUPS (Head Coach)</span>
-                    ) : (
-                      <div className="flex flex-wrap gap-1.5 mt-1.5">
-                        {ROSTER_GROUPS.map(g => {
-                          const assigned = c.groups.includes(g.id);
-                          if (isEditing) {
-                            return (
-                              <button key={g.id} onClick={() => {
-                                const newGroups = assigned ? c.groups.filter(x => x !== g.id) : [...c.groups, g.id];
-                                updateCoach(c.id, { groups: newGroups });
-                                setEditingCoachId(c.id); // keep editing
-                              }}
-                                className={`px-2.5 py-1 text-xs font-mono rounded-md transition-all min-h-[28px] ${
-                                  assigned
-                                    ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
-                                    : "bg-white/[0.03] text-white/60 border border-white/[0.06] hover:border-[#00f0ff]/20"
-                                }`}>
-                                {g.icon} {g.name}
-                              </button>
-                            );
-                          }
-                          return assigned ? (
-                            <span key={g.id} className="px-2.5 py-1 text-xs font-mono bg-[#00f0ff]/10 text-[#00f0ff]/60 rounded-md border border-[#00f0ff]/15">
-                              {g.icon} {g.name}
-                            </span>
-                          ) : null;
-                        })}
-                        {c.groups.length === 0 && !isEditing && (
-                          <span className="text-red-400/40 text-xs font-mono">No groups assigned</span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {c.email && (
-                    <div className="mt-2 text-white/50 text-xs font-mono">{c.email}</div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Add Coach Form */}
-          {isAdmin && (
-            <div className="mb-10">
-              {!addCoachOpen ? (
-                <button onClick={() => setAddCoachOpen(true)}
-                  className="game-btn px-5 py-3 bg-gradient-to-r from-[#00f0ff]/15 to-[#a855f7]/15 border border-[#00f0ff]/20 text-[#00f0ff]/70 text-sm font-mono tracking-wider hover:shadow-[0_0_20px_rgba(0,240,255,0.2)] transition-all min-h-[44px]">
-                  + ADD COACH
-                </button>
-              ) : (
-                <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/20 p-6 space-y-4" style={{ isolation: 'isolate' }}>
-                  <div className="relative z-[5] space-y-4">
-                  <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Add New Coach</h3>
-
-                  <div>
-                    <label className="text-white/60 text-xs font-mono uppercase tracking-wider block mb-1.5">Name</label>
-                    <input value={newCoachName} onChange={e => setNewCoachName(e.target.value)}
-                      placeholder="Coach name"
-                      className="relative z-10 w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/20 transition-all min-h-[44px] font-mono"
-                      style={{ fontSize: '16px', WebkitAppearance: 'none' }} />
-                  </div>
-
-                  <div>
-                    <label className="text-white/60 text-xs font-mono uppercase tracking-wider block mb-1.5">Email (optional)</label>
-                    <input value={newCoachEmail} onChange={e => setNewCoachEmail(e.target.value)}
-                      placeholder="coach@email.com" type="email"
-                      className="relative z-10 w-full bg-[#06020f]/80 border border-white/[0.08] rounded-xl px-4 py-3 text-white text-base focus:outline-none focus:border-[#00f0ff]/40 focus:ring-1 focus:ring-[#00f0ff]/20 transition-all min-h-[44px] font-mono"
-                      style={{ fontSize: '16px', WebkitAppearance: 'none' }} />
-                  </div>
-
-                  <div>
-                    <label className="text-white/60 text-xs font-mono uppercase tracking-wider block mb-1.5">Role</label>
-                    <div className="flex gap-2">
-                      {(["head", "assistant"] as const).map(r => (
-                        <button key={r} onClick={() => setNewCoachRole(r)}
-                          className={`game-btn flex-1 px-4 py-3 text-sm font-mono tracking-wider transition-all min-h-[44px] ${
-                            newCoachRole === r
-                              ? r === "head"
-                                ? "bg-[#f59e0b]/15 text-[#f59e0b] border border-[#f59e0b]/40"
-                                : "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40"
-                              : "bg-[#06020f]/60 text-white/60 border border-white/[0.08] hover:text-white/50"
-                          }`}>
-                          {r === "head" ? "HEAD COACH" : "ASSISTANT"}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {newCoachRole === "assistant" && (
-                    <div>
-                      <label className="text-white/60 text-xs font-mono uppercase tracking-wider block mb-1.5">Assign Groups</label>
-                      <div className="flex flex-wrap gap-2">
-                        {ROSTER_GROUPS.map(g => (
-                          <button key={g.id} onClick={() => toggleCoachGroup(g.id)}
-                            className={`game-btn px-3 py-2 text-xs font-mono transition-all min-h-[36px] ${
-                              newCoachGroups.includes(g.id)
-                                ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
-                                : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:border-[#00f0ff]/20"
-                            }`}>
-                            {g.icon} {g.name}
-                          </button>
-                        ))}
-                      </div>
-                      {newCoachGroups.length === 0 && (
-                        <p className="text-[#f59e0b]/40 text-xs font-mono mt-1">Select at least one group</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex gap-3 pt-2">
-                    <button onClick={addCoach}
-                      disabled={!newCoachName.trim() || (newCoachRole === "assistant" && newCoachGroups.length === 0)}
-                      className="game-btn flex-1 py-3 bg-gradient-to-r from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30 text-[#00f0ff] font-bold text-sm tracking-widest uppercase hover:shadow-[0_0_20px_rgba(0,240,255,0.3)] transition-all min-h-[44px] disabled:opacity-30 disabled:cursor-not-allowed">
-                      ADD COACH
-                    </button>
-                    <button onClick={() => { setAddCoachOpen(false); setNewCoachName(""); setNewCoachEmail(""); setNewCoachRole("assistant"); setNewCoachGroups([]); }}
-                      className="game-btn px-4 py-3 text-white/60 border border-white/[0.06] text-sm font-mono hover:text-white/40 transition-all min-h-[44px]">
-                      CANCEL
-                    </button>
-                  </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Access control info */}
-          <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#a855f7]/10 p-5 mb-10">
-            <h3 className="text-[#a855f7]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">// Access Control</h3>
-            <div className="space-y-2 text-[11px] text-white/60 font-mono">
-              <p><span className="text-[#f59e0b]/60">Master PIN</span> — Full admin access to all groups</p>
-              <p><span className="text-[#f59e0b]/60">Head Coach</span> — Access to all groups</p>
-              <p><span className="text-[#00f0ff]/60">Assistant</span> — Access only to assigned groups</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <StaffView
+        isAdmin={!!isAdmin}
+        coaches={coaches}
+        editingCoachId={editingCoachId}
+        setEditingCoachId={setEditingCoachId}
+        removeCoach={removeCoach}
+        updateCoach={updateCoach as (id: string, updates: Partial<{ id: string; name: string; role: "head" | "assistant"; groups: string[]; email: string; pin: string }>) => void}
+        addCoach={addCoach}
+        ROSTER_GROUPS={ROSTER_GROUPS}
+        newCoachName={newCoachName}
+        setNewCoachName={setNewCoachName}
+        newCoachEmail={newCoachEmail}
+        setNewCoachEmail={setNewCoachEmail}
+        newCoachRole={newCoachRole}
+        setNewCoachRole={setNewCoachRole}
+        newCoachGroups={newCoachGroups}
+        setNewCoachGroups={setNewCoachGroups}
+        addCoachOpen={addCoachOpen}
+        setAddCoachOpen={setAddCoachOpen}
+        toggleCoachGroup={toggleCoachGroup as (groupId: string) => void}
+        GameHUDHeader={GameHUDHeader}
+        BgOrbs={BgOrbs}
+      />
     );
   }
 
@@ -3547,7 +3307,7 @@ export default function ApexAthletePage() {
     if (parentAthlete) {
       return (
         <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-          <BgOrbs /><XpFloats /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
+          <BgOrbs /><XpFloats floats={xpFloats} /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
           <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
             <GameHUDHeader />
             <div className="mb-4 flex items-center gap-2">
@@ -3561,7 +3321,7 @@ export default function ApexAthletePage() {
 
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-        <BgOrbs /><XpFloats /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
+        <BgOrbs /><XpFloats floats={xpFloats} /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
@@ -4612,7 +4372,7 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
       <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
-      <XpFloats /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} />
+      <XpFloats floats={xpFloats} /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} />
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="w-full">
