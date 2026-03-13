@@ -9,6 +9,13 @@ import { fbSaveRoster, fbGet } from "@/lib/firebase";
 import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
+import PinAuthScreen from "./components/PinAuthScreen";
+import LevelUpOverlay from "./components/LevelUpOverlay";
+import AchievementToasts, { type AchievementToast } from "./components/AchievementToasts";
+import ComboCounter from "./components/ComboCounter";
+import PracticeRecapModal, { type RecapData } from "./components/PracticeRecapModal";
+import { useXPEngine } from "./hooks/useXPEngine";
+import GroupSelector from "./components/GroupSelector";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -848,7 +855,6 @@ export default function ApexAthletePage() {
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [coachPin, setCoachPin] = useState("");
   const [pinInput, setPinInput] = useState("");
-  const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
@@ -945,7 +951,7 @@ export default function ApexAthletePage() {
   const [levelUpColor, setLevelUpColor] = useState<string>("");
   const [levelUpExiting, setLevelUpExiting] = useState(false);
   const [xpFloats, setXpFloats] = useState<{ id: string; xp: number; x: number; y: number }[]>([]);
-  const [achieveToasts, setAchieveToasts] = useState<{ id: string; title: string; desc: string; icon: string; color: string; exiting: boolean }[]>([]);
+  const [achieveToasts, setAchieveToasts] = useState<AchievementToast[]>([]);
   const achieveIdRef = useRef(0);
   // ── scroll guard: prevent phantom taps on mobile during/after scroll ──
   const isScrollingRef = useRef(false);
@@ -1047,12 +1053,7 @@ export default function ApexAthletePage() {
 
   // ── practice recap ───────────────────────────────────
   const [showRecap, setShowRecap] = useState(false);
-  const [recapData, setRecapData] = useState<{
-    group: string; date: string; attendance: number; total: number;
-    xpAwarded: number; topEarners: { name: string; xp: number; level: string; color: string }[];
-    streaksActive: number; longestStreak: { name: string; streak: number };
-    mvp: { name: string; xp: number } | null; checkpointsChecked: number;
-  } | null>(null);
+  const [recapData, setRecapData] = useState<RecapData | null>(null);
 
   // ── invite system ─────────────────────────────────────
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -2430,167 +2431,16 @@ export default function ApexAthletePage() {
     </div>
   );
 
-  // ── cinematic level-up overlay ──────────────────────────
-  const SPARKLE_DIRS = [
-    { sx: "-90px", sy: "-100px" }, { sx: "95px", sy: "-90px" },
-    { sx: "-80px", sy: "85px" }, { sx: "85px", sy: "90px" },
-    { sx: "-120px", sy: "0px" }, { sx: "120px", sy: "-10px" },
-    { sx: "0px", sy: "-120px" }, { sx: "10px", sy: "110px" },
-    { sx: "-50px", sy: "-130px" }, { sx: "60px", sy: "120px" },
-    { sx: "-110px", sy: "-50px" }, { sx: "100px", sy: "40px" },
-  ];
-  const LevelUpOverlay = () => {
-    if (!levelUpName) return null;
-    return (
-      <div className={`fixed inset-0 z-[300] flex items-center justify-center ${levelUpExiting ? "level-up-exit" : ""}`}
-        onClick={() => { setLevelUpExiting(true); setTimeout(() => setLevelUpName(null), 500); }}>
-        {/* cinematic flash */}
-        <div className="absolute inset-0 level-up-screen-flash" style={{ background: `radial-gradient(circle, ${levelUpColor}40, transparent 70%)` }} />
-        {/* dark backdrop with radial glow */}
-        <div className="absolute inset-0 bg-black/85 backdrop-blur-lg" />
-        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at center, ${levelUpColor}15 0%, transparent 60%)` }} />
+  // ── level-up dismiss handler ──────────────────────────
+  const handleLevelUpDismiss = useCallback(() => {
+    setLevelUpExiting(true);
+    setTimeout(() => setLevelUpName(null), 500);
+  }, []);
 
-        <div className="relative level-up-enter text-center w-full max-w-sm mx-4">
-          {/* expanding ring bursts — thicker, more dramatic */}
-          {[160, 224, 288, 352].map((size, i) => (
-            <div key={i} className="ring-burst-pro absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{ width: size, height: size, borderColor: levelUpColor, animationDelay: `${i * 0.15}s` }} />
-          ))}
-          {/* sparkle particles — bigger, brighter */}
-          {SPARKLE_DIRS.map((d, i) => (
-            <div key={i} className="sparkle-pro absolute left-1/2 top-1/2 w-3 h-3 rounded-full"
-              style={{ "--sx": d.sx, "--sy": d.sy, animationDelay: `${i * 0.04}s`, backgroundColor: levelUpColor, boxShadow: `0 0 8px ${levelUpColor}` } as React.CSSProperties} />
-          ))}
-
-          {/* main card — premium glass morphism */}
-          <div className="relative overflow-hidden rounded-3xl"
-            style={{ border: `2px solid ${levelUpColor}50`, boxShadow: `0 0 60px ${levelUpColor}30, inset 0 0 60px ${levelUpColor}08` }}>
-            {/* inner gradient bg */}
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0c0618] via-[#0c0618]/98 to-[#0c0618]" />
-            <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${levelUpColor}08 0%, transparent 40%, ${levelUpColor}05 100%)` }} />
-
-            <div className="relative px-8 py-14">
-              {/* top accent line */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-0.5 level-up-accent-line" style={{ backgroundColor: levelUpColor }} />
-
-              {/* SVG shield icon instead of emoji */}
-              <div className="level-icon-explode mx-auto mb-6" style={{ filter: `drop-shadow(0 0 30px ${levelUpColor}) drop-shadow(0 0 60px ${levelUpColor}80)` }}>
-                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-                  {/* shield shape */}
-                  <path d="M40 4L12 18V38C12 56 24 70 40 76C56 70 68 56 68 38V18L40 4Z"
-                    fill={`${levelUpColor}20`} stroke={levelUpColor} strokeWidth="2.5"/>
-                  {/* inner glow */}
-                  <path d="M40 12L18 23V38C18 52 28 64 40 69C52 64 62 52 62 38V23L40 12Z"
-                    fill={`${levelUpColor}15`}/>
-                  {/* center star */}
-                  <path d="M40 24L44.5 33.5L55 35L47.5 42L49.5 52.5L40 47.5L30.5 52.5L32.5 42L25 35L35.5 33.5Z"
-                    fill={levelUpColor} fillOpacity="0.9"/>
-                </svg>
-              </div>
-
-              {/* LEVEL UP text — dramatic */}
-              <div className="level-text-slide mb-2" style={{ animationDelay: "0.2s" }}>
-                <div className="text-[10px] tracking-[0.5em] uppercase font-bold opacity-60" style={{ color: levelUpColor }}>
-                  Achievement Unlocked
-                </div>
-              </div>
-              <div className="level-text-slide mb-5" style={{ animationDelay: "0.35s" }}>
-                <div className="text-4xl font-black tracking-tight bg-clip-text text-transparent"
-                  style={{ backgroundImage: `linear-gradient(180deg, white 30%, ${levelUpColor})` }}>
-                  LEVEL UP
-                </div>
-              </div>
-
-              {/* divider line */}
-              <div className="w-16 h-px mx-auto mb-5 level-text-slide" style={{ backgroundColor: `${levelUpColor}40`, animationDelay: "0.45s" }} />
-
-              {/* athlete name */}
-              <div className="text-white/90 text-xl font-bold tracking-wide mb-2 level-text-slide" style={{ animationDelay: "0.55s" }}>
-                {levelUpName}
-              </div>
-
-              {/* new rank — big and gradient */}
-              <div className="level-text-slide" style={{ animationDelay: "0.7s" }}>
-                <div className="text-3xl font-black tracking-tight bg-clip-text text-transparent"
-                  style={{ backgroundImage: `linear-gradient(135deg, ${levelUpColor}, #f59e0b, ${levelUpColor})` }}>
-                  {levelUpLevel}
-                </div>
-              </div>
-
-              {/* bottom accent line */}
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-24 h-0.5 level-up-accent-line" style={{ backgroundColor: levelUpColor, animationDelay: "0.3s" }} />
-            </div>
-          </div>
-
-          {/* tap to dismiss */}
-          <div className="text-white/30 text-xs mt-4 level-text-slide" style={{ animationDelay: "1.2s" }}>
-            Tap to dismiss
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── achievement toasts (Xbox-style) ─────────────────────
-  const AchievementToasts = () => {
-    if (achieveToasts.length === 0) return null;
-    return (
-      <div className="fixed bottom-6 right-4 z-[250] flex flex-col gap-3 pointer-events-none" style={{ maxWidth: "320px" }}>
-        {achieveToasts.map((t, i) => (
-          <div key={t.id}
-            className={`relative overflow-hidden rounded-2xl border-2 pointer-events-auto achieve-shine ${t.exiting ? "achieve-toast-exit" : "achieve-toast-enter"}`}
-            style={{
-              borderColor: `${t.color}40`,
-              background: `linear-gradient(135deg, rgba(6,2,15,0.95), rgba(6,2,15,0.85))`,
-              boxShadow: `0 0 30px ${t.color}20, 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 ${t.color}15`,
-              backdropFilter: "blur(20px)",
-              animationDelay: `${i * 0.1}s`,
-            }}
-            onClick={() => setAchieveToasts(prev => prev.map(x => x.id === t.id ? { ...x, exiting: true } : x))}
-          >
-            <div className="flex items-center gap-3 px-4 py-3">
-              <div className="achieve-icon-pop text-2xl flex-shrink-0" style={{ filter: `drop-shadow(0 0 8px ${t.color})` }}>
-                {t.icon}
-              </div>
-              <div className="min-w-0">
-                <div className="text-[9px] uppercase tracking-[0.3em] font-bold font-mono mb-0.5" style={{ color: `${t.color}90` }}>
-                  Achievement Unlocked
-                </div>
-                <div className="text-white font-bold text-sm leading-tight truncate">{t.title}</div>
-                <div className="text-white/50 text-xs mt-0.5 truncate">{t.desc}</div>
-              </div>
-            </div>
-            {/* progress bar accent */}
-            <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${t.color}, ${t.color}40)` }} />
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // ── combo counter display ──────────────────────────────
-  const ComboCounter = () => {
-    if (comboCount < 3) return null;
-    const tier = comboCount >= 10 ? 3 : comboCount >= 7 ? 2 : comboCount >= 5 ? 1 : 0;
-    const colors = ["#00f0ff", "#a78bfa", "#f59e0b", "#ef4444"];
-    const labels = ["COMBO", "MEGA COMBO", "ULTRA COMBO", "INSANE COMBO"];
-    const color = colors[tier];
-    return (
-      <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[200] pointer-events-none ${comboExiting ? "combo-exit" : "combo-enter"}`}>
-        <div className="text-center">
-          <div className="combo-pulse text-5xl font-black tabular-nums" style={{
-            color,
-            textShadow: `0 0 30px ${color}, 0 0 60px ${color}60`,
-          }}>
-            {comboCount}x
-          </div>
-          <div className="text-[10px] tracking-[0.4em] font-bold uppercase mt-1" style={{ color: `${color}90` }}>
-            {labels[tier]}
-          </div>
-        </div>
-      </div>
-    );
-  };
+  // ── achievement toasts dismiss handler ─────────────────────
+  const handleAchieveDismiss = useCallback((id: string) => {
+    setAchieveToasts(prev => prev.map(x => x.id === id ? { ...x, exiting: true } : x));
+  }, []);
 
   // ── loading ──────────────────────────────────────────────
 
@@ -2604,82 +2454,13 @@ export default function ApexAthletePage() {
   );
 
   // ── PIN gate ─────────────────────────────────────────────
-  const tryUnlock = () => {
-    // Master PIN (admin/head coach)
-    if (pinInput === coachPin) { setUnlocked(true); setPinError(false); return; }
-    // Individual coach PINs
-    const matchedCoach = coaches.find(c => c.pin === pinInput);
-    if (matchedCoach) { setUnlocked(true); setPinError(false); return; }
-    setPinError(true);
-  };
-
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-[#06020f] relative overflow-hidden">
-        <style>{`
-          @keyframes coachPinGlow {
-            0%, 100% { box-shadow: 0 0 40px rgba(245,158,11,0.15), 0 0 80px rgba(245,158,11,0.05); }
-            50% { box-shadow: 0 0 60px rgba(245,158,11,0.25), 0 0 120px rgba(245,158,11,0.1); }
-          }
-          @keyframes coachBtnPulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(245,158,11,0.3), 0 0 40px rgba(245,158,11,0.1); transform: scale(1); }
-            50% { box-shadow: 0 0 40px rgba(245,158,11,0.5), 0 0 80px rgba(245,158,11,0.2); transform: scale(1.02); }
-          }
-          @keyframes coachLogoFloat {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-8px); }
-          }
-        `}</style>
-        <div className="fixed inset-0 pointer-events-none">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(245,158,11,0.08)_0%,transparent_70%)]" />
-        </div>
-
-        <div className="relative z-10 min-h-screen flex flex-col lg:flex-row">
-          {/* Left panel — branding */}
-          <div className="hidden lg:flex lg:w-1/2 xl:w-[55%] flex-col items-center justify-center p-12 xl:p-20 relative">
-            <div style={{position:'absolute',inset:0,background:'radial-gradient(ellipse at 60% 40%, rgba(245,158,11,0.08) 0%, transparent 70%)'}} />
-            <div className="relative z-10 flex flex-col items-center max-w-lg">
-              <div className="flex flex-col items-center">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{animation:'coachLogoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(245,158,11,0.3))'}} />
-                <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #f59e0b, #fbbf24, #f59e0b)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-              </div>
-              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed max-w-md text-center">Your journey. Your legacy.</p>
-            </div>
-          </div>
-          {/* Right panel — PIN form */}
-          <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
-            <div className="w-full max-w-md">
-              {/* Mobile-only branding */}
-              <div className="lg:hidden flex flex-col items-center justify-center mb-8">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4 mx-auto block" style={{animation:'coachLogoFloat 4s ease-in-out infinite'}} />
-                <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #f59e0b, #fbbf24)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-              </div>
-              {/* Access card */}
-              <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#f59e0b]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'coachPinGlow 3s ease-in-out infinite'}}>
-                <div className="text-center mb-10">
-                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Coach Portal</h2>
-                </div>
-                <div className="flex flex-col gap-7">
-                  <div>
-                    <input type="password" inputMode="numeric" maxLength={4} value={pinInput}
-                      onChange={e => { setPinInput(e.target.value.replace(/\D/g, "")); setPinError(false); }}
-                      onKeyDown={e => { if (e.key === "Enter") tryUnlock(); }}
-                      className={`w-full text-center text-3xl tracking-[0.5em] py-5 bg-[#06020f]/60 border-2 rounded-xl text-[#f59e0b] placeholder:text-[#f59e0b]/15 focus:outline-none transition-all font-mono ${pinError ? "border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)]" : "border-[#f59e0b]/20 focus:border-[#f59e0b]/50 focus:shadow-[0_0_30px_rgba(245,158,11,0.2)]"}`}
-                      placeholder="_ _ _ _" autoFocus />
-                  </div>
-                  {pinError && <p className="text-red-400 text-sm -mt-1 font-mono text-center">ACCESS DENIED</p>}
-                  <button onClick={tryUnlock}
-                    className="w-full py-6 rounded-xl font-black text-lg tracking-widest uppercase transition-all active:scale-[0.97] min-h-[70px]"
-                    style={{background:'linear-gradient(135deg, #f59e0b, #fbbf24, #d97706)',color:'#06020f',animation:'coachBtnPulse 2s ease-in-out infinite'}}>
-                    Authenticate
-                  </button>
-                </div>
-              </div>
-              <p className="text-white/20 text-xs text-center mt-6 font-mono">Secure • Encrypted • Private Beta</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PinAuthScreen
+        coaches={coaches}
+        coachPin={coachPin}
+        onUnlock={(pin) => { setPinInput(pin); setUnlocked(true); }}
+      />
     );
   }
 
@@ -3766,7 +3547,7 @@ export default function ApexAthletePage() {
     if (parentAthlete) {
       return (
         <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-          <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts /><ComboCounter />
+          <BgOrbs /><XpFloats /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
           <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
             <GameHUDHeader />
             <div className="mb-4 flex items-center gap-2">
@@ -3780,7 +3561,7 @@ export default function ApexAthletePage() {
 
     return (
       <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
-        <BgOrbs /><XpFloats /><LevelUpOverlay /><AchievementToasts /><ComboCounter />
+        <BgOrbs /><XpFloats /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-1">Parent View</h2>
@@ -4831,38 +4612,21 @@ export default function ApexAthletePage() {
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
       <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
-      <XpFloats /><LevelUpOverlay /><AchievementToasts />
+      <XpFloats /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} />
 
       <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
         <div className="w-full">
           <GameHUDHeader />
 
-        {/* ══════════════════════════════════════════════════════
-           GROUP SELECTOR — SWITCH ROSTER GROUPS
-           ══════════════════════════════════════════════════════ */}
-        <div className="py-4">
-          <div className="flex flex-wrap gap-2 justify-center">
-            {ROSTER_GROUPS.filter(g => accessibleGroups.includes(g.id)).map(g => {
-              const isActive = selectedGroup === g.id;
-              const count = roster.filter(a => a.group === g.id).length;
-              return (
-                <button key={g.id} onClick={() => switchGroup(g.id)}
-                  className={`game-btn px-4 py-3 text-xs sm:text-sm font-bold font-mono tracking-wider transition-all min-h-[44px] ${
-                    isActive
-                      ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.3)]"
-                      : "bg-[#06020f]/60 text-white/60 border border-white/10 hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20"
-                  }`}>
-                  <span className="mr-1">{g.icon}</span>
-                  <span>{g.name.toUpperCase()}</span>
-                  <span className="ml-2 text-xs opacity-60">{count}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="text-center mt-3 text-xs font-mono text-white/60">
-            {currentGroupDef.icon} {currentGroupDef.name} — {currentGroupDef.sport.toUpperCase()} — {filteredRoster.length} athletes
-          </div>
-        </div>
+        <GroupSelector
+          groups={ROSTER_GROUPS}
+          accessibleGroups={accessibleGroups}
+          selectedGroup={selectedGroup}
+          roster={roster}
+          currentGroupDef={currentGroupDef}
+          filteredRosterCount={filteredRoster.length}
+          onSwitchGroup={switchGroup}
+        />
 
         {/* ══════════════════════════════════════════════════════
            LEADERBOARD — THE HERO SECTION
@@ -5421,90 +5185,7 @@ export default function ApexAthletePage() {
 
         {/* Practice Recap Overlay */}
         {showRecap && recapData && (
-          <div className="fixed inset-0 z-[300] flex items-center justify-center p-4" onClick={() => setShowRecap(false)}>
-            {/* Backdrop with radial glow */}
-            <div className="absolute inset-0 bg-black/85 backdrop-blur-md" />
-            <div className="absolute inset-0" style={{ background: "radial-gradient(circle at 50% 30%, rgba(168,85,247,0.15), transparent 60%)" }} />
-
-            <div className="relative w-full max-w-sm recap-enter" onClick={e => e.stopPropagation()}>
-              {/* Top accent line */}
-              <div className="h-[2px] rounded-full mb-1" style={{ background: "linear-gradient(90deg, transparent, #a855f7, #00f0ff, #a855f7, transparent)" }} />
-
-              <div className="rounded-3xl overflow-hidden border-2 border-white/[0.08]" style={{
-                background: "linear-gradient(180deg, rgba(6,2,15,0.97) 0%, rgba(15,5,30,0.97) 100%)",
-                boxShadow: "0 0 60px rgba(168,85,247,0.1), 0 25px 50px rgba(0,0,0,0.5)",
-              }}>
-                {/* Header */}
-                <div className="text-center pt-8 pb-4 px-6">
-                  <div className="text-[10px] uppercase tracking-[0.4em] font-bold font-mono text-[#a855f7]/60 mb-2">Practice Complete</div>
-                  <div className="text-2xl font-black text-white tracking-tight mb-1">Session Recap</div>
-                  <div className="text-white/30 text-xs font-mono">{recapData.group} — {new Date(recapData.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</div>
-                </div>
-
-                {/* Key stats grid */}
-                <div className="grid grid-cols-3 gap-px mx-6 mb-6 rounded-2xl overflow-hidden border border-white/[0.06]">
-                  <div className="bg-white/[0.03] p-4 text-center">
-                    <div className="text-2xl font-black text-[#00f0ff] tabular-nums">{recapData.total > 0 ? Math.round((recapData.attendance / recapData.total) * 100) : 0}%</div>
-                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">Attendance</div>
-                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.attendance}/{recapData.total}</div>
-                  </div>
-                  <div className="bg-white/[0.03] p-4 text-center">
-                    <div className="text-2xl font-black text-[#f59e0b] tabular-nums">{recapData.xpAwarded}</div>
-                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">XP Awarded</div>
-                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.checkpointsChecked} checks</div>
-                  </div>
-                  <div className="bg-white/[0.03] p-4 text-center">
-                    <div className="text-2xl font-black text-[#a855f7] tabular-nums">{recapData.streaksActive}</div>
-                    <div className="text-white/40 text-[10px] uppercase tracking-wider mt-1">Streaks</div>
-                    <div className="text-white/20 text-[10px] font-mono mt-0.5">{recapData.longestStreak.streak > 0 ? `Best: ${recapData.longestStreak.streak}d` : "-"}</div>
-                  </div>
-                </div>
-
-                {/* MVP */}
-                {recapData.mvp && (
-                  <div className="mx-6 mb-4 p-4 rounded-2xl border border-[#f59e0b]/20" style={{ background: "linear-gradient(135deg, rgba(245,158,11,0.08), rgba(168,85,247,0.05))" }}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-[#f59e0b]/15 border border-[#f59e0b]/30 flex items-center justify-center shrink-0">
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b"/></svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-[0.3em] font-bold text-[#f59e0b]/60">MVP — Top Earner</div>
-                        <div className="text-white font-bold text-sm truncate">{recapData.mvp.name}</div>
-                      </div>
-                      <div className="text-[#f59e0b] font-black text-lg tabular-nums">+{recapData.mvp.xp}</div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Top 3 earners */}
-                {recapData.topEarners.length > 1 && (
-                  <div className="mx-6 mb-6 space-y-1">
-                    <div className="text-white/30 text-[10px] uppercase tracking-[0.2em] font-bold mb-2 px-1">Top Earners</div>
-                    {recapData.topEarners.map((e, i) => (
-                      <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.02]">
-                        <span className="text-white/30 text-xs font-bold font-mono w-5 text-center">{i + 1}</span>
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: e.color, boxShadow: `0 0 6px ${e.color}60` }} />
-                        <span className="text-white/80 text-sm flex-1 truncate">{e.name}</span>
-                        <span className="text-xs font-mono" style={{ color: e.color }}>{e.level}</span>
-                        <span className="text-white/60 text-xs font-bold font-mono tabular-nums">+{e.xp}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Dismiss */}
-                <div className="px-6 pb-6">
-                  <button onClick={() => setShowRecap(false)}
-                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#a855f7]/15 to-[#00f0ff]/15 border border-white/[0.08] text-white/80 text-sm font-bold tracking-wider uppercase hover:from-[#a855f7]/25 hover:to-[#00f0ff]/25 transition-all active:scale-[0.98] min-h-[52px]">
-                    Done
-                  </button>
-                </div>
-              </div>
-
-              {/* Bottom accent */}
-              <div className="h-[2px] rounded-full mt-1" style={{ background: "linear-gradient(90deg, transparent, #00f0ff, #a855f7, #00f0ff, transparent)" }} />
-            </div>
-          </div>
+          <PracticeRecapModal recapData={recapData} onClose={() => setShowRecap(false)} />
         )}
 
         {/* Privacy footer */}
