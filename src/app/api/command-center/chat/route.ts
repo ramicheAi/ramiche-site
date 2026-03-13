@@ -62,13 +62,25 @@ function getSupabase() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, channelId, agentName } = await req.json();
+    const { message, channelId, agentName, channelName, channelMembers } = await req.json();
 
     if (!message) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
 
-    const target = (agentName || "atlas").toLowerCase();
+    // For DMs: use the specific agent. For team/project channels: pick a relevant member (not atlas unless alone)
+    let target: string;
+    if (agentName) {
+      target = agentName.toLowerCase();
+    } else if (channelMembers && Array.isArray(channelMembers) && channelMembers.length > 0) {
+      // Pick a random non-atlas member to respond (or atlas if he's the only one)
+      const nonAtlas = channelMembers.filter((m: string) => m !== "atlas");
+      target = nonAtlas.length > 0
+        ? nonAtlas[Math.floor(Math.random() * nonAtlas.length)]
+        : "atlas";
+    } else {
+      target = "atlas";
+    }
     const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
     const displayName = target.charAt(0).toUpperCase() + target.slice(1);
 
@@ -91,7 +103,7 @@ export async function POST(req: NextRequest) {
         messages: [
           {
             role: "system",
-            content: `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`,
+            content: `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`,
           },
           { role: "user", content: message },
         ],

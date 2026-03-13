@@ -674,7 +674,10 @@ export default function CommandCenterChatPage() {
       if (error) console.error("Supabase send failed:", error);
 
       // Relay to agent via API so it actually responds
+      // For DMs: send the agent ID directly
+      // For team/project channels: send channel members so the API picks the right responder
       const agentName = isDM ? activeAgent!.id : undefined;
+      const channelMembers = (!isDM && activeChannel && "members" in activeChannel) ? (activeChannel as any).members : undefined;
       const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
       fetch("/api/command-center/chat", {
         method: "POST",
@@ -684,6 +687,7 @@ export default function CommandCenterChatPage() {
           channelId: targetChannelId,
           agentName,
           channelName,
+          channelMembers,
         }),
       })
         .then((r) => r.json())
