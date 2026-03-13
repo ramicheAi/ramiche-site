@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     // Model fallback chain — try each until one succeeds
     const MODELS = [
-      "google/gemini-2.5-flash-preview",
+      "google/gemini-2.5-flash",
       "deepseek/deepseek-chat-v3-0324",
       "anthropic/claude-sonnet-4",
     ];
