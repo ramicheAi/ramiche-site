@@ -977,7 +977,7 @@ export default function CommandCenter() {
   const notifications = liveNotifications || NOTIFICATIONS;
   const opps = liveOpps || OPPS;
   const activityLog = liveActivity || LOG;
-  const links = LINKS;
+  const links = liveLinks || LINKS;
 
   /* ── computed ── */
   const totalT = missions.reduce((s: number, p: any) => s + (p.totalTasks ?? (Array.isArray(p.tasks) ? p.tasks.length : 0)), 0);
