@@ -371,14 +371,15 @@ function WaveDivider({ flip = false, color = C.teal }: { flip?: boolean; color?:
 function StatCard({ value, label }: { value: string; label: string }) {
   return (
     <div style={{
-      background: C.white,
-      border: `2px solid ${C.teal}15`,
+      background: `linear-gradient(135deg, ${C.white} 0%, rgba(26,122,109,0.06) 100%)`,
+      border: `2px solid ${C.teal}25`,
+      borderTop: `4px solid ${C.gold}`,
       borderRadius: 16, padding: "36px 28px", textAlign: "center" as const,
       flex: "1 1 200px", maxWidth: 260,
-      boxShadow: "0 3px 16px rgba(10,30,61,0.05)",
+      boxShadow: `0 6px 24px rgba(10,30,61,0.08), 0 0 0 1px ${C.teal}08`,
     }}>
-      <div style={{ fontSize: 44, fontWeight: 900, color: C.navy, lineHeight: 1 }}>{value}</div>
-      <div style={{ width: 24, height: 2, background: C.gold, borderRadius: 1, margin: "12px auto" }} />
+      <div style={{ fontSize: 44, fontWeight: 900, color: C.teal, lineHeight: 1 }}>{value}</div>
+      <div style={{ width: 32, height: 3, background: `linear-gradient(90deg, ${C.gold}, ${C.red})`, borderRadius: 2, margin: "12px auto" }} />
       <div style={{ fontSize: 14, color: C.textLight }}>{label}</div>
     </div>
   );
@@ -449,7 +450,7 @@ export default function PowerChallengePage() {
         minHeight: "100vh", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         textAlign: "center" as const, padding: "80px 24px 60px",
-        background: `linear-gradient(180deg, #b8e0f0 0%, #d4f0ef 20%, #e3f6f3 40%, ${C.bg} 100%)`,
+        background: `linear-gradient(180deg, ${C.navy} 0%, #0c3a5f 25%, #14606d 45%, #1a7a6d 60%, #b8e0f0 85%, ${C.bg} 100%)`,
         transform: `translateY(${scrollY * 0.15}px)`,
         willChange: "transform",
       }}>
@@ -468,7 +469,7 @@ export default function PowerChallengePage() {
 
         <div style={{
           fontSize: 12, letterSpacing: 6, textTransform: "uppercase" as const,
-          color: C.tealMid, marginBottom: 16, fontWeight: 600,
+          color: C.gold, marginBottom: 16, fontWeight: 600,
         }}>
           Jesse Vassallo&apos;s Pompano Beach Piranhas
         </div>
@@ -482,7 +483,7 @@ export default function PowerChallengePage() {
         <h1 style={{
           fontSize: "clamp(56px, 10vw, 120px)", fontWeight: 900,
           lineHeight: 0.9, margin: "0 0 4px",
-          background: `linear-gradient(135deg, ${C.navy} 10%, ${C.teal} 50%, ${C.navy} 90%)`,
+          background: `linear-gradient(135deg, ${C.white} 10%, ${C.gold} 50%, ${C.white} 90%)`,
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           letterSpacing: "-0.03em",
           textShadow: "none",
@@ -504,7 +505,7 @@ export default function PowerChallengePage() {
         }} />
 
         <p style={{
-          fontSize: "clamp(16px, 2.2vw, 21px)", color: C.textLight,
+          fontSize: "clamp(16px, 2.2vw, 21px)", color: "rgba(255,255,255,0.85)",
           maxWidth: 500, margin: "0 auto 40px", lineHeight: 1.6,
           fontWeight: 400,
         }}>
@@ -546,7 +547,7 @@ export default function PowerChallengePage() {
       <WaveDivider />
 
       {/* ── Event Details ── */}
-      <ScrollSection id="races" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto" }}>
+      <ScrollSection id="races" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto", background: `linear-gradient(180deg, transparent 0%, rgba(26,122,109,0.04) 30%, rgba(26,122,109,0.06) 70%, transparent 100%)`, borderRadius: 0 }}>
         <h2 style={{
           fontSize: 36, fontWeight: 800, textAlign: "center" as const,
           marginBottom: 48, color: C.navy,
@@ -563,8 +564,8 @@ export default function PowerChallengePage() {
           ].map((race) => (
             <div key={race.distance} className="race-card" style={{
               flex: "1 1 340px", maxWidth: 420,
-              background: C.white,
-              border: `2px solid ${C.teal}18`,
+              background: `linear-gradient(180deg, ${C.white} 0%, rgba(26,122,109,0.04) 100%)`,
+              border: `2px solid ${C.teal}30`,
               borderRadius: 20, padding: "48px 32px 40px",
               textAlign: "center" as const,
               boxShadow: "0 8px 32px rgba(10,30,61,0.08)",
@@ -623,7 +624,7 @@ export default function PowerChallengePage() {
       <WaveDivider />
 
       {/* ── 2024 Results ── */}
-      <ScrollSection style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto" }} delay={0.1}>
+      <ScrollSection style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto", background: `linear-gradient(180deg, transparent 0%, rgba(10,30,61,0.03) 30%, rgba(10,30,61,0.05) 70%, transparent 100%)` }} delay={0.1}>
         <h2 style={{
           fontSize: 36, fontWeight: 800, textAlign: "center" as const,
           marginBottom: 16, color: C.navy,
@@ -685,7 +686,7 @@ export default function PowerChallengePage() {
       </ScrollSection>
 
       {/* ── Race Day Schedule ── */}
-      <ScrollSection id="schedule" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 700, margin: "0 auto" }}>
+      <ScrollSection id="schedule" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 700, margin: "0 auto", background: `linear-gradient(180deg, transparent 0%, rgba(232,184,0,0.04) 30%, rgba(232,184,0,0.06) 70%, transparent 100%)` }}>
         <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.navy }}>
           Race Day Schedule
         </h2>
@@ -715,7 +716,7 @@ export default function PowerChallengePage() {
       </ScrollSection>
 
       {/* ── FAQ ── */}
-      <ScrollSection id="faq" style={{ position: "relative", zIndex: 1, padding: "80px 24px 100px", maxWidth: 700, margin: "0 auto" }}>
+      <ScrollSection id="faq" style={{ position: "relative", zIndex: 1, padding: "80px 24px 100px", maxWidth: 700, margin: "0 auto", background: `linear-gradient(180deg, transparent 0%, rgba(26,122,109,0.03) 30%, rgba(26,122,109,0.05) 70%, transparent 100%)` }}>
         <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.navy }}>
           FAQ
         </h2>
@@ -730,9 +731,11 @@ export default function PowerChallengePage() {
             { q: "Can I get a refund?", a: "Refunds are available up to 14 days before the event. No refunds within 14 days of race day." },
           ].map((item, i) => (
             <div key={i} style={{
-              background: C.white, border: `2px solid ${C.teal}10`,
+              background: `linear-gradient(135deg, ${C.white} 0%, rgba(26,122,109,0.03) 100%)`,
+              border: `2px solid ${C.teal}15`,
+              borderLeft: `4px solid ${C.teal}`,
               borderRadius: 14, padding: "24px 28px",
-              boxShadow: "0 2px 10px rgba(10,30,61,0.03)",
+              boxShadow: `0 4px 16px rgba(10,30,61,0.05)`,
             }}>
               <div style={{ color: C.navy, fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{item.q}</div>
               <div style={{ color: C.textLight, fontSize: 14, lineHeight: 1.7 }}>{item.a}</div>
@@ -744,23 +747,23 @@ export default function PowerChallengePage() {
       {/* ── Footer ── */}
       <footer style={{
         position: "relative", zIndex: 1,
-        borderTop: `2px solid ${C.teal}10`,
-        padding: "48px 24px 36px", textAlign: "center" as const,
-        color: C.textLight, fontSize: 13,
-        background: C.offWhite,
+        borderTop: `3px solid ${C.gold}`,
+        padding: "56px 24px 40px", textAlign: "center" as const,
+        color: "rgba(255,255,255,0.7)", fontSize: 13,
+        background: `linear-gradient(180deg, ${C.navy} 0%, #061428 100%)`,
       }}>
-        <div style={{ marginBottom: 12, opacity: 0.7 }}>
-          <Image src="/piranhas-team-logo.jpg" alt="Piranhas" width={48} height={52} style={{ borderRadius: 8 }} />
+        <div style={{ marginBottom: 12 }}>
+          <Image src="/piranhas-team-logo.jpg" alt="Piranhas" width={56} height={60} style={{ borderRadius: 10, border: `2px solid ${C.gold}40` }} />
         </div>
-        <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6, fontSize: 14, letterSpacing: 2 }}>
+        <div style={{ fontWeight: 700, color: C.gold, marginBottom: 6, fontSize: 14, letterSpacing: 3 }}>
           POMPANO BEACH PIRANHAS
         </div>
-        <div style={{ width: 30, height: 2, background: C.gold, borderRadius: 1, margin: "0 auto 12px" }} />
-        <div>
+        <div style={{ width: 40, height: 2, background: `linear-gradient(90deg, transparent, ${C.gold}, transparent)`, borderRadius: 1, margin: "0 auto 14px" }} />
+        <div style={{ color: "rgba(255,255,255,0.6)" }}>
           &copy; {new Date().getFullYear()} Jesse Vassallo&apos;s POWER CHALLENGE
         </div>
-        <div style={{ marginTop: 6 }}>
-          <a href="https://www.pompanopiranhas.com" style={{ color: C.tealLight, textDecoration: "none", fontWeight: 500 }} target="_blank" rel="noopener noreferrer">
+        <div style={{ marginTop: 8 }}>
+          <a href="https://www.pompanopiranhas.com" style={{ color: C.tealLight, textDecoration: "none", fontWeight: 600 }} target="_blank" rel="noopener noreferrer">
             pompanopiranhas.com
           </a>
         </div>
