@@ -460,8 +460,8 @@ export default function PowerChallengePage() {
           animation: "logoFloat 4s ease-in-out infinite",
         }}>
           <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race"
-            width={300} height={180}
-            style={{ borderRadius: 16, objectFit: "contain" }}
+            width={340} height={220}
+            style={{ objectFit: "contain" }}
             priority
           />
         </div>
