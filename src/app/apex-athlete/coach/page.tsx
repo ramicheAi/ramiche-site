@@ -707,6 +707,23 @@ function load<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 function save(key: string, val: unknown) {
+  // BACKUP: Before overwriting roster, save a timestamped backup
+  if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      try {
+        const prev = JSON.parse(existing);
+        const prevXP = Array.isArray(prev) ? prev.reduce((s: number, a: { xp?: number }) => s + (a.xp || 0), 0) : 0;
+        const newXP = (val as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
+        // Only backup if we're about to lose XP
+        if (prevXP > 0 && newXP < prevXP) {
+          const backupKey = `apex-athlete-roster-backup-${new Date().toISOString().slice(0, 10)}`;
+          localStorage.setItem(backupKey, existing);
+          console.warn(`[Save] Backup created: ${backupKey} (prevXP: ${prevXP}, newXP: ${newXP})`);
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
   localStorage.setItem(key, JSON.stringify(val));
   if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
     fbSaveRoster("all", val).catch(() => {});
@@ -1255,8 +1272,16 @@ export default function ApexAthletePage() {
         });
 
         // 7. Save to BOTH localStorage AND Firestore (single source of truth)
-        save(K.ROSTER, r);
-        setRoster(r);
+        // GUARD: Never save zero-XP roster back to Firestore if we had real data
+        const finalXP = r.reduce((s, a) => s + (a.xp || 0), 0);
+        if (finalXP === 0 && (firestoreRoster.length > 0 || localRoster.length > 0)) {
+          console.warn("[Init] BLOCKED: refusing to save zero-XP roster over existing data. firestoreXP:", rosterXP(firestoreRoster), "localXP:", rosterXP(localRoster));
+          // Still set state for display, but don't persist zeros
+          setRoster(r);
+        } else {
+          save(K.ROSTER, r);
+          setRoster(r);
+        }
 
         // 8. Load other data — pull from Firestore first, fall back to localStorage
         const loadWithSync = async <T,>(key: string, fbPath: string, fallback: T, setter: (v: T) => void) => {
