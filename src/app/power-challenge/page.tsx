@@ -48,68 +48,68 @@ function OceanBackground() {
     resize();
     window.addEventListener("resize", resize);
 
-    /* Bubbles — sparse, elegant */
+    /* Bubbles — bold, visible, alive */
     const bubbles: { x: number; y: number; r: number; speed: number; wobble: number; opacity: number; phase: number }[] = [];
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 140; i++) {
       bubbles.push({
         x: Math.random() * 2000,
         y: Math.random() * 5000,
-        r: 1 + Math.random() * 10,
-        speed: 0.2 + Math.random() * 1.1,
+        r: 2 + Math.random() * 14,
+        speed: 0.4 + Math.random() * 1.8,
         wobble: Math.random() * Math.PI * 2,
-        opacity: 0.08 + Math.random() * 0.25,
+        opacity: 0.15 + Math.random() * 0.4,
         phase: Math.random() * Math.PI * 2,
       });
     }
 
-    /* Light rays — gentle sun beams */
+    /* Light rays — bold golden shafts cutting through water */
     const rays: { x: number; width: number; speed: number; opacity: number }[] = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 14; i++) {
       rays.push({
         x: Math.random() * 2000,
-        width: 80 + Math.random() * 280,
+        width: 120 + Math.random() * 350,
         speed: 0.05 + Math.random() * 0.25,
-        opacity: 0.04 + Math.random() * 0.06,
+        opacity: 0.08 + Math.random() * 0.1,
       });
     }
 
-    /* Swimmer silhouettes — subtle, few */
+    /* Swimmer silhouettes — more visible, competitive feel */
     const swimmers: { x: number; y: number; speed: number; size: number; strokePhase: number; direction: number; opacity: number }[] = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 10; i++) {
       swimmers.push({
         x: Math.random() * 2000,
         y: 60 + Math.random() * 600,
-        speed: 0.25 + Math.random() * 0.7,
-        size: 8 + Math.random() * 20,
+        speed: 0.4 + Math.random() * 1.0,
+        size: 12 + Math.random() * 28,
         strokePhase: Math.random() * Math.PI * 2,
         direction: Math.random() > 0.5 ? 1 : -1,
-        opacity: 0.06 + Math.random() * 0.08,
+        opacity: 0.1 + Math.random() * 0.14,
       });
     }
 
     function draw(t: number) {
       ctx!.clearRect(0, 0, w, h);
 
-      /* Layer 1: dramatic ocean waves — visible teal & green currents */
-      for (let i = 0; i < 8; i++) {
+      /* Layer 1: EXTREME ocean waves — big swells, powerful currents */
+      for (let i = 0; i < 10; i++) {
         ctx!.beginPath();
-        const yBase = h * 0.06 + i * (h * 0.12);
+        const yBase = h * 0.04 + i * (h * 0.10);
         ctx!.moveTo(-10, yBase);
-        for (let x = -10; x <= w + 10; x += 4) {
+        for (let x = -10; x <= w + 10; x += 3) {
           const y = yBase
-            + Math.sin(x * 0.002 + t * 0.001 + i * 1.3) * 30
-            + Math.sin(x * 0.005 + t * 0.0007 + i * 0.8) * 15
-            + Math.cos(x * 0.001 + t * 0.0006 + i * 2.5) * 18;
+            + Math.sin(x * 0.002 + t * 0.0012 + i * 1.3) * 50
+            + Math.sin(x * 0.005 + t * 0.0009 + i * 0.8) * 25
+            + Math.cos(x * 0.001 + t * 0.0008 + i * 2.5) * 30;
           ctx!.lineTo(x, y);
         }
         ctx!.lineTo(w + 10, h + 10);
         ctx!.lineTo(-10, h + 10);
         ctx!.closePath();
-        const alpha = 0.04 - i * 0.004;
+        const alpha = 0.07 - i * 0.005;
         const isGreen = i % 2 === 0;
         ctx!.fillStyle = isGreen
-          ? `rgba(26, 122, 109, ${Math.max(0.005, alpha)})`
-          : `rgba(46, 139, 87, ${Math.max(0.005, alpha * 0.7)})`;
+          ? `rgba(26, 122, 109, ${Math.max(0.01, alpha)})`
+          : `rgba(46, 139, 87, ${Math.max(0.008, alpha * 0.8)})`;
         ctx!.fill();
       }
 
@@ -122,12 +122,12 @@ function OceanBackground() {
         const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, radius);
         const isGold = i % 3 === 0;
         if (isGold) {
-          grad.addColorStop(0, `rgba(232, 184, 0, 0.06)`);
-          grad.addColorStop(0.5, `rgba(255, 215, 0, 0.025)`);
+          grad.addColorStop(0, `rgba(232, 184, 0, 0.12)`);
+          grad.addColorStop(0.5, `rgba(255, 215, 0, 0.05)`);
           grad.addColorStop(1, "rgba(232, 184, 0, 0)");
         } else {
-          grad.addColorStop(0, `rgba(26, 122, 109, 0.07)`);
-          grad.addColorStop(0.5, `rgba(26, 138, 154, 0.03)`);
+          grad.addColorStop(0, `rgba(26, 122, 109, 0.14)`);
+          grad.addColorStop(0.5, `rgba(26, 138, 154, 0.06)`);
           grad.addColorStop(1, "rgba(26, 122, 109, 0)");
         }
         ctx!.fillStyle = grad;
@@ -152,20 +152,21 @@ function OceanBackground() {
         ctx!.restore();
       }
 
-      /* Layer 4: delicate bubbles — barely visible, light feel */
+      /* Layer 4: bold bubbles — visible, rising through the water */
       for (const b of bubbles) {
         b.y -= b.speed;
-        b.wobble += 0.01;
-        const bx = b.x + Math.sin(b.wobble + b.phase) * 20;
+        b.wobble += 0.015;
+        const bx = b.x + Math.sin(b.wobble + b.phase) * 30;
         if (b.y < -30) { b.y = h + 30; b.x = Math.random() * w; }
         ctx!.beginPath();
         ctx!.arc(bx, b.y, b.r, 0, Math.PI * 2);
-        ctx!.strokeStyle = `rgba(26, 138, 154, ${b.opacity * 0.3})`;
-        ctx!.lineWidth = 0.4;
+        ctx!.strokeStyle = `rgba(26, 138, 154, ${b.opacity * 0.5})`;
+        ctx!.lineWidth = 0.8;
         ctx!.stroke();
+        /* Highlight */
         ctx!.beginPath();
-        ctx!.arc(bx - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.25, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(26, 138, 154, ${b.opacity * 0.15})`;
+        ctx!.arc(bx - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.3, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(255, 255, 255, ${b.opacity * 0.25})`;
         ctx!.fill();
       }
 
