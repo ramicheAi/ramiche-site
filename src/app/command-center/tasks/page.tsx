@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import pipelineTasksData from "@/data/pipeline-tasks.json";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TASK BOARD — Kanban sub-page of Command Center
@@ -197,18 +198,56 @@ export default function TaskBoardPage() {
   const [reviseTask, setReviseTask] = useState<Task | null>(null);
   const [reviseFeedback, setReviseFeedback] = useState("");
 
-  // Fetch live tasks from bridge API
+  // Fetch live tasks from bridge API OR fallback to pipeline data
   useEffect(() => {
     const fetchTasks = async () => {
       try {
+        // Try bridge API first
         const res = await fetch("/api/bridge?type=tasks");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data?.tasks && typeof data.tasks === "object") {
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.tasks && typeof data.tasks === "object") {
+            const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+            for (const col of COLUMNS) {
+              if (Array.isArray(data.tasks[col.id])) {
+                live[col.id] = data.tasks[col.id];
+              }
+            }
+            const total = Object.values(live).reduce((s, a) => s + a.length, 0);
+            if (total > 0) {
+              setColumns(live);
+              return;
+            }
+          }
+        }
+        
+        // Fallback 1: Load pipeline data from local API
+        try {
+          const pipelineRes = await fetch("/api/pipeline-tasks");
+          if (pipelineRes.ok) {
+            const pipelineData = await pipelineRes.json();
+            if (pipelineData?.tasks && typeof pipelineData.tasks === "object") {
+              const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+              for (const col of COLUMNS) {
+                if (Array.isArray(pipelineData.tasks[col.id])) {
+                  live[col.id] = pipelineData.tasks[col.id];
+                }
+              }
+              const total = Object.values(live).reduce((s, a) => s + a.length, 0);
+              if (total > 0) {
+                setColumns(live);
+                return;
+              }
+            }
+          }
+        } catch {}
+        
+        // Fallback 2: Use static pipeline data
+        if (pipelineTasksData?.tasks && typeof pipelineTasksData.tasks === "object") {
           const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
           for (const col of COLUMNS) {
-            if (Array.isArray(data.tasks[col.id])) {
-              live[col.id] = data.tasks[col.id];
+            if (Array.isArray(pipelineTasksData.tasks[col.id])) {
+              live[col.id] = pipelineTasksData.tasks[col.id];
             }
           }
           const total = Object.values(live).reduce((s, a) => s + a.length, 0);
