@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verified Agent Business — Margin Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #fafafa; color: #111; font-family: system-ui, -apple-system, sans-serif; }
+        .parallax-card {
+            background: #fff;
+            border: 2px solid rgba(0,0,0,0.2);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.05);
+            transition: all 0.2s ease;
+        }
+        .parallax-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(0,0,0,0.3);
+            box-shadow: 0 20px 50px -15px rgba(0,0,0,0.1);
+        }
+        .range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            outline: none;
+            margin-top: 10px;
+        }
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #111;
+            cursor: pointer;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transition: background 0.15s ease;
+        }
+        .range-slider::-webkit-slider-thumb:hover { background: #3b82f6; }
+        .pulse-dot {
+            width: 12px; height: 12px; border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 1.4s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+            70% { box-shadow: 0 0 0 12px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .stat-value { font-variant-numeric: tabular-nums; }
+        .model-box {
+            padding: 1.25rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .model-box.active {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        .model-box:hover:not(.active) {
+            border-color: #9ca3af;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6 sm:p-10 lg:p-14">
+
+<div class="max-w-7xl mx-auto">
+    <header class="flex items-center justify-between mb-10 pb-6 border-b-2 border-black/10">
+        <div>
+            <h1 class="text-4xl font-bold tracking-tight mb-2">Fleet Margin Simulator</h1>
+            <p class="text-gray-500 text-lg">Verified Agent Business pricing & profitability modeling.</p>
+        </div>
+        <div class="flex items-center gap-3 px-5 py-2.5 bg-white border-2 border-black/20 rounded-full font-medium shadow-sm">
+            <div class="pulse-dot"></div>
+            Model Active
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Controls Panel -->
+        <div class="parallax-card p-10 sm:p-12 col-span-1 lg:col-span-2 space-y-8">
+            <h2 class="text-2xl font-bold border-b-2 border-gray-100 pb-4">Operational Assumptions</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div class="space-y-4">
+                    <div class="flex justify-between font-medium">
+                        <label>Active Fleet (Agents)</label>
+                        <span id="valFleet" class="text-blue-600 font-bold">15</span>
+                    </div>
+                    <input type="range" id="inpFleet" min="1" max="100" value="15" class="range-slider">
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between font-medium">
+                        <label>Avg Billable Rate ($/hr)</label>
+                        <span id="valRate" class="text-blue-600 font-bold">$250</span>
+                    </div>
+                    <input type="range" id="inpRate" min="100" max="500" step="25" value="250" class="range-slider">
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between font-medium">
+                        <label>Billable Hours (Per Wk/Agent)</label>
+                        <span id="valHours" class="text-blue-600 font-bold">20</span>
+                    </div>
+                    <input type="range" id="inpHours" min="5" max="60" step="1" value="20" class="range-slider">
+                </div>
+                <div class="space-y-4">
+                    <div class="flex justify-between font-medium">
+                        <label>Avg Tokens/Hour (Millions)</label>
+                        <span id="valTokens" class="text-blue-600 font-bold">0.5</span>
+                    </div>
+                    <input type="range" id="inpTokens" min="0.1" max="5" step="0.1" value="0.5" class="range-slider">
+                </div>
+            </div>
+
+            <h2 class="text-2xl font-bold border-b-2 border-gray-100 pb-4 mt-8">Model Mix (Token Cost)</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- DeepSeek -->
+                <div class="model-box" data-cost="0.14" onclick="setMix(this)">
+                    <div class="font-bold text-lg">DeepSeek V3</div>
+                    <div class="text-sm text-gray-500 mb-2">$0.14 / 1M Tkns</div>
+                    <div class="text-xs font-semibold text-green-600 uppercase tracking-wide">High Margin</div>
+                </div>
+                <!-- Sonnet 4.5 -->
+                <div class="model-box active" data-cost="3.00" onclick="setMix(this)">
+                    <div class="font-bold text-lg">Sonnet 4.5</div>
+                    <div class="text-sm text-gray-500 mb-2">$3.00 / 1M Tkns</div>
+                    <div class="text-xs font-semibold text-blue-600 uppercase tracking-wide">Balanced</div>
+                </div>
+                <!-- Opus -->
+                <div class="model-box" data-cost="15.00" onclick="setMix(this)">
+                    <div class="font-bold text-lg">Opus 4.6</div>
+                    <div class="text-sm text-gray-500 mb-2">$15.00 / 1M Tkns</div>
+                    <div class="text-xs font-semibold text-orange-600 uppercase tracking-wide">Premium</div>
+                </div>
+            </div>
+            <!-- Infrastructure -->
+            <div class="mt-6 pt-6 border-t-2 border-gray-100 flex justify-between items-center">
+                <span class="font-medium text-gray-700">Fixed Overhead (Hosting, Gateway, Vercel)</span>
+                <span class="font-bold text-lg text-gray-500">$1,500 / mo</span>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="parallax-card p-10 sm:p-12 flex flex-col justify-between bg-slate-900 text-white border-0 shadow-2xl">
+            <div>
+                <h2 class="text-2xl font-bold mb-8 text-gray-300">Financial Outcomes</h2>
+                <div class="space-y-6">
+                    <div>
+                        <div class="text-sm text-gray-400 font-medium tracking-wide uppercase mb-1">Monthly Revenue (MRR)</div>
+                        <div class="text-4xl font-black stat-value tracking-tight" id="outMRR">$0</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 border-t border-slate-700 pt-6">
+                        <div>
+                            <div class="text-sm text-gray-400 font-medium mb-1">Total Token Cost</div>
+                            <div class="text-2xl font-bold stat-value text-red-400" id="outCost">$0</div>
+                        </div>
+                        <div>
+                            <div class="text-sm text-gray-400 font-medium mb-1">Gross Margin</div>
+                            <div class="text-2xl font-bold stat-value text-green-400" id="outMargin">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-12 p-6 bg-slate-800 rounded-2xl border-2 border-slate-700 shadow-inner">
+                <div class="text-sm text-gray-400 font-medium mb-2">Annual Net Profit Run Rate</div>
+                <div class="text-5xl font-black stat-value text-white" id="outARR">$0</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const inputs = ['inpFleet', 'inpRate', 'inpHours', 'inpTokens'];
+    const ui = {
+        fleet: document.getElementById('inpFleet'),
+        rate: document.getElementById('inpRate'),
+        hours: document.getElementById('inpHours'),
+        tokens: document.getElementById('inpTokens')
+    };
+    
+    let costPerM = 3.00;
+
+    function setMix(el) {
+        document.querySelectorAll('.model-box').forEach(box => box.classList.remove('active'));
+        el.classList.add('active');
+        costPerM = parseFloat(el.getAttribute('data-cost'));
+        calculate();
+    }
+
+    function calculate() {
+        const fleet = parseFloat(ui.fleet.value);
+        const rate = parseFloat(ui.rate.value);
+        const hours = parseFloat(ui.hours.value);
+        const tokensHr = parseFloat(ui.tokens.value);
+
+        document.getElementById('valFleet').textContent = fleet;
+        document.getElementById('valRate').textContent = '$' + rate;
+        document.getElementById('valHours').textContent = hours;
+        document.getElementById('valTokens').textContent = tokensHr.toFixed(1);
+
+        const monthlyHours = fleet * hours * 4.33;
+        const mrr = monthlyHours * rate;
+        
+        const monthlyTokensMillions = monthlyHours * tokensHr;
+        const tokenCost = monthlyTokensMillions * costPerM;
+        const fixedCost = 1500;
+        
+        const totalCost = tokenCost + fixedCost;
+        const netProfit = mrr - totalCost;
+        
+        let marginPct = 0;
+        if(mrr > 0) marginPct = ((mrr - tokenCost) / mrr) * 100;
+        const annualProfit = netProfit * 12;
+
+        const formatMoney = (val) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+        
+        document.getElementById('outMRR').textContent = formatMoney(mrr);
+        document.getElementById('outCost').textContent = formatMoney(tokenCost);
+        document.getElementById('outMargin').textContent = marginPct.toFixed(1) + '%';
+        
+        const arrEl = document.getElementById('outARR');
+        arrEl.textContent = formatMoney(annualProfit);
+        if(annualProfit < 0) {
+            arrEl.classList.add('text-red-400');
+            arrEl.classList.remove('text-white');
+        } else {
+            arrEl.classList.remove('text-red-400');
+            arrEl.classList.add('text-white');
+        }
+    }
+
+    inputs.forEach(id => {
+        document.getElementById(id).addEventListener('input', calculate);
+    });
+
+    calculate();
+</script>
+</body>
+</html>

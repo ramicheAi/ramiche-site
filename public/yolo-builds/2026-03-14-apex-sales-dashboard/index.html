@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APEX Sales Dashboard — METTLE Pipeline Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .lead-card { transition: all 0.2s ease; border-left-width: 4px; }
+        .lead-card:hover { transform: translateY(-2px); box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); }
+        .score-badge { min-width: 48px; text-align: center; border-radius: 9999px; font-weight: 700; font-size: 0.875rem; }
+        .sequence-step { border-left-width: 3px; padding-left: 1rem; }
+        .pipeline-stage { border-top-width: 4px; }
+        .bg-grid { background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px), linear-gradient(to bottom, #f1f5f9 1px, transparent 1px); background-size: 20px 20px; }
+        .pulse { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-6 font-sans bg-grid">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-10">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-4xl font-bold text-gray-900">APEX Sales Dashboard</h1>
+                    <p class="text-gray-600 mt-2">Lead scoring, email sequences & pipeline projections for METTLE sales team</p>
+                    <div class="flex items-center gap-4 mt-4">
+                        <div class="px-4 py-2 bg-purple-100 text-purple-800 rounded-full text-sm font-semibold">Sales Lane</div>
+                        <div class="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-semibold">METTLE Pipeline</div>
+                        <div class="px-4 py-2 bg-green-100 text-green-800 rounded-full text-sm font-semibold">Revenue First</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-2xl font-bold text-gray-900">$349<span class="text-lg text-gray-600">/month</span></div>
+                    <div class="text-gray-500 text-sm">Program Tier</div>
+                    <button class="mt-4 px-6 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-semibold rounded-lg hover:opacity-90 transition">+ New Lead</button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Stats Bar -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-gray-500 text-sm">Total Pipeline</div>
+                        <div class="text-3xl font-bold text-gray-900">$24,300</div>
+                    </div>
+                    <div class="text-green-600 font-bold">↑ 18%</div>
+                </div>
+                <div class="mt-2 text-sm text-gray-500">3 qualified leads</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-gray-500 text-sm">Lead Score Avg</div>
+                        <div class="text-3xl font-bold text-gray-900">72</div>
+                    </div>
+                    <div class="text-blue-600 font-bold">+12</div>
+                </div>
+                <div class="mt-2 text-sm text-gray-500">High intent</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-gray-500 text-sm">Emails Sent</div>
+                        <div class="text-3xl font-bold text-gray-900">47</div>
+                    </div>
+                    <div class="text-orange-600 font-bold pulse">3 pending</div>
+                </div>
+                <div class="mt-2 text-sm text-gray-500">Sequence: Coach Outreach</div>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow border border-gray-200">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <div class="text-gray-500 text-sm">Close Rate</div>
+                        <div class="text-3xl font-bold text-gray-900">42%</div>
+                    </div>
+                    <div class="text-purple-600 font-bold">↑ 8%</div>
+                </div>
+                <div class="mt-2 text-sm text-gray-500">vs. 34% last month</div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Lead Scoring -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-xl shadow border border-gray-200 p-6 mb-8">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">Lead Scoring Matrix</h2>
+                        <div class="text-sm text-gray-500">Higher score = higher intent</div>
+                    </div>
+                    <div class="space-y-4" id="leadList">
+                        <!-- Leads will be injected here -->
+                    </div>
+                </div>
+
+                <!-- Pipeline Projection -->
+                <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">Pipeline Projection</h2>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <div class="font-medium text-gray-700">Prospect → Discovery</div>
+                                <div class="text-sm text-gray-500">65% conversion</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-blue-500 h-3 rounded-full" style="width: 65%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <div class="font-medium text-gray-700">Discovery → Demo</div>
+                                <div class="text-sm text-gray-500">40% conversion</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-purple-500 h-3 rounded-full" style="width: 40%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <div class="font-medium text-gray-700">Demo → Proposal</div>
+                                <div class="text-sm text-gray-500">55% conversion</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-green-500 h-3 rounded-full" style="width: 55%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-2">
+                                <div class="font-medium text-gray-700">Proposal → Close</div>
+                                <div class="text-sm text-gray-500">42% conversion</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-orange-500 h-3 rounded-full" style="width: 42%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div class="font-semibold text-blue-800">Projection: $8,100 → $3,240 monthly</div>
+                        <div class="text-sm text-blue-600 mt-1">Based on current pipeline and historical conversion rates</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Email Sequence Builder -->
+            <div class="bg-white rounded-xl shadow border border-gray-200 p-6">
+                <h2 class="text-2xl font-bold text-gray-900 mb-6">Email Sequence Builder</h2>
+                <div class="space-y-6 mb-8">
+                    <div class="sequence-step border-l-4 border-blue-500">
+                        <div class="font-semibold text-gray-900">Day 1: Value Hook</div>
+                        <div class="text-sm text-gray-600 mt-1">"TeamUnify runs your office. METTLE transforms your athletes."</div>
+                        <div class="text-xs text-gray-500 mt-2">Open rate: 68%</div>
+                    </div>
+                    <div class="sequence-step border-l-4 border-purple-500">
+                        <div class="font-semibold text-gray-900">Day 3: Case Study</div>
+                        <div class="text-sm text-gray-600 mt-1">Saint Andrew's Aquatics: 240+ athletes, 20% retention boost</div>
+                        <div class="text-xs text-gray-500 mt-2">Click rate: 34%</div>
+                    </div>
+                    <div class="sequence-step border-l-4 border-green-500">
+                        <div class="font-semibold text-gray-900">Day 7: Demo Offer</div>
+                        <div class="text-sm text-gray-600 mt-1">15-minute walkthrough + 30-day trial</div>
+                        <div class="text-xs text-gray-500 mt-2">Reply rate: 22%</div>
+                    </div>
+                    <div class="sequence-step border-l-4 border-orange-500">
+                        <div class="font-semibold text-gray-900">Day 14: Urgency Close</div>
+                        <div class="text-sm text-gray-600 mt-1">Limited onboarding slots + success guarantee</div>
+                        <div class="text-xs text-gray-500 mt-2">Conversion: 12%</div>
+                    </div>
+                </div>
+
+                <div class="border-t pt-6">
+                    <h3 class="font-bold text-gray-900 mb-4">Sequence Performance</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <div class="text-sm text-gray-700">Overall Conversion</div>
+                                <div class="text-sm font-semibold text-gray-900">9.8%</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 9.8%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <div class="text-sm text-gray-700">Avg Time to Close</div>
+                                <div class="text-sm font-semibold text-gray-900">18 days</div>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: 75%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="mt-8 w-full py-3 bg-gradient-to-r from-gray-900 to-gray-800 text-white font-semibold rounded-lg hover:opacity-90 transition">
+                    + Add Custom Step
+                </button>
+            </div>
+        </div>
+
+        <!-- Pipeline Stages -->
+        <div class="mt-10">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6">Pipeline Stages</h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="pipeline-stage border-t-4 border-gray-300 bg-white p-5 rounded-xl shadow">
+                    <div class="text-gray-500 text-sm">Prospect</div>
+                    <div class="text-2xl font-bold text-gray-900 mt-2">12</div>
+                    <div class="text-xs text-gray-500 mt-1">Cold leads</div>
+                </div>
+                <div class="pipeline-stage border-t-4 border-blue-500 bg-white p-5 rounded-xl shadow">
+                    <div class="text-gray-500 text-sm">Discovery</div>
+                    <div class="text-2xl font-bold text-gray-900 mt-2">5</div>
+                    <div class="text-xs text-gray-500 mt-1">Qualified calls</div>
+                </div>
+                <div class="pipeline-stage border-t-4 border-purple-500 bg-white p-5 rounded-xl shadow">
+                    <div class="text-gray-500 text-sm">Demo</div>
+                    <div class="text-2xl font-bold text-gray-900 mt-2">3</div>
+                    <div class="text-xs text-gray-500 mt-1">Active trials</div>
+                </div>
+                <div class="pipeline-stage border-t-4 border-green-500 bg-white p-5 rounded-xl shadow">
+                    <div class="text-gray-500 text-sm">Proposal</div>
+                    <div class="text-2xl font-bold text-gray-900 mt-2">2</div>
+                    <div class="text-xs text-gray-500 mt-1">Pending close</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="mt-12 pt-8 border-t text-center text-gray-500 text-sm">
+            <div>APEX Sales Dashboard • Built by MERCURY (Sales Lane) • 2026-03-14</div>
+            <div class="mt-2">Prototype for METTLE sales team — lead scoring, email sequences, pipeline projections</div>
+        </footer>
+    </div>
+
+    <script>
+        const leads = [
+            { name: "Coach Rodriguez", team: "Miami Dolphins Swim", size: 180, score: 88, value: 8100, stage: "Proposal", color: "green" },
+            { name: "Director Chen", team: "Orlando Wave Aquatics", size: 95, score: 72, value: 3325, stage: "Demo", color: "purple" },
+            { name: "Board Treasurer Miller", team: "Tampa Bay Titans", size: 240, score: 65, value: 8400, stage: "Discovery", color: "blue" },
+            { name: "Head Coach Williams", team: "Jacksonville Current", size: 120, score: 45, value: 4200, stage: "Prospect", color: "gray" },
+            { name: "Program Director Lee", team: "Fort Lauderdale Fins", size: 75, score: 79, value: 2625, stage: "Demo", color: "purple" }
+        ];
+
+        function renderLeads() {
+            const container = document.getElementById('leadList');
+            container.innerHTML = leads.map(lead => `
+                <div class="lead-card p-5 border border-gray-200 rounded-xl bg-white flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <div class="score-badge px-3 py-1 bg-${lead.color}-100 text-${lead.color}-800 border border-${lead.color}-300">
+                            ${lead.score}
+                        </div>
+                        <div>
+                            <div class="font-bold text-gray-900">${lead.name}</div>
+                            <div class="text-sm text-gray-600">${lead.team} • ${lead.size} athletes</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-gray-900">$${lead.value.toLocaleString()}</div>
+                        <div class="text-sm text-gray-500">${lead.stage} stage</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', renderLeads);
+
+        // Simulate live updates
+        setInterval(() => {
+            const randomLead = leads[Math.floor(Math.random() * leads.length)];
+            randomLead.score = Math.min(99, randomLead.score + Math.floor(Math.random() * 5) - 2);
+            renderLeads();
+        }, 10000);
+    </script>
+</body>
+</html>
