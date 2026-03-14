@@ -48,9 +48,9 @@ function OceanBackground() {
     resize();
     window.addEventListener("resize", resize);
 
-    /* Bubbles — rising from ocean floor (dense, immersive) */
+    /* Bubbles — sparse, elegant */
     const bubbles: { x: number; y: number; r: number; speed: number; wobble: number; opacity: number; phase: number }[] = [];
-    for (let i = 0; i < 220; i++) {
+    for (let i = 0; i < 80; i++) {
       bubbles.push({
         x: Math.random() * 2000,
         y: Math.random() * 5000,
@@ -62,9 +62,9 @@ function OceanBackground() {
       });
     }
 
-    /* Light rays — sun through water surface (brighter, more dramatic) */
+    /* Light rays — gentle sun beams */
     const rays: { x: number; width: number; speed: number; opacity: number }[] = [];
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 10; i++) {
       rays.push({
         x: Math.random() * 2000,
         width: 80 + Math.random() * 280,
@@ -73,9 +73,9 @@ function OceanBackground() {
       });
     }
 
-    /* Swimmer silhouettes — tiny figures doing freestyle (more visible, more swimmers) */
+    /* Swimmer silhouettes — subtle, few */
     const swimmers: { x: number; y: number; speed: number; size: number; strokePhase: number; direction: number; opacity: number }[] = [];
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 6; i++) {
       swimmers.push({
         x: Math.random() * 2000,
         y: 60 + Math.random() * 600,
@@ -90,142 +90,115 @@ function OceanBackground() {
     function draw(t: number) {
       ctx!.clearRect(0, 0, w, h);
 
-      /* Layer 1: deep rolling ocean waves — more dramatic */
-      for (let i = 0; i < 9; i++) {
+      /* Layer 1: gentle ocean waves — light, clean feel */
+      for (let i = 0; i < 6; i++) {
         ctx!.beginPath();
-        const yBase = h * 0.06 + i * (h * 0.11);
+        const yBase = h * 0.08 + i * (h * 0.15);
         ctx!.moveTo(-10, yBase);
         for (let x = -10; x <= w + 10; x += 5) {
           const y = yBase
-            + Math.sin(x * 0.0015 + t * 0.0007 + i * 1.3) * 35
-            + Math.sin(x * 0.004 + t * 0.0005 + i * 0.8) * 18
-            + Math.cos(x * 0.0008 + t * 0.0004 + i * 2.5) * 22
-            + Math.sin(x * 0.008 + t * 0.001 + i * 0.3) * 6;
+            + Math.sin(x * 0.0015 + t * 0.0007 + i * 1.3) * 20
+            + Math.sin(x * 0.004 + t * 0.0005 + i * 0.8) * 10
+            + Math.cos(x * 0.0008 + t * 0.0004 + i * 2.5) * 12;
           ctx!.lineTo(x, y);
         }
         ctx!.lineTo(w + 10, h + 10);
         ctx!.lineTo(-10, h + 10);
         ctx!.closePath();
-        const alpha = 0.03 - i * 0.003;
-        ctx!.fillStyle = `rgba(10, 30, 61, ${Math.max(0.005, alpha)})`;
+        const alpha = 0.012 - i * 0.002;
+        ctx!.fillStyle = `rgba(26, 122, 109, ${Math.max(0.002, alpha)})`;
         ctx!.fill();
       }
 
-      /* Layer 2: caustic light network — vivid underwater light pools */
+      /* Layer 2: subtle light pools — soft teal shimmer */
       ctx!.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 12; i++) {
-        const cx = w * (0.03 + i * 0.085) + Math.sin(t * 0.0003 + i * 1.4) * 250;
-        const cy = h * (0.08 + i * 0.08) + Math.cos(t * 0.00035 + i * 2.0) * 180;
-        const radius = 260 + Math.sin(t * 0.0007 + i * 1.1) * 130;
+      for (let i = 0; i < 8; i++) {
+        const cx = w * (0.05 + i * 0.12) + Math.sin(t * 0.0003 + i * 1.4) * 150;
+        const cy = h * (0.1 + i * 0.1) + Math.cos(t * 0.00035 + i * 2.0) * 100;
+        const radius = 200 + Math.sin(t * 0.0007 + i * 1.1) * 80;
         const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, radius);
-        grad.addColorStop(0, `rgba(26, 122, 109, 0.09)`);
-        grad.addColorStop(0.3, `rgba(10, 30, 61, 0.05)`);
-        grad.addColorStop(0.7, `rgba(232, 184, 0, 0.015)`);
-        grad.addColorStop(1, "rgba(10, 30, 61, 0)");
+        grad.addColorStop(0, `rgba(26, 122, 109, 0.03)`);
+        grad.addColorStop(0.5, `rgba(26, 138, 154, 0.015)`);
+        grad.addColorStop(1, "rgba(26, 122, 109, 0)");
         ctx!.fillStyle = grad;
         ctx!.fillRect(0, 0, w, h);
       }
       ctx!.globalCompositeOperation = "source-over";
 
-      /* Layer 3: dramatic sun rays through water */
+      /* Layer 3: gentle golden sun rays — barely-there warmth */
       for (const ray of rays) {
-        const rx = ray.x + Math.sin(t * 0.00015 + ray.x * 0.001) * 60;
-        const shimmer = 0.4 + 0.6 * Math.sin(t * 0.0008 + ray.x * 0.008);
+        const rx = ray.x + Math.sin(t * 0.00015 + ray.x * 0.001) * 40;
+        const shimmer = 0.3 + 0.7 * Math.sin(t * 0.0006 + ray.x * 0.005);
         ctx!.save();
         ctx!.translate(rx, 0);
-        ctx!.rotate(0.12 + Math.sin(t * 0.0001) * 0.03);
-        const grad = ctx!.createLinearGradient(0, 0, 0, h * 0.7);
-        grad.addColorStop(0, `rgba(241, 196, 15, ${ray.opacity * shimmer})`);
-        grad.addColorStop(0.3, `rgba(26, 138, 154, ${ray.opacity * 0.6 * shimmer})`);
-        grad.addColorStop(0.7, `rgba(13, 79, 92, ${ray.opacity * 0.2 * shimmer})`);
-        grad.addColorStop(1, "rgba(13, 79, 92, 0)");
+        ctx!.rotate(0.08 + Math.sin(t * 0.0001) * 0.02);
+        const grad = ctx!.createLinearGradient(0, 0, 0, h * 0.5);
+        grad.addColorStop(0, `rgba(232, 184, 0, ${ray.opacity * shimmer * 0.5})`);
+        grad.addColorStop(0.4, `rgba(26, 138, 154, ${ray.opacity * 0.15 * shimmer})`);
+        grad.addColorStop(1, "rgba(26, 138, 154, 0)");
         ctx!.fillStyle = grad;
-        ctx!.fillRect(-ray.width / 2, -20, ray.width, h * 0.7 + 40);
+        ctx!.fillRect(-ray.width / 2, -20, ray.width, h * 0.5 + 40);
         ctx!.restore();
       }
 
-      /* Layer 4: floating bubbles with refraction */
+      /* Layer 4: delicate bubbles — barely visible, light feel */
       for (const b of bubbles) {
         b.y -= b.speed;
-        b.wobble += 0.012;
-        const bx = b.x + Math.sin(b.wobble + b.phase) * 25;
+        b.wobble += 0.01;
+        const bx = b.x + Math.sin(b.wobble + b.phase) * 20;
         if (b.y < -30) { b.y = h + 30; b.x = Math.random() * w; }
         ctx!.beginPath();
         ctx!.arc(bx, b.y, b.r, 0, Math.PI * 2);
-        ctx!.strokeStyle = `rgba(13, 79, 92, ${b.opacity * 0.7})`;
-        ctx!.lineWidth = 0.6;
+        ctx!.strokeStyle = `rgba(26, 138, 154, ${b.opacity * 0.3})`;
+        ctx!.lineWidth = 0.4;
         ctx!.stroke();
-        ctx!.fillStyle = `rgba(26, 138, 154, ${b.opacity * 0.25})`;
-        ctx!.fill();
         ctx!.beginPath();
-        ctx!.arc(bx - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.3, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(255, 255, 255, ${b.opacity * 1.0})`;
+        ctx!.arc(bx - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.25, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(26, 138, 154, ${b.opacity * 0.15})`;
         ctx!.fill();
       }
 
-      /* Layer 5: distant swimmer silhouettes doing freestyle */
+      /* Layer 5: ghost swimmer silhouettes — very subtle */
       for (const s of swimmers) {
         s.x += s.speed * s.direction;
-        s.strokePhase += 0.04;
-        if (s.x > w + 100) { s.x = -100; s.y = 80 + Math.random() * 350; }
-        if (s.x < -100) { s.x = w + 100; s.y = 80 + Math.random() * 350; }
+        s.strokePhase += 0.035;
+        if (s.x > w + 100) { s.x = -100; s.y = 100 + Math.random() * 400; }
+        if (s.x < -100) { s.x = w + 100; s.y = 100 + Math.random() * 400; }
         ctx!.save();
         ctx!.translate(s.x, s.y);
         if (s.direction < 0) ctx!.scale(-1, 1);
-        ctx!.globalAlpha = s.opacity;
-        ctx!.fillStyle = C.navy;
-        /* Body */
+        ctx!.globalAlpha = s.opacity * 0.5;
+        ctx!.fillStyle = `rgba(26, 122, 109, 0.6)`;
         ctx!.beginPath();
         ctx!.ellipse(0, 0, s.size * 1.8, s.size * 0.4, 0, 0, Math.PI * 2);
         ctx!.fill();
-        /* Head */
         ctx!.beginPath();
         ctx!.arc(s.size * 1.6, -s.size * 0.1, s.size * 0.35, 0, Math.PI * 2);
         ctx!.fill();
-        /* Arms — rotating freestyle stroke */
         const armAngle = Math.sin(s.strokePhase) * 1.2;
         ctx!.save();
         ctx!.translate(s.size * 0.5, -s.size * 0.2);
         ctx!.rotate(armAngle);
-        ctx!.fillRect(-1, -s.size * 1.2, 2.5, s.size * 1.2);
+        ctx!.fillRect(-1, -s.size * 1.2, 2, s.size * 1.2);
         ctx!.restore();
-        ctx!.save();
-        ctx!.translate(-s.size * 0.3, -s.size * 0.2);
-        ctx!.rotate(-armAngle + Math.PI * 0.15);
-        ctx!.fillRect(-1, -s.size * 1.0, 2.5, s.size * 1.0);
-        ctx!.restore();
-        /* Kick splash */
-        const kick = Math.sin(s.strokePhase * 2) * s.size * 0.3;
-        ctx!.beginPath();
-        ctx!.ellipse(-s.size * 1.8, kick, s.size * 0.6, s.size * 0.15, 0, 0, Math.PI * 2);
-        ctx!.fillStyle = `rgba(26, 138, 154, ${s.opacity * 0.5})`;
-        ctx!.fill();
         ctx!.globalAlpha = 1;
         ctx!.restore();
       }
 
-      /* Layer 6: surface ripple with wave crests */
+      /* Layer 6: surface ripple — very subtle golden shimmer */
       ctx!.beginPath();
       ctx!.moveTo(-10, 0);
-      for (let x = -10; x <= w + 10; x += 3) {
-        const y = 4
-          + Math.sin(x * 0.008 + t * 0.002) * 3
-          + Math.sin(x * 0.02 + t * 0.003) * 1.5
-          + Math.cos(x * 0.005 + t * 0.001) * 2;
+      for (let x = -10; x <= w + 10; x += 4) {
+        const y = 3
+          + Math.sin(x * 0.006 + t * 0.0015) * 2
+          + Math.sin(x * 0.015 + t * 0.002) * 1;
         ctx!.lineTo(x, y);
       }
       ctx!.lineTo(w + 10, 0);
       ctx!.lineTo(-10, 0);
       ctx!.closePath();
-      ctx!.fillStyle = `rgba(241, 196, 15, 0.04)`;
+      ctx!.fillStyle = `rgba(232, 184, 0, 0.02)`;
       ctx!.fill();
-
-      /* Layer 7: deep water gradient at bottom */
-      const bottomGrad = ctx!.createLinearGradient(0, h * 0.75, 0, h);
-      bottomGrad.addColorStop(0, "rgba(13, 79, 92, 0)");
-      bottomGrad.addColorStop(1, "rgba(9, 61, 71, 0.06)");
-      ctx!.fillStyle = bottomGrad;
-      ctx!.fillRect(0, h * 0.75, w, h * 0.25);
 
       animId = requestAnimationFrame(draw);
     }
