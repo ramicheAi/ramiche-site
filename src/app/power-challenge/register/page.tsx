@@ -1,41 +1,106 @@
 "use client";
 
-import { useState, useEffect, FormEvent, Suspense } from "react";
+import { useState, useEffect, useRef, FormEvent, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import ParticleField from "../../../components/ParticleField";
+import Image from "next/image";
 
 export const dynamic = "force-dynamic";
 
+/* ── Brand Colors (matching landing page) ── */
 const C = {
-  navy: "#1a237e",
-  navyLight: "#283593",
-  navyDark: "#0d1452",
-  gold: "#ffd700",
-  goldDim: "#c9a800",
+  navy: "#0a1e3d",
+  navyLight: "#153060",
+  teal: "#1a7a6d",
+  tealLight: "#28a68e",
+  red: "#d42b2b",
+  redLight: "#e74c3c",
+  gold: "#e8b800",
+  goldDim: "#c99e00",
+  goldBright: "#ffd700",
   white: "#ffffff",
-  bg: "#060818",
-  cardBg: "#0c1230",
+  offWhite: "#f5f9fb",
+  bg: "#ffffff",
+  cardBg: "rgba(10, 30, 61, 0.03)",
+  text: "#0f1f2e",
+  textLight: "#4a6272",
+  heroGradStart: "#e6f0f6",
 };
 
 const labelStyle: React.CSSProperties = {
-  color: C.gold,
+  color: C.navy,
   fontSize: 13,
-  fontWeight: 600,
+  fontWeight: 700,
   marginBottom: 6,
   display: "block",
 };
 
 const inputStyle: React.CSSProperties = {
-  background: C.navyDark,
-  border: `1px solid ${C.navy}`,
-  color: C.white,
-  borderRadius: 8,
+  background: C.offWhite,
+  border: `2px solid ${C.teal}30`,
+  color: C.text,
+  borderRadius: 10,
   padding: "12px 16px",
   width: "100%",
   fontSize: 15,
   outline: "none",
   boxSizing: "border-box",
+  transition: "border-color 0.2s ease",
 };
+
+/* ── Simplified Ocean Background for registration ── */
+function OceanBgReg() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    let animId: number;
+    let w = 0, h = 0;
+    function resize() {
+      w = canvas!.width = window.innerWidth;
+      h = canvas!.height = document.documentElement.scrollHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+    const bubbles: { x: number; y: number; r: number; speed: number; wobble: number; opacity: number }[] = [];
+    for (let i = 0; i < 60; i++) {
+      bubbles.push({ x: Math.random() * 2000, y: Math.random() * 5000, r: 2 + Math.random() * 8, speed: 0.3 + Math.random() * 1.0, wobble: Math.random() * Math.PI * 2, opacity: 0.1 + Math.random() * 0.25 });
+    }
+    function draw(t: number) {
+      ctx!.clearRect(0, 0, w, h);
+      for (let i = 0; i < 6; i++) {
+        ctx!.beginPath();
+        const yBase = h * 0.06 + i * (h * 0.15);
+        ctx!.moveTo(-10, yBase);
+        for (let x = -10; x <= w + 10; x += 4) {
+          const y = yBase + Math.sin(x * 0.003 + t * 0.001 + i * 1.2) * 30 + Math.sin(x * 0.006 + t * 0.0008 + i * 0.7) * 15;
+          ctx!.lineTo(x, y);
+        }
+        ctx!.lineTo(w + 10, h + 10);
+        ctx!.lineTo(-10, h + 10);
+        ctx!.closePath();
+        ctx!.fillStyle = i % 2 === 0 ? `rgba(26, 122, 109, ${0.04 - i * 0.004})` : `rgba(46, 139, 87, ${0.03 - i * 0.003})`;
+        ctx!.fill();
+      }
+      for (const b of bubbles) {
+        b.y -= b.speed;
+        b.wobble += 0.012;
+        const bx = b.x + Math.sin(b.wobble) * 20;
+        if (b.y < -20) { b.y = h + 20; b.x = Math.random() * w; }
+        ctx!.beginPath();
+        ctx!.arc(bx, b.y, b.r, 0, Math.PI * 2);
+        ctx!.strokeStyle = `rgba(26, 138, 154, ${b.opacity * 0.4})`;
+        ctx!.lineWidth = 0.6;
+        ctx!.stroke();
+      }
+      animId = requestAnimationFrame(draw);
+    }
+    animId = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener("resize", resize); };
+  }, []);
+  return <canvas ref={canvasRef} style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", pointerEvents: "none", zIndex: 0 }} />;
+}
 
 function PowerChallengeRegisterContent() {
   const searchParams = useSearchParams();
@@ -103,15 +168,10 @@ function PowerChallengeRegisterContent() {
         background: C.bg,
         position: "relative",
         overflow: "hidden",
+        fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       }}
     >
-      <ParticleField
-        variant="gold"
-        count={30}
-        speed={0.3}
-        opacity={0.3}
-        connections
-      />
+      <OceanBgReg />
 
       <div
         style={{
@@ -126,7 +186,7 @@ function PowerChallengeRegisterContent() {
         <a
           href="/power-challenge"
           style={{
-            color: C.gold,
+            color: C.teal,
             textDecoration: "none",
             fontSize: 14,
             fontWeight: 600,
@@ -177,11 +237,12 @@ function PowerChallengeRegisterContent() {
           </div>
         )}
 
-        {/* Title */}
+        {/* Logo + Title */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race" width={180} height={120} style={{ objectFit: "contain", marginBottom: 12 }} />
           <p
             style={{
-              color: C.gold,
+              color: C.teal,
               fontSize: 13,
               fontWeight: 700,
               letterSpacing: 4,
@@ -193,7 +254,7 @@ function PowerChallengeRegisterContent() {
           </p>
           <h1
             style={{
-              color: C.white,
+              color: C.navy,
               fontSize: 48,
               fontWeight: 800,
               margin: 0,
@@ -208,12 +269,14 @@ function PowerChallengeRegisterContent() {
         <form
           onSubmit={handleSubmit}
           style={{
-            background: C.cardBg,
-            border: `1px solid ${C.navy}`,
+            background: `linear-gradient(180deg, ${C.white} 0%, rgba(26,122,109,0.03) 100%)`,
+            border: `2px solid ${C.teal}25`,
+            borderTop: `4px solid ${C.gold}`,
             borderRadius: 20,
             padding: 40,
             maxWidth: 600,
             margin: "0 auto",
+            boxShadow: "0 8px 32px rgba(10,30,61,0.08)",
           }}
         >
           {/* First / Last name row */}
@@ -293,7 +356,6 @@ function PowerChallengeRegisterContent() {
                 onChange={(e) => setDob(e.target.value)}
                 style={{
                   ...inputStyle,
-                  colorScheme: "dark",
                 }}
               />
             </div>
@@ -307,7 +369,7 @@ function PowerChallengeRegisterContent() {
                   ...inputStyle,
                   appearance: "none",
                   backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ffd700' stroke-width='2' fill='none'/%3E%3C/svg%3E\")",
+                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%230a1e3d' stroke-width='2' fill='none'/%3E%3C/svg%3E\")",
                   backgroundRepeat: "no-repeat",
                   backgroundPosition: "right 16px center",
                   paddingRight: 40,
@@ -334,7 +396,7 @@ function PowerChallengeRegisterContent() {
                 ...inputStyle,
                 appearance: "none",
                 backgroundImage:
-                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23ffd700' stroke-width='2' fill='none'/%3E%3C/svg%3E\")",
+                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%230a1e3d' stroke-width='2' fill='none'/%3E%3C/svg%3E\")",
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "right 16px center",
                 paddingRight: 40,
@@ -364,7 +426,7 @@ function PowerChallengeRegisterContent() {
           <div
             style={{
               height: 1,
-              background: C.navy,
+              background: `${C.teal}20`,
               margin: "28px 0",
             }}
           />
@@ -415,7 +477,7 @@ function PowerChallengeRegisterContent() {
           <div
             style={{
               height: 1,
-              background: C.navy,
+              background: `${C.teal}20`,
               margin: "28px 0",
             }}
           />
@@ -428,7 +490,7 @@ function PowerChallengeRegisterContent() {
                 alignItems: "flex-start",
                 gap: 12,
                 cursor: "pointer",
-                color: C.white,
+                color: C.text,
                 fontSize: 14,
                 lineHeight: 1.5,
               }}
@@ -443,7 +505,7 @@ function PowerChallengeRegisterContent() {
                   height: 20,
                   minWidth: 20,
                   marginTop: 2,
-                  accentColor: C.gold,
+                  accentColor: C.teal,
                   cursor: "pointer",
                 }}
               />
@@ -479,14 +541,14 @@ function PowerChallengeRegisterContent() {
               disabled={loading}
               style={{
                 background: loading
-                  ? `linear-gradient(135deg, ${C.goldDim}, #a08700)`
-                  : `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`,
-                color: C.navyDark,
+                  ? `linear-gradient(135deg, ${C.red}88, ${C.redLight}88)`
+                  : `linear-gradient(135deg, ${C.red}, ${C.redLight})`,
+                color: C.white,
                 fontWeight: 800,
                 fontSize: 18,
                 borderRadius: 50,
                 padding: "16px 48px",
-                boxShadow: `0 0 30px ${C.gold}44`,
+                boxShadow: `0 6px 30px ${C.red}40`,
                 border: "none",
                 cursor: loading ? "not-allowed" : "pointer",
                 opacity: loading ? 0.7 : 1,
