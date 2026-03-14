@@ -405,7 +405,7 @@ export default function PowerChallengePage() {
           color: C.navy, fontWeight: 800, fontSize: 15, textDecoration: "none",
           letterSpacing: 2, display: "flex", alignItems: "center", gap: 8,
         }}>
-          <Image src="/piranhas-logo.svg" alt="Piranhas" width={36} height={36} style={{ borderRadius: 6 }} />
+          <Image src="/piranhas-team-logo.jpg" alt="Pompano Beach Piranhas" width={36} height={36} style={{ borderRadius: 6 }} />
           POWER CHALLENGE
         </Link>
         <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
@@ -443,7 +443,7 @@ export default function PowerChallengePage() {
       }}>
         {/* Piranha Logo — hero centerpiece */}
         <div style={{ marginBottom: 12, filter: `drop-shadow(0 4px 20px rgba(10,30,61,0.2))` }}>
-          <Image src="/piranhas-logo.svg" alt="Pompano Beach Piranhas" width={120} height={132} style={{ borderRadius: 12 }} />
+          <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race" width={200} height={153} style={{ borderRadius: 12 }} />
         </div>
 
         <div style={{
@@ -564,7 +564,7 @@ export default function PowerChallengePage() {
               <svg className="card-wave" style={{ position: "absolute", bottom: 0, left: 0, right: 0, opacity: 0.08 }} viewBox="0 0 400 40" preserveAspectRatio="none" height="40" width="100%">
                 <path d="M0 20 Q50 5 100 20 T200 20 T300 20 T400 20 L400 40 L0 40Z" fill={C.teal}/>
               </svg>
-              <Image src="/piranhas-logo.svg" alt="Piranhas" width={36} height={40} style={{ borderRadius: 6 }} />
+              <Image src="/piranhas-team-logo.jpg" alt="Piranhas" width={36} height={40} style={{ borderRadius: 6 }} />
               <div style={{ fontSize: 40, fontWeight: 900, color: C.navy, marginTop: 8, marginBottom: 2 }}>{race.distance}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.tealLight, letterSpacing: 3, textTransform: "uppercase" as const, marginBottom: 14 }}>{race.label}</div>
               <p style={{ color: C.textLight, lineHeight: 1.7, fontSize: 15, marginBottom: 20 }}>{race.desc}</p>
@@ -595,7 +595,7 @@ export default function PowerChallengePage() {
           color: C.navy, fontWeight: 700, fontSize: 15,
           boxShadow: "0 2px 16px rgba(10,30,61,0.06)",
         }}>
-          <Image src="/piranhas-logo.svg" alt="Piranhas" width={28} height={30} style={{ borderRadius: 4 }} />
+          <Image src="/piranhas-team-logo.jpg" alt="Piranhas" width={28} height={30} style={{ borderRadius: 4 }} />
           April 11, 2026 &bull; Race Start 7:00 AM
         </div>
       </ScrollSection>
@@ -730,7 +730,7 @@ export default function PowerChallengePage() {
         background: C.offWhite,
       }}>
         <div style={{ marginBottom: 12, opacity: 0.7 }}>
-          <Image src="/piranhas-logo.svg" alt="Piranhas" width={48} height={52} style={{ borderRadius: 8 }} />
+          <Image src="/piranhas-team-logo.jpg" alt="Piranhas" width={48} height={52} style={{ borderRadius: 8 }} />
         </div>
         <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6, fontSize: 14, letterSpacing: 2 }}>
           POMPANO BEACH PIRANHAS
