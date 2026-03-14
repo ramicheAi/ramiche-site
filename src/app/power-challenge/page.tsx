@@ -407,12 +407,11 @@ export default function PowerChallengePage() {
 
       {/* ── Nav ── */}
       <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+        position: "relative", zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "12px 32px",
-        background: C.white + "f2", backdropFilter: "blur(16px)",
-        borderBottom: `1px solid ${C.teal}10`,
-        boxShadow: "0 1px 12px rgba(10,30,61,0.04)",
+        background: C.heroGradStart,
+        borderBottom: `1px solid ${C.teal}15`,
       }}>
         <Link href="/power-challenge" style={{
           color: C.navy, fontWeight: 800, fontSize: 15, textDecoration: "none",
@@ -449,7 +448,7 @@ export default function PowerChallengePage() {
         position: "relative", zIndex: 1,
         minHeight: "100vh", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
-        textAlign: "center" as const, padding: "80px 24px 60px",
+        textAlign: "center" as const, padding: "40px 24px 60px",
         background: `linear-gradient(180deg, ${C.navy} 0%, #0c3a5f 25%, #14606d 45%, #1a7a6d 60%, #b8e0f0 85%, ${C.bg} 100%)`,
         transform: `translateY(${scrollY * 0.15}px)`,
         willChange: "transform",
