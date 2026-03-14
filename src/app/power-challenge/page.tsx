@@ -17,10 +17,11 @@ const C = {
 } as const;
 
 /* ── Scroll-triggered reveal ── */
-function ScrollSection({ children, style, delay = 0 }: {
+function ScrollSection({ children, style, delay = 0, id }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
   delay?: number;
+  id?: string;
 }) {
   const ref = useRef<HTMLElement>(null);
   const [visible, setVisible] = useState(false);
@@ -36,6 +37,7 @@ function ScrollSection({ children, style, delay = 0 }: {
   }, []);
   return (
     <section
+      id={id}
       ref={ref}
       style={{
         ...style,
@@ -110,7 +112,7 @@ function StatCard({ value, label }: { value: string; label: string }) {
    ══════════════════════════════════════════════════════════════ */
 
 export default function PowerChallengePage() {
-  const eventDate = new Date("2025-04-12T07:00:00-04:00");
+  const eventDate = new Date("2026-04-11T07:00:00-04:00");
   const countdown = useCountdown(eventDate);
 
   return (
@@ -120,6 +122,36 @@ export default function PowerChallengePage() {
       overflowX: "hidden" as const,
     }}>
       <ParticleField variant="gold" count={50} speed={0.3} opacity={0.4} connections />
+
+      {/* ── Nav ── */}
+      <nav style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "14px 28px",
+        background: C.bg + "ee", backdropFilter: "blur(12px)",
+        borderBottom: `1px solid ${C.navy}44`,
+      }}>
+        <Link href="/power-challenge" style={{ color: C.gold, fontWeight: 800, fontSize: 16, textDecoration: "none", letterSpacing: 1 }}>
+          POWER CHALLENGE
+        </Link>
+        <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+          {[
+            { label: "Races", href: "#races" },
+            { label: "Schedule", href: "#schedule" },
+            { label: "FAQ", href: "#faq" },
+          ].map((link) => (
+            <a key={link.href} href={link.href} style={{ color: C.white + "cc", fontSize: 14, textDecoration: "none", fontWeight: 500 }}>
+              {link.label}
+            </a>
+          ))}
+          <Link href="/power-challenge/register" style={{
+            padding: "8px 20px", background: C.gold, color: C.navyDark,
+            fontWeight: 700, fontSize: 13, borderRadius: 50, textDecoration: "none",
+          }}>
+            Register
+          </Link>
+        </div>
+      </nav>
 
       {/* ── Hero ── */}
       <header style={{
@@ -183,7 +215,7 @@ export default function PowerChallengePage() {
       </header>
 
       {/* ── Event Details ── */}
-      <ScrollSection style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto" }}>
+      <ScrollSection id="races" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto" }}>
         <h2 style={{
           fontSize: 36, fontWeight: 800, textAlign: "center" as const,
           marginBottom: 48, color: C.gold,
@@ -227,7 +259,7 @@ export default function PowerChallengePage() {
           borderRadius: 12, padding: "14px 28px",
           color: C.gold, fontWeight: 600, fontSize: 15,
         }}>
-          April 2025 &bull; Race Start 7:00 AM
+          April 11, 2026 &bull; Race Start 7:00 AM
         </div>
       </ScrollSection>
 
@@ -277,6 +309,61 @@ export default function PowerChallengePage() {
               color: C.white + "44", fontSize: 13, fontWeight: 500,
             }}>
               {name}
+            </div>
+          ))}
+        </div>
+      </ScrollSection>
+
+      {/* ── Race Day Schedule ── */}
+      <ScrollSection id="schedule" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 700, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.gold }}>
+          Race Day Schedule
+        </h2>
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 0 }}>
+          {[
+            { time: "5:30 AM", event: "Check-in & Body Marking Opens" },
+            { time: "6:15 AM", event: "Mandatory Safety Briefing" },
+            { time: "6:45 AM", event: "Warm-Up Swim (Optional)" },
+            { time: "7:00 AM", event: "500m Sprint — Wave Start" },
+            { time: "7:30 AM", event: "1.5K Distance — Wave Start" },
+            { time: "9:00 AM", event: "Awards Ceremony" },
+            { time: "9:30 AM", event: "Post-Race Social & Refreshments" },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: "flex", gap: 20, padding: "18px 0",
+              borderBottom: `1px solid ${C.navy}33`,
+              alignItems: "baseline",
+            }}>
+              <span style={{ color: C.gold, fontWeight: 700, fontSize: 15, minWidth: 90, fontVariantNumeric: "tabular-nums" }}>
+                {item.time}
+              </span>
+              <span style={{ color: C.white + "dd", fontSize: 15 }}>{item.event}</span>
+            </div>
+          ))}
+        </div>
+      </ScrollSection>
+
+      {/* ── FAQ ── */}
+      <ScrollSection id="faq" style={{ position: "relative", zIndex: 1, padding: "80px 24px 100px", maxWidth: 700, margin: "0 auto" }}>
+        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.gold }}>
+          FAQ
+        </h2>
+        <div style={{ display: "flex", flexDirection: "column" as const, gap: 24 }}>
+          {[
+            { q: "What are the race distances?", a: "500m Sprint and 1.5K Distance. Both are open water ocean swims in the Atlantic." },
+            { q: "How much does registration cost?", a: "500m Sprint is $45, 1.5K Distance is $65. Online registration only." },
+            { q: "Do I need to be on a swim team?", a: "No. The event is open to all swimmers aged 12 and older. Team affiliation is optional." },
+            { q: "What safety measures are in place?", a: "Lifeguards, kayak support, and safety boats will be stationed along the entire course. A mandatory safety briefing is held before the race." },
+            { q: "What should I bring?", a: "Swimsuit, goggles, and a positive attitude. Wetsuits are permitted. Body marking supplies are provided at check-in." },
+            { q: "Is there parking available?", a: "Yes, free parking is available at Pompano Beach. Arrive early for best spots." },
+            { q: "Can I get a refund?", a: "Refunds are available up to 14 days before the event. No refunds within 14 days of race day." },
+          ].map((item, i) => (
+            <div key={i} style={{
+              background: C.cardBg, border: `1px solid ${C.navy}44`,
+              borderRadius: 14, padding: "24px 28px",
+            }}>
+              <div style={{ color: C.gold, fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{item.q}</div>
+              <div style={{ color: C.white + "bb", fontSize: 14, lineHeight: 1.6 }}>{item.a}</div>
             </div>
           ))}
         </div>
