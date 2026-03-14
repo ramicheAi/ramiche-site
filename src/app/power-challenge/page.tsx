@@ -388,7 +388,7 @@ function StatCard({ value, label }: { value: string; label: string }) {
 
 /* ══════════════════════════════════════════════════════════════
    POWER CHALLENGE — Open Water Swim Landing Page
-   Jesse Vassallo's Pompano Beach Piranhas
+   Pompano Beach Piranhas
    ══════════════════════════════════════════════════════════════ */
 
 export default function PowerChallengePage() {
@@ -471,7 +471,7 @@ export default function PowerChallengePage() {
           fontSize: 12, letterSpacing: 6, textTransform: "uppercase" as const,
           color: C.gold, marginBottom: 16, fontWeight: 600,
         }}>
-          Jesse Vassallo&apos;s Pompano Beach Piranhas
+          Pompano Beach Piranhas
         </div>
 
         {/* Gold accent line */}
@@ -760,7 +760,7 @@ export default function PowerChallengePage() {
         </div>
         <div style={{ width: 40, height: 2, background: `linear-gradient(90deg, transparent, ${C.gold}, transparent)`, borderRadius: 1, margin: "0 auto 14px" }} />
         <div style={{ color: "rgba(255,255,255,0.6)" }}>
-          &copy; {new Date().getFullYear()} Jesse Vassallo&apos;s POWER CHALLENGE
+          &copy; {new Date().getFullYear()} POWER CHALLENGE
         </div>
         <div style={{ marginTop: 8 }}>
           <a href="https://www.pompanopiranhas.com" style={{ color: C.tealLight, textDecoration: "none", fontWeight: 600 }} target="_blank" rel="noopener noreferrer">
