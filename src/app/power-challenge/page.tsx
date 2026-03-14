@@ -90,54 +90,65 @@ function OceanBackground() {
     function draw(t: number) {
       ctx!.clearRect(0, 0, w, h);
 
-      /* Layer 1: gentle ocean waves — light, clean feel */
-      for (let i = 0; i < 6; i++) {
+      /* Layer 1: dramatic ocean waves — visible teal & green currents */
+      for (let i = 0; i < 8; i++) {
         ctx!.beginPath();
-        const yBase = h * 0.08 + i * (h * 0.15);
+        const yBase = h * 0.06 + i * (h * 0.12);
         ctx!.moveTo(-10, yBase);
-        for (let x = -10; x <= w + 10; x += 5) {
+        for (let x = -10; x <= w + 10; x += 4) {
           const y = yBase
-            + Math.sin(x * 0.0015 + t * 0.0007 + i * 1.3) * 20
-            + Math.sin(x * 0.004 + t * 0.0005 + i * 0.8) * 10
-            + Math.cos(x * 0.0008 + t * 0.0004 + i * 2.5) * 12;
+            + Math.sin(x * 0.002 + t * 0.001 + i * 1.3) * 30
+            + Math.sin(x * 0.005 + t * 0.0007 + i * 0.8) * 15
+            + Math.cos(x * 0.001 + t * 0.0006 + i * 2.5) * 18;
           ctx!.lineTo(x, y);
         }
         ctx!.lineTo(w + 10, h + 10);
         ctx!.lineTo(-10, h + 10);
         ctx!.closePath();
-        const alpha = 0.012 - i * 0.002;
-        ctx!.fillStyle = `rgba(26, 122, 109, ${Math.max(0.002, alpha)})`;
+        const alpha = 0.04 - i * 0.004;
+        const isGreen = i % 2 === 0;
+        ctx!.fillStyle = isGreen
+          ? `rgba(26, 122, 109, ${Math.max(0.005, alpha)})`
+          : `rgba(46, 139, 87, ${Math.max(0.005, alpha * 0.7)})`;
         ctx!.fill();
       }
 
-      /* Layer 2: subtle light pools — soft teal shimmer */
+      /* Layer 2: vivid light pools — bold teal + gold shimmer */
       ctx!.globalCompositeOperation = "lighter";
-      for (let i = 0; i < 8; i++) {
-        const cx = w * (0.05 + i * 0.12) + Math.sin(t * 0.0003 + i * 1.4) * 150;
-        const cy = h * (0.1 + i * 0.1) + Math.cos(t * 0.00035 + i * 2.0) * 100;
-        const radius = 200 + Math.sin(t * 0.0007 + i * 1.1) * 80;
+      for (let i = 0; i < 10; i++) {
+        const cx = w * (0.03 + i * 0.1) + Math.sin(t * 0.0004 + i * 1.4) * 200;
+        const cy = h * (0.08 + i * 0.09) + Math.cos(t * 0.00045 + i * 2.0) * 120;
+        const radius = 250 + Math.sin(t * 0.0008 + i * 1.1) * 100;
         const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, radius);
-        grad.addColorStop(0, `rgba(26, 122, 109, 0.03)`);
-        grad.addColorStop(0.5, `rgba(26, 138, 154, 0.015)`);
-        grad.addColorStop(1, "rgba(26, 122, 109, 0)");
+        const isGold = i % 3 === 0;
+        if (isGold) {
+          grad.addColorStop(0, `rgba(232, 184, 0, 0.06)`);
+          grad.addColorStop(0.5, `rgba(255, 215, 0, 0.025)`);
+          grad.addColorStop(1, "rgba(232, 184, 0, 0)");
+        } else {
+          grad.addColorStop(0, `rgba(26, 122, 109, 0.07)`);
+          grad.addColorStop(0.5, `rgba(26, 138, 154, 0.03)`);
+          grad.addColorStop(1, "rgba(26, 122, 109, 0)");
+        }
         ctx!.fillStyle = grad;
         ctx!.fillRect(0, 0, w, h);
       }
       ctx!.globalCompositeOperation = "source-over";
 
-      /* Layer 3: gentle golden sun rays — barely-there warmth */
+      /* Layer 3: bold golden sun rays — visible warmth cutting through water */
       for (const ray of rays) {
-        const rx = ray.x + Math.sin(t * 0.00015 + ray.x * 0.001) * 40;
-        const shimmer = 0.3 + 0.7 * Math.sin(t * 0.0006 + ray.x * 0.005);
+        const rx = ray.x + Math.sin(t * 0.0002 + ray.x * 0.001) * 60;
+        const shimmer = 0.4 + 0.6 * Math.sin(t * 0.0008 + ray.x * 0.005);
         ctx!.save();
         ctx!.translate(rx, 0);
-        ctx!.rotate(0.08 + Math.sin(t * 0.0001) * 0.02);
-        const grad = ctx!.createLinearGradient(0, 0, 0, h * 0.5);
-        grad.addColorStop(0, `rgba(232, 184, 0, ${ray.opacity * shimmer * 0.5})`);
-        grad.addColorStop(0.4, `rgba(26, 138, 154, ${ray.opacity * 0.15 * shimmer})`);
+        ctx!.rotate(0.1 + Math.sin(t * 0.00015) * 0.03);
+        const grad = ctx!.createLinearGradient(0, 0, 0, h * 0.6);
+        grad.addColorStop(0, `rgba(232, 184, 0, ${ray.opacity * shimmer * 1.5})`);
+        grad.addColorStop(0.3, `rgba(255, 215, 0, ${ray.opacity * shimmer * 0.8})`);
+        grad.addColorStop(0.6, `rgba(26, 138, 154, ${ray.opacity * 0.3 * shimmer})`);
         grad.addColorStop(1, "rgba(26, 138, 154, 0)");
         ctx!.fillStyle = grad;
-        ctx!.fillRect(-ray.width / 2, -20, ray.width, h * 0.5 + 40);
+        ctx!.fillRect(-ray.width / 2, -20, ray.width, h * 0.6 + 40);
         ctx!.restore();
       }
 
@@ -315,10 +326,11 @@ function CountdownBox({ value, label }: { value: number; label: string }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
-      background: C.white,
-      border: `2px solid ${C.teal}20`,
+      background: `linear-gradient(180deg, ${C.offWhite} 0%, ${C.white} 100%)`,
+      border: `2px solid ${C.teal}40`,
+      borderTop: `3px solid ${C.gold}`,
       borderRadius: 14, padding: "18px 22px", minWidth: 82,
-      boxShadow: "0 4px 20px rgba(10,30,61,0.08)",
+      boxShadow: `0 4px 20px rgba(26,122,109,0.12), 0 0 0 1px ${C.teal}10`,
     }}>
       <span style={{
         fontSize: 38, fontWeight: 800, color: C.navy,
@@ -437,13 +449,21 @@ export default function PowerChallengePage() {
         minHeight: "100vh", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         textAlign: "center" as const, padding: "80px 24px 60px",
-        background: `linear-gradient(180deg, ${C.heroGradStart} 0%, ${C.bg} 100%)`,
+        background: `linear-gradient(180deg, #b8e0f0 0%, #d4f0ef 20%, #e3f6f3 40%, ${C.bg} 100%)`,
         transform: `translateY(${scrollY * 0.15}px)`,
         willChange: "transform",
       }}>
-        {/* Piranha Logo — hero centerpiece */}
-        <div style={{ marginBottom: 12, filter: `drop-shadow(0 4px 20px rgba(10,30,61,0.2))` }}>
-          <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race" width={200} height={153} style={{ borderRadius: 12 }} />
+        {/* Piranha Logo — hero centerpiece, bold & immersive */}
+        <div style={{
+          marginBottom: 20,
+          filter: `drop-shadow(0 8px 40px rgba(10,30,61,0.35))`,
+          animation: "logoFloat 4s ease-in-out infinite",
+        }}>
+          <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race"
+            width={300} height={180}
+            style={{ borderRadius: 16, objectFit: "contain" }}
+            priority
+          />
         </div>
 
         <div style={{
@@ -747,6 +767,10 @@ export default function PowerChallengePage() {
       </footer>
 
       <style>{`
+        @keyframes logoFloat {
+          0%, 100% { transform: translateY(0) scale(1); }
+          50% { transform: translateY(-8px) scale(1.02); }
+        }
         @keyframes bounce {
           0%, 100% { transform: translateX(-50%) translateY(0); }
           50% { transform: translateX(-50%) translateY(8px); }
