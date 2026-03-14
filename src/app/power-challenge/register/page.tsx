@@ -239,7 +239,7 @@ function PowerChallengeRegisterContent() {
 
         {/* Logo + Title */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
-          <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race" width={180} height={120} style={{ objectFit: "contain", marginBottom: 12 }} />
+          <Image src="/piranhas-race-logo.jpg" alt="Piranhas Open Water Extreme Race" width={180} height={120} style={{ objectFit: "contain", marginBottom: 12, display: "block", margin: "0 auto 12px auto" }} />
           <p
             style={{
               color: C.teal,
