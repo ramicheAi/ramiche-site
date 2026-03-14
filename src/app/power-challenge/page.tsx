@@ -591,7 +591,7 @@ export default function PowerChallengePage() {
               <svg className="card-wave" style={{ position: "absolute", bottom: 0, left: 0, right: 0, opacity: 0.08 }} viewBox="0 0 400 40" preserveAspectRatio="none" height="40" width="100%">
                 <path d="M0 20 Q50 5 100 20 T200 20 T300 20 T400 20 L400 40 L0 40Z" fill={C.teal}/>
               </svg>
-              <PiranhaLogo size={36} color={C.tealLight} />
+              <Image src="/piranhas-logo.svg" alt="Piranhas" width={36} height={40} style={{ borderRadius: 6 }} />
               <div style={{ fontSize: 40, fontWeight: 900, color: C.navy, marginTop: 8, marginBottom: 2 }}>{race.distance}</div>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.tealLight, letterSpacing: 3, textTransform: "uppercase" as const, marginBottom: 14 }}>{race.label}</div>
               <p style={{ color: C.textLight, lineHeight: 1.7, fontSize: 15, marginBottom: 20 }}>{race.desc}</p>
@@ -622,7 +622,7 @@ export default function PowerChallengePage() {
           color: C.navy, fontWeight: 700, fontSize: 15,
           boxShadow: "0 2px 16px rgba(10,30,61,0.06)",
         }}>
-          <PiranhaLogo size={24} color={C.tealLight} />
+          <Image src="/piranhas-logo.svg" alt="Piranhas" width={28} height={30} style={{ borderRadius: 4 }} />
           April 11, 2026 &bull; Race Start 7:00 AM
         </div>
       </ScrollSection>
