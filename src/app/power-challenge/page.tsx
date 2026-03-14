@@ -2,19 +2,271 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import ParticleField from "../../components/ParticleField";
+/* ParticleField removed — replaced by OceanBackground */
 
-/* ── Colors ── */
+/* ── Brand Colors (from Piranhas flyer — light theme) ── */
 const C = {
-  navy: "#1a237e",
-  navyLight: "#283593",
-  navyDark: "#0d1452",
-  gold: "#ffd700",
-  goldDim: "#c9a800",
+  teal: "#0d4f5c",
+  tealLight: "#1a8a9a",
+  tealMid: "#15707e",
+  tealDark: "#093d47",
+  red: "#c0392b",
+  redLight: "#e74c3c",
+  gold: "#f1c40f",
+  goldDim: "#d4a90a",
   white: "#ffffff",
-  bg: "#060818",
-  cardBg: "#0c1230",
+  offWhite: "#f7fbfc",
+  bg: "#ffffff",
+  cardBg: "rgba(13, 79, 92, 0.04)",
+  cardBgSolid: "#f2f8f9",
+  text: "#1a2a30",
+  textLight: "#5a7a86",
+  heroGradStart: "#e8f4f7",
+  heroGradEnd: "#ffffff",
 } as const;
+
+/* ── Ocean Water Background — dramatic open-water immersion ── */
+function OceanBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    let animId: number;
+    let w = 0, h = 0;
+
+    function resize() {
+      w = canvas!.width = window.innerWidth;
+      h = canvas!.height = document.documentElement.scrollHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    /* Bubbles — rising from ocean floor (dense, immersive) */
+    const bubbles: { x: number; y: number; r: number; speed: number; wobble: number; opacity: number; phase: number }[] = [];
+    for (let i = 0; i < 220; i++) {
+      bubbles.push({
+        x: Math.random() * 2000,
+        y: Math.random() * 5000,
+        r: 1 + Math.random() * 10,
+        speed: 0.2 + Math.random() * 1.1,
+        wobble: Math.random() * Math.PI * 2,
+        opacity: 0.08 + Math.random() * 0.25,
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+
+    /* Light rays — sun through water surface (brighter, more dramatic) */
+    const rays: { x: number; width: number; speed: number; opacity: number }[] = [];
+    for (let i = 0; i < 24; i++) {
+      rays.push({
+        x: Math.random() * 2000,
+        width: 80 + Math.random() * 280,
+        speed: 0.05 + Math.random() * 0.25,
+        opacity: 0.04 + Math.random() * 0.06,
+      });
+    }
+
+    /* Swimmer silhouettes — tiny figures doing freestyle (more visible, more swimmers) */
+    const swimmers: { x: number; y: number; speed: number; size: number; strokePhase: number; direction: number; opacity: number }[] = [];
+    for (let i = 0; i < 14; i++) {
+      swimmers.push({
+        x: Math.random() * 2000,
+        y: 60 + Math.random() * 600,
+        speed: 0.25 + Math.random() * 0.7,
+        size: 8 + Math.random() * 20,
+        strokePhase: Math.random() * Math.PI * 2,
+        direction: Math.random() > 0.5 ? 1 : -1,
+        opacity: 0.06 + Math.random() * 0.08,
+      });
+    }
+
+    function draw(t: number) {
+      ctx!.clearRect(0, 0, w, h);
+
+      /* Layer 1: deep rolling ocean waves — more dramatic */
+      for (let i = 0; i < 9; i++) {
+        ctx!.beginPath();
+        const yBase = h * 0.06 + i * (h * 0.11);
+        ctx!.moveTo(-10, yBase);
+        for (let x = -10; x <= w + 10; x += 5) {
+          const y = yBase
+            + Math.sin(x * 0.0015 + t * 0.0007 + i * 1.3) * 35
+            + Math.sin(x * 0.004 + t * 0.0005 + i * 0.8) * 18
+            + Math.cos(x * 0.0008 + t * 0.0004 + i * 2.5) * 22
+            + Math.sin(x * 0.008 + t * 0.001 + i * 0.3) * 6;
+          ctx!.lineTo(x, y);
+        }
+        ctx!.lineTo(w + 10, h + 10);
+        ctx!.lineTo(-10, h + 10);
+        ctx!.closePath();
+        const alpha = 0.03 - i * 0.003;
+        ctx!.fillStyle = `rgba(13, 79, 92, ${Math.max(0.005, alpha)})`;
+        ctx!.fill();
+      }
+
+      /* Layer 2: caustic light network — vivid underwater light pools */
+      ctx!.globalCompositeOperation = "lighter";
+      for (let i = 0; i < 12; i++) {
+        const cx = w * (0.03 + i * 0.085) + Math.sin(t * 0.0003 + i * 1.4) * 250;
+        const cy = h * (0.08 + i * 0.08) + Math.cos(t * 0.00035 + i * 2.0) * 180;
+        const radius = 260 + Math.sin(t * 0.0007 + i * 1.1) * 130;
+        const grad = ctx!.createRadialGradient(cx, cy, 0, cx, cy, radius);
+        grad.addColorStop(0, `rgba(26, 138, 154, 0.09)`);
+        grad.addColorStop(0.3, `rgba(13, 79, 92, 0.05)`);
+        grad.addColorStop(0.7, `rgba(241, 196, 15, 0.015)`);
+        grad.addColorStop(1, "rgba(13, 79, 92, 0)");
+        ctx!.fillStyle = grad;
+        ctx!.fillRect(0, 0, w, h);
+      }
+      ctx!.globalCompositeOperation = "source-over";
+
+      /* Layer 3: dramatic sun rays through water */
+      for (const ray of rays) {
+        const rx = ray.x + Math.sin(t * 0.00015 + ray.x * 0.001) * 60;
+        const shimmer = 0.4 + 0.6 * Math.sin(t * 0.0008 + ray.x * 0.008);
+        ctx!.save();
+        ctx!.translate(rx, 0);
+        ctx!.rotate(0.12 + Math.sin(t * 0.0001) * 0.03);
+        const grad = ctx!.createLinearGradient(0, 0, 0, h * 0.7);
+        grad.addColorStop(0, `rgba(241, 196, 15, ${ray.opacity * shimmer})`);
+        grad.addColorStop(0.3, `rgba(26, 138, 154, ${ray.opacity * 0.6 * shimmer})`);
+        grad.addColorStop(0.7, `rgba(13, 79, 92, ${ray.opacity * 0.2 * shimmer})`);
+        grad.addColorStop(1, "rgba(13, 79, 92, 0)");
+        ctx!.fillStyle = grad;
+        ctx!.fillRect(-ray.width / 2, -20, ray.width, h * 0.7 + 40);
+        ctx!.restore();
+      }
+
+      /* Layer 4: floating bubbles with refraction */
+      for (const b of bubbles) {
+        b.y -= b.speed;
+        b.wobble += 0.012;
+        const bx = b.x + Math.sin(b.wobble + b.phase) * 25;
+        if (b.y < -30) { b.y = h + 30; b.x = Math.random() * w; }
+        ctx!.beginPath();
+        ctx!.arc(bx, b.y, b.r, 0, Math.PI * 2);
+        ctx!.strokeStyle = `rgba(13, 79, 92, ${b.opacity * 0.7})`;
+        ctx!.lineWidth = 0.6;
+        ctx!.stroke();
+        ctx!.fillStyle = `rgba(26, 138, 154, ${b.opacity * 0.25})`;
+        ctx!.fill();
+        ctx!.beginPath();
+        ctx!.arc(bx - b.r * 0.3, b.y - b.r * 0.3, b.r * 0.3, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(255, 255, 255, ${b.opacity * 1.0})`;
+        ctx!.fill();
+      }
+
+      /* Layer 5: distant swimmer silhouettes doing freestyle */
+      for (const s of swimmers) {
+        s.x += s.speed * s.direction;
+        s.strokePhase += 0.04;
+        if (s.x > w + 100) { s.x = -100; s.y = 80 + Math.random() * 350; }
+        if (s.x < -100) { s.x = w + 100; s.y = 80 + Math.random() * 350; }
+        ctx!.save();
+        ctx!.translate(s.x, s.y);
+        if (s.direction < 0) ctx!.scale(-1, 1);
+        ctx!.globalAlpha = s.opacity;
+        ctx!.fillStyle = C.teal;
+        /* Body */
+        ctx!.beginPath();
+        ctx!.ellipse(0, 0, s.size * 1.8, s.size * 0.4, 0, 0, Math.PI * 2);
+        ctx!.fill();
+        /* Head */
+        ctx!.beginPath();
+        ctx!.arc(s.size * 1.6, -s.size * 0.1, s.size * 0.35, 0, Math.PI * 2);
+        ctx!.fill();
+        /* Arms — rotating freestyle stroke */
+        const armAngle = Math.sin(s.strokePhase) * 1.2;
+        ctx!.save();
+        ctx!.translate(s.size * 0.5, -s.size * 0.2);
+        ctx!.rotate(armAngle);
+        ctx!.fillRect(-1, -s.size * 1.2, 2.5, s.size * 1.2);
+        ctx!.restore();
+        ctx!.save();
+        ctx!.translate(-s.size * 0.3, -s.size * 0.2);
+        ctx!.rotate(-armAngle + Math.PI * 0.15);
+        ctx!.fillRect(-1, -s.size * 1.0, 2.5, s.size * 1.0);
+        ctx!.restore();
+        /* Kick splash */
+        const kick = Math.sin(s.strokePhase * 2) * s.size * 0.3;
+        ctx!.beginPath();
+        ctx!.ellipse(-s.size * 1.8, kick, s.size * 0.6, s.size * 0.15, 0, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(26, 138, 154, ${s.opacity * 0.5})`;
+        ctx!.fill();
+        ctx!.globalAlpha = 1;
+        ctx!.restore();
+      }
+
+      /* Layer 6: surface ripple with wave crests */
+      ctx!.beginPath();
+      ctx!.moveTo(-10, 0);
+      for (let x = -10; x <= w + 10; x += 3) {
+        const y = 4
+          + Math.sin(x * 0.008 + t * 0.002) * 3
+          + Math.sin(x * 0.02 + t * 0.003) * 1.5
+          + Math.cos(x * 0.005 + t * 0.001) * 2;
+        ctx!.lineTo(x, y);
+      }
+      ctx!.lineTo(w + 10, 0);
+      ctx!.lineTo(-10, 0);
+      ctx!.closePath();
+      ctx!.fillStyle = `rgba(241, 196, 15, 0.04)`;
+      ctx!.fill();
+
+      /* Layer 7: deep water gradient at bottom */
+      const bottomGrad = ctx!.createLinearGradient(0, h * 0.75, 0, h);
+      bottomGrad.addColorStop(0, "rgba(13, 79, 92, 0)");
+      bottomGrad.addColorStop(1, "rgba(9, 61, 71, 0.06)");
+      ctx!.fillStyle = bottomGrad;
+      ctx!.fillRect(0, h * 0.75, w, h * 0.25);
+
+      animId = requestAnimationFrame(draw);
+    }
+    animId = requestAnimationFrame(draw);
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: "fixed", top: 0, left: 0, width: "100%", height: "100%",
+        pointerEvents: "none", zIndex: 0,
+      }}
+    />
+  );
+}
+
+/* ── Piranha Logo SVG ── */
+function PiranhaLogo({ size = 48, color = C.teal }: { size?: number; color?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Aggressive piranha profile — sharp teeth, fierce eye */}
+      <path d="M8 32C8 32 14 18 28 16C34 15 40 16 46 20L56 26L48 30L56 34L46 38C40 44 34 46 28 46C14 44 8 32 8 32Z" fill={color} opacity="0.9"/>
+      {/* Jaw with teeth */}
+      <path d="M46 28L56 26L48 30L56 34L46 32Z" fill={C.gold}/>
+      <path d="M38 27L41 30L38 30Z" fill={C.white}/>
+      <path d="M34 26L37 30L34 29Z" fill={C.white}/>
+      <path d="M30 27L33 30L30 29Z" fill={C.white}/>
+      <path d="M38 33L41 30L38 30Z" fill={C.white}/>
+      <path d="M34 34L37 30L34 31Z" fill={C.white}/>
+      <path d="M30 33L33 30L30 31Z" fill={C.white}/>
+      {/* Eye — fierce red */}
+      <circle cx="22" cy="28" r="4" fill={C.white}/>
+      <circle cx="23" cy="27.5" r="2.5" fill={C.red}/>
+      <circle cx="23.8" cy="27" r="1" fill="#1a0000"/>
+      {/* Fin */}
+      <path d="M22 18L18 8L26 16Z" fill={color} opacity="0.7"/>
+      {/* Tail */}
+      <path d="M8 32L2 22L6 30L2 42L8 32Z" fill={color} opacity="0.6"/>
+    </svg>
+  );
+}
 
 /* ── Scroll-triggered reveal ── */
 function ScrollSection({ children, style, delay = 0, id }: {
@@ -51,6 +303,17 @@ function ScrollSection({ children, style, delay = 0, id }: {
   );
 }
 
+/* ── Parallax scroll hook ── */
+function useParallax() {
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const handle = () => setScrollY(window.scrollY);
+    window.addEventListener("scroll", handle, { passive: true });
+    return () => window.removeEventListener("scroll", handle);
+  }, []);
+  return scrollY;
+}
+
 /* ── Countdown logic ── */
 function useCountdown(target: Date) {
   const [now, setNow] = useState<Date | null>(null);
@@ -74,19 +337,42 @@ function CountdownBox({ value, label }: { value: number; label: string }) {
   return (
     <div style={{
       display: "flex", flexDirection: "column", alignItems: "center",
-      background: `linear-gradient(135deg, ${C.navyDark}, ${C.navy})`,
-      border: `1px solid ${C.gold}33`,
-      borderRadius: 12, padding: "16px 20px", minWidth: 80,
+      background: C.white,
+      border: `2px solid ${C.teal}20`,
+      borderRadius: 14, padding: "18px 22px", minWidth: 82,
+      boxShadow: "0 4px 20px rgba(13,79,92,0.08)",
     }}>
       <span style={{
-        fontSize: 36, fontWeight: 800, color: C.gold,
+        fontSize: 38, fontWeight: 800, color: C.teal,
         fontVariantNumeric: "tabular-nums", lineHeight: 1,
       }}>
         {String(value).padStart(2, "0")}
       </span>
-      <span style={{ fontSize: 11, color: C.white + "99", textTransform: "uppercase", letterSpacing: 2, marginTop: 6 }}>
+      <span style={{ fontSize: 10, color: C.textLight, textTransform: "uppercase", letterSpacing: 2, marginTop: 8 }}>
         {label}
       </span>
+    </div>
+  );
+}
+
+/* ── Animated wave divider ── */
+function WaveDivider({ flip = false, color = C.teal }: { flip?: boolean; color?: string }) {
+  return (
+    <div style={{
+      position: "relative", zIndex: 1, width: "100%", overflow: "hidden",
+      height: 60, marginTop: flip ? 0 : -1, marginBottom: flip ? -1 : 0,
+      transform: flip ? "scaleY(-1)" : "none",
+    }}>
+      <svg viewBox="0 0 1440 60" preserveAspectRatio="none" style={{ width: "100%", height: "100%", display: "block" }}>
+        <path
+          d="M0 30 Q120 5 240 25 T480 30 T720 20 T960 30 T1200 22 T1440 30 L1440 60 L0 60Z"
+          fill={color} opacity="0.06"
+        />
+        <path
+          d="M0 35 Q180 15 360 32 T720 28 T1080 35 T1440 28 L1440 60 L0 60Z"
+          fill={color} opacity="0.04"
+        />
+      </svg>
     </div>
   );
 }
@@ -95,13 +381,15 @@ function CountdownBox({ value, label }: { value: number; label: string }) {
 function StatCard({ value, label }: { value: string; label: string }) {
   return (
     <div style={{
-      background: `linear-gradient(135deg, ${C.cardBg}, ${C.navyDark})`,
-      border: `1px solid ${C.gold}22`,
-      borderRadius: 16, padding: "32px 24px", textAlign: "center" as const,
+      background: C.white,
+      border: `2px solid ${C.teal}15`,
+      borderRadius: 16, padding: "36px 28px", textAlign: "center" as const,
       flex: "1 1 200px", maxWidth: 260,
+      boxShadow: "0 3px 16px rgba(13,79,92,0.05)",
     }}>
-      <div style={{ fontSize: 42, fontWeight: 800, color: C.gold, lineHeight: 1 }}>{value}</div>
-      <div style={{ fontSize: 14, color: C.white + "bb", marginTop: 10 }}>{label}</div>
+      <div style={{ fontSize: 44, fontWeight: 900, color: C.teal, lineHeight: 1 }}>{value}</div>
+      <div style={{ width: 24, height: 2, background: C.gold, borderRadius: 1, margin: "12px auto" }} />
+      <div style={{ fontSize: 14, color: C.textLight }}>{label}</div>
     </div>
   );
 }
@@ -114,39 +402,51 @@ function StatCard({ value, label }: { value: string; label: string }) {
 export default function PowerChallengePage() {
   const eventDate = new Date("2026-04-11T07:00:00-04:00");
   const countdown = useCountdown(eventDate);
+  const scrollY = useParallax();
 
   return (
     <div style={{
-      minHeight: "100vh", background: C.bg, color: C.white,
+      minHeight: "100vh", background: C.bg, color: C.text,
       fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
       overflowX: "hidden" as const,
+      position: "relative" as const,
     }}>
-      <ParticleField variant="gold" count={50} speed={0.3} opacity={0.4} connections />
+      {/* Ocean water effect */}
+      <OceanBackground />
 
       {/* ── Nav ── */}
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 50,
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "14px 28px",
-        background: C.bg + "ee", backdropFilter: "blur(12px)",
-        borderBottom: `1px solid ${C.navy}44`,
+        padding: "12px 32px",
+        background: C.white + "f2", backdropFilter: "blur(16px)",
+        borderBottom: `1px solid ${C.teal}10`,
+        boxShadow: "0 1px 12px rgba(13,79,92,0.04)",
       }}>
-        <Link href="/power-challenge" style={{ color: C.gold, fontWeight: 800, fontSize: 16, textDecoration: "none", letterSpacing: 1 }}>
+        <Link href="/power-challenge" style={{
+          color: C.teal, fontWeight: 800, fontSize: 15, textDecoration: "none",
+          letterSpacing: 2, display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <PiranhaLogo size={32} />
           POWER CHALLENGE
         </Link>
-        <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
           {[
             { label: "Races", href: "#races" },
             { label: "Schedule", href: "#schedule" },
             { label: "FAQ", href: "#faq" },
           ].map((link) => (
-            <a key={link.href} href={link.href} style={{ color: C.white + "cc", fontSize: 14, textDecoration: "none", fontWeight: 500 }}>
+            <a key={link.href} href={link.href} className="nav-link" style={{
+              color: C.textLight, fontSize: 14, textDecoration: "none", fontWeight: 500,
+              transition: "color 0.2s",
+            }}>
               {link.label}
             </a>
           ))}
           <Link href="/power-challenge/register" style={{
-            padding: "8px 20px", background: C.gold, color: C.navyDark,
+            padding: "8px 22px", background: C.red, color: C.white,
             fontWeight: 700, fontSize: 13, borderRadius: 50, textDecoration: "none",
+            boxShadow: `0 2px 10px ${C.red}25`,
           }}>
             Register
           </Link>
@@ -154,38 +454,68 @@ export default function PowerChallengePage() {
       </nav>
 
       {/* ── Hero ── */}
-      <header style={{
+      <header className="hero-animate" style={{
         position: "relative", zIndex: 1,
         minHeight: "100vh", display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
-        textAlign: "center" as const, padding: "60px 24px 40px",
+        textAlign: "center" as const, padding: "80px 24px 60px",
+        background: `linear-gradient(180deg, ${C.heroGradStart} 0%, ${C.bg} 100%)`,
+        transform: `translateY(${scrollY * 0.15}px)`,
+        willChange: "transform",
       }}>
-        <div style={{
-          fontSize: 13, letterSpacing: 4, textTransform: "uppercase" as const,
-          color: C.gold, marginBottom: 16, fontWeight: 600,
-        }}>
-          Jesse Vassallo&apos;s Pompano Beach Piranhas Present
+        {/* Piranha Logo — hero centerpiece */}
+        <div style={{ marginBottom: 12, filter: `drop-shadow(0 4px 20px rgba(13,79,92,0.2))` }}>
+          <PiranhaLogo size={80} />
         </div>
 
+        <div style={{
+          fontSize: 12, letterSpacing: 6, textTransform: "uppercase" as const,
+          color: C.tealMid, marginBottom: 16, fontWeight: 600,
+        }}>
+          Jesse Vassallo&apos;s Pompano Beach Piranhas
+        </div>
+
+        {/* Gold accent line */}
+        <div style={{
+          width: 80, height: 3, background: `linear-gradient(90deg, transparent, ${C.gold}, transparent)`,
+          borderRadius: 2, marginBottom: 20,
+        }} />
+
         <h1 style={{
-          fontSize: "clamp(48px, 8vw, 96px)", fontWeight: 900,
-          lineHeight: 1.05, margin: "0 0 8px",
-          background: `linear-gradient(135deg, ${C.gold}, ${C.white}, ${C.gold})`,
+          fontSize: "clamp(56px, 10vw, 120px)", fontWeight: 900,
+          lineHeight: 0.9, margin: "0 0 4px",
+          background: `linear-gradient(135deg, ${C.teal} 10%, ${C.tealLight} 50%, ${C.teal} 90%)`,
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+          letterSpacing: "-0.03em",
+          textShadow: "none",
         }}>
           POWER<br />CHALLENGE
         </h1>
 
-        <p style={{
-          fontSize: "clamp(16px, 2.5vw, 22px)", color: C.white + "cc",
-          maxWidth: 540, margin: "0 auto 40px", lineHeight: 1.5,
+        <div style={{
+          fontSize: "clamp(13px, 1.8vw, 17px)", letterSpacing: 8,
+          textTransform: "uppercase" as const, color: C.red,
+          fontWeight: 800, margin: "8px 0 6px",
         }}>
-          Open Water Swim &mdash; Pompano Beach, FL
+          Open Water Extreme Race
+        </div>
+
+        <div style={{
+          width: 40, height: 2, background: C.gold, borderRadius: 1,
+          margin: "0 auto 24px",
+        }} />
+
+        <p style={{
+          fontSize: "clamp(16px, 2.2vw, 21px)", color: C.textLight,
+          maxWidth: 500, margin: "0 auto 40px", lineHeight: 1.6,
+          fontWeight: 400,
+        }}>
+          Pompano Beach, FL &bull; Saturday, April 11, 2026
         </p>
 
         {countdown.ready && (
           <div style={{
-            display: "flex", gap: 12, flexWrap: "wrap" as const,
+            display: "flex", gap: 14, flexWrap: "wrap" as const,
             justifyContent: "center", marginBottom: 48,
           }}>
             <CountdownBox value={countdown.days} label="Days" />
@@ -195,30 +525,33 @@ export default function PowerChallengePage() {
           </div>
         )}
 
-        <Link href="/power-challenge/register" style={{
-          display: "inline-block", padding: "16px 48px",
-          background: `linear-gradient(135deg, ${C.gold}, ${C.goldDim})`,
-          color: C.navyDark, fontWeight: 800, fontSize: 18,
+        <Link href="/power-challenge/register" className="register-btn" style={{
+          display: "inline-block", padding: "18px 56px",
+          background: `linear-gradient(135deg, ${C.red}, ${C.redLight})`,
+          color: C.white, fontWeight: 800, fontSize: 18,
           borderRadius: 50, textDecoration: "none",
-          boxShadow: `0 0 30px ${C.gold}44`,
-          transition: "transform 0.2s, box-shadow 0.2s",
+          boxShadow: `0 6px 30px ${C.red}40`,
+          transition: "transform 0.25s ease, box-shadow 0.25s ease",
+          letterSpacing: "0.5px",
         }}>
           Register Now
         </Link>
 
         <div style={{
-          position: "absolute", bottom: 32, left: "50%", transform: "translateX(-50%)",
-          color: C.white + "44", fontSize: 24, animation: "bounce 2s infinite",
+          position: "absolute", bottom: 36, left: "50%", transform: "translateX(-50%)",
+          color: C.teal + "33", fontSize: 28, animation: "bounce 2.5s infinite ease-in-out",
         }}>
           &#8595;
         </div>
       </header>
 
+      <WaveDivider />
+
       {/* ── Event Details ── */}
       <ScrollSection id="races" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto" }}>
         <h2 style={{
           fontSize: 36, fontWeight: 800, textAlign: "center" as const,
-          marginBottom: 48, color: C.gold,
+          marginBottom: 48, color: C.teal,
         }}>
           The Races
         </h2>
@@ -227,52 +560,80 @@ export default function PowerChallengePage() {
           flexWrap: "wrap" as const,
         }}>
           {[
-            { distance: "500m", desc: "Sprint — fast and fierce. Perfect for first-timers and competitive swimmers alike.", icon: "⚡" },
-            { distance: "1.5K", desc: "Distance — test your endurance in the open Atlantic. The ultimate challenge.", icon: "🌊" },
+            { distance: "500m", label: "Sprint", price: "$45", desc: "Fast and fierce. Perfect for first-timers and competitive swimmers alike." },
+            { distance: "1.5K", label: "Distance", price: "$65", desc: "Test your endurance in the open Atlantic. The ultimate power challenge." },
           ].map((race) => (
-            <div key={race.distance} style={{
+            <div key={race.distance} className="race-card" style={{
               flex: "1 1 340px", maxWidth: 420,
-              background: `linear-gradient(160deg, ${C.cardBg}, ${C.navyDark})`,
-              border: `1px solid ${C.navy}`,
-              borderRadius: 20, padding: "40px 32px",
+              background: C.white,
+              border: `2px solid ${C.teal}18`,
+              borderRadius: 20, padding: "48px 32px 40px",
               textAlign: "center" as const,
+              boxShadow: "0 8px 32px rgba(13,79,92,0.08)",
+              position: "relative" as const, overflow: "hidden" as const,
+              transition: "transform 0.35s ease, box-shadow 0.35s ease",
+              cursor: "pointer",
             }}>
-              <div style={{ fontSize: 48, marginBottom: 12 }}>{race.icon}</div>
-              <div style={{ fontSize: 32, fontWeight: 800, color: C.gold, marginBottom: 12 }}>{race.distance}</div>
-              <p style={{ color: C.white + "bb", lineHeight: 1.6, fontSize: 15 }}>{race.desc}</p>
+              {/* Gold top accent bar */}
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: `linear-gradient(90deg, ${C.teal}, ${C.gold}, ${C.teal})` }} />
+              {/* Animated water shimmer overlay */}
+              <div className="card-shimmer" style={{
+                position: "absolute", top: 0, left: "-100%", width: "200%", height: "100%",
+                background: `linear-gradient(90deg, transparent 0%, rgba(26,138,154,0.04) 25%, rgba(241,196,15,0.06) 50%, rgba(26,138,154,0.04) 75%, transparent 100%)`,
+                pointerEvents: "none",
+              }} />
+              {/* Water wave decoration at bottom */}
+              <svg className="card-wave" style={{ position: "absolute", bottom: 0, left: 0, right: 0, opacity: 0.08 }} viewBox="0 0 400 40" preserveAspectRatio="none" height="40" width="100%">
+                <path d="M0 20 Q50 5 100 20 T200 20 T300 20 T400 20 L400 40 L0 40Z" fill={C.teal}/>
+              </svg>
+              <PiranhaLogo size={36} color={C.tealLight} />
+              <div style={{ fontSize: 40, fontWeight: 900, color: C.teal, marginTop: 8, marginBottom: 2 }}>{race.distance}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.tealLight, letterSpacing: 3, textTransform: "uppercase" as const, marginBottom: 14 }}>{race.label}</div>
+              <p style={{ color: C.textLight, lineHeight: 1.7, fontSize: 15, marginBottom: 20 }}>{race.desc}</p>
+              <div style={{
+                fontSize: 26, fontWeight: 900, color: C.red,
+                background: `${C.red}08`, borderRadius: 50, display: "inline-block",
+                padding: "6px 28px",
+              }}>{race.price}</div>
             </div>
           ))}
         </div>
       </ScrollSection>
 
+      <WaveDivider flip />
+
       {/* ── Location ── */}
       <ScrollSection style={{ position: "relative", zIndex: 1, padding: "60px 24px 80px", textAlign: "center" as const }} delay={0.1}>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: C.white, marginBottom: 12 }}>
+        <h2 style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 12 }}>
           Pompano Beach, Florida
         </h2>
-        <p style={{ color: C.white + "99", maxWidth: 520, margin: "0 auto 24px", lineHeight: 1.6 }}>
+        <p style={{ color: C.textLight, maxWidth: 520, margin: "0 auto 24px", lineHeight: 1.6 }}>
           Race day morning on the beautiful Atlantic coast. Warm water, ocean swells, and the energy of South Florida&apos;s swim community.
         </p>
         <div style={{
-          display: "inline-block",
-          background: C.navy + "66", border: `1px solid ${C.navy}`,
-          borderRadius: 12, padding: "14px 28px",
-          color: C.gold, fontWeight: 600, fontSize: 15,
+          display: "inline-flex", alignItems: "center", gap: 12,
+          background: C.white, border: `2px solid ${C.teal}20`,
+          borderRadius: 50, padding: "14px 32px",
+          color: C.teal, fontWeight: 700, fontSize: 15,
+          boxShadow: "0 2px 16px rgba(13,79,92,0.06)",
         }}>
+          <PiranhaLogo size={24} color={C.tealLight} />
           April 11, 2026 &bull; Race Start 7:00 AM
         </div>
       </ScrollSection>
+
+      <WaveDivider />
 
       {/* ── 2024 Results ── */}
       <ScrollSection style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 900, margin: "0 auto" }} delay={0.1}>
         <h2 style={{
           fontSize: 36, fontWeight: 800, textAlign: "center" as const,
-          marginBottom: 16, color: C.gold,
+          marginBottom: 16, color: C.teal,
         }}>
           2024 Results
         </h2>
         <p style={{
-          textAlign: "center" as const, color: C.white + "99",
+          textAlign: "center" as const, color: C.textLight,
           marginBottom: 48, fontSize: 15,
         }}>
           Last year&apos;s event brought together an incredible field of open water athletes.
@@ -287,36 +648,47 @@ export default function PowerChallengePage() {
         </div>
       </ScrollSection>
 
+      <WaveDivider flip />
+
       {/* ── Sponsors ── */}
       <ScrollSection style={{ position: "relative", zIndex: 1, padding: "80px 24px 100px", textAlign: "center" as const }} delay={0.15}>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: C.white, marginBottom: 16 }}>
+        <h2 style={{ fontSize: 28, fontWeight: 700, color: C.text, marginBottom: 16 }}>
           Our Sponsors
         </h2>
-        <p style={{ color: C.white + "99", marginBottom: 40, fontSize: 15 }}>
+        <p style={{ color: C.textLight, marginBottom: 40, fontSize: 15 }}>
           Proudly supported by the South Florida swimming community.
         </p>
         <div style={{
           display: "flex", gap: 24, justifyContent: "center",
-          flexWrap: "wrap" as const,
+          flexWrap: "wrap" as const, alignItems: "center",
         }}>
-          {["Sponsor 1", "Sponsor 2", "Sponsor 3", "Sponsor 4"].map((name) => (
-            <div key={name} style={{
-              width: 160, height: 80,
-              background: C.cardBg,
-              border: `1px dashed ${C.navy}`,
-              borderRadius: 12,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: C.white + "44", fontSize: 13, fontWeight: 500,
-            }}>
-              {name}
+          <div style={{
+            background: C.white, border: `2px solid ${C.teal}18`,
+            borderRadius: 16, padding: "32px 48px", textAlign: "center" as const,
+            boxShadow: "0 4px 20px rgba(13,79,92,0.06)",
+            maxWidth: 400,
+          }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: C.teal, marginBottom: 8 }}>
+              Sponsor This Event
             </div>
-          ))}
+            <p style={{ color: C.textLight, fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
+              Support local youth swimming and get your brand in front of the South Florida aquatics community.
+            </p>
+            <a href="mailto:info@pompanopiranhas.com" style={{
+              display: "inline-block", padding: "10px 28px",
+              background: C.teal, color: C.white, fontWeight: 700,
+              fontSize: 13, borderRadius: 50, textDecoration: "none",
+              boxShadow: `0 2px 12px ${C.teal}30`,
+            }}>
+              Get In Touch
+            </a>
+          </div>
         </div>
       </ScrollSection>
 
       {/* ── Race Day Schedule ── */}
       <ScrollSection id="schedule" style={{ position: "relative", zIndex: 1, padding: "80px 24px", maxWidth: 700, margin: "0 auto" }}>
-        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.gold }}>
+        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.teal }}>
           Race Day Schedule
         </h2>
         <div style={{ display: "flex", flexDirection: "column" as const, gap: 0 }}>
@@ -331,13 +703,13 @@ export default function PowerChallengePage() {
           ].map((item, i) => (
             <div key={i} style={{
               display: "flex", gap: 20, padding: "18px 0",
-              borderBottom: `1px solid ${C.navy}33`,
+              borderBottom: `1px solid ${C.teal}15`,
               alignItems: "baseline",
             }}>
-              <span style={{ color: C.gold, fontWeight: 700, fontSize: 15, minWidth: 90, fontVariantNumeric: "tabular-nums" }}>
+              <span style={{ color: C.teal, fontWeight: 700, fontSize: 15, minWidth: 90, fontVariantNumeric: "tabular-nums" }}>
                 {item.time}
               </span>
-              <span style={{ color: C.white + "dd", fontSize: 15 }}>{item.event}</span>
+              <span style={{ color: C.text, fontSize: 15 }}>{item.event}</span>
             </div>
           ))}
         </div>
@@ -345,7 +717,7 @@ export default function PowerChallengePage() {
 
       {/* ── FAQ ── */}
       <ScrollSection id="faq" style={{ position: "relative", zIndex: 1, padding: "80px 24px 100px", maxWidth: 700, margin: "0 auto" }}>
-        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.gold }}>
+        <h2 style={{ fontSize: 36, fontWeight: 800, textAlign: "center" as const, marginBottom: 48, color: C.teal }}>
           FAQ
         </h2>
         <div style={{ display: "flex", flexDirection: "column" as const, gap: 24 }}>
@@ -359,11 +731,12 @@ export default function PowerChallengePage() {
             { q: "Can I get a refund?", a: "Refunds are available up to 14 days before the event. No refunds within 14 days of race day." },
           ].map((item, i) => (
             <div key={i} style={{
-              background: C.cardBg, border: `1px solid ${C.navy}44`,
+              background: C.white, border: `2px solid ${C.teal}10`,
               borderRadius: 14, padding: "24px 28px",
+              boxShadow: "0 2px 10px rgba(13,79,92,0.03)",
             }}>
-              <div style={{ color: C.gold, fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{item.q}</div>
-              <div style={{ color: C.white + "bb", fontSize: 14, lineHeight: 1.6 }}>{item.a}</div>
+              <div style={{ color: C.teal, fontWeight: 700, fontSize: 16, marginBottom: 8 }}>{item.q}</div>
+              <div style={{ color: C.textLight, fontSize: 14, lineHeight: 1.7 }}>{item.a}</div>
             </div>
           ))}
         </div>
@@ -372,17 +745,115 @@ export default function PowerChallengePage() {
       {/* ── Footer ── */}
       <footer style={{
         position: "relative", zIndex: 1,
-        borderTop: `1px solid ${C.navy}`,
-        padding: "32px 24px", textAlign: "center" as const,
-        color: C.white + "66", fontSize: 13,
+        borderTop: `2px solid ${C.teal}10`,
+        padding: "48px 24px 36px", textAlign: "center" as const,
+        color: C.textLight, fontSize: 13,
+        background: C.offWhite,
       }}>
-        &copy; {new Date().getFullYear()} Pompano Beach Piranhas &mdash; Jesse Vassallo&apos;s POWER CHALLENGE
+        <div style={{ marginBottom: 12, opacity: 0.5 }}>
+          <PiranhaLogo size={36} color={C.tealLight} />
+        </div>
+        <div style={{ fontWeight: 700, color: C.teal, marginBottom: 6, fontSize: 14, letterSpacing: 2 }}>
+          POMPANO BEACH PIRANHAS
+        </div>
+        <div style={{ width: 30, height: 2, background: C.gold, borderRadius: 1, margin: "0 auto 12px" }} />
+        <div>
+          &copy; {new Date().getFullYear()} Jesse Vassallo&apos;s POWER CHALLENGE
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <a href="https://www.pompanopiranhas.com" style={{ color: C.tealLight, textDecoration: "none", fontWeight: 500 }} target="_blank" rel="noopener noreferrer">
+            pompanopiranhas.com
+          </a>
+        </div>
       </footer>
 
       <style>{`
         @keyframes bounce {
           0%, 100% { transform: translateX(-50%) translateY(0); }
           50% { transform: translateX(-50%) translateY(8px); }
+        }
+        @keyframes shimmerSlide {
+          0% { transform: translateX(-50%); }
+          100% { transform: translateX(50%); }
+        }
+        @keyframes waveFloat {
+          0%, 100% { transform: translateX(0); }
+          50% { transform: translateX(-20px); }
+        }
+        .race-card:hover {
+          transform: translateY(-8px) !important;
+          box-shadow: 0 16px 48px rgba(13,79,92,0.16) !important;
+          border-color: rgba(13,79,92,0.2) !important;
+        }
+        .race-card:hover .card-shimmer {
+          animation: shimmerSlide 2s ease-in-out infinite;
+        }
+        .race-card .card-wave {
+          animation: waveFloat 4s ease-in-out infinite;
+        }
+        .register-btn:hover {
+          transform: scale(1.05) !important;
+          box-shadow: 0 10px 40px rgba(192,57,43,0.5) !important;
+        }
+        .register-btn:active {
+          transform: scale(0.97) !important;
+        }
+        .nav-link {
+          position: relative;
+        }
+        .nav-link::after {
+          content: '';
+          position: absolute;
+          bottom: -4px;
+          left: 0;
+          width: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #0d4f5c, #1a8a9a);
+          border-radius: 1px;
+          transition: width 0.3s ease;
+        }
+        .nav-link:hover {
+          color: #0d4f5c !important;
+        }
+        .nav-link:hover::after {
+          width: 100%;
+        }
+        @keyframes heroFadeIn {
+          0% { opacity: 0; transform: translateY(30px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .hero-animate > * {
+          animation: heroFadeIn 0.8s ease-out both;
+        }
+        .hero-animate > *:nth-child(1) { animation-delay: 0.1s; }
+        .hero-animate > *:nth-child(2) { animation-delay: 0.2s; }
+        .hero-animate > *:nth-child(3) { animation-delay: 0.3s; }
+        .hero-animate > *:nth-child(4) { animation-delay: 0.4s; }
+        .hero-animate > *:nth-child(5) { animation-delay: 0.5s; }
+        .hero-animate > *:nth-child(6) { animation-delay: 0.6s; }
+        .hero-animate > *:nth-child(7) { animation-delay: 0.7s; }
+        .hero-animate > *:nth-child(8) { animation-delay: 0.8s; }
+        .hero-animate > *:nth-child(9) { animation-delay: 0.9s; }
+        @keyframes pulseGlow {
+          0%, 100% { box-shadow: 0 6px 30px rgba(192,57,43,0.4); }
+          50% { box-shadow: 0 6px 50px rgba(192,57,43,0.65), 0 0 80px rgba(192,57,43,0.2); }
+        }
+        @keyframes cardBreathe {
+          0%, 100% { box-shadow: 0 8px 32px rgba(13,79,92,0.08); }
+          50% { box-shadow: 0 8px 40px rgba(13,79,92,0.14), 0 0 60px rgba(26,138,154,0.06); }
+        }
+        @keyframes floatUp {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-6px); }
+        }
+        .register-btn {
+          animation: pulseGlow 3s ease-in-out infinite !important;
+        }
+        .race-card {
+          animation: cardBreathe 5s ease-in-out infinite;
+        }
+        .race-card:nth-child(2) {
+          animation-delay: 1.5s;
         }
       `}</style>
     </div>
