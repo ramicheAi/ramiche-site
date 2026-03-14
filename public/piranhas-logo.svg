@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 220" width="200" height="220">
+  <!-- Yellow background circle -->
+  <circle cx="100" cy="100" r="95" fill="#e8b800"/>
+  <!-- Piranha body - aggressive profile facing right -->
+  <path d="M35 95C35 95 50 60 80 55C95 52 115 55 135 70L155 82L140 90L155 98L135 108C115 125 95 130 80 128C50 124 35 95 35 95Z" fill="#0a1e3d"/>
+  <!-- Tail fin -->
+  <path d="M35 95L20 75L32 90L20 115L35 95Z" fill="#0a1e3d"/>
+  <!-- Dorsal fin -->
+  <path d="M75 60L65 35L85 55Z" fill="#0a1e3d"/>
+  <!-- Jaw/teeth area -->
+  <path d="M135 85L155 82L140 90L155 98L135 95Z" fill="#e8b800"/>
+  <!-- Teeth top -->
+  <path d="M115 84L120 90L115 89Z" fill="#ffffff"/>
+  <path d="M105 82L110 89L105 87Z" fill="#ffffff"/>
+  <path d="M95 84L100 89L95 87Z" fill="#ffffff"/>
+  <!-- Teeth bottom -->
+  <path d="M115 96L120 90L115 91Z" fill="#ffffff"/>
+  <path d="M105 98L110 91L105 93Z" fill="#ffffff"/>
+  <path d="M95 96L100 91L95 93Z" fill="#ffffff"/>
+  <!-- Eye -->
+  <circle cx="68" cy="85" r="7" fill="#ffffff"/>
+  <circle cx="70" cy="84" r="4" fill="#d42b2b"/>
+  <circle cx="71" cy="83" r="1.5" fill="#0a0000"/>
+  <!-- Text: POMPANO BEACH -->
+  <text x="100" y="175" text-anchor="middle" fill="#0a1e3d" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="16" letter-spacing="3">POMPANO BEACH</text>
+  <!-- Text: PIRANHAS -->
+  <text x="100" y="200" text-anchor="middle" fill="#0a1e3d" font-family="Arial Black, Impact, sans-serif" font-weight="900" font-size="22" letter-spacing="4">PIRANHAS</text>
+</svg>

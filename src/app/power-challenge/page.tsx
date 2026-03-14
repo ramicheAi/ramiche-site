@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 /* ParticleField removed — replaced by OceanBackground */
 
 /* ── Brand Colors (from Piranhas Open Water logo) ── */
@@ -431,7 +432,7 @@ export default function PowerChallengePage() {
           color: C.navy, fontWeight: 800, fontSize: 15, textDecoration: "none",
           letterSpacing: 2, display: "flex", alignItems: "center", gap: 8,
         }}>
-          <PiranhaLogo size={32} />
+          <Image src="/piranhas-logo.svg" alt="Piranhas" width={36} height={36} style={{ borderRadius: 6 }} />
           POWER CHALLENGE
         </Link>
         <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
@@ -469,7 +470,7 @@ export default function PowerChallengePage() {
       }}>
         {/* Piranha Logo — hero centerpiece */}
         <div style={{ marginBottom: 12, filter: `drop-shadow(0 4px 20px rgba(10,30,61,0.2))` }}>
-          <PiranhaLogo size={80} />
+          <Image src="/piranhas-logo.svg" alt="Pompano Beach Piranhas" width={120} height={132} style={{ borderRadius: 12 }} />
         </div>
 
         <div style={{
@@ -755,8 +756,8 @@ export default function PowerChallengePage() {
         color: C.textLight, fontSize: 13,
         background: C.offWhite,
       }}>
-        <div style={{ marginBottom: 12, opacity: 0.5 }}>
-          <PiranhaLogo size={36} color={C.tealLight} />
+        <div style={{ marginBottom: 12, opacity: 0.7 }}>
+          <Image src="/piranhas-logo.svg" alt="Piranhas" width={48} height={52} style={{ borderRadius: 8 }} />
         </div>
         <div style={{ fontWeight: 700, color: C.navy, marginBottom: 6, fontSize: 14, letterSpacing: 2 }}>
           POMPANO BEACH PIRANHAS
