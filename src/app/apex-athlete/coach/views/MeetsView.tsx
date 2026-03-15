@@ -150,6 +150,13 @@ export default function MeetsView({
       events: [], rsvps: {}, broadcasts: [], status: "upcoming",
     };
     saveMeets([...meets, m]);
+    // Auto-schedule result fetching for this meet
+    const athleteIds = filteredRoster.map(a => a.id || a.name);
+    fetch("/api/meet-schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ meetId: m.id, meetName: m.name, meetDate: m.date, athleteIds }),
+    }).catch(() => {}); // fire-and-forget — don't block meet creation
     setNewMeetName(""); setNewMeetDate(""); setNewMeetLocation(""); setNewMeetDeadline("");
   };
 
