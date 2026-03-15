@@ -425,6 +425,7 @@ const NOTIFICATIONS = [
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
 const NAV = [
   { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
+  { label: "CONTENT", href: "/command-center/content", icon: "\u270E" },
   { label: "AGENTS", href: "/command-center/agents", icon: "\u2726" },
   { label: "TASKS", href: "/command-center/tasks", icon: "\u25A3" },
   { label: "CALENDAR", href: "/command-center/calendar", icon: "\u25CB" },
