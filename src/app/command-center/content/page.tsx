@@ -1,75 +1,42 @@
-/* ═════════════════════════════════════════════════════════════════════════════
-   CONTENT PIPELINE — Command Center
-   Team: INK (Content) · ECHO (Social) · VEE (Brand)
-   Enhanced: Parallax Publish Integration + Workflow Management
-   ═════════════════════════════════════════════════════════════════════════════ */
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useTime } from "@/hooks/useTime";
+import ParticleField from "@/components/ParticleField";
 
-/* ── Types ──────────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONTENT PIPELINE — INK · ECHO · VEE
+   End-to-end content creation, workflow & publishing dashboard
+   ══════════════════════════════════════════════════════════════════════════════ */
 
-type TeamMember = {
-  id: string;
-  name: string;
-  role: string;
-  status: "online" | "busy" | "away" | "offline";
-  currentTask?: string;
-  avatar: string;
-};
-
-type WeekDay = {
-  day: string;
-  theme: string;
-  focus: string;
-  platforms: string[];
-  active: boolean;
-};
-
-type PipelineStage = {
-  name: "DRAFT" | "REVIEWED" | "APPROVED" | "POSTED";
-  count: number;
-  color: string;
-};
-
-type Platform = {
-  name: string;
-  connected: boolean;
-  followers: string;
-  status: "active" | "pending" | "error";
-};
-
-type ContentItem = {
-  id: string;
-  title: string;
-  content: string;
+interface ContentDay { day: string; division: string; focus: string; angle: string; }
+interface AgentStatus { id: string; name: string; status: string; role: string; }
+interface ContentItem {
+  id: string; title: string; content: string;
   platform: "Instagram" | "X" | "LinkedIn" | "All";
-  stage: PipelineStage["name"];
-  assignee: string;
-  dueDate: string;
-  createdAt: string;
-  mediaUrls?: string[];
-  scheduledTime?: string;
-  performance?: {
-    likes: number;
-    comments: number;
-    shares: number;
-    reach: number;
-  };
-};
+  stage: "draft" | "reviewed" | "approved" | "posted";
+  assignee: string; dueDate: string; createdAt: string;
+  performance?: { likes: number; comments: number; shares: number; reach: number };
+}
 
-/* ── Data ──────────────────────────────────────────────────────────────────── */
+const SCHEDULE: ContentDay[] = [
+  { day: "Monday", division: "Parallax", focus: "Agent Marketplace", angle: "AI agent capabilities, skill spotlights" },
+  { day: "Tuesday", division: "Ramiche Studio", focus: "Creative Services", angle: "Portfolio pieces, design process" },
+  { day: "Wednesday", division: "Galactik Antics", focus: "AI Art + Merch", angle: "Art drops, merch reveals" },
+  { day: "Thursday", division: "ClawGuard Pro", focus: "Security", angle: "Security tips, vulnerability awareness" },
+  { day: "Friday", division: "Community / BTS", focus: "Brand Storytelling", angle: "Day-in-the-life, founder journey" },
+  { day: "Saturday", division: "Educational", focus: "AI + Tech Value", angle: "AI tips, productivity hacks, tutorials" },
+  { day: "Sunday", division: "Recap + Engagement", focus: "Community", angle: "Week highlights, shoutouts, Q&A" },
+];
 
 const HASHTAG_BANK: Record<string, string[]> = {
-  "Parallax": ["#AI", "#Automation", "#BusinessGrowth", "#AITools", "#Productivity"],
+  Parallax: ["#AI", "#Automation", "#BusinessGrowth", "#AITools", "#Productivity"],
   "Ramiche Studio": ["#Design", "#Creative", "#Branding", "#VisualIdentity", "#Portfolio"],
   "Galactik Antics": ["#AIArt", "#DigitalArt", "#Merch", "#CreativeCulture", "#ArtDrop"],
-  "ClawGuard Pro": ["#CyberSecurity", "#InfoSec", "#BusinessProtection", "#SecurityTips", "#Vulnerability"],
-  "Community": ["#BehindTheScenes", "#FounderJourney", "#TeamCulture", "#BuildInPublic", "#StartupLife"],
-  "Educational": ["#AITips", "#TechTips", "#ProductivityHacks", "#Tutorial", "#LearnAI"],
-  "Recap": ["#WeekInReview", "#Community", "#Highlights", "#QandA", "#Engagement"],
+  "ClawGuard Pro": ["#CyberSecurity", "#InfoSec", "#BusinessProtection", "#SecurityTips"],
+  "Community / BTS": ["#BehindTheScenes", "#FounderJourney", "#TeamCulture", "#BuildInPublic"],
+  Educational: ["#AITips", "#TechTips", "#ProductivityHacks", "#Tutorial", "#LearnAI"],
+  "Recap + Engagement": ["#WeekInReview", "#Community", "#Highlights", "#QandA"],
 };
 
 const POST_TEMPLATES = [
@@ -80,591 +47,276 @@ const POST_TEMPLATES = [
   { name: "Question Hook", structure: "Provocative Q → Answer → Engagement CTA" },
 ];
 
-const TEAM: TeamMember[] = [
-  {
-    id: "vee",
-    name: "VEE",
-    role: "Brand Strategy",
-    status: "offline",
-    currentTask: "Review division focus + decide angle/hook",
-    avatar: "V",
-  },
-  {
-    id: "ink",
-    name: "INK",
-    role: "Content Creator",
-    status: "offline",
-    currentTask: "Draft post copy (all 3 platforms)",
-    avatar: "I",
-  },
-  {
-    id: "echo",
-    name: "ECHO",
-    role: "Community & Social",
-    status: "offline",
-    currentTask: "Review engagement potential + hashtags",
-    avatar: "E",
-  },
-];
+const PLATFORMS = ["Instagram", "X", "LinkedIn"];
+const STATUS_COLORS: Record<string, string> = { draft: "#f59e0b", reviewed: "#818cf8", approved: "#22c55e", posted: "#06b6d4" };
 
-const WEEKLY_ROTATION: WeekDay[] = [
-  { day: "MONDAY", theme: "Parallax", focus: "AI agents + skills, marketplace value", platforms: ["Instagram", "X", "LinkedIn"], active: false },
-  { day: "TUESDAY", theme: "Ramiche Studio", focus: "Creative services, portfolio, client wins", platforms: ["Instagram", "X", "LinkedIn"], active: false },
-  { day: "WEDNESDAY", theme: "Galactik Antics", focus: "AI art + merch, culture, behind-the-vibe", platforms: ["Instagram", "X", "LinkedIn"], active: false },
-  { day: "THURSDAY", theme: "ClawGuard Pro", focus: "Security tips, vulnerability awareness", platforms: ["Instagram", "X", "LinkedIn"], active: false },
-  { day: "FRIDAY", theme: "Community", focus: "Behind-the-scenes, brand storytelling", platforms: ["Instagram", "X", "LinkedIn"], active: false },
-  { day: "SATURDAY", theme: "Educational", focus: "AI tips, productivity hacks, tutorials", platforms: ["Instagram", "X", "LinkedIn"], active: true },
-  { day: "SUNDAY", theme: "Recap", focus: "Week highlights, community shoutouts, Q&A", platforms: ["Instagram", "X", "LinkedIn"], active: false },
-];
-
-const PIPELINE: PipelineStage[] = [
-  { name: "DRAFT", count: 0, color: "#22d3ee" },
-  { name: "REVIEWED", count: 0, color: "#a855f7" },
-  { name: "APPROVED", count: 0, color: "#34d399" },
-  { name: "POSTED", count: 0, color: "#00f0ff" },
-];
-
-const PLATFORMS: Platform[] = [
-  { name: "Instagram", connected: true, followers: "16,106", status: "active" },
-  { name: "X (Twitter)", connected: true, followers: "19", status: "active" },
-  { name: "LinkedIn", connected: true, followers: "—", status: "pending" },
-];
-
-const SAMPLE_CONTENT: ContentItem[] = [
-  {
-    id: "1",
-    title: "AI Tips for Coaches",
-    content: "5 ways AI is transforming swim training analytics...",
-    platform: "LinkedIn",
-    stage: "DRAFT",
-    assignee: "INK",
-    dueDate: "2026-03-15",
-    createdAt: "2026-03-14",
-  },
-  {
-    id: "2",
-    title: "Weekend Motivation",
-    content: "Champions are made when no one is watching...",
-    platform: "Instagram",
-    stage: "REVIEWED",
-    assignee: "VEE",
-    dueDate: "2026-03-15",
-    createdAt: "2026-03-13",
-  },
-  {
-    id: "3",
-    title: "Design Process Reveal",
-    content: "How we built the METTLE brand identity in 48 hours...",
-    platform: "All",
-    stage: "POSTED",
-    assignee: "ECHO",
-    dueDate: "2026-03-13",
-    createdAt: "2026-03-12",
-    performance: { likes: 342, comments: 28, shares: 15, reach: 5200 },
-  },
-];
-
-/* ── Component ────────────────────────────────────────────────────────────── */
-
-export default function ContentPipelinePage() {
-  const { time, dateStr } = useTime();
-  const [activeDay, setActiveDay] = useState("SATURDAY");
-  const [contentItems, setContentItems] = useState<ContentItem[]>(SAMPLE_CONTENT);
-  const [showPublishModal, setShowPublishModal] = useState(false);
+export default function ContentPage() {
+  const [agents, setAgents] = useState<AgentStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeDay, setActiveDay] = useState(() => {
+    const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    return days[new Date().getDay()];
+  });
+  const [contentItems, setContentItems] = useState<ContentItem[]>([
+    { id: "1", title: "AI Tips for Coaches", content: "5 ways AI is transforming swim training...", platform: "LinkedIn", stage: "draft", assignee: "INK", dueDate: "2026-03-15", createdAt: "2026-03-14" },
+    { id: "2", title: "Weekend Motivation", content: "Champions are made when no one is watching...", platform: "Instagram", stage: "reviewed", assignee: "VEE", dueDate: "2026-03-15", createdAt: "2026-03-13" },
+    { id: "3", title: "Design Process Reveal", content: "How we built the METTLE brand identity...", platform: "All", stage: "posted", assignee: "ECHO", dueDate: "2026-03-13", createdAt: "2026-03-12", performance: { likes: 342, comments: 28, shares: 15, reach: 5200 } },
+  ]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", platform: "All" as ContentItem["platform"] });
 
-  // Calculate pipeline counts from content items
-  const pipelineWithCounts = PIPELINE.map(stage => ({
-    ...stage,
-    count: contentItems.filter(item => item.stage === stage.name).length
-  }));
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/command-center/agents");
+      if (res.ok) {
+        const data = await res.json();
+        setAgents((data.agents || []).filter((a: AgentStatus) => ["ink", "echo", "vee"].includes(a.id)));
+      }
+    } catch { /* keep existing */ } finally { setLoading(false); }
+  }, []);
 
-  const handleStageChange = (itemId: string, newStage: PipelineStage["name"]) => {
-    setContentItems(prev => prev.map(item => 
-      item.id === itemId ? { ...item, stage: newStage } : item
-    ));
+  useEffect(() => { fetchData(); const i = setInterval(fetchData, 30_000); return () => clearInterval(i); }, [fetchData]);
+
+  const todaySchedule = SCHEDULE.find((s) => s.day === activeDay);
+  const TEAM = [
+    { id: "vee", name: "VEE", role: "Brand Strategy", color: "#06b6d4", currentTask: "Review division focus + decide angle" },
+    { id: "ink", name: "INK", role: "Content Creator", color: "#f59e0b", currentTask: "Draft post copy (all 3 platforms)" },
+    { id: "echo", name: "ECHO", role: "Community & Social", color: "#818cf8", currentTask: "Review engagement potential + hashtags" },
+  ];
+
+  const pipelineCounts = {
+    draft: contentItems.filter((i) => i.stage === "draft").length,
+    reviewed: contentItems.filter((i) => i.stage === "reviewed").length,
+    approved: contentItems.filter((i) => i.stage === "approved").length,
+    posted: contentItems.filter((i) => i.stage === "posted").length,
+  };
+
+  const handleStageChange = (itemId: string, newStage: ContentItem["stage"]) => {
+    setContentItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, stage: newStage } : item)));
   };
 
   const handleCreatePost = () => {
     if (!newPost.title || !newPost.content) return;
     const post: ContentItem = {
-      id: Date.now().toString(),
-      title: newPost.title,
-      content: newPost.content,
-      platform: newPost.platform,
-      stage: "DRAFT",
-      assignee: "INK",
-      dueDate: new Date().toISOString().split("T")[0],
-      createdAt: new Date().toISOString().split("T")[0],
+      id: Date.now().toString(), title: newPost.title, content: newPost.content,
+      platform: newPost.platform, stage: "draft", assignee: "INK",
+      dueDate: new Date().toISOString().split("T")[0], createdAt: new Date().toISOString().split("T")[0],
     };
-    setContentItems(prev => [...prev, post]);
+    setContentItems((prev) => [...prev, post]);
     setNewPost({ title: "", content: "", platform: "All" });
     setShowCreateModal(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#030005] text-white overflow-x-hidden">
-      {/* Background effects */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute w-[600px] h-[600px] rounded-full top-[-10%] left-[-10%] bg-gradient-to-br from-[#00f0ff]/5 to-transparent" />
-        <div className="absolute w-[400px] h-[400px] rounded-full bottom-[10%] right-[5%] bg-gradient-to-tl from-[#a855f7]/5 to-transparent" />
-      </div>
+    <div style={{ position: "relative", minHeight: "100vh", background: "#000000", color: "#e5e5e5", overflow: "hidden" }}>
+      <ParticleField />
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 800px 600px at 25% 25%, rgba(249,115,22,0.08) 0%, transparent 60%), radial-gradient(ellipse 600px 600px at 75% 80%, rgba(245,158,11,0.06) 0%, transparent 60%)" }} />
 
-      {/* Header */}
-      <header className="relative z-10 w-full px-6 lg:px-10 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/command-center" className="text-[#00f0ff]/60 hover:text-[#00f0ff] text-sm font-mono">
-            [← COMMAND CENTER]
+      <div style={{ position: "relative", zIndex: 2, width: "100%", maxWidth: 1400, margin: "0 auto", padding: "32px 24px 80px" }}>
+        {/* Header */}
+        <div style={{ marginBottom: 32 }}>
+          <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#737373", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
           </Link>
-          <div className="text-right">
-            <div className="text-3xl font-mono text-[#00f0ff] tabular-nums">{time}</div>
-            <div className="text-xs text-white/30 font-mono">{dateStr} • EST</div>
-          </div>
+          <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: "#e5e5e5", textShadow: "0 0 40px rgba(249,115,22,0.3)" }}>Content Pipeline</h1>
+          <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>INK · ECHO · VEE — Content creation, publishing & engagement</p>
         </div>
 
-        <h1 className="text-4xl lg:text-5xl font-black mb-2">
-          <span className="bg-gradient-to-r from-[#00f0ff] via-[#a855f7] to-[#e879f9] bg-clip-text text-transparent">
-            Content Pipeline
-          </span>
-        </h1>
-        <p className="text-white/50 font-mono text-sm">INK · ECHO · VEE — Content creation, publishing & engagement</p>
-      </header>
-
-      {/* Main Content */}
-      <main className="relative z-10 px-6 lg:px-10 pb-20 space-y-8">
-
-        {/* Content Team */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {TEAM.map((member) => (
-            <div
-              key={member.id}
-              className="p-5 rounded-lg border border-white/10 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 flex items-center justify-center text-lg font-bold text-[#00f0ff]">
-                  {member.avatar}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-bold text-white">{member.name}</h3>
-                    <span className={`w-2 h-2 rounded-full ${
-                      member.status === "online" ? "bg-green-500" :
-                      member.status === "busy" ? "bg-yellow-500" :
-                      member.status === "away" ? "bg-orange-500" : "bg-gray-500"
-                    }`} />
-                  </div>
-                  <p className="text-xs text-white/50 font-mono mb-2">{member.role}</p>
-                  <p className="text-xs text-white/30">{member.currentTask}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {/* Weekly Rotation */}
-        <section className="p-6 rounded-lg border border-white/10 bg-white/[0.02]">
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <span className="text-[#00f0ff]">●</span> Weekly Rotation
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2">
-            {WEEKLY_ROTATION.map((day) => (
-              <button
-                key={day.day}
-                onClick={() => setActiveDay(day.day)}
-                className={`p-3 rounded text-left transition-colors ${
-                  day.active
-                    ? "bg-gradient-to-br from-[#00f0ff]/20 to-[#a855f7]/20 border border-[#00f0ff]/30"
-                    : "bg-white/[0.02] hover:bg-white/[0.04] border border-transparent"
-                }`}
-              >
-                <div className="text-[10px] font-mono text-white/40 mb-1">{day.day}</div>
-                <div className={`text-xs font-bold mb-1 ${day.active ? "text-[#00f0ff]" : "text-white/70"}`}>
-                  {day.theme}
-                </div>
-                <div className="text-[9px] text-white/30 truncate">{day.focus}</div>
-              </button>
-            ))}
-          </div>
-
-          {/* Active Day Detail */}
-          {(() => {
-            const day = WEEKLY_ROTATION.find((d) => d.day === activeDay);
-            if (!day) return null;
+        {/* Team */}
+        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#f97316", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Content Team</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 32 }}>
+          {TEAM.map((agent) => {
+            const live = agents.find((a) => a.id === agent.id);
+            const statusColor = live?.status === "active" ? "#22c55e" : live?.status === "idle" ? "#f59e0b" : "#6b7280";
             return (
-              <div className="mt-4 p-4 rounded bg-white/[0.03] border border-white/10">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-bold text-white">{day.day} — {day.theme}</h3>
-                  <div className="flex gap-2">
-                    {day.platforms.map((p) => (
-                      <span key={p} className="text-[10px] px-2 py-0.5 rounded bg-white/[0.05] text-white/40 font-mono">
-                        {p}
-                      </span>
-                    ))}
+              <div key={agent.id} style={{ padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: `0 0 24px ${agent.color}12, 0 8px 32px rgba(0,0,0,0.4)` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 10, background: `${agent.color}18`, color: agent.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800 }}>{agent.name[0]}</div>
+                    <div>
+                      <span style={{ fontSize: 14, fontWeight: 700 }}>{agent.name}</span>
+                      <p style={{ fontSize: 10, color: "#737373", margin: "2px 0 0" }}>{agent.role}</p>
+                    </div>
                   </div>
+                  <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: statusColor, boxShadow: `0 0 8px ${statusColor}80` }} />
                 </div>
-                <p className="text-sm text-white/50">{day.focus}</p>
+                <p style={{ fontSize: 10, color: "#525252", margin: "0 0 4px" }}>{live?.status?.toUpperCase() || "OFFLINE"}</p>
+                <p style={{ fontSize: 9, color: "#404040", fontStyle: "italic" }}>{agent.currentTask}</p>
               </div>
             );
-          })()}
-        </section>
+          })}
+        </div>
 
-        {/* Pipeline Status */}
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {pipelineWithCounts.map((stage) => (
-            <button
-              key={stage.name}
-              className="p-5 rounded-lg border border-white/10 bg-white/[0.02] text-center hover:bg-white/[0.04] transition-colors"
-            >
-              <div
-                className="text-4xl font-black mb-2"
-                style={{ color: stage.color }}
-              >
-                {stage.count}
-              </div>
-              <div className="text-xs font-mono text-white/40 uppercase tracking-wider">
-                {stage.name}
-              </div>
+        {/* Weekly Schedule */}
+        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#f97316", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Weekly Rotation</h2>
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", paddingBottom: 8 }}>
+          {SCHEDULE.map((day) => (
+            <button key={day.day} onClick={() => setActiveDay(day.day)} style={{ padding: "10px 16px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", whiteSpace: "nowrap", cursor: "pointer", transition: "all 0.2s", background: activeDay === day.day ? "rgba(249,115,22,0.15)" : "rgba(255,255,255,0.03)", border: activeDay === day.day ? "1px solid rgba(249,115,22,0.4)" : "1px solid rgba(255,255,255,0.08)", color: activeDay === day.day ? "#fb923c" : "rgba(255,255,255,0.4)" }}>
+              {day.day.slice(0, 3).toUpperCase()}
             </button>
           ))}
-        </section>
+        </div>
 
-        {/* Content Items Pipeline */}
-        <section className="p-6 rounded-lg border border-white/10 bg-white/[0.02]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">Content Pipeline</h2>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 rounded bg-[#00f0ff]/20 text-[#00f0ff] text-sm font-mono hover:bg-[#00f0ff]/30 transition-colors border border-[#00f0ff]/30"
-            >
-              + New Content
-            </button>
+        {todaySchedule && (
+          <div style={{ padding: 28, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(249,115,22,0.25)", boxShadow: "0 0 32px rgba(249,115,22,0.1), 0 8px 32px rgba(0,0,0,0.4)", marginBottom: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: "#f97316", boxShadow: "0 0 12px rgba(249,115,22,0.6)" }} />
+              <span style={{ fontSize: 11, color: "#fb923c", letterSpacing: "0.15em", fontWeight: 700 }}>{todaySchedule.day.toUpperCase()} — {todaySchedule.division.toUpperCase()}</span>
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, margin: "0 0 6px" }}>{todaySchedule.focus}</h3>
+            <p style={{ fontSize: 13, color: "#737373", margin: 0 }}>{todaySchedule.angle}</p>
+            <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+              {PLATFORMS.map((p) => <span key={p} style={{ padding: "5px 12px", fontSize: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 6, letterSpacing: "0.1em", color: "rgba(255,255,255,0.35)" }}>{p.toUpperCase()}</span>)}
+            </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            {(["DRAFT", "REVIEWED", "APPROVED", "POSTED"] as const).map((stageName) => (
-              <div key={stageName} className="space-y-3">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-xs font-mono uppercase tracking-wider text-white/50">{stageName}</h3>
-                  <span className="text-xs text-white/30">
-                    {contentItems.filter(i => i.stage === stageName).length}
-                  </span>
-                </div>
-                {contentItems.filter(item => item.stage === stageName).map(item => (
-                  <div
-                    key={item.id}
-                    className="p-3 rounded bg-white/[0.03] border border-white/10 hover:border-[#00f0ff]/30 transition-colors"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <h4 className="font-medium text-sm text-white">{item.title}</h4>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/[0.05] text-white/40">
-                        {item.platform}
-                      </span>
+        {/* Pipeline Status */}
+        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#f97316", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Pipeline Status</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 32 }}>
+          {(["draft", "reviewed", "approved", "posted"] as const).map((status) => (
+            <div key={status} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.08)", textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+              <div style={{ fontSize: 28, fontWeight: 900, color: STATUS_COLORS[status], marginBottom: 4 }}>{pipelineCounts[status]}</div>
+              <span style={{ fontSize: 10, color: "#525252", letterSpacing: "0.15em" }}>{status.toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Content Board */}
+        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#f97316", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>
+          Content Board
+          <button onClick={() => setShowCreateModal(true)} style={{ marginLeft: 12, padding: "6px 12px", fontSize: 10, background: "rgba(249,115,22,0.2)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 6, color: "#fb923c", cursor: "pointer" }}>+ NEW</button>
+        </h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16, marginBottom: 32 }}>
+          {(["draft", "reviewed", "approved", "posted"] as const).map((stageName) => (
+            <div key={stageName}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#525252", letterSpacing: "0.15em" }}>{stageName.toUpperCase()}</span>
+                <span style={{ fontSize: 10, color: "#404040" }}>{contentItems.filter((i) => i.stage === stageName).length}</span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {contentItems.filter((item) => item.stage === stageName).map((item) => (
+                  <div key={item.id} style={{ padding: 16, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "#e5e5e5" }}>{item.title}</span>
+                      <span style={{ fontSize: 9, padding: "3px 8px", background: "rgba(255,255,255,0.05)", borderRadius: 4, color: "#737373" }}>{item.platform}</span>
                     </div>
-                    <p className="text-xs text-white/40 mb-3 line-clamp-2">{item.content}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-[9px] text-white/30">{item.assignee}</span>
-                      {stageName !== "POSTED" && (
-                        <button
-                          onClick={() => handleStageChange(item.id, stageName === "DRAFT" ? "REVIEWED" : stageName === "REVIEWED" ? "APPROVED" : "POSTED")}
-                          className="text-[9px] px-2 py-1 rounded bg-[#00f0ff]/10 text-[#00f0ff] hover:bg-[#00f0ff]/20"
-                        >
-                          → {stageName === "DRAFT" ? "Review" : stageName === "REVIEWED" ? "Approve" : "Post"}
+                    <p style={{ fontSize: 11, color: "#525252", marginBottom: 12, lineHeight: 1.4 }}>{item.content.slice(0, 60)}...</p>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span style={{ fontSize: 9, color: "#404040" }}>{item.assignee}</span>
+                      {stageName !== "posted" && (
+                        <button onClick={() => handleStageChange(item.id, stageName === "draft" ? "reviewed" : stageName === "reviewed" ? "approved" : "posted")} style={{ fontSize: 9, padding: "4px 10px", background: "rgba(249,115,22,0.15)", border: "1px solid rgba(249,115,22,0.25)", borderRadius: 4, color: "#fb923c", cursor: "pointer" }}>
+                          → {stageName === "draft" ? "Review" : stageName === "reviewed" ? "Approve" : "Post"}
                         </button>
                       )}
                     </div>
                   </div>
                 ))}
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Idea Backlog */}
-        <section className="p-6 rounded-lg border border-white/10 bg-white/[0.02]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <span className="text-[#34d399]">+</span> Idea Backlog
-            </h2>
-            <button className="text-xs px-3 py-1.5 rounded bg-[#34d399]/20 text-[#34d399] hover:bg-[#34d399]/30">
-              + Add Idea
-            </button>
-          </div>
-          <div className="space-y-2">
-            {[
-              { idea: "How AI agents handle calendar scheduling", division: "Parallax", priority: "HIGH" },
-              { idea: "Before/after: Client brand refresh", division: "Ramiche Studio", priority: "MED" },
-              { idea: "New Galaxy poster drop teaser", division: "Galactik Antics", priority: "HIGH" },
-              { idea: "5 signs your business needs a security scan", division: "ClawGuard Pro", priority: "MED" },
-            ].map((item, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded bg-white/[0.03] hover:bg-white/[0.05] group">
-                <div className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full ${
-                    item.priority === "HIGH" ? "bg-red-400" : "bg-yellow-400"
-                  }`} />
-                  <span className="text-sm text-white/70">{item.idea}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-white/[0.05] text-white/40">{item.division}</span>
-                  <button className="opacity-0 group-hover:opacity-100 text-[10px] px-2 py-1 rounded bg-[#00f0ff]/20 text-[#00f0ff]">
-                    Start Draft →
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Media Library */}
-        <section className="p-6 rounded-lg border border-white/10 bg-white/[0.02]">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold flex items-center gap-2">
-              <span className="text-[#e879f9]">◉</span> Media Library
-            </h2>
-            <button className="text-xs px-3 py-1.5 rounded bg-[#e879f9]/20 text-[#e879f9] hover:bg-[#e879f9]/30">
-              + Upload
-            </button>
-          </div>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-square rounded bg-white/[0.03] border border-white/10 flex items-center justify-center hover:border-[#e879f9]/30 cursor-pointer transition-colors"
-              >
-                <span className="text-white/20 text-2xl">+</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Performance Analytics */}
-        <section className="p-6 rounded-lg border border-white/10 bg-white/[0.02]">
-          <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-            <span className="text-[#00f0ff]">◈</span> Performance
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            {[
-              { label: "Total Reach", value: "5.2K", change: "+12%" },
-              { label: "Engagement Rate", value: "7.3%", change: "+2.1%" },
-              { label: "Posts This Week", value: "5", change: "+1" },
-              { label: "Top Platform", value: "Instagram", change: "—" },
-            ].map((stat) => (
-              <div key={stat.label} className="p-4 rounded bg-white/[0.03] text-center">
-                <div className="text-2xl font-black text-white">{stat.value}</div>
-                <div className="text-[10px] text-white/40 font-mono uppercase">{stat.label}</div>
-                <div className="text-[10px] text-green-400 mt-1">{stat.change}</div>
-              </div>
-            ))}
-          </div>
-          <div className="space-y-2">
-            <h3 className="text-xs font-mono text-white/40 uppercase">Recent Posts</h3>
-            {contentItems.filter(i => i.stage === "POSTED" && i.performance).map(post => (
-              <div key={post.id} className="flex items-center justify-between p-3 rounded bg-white/[0.03]">
-                <div>
-                  <div className="text-sm text-white">{post.title}</div>
-                  <div className="text-[10px] text-white/40">{post.platform} • Posted {post.dueDate}</div>
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-pink-400">♥ {post.performance?.likes}</span>
-                  <span className="text-blue-400">💬 {post.performance?.comments}</span>
-                  <span className="text-green-400">↗ {post.performance?.shares}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Content Tools Grid */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Hashtag Bank */}
-          <div className="p-5 rounded-lg border border-white/10 bg-white/[0.02]">
-            <h3 className="font-bold mb-3 flex items-center gap-2">
-              <span className="text-[#f59e0b]">#</span> Hashtag Bank
-            </h3>
-            <div className="space-y-3">
-              {Object.entries(HASHTAG_BANK).slice(0, 4).map(([division, tags]) => (
-                <div key={division} className="text-xs">
-                  <span className="text-white/50 font-mono">{division}:</span>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {tags.map(tag => (
-                      <button
-                        key={tag}
-                        className="px-2 py-0.5 rounded bg-white/[0.05] text-white/40 hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] transition-colors"
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
             </div>
-          </div>
+          ))}
+        </div>
 
-          {/* Post Templates */}
-          <div className="p-5 rounded-lg border border-white/10 bg-white/[0.02]">
-            <h3 className="font-bold mb-3 flex items-center gap-2">
-              <span className="text-[#a855f7]">◆</span> Templates
-            </h3>
-            <div className="space-y-2">
-              {POST_TEMPLATES.map((template) => (
-                <button
-                  key={template.name}
-                  className="w-full text-left p-2 rounded bg-white/[0.03] hover:bg-white/[0.05] transition-colors group"
-                >
-                  <div className="text-xs font-medium text-white group-hover:text-[#a855f7]">{template.name}</div>
-                  <div className="text-[10px] text-white/30">{template.structure}</div>
-                </button>
-              ))}
+        {/* Analytics */}
+        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#f97316", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Performance</h2>
+        <div style={{ padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.1)", marginBottom: 32 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 16, marginBottom: 20 }}>
+            {[{ label: "Total Reach", value: "5.2K", change: "+12%" }, { label: "Engagement Rate", value: "7.3%", change: "+2.1%" }, { label: "Posts This Week", value: "5", change: "+1" }, { label: "Top Platform", value: "Instagram", change: "—" }].map((stat) => (
+              <div key={stat.label} style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 24, fontWeight: 900, color: "#e5e5e5" }}>{stat.value}</div>
+                <div style={{ fontSize: 9, color: "#525252", letterSpacing: "0.1em", marginTop: 4 }}>{stat.label}</div>
+                <div style={{ fontSize: 9, color: "#22c55e", marginTop: 2 }}>{stat.change}</div>
+              </div>
+            ))}
+          </div>
+          {contentItems.filter((i) => i.stage === "posted" && i.performance).map((post) => (
+            <div key={post.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              <div>
+                <div style={{ fontSize: 13, color: "#e5e5e5" }}>{post.title}</div>
+                <div style={{ fontSize: 9, color: "#525252" }}>{post.platform} • Posted {post.dueDate}</div>
+              </div>
+              <div style={{ display: "flex", gap: 16, fontSize: 11 }}>
+                <span style={{ color: "#ec4899" }}>♥ {post.performance?.likes}</span>
+                <span style={{ color: "#3b82f6" }}>💬 {post.performance?.comments}</span>
+                <span style={{ color: "#22c55e" }}>↗ {post.performance?.shares}</span>
+              </div>
             </div>
-          </div>
-        </section>
+          ))}
+        </div>
 
-        {/* Parallax Publish Integration */}
-        <section className="p-6 rounded-lg border border-[#7c3aed]/30 bg-gradient-to-br from-[#7c3aed]/10 to-transparent">
-          <div className="flex items-center justify-between mb-4">
+        {/* Tools & Publish */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16, marginBottom: 32 }}>
+          <div style={{ padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, marginBottom: 16 }}># Hashtag Bank</h3>
+            {Object.entries(HASHTAG_BANK).slice(0, 4).map(([division, tags]) => (
+              <div key={division} style={{ marginBottom: 10 }}>
+                <span style={{ fontSize: 9, color: "#525252" }}>{division}</span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                  {tags.map((tag) => <span key={tag} style={{ fontSize: 9, padding: "4px 8px", background: "rgba(255,255,255,0.05)", borderRadius: 4, color: "#737373" }}>{tag}</span>)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <h3 style={{ fontSize: 12, fontWeight: 700, marginBottom: 16 }}>◆ Templates</h3>
+            {POST_TEMPLATES.map((template) => (
+              <div key={template.name} style={{ padding: 12, background: "rgba(255,255,255,0.03)", borderRadius: 8, marginBottom: 8, cursor: "pointer" }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: "#e5e5e5" }}>{template.name}</div>
+                <div style={{ fontSize: 9, color: "#525252", marginTop: 2 }}>{template.structure}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Parallax Publish */}
+        <div style={{ padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(124,58,237,0.3)", boxShadow: "0 0 32px rgba(124,58,237,0.1)" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div>
-              <h2 className="text-lg font-bold" style={{ color: "#7c3aed" }}>Parallax Publish</h2>
-              <p className="text-xs text-white/40">Multi-platform social media publishing — 4 platforms live</p>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#a78bfa", margin: 0 }}>Parallax Publish</h3>
+              <p style={{ fontSize: 11, color: "#525252", margin: "4px 0 0" }}>Multi-platform social media publishing</p>
             </div>
-            <a
-              href="https://parallax-publish.vercel.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2 rounded text-sm font-bold hover:opacity-90 transition-colors"
-              style={{ backgroundColor: "#7c3aed", color: "white" }}
-            >
-              Open Publish →
-            </a>
+            <a href="https://parallax-publish.vercel.app" target="_blank" rel="noopener noreferrer" style={{ padding: "10px 18px", background: "#7c3aed", borderRadius: 8, color: "#fff", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>Open Publish →</a>
           </div>
-          <div className="flex flex-wrap items-center gap-4 text-xs text-white/30 font-mono">
-            <span className="text-green-400">✓ Instagram Connected</span>
-            <span className="text-green-400">✓ X (Twitter) Connected</span>
-            <span className="text-green-400">✓ LinkedIn Connected</span>
-            <span className="text-yellow-400">⚠ Blocker: Facebook Developer Portal</span>
+          <div style={{ display: "flex", gap: 16, fontSize: 10, color: "#525252" }}>
+            <span style={{ color: "#22c55e" }}>✓ Instagram Connected</span>
+            <span style={{ color: "#22c55e" }}>✓ X Connected</span>
+            <span style={{ color: "#eab308" }}>⏳ LinkedIn Pending</span>
           </div>
-          <div className="mt-4 pt-4 border-t border-white/10">
-            <p className="text-xs text-white/40">
-              <strong>Posting Times (EST):</strong> Instagram 11 AM / 7 PM • X 9 AM / 1 PM • LinkedIn 8 AM / 12 PM
-            </p>
-          </div>
-        </section>
+          <p style={{ fontSize: 9, color: "#404040", marginTop: 12 }}>Post times (EST): Instagram 11am/7pm • X 9am/1pm • LinkedIn 8am/12pm</p>
+        </div>
+      </div>
 
-        {/* Active Platforms */}
-        <section className="p-6 rounded-lg border border-white/10 bg-white/[0.02]">
-          <h2 className="text-lg font-bold mb-4">Active Platforms</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {PLATFORMS.map((platform) => (
-              <div
-                key={platform.name}
-                className="p-4 rounded-lg border border-white/10 bg-white/[0.02] flex items-center justify-between"
-              >
-                <div>
-                  <h3 className="font-bold text-white">{platform.name}</h3>
-                  <p className={`text-xs font-mono ${
-                    platform.status === "active" ? "text-green-400" :
-                    platform.status === "pending" ? "text-yellow-400" : "text-red-400"
-                  }`}>
-                    {platform.connected ? "CONNECTED" : "DISCONNECTED"}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-2xl font-black text-white/20">{platform.followers}</div>
-                  <div className="text-[9px] text-white/30 font-mono">FOLLOWERS</div>
-                </div>
+      {/* Modal */}
+      {showCreateModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
+          <div style={{ width: "100%", maxWidth: 480, padding: 28, borderRadius: 16, background: "#0a0a0f", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Create New Content</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={{ fontSize: 10, color: "#525252", marginBottom: 6, display: "block" }}>Title</label>
+                <input type="text" value={newPost.title} onChange={(e) => setNewPost((p) => ({ ...p, title: e.target.value }))} style={{ width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e5e5e5", outline: "none" }} placeholder="Enter title..." />
               </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Create Content Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-full max-w-lg p-6 rounded-lg border border-white/10 bg-[#0a0a0f]">
-              <h3 className="text-lg font-bold mb-4">Create New Content</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs text-white/50 mb-1 block">Title</label>
-                  <input
-                    type="text"
-                    value={newPost.title}
-                    onChange={(e) => setNewPost(p => ({ ...p, title: e.target.value }))}
-                    className="w-full px-3 py-2 rounded bg-white/[0.05] border border-white/10 text-white focus:border-[#00f0ff]/50 outline-none"
-                    placeholder="Enter content title..."
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-white/50 mb-1 block">Platform</label>
-                  <select
-                    value={newPost.platform}
-                    onChange={(e) => setNewPost(p => ({ ...p, platform: e.target.value as ContentItem["platform"] }))}
-                    className="w-full px-3 py-2 rounded bg-white/[0.05] border border-white/10 text-white focus:border-[#00f0ff]/50 outline-none"
-                  >
-                    <option value="All">All Platforms</option>
-                    <option value="Instagram">Instagram</option>
-                    <option value="X">X (Twitter)</option>
-                    <option value="LinkedIn">LinkedIn</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-white/50 mb-1 block">Content</label>
-                  <textarea
-                    value={newPost.content}
-                    onChange={(e) => setNewPost(p => ({ ...p, content: e.target.value }))}
-                    rows={4}
-                    className="w-full px-3 py-2 rounded bg-white/[0.05] border border-white/10 text-white focus:border-[#00f0ff]/50 outline-none resize-none"
-                    placeholder="Write your content..."
-                  />
-                </div>
+              <div>
+                <label style={{ fontSize: 10, color: "#525252", marginBottom: 6, display: "block" }}>Platform</label>
+                <select value={newPost.platform} onChange={(e) => setNewPost((p) => ({ ...p, platform: e.target.value as ContentItem["platform"] }))} style={{ width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e5e5e5", outline: "none" }}>
+                  <option value="All">All Platforms</option>
+                  <option value="Instagram">Instagram</option>
+                  <option value="X">X (Twitter)</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                </select>
               </div>
-              <div className="flex items-center justify-end gap-3 mt-6">
-                <button
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 text-sm text-white/50 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreatePost}
-                  className="px-4 py-2 rounded bg-[#00f0ff] text-black text-sm font-bold hover:bg-[#00f0ff]/90"
-                >
-                  Create Draft
-                </button>
+              <div>
+                <label style={{ fontSize: 10, color: "#525252", marginBottom: 6, display: "block" }}>Content</label>
+                <textarea value={newPost.content} onChange={(e) => setNewPost((p) => ({ ...p, content: e.target.value }))} rows={4} style={{ width: "100%", padding: "10px 12px", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#e5e5e5", outline: "none", resize: "none" }} placeholder="Write your content..." />
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Parallax Publish Modal */}
-        {showPublishModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-            <div className="w-full max-w-2xl p-6 rounded-lg border border-[#00f0ff]/20 bg-[#0a0a0f]">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-[#00f0ff]">Parallax Publish</h3>
-                <button
-                  onClick={() => setShowPublishModal(false)}
-                  className="text-white/50 hover:text-white"
-                >
-                  ✕
-                </button>
-              </div>
-              <div className="aspect-video rounded bg-white/[0.02] border border-white/10 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-white/30 mb-2">Parallax Publish Interface</p>
-                  <a
-                    href="https://parallax-publish.vercel.app/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 rounded bg-[#00f0ff]/20 text-[#00f0ff] text-sm hover:bg-[#00f0ff]/30 border border-[#00f0ff]/30"
-                  >
-                    Open in New Tab →
-                  </a>
-                </div>
-              </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24 }}>
+              <button onClick={() => setShowCreateModal(false)} style={{ padding: "10px 16px", fontSize: 12, color: "#737373", background: "transparent", border: "none", cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleCreatePost} style={{ padding: "10px 20px", fontSize: 12, background: "#f97316", borderRadius: 8, color: "#000", fontWeight: 700, border: "none", cursor: "pointer" }}>Create Draft</button>
             </div>
           </div>
-        )}
-
-      </main>
+        </div>
+      )}
     </div>
   );
 }
