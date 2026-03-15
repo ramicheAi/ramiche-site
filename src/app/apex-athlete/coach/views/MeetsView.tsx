@@ -3,6 +3,7 @@
 import React from "react";
 import BgOrbs from "../components/BgOrbs";
 import type { Athlete, RosterGroup, SwimMeet, MeetEvent, MeetEventEntry, MeetBroadcast } from "../types";
+import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult } from "../../lib/meet-scoring";
 
 // Re-export meet types for consumers that imported from here
 export type { MeetEventEntry, MeetEvent, MeetBroadcast, SwimMeet };
@@ -70,6 +71,7 @@ export interface MeetsViewProps {
   setMeetEventPicker: (v: string | null) => void;
   broadcastMsg: string;
   setBroadcastMsg: (v: string) => void;
+  onMeetScore?: (result: ScoringResult, meet: SwimMeet) => void;
 }
 
 // ── helpers ──────────────────────────────────────────────────
@@ -117,6 +119,7 @@ export default function MeetsView({
   setMeetEventPicker,
   broadcastMsg,
   setBroadcastMsg,
+  onMeetScore,
 }: MeetsViewProps) {
   const saveMeets = (m: SwimMeet[]) => { setMeets(m); saveMeetsToStorage(m); };
 
@@ -180,6 +183,46 @@ export default function MeetsView({
         return { ...ev, entries: ev.entries.map(e => e.athleteId !== athleteId ? e : { ...e, [field]: value }) };
       })};
     }));
+
+    // Auto-score when finalTime is entered
+    if (field === "finalTime" && typeof value === "string" && value.trim()) {
+      const finalSeconds = scoringParseTime(value);
+      if (finalSeconds > 0 && onMeetScore) {
+        const meet = meets.find(m => m.id === meetId);
+        const event = meet?.events.find(ev => ev.id === eventId);
+        const entry = event?.entries.find(e => e.athleteId === athleteId);
+        const athlete = roster.find(a => a.id === athleteId);
+        if (meet && event && entry && athlete) {
+          // Parse event name into distance + stroke (e.g. "100 Free" → "100", "Freestyle")
+          const parts = event.name.split(" ");
+          const dist = parts[0] || event.name;
+          const stroke = parts.slice(1).join(" ") || event.name;
+          const meetResult: MeetResult = {
+            athleteId,
+            event: dist,
+            stroke,
+            course: meet.course,
+            seedTime: entry.seedTime || "",
+            finalTime: value,
+            finalSeconds,
+            place: entry.place,
+            splits: entry.splits,
+            dq: entry.dq,
+            isRelay: event.name.toLowerCase().includes("relay"),
+          };
+          const bestTimes: Record<string, BestTime> = {};
+          if (athlete.bestTimes) {
+            Object.entries(athlete.bestTimes).forEach(([k, v]) => {
+              bestTimes[k] = { ...v, event: v.time, stroke: "", source: v.source };
+            });
+          }
+          const result = scoreEvent(meetResult, bestTimes, meet.name, meet.date);
+          if (result.totalXP > 0 || result.newBestTimes.length > 0) {
+            onMeetScore(result, meet);
+          }
+        }
+      }
+    }
   };
 
   const setMeetStatus = (meetId: string, status: SwimMeet["status"]) => {

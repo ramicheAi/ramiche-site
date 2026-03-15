@@ -19,6 +19,7 @@ export interface Athlete {
   parentName?: string;
   parentPhone?: string;
   pin?: string;
+  bestTimes?: Record<string, { time: string; seconds: number; meetId: string; meetName: string; date: string; course: "SCY" | "SCM" | "LCM"; source: "swimcloud" | "meetmobile" | "manual" | "hytek" }>;
 }
 
 export interface AuditEntry {
