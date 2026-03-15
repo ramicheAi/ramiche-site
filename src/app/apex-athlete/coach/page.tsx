@@ -24,6 +24,7 @@ import CommsView from "./views/CommsView";
 import MeetsView from "./views/MeetsView";
 import AnalyticsDashboard from "./views/AnalyticsDashboard";
 import type { Athlete, DailyXP, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, RosterGroup, SwimMeet, MentalReadiness, BreathworkSession, JournalEntry, RecoveryLog, WellnessData } from "./types";
+import type { ScoringResult } from "../lib/meet-scoring";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -1765,6 +1766,32 @@ export default function ApexAthletePage() {
     return { newAthlete: a, awarded };
   }, [checkLevelUp]);
 
+  // ── meet score handler (auto-awards XP from meet results) ──
+  const handleMeetScore = useCallback((result: ScoringResult, meet: SwimMeet) => {
+    if (result.totalXP <= 0) return;
+    setRoster(prev => {
+      const idx = prev.findIndex(a => a.id === result.athleteId);
+      if (idx < 0) return prev;
+      const a = { ...prev[idx] };
+      const { newAthlete, awarded } = awardXP(a, result.totalXP, "meet");
+      if (awarded > 0) {
+        spawnXpFloat(awarded);
+        addAudit(newAthlete.id, newAthlete.name, `Meet bonus: ${result.bonuses.map(b => b.label).join(", ")}`, awarded);
+      }
+      if (result.newBestTimes.length > 0) {
+        const bt = { ...(newAthlete.bestTimes || {}) };
+        for (const nb of result.newBestTimes) {
+          const key = `${nb.event}-${nb.course}`;
+          bt[key] = { time: nb.time, seconds: nb.seconds, meetId: meet.id, meetName: meet.name, date: meet.date, course: nb.course, source: "manual" as const };
+        }
+        newAthlete.bestTimes = bt;
+      }
+      const next = [...prev];
+      next[idx] = newAthlete;
+      return next;
+    });
+  }, [awardXP, spawnXpFloat, addAudit]);
+
   // ── checkpoint toggle ────────────────────────────────────
   const toggleCheckpoint = useCallback((athleteId: string, cpId: string, cpXP: number, category: "pool" | "weight" | "meet", e?: React.MouseEvent) => {
     setRoster(prev => {
@@ -3346,6 +3373,7 @@ export default function ApexAthletePage() {
         setMeetEventPicker={setMeetEventPicker}
         broadcastMsg={broadcastMsg}
         setBroadcastMsg={setBroadcastMsg}
+        onMeetScore={handleMeetScore}
       />
     );
   }
