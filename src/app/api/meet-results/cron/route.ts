@@ -1,7 +1,6 @@
 // ── Meet Results Cron Worker ─────────────────────────────────────────
-// Called periodically (e.g. every 15 min via Vercel Cron or OpenClaw cron).
-// Reads pending meet-schedules from Firestore, checks if any are due,
-// runs the meet-results pipeline for due schedules, and stores results.
+// Bulletproof cron: retries failed schedules, catches up missed windows,
+// tolerates auth failures gracefully. Called via Vercel Cron or direct GET.
 
 import { NextResponse } from "next/server";
 
@@ -10,9 +9,10 @@ const PROJECT_ID =
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const CRON_SECRET = process.env.CRON_SECRET;
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://ramiche-site.vercel.app";
+const MAX_RETRIES = 3;
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120; // 2 min to handle catch-up
 
 // ── Firestore helpers ───────────────────────────────────────────────
 
@@ -66,9 +66,11 @@ async function fetchRoster(orgId: string): Promise<RosterAthlete[]> {
 // ── Main cron handler ───────────────────────────────────────────────
 
 export async function GET(req: Request) {
-  // Verify cron secret (Vercel Cron or OpenClaw)
+  // Auth: accept CRON_SECRET via header or query param; skip if not configured
   const authHeader = req.headers.get("authorization");
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  const url = new URL(req.url);
+  const querySecret = url.searchParams.get("secret");
+  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}` && querySecret !== CRON_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -112,6 +114,8 @@ export async function GET(req: Request) {
         type: string;
         triggerAt: string;
         processed?: boolean;
+        retries?: number;
+        lastError?: string;
       }>;
       try {
         schedules = JSON.parse(schedulesJson);
@@ -119,9 +123,17 @@ export async function GET(req: Request) {
         continue;
       }
 
-      const dueSchedules = schedules.filter(
-        (s) => !s.processed && new Date(s.triggerAt) <= now
-      );
+      // Catch-up: process ALL overdue schedules (even if missed by hours/days)
+      // Also retry failed schedules up to MAX_RETRIES times
+      const dueSchedules = schedules.filter((s) => {
+        if (s.processed) return false;
+        const triggerTime = new Date(s.triggerAt);
+        if (triggerTime <= now) return true; // overdue — catch up
+        return false;
+      }).filter((s) => {
+        const retries = (s as { retries?: number }).retries || 0;
+        return retries < MAX_RETRIES;
+      });
 
       if (dueSchedules.length === 0) continue;
 
@@ -169,12 +181,17 @@ export async function GET(req: Request) {
         log.push(`${meetName}: API error ${resultsRes.status}`);
       }
 
-      // Mark due schedules as processed
+      // Mark due schedules as processed (or increment retry on failure)
+      const apiSucceeded = resultsRes.ok;
       const updatedSchedules = schedules.map((s) => {
-        if (dueSchedules.find((d) => d.id === s.id)) {
+        const wasDue = dueSchedules.find((d) => d.id === s.id);
+        if (!wasDue) return s;
+        if (apiSucceeded) {
           return { ...s, processed: true, processedAt: now.toISOString() };
         }
-        return s;
+        // Failed — increment retry counter so we try again next cron run
+        const retries = ((s as { retries?: number }).retries || 0) + 1;
+        return { ...s, retries, lastError: now.toISOString() };
       });
 
       const allProcessed = updatedSchedules.every((s) => s.processed);
