@@ -6,6 +6,7 @@ import { MASTER_PIN, loginWithPin, getSession, clearSession, loadRosterFromFires
 import ParticleField from "@/components/ParticleField";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
+import PBOverlay from "../components/PBOverlay";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -43,6 +44,14 @@ interface Athlete {
   parentEmail?: string;
   bestTimes?: { event: string; stroke: string; course: string; time: string; date?: string; source: string }[];
   bestTimesUpdated?: string;
+}
+
+// Parse swim time string to seconds (e.g. "1:02.34" → 62.34, "59.87" → 59.87)
+function parseTimeToSeconds(t: string): number {
+  if (!t) return Infinity;
+  const parts = t.replace(/[^0-9:.]/g, "").split(":");
+  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  return parseFloat(parts[0]) || Infinity;
 }
 
 // Practice sessions per week by roster group (from real schedules)
@@ -621,6 +630,8 @@ export default function AthletePortal() {
   const [completedMeditations, setCompletedMeditations] = useState<{meditationId: string; completedAt: number}[]>([]);
   // searchResults derived via useMemo below
   const [celebration, setCelebration] = useState<{ level: string; color: string } | null>(null);
+  const [pbNotification, setPbNotification] = useState<{ event: string; oldTime: string; newTime: string; timeDrop: string; xpEarned: number; meetName?: string } | null>(null);
+  const [pbQueue, setPbQueue] = useState<typeof pbNotification[]>([]);
   const prevLevelRef = { current: "" };
   // Auto-detect AM/PM from schedule (same logic as coach portal)
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
@@ -735,6 +746,37 @@ export default function AthletePortal() {
     setRacePlans(load<RacePlan[]>(`${K.RACE_PLANS}-${a.id}`, []));
     setCompletedMeditations(load<{meditationId: string; completedAt: number}[]>(`apex-athlete-meditations-${a.id}`, []));
     setSavedGoals(load<{ event: string; stroke: string; targetLevel: StandardLevel; targetTime: string }[]>(`apex-athlete-goals-${a.id}`, []));
+
+    // PB detection: compare current bestTimes against last-seen snapshot
+    const lastSeenKey = `apex-pb-last-seen-${a.id}`;
+    const lastSeen: Record<string, string> = load(lastSeenKey, {});
+    if (a.bestTimes && a.bestTimes.length > 0) {
+      const newPBs: typeof pbNotification[] = [];
+      for (const bt of a.bestTimes) {
+        const key = `${bt.event}-${bt.stroke}-${bt.course}`;
+        const prev = lastSeen[key];
+        if (prev && prev !== bt.time) {
+          // Time changed — check if it's an improvement
+          const prevSec = parseTimeToSeconds(prev);
+          const newSec = parseTimeToSeconds(bt.time);
+          if (newSec < prevSec) {
+            newPBs.push({
+              event: `${bt.event} ${bt.stroke}`,
+              oldTime: prev,
+              newTime: bt.time,
+              timeDrop: (newSec - prevSec).toFixed(2),
+              xpEarned: 50 + Math.min(50, Math.floor((prevSec - newSec) / 0.5) * 5),
+            });
+          }
+        }
+        lastSeen[key] = bt.time;
+      }
+      save(lastSeenKey, lastSeen);
+      if (newPBs.length > 0) {
+        setPbNotification(newPBs[0]!);
+        if (newPBs.length > 1) setPbQueue(newPBs.slice(1));
+      }
+    }
   };
 
   const completeOnboarding = (a: Athlete, swimId: string) => {
@@ -1353,6 +1395,19 @@ export default function AthletePortal() {
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
       </div>
+
+      {/* PB Notification Overlay */}
+      <PBOverlay
+        notification={pbNotification}
+        onDismiss={() => {
+          if (pbQueue.length > 0) {
+            setPbNotification(pbQueue[0]!);
+            setPbQueue(q => q.slice(1));
+          } else {
+            setPbNotification(null);
+          }
+        }}
+      />
 
       {/* Level-Up Celebration Overlay */}
       {celebration && (
