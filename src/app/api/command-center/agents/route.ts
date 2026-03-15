@@ -4,56 +4,55 @@ import { join } from "path";
 
 export const dynamic = "force-dynamic";
 
-const WORKSPACE = process.env.OPENCLAW_WORKSPACE || "/Users/admin/.openclaw/workspace";
-const DIRECTORY_PATH = join(WORKSPACE, "agents/directory.json");
+const WORKSPACE_DIR = join(
+  process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace",
+  "agents"
+);
+const DIRECTORY_PATH = join(WORKSPACE_DIR, "directory.json");
 
-/* ─── Read live agent directory from workspace ────────────────────────── */
-async function loadDirectory(): Promise<Record<string, any> | null> {
-  try {
-    const raw = await readFile(DIRECTORY_PATH, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return null;
-  }
+interface DirectoryAgent {
+  model: string;
+  provider: string;
+  role: string;
+  capabilities?: string[];
+  skills?: string[];
+  escalation_level?: string;
+  default_stance?: string;
+  provider_note?: string;
 }
 
-/* ─── Read recent sessions to determine active/idle status ──────────── */
-async function loadSessionStatus(): Promise<Record<string, string>> {
-  // Try reading from bridge-sync output if available
-  try {
-    const raw = await readFile(join(WORKSPACE, "agents/session-status.json"), "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return {};
-  }
+function mapAgent(id: string, a: DirectoryAgent) {
+  return {
+    id,
+    name: id.charAt(0).toUpperCase() + id.slice(1),
+    model: `${a.provider}/${a.model}`,
+    role: a.role,
+    capabilities: a.capabilities ?? [],
+    skills: a.skills ?? [],
+    escalation_level: a.escalation_level ?? "executor",
+    default_stance: a.default_stance ?? "",
+    status: "idle",
+  };
 }
 
 export async function GET() {
-  const directory = await loadDirectory();
-  if (!directory) {
-    return NextResponse.json({ error: "Agent directory not found" }, { status: 500 });
+  try {
+    const raw = await readFile(DIRECTORY_PATH, "utf-8");
+    const dir = JSON.parse(raw);
+    const agents = Object.entries(dir.agents as Record<string, DirectoryAgent>).map(
+      ([id, a]) => mapAgent(id, a)
+    );
+    return NextResponse.json({
+      agents,
+      count: agents.length,
+      updated: dir.updated ?? new Date().toISOString(),
+      source: "live",
+      version: dir.version,
+    });
+  } catch {
+    return NextResponse.json(
+      { error: "directory.json not found", source: "error" },
+      { status: 503 }
+    );
   }
-
-  const sessionStatus = await loadSessionStatus();
-  const agents = directory.agents || {};
-
-  const result = Object.entries(agents).map(([id, agent]: [string, any]) => ({
-    id,
-    name: id.charAt(0).toUpperCase() + id.slice(1),
-    model: agent.model || "unknown",
-    provider: agent.provider || "unknown",
-    role: agent.role || "unassigned",
-    capabilities: agent.capabilities || [],
-    skills: agent.skills || [],
-    escalationLevel: agent.escalation_level || "unknown",
-    notes: agent.notes || null,
-    status: sessionStatus[id] || "idle",
-  }));
-
-  return NextResponse.json({
-    agents: result,
-    count: result.length,
-    updated: directory.updated || null,
-    source: "workspace/agents/directory.json",
-  });
 }
