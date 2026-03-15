@@ -1,0 +1,15 @@
+{
+  "name": "POWER CHALLENGE",
+  "slug": "power-challenge",
+  "client": "Jesse Vassallo",
+  "type": "client-project",
+  "status": "active",
+  "created": "2026-03-13",
+  "link": "https://power-challenge.vercel.app",
+  "pricing": {
+    "build": 1500,
+    "maintenance": 50,
+    "registrationFeePercent": 4
+  },
+  "references": ["scoww"]
+}
