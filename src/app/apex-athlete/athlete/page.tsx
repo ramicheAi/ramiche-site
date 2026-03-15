@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { MASTER_PIN, loginWithPin, getSession, loadRosterFromFirestore } from "../auth";
+import { MASTER_PIN, loginWithPin, getSession, clearSession, loadRosterFromFirestore } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
+import PBOverlay from "../components/PBOverlay";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -13,42 +14,9 @@ import StreakFlame from "../components/StreakFlame";
    Times/PRs, Race Prep, Coach Feedback, AM/PM indicator
    ══════════════════════════════════════════════════════════════ */
 
-// ── game engine (mirrors coach) ─────────────────────────────
-const LEVELS = [
-  { name: "Rookie", xp: 0, icon: "◆", color: "#94a3b8" },
-  { name: "Contender", xp: 300, icon: "◆", color: "#a78bfa" },
-  { name: "Warrior", xp: 600, icon: "◆", color: "#60a5fa" },
-  { name: "Elite", xp: 1000, icon: "◆", color: "#f59e0b" },
-  { name: "Captain", xp: 1500, icon: "◆", color: "#f97316" },
-  { name: "Legend", xp: 2500, icon: "◆", color: "#ef4444" },
-] as const;
-
-function getLevel(xp: number) {
-  for (let i = LEVELS.length - 1; i >= 0; i--) if (xp >= LEVELS[i].xp) return LEVELS[i];
-  return LEVELS[0];
-}
-function getNextLevel(xp: number) {
-  for (const lv of LEVELS) if (xp < lv.xp) return lv;
-  return null;
-}
-function getLevelProgress(xp: number) {
-  const cur = getLevel(xp), nxt = getNextLevel(xp);
-  if (!nxt) return { percent: 100, remaining: 0 };
-  const range = nxt.xp - cur.xp, prog = xp - cur.xp;
-  return { percent: Math.min(100, Math.round((prog / range) * 100)), remaining: nxt.xp - xp };
-}
-function getStreakMult(s: number) {
-  if (s >= 60) return 2.5; if (s >= 30) return 2.0; if (s >= 14) return 1.75;
-  if (s >= 7) return 1.5; if (s >= 3) return 1.25; return 1.0;
-}
-function fmtStreak(s: number) {
-  if (s >= 60) return { label: "MYTHIC", mult: "2.5x", tier: 5, color: "#ef4444" };
-  if (s >= 30) return { label: "LEGENDARY", mult: "2.0x", tier: 4, color: "#f59e0b" };
-  if (s >= 14) return { label: "GOLD", mult: "1.75x", tier: 3, color: "#eab308" };
-  if (s >= 7) return { label: "SILVER", mult: "1.5x", tier: 2, color: "#94a3b8" };
-  if (s >= 3) return { label: "BRONZE", mult: "1.25x", tier: 1, color: "#cd7f32" };
-  return { label: "STARTER", mult: "1.0x", tier: 0, color: "#475569" };
-}
+// ── game engine (shared) ────────────────────────────────────
+import { getLevel, getNextLevel, getLevelProgress, getStreakMult, fmtStreak } from "../lib/game-engine";
+import { ROSTER_GROUPS } from "../constants";
 
 // ── storage keys (same as coach) ────────────────────────────
 const K = {
@@ -76,6 +44,14 @@ interface Athlete {
   parentEmail?: string;
   bestTimes?: { event: string; stroke: string; course: string; time: string; date?: string; source: string }[];
   bestTimesUpdated?: string;
+}
+
+// Parse swim time string to seconds (e.g. "1:02.34" → 62.34, "59.87" → 59.87)
+function parseTimeToSeconds(t: string): number {
+  if (!t) return Infinity;
+  const parts = t.replace(/[^0-9:.]/g, "").split(":");
+  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  return parseFloat(parts[0]) || Infinity;
 }
 
 // Practice sessions per week by roster group (from real schedules)
@@ -279,16 +255,16 @@ function calcAttributes(a: Athlete) {
   const attendance = Math.min(100, Math.round((attended / Math.max(attended, a.weekTarget * 4)) * 100));
   // Effort = weighted combination of: total checkpoints completed across all sessions,
   // bonus reps earned, weight room extra sets, and streak consistency
-  const totalCpDone = Object.values(a.checkpoints).filter(Boolean).length;
-  const weightCpDone = Object.values(a.weightCheckpoints || {}).filter(Boolean).length;
-  const meetCpDone = Object.values(a.meetCheckpoints || {}).filter(Boolean).length;
-  const hasBonusRep = a.checkpoints["bonus-rep"] ? 1 : 0;
-  const hasExtraSets = (a.weightCheckpoints || {})["w-extra-sets"] ? 1 : 0;
-  const effortScore = totalCpDone + weightCpDone + meetCpDone + (hasBonusRep * 5) + (hasExtraSets * 5) + Math.min(a.streak, 14);
+  const totalCpDone = Object.values(a.checkpoints ?? {}).filter(Boolean).length;
+  const weightCpDone = Object.values(a.weightCheckpoints ?? {}).filter(Boolean).length;
+  const meetCpDone = Object.values(a.meetCheckpoints ?? {}).filter(Boolean).length;
+  const hasBonusRep = (a.checkpoints ?? {})["bonus-rep"] ? 1 : 0;
+  const hasExtraSets = (a.weightCheckpoints ?? {})["w-extra-sets"] ? 1 : 0;
+  const effortScore = totalCpDone + weightCpDone + meetCpDone + (hasBonusRep * 5) + (hasExtraSets * 5) + Math.min(a.streak ?? 0, 14);
   const effort = Math.min(100, Math.round((effortScore / 35) * 100));
-  const improvement = Math.min(100, Math.round((a.xp / 2500) * 100));
-  const consistency = Math.min(100, Math.round((a.streak / 30) * 100));
-  const questsDone = Object.values(a.quests).filter(v => v === "done").length;
+  const improvement = Math.min(100, Math.round(((a.xp ?? 0) / 2500) * 100));
+  const consistency = Math.min(100, Math.round(((a.streak ?? 0) / 30) * 100));
+  const questsDone = Object.values(a.quests ?? {}).filter(v => v === "done").length;
   const leadership = Math.min(100, Math.round((questsDone / 5) * 100));
   return { attendance, effort, improvement, consistency, leadership };
 }
@@ -652,8 +628,10 @@ export default function AthletePortal() {
   const [activeMeditation, setActiveMeditation] = useState<string|null>(null);
   const [meditationModal, setMeditationModal] = useState<string|null>(null);
   const [completedMeditations, setCompletedMeditations] = useState<{meditationId: string; completedAt: number}[]>([]);
-  const [searchResults, setSearchResults] = useState<Athlete[]>([]);
+  // searchResults derived via useMemo below
   const [celebration, setCelebration] = useState<{ level: string; color: string } | null>(null);
+  const [pbNotification, setPbNotification] = useState<{ event: string; oldTime: string; newTime: string; timeDrop: string; xpEarned: number; meetName?: string } | null>(null);
+  const [pbQueue, setPbQueue] = useState<typeof pbNotification[]>([]);
   const prevLevelRef = { current: "" };
   // Auto-detect AM/PM from schedule (same logic as coach portal)
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
@@ -702,31 +680,27 @@ export default function AthletePortal() {
   const [coachGroup, setCoachGroup] = useState<string>("");
   useEffect(() => {
     setMounted(true);
-    // Auto-unlock for athletes with valid auth session
     const session = getSession();
-    if (session && session.role === "athlete") {
+    if (!session) return; // no session — show PIN screen
+    // Parents don't belong here — redirect them
+    if (session.role === "parent") {
+      window.location.href = "/apex-athlete/parent";
+      return;
+    }
+    // Athletes auto-unlock
+    if (session.role === "athlete") {
       setUnlocked(true);
     }
-    // Auto-unlock for coaches who already authenticated in the coach portal
-    try {
-      if (sessionStorage.getItem("apex-coach-auth")) {
-        setUnlocked(true);
-        setIsCoach(true);
-        setCoachGroup(localStorage.getItem("apex-coach-group") || "");
-      } else {
-        const ls = localStorage.getItem("apex-coach-auth");
-        if (ls && Date.now() - parseInt(ls) < 3600000) {
-          setUnlocked(true);
-          setIsCoach(true);
-          setCoachGroup(localStorage.getItem("apex-coach-group") || "");
-        }
-      }
-    } catch {}
+    // Coaches/admins auto-unlock with coach view
+    if (session.role === "coach" || session.role === "admin") {
+      setUnlocked(true);
+      setIsCoach(true);
+      setCoachGroup(localStorage.getItem("apex-coach-group") || "");
+    }
   }, []);
 
   const handlePin = async () => {
-    if (pinInput === MASTER_PIN) { setUnlocked(true); setPinError(false); return; }
-    // Check athlete PIN against Firestore
+    // Check athlete PIN against Firestore (and master PIN via loginWithPin)
     const result = await loginWithPin(pinInput.trim());
     if (result.success) { setUnlocked(true); setPinError(false); return; }
     // Fallback: check localStorage custom admin PIN
@@ -756,23 +730,53 @@ export default function AthletePortal() {
     });
   }, [mounted]);
 
-  // Name search — only used during onboarding, matches name + shows for confirmation
-  useEffect(() => {
-    if (nameInput.length < 2) { setSearchResults([]); return; }
+  // Name search — derived from nameInput, no extra render cycle needed
+  const searchResults = useMemo(() => {
+    if (nameInput.length < 2) return [];
     const q = nameInput.toLowerCase();
-    setSearchResults(roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8));
+    return roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8);
   }, [nameInput, roster]);
 
   const loadAthleteData = (a: Athlete) => {
     setAthlete(a);
     setNameInput("");
-    setSearchResults([]);
     setJournal(load<JournalEntry[]>(`${K.JOURNAL}-${a.id}`, []));
     setTimes(load<TimeEntry[]>(`${K.TIMES}-${a.id}`, []));
     setFeedback(load<FeedbackEntry[]>(`${K.FEEDBACK}-${a.id}`, []));
     setRacePlans(load<RacePlan[]>(`${K.RACE_PLANS}-${a.id}`, []));
     setCompletedMeditations(load<{meditationId: string; completedAt: number}[]>(`apex-athlete-meditations-${a.id}`, []));
     setSavedGoals(load<{ event: string; stroke: string; targetLevel: StandardLevel; targetTime: string }[]>(`apex-athlete-goals-${a.id}`, []));
+
+    // PB detection: compare current bestTimes against last-seen snapshot
+    const lastSeenKey = `apex-pb-last-seen-${a.id}`;
+    const lastSeen: Record<string, string> = load(lastSeenKey, {});
+    if (a.bestTimes && a.bestTimes.length > 0) {
+      const newPBs: typeof pbNotification[] = [];
+      for (const bt of a.bestTimes) {
+        const key = `${bt.event}-${bt.stroke}-${bt.course}`;
+        const prev = lastSeen[key];
+        if (prev && prev !== bt.time) {
+          // Time changed — check if it's an improvement
+          const prevSec = parseTimeToSeconds(prev);
+          const newSec = parseTimeToSeconds(bt.time);
+          if (newSec < prevSec) {
+            newPBs.push({
+              event: `${bt.event} ${bt.stroke}`,
+              oldTime: prev,
+              newTime: bt.time,
+              timeDrop: (newSec - prevSec).toFixed(2),
+              xpEarned: 50 + Math.min(50, Math.floor((prevSec - newSec) / 0.5) * 5),
+            });
+          }
+        }
+        lastSeen[key] = bt.time;
+      }
+      save(lastSeenKey, lastSeen);
+      if (newPBs.length > 0) {
+        setPbNotification(newPBs[0]!);
+        if (newPBs.length > 1) setPbQueue(newPBs.slice(1));
+      }
+    }
   };
 
   const completeOnboarding = (a: Athlete, swimId: string) => {
@@ -790,19 +794,26 @@ export default function AthletePortal() {
 
   const logout = () => {
     localStorage.removeItem("apex-athlete-profile-lock");
+    clearSession();
     setAthlete(null);
     setSelectedOnboardAthlete(null);
     setOnboardStep("name");
     setNameInput("");
     setIdInput("");
+    window.location.href = "/apex-athlete/portal";
   };
 
   const attrs = useMemo(() => athlete ? calcAttributes(athlete) : null, [athlete]);
-  const level = athlete ? getLevel(athlete.xp) : LEVELS[0];
-  const nextLevel = athlete ? getNextLevel(athlete.xp) : LEVELS[1];
-  const progress = athlete ? getLevelProgress(athlete.xp) : { percent: 0, remaining: 300 };
-  const streak = athlete ? fmtStreak(athlete.streak) : fmtStreak(0);
-  const streakMult = athlete ? getStreakMult(athlete.streak) : 1;
+  const sport = useMemo(() => {
+    if (!athlete) return "swimming";
+    const groupDef = ROSTER_GROUPS.find(g => g.id === athlete.group);
+    return groupDef?.sport || "swimming";
+  }, [athlete]);
+  const level = athlete ? getLevel(athlete.xp ?? 0, sport) : getLevel(0, sport);
+  const nextLevel = athlete ? getNextLevel(athlete.xp ?? 0, sport) : getNextLevel(0, sport);
+  const progress = athlete ? getLevelProgress(athlete.xp ?? 0, sport) : { percent: 0, remaining: 300 };
+  const streak = athlete ? fmtStreak(athlete.streak ?? 0) : fmtStreak(0);
+  const streakMult = athlete ? getStreakMult(athlete.streak ?? 0) : 1;
   const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
 
   const saveJournalEntry = () => {
@@ -930,7 +941,7 @@ export default function AthletePortal() {
     if (!athlete) return { leaderboard: [] as Athlete[], athleteRank: 0 };
     const genderFiltered = roster
       .filter(a => a.gender === athlete.gender && a.group === athlete.group)
-      .sort((a, b) => b.xp - a.xp);
+      .sort((a, b) => (b.xp ?? 0) - (a.xp ?? 0));
     const rank = genderFiltered.findIndex(a => a.id === athlete.id) + 1;
     return { leaderboard: genderFiltered, athleteRank: rank };
   }, [athlete, roster]);
@@ -951,9 +962,9 @@ export default function AthletePortal() {
   // Level-up celebration detection
   useEffect(() => {
     if (!athlete) return;
-    const curLevel = getLevel(athlete.xp).name;
+    const curLevel = getLevel(athlete.xp, "swimming").name;
     if (prevLevelRef.current && prevLevelRef.current !== curLevel) {
-      const lv = getLevel(athlete.xp);
+      const lv = getLevel(athlete.xp, "swimming");
       setCelebration({ level: lv.name, color: lv.color });
       setTimeout(() => setCelebration(null), 4000);
     }
@@ -997,28 +1008,21 @@ export default function AthletePortal() {
                 <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-36 xl:w-44 2xl:w-52 h-36 xl:h-44 2xl:h-52 mb-6" style={{animation:'logoFloat 4s ease-in-out infinite',filter:'drop-shadow(0 0 40px rgba(168,85,247,0.3))'}} />
                 <h1 className="text-6xl xl:text-7xl 2xl:text-8xl font-black mb-6 tracking-tight" style={{background:'linear-gradient(135deg, #a855f7, #c084fc, #a855f7)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
               </div>
-              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed mb-8 max-w-md text-center">Your journey. Your legacy.</p>
-              <div className="flex items-center justify-center gap-3 text-[#a855f7]/40 text-sm font-mono tracking-wider">
-                <span className="w-8 h-px bg-[#a855f7]/20" />
-                ATHLETE PORTAL
-                <span className="w-8 h-px bg-[#a855f7]/20" />
-              </div>
+              <p className="text-white/50 text-xl xl:text-2xl leading-relaxed max-w-md text-center">Your journey. Your legacy.</p>
             </div>
           </div>
           {/* Right panel — PIN form */}
           <div className="flex-1 flex items-center justify-center p-6 lg:p-16 xl:p-20">
             <div className="w-full max-w-md">
               {/* Mobile-only branding */}
-              <div className="lg:hidden text-center mb-8">
-                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mx-auto mb-4" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
+              <div className="lg:hidden flex flex-col items-center justify-center mb-8">
+                <img src="/mettle-brand/v5/mettle-icon.svg" alt="METTLE" className="w-20 h-20 mb-4 mx-auto block" style={{animation:'logoFloat 4s ease-in-out infinite'}} />
                 <h1 className="text-3xl font-black mb-1 tracking-tight" style={{background:'linear-gradient(135deg, #a855f7, #c084fc)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}}>METTLE</h1>
-                <div className="text-[#a855f7]/40 text-xs tracking-[0.3em] uppercase font-mono mt-1">ATHLETE PORTAL</div>
               </div>
               {/* Access card */}
               <div className="bg-[#0a0518]/80 backdrop-blur-xl border-2 border-[#a855f7]/25 rounded-3xl p-10 sm:p-12 lg:p-14" style={{animation:'athletePinGlow 3s ease-in-out infinite'}}>
                 <div className="text-center mb-12">
-                  <div className="text-[#a855f7]/50 text-xs tracking-[0.3em] uppercase font-mono mb-4">{"// SECURE ACCESS"}</div>
-                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Athlete Access</h2>
+                  <h2 className="text-white text-3xl xl:text-4xl font-bold tracking-wide">Athlete Portal</h2>
                 </div>
                 <div className="flex flex-col gap-7">
                   <div>
@@ -1102,13 +1106,13 @@ export default function AthletePortal() {
           </div>
           <input type="text" placeholder="Search by name..." value={nameInput}
             onChange={e => setNameInput(e.target.value)}
-            className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-4" autoFocus />
+            className="w-full px-5 py-4 bg-[#0a0518] border-2 border-[#a855f7]/25 rounded-xl text-white text-base placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 mb-4" />
           <div className="max-h-[60vh] overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {(nameInput.length >= 2 ? searchResults : roster.filter(a => !coachGroup || a.group === coachGroup).slice(0, 40)).map(a => {
-              const lv = getLevel(a.xp || 0);
+              const lv = getLevel(a.xp || 0, "swimming");
               return (
                 <button key={a.id} onClick={() => loadAthleteData(a)}
-                  className="w-full text-left px-5 py-4 rounded-xl bg-[#0a0518]/80 border-2 border-white/10 hover:border-[#a855f7]/40 transition-all flex items-center gap-4 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
+                  className="w-full text-left px-5 py-4 rounded-xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 hover:border-[#a855f7]/40 transition-all flex items-center gap-4 hover:shadow-[0_0_20px_rgba(168,85,247,0.1)]">
                   <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-bold" style={{background:`${lv.color}20`,color:lv.color}}>{a.name[0]}</div>
                   <div className="flex-1 min-w-0">
                     <div className="text-white font-semibold text-sm lg:text-base truncate">{a.name}</div>
@@ -1174,7 +1178,7 @@ export default function AthletePortal() {
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border transition-all ${
                   i < currentStepIdx ? "bg-[#a855f7]/20 border-[#a855f7]/40 text-[#a855f7]"
                     : i === currentStepIdx ? "bg-[#a855f7] border-[#a855f7] text-white"
-                    : "bg-white/5 border-white/10 text-white/50"
+                    : "bg-white/5 border-[#a855f7]/20 text-white/50"
                 }`}>
                   {i < currentStepIdx ? (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
@@ -1194,17 +1198,15 @@ export default function AthletePortal() {
               <div className="relative">
                 <input type="text" value={nameInput} onChange={e => { setNameInput(e.target.value); setOnboardError(""); }}
                   placeholder="Start typing your name..."
-                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]"
-                  autoFocus />
+                  className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-lg placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all min-h-[48px]" />
                 {searchResults.length > 0 && (
                   <div className="absolute top-full left-0 right-0 mt-2 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl overflow-hidden z-50 shadow-xl shadow-black/50">
                     {searchResults.map(a => {
-                      const lv = getLevel(a.xp);
+                      const lv = getLevel(a.xp, "swimming");
                       return (
                         <button key={a.id} onClick={() => {
                           setNameInput(a.name);
                           setSelectedOnboardAthlete(a);
-                          setSearchResults([]);
                           setOnboardStep("swimid");
                         }}
                           className="w-full px-5 py-4 text-left hover:bg-[#a855f7]/10 transition-colors flex items-center justify-between border-b border-white/5 last:border-0 min-h-[48px]">
@@ -1247,8 +1249,7 @@ export default function AthletePortal() {
                     onChange={e => { setIdInput(e.target.value.replace(/[^A-Za-z0-9-]/g, "").toUpperCase()); setOnboardError(""); }}
                     placeholder="XXXX-XXXXXX"
                     maxLength={15}
-                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]"
-                    autoFocus />
+                    className="w-full px-5 py-4 bg-[#0a0518] border border-[#a855f7]/20 rounded-xl text-white text-xl font-mono placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/50 transition-all text-center tracking-[0.15em] min-h-[56px]" />
                   {/* Format hint */}
                   {idInput.length > 0 && (
                     <div className="absolute -bottom-6 left-0 right-0 text-center">
@@ -1300,7 +1301,7 @@ export default function AthletePortal() {
             <div className="space-y-4">
               {(() => {
                 const match = selectedOnboardAthlete;
-                const lv = getLevel(match.xp);
+                const lv = getLevel(match.xp ?? 0, "swimming");
                 return (
                   <>
                     <div className="bg-[#0a0518] border border-[#a855f7]/20 rounded-xl p-6 text-center">
@@ -1309,7 +1310,7 @@ export default function AthletePortal() {
                       </div>
                       <p className="text-white font-bold text-xl mb-1">{match.name}</p>
                       <p className="text-white/60 text-sm mb-2">{match.group.toUpperCase()} · Age {match.age}</p>
-                      <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp} XP</span>
+                      <span className="text-sm font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name} · {match.xp ?? 0} XP</span>
                       <div className="mt-3 pt-3 border-t border-white/5">
                         <div className="flex items-center justify-center gap-2">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" strokeWidth="2" strokeLinecap="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18"/></svg>
@@ -1395,6 +1396,19 @@ export default function AthletePortal() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
       </div>
 
+      {/* PB Notification Overlay */}
+      <PBOverlay
+        notification={pbNotification}
+        onDismiss={() => {
+          if (pbQueue.length > 0) {
+            setPbNotification(pbQueue[0]!);
+            setPbQueue(q => q.slice(1));
+          } else {
+            setPbNotification(null);
+          }
+        }}
+      />
+
       {/* Level-Up Celebration Overlay */}
       {celebration && (
         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: "aa-welcome-in 0.5s ease-out, aa-welcome-out 0.5s ease-in 3.5s forwards" }}>
@@ -1413,66 +1427,69 @@ export default function AthletePortal() {
       <div className="relative z-10 w-full mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 py-6 sm:py-10">
         {/* Header + AM/PM indicator */}
         <div className="flex items-center justify-between mb-4 lg:mb-8">
-          <button onClick={logout} className="text-white/60 hover:text-white/60 text-sm transition-colors min-h-[44px]">{isCoach ? "← Switch" : "Sign Out"}</button>
+          <div className="w-14" />
           <div className="text-center">
-            <h2 className="text-white font-bold text-lg lg:text-4xl xl:text-5xl">{athlete.name}</h2>
+            <h2 className="text-white font-bold text-lg lg:text-4xl xl:text-5xl">{athlete?.name ?? ""}</h2>
             <div className="flex items-center justify-center gap-2 lg:gap-3 mt-0.5 lg:mt-2">
               <span style={{ color: level.color }} className="text-sm lg:text-xl font-bold">{level.icon} {level.name}</span>
               <span className="text-white/50 text-xs lg:text-base">·</span>
-              <span className="text-white/60 text-xs lg:text-lg">{athlete.group.toUpperCase()}</span>
+              <span className="text-white/60 text-xs lg:text-lg">{(athlete?.group ?? "").toUpperCase()}</span>
             </div>
             <div className="flex items-center justify-center gap-2 mt-1">
-              <span className="text-white/50 text-sm font-mono">Age {athlete.age}</span>
-              {athlete.usaSwimmingId && (
+              <span className="text-white/50 text-sm font-mono">Age {athlete?.age ?? 0}</span>
+              {athlete?.usaSwimmingId && (
                 <>
                   <span className="text-white/60 text-sm">·</span>
-                  <span className="text-[#00f0ff]/90 text-sm font-mono">USA-S {athlete.usaSwimmingId}</span>
+                  <span className="text-[#00f0ff]/90 text-sm font-mono">USA-S {athlete?.usaSwimmingId}</span>
                 </>
               )}
             </div>
           </div>
-          {/* AM/PM Toggle */}
-          <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
-            className={`px-3 py-1.5 rounded-lg text-sm font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
-              sessionTime === "am"
-                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
-                : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
-            }`}>
-            {sessionTime === "am" ? "☀ AM" : "☽ PM"}
-          </button>
+          {/* AM/PM Toggle + Sign Out */}
+          <div className="flex items-center gap-2">
+            <button onClick={() => setSessionTime(sessionTime === "am" ? "pm" : "am")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-bold font-mono tracking-wider transition-all duration-200 active:scale-95 ${
+                sessionTime === "am"
+                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                  : "bg-indigo-500/15 text-indigo-400 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]"
+              }`}>
+              {sessionTime === "am" ? "☀ AM" : "☽ PM"}
+            </button>
+            <button onClick={logout} className="w-9 h-9 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 transition-all" title="Sign Out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+          </div>
         </div>
 
         {/* XP Bar */}
         <div className="mb-4 lg:mb-8 p-4 lg:p-8 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 w-full" style={{ animation: "aa-glow-breathe 4s ease-in-out infinite" }}>
           <div className="flex items-center justify-between mb-1.5 lg:mb-3">
-            <span className="text-white/60 text-xs lg:text-base font-mono">Season: <AnimatedCounter value={athlete.seasonXP || 0} /> XP • Total: <AnimatedCounter value={athlete.xp} /> XP</span>
+            <span className="text-white text-xs lg:text-base font-bold font-mono">Level {level.name} — <AnimatedCounter value={athlete?.xp ?? 0} />/{nextLevel ? nextLevel.xpThreshold : level.xpThreshold} XP</span>
             {nextLevel ? (
-              <span className="text-xs" style={{ color: nextLevel.color }}>{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
+              <span className="text-[#A78BFA] text-xs font-mono">{nextLevel.icon} {nextLevel.name} in {progress.remaining} XP</span>
             ) : (
               <span className="text-[#ef4444] text-xs font-bold">MAX LEVEL</span>
             )}
           </div>
-          <div className="h-2.5 lg:h-4 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-3 bg-white/5 rounded-full overflow-hidden">
             <div className="h-full rounded-full transition-all duration-700 ease-out"
-              style={{ width: `${progress.percent}%`, background: `linear-gradient(90deg, ${level.color}, ${nextLevel?.color || level.color})` }} />
+              style={{ width: `${progress.percent}%`, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)' }} />
           </div>
         </div>
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-3 gap-3 lg:gap-6 mb-5 lg:mb-10 w-full">
-          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white flex items-center justify-center gap-1"><StreakFlame streak={athlete.streak} size={32} /> {athlete.streak}</div>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out infinite" }}>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white flex items-center justify-center gap-1"><StreakFlame streak={athlete?.streak ?? 0} size={32} /> {athlete?.streak ?? 0}</div>
             <div className="text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2" style={{ color: streak.color }}>{streak.label}</div>
             <div className="text-white/50 text-sm lg:text-lg">{streak.mult}</div>
           </div>
-          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.totalPractices}</div>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 1s infinite" }}>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete?.totalPractices ?? 0}</div>
             <div className="text-white/60 text-sm lg:text-lg xl:text-xl font-mono tracking-wider mt-2">PRACTICES</div>
           </div>
-          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-white/10 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
-            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{athlete.weekSessions + athlete.weekWeightSessions}/{getWeekTarget(athlete.group)}</div>
+          <div className="p-3 lg:p-8 xl:p-10 rounded-xl lg:rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25 text-center" style={{ animation: "aa-glow-breathe 5s ease-in-out 2s infinite" }}>
+            <div className="text-xl lg:text-5xl xl:text-6xl font-black text-white">{(athlete?.weekSessions ?? 0) + (athlete?.weekWeightSessions ?? 0)}/{getWeekTarget(athlete?.group ?? "")}</div>
             <div className="text-white/60 text-xs lg:text-base xl:text-lg font-mono tracking-wider mt-1">
-              {athlete.weekSessions}🏊 {athlete.weekWeightSessions}🏋️ / {getGroupTargets(athlete.group).pool}+{getGroupTargets(athlete.group).weight}
+              {athlete?.weekSessions ?? 0}🏊 {athlete?.weekWeightSessions ?? 0}🏋️ / {getGroupTargets(athlete?.group ?? "").pool}+{getGroupTargets(athlete?.group ?? "").weight}
             </div>
             <div className="text-white/60 text-xs lg:text-base font-mono tracking-wider">THIS WEEK</div>
           </div>
@@ -1547,15 +1564,15 @@ export default function AthletePortal() {
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8">TODAY&apos;S EFFORT</h3>
               <div className="grid grid-cols-3 gap-3 lg:gap-8">
                 <div className="text-center">
-                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#60a5fa]">{athlete.dailyXP?.pool || 0}</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#60a5fa]">{athlete?.dailyXP?.pool ?? 0}</div>
                   <div className="text-sm lg:text-lg text-white/60">Pool</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#f59e0b]">{athlete.dailyXP?.weight || 0}</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#f59e0b]">{athlete?.dailyXP?.weight ?? 0}</div>
                   <div className="text-sm lg:text-lg text-white/60">Weight</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#ef4444]">{athlete.dailyXP?.meet || 0}</div>
+                  <div className="text-lg lg:text-4xl xl:text-5xl font-bold text-[#ef4444]">{athlete?.dailyXP?.meet ?? 0}</div>
                   <div className="text-sm lg:text-lg text-white/60">Meet</div>
                 </div>
               </div>
@@ -1565,12 +1582,12 @@ export default function AthletePortal() {
               </div>
             </div>
 
-            {athlete.weightStreak > 0 && (
+            {(athlete?.weightStreak ?? 0) > 0 && (
               <div className="p-5 lg:p-8 rounded-2xl bg-[#0a0518]/80 border-2 border-[#f59e0b]/20">
                 <h3 className="text-white/50 text-xs lg:text-sm font-mono tracking-wider mb-3">IRON DISCIPLINE</h3>
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl font-black text-[#f59e0b]">{athlete.weightStreak}</span>
-                  <span className="text-white/60 text-xs">sessions · {athlete.weekWeightSessions} this week</span>
+                  <span className="text-2xl font-black text-[#f59e0b]">{athlete?.weightStreak ?? 0}</span>
+                  <span className="text-white/60 text-xs">sessions · {athlete?.weekWeightSessions ?? 0} this week</span>
                 </div>
               </div>
             )}
@@ -1579,7 +1596,7 @@ export default function AthletePortal() {
             {/* Column 3: Consistency calendar */}
             <div className="w-full xl:col-span-1 lg:col-span-2 xl:col-auto">
             {/* Attendance Calendar — last 28 days heatmap */}
-            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-white/10" style={{ animation: "aa-glow-breathe 5s ease-in-out 1.5s infinite" }}>
+            <div className="p-5 lg:p-8 xl:p-10 rounded-2xl bg-[#0a0518]/80 border-2 border-[#a855f7]/25" style={{ animation: "aa-glow-breathe 5s ease-in-out 1.5s infinite" }}>
               <h3 className="text-white/50 text-xs lg:text-base xl:text-lg font-mono tracking-wider mb-4 lg:mb-8">YOUR CONSISTENCY — LAST 28 DAYS</h3>
               <div className="grid grid-cols-7 gap-1.5 lg:gap-3 xl:gap-4 w-full">
                 {["S","M","T","W","T","F","S"].map((d,i) => (
@@ -1600,7 +1617,7 @@ export default function AthletePortal() {
                     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
                     // Check if athlete practiced on this day (check journal or daily XP)
                     const hadPractice = journal.some(j => j.date === dateStr) ||
-                      (athlete.dailyXP?.date === dateStr && (athlete.dailyXP.pool + athlete.dailyXP.weight + athlete.dailyXP.meet) > 0) ||
+                      (athlete?.dailyXP?.date === dateStr && ((athlete?.dailyXP?.pool ?? 0) + (athlete?.dailyXP?.weight ?? 0) + (athlete?.dailyXP?.meet ?? 0)) > 0) ||
                       times.some(t => t.date === dateStr);
                     const isToday = dateStr === todayStr;
                     days.push({ date: dateStr, active: hadPractice, isToday, day: d.getDate() });
@@ -1640,28 +1657,28 @@ export default function AthletePortal() {
               </h3>
               <div className="grid grid-cols-2 gap-3 lg:gap-4 mb-3 lg:mb-4">
                 <select value={newTime.event} onChange={e => setNewTime(p => ({ ...p, event: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
                   {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
                 </select>
                 <select value={newTime.stroke} onChange={e => setNewTime(p => ({ ...p, stroke: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base focus:outline-none focus:border-[#00f0ff]/30">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3 lg:gap-4 mb-3 lg:mb-4">
                 <input type="text" placeholder="Time (M:SS.hh)" value={newTime.time}
                   onChange={e => setNewTime(p => ({ ...p, time: e.target.value }))}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30" />
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 lg:px-4 lg:py-3.5 text-white text-sm lg:text-base placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30" />
                 <button onClick={() => setNewTime(p => ({ ...p, meet: !p.meet }))}
                   className={`rounded-lg px-3 py-2.5 text-sm font-bold border transition-all ${
-                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/60 border-white/10"
+                    newTime.meet ? "bg-[#ef4444]/15 text-[#ef4444] border-[#ef4444]/30" : "bg-white/5 text-white/60 border-[#a855f7]/20"
                   }`}>
                   {newTime.meet ? "MEET TIME" : "PRACTICE"}
                 </button>
               </div>
               <input type="text" placeholder="Notes (optional)" value={newTime.notes}
                 onChange={e => setNewTime(p => ({ ...p, notes: e.target.value }))}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
+                className="w-full bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#00f0ff]/30 mb-3" />
               <button onClick={saveTime} disabled={!newTime.time}
                 className="w-full py-2.5 rounded-lg bg-[#00f0ff]/15 border border-[#00f0ff]/25 text-[#00f0ff] text-sm font-bold disabled:opacity-30 hover:bg-[#00f0ff]/25 transition-all min-h-[44px]">
                 Save Time
@@ -1695,14 +1712,14 @@ export default function AthletePortal() {
               const shortStroke = (s: string) => strokeNames[s] || s;
               const courseOrder = ["SCY", "LCM", "SCM"] as const;
               const byCourse: Record<string, typeof athlete.bestTimes> = {};
-              for (const bt of athlete.bestTimes) {
+              for (const bt of athlete.bestTimes ?? []) {
                 const c = bt.course || "SCY";
                 if (!byCourse[c]) byCourse[c] = [];
                 byCourse[c].push(bt);
               }
               // Sort each course's times by distance then stroke
               for (const c of Object.keys(byCourse)) {
-                byCourse[c].sort((a, b) => {
+                (byCourse[c] ?? []).sort((a, b) => {
                   const dA = parseInt(a.event) || 0, dB = parseInt(b.event) || 0;
                   if (dA !== dB) return dA - dB;
                   return (a.stroke || "").localeCompare(b.stroke || "");
@@ -1727,7 +1744,7 @@ export default function AthletePortal() {
                         <span className="text-white/30 text-xs">{c === "SCY" ? "Short Course Yards" : c === "LCM" ? "Long Course Meters" : "Short Course Meters"}</span>
                       </div>
                       <div className="grid gap-1.5">
-                        {byCourse[c].map((bt, i) => (
+                        {(byCourse[c] ?? []).map((bt, i) => (
                           <div key={`${c}-${i}`} className="flex items-center justify-between p-3 rounded-lg bg-white/[0.03] border border-white/5 min-h-[48px]">
                             <span className="text-white text-sm font-bold">{bt.event} {shortStroke(bt.stroke)}</span>
                             <div className="text-right flex items-center gap-3">
@@ -1831,7 +1848,7 @@ export default function AthletePortal() {
                       <div className="overflow-x-auto -mx-2 px-2">
                         <table className="w-full text-xs">
                           <thead>
-                            <tr className="border-b border-white/10">
+                            <tr className="border-b border-[#a855f7]/20">
                               <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
                               {(["B", "BB", "A", "AA", "AAA", "AAAA", "SECTIONALS", "FUTURES", "JR_NATL", "OT", "US_OPEN", "WR"] as StandardLevel[]).map(lv => {
                                 const hasCol = events.some(ev => getAllStandards(g, ev, stroke, goalCourse)[lv]);
@@ -1883,7 +1900,7 @@ export default function AthletePortal() {
                     <div className="overflow-x-auto -mx-2 px-2">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="border-b border-white/10">
+                          <tr className="border-b border-[#a855f7]/20">
                             <th className="text-left text-white/60 py-2 pr-2 font-mono">Event</th>
                             {STROKES.map(s => {
                               const fgcTable = g === "M" ? FGC_SCY_BOYS : FGC_SCY_GIRLS;
@@ -1970,11 +1987,11 @@ export default function AthletePortal() {
 
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <select value={goalEvent} onChange={e => setGoalEvent(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
                   {EVENTS_BY_COURSE[goalCourse].map(e => <option key={e} value={e}>{e}{UNIT_LABEL[goalCourse]}</option>)}
                 </select>
                 <select value={goalStroke} onChange={e => setGoalStroke(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#22c55e]/30">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -2140,7 +2157,7 @@ export default function AthletePortal() {
                     const achieved = prSecs && targetSecs ? prSecs <= targetSecs : false;
                     return (
                       <button key={i} onClick={() => { setGoalEvent(g.event); setGoalStroke(g.stroke); }}
-                        className={`w-full p-3 rounded-lg border text-left transition-all ${achieved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/[0.02] border-white/5 hover:border-white/10"}`}>
+                        className={`w-full p-3 rounded-lg border text-left transition-all ${achieved ? "bg-emerald-500/5 border-emerald-500/15" : "bg-white/[0.02] border-white/5 hover:border-[#a855f7]/20"}`}>
                         <div className="flex items-center justify-between">
                           <span className="text-white text-sm font-bold">{g.event}m {g.stroke}</span>
                           <span className="text-sm px-2 py-0.5 rounded-full font-black" style={{ background: `${STANDARD_COLORS[g.targetLevel]}15`, color: STANDARD_COLORS[g.targetLevel] }}>
@@ -2170,11 +2187,11 @@ export default function AthletePortal() {
 
               <div className="grid grid-cols-2 gap-3 mb-3">
                 <select value={rpEvent} onChange={e => setRpEvent(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
                   {EVENTS.map(e => <option key={e} value={e}>{e}m</option>)}
                 </select>
                 <select value={rpStroke} onChange={e => setRpStroke(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
+                  className="bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[#ef4444]/30">
                   {STROKES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
@@ -2183,13 +2200,13 @@ export default function AthletePortal() {
                   <label className="text-white/60 text-sm font-mono block mb-1">CURRENT BEST</label>
                   <input type="text" placeholder="1:05.30" value={rpCurrent}
                     onChange={e => setRpCurrent(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
+                    className="w-full bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
                 </div>
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">GOAL TIME</label>
                   <input type="text" placeholder="1:02.00" value={rpGoal}
                     onChange={e => setRpGoal(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
+                    className="w-full bg-white/5 border-2 border-[#a855f7]/25 rounded-lg px-3 py-2.5 text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#ef4444]/30" />
                 </div>
               </div>
               <button onClick={generateRacePrep} disabled={!rpCurrent || !rpGoal}
@@ -2260,13 +2277,13 @@ export default function AthletePortal() {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-white/50 text-xs font-mono tracking-wider">SIDE QUESTS</h3>
               <span className="text-white/25 text-xs font-mono">
-                {Object.values(athlete.quests || {}).filter(s => s === "done").length}/{QUEST_DEFS.length} done
+                {Object.values(athlete?.quests ?? {}).filter(s => s === "done").length}/{QUEST_DEFS.length} done
               </span>
             </div>
             <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:space-y-0">
             {QUEST_DEFS.map(q => {
-              const status = athlete.quests?.[q.id] || "pending";
-              const note = athlete.questNotes?.[q.id] || "";
+              const status = (athlete?.quests ?? {})[q.id] ?? "pending";
+              const note = (athlete?.questNotes ?? {})[q.id] ?? "";
               return (
                 <div key={q.id} className={`p-4 rounded-xl border transition-all ${
                   status === "done" ? "bg-emerald-500/5 border-emerald-500/20" :
@@ -2299,15 +2316,17 @@ export default function AthletePortal() {
                     <div className="mt-3 pt-3 border-t border-white/5">
                       <textarea
                         placeholder="What did you do? (optional)"
-                        className="w-full bg-white/[0.03] border border-white/10 rounded-lg p-2.5 text-white text-xs placeholder:text-white/20 resize-none focus:border-[#a855f7]/30 focus:outline-none"
+                        className="w-full bg-white/[0.03] border-2 border-[#a855f7]/25 rounded-lg p-2.5 text-white text-xs placeholder:text-white/20 resize-none focus:border-[#a855f7]/30 focus:outline-none"
                         rows={2}
                         value={note}
                         onChange={e => {
-                          const newNotes = { ...(athlete.questNotes || {}), [q.id]: e.target.value };
-                          const roster = load<Athlete[]>(K.ROSTER, []);
-                          const idx = roster.findIndex(a => a.id === athlete.id);
-                          if (idx >= 0) { roster[idx] = { ...roster[idx], questNotes: newNotes }; save(K.ROSTER, roster); }
+                          const newNotes = { ...(athlete?.questNotes || {}), [q.id]: e.target.value };
                           setAthlete(prev => prev ? { ...prev, questNotes: newNotes } : prev);
+                        }}
+                        onBlur={() => {
+                          const roster = load<Athlete[]>(K.ROSTER, []);
+                          const idx = roster.findIndex(a => a.id === athlete?.id);
+                          if (idx >= 0) { roster[idx] = { ...roster[idx], questNotes: athlete?.questNotes || {} }; save(K.ROSTER, roster); }
                         }}
                       />
                       <button
@@ -2364,19 +2383,19 @@ export default function AthletePortal() {
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">WINS TODAY</label>
                   <textarea value={journalDraft.wentWell} onChange={e => setJournalDraft(d => ({ ...d, wentWell: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border-2 border-[#a855f7]/25 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="I nailed my flip turns today..." />
                 </div>
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">WHAT I&apos;LL WORK ON</label>
                   <textarea value={journalDraft.workOn} onChange={e => setJournalDraft(d => ({ ...d, workOn: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border-2 border-[#a855f7]/25 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="Need to focus on breathing pattern..." />
                 </div>
                 <div>
                   <label className="text-white/60 text-sm font-mono block mb-1">MY GOALS</label>
                   <textarea value={journalDraft.goals} onChange={e => setJournalDraft(d => ({ ...d, goals: e.target.value }))}
-                    className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
+                    className="w-full px-3 py-2 bg-white/5 border-2 border-[#a855f7]/25 rounded-lg text-white text-sm placeholder:text-white/50 focus:outline-none focus:border-[#a855f7]/30 resize-none"
                     rows={2} placeholder="Drop 2 seconds on my 100 free..." />
                 </div>
                 <button onClick={saveJournalEntry}
@@ -2465,8 +2484,8 @@ export default function AthletePortal() {
               <span className="text-white/50 text-sm font-mono">Your rank: <span className="text-[#a855f7] font-bold">#{athleteRank}</span> of {leaderboard.length}</span>
             </div>
             {leaderboard.map((a, i) => {
-              const lv = getLevel(a.xp);
-              const isMe = a.id === athlete.id;
+              const lv = getLevel(a.xp ?? 0, "swimming");
+              const isMe = a.id === athlete?.id;
               const rank = i + 1;
               return (
                 <div key={a.id} id={isMe ? "my-rank" : undefined}
@@ -2485,8 +2504,8 @@ export default function AthletePortal() {
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span style={{ color: lv.color }} className="text-xs">{lv.icon}</span>
-                    <span className="text-white/60 text-xs font-mono">{a.xp} XP</span>
-                    {a.streak >= 3 && <span className="text-sm text-[#ef4444]">{a.streak}d</span>}
+                    <span className="text-white/60 text-xs font-mono">{a?.xp ?? 0} XP</span>
+                    {(a?.streak ?? 0) >= 3 && <span className="text-sm text-[#ef4444]">{a?.streak ?? 0}d</span>}
                   </div>
                 </div>
               );
@@ -2551,7 +2570,7 @@ export default function AthletePortal() {
               <p className="text-white/60 text-sm mb-3">4 seconds in · 4 hold · 4 out · 4 hold. Calms your nervous system before races.</p>
               <div className="flex flex-col items-center">
                 <div className={`w-28 h-28 rounded-full flex items-center justify-center border-2 transition-all duration-1000 ${
-                  breathPhase === "idle" ? "border-white/10" :
+                  breathPhase === "idle" ? "border-[#a855f7]/20" :
                   breathPhase === "inhale" ? "border-cyan-400 scale-110 bg-cyan-500/10" :
                   breathPhase === "hold" ? "border-amber-400 bg-amber-500/5" :
                   "border-indigo-400 scale-90 bg-indigo-500/10"
@@ -2622,7 +2641,7 @@ export default function AthletePortal() {
                   <div key={med.id}>
                     <button onClick={() => setActiveMeditation(activeMeditation === med.id ? null : med.id)}
                       className={`w-full text-left p-3 rounded-xl border transition-all ${
-                        activeMeditation === med.id ? "bg-violet-500/10 border-violet-500/20" : "bg-white/[0.02] border-white/5 hover:border-white/10"
+                        activeMeditation === med.id ? "bg-violet-500/10 border-violet-500/20" : "bg-white/[0.02] border-white/5 hover:border-[#a855f7]/20"
                       }`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -2655,8 +2674,8 @@ export default function AthletePortal() {
         {/* ── MEETS TAB ── */}
         {tab === "meets" && (() => {
           const meets: MeetData[] = (() => { try { return JSON.parse(localStorage.getItem("apex-meets-v1") || "[]"); } catch { return []; } })();
-          const myMeets = meets.filter(m => m.status !== "completed" && m.events?.some(e => e.entries?.some(en => en.athleteId === athlete.id)));
-          const myRsvpMeets = meets.filter(m => m.status !== "completed" && (m.rsvps?.[athlete.id] !== undefined || m.events?.some(e => e.entries?.some(en => en.athleteId === athlete.id))));
+          const myMeets = meets.filter(m => m.status !== "completed" && (m.events ?? []).some(e => (e.entries ?? []).some(en => en.athleteId === athlete?.id)));
+          const myRsvpMeets = meets.filter(m => m.status !== "completed" && ((m.rsvps ?? {})[athlete?.id ?? ""] !== undefined || (m.events ?? []).some(e => (e.entries ?? []).some(en => en.athleteId === athlete?.id))));
           const allUpcoming = myMeets.length > 0 ? myMeets : myRsvpMeets;
 
           return (
@@ -2671,8 +2690,8 @@ export default function AthletePortal() {
                 </div>
               ) : (
                 allUpcoming.map(meet => {
-                  const myEvents = meet.events?.filter(e => e.entries?.some(en => en.athleteId === athlete.id)) || [];
-                  const myRsvp = meet.rsvps?.[athlete.id] || "pending";
+                  const myEvents = (meet.events ?? []).filter(e => (e.entries ?? []).some(en => en.athleteId === athlete?.id));
+                  const myRsvp = (meet.rsvps ?? {})[athlete?.id ?? ""] ?? "pending";
                   const meetDate = new Date(meet.date + "T00:00:00");
                   const daysUntil = Math.ceil((meetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
                   const rsvpDeadline = meet.rsvpDeadline ? new Date(meet.rsvpDeadline + "T00:00:00") : null;
@@ -2707,7 +2726,7 @@ export default function AthletePortal() {
                           <span className="text-white/60 text-sm font-mono tracking-wider block mb-2">YOUR EVENTS</span>
                           <div className="space-y-1.5">
                             {myEvents.map(ev => {
-                              const myEntry = ev.entries?.find(en => en.athleteId === athlete.id);
+                              const myEntry = (ev.entries ?? []).find(en => en.athleteId === athlete?.id);
                               return (
                                 <div key={ev.id} className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                                   <span className="text-white/70 text-sm font-medium">{ev.name}</span>
@@ -2737,10 +2756,10 @@ export default function AthletePortal() {
                       </div>
 
                       {/* Broadcasts */}
-                      {meet.broadcasts && meet.broadcasts.length > 0 && (
+                      {((meet.broadcasts ?? []).length > 0) && (
                         <div className="mt-3 pt-3 border-t border-white/5">
                           <span className="text-white/60 text-sm font-mono tracking-wider block mb-2">COACH UPDATES</span>
-                          {meet.broadcasts.slice(-2).map(b => (
+                          {(meet.broadcasts ?? []).slice(-2).map(b => (
                             <div key={b.id} className="p-2 rounded-lg bg-[#00f0ff]/5 border border-[#00f0ff]/10 mb-1.5">
                               <p className="text-white/50 text-sm">{b.message}</p>
                               <span className="text-white/50 text-sm">{new Date(b.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>

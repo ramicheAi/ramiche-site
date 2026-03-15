@@ -6,12 +6,12 @@
 // Usage: node scripts/bridge-sync.mjs
 // Or: BRIDGE_URL=https://ramiche-site.vercel.app/api/bridge node scripts/bridge-sync.mjs
 
-import { execSync } from "child_process";
-import { readFileSync, writeFileSync, existsSync, readdirSync } from "fs";
+import { execSync, execFileSync } from "child_process";
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "parallax-bridge-2026";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE || "/Users/admin/.openclaw/workspace";
 const SYNC_INTERVAL = 60_000; // 60 seconds
 
@@ -80,7 +80,7 @@ function getAgentStatus() {
   const recentlyActive = [];
 
   // Try to get active sessions
-  const sessionOutput = run("openclaw sessions --json 2>/dev/null || echo '[]'");
+  const sessionOutput = run("/usr/local/bin/openclaw sessions --json 2>/dev/null || echo '[]'");
   try {
     const parsed = JSON.parse(sessionOutput);
     const sessions = parsed.sessions || (Array.isArray(parsed) ? parsed : []);
@@ -130,22 +130,43 @@ function getAgentStatus() {
 // ── Cron Jobs ────────────────────────────────────────────────────────
 
 function getCronJobs() {
-  const cronOutput = run("openclaw cron list --json 2>/dev/null || echo '[]'");
+  let jobs = [];
+
+  // Primary: CLI (full path for cron-spawned contexts)
+  const cronOutput = run("/usr/local/bin/openclaw cron list --json 2>/dev/null");
   try {
-    const parsed = JSON.parse(cronOutput);
-    const jobs = parsed.jobs || (Array.isArray(parsed) ? parsed : []);
-    return jobs.map(j => ({
-      id: j.id,
-      name: j.name,
-      enabled: j.enabled,
-      agent: j.agentId || "atlas",
-      schedule: j.schedule?.expr || (j.schedule?.everyMs ? `every ${Math.round(j.schedule.everyMs / 60000)}m` : ""),
-      lastRun: j.state?.lastRunStatus || "unknown",
-      nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "",
-    }));
-  } catch {
-    return [];
+    const jsonStart = cronOutput.indexOf('{');
+    if (jsonStart !== -1) {
+      const parsed = JSON.parse(cronOutput.slice(jsonStart));
+      jobs = parsed.jobs || (Array.isArray(parsed) ? parsed : []);
+    }
+  } catch (e) {
+    console.error("[bridge] getCronJobs CLI parse error:", e.message);
   }
+
+  // Fallback: read jobs.json directly if CLI returned nothing
+  if (jobs.length === 0) {
+    const cronFile = join(process.env.HOME || "/Users/admin", ".openclaw/cron/jobs.json");
+    if (existsSync(cronFile)) {
+      try {
+        const raw = JSON.parse(readFileSync(cronFile, "utf8"));
+        jobs = raw.jobs || (Array.isArray(raw) ? raw : []);
+        console.log(`[bridge] getCronJobs: CLI empty, read ${jobs.length} jobs from jobs.json`);
+      } catch (e) {
+        console.error("[bridge] getCronJobs file fallback error:", e.message);
+      }
+    }
+  }
+
+  return jobs.map(j => ({
+    id: j.id,
+    name: j.name,
+    enabled: j.enabled,
+    agent: j.agentId || "atlas",
+    schedule: j.schedule?.expr || (j.schedule?.everyMs ? `every ${Math.round(j.schedule.everyMs / 60000)}m` : ""),
+    lastRun: j.state?.lastRunStatus || "unknown",
+    nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "",
+  }));
 }
 
 // ── Activity Feed ────────────────────────────────────────────────────
@@ -185,74 +206,89 @@ function getRecentActivity() {
   return activities.slice(-30); // Last 30 items
 }
 
-// ── Projects ─────────────────────────────────────────────────────────
+// ── Projects (LIVE from workspace/projects/) ─────────────────────────
+
+function parseTasks(content) {
+  const tasks = [];
+  for (const line of content.split("\n")) {
+    const doneMatch = line.match(/^-\s*\[x\]\s+(.+)/i);
+    const todoMatch = line.match(/^-\s*\[\s\]\s+(.+)/);
+    if (doneMatch) tasks.push({ t: doneMatch[1].trim(), done: true });
+    else if (todoMatch) tasks.push({ t: todoMatch[1].trim(), done: false });
+  }
+  return tasks;
+}
 
 function getProjectStatus() {
-  return [
-    {
-      name: "METTLE",
-      status: "beta",
-      priority: 1,
-      url: "https://ramiche-site.vercel.app/apex-athlete",
-      description: "Gamified athlete SaaS - beta with Saint Andrew's Aquatics",
-    },
-    {
-      name: "Parallax Site",
-      status: "live",
-      priority: 2,
-      url: "https://parallax-site-ashen.vercel.app",
-      description: "Agent marketplace + Claude Skills",
-    },
-    {
-      name: "Parallax Publish",
-      status: "active",
-      priority: 3,
-      url: "https://parallax-publish.vercel.app",
-      description: "Social media publishing - 3 platforms live",
-    },
-    {
-      name: "Ramiche Studio",
-      status: "blocked",
-      priority: 4,
-      url: "https://ramiche-site.vercel.app",
-      description: "Creative services - blocked on Stripe key",
-    },
-    {
-      name: "Galactik Antics",
-      status: "blocked",
-      priority: 5,
-      url: "",
-      description: "AI art + merch - blocked on Shopify API + art assets",
-    },
-    {
-      name: "ClawGuard Pro",
-      status: "live",
-      priority: 6,
-      url: "https://parallax-site-ashen.vercel.app/clawguard",
-      description: "Security scanner - $299/$799/$1499",
-    },
-    {
-      name: "Command Center",
-      status: "active",
-      priority: 7,
-      url: "https://ramiche-site.vercel.app/command-center",
-      description: "Operations dashboard - building live data bridge",
-    },
-  ];
+  const projectsDir = join(WORKSPACE, "projects");
+  if (!existsSync(projectsDir)) return [];
+
+  const entries = readdirSync(projectsDir);
+  const projects = [];
+
+  for (const entry of entries) {
+    if (entry.startsWith(".") || entry === "PRE-BUILD-CHECKLIST.md") continue;
+    const dir = join(projectsDir, entry);
+    try {
+      const s = statSync(dir);
+      if (!s.isDirectory()) continue;
+    } catch { continue; }
+
+    // Read META.json for project metadata
+    const metaPath = join(dir, "META.json");
+    let meta = {};
+    if (existsSync(metaPath)) {
+      try { meta = JSON.parse(readFileSync(metaPath, "utf8")); } catch {}
+    }
+
+    // Read TASKS.md for live task data
+    const tasksPath = join(dir, "TASKS.md");
+    let tasks = [];
+    if (existsSync(tasksPath)) {
+      try { tasks = parseTasks(readFileSync(tasksPath, "utf8")); } catch {}
+    }
+
+    // Read available docs
+    const allFiles = readdirSync(dir);
+    const docs = allFiles.filter(f => ["ARCHITECTURE.md", "DECISIONS.md", "MEMORY.md", "PIPELINE.md", "TASKS.md"].includes(f));
+
+    projects.push({
+      name: meta.name || entry,
+      slug: meta.slug || entry,
+      accent: meta.accent || "#737373",
+      status: meta.status || "active",
+      desc: meta.desc || "",
+      priority: meta.priority || 99,
+      priorityLabel: meta.priorityLabel || "MED",
+      agents: meta.agents || [],
+      lead: meta.lead || "Atlas",
+      tasks,
+      blockers: meta.blockers || [],
+      link: meta.link || null,
+      docs,
+    });
+  }
+
+  projects.sort((a, b) => a.priority - b.priority);
+  return projects;
 }
 
 // ── Quick Links ──────────────────────────────────────────────────────
 
 function getQuickLinks() {
+  // MUST match labels in command-center/page.tsx LINKS exactly (case-sensitive merge)
   return [
-    { label: "METTLE", url: "https://ramiche-site.vercel.app/apex-athlete", icon: "trophy" },
+    { label: "METTLE", url: "https://ramiche-site.vercel.app/apex-athlete/coach", icon: "trophy" },
+    { label: "METTLE Demo", url: "https://ramiche-site.vercel.app/apex-athlete/demo", icon: "demo" },
     { label: "Parallax Site", url: "https://parallax-site-ashen.vercel.app", icon: "globe" },
     { label: "Parallax Publish", url: "https://parallax-publish.vercel.app", icon: "send" },
-    { label: "Command Center", url: "https://ramiche-site.vercel.app/command-center", icon: "terminal" },
-    { label: "ClawGuard", url: "https://parallax-site-ashen.vercel.app/clawguard", icon: "shield" },
+    { label: "ClawGuard Pro", url: "https://parallax-site-ashen.vercel.app/clawguard", icon: "shield" },
+    { label: "YOLO Builds", url: "https://ramiche-site.vercel.app/command-center/yolo", icon: "rocket" },
     { label: "Vercel", url: "https://vercel.com/dashboard", icon: "cloud" },
     { label: "GitHub", url: "https://github.com/ramicheAi", icon: "code" },
     { label: "Firebase", url: "https://console.firebase.google.com/project/apex-athlete-73755", icon: "database" },
+    { label: "Shopify", url: "https://admin.shopify.com", icon: "shop" },
+    { label: "GoMotion", url: "https://www.gomotionapp.com", icon: "swim" },
   ];
 }
 
@@ -292,10 +328,15 @@ async function pollPendingMessages() {
       const agentKey = targetAgent.toLowerCase().replace(/\s+/g, "-");
       const agentUpper = targetAgent.toUpperCase().replace(/\s+/g, " ");
 
-      // Try direct session send first
-      const sendResult = run(
-        `openclaw sessions send --to "${agentKey}" --message "${message.replace(/"/g, '\\"')}" 2>&1`
-      );
+      // Try direct session send first (execFileSync to prevent injection)
+      let sendResult = "";
+      try {
+        sendResult = execFileSync(
+          "/usr/local/bin/openclaw",
+          ["sessions", "send", "--to", agentKey, "--message", message],
+          { encoding: "utf8", timeout: 15_000 }
+        ).trim();
+      } catch { sendResult = ""; }
 
       if (sendResult && !sendResult.includes("not found") && !sendResult.includes("error") && !sendResult.includes("Error")) {
         response = sendResult || "Message delivered to agent session";
@@ -341,57 +382,22 @@ async function pollPendingMessages() {
   }
 }
 
-// ── Missions (with task progress) ────────────────────────────────────
+// ── Missions (LIVE from projects — derived from getProjectStatus) ────
 
 function getMissions() {
-  // Read from MEMORY.md for latest mission status
-  const memPath = join(WORKSPACE, "MEMORY.md");
-  const mem = existsSync(memPath) ? readFileSync(memPath, "utf8") : "";
-
-  return [
-    {
-      name: "METTLE", accent: "#C9A84C", status: "beta", priority: "CRITICAL",
-      desc: "Gamified athlete SaaS — BETA with Saint Andrew's Aquatics (240+ athletes)",
-      completedTasks: 8, totalTasks: 10,
-      link: "https://ramiche-site.vercel.app/apex-athlete",
-    },
-    {
-      name: "Command Center", accent: "#7c3aed", status: "active", priority: "HIGH",
-      desc: "Live operations dashboard — bridge API + real-time sync",
-      completedTasks: 6, totalTasks: 8,
-      link: "https://ramiche-site.vercel.app/command-center",
-    },
-    {
-      name: "Parallax Site", accent: "#a855f7", status: "live", priority: "HIGH",
-      desc: "Agent marketplace + Claude Skills — 19 routes LIVE",
-      completedTasks: 5, totalTasks: 6,
-      link: "https://parallax-site-ashen.vercel.app",
-    },
-    {
-      name: "Parallax Publish", accent: "#38bdf8", status: "active", priority: "HIGH",
-      desc: "Social media publishing — 3 platforms LIVE (Twitter, Bluesky, LinkedIn)",
-      completedTasks: 4, totalTasks: 7,
-      link: "https://parallax-publish.vercel.app",
-    },
-    {
-      name: "Ramiche Studio", accent: "#e879f9", status: "blocked", priority: "HIGH",
-      desc: "Creative services — $400/$1,500/$3,000/$6,000+",
-      completedTasks: 4, totalTasks: 7,
-      link: "https://ramiche-site.vercel.app",
-    },
-    {
-      name: "Galactik Antics", accent: "#00f0ff", status: "blocked", priority: "MED",
-      desc: "AI art + merch — @galactikantics on IG",
-      completedTasks: 2, totalTasks: 4,
-      link: "",
-    },
-    {
-      name: "ClawGuard Pro", accent: "#22d3ee", status: "live", priority: "MED",
-      desc: "Security scanner — $299/$799/$1,499 — LIVE",
-      completedTasks: 2, totalTasks: 3,
-      link: "https://parallax-site-ashen.vercel.app/clawguard",
-    },
-  ];
+  const projects = getProjectStatus();
+  return projects.map(p => ({
+    name: p.name,
+    accent: p.accent,
+    status: p.status,
+    priority: p.priorityLabel,
+    desc: p.desc,
+    tasks: p.tasks,
+    link: p.link || null,
+    blockers: p.blockers || [],
+    lead: p.lead || "Atlas",
+    agents: p.agents || [],
+  }));
 }
 
 // ── Schedule ─────────────────────────────────────────────────────────
@@ -481,6 +487,77 @@ function getTasks() {
   }
 }
 
+// ── Poll Trigger Queue: Command Center → Agent Inbox ─────────────────
+
+async function pollTriggerQueue() {
+  try {
+    const res = await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return;
+    const doc = await res.json();
+    if (!doc.fields?.pending?.arrayValue?.values) return;
+
+    const pending = doc.fields.pending.arrayValue.values
+      .map((v) => {
+        const f = v.mapValue?.fields || {};
+        return {
+          taskId: f.taskId?.stringValue || "",
+          agent: f.agent?.stringValue || "Atlas",
+          title: f.title?.stringValue || "",
+          description: f.description?.stringValue || "",
+          status: f.status?.stringValue || "pending",
+          triggeredAt: f.triggeredAt?.stringValue || "",
+        };
+      })
+      .filter((t) => t.status === "pending");
+
+    if (pending.length === 0) return;
+
+    const inboxPath = join(WORKSPACE, "agents", "inbox.md");
+    const now = new Date().toISOString().replace("T", " ").split(".")[0];
+
+    for (const trigger of pending) {
+      // Write to agents/inbox.md
+      const entry = `\n## [${now}] FROM: CommandCenter → TO: ${trigger.agent}\nSTATUS: pending\nPRIORITY: high\nTASK_ID: ${trigger.taskId}\nMESSAGE: You have been assigned and approved to start this task: "${trigger.title}". ${trigger.description}. Begin working immediately. When done, write results to agents/outbox.md and mark the task complete.\n---\n`;
+
+      let inbox = existsSync(inboxPath) ? readFileSync(inboxPath, "utf8") : "# Agent Inbox\n";
+      inbox += entry;
+      writeFileSync(inboxPath, inbox);
+      console.log(`[trigger] Wrote task "${trigger.title}" to inbox for ${trigger.agent}`);
+
+      // Immediately spawn the agent by sending to their session
+      const agentLower = trigger.agent.toLowerCase();
+      try {
+        execFileSync(
+          "openclaw",
+          ["sessions", "send", `agent:${agentLower}:main`, `You have a new HIGH PRIORITY task from Command Center: ${trigger.title}. Check agents/inbox.md for details and begin immediately.`],
+          { encoding: "utf8", timeout: 15_000 }
+        );
+        console.log(`[trigger] Spawned/notified ${trigger.agent} via sessions_send`);
+      } catch (e) {
+        console.log(`[trigger] Could not reach ${trigger.agent} live (${e.message}). Task queued in inbox for next cron run.`);
+      }
+    }
+
+    // Clear the trigger queue by writing empty pending array
+    await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fields: {
+          pending: { arrayValue: { values: [] } },
+          _clearedAt: { stringValue: new Date().toISOString() },
+        },
+      }),
+    });
+    console.log(`[trigger] Cleared ${pending.length} trigger(s) from queue`);
+  } catch (e) {
+    console.error("[trigger] Error polling trigger queue:", e.message);
+  }
+}
+
 // ── Main Sync Loop ───────────────────────────────────────────────────
 
 async function syncAll() {
@@ -490,13 +567,24 @@ async function syncAll() {
   const agents = getAgentStatus();
   const crons = getCronJobs();
   const activity = getRecentActivity();
-  const projects = getProjectStatus();
+  const projects = getProjectStatus(); // Now reads LIVE from workspace/projects/
   const links = getQuickLinks();
-  const missions = getMissions();
+  const missions = getMissions(); // Derived from live projects
   const schedule = getSchedule();
   const notifications = getNotifications();
   const opportunities = getOpportunities();
   const tasks = getTasks();
+
+  // Also sync public/projects from workspace (keep Vercel fallback in sync)
+  try {
+    const srcDir = join(WORKSPACE, "projects");
+    const destDir = join(WORKSPACE, "../../ramiche-site/public/projects");
+    if (existsSync(srcDir) && existsSync(destDir)) {
+      execFileSync("rsync", ["-a", "--delete", "--exclude=.DS_Store", "--exclude=skills/", `${srcDir}/`, `${destDir}/`], { timeout: 10_000 });
+    }
+  } catch (e) {
+    console.error("[bridge] rsync projects error:", e.message);
+  }
 
   // Also write status.json locally for the secondary frontend fallback
   try {
@@ -521,7 +609,7 @@ async function syncAll() {
     pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
     pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
     pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
-    pushToFirestore("projects", { items: projects, count: projects.length, lastSync: timestamp }),
+    pushToFirestore("projects", { projects, items: projects, count: projects.length, lastSync: timestamp }),
     pushToFirestore("links", { items: links, count: links.length, lastSync: timestamp }),
     pushToFirestore("missions", { items: missions, count: missions.length, lastSync: timestamp }),
     pushToFirestore("schedule", { items: schedule, count: schedule.length, lastSync: timestamp }),
@@ -535,6 +623,9 @@ async function syncAll() {
 
   // Poll for pending chat messages and route to agents
   await pollPendingMessages();
+
+  // Poll for task triggers from Command Center and route to agent inbox
+  await pollTriggerQueue();
 }
 
 // ── Start ────────────────────────────────────────────────────────────

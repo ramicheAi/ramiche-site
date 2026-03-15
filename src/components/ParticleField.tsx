@@ -74,7 +74,8 @@ export default function ParticleField({
     const maxAlpha = theme === "light" ? Math.min(opacity, 0.18) : opacity;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
+      const parent = canvas.parentElement;
+      canvas.width = parent ? parent.clientWidth : window.innerWidth;
       canvas.height = window.innerHeight;
     };
     resize();
@@ -109,11 +110,26 @@ export default function ParticleField({
     window.addEventListener("scroll", onScroll, { passive: true });
 
     // Gyroscope — phone tilt moves particles (proprioceptive bond)
-    const onGyro = (e: DeviceOrientationEvent) => {
-      gyro.current.x = (e.gamma || 0) * 0.5;
-      gyro.current.y = (e.beta || 0) * 0.3;
-    };
-    window.addEventListener("deviceorientation", onGyro);
+    let gyroHandler: ((e: DeviceOrientationEvent) => void) | null = null;
+    try {
+      const addGyro = () => {
+        const onGyro = (e: DeviceOrientationEvent) => {
+          gyro.current.x = (e.gamma || 0) * 0.5;
+          gyro.current.y = (e.beta || 0) * 0.3;
+        };
+        window.addEventListener("deviceorientation", onGyro);
+        return onGyro;
+      };
+
+      // iOS 13+ requires permission
+      const DOE = DeviceOrientationEvent as any;
+      if (typeof DOE.requestPermission === 'function') {
+        // Don't request automatically — just skip gyro in PWA mode
+        // Permission must be requested via user gesture
+      } else {
+        gyroHandler = addGyro();
+      }
+    } catch { /* gyroscope not available */ }
 
     let time = 0;
 
@@ -214,14 +230,14 @@ export default function ParticleField({
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("deviceorientation", onGyro);
+      if (gyroHandler) window.removeEventListener("deviceorientation", gyroHandler);
     };
   }, [count, color, speed, opacity, variant, interactive, theme, connections]);
 
   return (
     <canvas
       ref={canvasRef}
-      className="fixed inset-0 pointer-events-none z-[1]"
+      className="absolute inset-0 pointer-events-none z-[1]"
       style={{ mixBlendMode: theme === "light" ? "multiply" : "screen" }}
     />
   );

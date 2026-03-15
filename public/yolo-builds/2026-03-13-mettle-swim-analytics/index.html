@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE Swim Analytics — Coach Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f8f7f4;--card:#ffffff;--border:#e5e2db;
+  --text:#1a1a1a;--muted:#6b6b6b;--accent:#7c3aed;
+  --purple:#7c3aed;--scarlet:#dc2626;--gold:#d97706;--blue:#2563eb;
+  --green:#059669;--pink:#db2777;
+  --glow:rgba(124,58,237,0.15);
+}
+body{font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.app{display:flex;min-height:100vh}
+.sidebar{width:240px;background:var(--card);border-right:2px solid var(--border);padding:24px 16px;flex-shrink:0}
+.sidebar h1{font-size:18px;font-weight:800;letter-spacing:-0.5px;color:var(--accent);margin-bottom:4px}
+.sidebar .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:24px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;color:var(--muted);transition:all .15s;margin-bottom:2px}
+.nav-item:hover{background:var(--glow);color:var(--accent)}
+.nav-item.active{background:var(--glow);color:var(--accent);font-weight:600;border:2px solid rgba(124,58,237,0.25)}
+.nav-icon{width:20px;text-align:center;font-size:16px}
+.main{flex:1;padding:32px 40px;overflow-y:auto}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+.header h2{font-size:24px;font-weight:700;letter-spacing:-0.5px}
+.header-right{display:flex;gap:12px;align-items:center}
+.athlete-select{padding:8px 14px;border:2px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);cursor:pointer;font-weight:500}
+.athlete-select:focus{border-color:var(--accent);outline:none;box-shadow:0 0 0 3px var(--glow)}
+.event-filter{padding:8px 14px;border:2px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);cursor:pointer;font-weight:500}
+.grid-2{display:grid;grid-cols:1;gap:20px}
+@media(min-width:768px){.grid-2{grid-template-columns:1fr 1fr}}
+@media(min-width:1200px){.grid-3{grid-template-columns:1fr 1fr 1fr}}
+.card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:24px;transition:border-color .2s}
+.card:hover{border-color:rgba(124,58,237,0.3)}
+.card-title{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:600;margin-bottom:16px}
+.stat-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+.stat-label{font-size:13px;color:var(--muted)}
+.stat-value{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.stat-value.positive{color:var(--green)}
+.stat-value.negative{color:var(--scarlet)}
+.stat-unit{font-size:12px;color:var(--muted);font-weight:400}
+canvas{width:100%;border-radius:8px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.badge-rookie{background:#dbeafe;color:#1d4ed8}
+.badge-contender{background:#d1fae5;color:#065f46}
+.badge-warrior{background:#fef3c7;color:#92400e}
+.badge-elite{background:#ede9fe;color:#5b21b6}
+.badge-captain{background:#fce7f3;color:#9d174d}
+.badge-legend{background:#fef9c3;color:#854d0e;border:1px solid #d97706}
+.table-wrap{overflow-x:auto;margin-top:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;font-size:11px}
+td{padding:10px 12px;border-bottom:1px solid var(--border)}
+tr:hover td{background:rgba(124,58,237,0.03)}
+.drop-positive{color:var(--green);font-weight:600}
+.drop-negative{color:var(--scarlet);font-weight:600}
+.drop-neutral{color:var(--muted)}
+.distribution-bar{height:24px;background:var(--bg);border-radius:4px;overflow:hidden;display:flex;margin-top:4px}
+.distribution-bar .seg{height:100%;transition:width .5s}
+.chart-legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}
+.chart-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.chart-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+.kpi{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+.kpi-value{font-size:28px;font-weight:800;letter-spacing:-1px}
+.kpi-label{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-top:4px;font-weight:600}
+.tab-bar{display:flex;gap:4px;margin-bottom:24px;border-bottom:2px solid var(--border);padding-bottom:0}
+.tab{padding:10px 18px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px;transition:all .15s}
+.tab:hover{color:var(--accent)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.pace-bar{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pace-bar-label{width:80px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
+.pace-bar-track{flex:1;height:20px;background:var(--bg);border-radius:4px;overflow:hidden;position:relative}
+.pace-bar-fill{height:100%;border-radius:4px;transition:width .6s}
+.pace-bar-value{font-size:12px;font-weight:600;width:60px;flex-shrink:0}
+.section-title{font-size:18px;font-weight:700;margin-bottom:16px;letter-spacing:-0.3px}
+.corr-grid{display:grid;gap:2px}
+.corr-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;border-radius:4px;color:white}
+.insight-box{background:linear-gradient(135deg,rgba(124,58,237,0.05),rgba(37,99,235,0.05));border:2px solid rgba(124,58,237,0.15);border-radius:12px;padding:20px;margin-bottom:16px}
+.insight-box h4{font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px}
+.insight-box p{font-size:13px;color:var(--muted);line-height:1.6}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <h1>METTLE</h1>
+    <div class="sub">Swim Analytics</div>
+    <div class="nav-item active" data-view="overview"><span class="nav-icon">◉</span>Overview</div>
+    <div class="nav-item" data-view="drops"><span class="nav-icon">▼</span>Time Drops</div>
+    <div class="nav-item" data-view="pace"><span class="nav-icon">◈</span>Pace Analysis</div>
+    <div class="nav-item" data-view="comparison"><span class="nav-icon">◎</span>Event Compare</div>
+    <div class="nav-item" data-view="team"><span class="nav-icon">◆</span>Team Overview</div>
+    <div class="nav-item" data-view="insights"><span class="nav-icon">◇</span>AI Insights</div>
+  </div>
+  <div class="main">
+    <div class="header">
+      <h2 id="viewTitle">Overview</h2>
+      <div class="header-right">
+        <select class="athlete-select" id="athleteSelect"></select>
+        <select class="event-filter" id="eventFilter"><option value="all">All Events</option></select>
+      </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div class="tab-content active" id="view-overview">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-value" id="kpiTotalDrops">—</div><div class="kpi-label">Total Time Dropped</div></div>
+        <div class="kpi"><div class="kpi-value positive" id="kpiPBs">—</div><div class="kpi-label">Personal Bests</div></div>
+        <div class="kpi"><div class="kpi-value" id="kpiMeets">—</div><div class="kpi-label">Meets This Season</div></div>
+        <div class="kpi"><div class="kpi-value" id="kpiLevel">—</div><div class="kpi-label">METTLE Level</div></div>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Season Progression</div>
+          <canvas id="seasonChart" height="220"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Drop Distribution</div>
+          <canvas id="dropDistChart" height="220"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <div class="card-title">Recent Results</div>
+        <div class="table-wrap">
+          <table id="recentTable">
+            <thead><tr><th>Date</th><th>Meet</th><th>Event</th><th>Time</th><th>Drop</th><th>Pace/100</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIME DROPS -->
+    <div class="tab-content" id="view-drops">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Drop Frequency</div>
+          <canvas id="dropFreqChart" height="220"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">Cumulative Improvement</div>
+          <canvas id="cumulDropChart" height="220"></canvas>
+        </div>
+      </div>
+      <div class="card" style="margin-top:20px">
+        <div class="card-title">Drop Analysis by Event</div>
+        <div class="table-wrap">
+          <table id="dropTable">
+            <thead><tr><th>Event</th><th>Season Start</th><th>Current Best</th><th>Total Drop</th><th>Avg Drop/Meet</th><th>Consistency</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PACE ANALYSIS -->
+    <div class="tab-content" id="view-pace">
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Pace Curve — Splits per 50</div>
+        <canvas id="paceChart" height="260"></canvas>
+      </div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Negative Split Index</div>
+          <div id="splitIndex"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Pacing Consistency (CV%)</div>
+          <div id="pacingCV"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EVENT COMPARISON -->
+    <div class="tab-content" id="view-comparison">
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Event-to-Event Correlation</div>
+        <div id="corrMatrix"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Normalized Performance by Event (% of Age Group Standard)</div>
+        <canvas id="radarChart" height="300"></canvas>
+      </div>
+    </div>
+
+    <!-- TEAM OVERVIEW -->
+    <div class="tab-content" id="view-team">
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">Team Level Distribution</div>
+        <div id="levelDistribution"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Team Rankings — Top Performers</div>
+        <div class="table-wrap">
+          <table id="teamTable">
+            <thead><tr><th>Rank</th><th>Athlete</th><th>Level</th><th>Total Drops</th><th>PBs</th><th>Consistency</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI INSIGHTS -->
+    <div class="tab-content" id="view-insights">
+      <div id="insightsContainer"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== DATA ======
+const LEVELS = ['Rookie','Contender','Warrior','Elite','Captain','Legend'];
+const LEVEL_COLORS = ['#3b82f6','#10b981','#f59e0b','#7c3aed','#ec4899','#d97706'];
+const LEVEL_XP = [0,200,500,1000,1800,3000];
+
+function timeToSec(t){const p=t.split(/[:.]/);if(p.length===3)return+p[0]*60+ +p[1]+ +p[2]/100;return +p[0]+ +p[1]/100;}
+function secToTime(s){if(s>=60){const m=Math.floor(s/60);const r=s-m*60;return m+':'+r.toFixed(2).padStart(5,'0');}return s.toFixed(2);}
+
+// Simulated team data — Saint Andrew's Aquatics (METTLE beta)
+const athletes = [
+  {
+    name:'Marcus Williams',level:'Warrior',xp:680,age:14,group:'13-14',
+    events:{
+      '50 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'25.43',splits:['12.21','13.22']},{date:'2025-10-19',meet:'October Classic',time:'25.11',splits:['12.05','13.06']},{date:'2025-11-16',meet:'Turkey Splash',time:'24.78',splits:['11.92','12.86']},{date:'2025-12-14',meet:'Winter Champs',time:'24.52',splits:['11.80','12.72']},{date:'2026-01-18',meet:'New Year Invite',time:'24.31',splits:['11.71','12.60']},{date:'2026-02-15',meet:'February Fast',time:'24.15',splits:['11.65','12.50']},{date:'2026-03-08',meet:'Spring Qualifier',time:'23.98',splits:['11.55','12.43']}],
+      '100 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'56.87',splits:['26.91','29.96']},{date:'2025-10-19',meet:'October Classic',time:'55.94',splits:['26.40','29.54']},{date:'2025-11-16',meet:'Turkey Splash',time:'55.21',splits:['26.12','29.09']},{date:'2025-12-14',meet:'Winter Champs',time:'54.63',splits:['25.82','28.81']},{date:'2026-01-18',meet:'New Year Invite',time:'54.10',splits:['25.55','28.55']},{date:'2026-02-15',meet:'February Fast',time:'53.72',splits:['25.31','28.41']},{date:'2026-03-08',meet:'Spring Qualifier',time:'53.28',splits:['25.10','28.18']}],
+      '200 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'2:05.60',splits:['29.10','31.45','32.80','32.25']},{date:'2025-11-16',meet:'Turkey Splash',time:'2:03.12',splits:['28.70','31.00','32.20','31.22']},{date:'2025-12-14',meet:'Winter Champs',time:'2:01.44',splits:['28.40','30.60','31.50','30.94']},{date:'2026-02-15',meet:'February Fast',time:'1:59.87',splits:['28.10','30.20','31.10','30.47']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:58.52',splits:['27.80','29.90','30.70','30.12']}],
+      '100 Fly':[{date:'2025-10-19',meet:'October Classic',time:'1:05.33',splits:['30.10','35.23']},{date:'2025-12-14',meet:'Winter Champs',time:'1:03.87',splits:['29.60','34.27']},{date:'2026-02-15',meet:'February Fast',time:'1:02.40',splits:['29.12','33.28']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:01.15',splits:['28.75','32.40']}]
+    }
+  },
+  {
+    name:'Sofia Chen',level:'Elite',xp:1250,age:15,group:'15-16',
+    events:{
+      '100 Back':[{date:'2025-09-14',meet:'Fall Invite',time:'1:05.92',splits:['32.10','33.82']},{date:'2025-11-16',meet:'Turkey Splash',time:'1:04.65',splits:['31.50','33.15']},{date:'2026-01-18',meet:'New Year Invite',time:'1:03.40',splits:['31.00','32.40']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:02.18',splits:['30.45','31.73']}],
+      '200 Back':[{date:'2025-09-14',meet:'Fall Invite',time:'2:18.50',splits:['32.40','34.80','35.60','35.70']},{date:'2025-12-14',meet:'Winter Champs',time:'2:15.22',splits:['31.80','34.10','34.80','34.52']},{date:'2026-03-08',meet:'Spring Qualifier',time:'2:12.05',splits:['31.20','33.40','33.90','33.55']}],
+      '200 IM':[{date:'2025-10-19',meet:'October Classic',time:'2:22.10',splits:['30.50','36.40','39.80','35.40']},{date:'2025-12-14',meet:'Winter Champs',time:'2:19.45',splits:['29.90','35.80','38.90','34.85']},{date:'2026-02-15',meet:'February Fast',time:'2:17.20',splits:['29.40','35.20','38.20','34.40']},{date:'2026-03-08',meet:'Spring Qualifier',time:'2:15.33',splits:['29.10','34.80','37.50','33.93']}],
+      '50 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'27.10',splits:['13.10','14.00']},{date:'2026-01-18',meet:'New Year Invite',time:'26.42',splits:['12.80','13.62']},{date:'2026-03-08',meet:'Spring Qualifier',time:'25.95',splits:['12.55','13.40']}]
+    }
+  },
+  {
+    name:'Jayden Brooks',level:'Captain',xp:1920,age:16,group:'15-16',
+    events:{
+      '100 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'51.20',splits:['24.50','26.70']},{date:'2025-11-16',meet:'Turkey Splash',time:'50.75',splits:['24.30','26.45']},{date:'2026-01-18',meet:'New Year Invite',time:'50.22',splits:['24.10','26.12']},{date:'2026-03-08',meet:'Spring Qualifier',time:'49.88',splits:['23.90','25.98']}],
+      '200 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'1:52.40',splits:['26.50','28.30','29.10','28.50']},{date:'2025-12-14',meet:'Winter Champs',time:'1:50.80',splits:['26.10','27.90','28.70','28.10']},{date:'2026-02-15',meet:'February Fast',time:'1:49.55',splits:['25.80','27.60','28.40','27.75']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:48.20',splits:['25.50','27.30','28.10','27.30']}],
+      '500 Free':[{date:'2025-10-19',meet:'October Classic',time:'5:05.10',splits:['27.50','29.80','30.50','31.00','31.20','31.40','31.20','30.80','30.60','31.10']},{date:'2025-12-14',meet:'Winter Champs',time:'4:59.80',splits:['27.20','29.40','30.10','30.50','30.70','30.90','30.60','30.20','29.80','30.40']},{date:'2026-03-08',meet:'Spring Qualifier',time:'4:55.15',splits:['26.90','29.00','29.70','30.10','30.30','30.40','30.10','29.70','29.30','29.65']}],
+      '50 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'23.80',splits:['11.40','12.40']},{date:'2025-12-14',meet:'Winter Champs',time:'23.42',splits:['11.25','12.17']},{date:'2026-03-08',meet:'Spring Qualifier',time:'23.10',splits:['11.10','12.00']}]
+    }
+  },
+  {
+    name:'Ava Rodriguez',level:'Contender',xp:320,age:12,group:'11-12',
+    events:{
+      '50 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'30.55',splits:['14.80','15.75']},{date:'2025-11-16',meet:'Turkey Splash',time:'30.10',splits:['14.60','15.50']},{date:'2026-01-18',meet:'New Year Invite',time:'29.72',splits:['14.40','15.32']},{date:'2026-03-08',meet:'Spring Qualifier',time:'29.35',splits:['14.20','15.15']}],
+      '100 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'1:06.80',splits:['31.90','34.90']},{date:'2025-12-14',meet:'Winter Champs',time:'1:05.20',splits:['31.20','34.00']},{date:'2026-02-15',meet:'February Fast',time:'1:04.10',splits:['30.70','33.40']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:03.25',splits:['30.30','32.95']}],
+      '50 Back':[{date:'2025-09-14',meet:'Fall Invite',time:'35.40',splits:['17.20','18.20']},{date:'2025-11-16',meet:'Turkey Splash',time:'34.85',splits:['16.90','17.95']},{date:'2026-01-18',meet:'New Year Invite',time:'34.30',splits:['16.60','17.70']},{date:'2026-03-08',meet:'Spring Qualifier',time:'33.82',splits:['16.35','17.47']}],
+      '100 Breast':[{date:'2025-10-19',meet:'October Classic',time:'1:22.40',splits:['39.10','43.30']},{date:'2026-01-18',meet:'New Year Invite',time:'1:20.55',splits:['38.40','42.15']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:19.10',splits:['37.80','41.30']}]
+    }
+  },
+  {
+    name:'Ethan Park',level:'Rookie',xp:85,age:10,group:'10&U',
+    events:{
+      '50 Free':[{date:'2025-10-19',meet:'October Classic',time:'34.20',splits:['16.50','17.70']},{date:'2025-12-14',meet:'Winter Champs',time:'33.55',splits:['16.20','17.35']},{date:'2026-02-15',meet:'February Fast',time:'33.10',splits:['16.00','17.10']},{date:'2026-03-08',meet:'Spring Qualifier',time:'32.72',splits:['15.82','16.90']}],
+      '100 Free':[{date:'2025-10-19',meet:'October Classic',time:'1:15.80',splits:['35.90','39.90']},{date:'2026-01-18',meet:'New Year Invite',time:'1:14.10',splits:['35.10','39.00']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:12.55',splits:['34.40','38.15']}],
+      '50 Back':[{date:'2025-11-16',meet:'Turkey Splash',time:'40.10',splits:['19.50','20.60']},{date:'2026-01-18',meet:'New Year Invite',time:'39.20',splits:['19.00','20.20']},{date:'2026-03-08',meet:'Spring Qualifier',time:'38.45',splits:['18.60','19.85']}]
+    }
+  },
+  {
+    name:'Lily Nguyen',level:'Warrior',xp:720,age:13,group:'13-14',
+    events:{
+      '100 Breast':[{date:'2025-09-14',meet:'Fall Invite',time:'1:18.90',splits:['37.20','41.70']},{date:'2025-11-16',meet:'Turkey Splash',time:'1:17.45',splits:['36.60','40.85']},{date:'2026-01-18',meet:'New Year Invite',time:'1:16.22',splits:['36.10','40.12']},{date:'2026-03-08',meet:'Spring Qualifier',time:'1:15.10',splits:['35.60','39.50']}],
+      '200 Breast':[{date:'2025-10-19',meet:'October Classic',time:'2:48.30',splits:['37.80','42.50','44.20','43.80']},{date:'2025-12-14',meet:'Winter Champs',time:'2:45.10',splits:['37.20','41.80','43.40','42.70']},{date:'2026-03-08',meet:'Spring Qualifier',time:'2:41.55',splits:['36.60','41.10','42.50','41.35']}],
+      '200 IM':[{date:'2025-09-14',meet:'Fall Invite',time:'2:28.70',splits:['31.20','38.40','41.50','37.60']},{date:'2025-12-14',meet:'Winter Champs',time:'2:25.80',splits:['30.60','37.80','40.50','36.90']},{date:'2026-02-15',meet:'February Fast',time:'2:23.40',splits:['30.10','37.20','39.80','36.30']},{date:'2026-03-08',meet:'Spring Qualifier',time:'2:21.55',splits:['29.70','36.70','39.10','36.05']}],
+      '50 Free':[{date:'2025-09-14',meet:'Fall Invite',time:'28.90',splits:['13.90','15.00']},{date:'2026-01-18',meet:'New Year Invite',time:'28.20',splits:['13.60','14.60']},{date:'2026-03-08',meet:'Spring Qualifier',time:'27.65',splits:['13.30','14.35']}]
+    }
+  }
+];
+
+// Age-group standards for normalization (approximate B-cut standards SCY)
+const ageGroupStandards = {
+  '10&U':{'50 Free':32,'100 Free':72,'50 Back':38},
+  '11-12':{'50 Free':28,'100 Free':62,'50 Back':33,'100 Breast':76},
+  '13-14':{'50 Free':25,'100 Free':55,'100 Breast':72,'200 IM':135,'200 Breast':160,'100 Fly':62,'200 Free':120},
+  '15-16':{'50 Free':24,'100 Free':50,'200 Free':108,'500 Free':290,'100 Back':60,'200 Back':130,'200 IM':128}
+};
+
+// ====== STATE ======
+let currentAthlete = 0;
+let currentView = 'overview';
+let currentEvent = 'all';
+
+// ====== RENDER ENGINE ======
+function init(){
+  const sel = document.getElementById('athleteSelect');
+  sel.innerHTML = athletes.map((a,i)=>`<option value="${i}">${a.name}</option>`).join('');
+  sel.addEventListener('change',e=>{currentAthlete=+e.target.value;updateEventFilter();render();});
+
+  document.querySelectorAll('.nav-item').forEach(n=>{
+    n.addEventListener('click',()=>{
+      document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+      n.classList.add('active');
+      currentView=n.dataset.view;
+      document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+      document.getElementById('view-'+currentView).classList.add('active');
+      document.getElementById('viewTitle').textContent=n.textContent.trim();
+      render();
+    });
+  });
+
+  document.getElementById('eventFilter').addEventListener('change',e=>{currentEvent=e.target.value;render();});
+  updateEventFilter();
+  render();
+}
+
+function updateEventFilter(){
+  const a=athletes[currentAthlete];
+  const sel=document.getElementById('eventFilter');
+  sel.innerHTML='<option value="all">All Events</option>'+Object.keys(a.events).map(e=>`<option value="${e}">${e}</option>`).join('');
+}
+
+function getAllResults(a,evFilter){
+  let results=[];
+  const evts=evFilter==='all'?Object.keys(a.events):[evFilter];
+  evts.forEach(ev=>{
+    if(!a.events[ev])return;
+    a.events[ev].forEach(r=>{results.push({...r,event:ev,timeSec:timeToSec(r.time)});});
+  });
+  results.sort((a,b)=>a.date.localeCompare(b.date));
+  return results;
+}
+
+function render(){
+  const a=athletes[currentAthlete];
+  switch(currentView){
+    case'overview':renderOverview(a);break;
+    case'drops':renderDrops(a);break;
+    case'pace':renderPace(a);break;
+    case'comparison':renderComparison(a);break;
+    case'team':renderTeam();break;
+    case'insights':renderInsights(a);break;
+  }
+}
+
+// ====== CHARTS ======
+function drawLine(ctx,w,h,datasets,labels,opts={}){
+  const pad={t:20,r:20,b:40,l:55};
+  const cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
+  ctx.clearRect(0,0,w,h);
+
+  let allVals=[];datasets.forEach(d=>allVals.push(...d.data));
+  let minV=opts.minY!==undefined?opts.minY:Math.min(...allVals);
+  let maxV=opts.maxY!==undefined?opts.maxY:Math.max(...allVals);
+  if(minV===maxV){minV-=1;maxV+=1;}
+  const range=maxV-minV;
+
+  // Grid
+  ctx.strokeStyle='#e5e2db';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ch*(1-i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+    ctx.fillStyle='#6b6b6b';ctx.font='11px -apple-system,sans-serif';ctx.textAlign='right';
+    const val=minV+range*(i/4);
+    ctx.fillText(opts.formatY?opts.formatY(val):val.toFixed(2),pad.l-8,y+4);
+  }
+
+  // X labels
+  ctx.textAlign='center';ctx.fillStyle='#6b6b6b';
+  const step=Math.max(1,Math.floor(labels.length/6));
+  labels.forEach((l,i)=>{
+    if(i%step===0||i===labels.length-1){
+      const x=pad.l+(i/(labels.length-1||1))*cw;
+      ctx.fillText(l.slice(5),x,h-8);
+    }
+  });
+
+  // Lines
+  datasets.forEach(d=>{
+    ctx.strokeStyle=d.color;ctx.lineWidth=2.5;ctx.beginPath();
+    d.data.forEach((v,i)=>{
+      const x=pad.l+(i/(d.data.length-1||1))*cw;
+      const y=pad.t+ch*(1-(v-minV)/range);
+      i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // Dots
+    d.data.forEach((v,i)=>{
+      const x=pad.l+(i/(d.data.length-1||1))*cw;
+      const y=pad.t+ch*(1-(v-minV)/range);
+      ctx.fillStyle=d.color;ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='white';ctx.beginPath();ctx.arc(x,y,2,0,Math.PI*2);ctx.fill();
+    });
+  });
+}
+
+function drawBar(ctx,w,h,data,labels,colors,opts={}){
+  const pad={t:20,r:20,b:40,l:55};
+  const cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
+  ctx.clearRect(0,0,w,h);
+
+  const maxV=opts.maxY||Math.max(...data)*1.15;
+  const barW=Math.min(40,cw/data.length*0.6);
+  const gap=(cw-barW*data.length)/(data.length+1);
+
+  // Grid
+  ctx.strokeStyle='#e5e2db';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ch*(1-i/4);
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+    ctx.fillStyle='#6b6b6b';ctx.font='11px -apple-system,sans-serif';ctx.textAlign='right';
+    ctx.fillText((maxV*(i/4)).toFixed(1),pad.l-8,y+4);
+  }
+
+  // Bars
+  data.forEach((v,i)=>{
+    const x=pad.l+gap+(gap+barW)*i;
+    const bh=(v/maxV)*ch;
+    const y=pad.t+ch-bh;
+    ctx.fillStyle=colors[i%colors.length];
+    ctx.beginPath();
+    ctx.roundRect(x,y,barW,bh,4);ctx.fill();
+    ctx.fillStyle='#6b6b6b';ctx.font='11px -apple-system,sans-serif';ctx.textAlign='center';
+    ctx.fillText(labels[i],x+barW/2,h-8);
+  });
+
+  // Zero line
+  if(data.some(v=>v<0)){
+    const zeroY=pad.t+ch*(1-(-0/maxV));
+    ctx.strokeStyle='#1a1a1a';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,zeroY);ctx.lineTo(pad.l+cw,zeroY);ctx.stroke();
+  }
+}
+
+function drawHistogram(ctx,w,h,values,bins,color){
+  const pad={t:20,r:20,b:40,l:55};
+  const cw=w-pad.l-pad.r,ch=h-pad.t-pad.b;
+  ctx.clearRect(0,0,w,h);
+
+  const min=Math.min(...values),max=Math.max(...values);
+  const binW=(max-min)/bins;
+  const counts=new Array(bins).fill(0);
+  values.forEach(v=>{let b=Math.floor((v-min)/binW);if(b>=bins)b=bins-1;counts[b]++;});
+  const maxC=Math.max(...counts);
+  const barW=cw/bins;
+
+  counts.forEach((c,i)=>{
+    const x=pad.l+i*barW;
+    const bh=(c/maxC)*ch;
+    ctx.fillStyle=color;ctx.globalAlpha=0.7;
+    ctx.fillRect(x+1,pad.t+ch-bh,barW-2,bh);
+    ctx.globalAlpha=1;
+  });
+
+  // X axis labels
+  ctx.fillStyle='#6b6b6b';ctx.font='11px -apple-system,sans-serif';ctx.textAlign='center';
+  for(let i=0;i<=bins;i+=Math.max(1,Math.floor(bins/5))){
+    const x=pad.l+i*barW;
+    ctx.fillText((min+i*binW).toFixed(1)+'s',x,h-8);
+  }
+  // Y axis
+  ctx.textAlign='right';
+  for(let i=0;i<=3;i++){
+    const y=pad.t+ch*(1-i/3);
+    ctx.fillText(Math.round(maxC*(i/3)),pad.l-8,y+4);
+    ctx.strokeStyle='#e5e2db';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+  }
+}
+
+// ====== VIEW RENDERERS ======
+function renderOverview(a){
+  const results=getAllResults(a,currentEvent);
+  // KPIs
+  let totalDrop=0,pbs=0,meets=new Set();
+  Object.keys(a.events).forEach(ev=>{
+    const times=a.events[ev];
+    if(times.length<2)return;
+    const first=timeToSec(times[0].time),last=timeToSec(times[times.length-1].time);
+    totalDrop+=first-last;
+    // Count PBs
+    let best=Infinity;
+    times.forEach(t=>{const s=timeToSec(t.time);if(s<best){pbs++;best=s;}meets.add(t.date);});
+  });
+  document.getElementById('kpiTotalDrops').textContent=totalDrop.toFixed(2)+'s';
+  document.getElementById('kpiPBs').textContent=pbs;
+  document.getElementById('kpiMeets').textContent=meets.size;
+  document.getElementById('kpiLevel').innerHTML=`<span class="badge badge-${a.level.toLowerCase()}">${a.level}</span>`;
+
+  // Season chart
+  const canvas=document.getElementById('seasonChart');
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=440;ctx.scale(2,2);
+
+  if(currentEvent!=='all'&&a.events[currentEvent]){
+    const evData=a.events[currentEvent];
+    drawLine(ctx,canvas.offsetWidth,220,
+      [{data:evData.map(r=>timeToSec(r.time)),color:'#7c3aed'}],
+      evData.map(r=>r.date),
+      {formatY:v=>secToTime(v)}
+    );
+  } else {
+    // Multi-event normalized (% improvement from first)
+    const datasets=[];const colors=['#7c3aed','#2563eb','#059669','#dc2626','#d97706','#db2777'];
+    let allDates=new Set();
+    Object.keys(a.events).forEach(ev=>a.events[ev].forEach(r=>allDates.add(r.date)));
+    allDates=[...allDates].sort();
+    let ci=0;
+    Object.keys(a.events).forEach(ev=>{
+      const times=a.events[ev];
+      const first=timeToSec(times[0].time);
+      const data=allDates.map(d=>{
+        const match=times.find(t=>t.date===d);
+        return match?((first-timeToSec(match.time))/first)*100:null;
+      }).filter(v=>v!==null);
+      if(data.length>1)datasets.push({data,color:colors[ci%colors.length],label:ev});
+      ci++;
+    });
+    const usedDates=allDates;
+    drawLine(ctx,canvas.offsetWidth,220,datasets,usedDates,{formatY:v=>v.toFixed(1)+'%',minY:0});
+  }
+
+  // Drop distribution
+  const dCanvas=document.getElementById('dropDistChart');
+  const dCtx=dCanvas.getContext('2d');
+  dCanvas.width=dCanvas.offsetWidth*2;dCanvas.height=440;dCtx.scale(2,2);
+  const drops=[];
+  Object.keys(a.events).forEach(ev=>{
+    const times=a.events[ev];
+    for(let i=1;i<times.length;i++){
+      drops.push(timeToSec(times[i-1].time)-timeToSec(times[i].time));
+    }
+  });
+  if(drops.length>2)drawHistogram(dCtx,dCanvas.offsetWidth,220,drops,8,'#7c3aed');
+
+  // Recent table
+  const tbody=document.querySelector('#recentTable tbody');
+  const recent=results.slice(-10).reverse();
+  tbody.innerHTML=recent.map(r=>{
+    const evResults=a.events[r.event];
+    const idx=evResults.findIndex(x=>x.date===r.date&&x.time===r.time);
+    let dropStr='—';
+    if(idx>0){
+      const d=timeToSec(evResults[idx-1].time)-r.timeSec;
+      dropStr=d>0?`<span class="drop-positive">-${d.toFixed(2)}s</span>`:`<span class="drop-negative">+${Math.abs(d).toFixed(2)}s</span>`;
+    }
+    const dist=r.timeSec>=60?(r.timeSec/2):r.timeSec;
+    const pace=secToTime(dist/((r.splits||[]).length||1)*2);
+    return `<tr><td>${r.date}</td><td>${r.meet}</td><td>${r.event}</td><td><strong>${r.time}</strong></td><td>${dropStr}</td><td>${pace}/100</td></tr>`;
+  }).join('');
+}
+
+function renderDrops(a){
+  // Drop frequency chart
+  const canvas=document.getElementById('dropFreqChart');
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=440;ctx.scale(2,2);
+
+  const eventDrops={};
+  Object.keys(a.events).forEach(ev=>{
+    const times=a.events[ev];
+    const drops=[];
+    for(let i=1;i<times.length;i++)drops.push(timeToSec(times[i-1].time)-timeToSec(times[i].time));
+    if(drops.length>0)eventDrops[ev]={avg:drops.reduce((s,v)=>s+v,0)/drops.length,total:drops.reduce((s,v)=>s+v,0),count:drops.length,drops};
+  });
+
+  const evNames=Object.keys(eventDrops);
+  const avgDrops=evNames.map(e=>eventDrops[e].avg);
+  const colors=evNames.map((_,i)=>['#7c3aed','#2563eb','#059669','#dc2626'][i%4]);
+  drawBar(ctx,canvas.offsetWidth,220,avgDrops,evNames.map(e=>e.replace(/\d+ /,'')),colors);
+
+  // Cumulative
+  const cCanvas=document.getElementById('cumulDropChart');
+  const cCtx=cCanvas.getContext('2d');
+  cCanvas.width=cCanvas.offsetWidth*2;cCanvas.height=440;cCtx.scale(2,2);
+
+  let allDropsOverTime=[];
+  Object.keys(a.events).forEach(ev=>{
+    const times=a.events[ev];
+    for(let i=1;i<times.length;i++){
+      allDropsOverTime.push({date:times[i].date,drop:timeToSec(times[i-1].time)-timeToSec(times[i].time)});
+    }
+  });
+  allDropsOverTime.sort((a,b)=>a.date.localeCompare(b.date));
+  let cumul=0;
+  const cumulData=allDropsOverTime.map(d=>{cumul+=d.drop;return cumul;});
+  const cumulDates=allDropsOverTime.map(d=>d.date);
+
+  if(cumulData.length>1)drawLine(cCtx,cCanvas.offsetWidth,220,[{data:cumulData,color:'#059669'}],cumulDates,{formatY:v=>v.toFixed(1)+'s',minY:0});
+
+  // Table
+  const tbody=document.querySelector('#dropTable tbody');
+  tbody.innerHTML=evNames.map(ev=>{
+    const ed=eventDrops[ev];
+    const times=a.events[ev];
+    const first=times[0].time,best=times[times.length-1].time;
+    const cv=ed.drops.length>1?(Math.sqrt(ed.drops.reduce((s,v)=>s+(v-ed.avg)**2,0)/ed.drops.length)/Math.abs(ed.avg)*100).toFixed(1)+'%':'—';
+    return `<tr><td><strong>${ev}</strong></td><td>${first}</td><td>${best}</td><td class="drop-positive">-${ed.total.toFixed(2)}s</td><td>-${ed.avg.toFixed(2)}s</td><td>${cv}</td></tr>`;
+  }).join('');
+}
+
+function renderPace(a){
+  const ev=currentEvent!=='all'?currentEvent:Object.keys(a.events)[0];
+  const times=a.events[ev];
+  if(!times||times.length===0)return;
+
+  const canvas=document.getElementById('paceChart');
+  const ctx=canvas.getContext('2d');
+  canvas.width=canvas.offsetWidth*2;canvas.height=520;ctx.scale(2,2);
+
+  // Plot splits for last 3 swims
+  const recent=times.slice(-3);
+  const colors=['#7c3aed','#2563eb','#059669'];
+  const datasets=recent.map((r,i)=>({
+    data:r.splits.map(s=>parseFloat(s)),
+    color:colors[i],
+    label:r.date
+  }));
+  const labels=recent[0].splits.map((_,i)=>`Split ${i+1}`);
+  drawLine(ctx,canvas.offsetWidth,260,datasets,labels,{formatY:v=>v.toFixed(2)+'s'});
+
+  // Negative split index
+  const latest=times[times.length-1];
+  const splits=latest.splits.map(s=>parseFloat(s));
+  const half=Math.floor(splits.length/2);
+  const firstHalf=splits.slice(0,half).reduce((s,v)=>s+v,0)/half;
+  const secondHalf=splits.slice(half).reduce((s,v)=>s+v,0)/(splits.length-half);
+  const nsi=((secondHalf-firstHalf)/firstHalf*100).toFixed(1);
+  const nsiEl=document.getElementById('splitIndex');
+  nsiEl.innerHTML=`
+    <div style="font-size:32px;font-weight:800;color:${parseFloat(nsi)<0?'var(--green)':'var(--scarlet)'}">${nsi}%</div>
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">${parseFloat(nsi)<0?'Negative split — strong finish':'Positive split — fading in back half'}</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:4px">1st half avg: ${firstHalf.toFixed(2)}s | 2nd half avg: ${secondHalf.toFixed(2)}s</p>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px">Event: ${ev} | Latest: ${latest.time} (${latest.date})</p>
+  `;
+
+  // Pacing CV
+  const cvEl=document.getElementById('pacingCV');
+  const mean=splits.reduce((s,v)=>s+v,0)/splits.length;
+  const sd=Math.sqrt(splits.reduce((s,v)=>s+(v-mean)**2,0)/splits.length);
+  const cv=(sd/mean*100).toFixed(1);
+  cvEl.innerHTML=`
+    <div style="font-size:32px;font-weight:800;color:${parseFloat(cv)<5?'var(--green)':parseFloat(cv)<10?'var(--gold)':'var(--scarlet)'}">${cv}%</div>
+    <p style="font-size:13px;color:var(--muted);margin-top:8px">${parseFloat(cv)<5?'Excellent pacing consistency':parseFloat(cv)<10?'Moderate variability — room to even out':'High variability — consider pacing strategy'}</p>
+    <div style="margin-top:12px">
+      ${splits.map((s,i)=>`<div class="pace-bar"><span class="pace-bar-label">Split ${i+1}</span><div class="pace-bar-track"><div class="pace-bar-fill" style="width:${(s/Math.max(...splits)*100).toFixed(0)}%;background:${s===Math.min(...splits)?'var(--green)':s===Math.max(...splits)?'var(--scarlet)':'var(--accent)'}"></div></div><span class="pace-bar-value">${s.toFixed(2)}s</span></div>`).join('')}
+    </div>
+  `;
+}
+
+function renderComparison(a){
+  // Correlation matrix
+  const events=Object.keys(a.events);
+  const corrEl=document.getElementById('corrMatrix');
+
+  if(events.length<2){corrEl.innerHTML='<p style="color:var(--muted)">Need 2+ events for comparison.</p>';return;}
+
+  // Compute improvement rates
+  const rates={};
+  events.forEach(ev=>{
+    const times=a.events[ev];
+    if(times.length<2){rates[ev]=[];return;}
+    const r=[];
+    for(let i=1;i<times.length;i++){
+      r.push(timeToSec(times[i-1].time)-timeToSec(times[i].time));
+    }
+    rates[ev]=r;
+  });
+
+  // Correlation between improvement rates (Pearson)
+  function pearson(x,y){
+    const n=Math.min(x.length,y.length);
+    if(n<2)return 0;
+    const mx=x.slice(0,n).reduce((s,v)=>s+v,0)/n;
+    const my=y.slice(0,n).reduce((s,v)=>s+v,0)/n;
+    let num=0,dx=0,dy=0;
+    for(let i=0;i<n;i++){num+=(x[i]-mx)*(y[i]-my);dx+=(x[i]-mx)**2;dy+=(y[i]-my)**2;}
+    return dx&&dy?num/Math.sqrt(dx*dy):0;
+  }
+
+  const n=events.length;
+  let html=`<div class="corr-grid" style="grid-template-columns:80px repeat(${n},1fr);max-width:${80+n*60}px">`;
+  html+='<div></div>'+events.map(e=>`<div style="font-size:10px;text-align:center;padding:4px;color:var(--muted);font-weight:600">${e.replace(/\d+ /,'')}</div>`).join('');
+
+  events.forEach((e1,i)=>{
+    html+=`<div style="font-size:10px;padding:4px;color:var(--muted);font-weight:600;display:flex;align-items:center;justify-content:flex-end">${e1.replace(/\d+ /,'')}</div>`;
+    events.forEach((e2,j)=>{
+      const r=i===j?1:pearson(rates[e1],rates[e2]);
+      const abs=Math.abs(r);
+      const bg=r>0?`rgba(5,150,105,${abs*0.8})`:`rgba(220,38,38,${abs*0.8})`;
+      html+=`<div class="corr-cell" style="background:${bg};color:${abs>0.4?'white':'var(--text)'}">${r.toFixed(2)}</div>`;
+    });
+  });
+  html+='</div>';
+  html+='<p style="font-size:11px;color:var(--muted);margin-top:8px">Pearson correlation of improvement rates between events. Green=positive, Red=negative.</p>';
+  corrEl.innerHTML=html;
+
+  // Radar chart (normalized performance)
+  const rCanvas=document.getElementById('radarChart');
+  const rCtx=rCanvas.getContext('2d');
+  rCanvas.width=rCanvas.offsetWidth*2;rCanvas.height=600;rCtx.scale(2,2);
+  rCtx.clearRect(0,0,rCanvas.offsetWidth,300);
+
+  const standards=ageGroupStandards[a.group]||{};
+  const measuredEvents=events.filter(e=>standards[e]);
+  if(measuredEvents.length<3){
+    rCtx.fillStyle='#6b6b6b';rCtx.font='13px -apple-system,sans-serif';
+    rCtx.fillText('Need 3+ events with age-group standards for radar.',20,30);
+    return;
+  }
+
+  const cx=rCanvas.offsetWidth/2,cy=150,radius=110;
+  const angles=measuredEvents.map((_,i)=>-Math.PI/2+(2*Math.PI*i)/measuredEvents.length);
+
+  // Grid rings
+  [0.25,0.5,0.75,1].forEach(r=>{
+    rCtx.strokeStyle='#e5e2db';rCtx.lineWidth=1;rCtx.beginPath();
+    angles.forEach((ang,i)=>{
+      const x=cx+Math.cos(ang)*radius*r;
+      const y=cy+Math.sin(ang)*radius*r;
+      i===0?rCtx.moveTo(x,y):rCtx.lineTo(x,y);
+    });
+    rCtx.closePath();rCtx.stroke();
+  });
+
+  // Axes
+  angles.forEach((ang,i)=>{
+    rCtx.strokeStyle='#e5e2db';rCtx.beginPath();rCtx.moveTo(cx,cy);
+    rCtx.lineTo(cx+Math.cos(ang)*radius,cy+Math.sin(ang)*radius);rCtx.stroke();
+    const lx=cx+Math.cos(ang)*(radius+20);
+    const ly=cy+Math.sin(ang)*(radius+20);
+    rCtx.fillStyle='#6b6b6b';rCtx.font='11px -apple-system,sans-serif';rCtx.textAlign='center';
+    rCtx.fillText(measuredEvents[i],lx,ly);
+  });
+
+  // Data polygon
+  const scores=measuredEvents.map(ev=>{
+    const best=timeToSec(a.events[ev][a.events[ev].length-1].time);
+    return Math.min(1,standards[ev]/best);
+  });
+
+  rCtx.fillStyle='rgba(124,58,237,0.15)';rCtx.strokeStyle='#7c3aed';rCtx.lineWidth=2.5;
+  rCtx.beginPath();
+  scores.forEach((s,i)=>{
+    const x=cx+Math.cos(angles[i])*radius*s;
+    const y=cy+Math.sin(angles[i])*radius*s;
+    i===0?rCtx.moveTo(x,y):rCtx.lineTo(x,y);
+  });
+  rCtx.closePath();rCtx.fill();rCtx.stroke();
+
+  // Dots
+  scores.forEach((s,i)=>{
+    const x=cx+Math.cos(angles[i])*radius*s;
+    const y=cy+Math.sin(angles[i])*radius*s;
+    rCtx.fillStyle='#7c3aed';rCtx.beginPath();rCtx.arc(x,y,5,0,Math.PI*2);rCtx.fill();
+    rCtx.fillStyle='white';rCtx.beginPath();rCtx.arc(x,y,2.5,0,Math.PI*2);rCtx.fill();
+  });
+}
+
+function renderTeam(){
+  // Level distribution
+  const distEl=document.getElementById('levelDistribution');
+  const levelCounts=LEVELS.map(l=>athletes.filter(a=>a.level===l).length);
+  const total=athletes.length;
+
+  let html='<div class="distribution-bar">';
+  levelCounts.forEach((c,i)=>{
+    if(c>0)html+=`<div class="seg" style="width:${(c/total*100).toFixed(1)}%;background:${LEVEL_COLORS[i]}"></div>`;
+  });
+  html+='</div><div class="chart-legend">';
+  LEVELS.forEach((l,i)=>{
+    if(levelCounts[i]>0)html+=`<div class="chart-legend-item"><div class="chart-legend-dot" style="background:${LEVEL_COLORS[i]}"></div>${l}: ${levelCounts[i]}</div>`;
+  });
+  html+='</div>';
+  distEl.innerHTML=html;
+
+  // Team table
+  const tbody=document.querySelector('#teamTable tbody');
+  const ranked=athletes.map(a=>{
+    let totalDrop=0,pbs=0,consistency=[];
+    Object.keys(a.events).forEach(ev=>{
+      const times=a.events[ev];
+      let best=Infinity;
+      for(let i=0;i<times.length;i++){
+        const s=timeToSec(times[i].time);
+        if(s<best){pbs++;best=s;}
+        if(i>0){
+          const d=timeToSec(times[i-1].time)-s;
+          totalDrop+=d;consistency.push(d);
+        }
+      }
+    });
+    const avgCon=consistency.length?consistency.reduce((s,v)=>s+v,0)/consistency.length:0;
+    const sdCon=consistency.length>1?Math.sqrt(consistency.reduce((s,v)=>s+(v-avgCon)**2,0)/consistency.length):0;
+    const cv=avgCon?sdCon/Math.abs(avgCon):0;
+    return {...a,totalDrop,pbs,cv};
+  }).sort((a,b)=>b.totalDrop-a.totalDrop);
+
+  tbody.innerHTML=ranked.map((a,i)=>`
+    <tr>
+      <td><strong>#${i+1}</strong></td>
+      <td>${a.name}</td>
+      <td><span class="badge badge-${a.level.toLowerCase()}">${a.level}</span></td>
+      <td class="drop-positive">-${a.totalDrop.toFixed(2)}s</td>
+      <td>${a.pbs}</td>
+      <td>${a.cv<0.5?'High':a.cv<1?'Medium':'Low'} (${(a.cv*100).toFixed(0)}%)</td>
+    </tr>
+  `).join('');
+}
+
+function renderInsights(a){
+  const container=document.getElementById('insightsContainer');
+  const insights=[];
+
+  // 1. Best event analysis
+  let bestEvent='',bestRate=0;
+  Object.keys(a.events).forEach(ev=>{
+    const times=a.events[ev];
+    if(times.length<2)return;
+    const first=timeToSec(times[0].time),last=timeToSec(times[times.length-1].time);
+    const rate=(first-last)/first*100;
+    if(rate>bestRate){bestRate=rate;bestEvent=ev;}
+  });
+  if(bestEvent){
+    insights.push({
+      title:'Strongest Improvement Trajectory',
+      text:`${a.name}'s best improvement rate is in ${bestEvent} at ${bestRate.toFixed(1)}% over the season. This suggests natural aptitude or effective training focus in this event. Consider prioritizing ${bestEvent} for championship meets.`
+    });
+  }
+
+  // 2. Pacing analysis
+  Object.keys(a.events).forEach(ev=>{
+    const latest=a.events[ev][a.events[ev].length-1];
+    if(!latest.splits||latest.splits.length<2)return;
+    const splits=latest.splits.map(s=>parseFloat(s));
+    const firstSplit=splits[0],lastSplit=splits[splits.length-1];
+    const fadePercent=((lastSplit-firstSplit)/firstSplit*100).toFixed(1);
+    if(parseFloat(fadePercent)>8){
+      insights.push({
+        title:`Pacing Alert: ${ev}`,
+        text:`${ev} shows ${fadePercent}% fade from first to last split (${firstSplit.toFixed(2)}s → ${lastSplit.toFixed(2)}s). This is significant energy fade. Recommend: aerobic threshold work and race-pace sets with emphasis on maintaining effort in the back half. Potential time savings: ${((lastSplit-firstSplit)*0.3).toFixed(2)}s if fade is reduced by 30%.`
+      });
+    }
+  });
+
+  // 3. Plateau detection
+  Object.keys(a.events).forEach(ev=>{
+    const times=a.events[ev];
+    if(times.length<3)return;
+    const last3=times.slice(-3);
+    const drops=[];
+    for(let i=1;i<last3.length;i++)drops.push(timeToSec(last3[i-1].time)-timeToSec(last3[i].time));
+    if(drops.every(d=>d<0.15)){
+      insights.push({
+        title:`Plateau Warning: ${ev}`,
+        text:`Last 3 swims in ${ev} show drops under 0.15s each (${drops.map(d=>d.toFixed(2)+'s').join(', ')}). The improvement curve is flattening. Consider: stroke technique video analysis, race strategy changes, or adding event-specific drills to break through the plateau.`
+      });
+    }
+  });
+
+  // 4. XP & level
+  const levelIdx=LEVELS.indexOf(a.level);
+  const nextLevel=levelIdx<LEVELS.length-1?LEVELS[levelIdx+1]:null;
+  const nextXP=levelIdx<LEVELS.length-1?LEVEL_XP[levelIdx+1]:null;
+  if(nextLevel){
+    const remaining=nextXP-a.xp;
+    insights.push({
+      title:'Level Progression',
+      text:`${a.name} is ${a.level} (${a.xp} XP). Needs ${remaining} more XP to reach ${nextLevel}. At current improvement rate, estimate ${Math.ceil(remaining/45)} more meets to level up (assuming ~45 XP/meet from PBs and participation).`
+    });
+  }
+
+  // 5. Cross-event recommendation
+  const standards=ageGroupStandards[a.group]||{};
+  const performances=Object.keys(a.events).filter(e=>standards[e]).map(e=>({
+    event:e,
+    pct:standards[e]/timeToSec(a.events[e][a.events[e].length-1].time)*100
+  })).sort((a,b)=>b.pct-a.pct);
+  if(performances.length>=2){
+    insights.push({
+      title:'Event Specialization Analysis',
+      text:`Relative to age-group standards: ${performances.map(p=>`${p.event} at ${p.pct.toFixed(1)}%`).join(', ')}. ${performances[0].event} is the standout event. ${performances.length>2?`Consider dropping ${performances[performances.length-1].event} to focus training time on top events.`:''}`
+    });
+  }
+
+  container.innerHTML=insights.length?insights.map(i=>`
+    <div class="insight-box">
+      <h4>${i.title}</h4>
+      <p>${i.text}</p>
+    </div>
+  `).join(''):'<p style="color:var(--muted)">Insufficient data to generate insights.</p>';
+}
+
+// Init
+init();
+</script>
+</body>
+</html>

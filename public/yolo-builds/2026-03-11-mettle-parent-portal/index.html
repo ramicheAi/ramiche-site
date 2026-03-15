@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE — Parent Portal</title>
+<style>
+  :root {
+    --purple: #6B2FA0;
+    --purple-light: #8B4FC0;
+    --purple-dark: #4A1F70;
+    --scarlet: #DC2626;
+    --scarlet-light: #EF4444;
+    --gold: #D4A017;
+    --gold-light: #F5C842;
+    --blue: #2563EB;
+    --blue-light: #3B82F6;
+    --bg: #F8F7FC;
+    --card: #FFFFFF;
+    --text: #1A1A2E;
+    --text-muted: #6B7280;
+    --border: #E5E7EB;
+    --shadow: 0 2px 8px rgba(107,47,160,0.08);
+    --shadow-lg: 0 8px 24px rgba(107,47,160,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Top Nav */
+  .topnav {
+    background: linear-gradient(135deg, var(--purple-dark), var(--purple));
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(107,47,160,0.3);
+  }
+  .topnav-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .topnav-logo {
+    width: 36px;
+    height: 36px;
+    background: var(--gold);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--purple-dark);
+    animation: pulse-logo 3s ease-in-out infinite;
+  }
+  @keyframes pulse-logo {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(212,160,23,0.4); }
+    50% { box-shadow: 0 0 12px 4px rgba(212,160,23,0.2); }
+  }
+  .topnav h1 {
+    color: white;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .topnav-sub {
+    color: rgba(255,255,255,0.7);
+    font-size: 13px;
+  }
+  .topnav-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .notif-btn {
+    background: rgba(255,255,255,0.15);
+    border: 2px solid rgba(255,255,255,0.25);
+    border-radius: 10px;
+    padding: 8px 12px;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+  }
+  .notif-btn:hover { background: rgba(255,255,255,0.25); }
+  .notif-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: var(--scarlet);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .parent-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 2px solid rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--purple-dark);
+  }
+
+  /* Tab Nav */
+  .tabs {
+    display: flex;
+    gap: 0;
+    background: white;
+    border-bottom: 2px solid var(--border);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tab {
+    flex: 1;
+    min-width: 100px;
+    padding: 14px 16px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--purple); background: rgba(107,47,160,0.03); }
+  .tab.active {
+    color: var(--purple);
+    border-bottom-color: var(--purple);
+    background: rgba(107,47,160,0.04);
+  }
+  .tab-icon { font-size: 16px; display: block; margin-bottom: 2px; }
+
+  /* Content */
+  .content {
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    transition: all 0.2s;
+  }
+  .card:hover { box-shadow: var(--shadow-lg); border-color: rgba(107,47,160,0.15); }
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* Athlete Hero */
+  .athlete-hero {
+    background: linear-gradient(135deg, var(--purple), var(--purple-light));
+    border-radius: 16px;
+    padding: 28px;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 20px;
+    border: 2px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 20px rgba(107,47,160,0.3);
+  }
+  .athlete-avatar-lg {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--gold);
+    border: 3px solid rgba(255,255,255,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 900;
+    color: var(--purple-dark);
+    flex-shrink: 0;
+  }
+  .athlete-info h2 { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+  .athlete-info .team { font-size: 14px; opacity: 0.8; }
+  .athlete-level {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.15);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+  }
+  .level-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  /* Stats Grid */
+  .stats-grid {
+    display: grid;
+    grid-cols: repeat(2, 1fr);
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat-card {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .stat-card:hover { border-color: var(--purple); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--purple);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Level Progress */
+  .level-progress-card {
+    background: linear-gradient(135deg, #FEFCE8, #FEF9C3);
+    border: 2px solid var(--gold);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .level-bar-wrap {
+    background: rgba(212,160,23,0.15);
+    border-radius: 10px;
+    height: 14px;
+    overflow: hidden;
+    margin: 12px 0 8px;
+  }
+  .level-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    border-radius: 10px;
+    transition: width 1.5s ease;
+  }
+  .level-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  /* Level Milestones */
+  .milestones {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(212,160,23,0.2);
+  }
+  .milestone {
+    text-align: center;
+    flex: 1;
+    position: relative;
+  }
+  .milestone-dot {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    margin: 0 auto 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    border: 2px solid var(--border);
+    background: white;
+    color: var(--text-muted);
+  }
+  .milestone.achieved .milestone-dot {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: white;
+  }
+  .milestone.current .milestone-dot {
+    background: white;
+    border-color: var(--purple);
+    color: var(--purple);
+    box-shadow: 0 0 0 3px rgba(107,47,160,0.15);
+  }
+  .milestone-name {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .milestone.achieved .milestone-name { color: var(--gold); }
+  .milestone.current .milestone-name { color: var(--purple); }
+
+  /* Timeline */
+  .timeline { position: relative; padding-left: 28px; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+  .timeline-item:last-child { margin-bottom: 0; border-bottom: none; }
+  .timeline-dot {
+    position: absolute;
+    left: -24px;
+    top: 2px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--purple);
+    background: white;
+  }
+  .timeline-item.achievement .timeline-dot { background: var(--gold); border-color: var(--gold); }
+  .timeline-item.meet .timeline-dot { background: var(--blue); border-color: var(--blue); }
+  .timeline-item.pb .timeline-dot { background: var(--scarlet); border-color: var(--scarlet); }
+  .timeline-date { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+  .timeline-title { font-size: 14px; font-weight: 700; margin: 4px 0 2px; }
+  .timeline-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .timeline-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+  .badge-pb { background: #FEE2E2; color: var(--scarlet); }
+  .badge-meet { background: #DBEAFE; color: var(--blue); }
+  .badge-level { background: #FEF9C3; color: #92400E; }
+  .badge-practice { background: #E0E7FF; color: #4338CA; }
+
+  /* Meet Schedule */
+  .meet-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    background: white;
+    transition: all 0.2s;
+  }
+  .meet-item:hover { border-color: var(--blue-light); box-shadow: var(--shadow); }
+  .meet-date-block {
+    background: var(--blue);
+    color: white;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+  .meet-date-month { font-size: 11px; font-weight: 700; text-transform: uppercase; opacity: 0.85; }
+  .meet-date-day { font-size: 22px; font-weight: 900; line-height: 1; }
+  .meet-info h3 { font-size: 15px; font-weight: 700; }
+  .meet-info p { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .meet-events {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+  }
+  .meet-event-tag {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: #EEF2FF;
+    color: #4338CA;
+  }
+
+  /* Best Times Table */
+  .times-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .times-table th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    background: #F9FAFB;
+    border-bottom: 2px solid var(--border);
+  }
+  .times-table td {
+    padding: 12px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .times-table tr:hover td { background: rgba(107,47,160,0.02); }
+  .time-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+  .time-improve {
+    font-size: 12px;
+    font-weight: 700;
+    color: #16A34A;
+  }
+  .time-improve.slower { color: var(--scarlet); }
+
+  /* Achievements */
+  .achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  @media (min-width: 768px) { .achievements-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1024px) { .achievements-grid { grid-template-columns: repeat(4, 1fr); } }
+  .achievement-card {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    text-align: center;
+    transition: all 0.3s;
+  }
+  .achievement-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+  .achievement-card.earned { border-color: var(--gold); background: linear-gradient(135deg, #FFFBEB, white); }
+  .achievement-card.locked { opacity: 0.5; }
+  .achievement-icon { font-size: 36px; margin-bottom: 8px; }
+  .achievement-name { font-size: 13px; font-weight: 700; }
+  .achievement-desc { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .achievement-date { font-size: 10px; color: var(--gold); font-weight: 600; margin-top: 6px; }
+
+  /* Notifications */
+  .notif-item {
+    display: flex;
+    gap: 14px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+  .notif-item:hover { background: rgba(107,47,160,0.02); }
+  .notif-item.unread { background: rgba(107,47,160,0.04); }
+  .notif-icon-wrap {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .notif-icon-wrap.meet { background: #DBEAFE; }
+  .notif-icon-wrap.time { background: #FEE2E2; }
+  .notif-icon-wrap.level { background: #FEF9C3; }
+  .notif-icon-wrap.coach { background: #E0E7FF; }
+  .notif-icon-wrap.practice { background: #ECFDF5; }
+  .notif-body h4 { font-size: 14px; font-weight: 700; }
+  .notif-body p { font-size: 13px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+  .notif-time { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+  /* Settings */
+  .settings-group { margin-bottom: 24px; }
+  .settings-group h3 { font-size: 15px; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+  .setting-info .setting-label { font-size: 14px; font-weight: 600; }
+  .setting-info .setting-desc { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .toggle {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    background: #D1D5DB;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+  .toggle.on { background: var(--purple); }
+  .toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    transition: all 0.3s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle.on::after { left: 22px; }
+
+  /* 2-col layout for larger screens */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 768px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 768px) { .grid-3 { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1024px) { .grid-3 { grid-template-columns: 1fr 1fr 1fr; } }
+
+  /* Particle BG */
+  #particles {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+  .content { position: relative; z-index: 1; }
+  .topnav { position: relative; z-index: 100; }
+  .tabs { position: relative; z-index: 50; }
+
+  /* Quick Actions Bar */
+  .quick-actions {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 10px 16px;
+    display: flex;
+    gap: 8px;
+    box-shadow: var(--shadow-lg);
+    z-index: 200;
+  }
+  .qa-btn {
+    padding: 8px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .qa-btn:hover { border-color: var(--purple); color: var(--purple); background: rgba(107,47,160,0.04); }
+  .qa-btn.primary {
+    background: var(--purple);
+    color: white;
+    border-color: var(--purple);
+  }
+  .qa-btn.primary:hover { background: var(--purple-light); }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<!-- Top Nav -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <div class="topnav-logo">M</div>
+    <div>
+      <h1>METTLE</h1>
+      <div class="topnav-sub">Parent Portal</div>
+    </div>
+  </div>
+  <div class="topnav-right">
+    <button class="notif-btn" onclick="switchTab('notifications')">
+      <span>&#x1F514;</span>
+      <span class="notif-badge" id="notifCount">3</span>
+    </button>
+    <div class="parent-avatar">MW</div>
+  </div>
+</nav>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')">
+    <span class="tab-icon">&#x1F3E0;</span>Overview
+  </div>
+  <div class="tab" onclick="switchTab('progress')">
+    <span class="tab-icon">&#x1F4C8;</span>Progress
+  </div>
+  <div class="tab" onclick="switchTab('meets')">
+    <span class="tab-icon">&#x1F3CA;</span>Meets
+  </div>
+  <div class="tab" onclick="switchTab('times')">
+    <span class="tab-icon">&#x23F1;</span>Best Times
+  </div>
+  <div class="tab" onclick="switchTab('achievements')">
+    <span class="tab-icon">&#x1F3C6;</span>Trophies
+  </div>
+  <div class="tab" onclick="switchTab('notifications')">
+    <span class="tab-icon">&#x1F514;</span>Alerts
+  </div>
+  <div class="tab" onclick="switchTab('settings')">
+    <span class="tab-icon">&#x2699;</span>Settings
+  </div>
+</div>
+
+<!-- Content -->
+<div class="content">
+
+  <!-- OVERVIEW TAB -->
+  <div class="tab-panel active" id="panel-overview">
+    <!-- Athlete Hero -->
+    <div class="athlete-hero">
+      <div class="athlete-avatar-lg">MW</div>
+      <div class="athlete-info">
+        <h2>Marcus Williams</h2>
+        <div class="team">Saint Andrew's Aquatics &bull; Age Group 13-14</div>
+        <div class="athlete-level">
+          <span class="level-dot" style="background: var(--blue-light);"></span>
+          WARRIOR — Level 3
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">12</div>
+        <div class="stat-label">Meets This Season</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--scarlet);">7</div>
+        <div class="stat-label">Personal Bests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--gold);">94%</div>
+        <div class="stat-label">Practice Attendance</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--blue);">68%</div>
+        <div class="stat-label">Level Progress</div>
+      </div>
+    </div>
+
+    <!-- Level Progress -->
+    <div class="level-progress-card">
+      <div class="card-header">
+        <div class="card-title" style="color: #92400E;">Level Progress — Warrior (Level 3)</div>
+        <span style="font-size: 13px; font-weight: 700; color: var(--gold);">680 / 1000 XP</span>
+      </div>
+      <div class="level-bar-wrap">
+        <div class="level-bar" style="width: 68%;"></div>
+      </div>
+      <div class="level-labels">
+        <span>Warrior (Lv 3)</span>
+        <span>320 XP to Elite</span>
+      </div>
+      <div class="milestones">
+        <div class="milestone achieved">
+          <div class="milestone-dot">&#10003;</div>
+          <div class="milestone-name">Rookie</div>
+        </div>
+        <div class="milestone achieved">
+          <div class="milestone-dot">&#10003;</div>
+          <div class="milestone-name">Contender</div>
+        </div>
+        <div class="milestone current">
+          <div class="milestone-dot">3</div>
+          <div class="milestone-name">Warrior</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot">4</div>
+          <div class="milestone-name">Elite</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot">5</div>
+          <div class="milestone-name">Captain</div>
+        </div>
+        <div class="milestone">
+          <div class="milestone-dot">6</div>
+          <div class="milestone-name">Legend</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Recent Activity</div>
+      </div>
+      <div class="timeline" id="recentTimeline"></div>
+    </div>
+  </div>
+
+  <!-- PROGRESS TAB -->
+  <div class="tab-panel" id="panel-progress">
+    <div class="grid-2">
+      <!-- XP Breakdown -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">XP Breakdown — This Month</div>
+        </div>
+        <div id="xpBreakdown"></div>
+      </div>
+
+      <!-- Season Trend -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Season Performance Trend</div>
+        </div>
+        <canvas id="trendChart" width="500" height="260"></canvas>
+      </div>
+    </div>
+
+    <!-- Improvement Log -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Time Improvements — Last 30 Days</div>
+      </div>
+      <div id="improvementLog"></div>
+    </div>
+  </div>
+
+  <!-- MEETS TAB -->
+  <div class="tab-panel" id="panel-meets">
+    <div class="grid-2">
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Upcoming Meets</div>
+          </div>
+          <div id="upcomingMeets"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Past Results</div>
+          </div>
+          <div id="pastMeets"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BEST TIMES TAB -->
+  <div class="tab-panel" id="panel-times">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Personal Best Times — SCY</div>
+        <span style="font-size: 12px; color: var(--text-muted);">Short Course Yards</span>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="times-table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Best Time</th>
+              <th>Previous</th>
+              <th>Drop</th>
+              <th>Date Set</th>
+              <th>Meet</th>
+            </tr>
+          </thead>
+          <tbody id="timesTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="margin-top: 16px;">
+      <div class="card-header">
+        <div class="card-title">Personal Best Times — LCM</div>
+        <span style="font-size: 12px; color: var(--text-muted);">Long Course Meters</span>
+      </div>
+      <div style="overflow-x: auto;">
+        <table class="times-table">
+          <thead>
+            <tr>
+              <th>Event</th>
+              <th>Best Time</th>
+              <th>Previous</th>
+              <th>Drop</th>
+              <th>Date Set</th>
+              <th>Meet</th>
+            </tr>
+          </thead>
+          <tbody id="timesTableLCM"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACHIEVEMENTS TAB -->
+  <div class="tab-panel" id="panel-achievements">
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="card-header">
+        <div class="card-title">Trophy Case</div>
+        <span style="font-size: 13px; color: var(--text-muted); font-weight: 600;">9 of 16 earned</span>
+      </div>
+    </div>
+    <div class="achievements-grid" id="achievementsGrid"></div>
+  </div>
+
+  <!-- NOTIFICATIONS TAB -->
+  <div class="tab-panel" id="panel-notifications">
+    <div class="card" style="padding: 0; overflow: hidden;">
+      <div style="padding: 16px 20px; border-bottom: 2px solid var(--border);">
+        <div class="card-title">Notifications</div>
+      </div>
+      <div id="notificationsList"></div>
+    </div>
+  </div>
+
+  <!-- SETTINGS TAB -->
+  <div class="tab-panel" id="panel-settings">
+    <div class="card">
+      <div class="settings-group">
+        <h3>Notification Preferences</h3>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Meet Reminders</div>
+            <div class="setting-desc">Get notified 24 hours before upcoming meets</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Personal Best Alerts</div>
+            <div class="setting-desc">Instant notification when your athlete sets a new PB</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Level Up Notifications</div>
+            <div class="setting-desc">Celebrate when your athlete reaches a new METTLE level</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Coach Messages</div>
+            <div class="setting-desc">Receive messages from your athlete's coach</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Practice Reports</div>
+            <div class="setting-desc">Weekly summary of practice attendance and effort</div>
+          </div>
+          <div class="toggle" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Push Notifications</div>
+            <div class="setting-desc">Enable browser push notifications</div>
+          </div>
+          <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Display</h3>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Preferred Course</div>
+            <div class="setting-desc">Default time display format</div>
+          </div>
+          <select style="padding: 6px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600;">
+            <option>Short Course Yards (SCY)</option>
+            <option>Long Course Meters (LCM)</option>
+            <option>Short Course Meters (SCM)</option>
+          </select>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Time Format</div>
+            <div class="setting-desc">How times are displayed</div>
+          </div>
+          <select style="padding: 6px 12px; border: 2px solid var(--border); border-radius: 8px; font-size: 13px; font-weight: 600;">
+            <option>Minutes:Seconds.Hundredths</option>
+            <option>Seconds.Hundredths</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Account</h3>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Parent: Michelle Williams</div>
+            <div class="setting-desc">m.williams@email.com</div>
+          </div>
+          <button class="qa-btn" style="font-size: 12px;">Edit Profile</button>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Linked Athletes</div>
+            <div class="setting-desc">Marcus Williams, Nia Williams</div>
+          </div>
+          <button class="qa-btn" style="font-size: 12px;">Manage</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Quick Actions -->
+<div class="quick-actions">
+  <button class="qa-btn primary" onclick="switchTab('meets')">Next Meet</button>
+  <button class="qa-btn" onclick="switchTab('times')">Best Times</button>
+  <button class="qa-btn" onclick="switchTab('notifications')">Alerts (3)</button>
+</div>
+
+<script>
+// ---- DEMO DATA ----
+const athlete = {
+  name: "Marcus Williams",
+  initials: "MW",
+  team: "Saint Andrew's Aquatics",
+  ageGroup: "13-14",
+  level: "Warrior",
+  levelNum: 3,
+  xp: 680,
+  xpNext: 1000,
+  meets: 12,
+  pbs: 7,
+  attendance: 94,
+  usaSwimId: "A12345678"
+};
+
+const bestTimesSCY = [
+  { event: "50 Free", best: "24.31", prev: "24.89", date: "Mar 1, 2026", meet: "Regionals Qualifier" },
+  { event: "100 Free", best: "53.47", prev: "54.12", date: "Feb 22, 2026", meet: "Stingray Invitational" },
+  { event: "200 Free", best: "1:57.82", prev: "2:00.15", date: "Mar 1, 2026", meet: "Regionals Qualifier" },
+  { event: "50 Back", best: "29.44", prev: "30.01", date: "Jan 18, 2026", meet: "Winter Championship" },
+  { event: "100 Back", best: "1:02.18", prev: "1:03.55", date: "Feb 22, 2026", meet: "Stingray Invitational" },
+  { event: "100 Fly", best: "59.73", prev: "1:01.40", date: "Mar 1, 2026", meet: "Regionals Qualifier" },
+  { event: "200 IM", best: "2:12.55", prev: "2:14.90", date: "Feb 8, 2026", meet: "METTLE Classic" },
+  { event: "100 Breast", best: "1:11.22", prev: "1:12.01", date: "Jan 18, 2026", meet: "Winter Championship" },
+];
+
+const bestTimesLCM = [
+  { event: "50 Free", best: "27.88", prev: "28.50", date: "Jun 15, 2025", meet: "Summer LCM Championships" },
+  { event: "100 Free", best: "1:00.12", prev: "1:01.44", date: "Jun 15, 2025", meet: "Summer LCM Championships" },
+  { event: "200 Free", best: "2:12.65", prev: "2:15.00", date: "Jul 8, 2025", meet: "Regional LCM Qualifier" },
+  { event: "100 Back", best: "1:09.30", prev: "1:10.88", date: "Jun 15, 2025", meet: "Summer LCM Championships" },
+];
+
+const upcomingMeets = [
+  { month: "MAR", day: "15", name: "District Championships", location: "Coral Springs Aquatic Complex", events: ["50 Free", "100 Free", "200 Free", "100 Fly"] },
+  { month: "MAR", day: "29", name: "METTLE Spring Showcase", location: "NSU Aquatic Center", events: ["200 IM", "100 Back", "50 Free"] },
+  { month: "APR", day: "12", name: "Age Group Regionals", location: "Plantation Central Park", events: ["All Qualified Events"] },
+];
+
+const pastMeets = [
+  { month: "MAR", day: "01", name: "Regionals Qualifier", pbs: 3, events: 4, placement: "2 Top-3 finishes" },
+  { month: "FEB", day: "22", name: "Stingray Invitational", pbs: 2, events: 5, placement: "1st in 100 Free" },
+  { month: "FEB", day: "08", name: "METTLE Classic", pbs: 1, events: 4, placement: "3rd in 200 IM" },
+  { month: "JAN", day: "18", name: "Winter Championship", pbs: 2, events: 6, placement: "2 Top-5 finishes" },
+];
+
+const activityFeed = [
+  { type: "pb", date: "Mar 1", title: "New PB — 100 Fly", desc: "59.73 (dropped 1.67s) at Regionals Qualifier. First time under 1:00!", badge: "PB", badgeClass: "badge-pb" },
+  { type: "pb", date: "Mar 1", title: "New PB — 50 Free", desc: "24.31 (dropped 0.58s) at Regionals Qualifier.", badge: "PB", badgeClass: "badge-pb" },
+  { type: "meet", date: "Mar 1", title: "Regionals Qualifier Complete", desc: "4 events swum, 3 personal bests. Two top-3 finishes.", badge: "MEET", badgeClass: "badge-meet" },
+  { type: "achievement", date: "Feb 26", title: "Achievement Unlocked — Sub-Minute Flyer", desc: "Marcus broke the 1:00 barrier in 100 Butterfly.", badge: "LEVEL UP", badgeClass: "badge-level" },
+  { type: "practice", date: "Feb 24", title: "Practice — Technique Focus", desc: "Coach noted improved streamline off the walls. Backstroke flip turns tighter.", badge: "PRACTICE", badgeClass: "badge-practice" },
+  { type: "pb", date: "Feb 22", title: "New PB — 100 Free", desc: "53.47 at Stingray Invitational. Dropped 0.65s from seed.", badge: "PB", badgeClass: "badge-pb" },
+  { type: "meet", date: "Feb 22", title: "Stingray Invitational", desc: "5 events, 2 PBs. Won 100 Free outright — first individual gold this season.", badge: "MEET", badgeClass: "badge-meet" },
+  { type: "achievement", date: "Feb 15", title: "Achievement Unlocked — Iron Will", desc: "20 consecutive practices attended. Consistency unlocks greatness.", badge: "LEVEL UP", badgeClass: "badge-level" },
+];
+
+const achievements = [
+  { icon: "&#x1F525;", name: "First Splash", desc: "Attend your first meet", earned: true, date: "Sep 2024" },
+  { icon: "&#x23F1;", name: "Time Dropper", desc: "Set 5 personal bests", earned: true, date: "Nov 2024" },
+  { icon: "&#x1F3C5;", name: "Podium Finisher", desc: "Finish top 3 in an event", earned: true, date: "Dec 2024" },
+  { icon: "&#x1F4AA;", name: "Iron Will", desc: "20 consecutive practices", earned: true, date: "Feb 2026" },
+  { icon: "&#x1F3CA;", name: "Sub-Minute Flyer", desc: "Break 1:00 in 100 Fly", earned: true, date: "Feb 2026" },
+  { icon: "&#x26A1;", name: "Lightning Round", desc: "Drop 2+ seconds in one event", earned: true, date: "Mar 2026" },
+  { icon: "&#x1F451;", name: "Event Champion", desc: "Win 1st place in any event", earned: true, date: "Feb 2026" },
+  { icon: "&#x1F31F;", name: "Triple Threat", desc: "3 PBs in a single meet", earned: true, date: "Mar 2026" },
+  { icon: "&#x1F3C6;", name: "All-Around", desc: "Qualify for Regionals in 4+ events", earned: true, date: "Mar 2026" },
+  { icon: "&#x1F48E;", name: "Diamond Drops", desc: "Set 15 total personal bests", earned: false, date: null },
+  { icon: "&#x1F680;", name: "Warrior Spirit", desc: "Reach METTLE Level 4 (Elite)", earned: false, date: null },
+  { icon: "&#x1F30A;", name: "Distance Machine", desc: "Complete a 500 Free under 5:30", earned: false, date: null },
+  { icon: "&#x1F4A5;", name: "Meet MVP", desc: "Win 3+ events at a single meet", earned: false, date: null },
+  { icon: "&#x1F9E0;", name: "Strategist", desc: "Negative split every event in a meet", earned: false, date: null },
+  { icon: "&#x2B50;", name: "Season Legend", desc: "20+ PBs in a single season", earned: false, date: null },
+  { icon: "&#x1F3AF;", name: "Perfect Attendance", desc: "100% practice attendance for 3 months", earned: false, date: null },
+];
+
+const notifications = [
+  { type: "meet", icon: "&#x1F3CA;", title: "District Championships — 4 days away", desc: "Mar 15 at Coral Springs Aquatic Complex. Marcus is entered in 4 events. Warmups at 7:30 AM.", time: "2 hours ago", unread: true },
+  { type: "time", icon: "&#x23F1;", title: "3 New Personal Bests!", desc: "Marcus dropped time in 50 Free (24.31), 200 Free (1:57.82), and 100 Fly (59.73) at the Regionals Qualifier.", time: "10 hours ago", unread: true },
+  { type: "level", icon: "&#x2B50;", title: "Achievement Unlocked: Triple Threat", desc: "Marcus earned the Triple Threat trophy for 3 PBs in a single meet. He's 320 XP from Elite!", time: "10 hours ago", unread: true },
+  { type: "coach", icon: "&#x1F4AC;", title: "Coach Rivera sent a message", desc: "\"Marcus had an outstanding meet today. His 100 Fly breakthrough is a real confidence builder heading into Districts.\"", time: "11 hours ago", unread: false },
+  { type: "practice", icon: "&#x1F4CB;", title: "Weekly Practice Report", desc: "Marcus attended 5/5 practices this week. Focus areas: underwater kicks, backstroke turns. Effort rating: Excellent.", time: "2 days ago", unread: false },
+  { type: "meet", icon: "&#x1F3CA;", title: "METTLE Spring Showcase — Entries Open", desc: "Mar 29 at NSU Aquatic Center. Entry deadline: Mar 22. Coach Rivera has recommended 200 IM, 100 Back, 50 Free.", time: "3 days ago", unread: false },
+  { type: "level", icon: "&#x1F4AA;", title: "68% to Elite!", desc: "Marcus earned +45 XP this week from meet results and attendance. At this rate, he'll reach Elite by mid-April.", time: "4 days ago", unread: false },
+];
+
+const xpBreakdown = [
+  { category: "Meet Results", xp: 280, color: "var(--scarlet)", pct: 41 },
+  { category: "Personal Bests", xp: 175, color: "var(--gold)", pct: 26 },
+  { category: "Practice Attendance", xp: 140, color: "var(--blue)", pct: 21 },
+  { category: "Achievements", xp: 55, color: "var(--purple)", pct: 8 },
+  { category: "Team Contributions", xp: 30, color: "#16A34A", pct: 4 },
+];
+
+const improvements = [
+  { event: "100 Fly", from: "1:01.40", to: "59.73", drop: "-1.67", pct: "-2.7%", meet: "Regionals Qualifier", date: "Mar 1" },
+  { event: "200 Free", from: "2:00.15", to: "1:57.82", drop: "-2.33", pct: "-1.9%", meet: "Regionals Qualifier", date: "Mar 1" },
+  { event: "50 Free", from: "24.89", to: "24.31", drop: "-0.58", pct: "-2.3%", meet: "Regionals Qualifier", date: "Mar 1" },
+  { event: "100 Free", from: "54.12", to: "53.47", drop: "-0.65", pct: "-1.2%", meet: "Stingray Invitational", date: "Feb 22" },
+  { event: "100 Back", from: "1:03.55", to: "1:02.18", drop: "-1.37", pct: "-2.2%", meet: "Stingray Invitational", date: "Feb 22" },
+  { event: "200 IM", from: "2:14.90", to: "2:12.55", drop: "-2.35", pct: "-1.7%", meet: "METTLE Classic", date: "Feb 8" },
+];
+
+// ---- RENDER FUNCTIONS ----
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  const idx = ['overview','progress','meets','times','achievements','notifications','settings'].indexOf(name);
+  if (idx >= 0) document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+function renderTimeline() {
+  const el = document.getElementById('recentTimeline');
+  el.innerHTML = activityFeed.slice(0, 6).map(a => `
+    <div class="timeline-item ${a.type}">
+      <div class="timeline-dot"></div>
+      <div class="timeline-date">${a.date}</div>
+      <div class="timeline-title">${a.title}</div>
+      <div class="timeline-desc">${a.desc}</div>
+      <span class="timeline-badge ${a.badgeClass}">${a.badge}</span>
+    </div>
+  `).join('');
+}
+
+function renderTimesTable(times, containerId) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = times.map(t => {
+    const dropSec = calcDrop(t.prev, t.best);
+    return `
+      <tr>
+        <td style="font-weight: 600;">${t.event}</td>
+        <td class="time-value">${t.best}</td>
+        <td style="color: var(--text-muted);">${t.prev}</td>
+        <td><span class="time-improve">${dropSec}</span></td>
+        <td style="font-size: 13px; color: var(--text-muted);">${t.date}</td>
+        <td style="font-size: 13px; color: var(--text-muted);">${t.meet}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function calcDrop(prev, best) {
+  const toSec = (t) => {
+    const parts = t.split(':');
+    if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+    return parseFloat(parts[0]);
+  };
+  const diff = toSec(best) - toSec(prev);
+  return diff < 0 ? diff.toFixed(2) + 's' : '+' + diff.toFixed(2) + 's';
+}
+
+function renderUpcomingMeets() {
+  const el = document.getElementById('upcomingMeets');
+  el.innerHTML = upcomingMeets.map(m => `
+    <div class="meet-item">
+      <div class="meet-date-block">
+        <div class="meet-date-month">${m.month}</div>
+        <div class="meet-date-day">${m.day}</div>
+      </div>
+      <div class="meet-info">
+        <h3>${m.name}</h3>
+        <p>${m.location}</p>
+        <div class="meet-events">
+          ${m.events.map(e => `<span class="meet-event-tag">${e}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderPastMeets() {
+  const el = document.getElementById('pastMeets');
+  el.innerHTML = pastMeets.map(m => `
+    <div class="meet-item">
+      <div class="meet-date-block" style="background: var(--purple);">
+        <div class="meet-date-month">${m.month}</div>
+        <div class="meet-date-day">${m.day}</div>
+      </div>
+      <div class="meet-info">
+        <h3>${m.name}</h3>
+        <p>${m.pbs} PB${m.pbs !== 1 ? 's' : ''} &bull; ${m.events} events &bull; ${m.placement}</p>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderAchievements() {
+  const el = document.getElementById('achievementsGrid');
+  el.innerHTML = achievements.map(a => `
+    <div class="achievement-card ${a.earned ? 'earned' : 'locked'}">
+      <div class="achievement-icon">${a.icon}</div>
+      <div class="achievement-name">${a.name}</div>
+      <div class="achievement-desc">${a.desc}</div>
+      ${a.earned ? `<div class="achievement-date">Earned ${a.date}</div>` : '<div class="achievement-date" style="color: var(--text-muted);">Locked</div>'}
+    </div>
+  `).join('');
+}
+
+function renderNotifications() {
+  const el = document.getElementById('notificationsList');
+  el.innerHTML = notifications.map(n => `
+    <div class="notif-item ${n.unread ? 'unread' : ''}">
+      <div class="notif-icon-wrap ${n.type}">${n.icon}</div>
+      <div class="notif-body">
+        <h4>${n.title}</h4>
+        <p>${n.desc}</p>
+        <div class="notif-time">${n.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderXPBreakdown() {
+  const el = document.getElementById('xpBreakdown');
+  el.innerHTML = xpBreakdown.map(x => `
+    <div style="margin-bottom: 12px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+        <span style="font-size: 13px; font-weight: 600;">${x.category}</span>
+        <span style="font-size: 13px; font-weight: 700; color: ${x.color};">${x.xp} XP (${x.pct}%)</span>
+      </div>
+      <div style="background: var(--border); border-radius: 6px; height: 8px; overflow: hidden;">
+        <div style="width: ${x.pct}%; height: 100%; background: ${x.color}; border-radius: 6px; transition: width 1s;"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderImprovementLog() {
+  const el = document.getElementById('improvementLog');
+  el.innerHTML = `
+    <div style="overflow-x: auto;">
+      <table class="times-table">
+        <thead>
+          <tr>
+            <th>Event</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Drop</th>
+            <th>% Improved</th>
+            <th>Meet</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${improvements.map(i => `
+            <tr>
+              <td style="font-weight: 600;">${i.event}</td>
+              <td style="color: var(--text-muted);">${i.from}</td>
+              <td class="time-value">${i.to}</td>
+              <td><span class="time-improve">${i.drop}s</span></td>
+              <td><span class="time-improve">${i.pct}</span></td>
+              <td style="font-size: 13px; color: var(--text-muted);">${i.meet}</td>
+              <td style="font-size: 13px; color: var(--text-muted);">${i.date}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// Canvas chart — simple bar chart of PBs per meet
+function renderTrendChart() {
+  const canvas = document.getElementById('trendChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 260 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth;
+  const h = 260;
+
+  const meets = [
+    { name: "Oct Kick-off", pbs: 1, score: 45 },
+    { name: "Nov Classic", pbs: 2, score: 55 },
+    { name: "Dec Champs", pbs: 1, score: 52 },
+    { name: "Jan Winter", pbs: 2, score: 60 },
+    { name: "Feb METTLE", pbs: 1, score: 58 },
+    { name: "Feb Stingray", pbs: 2, score: 72 },
+    { name: "Mar Regionals Q", pbs: 3, score: 85 },
+  ];
+
+  const margin = { top: 20, right: 20, bottom: 50, left: 40 };
+  const plotW = w - margin.left - margin.right;
+  const plotH = h - margin.top - margin.bottom;
+
+  // Grid lines
+  ctx.strokeStyle = '#E5E7EB';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = margin.top + (plotH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(margin.left, y);
+    ctx.lineTo(w - margin.right, y);
+    ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#9CA3AF';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const y = margin.top + (plotH / 4) * i;
+    const val = 100 - (i * 25);
+    ctx.fillText(val, margin.left - 6, y + 4);
+  }
+
+  const barW = plotW / meets.length * 0.6;
+  const gap = plotW / meets.length;
+
+  // Bars
+  meets.forEach((m, i) => {
+    const x = margin.left + gap * i + (gap - barW) / 2;
+    const barH = (m.score / 100) * plotH;
+    const y = margin.top + plotH - barH;
+
+    // Bar gradient
+    const grad = ctx.createLinearGradient(x, y, x, y + barH);
+    grad.addColorStop(0, '#8B4FC0');
+    grad.addColorStop(1, '#6B2FA0');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]);
+    ctx.fill();
+
+    // PB count on top
+    if (m.pbs > 0) {
+      ctx.fillStyle = '#DC2626';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(m.pbs + ' PB' + (m.pbs > 1 ? 's' : ''), x + barW / 2, y - 6);
+    }
+
+    // X-axis label
+    ctx.fillStyle = '#9CA3AF';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.save();
+    ctx.translate(x + barW / 2, h - 8);
+    ctx.rotate(-0.4);
+    ctx.fillText(m.name, 0, 0);
+    ctx.restore();
+  });
+
+  // Trend line
+  ctx.strokeStyle = 'rgba(212, 160, 23, 0.8)';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([6, 3]);
+  ctx.beginPath();
+  meets.forEach((m, i) => {
+    const x = margin.left + gap * i + gap / 2;
+    const y = margin.top + plotH - (m.score / 100) * plotH;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Legend
+  ctx.fillStyle = '#6B2FA0';
+  ctx.fillRect(margin.left, h - 16, 10, 10);
+  ctx.fillStyle = '#6B7280';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Performance Score', margin.left + 14, h - 7);
+
+  ctx.strokeStyle = 'rgba(212, 160, 23, 0.8)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 2]);
+  ctx.beginPath();
+  ctx.moveTo(margin.left + 140, h - 11);
+  ctx.lineTo(margin.left + 160, h - 11);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#6B7280';
+  ctx.fillText('Trend', margin.left + 164, h - 7);
+}
+
+// Particle Background
+function initParticles() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let w, h, particles = [];
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 40; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      r: Math.random() * 2 + 0.5,
+      dx: (Math.random() - 0.5) * 0.3,
+      dy: (Math.random() - 0.5) * 0.3,
+      alpha: Math.random() * 0.3 + 0.1,
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    particles.forEach(p => {
+      p.x += p.dx;
+      p.y += p.dy;
+      if (p.x < 0) p.x = w;
+      if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h;
+      if (p.y > h) p.y = 0;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(107, 47, 160, ${p.alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ---- INIT ----
+renderTimeline();
+renderTimesTable(bestTimesSCY, 'timesTable');
+renderTimesTable(bestTimesLCM, 'timesTableLCM');
+renderUpcomingMeets();
+renderPastMeets();
+renderAchievements();
+renderNotifications();
+renderXPBreakdown();
+renderImprovementLog();
+initParticles();
+
+// Delay chart render to ensure layout is done
+setTimeout(renderTrendChart, 100);
+window.addEventListener('resize', renderTrendChart);
+</script>
+
+</body>
+</html>

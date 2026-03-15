@@ -5,13 +5,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "parallax-bridge-2026";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
+if (!BRIDGE_SECRET) console.warn("[bridge/tasks] BRIDGE_API_SECRET not set — all requests will be rejected");
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
-  if (authHeader !== BRIDGE_SECRET) {
+  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -94,7 +95,11 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get("x-bridge-secret");
+  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   try {
     const res = await fetch(
       `${FIRESTORE_BASE}/command-center-tasks?pageSize=100`,

@@ -8,7 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "parallax-bridge-2026";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 
 export const dynamic = "force-dynamic";
 
@@ -171,8 +171,40 @@ export async function PATCH(req: NextRequest) {
         const [approved] = backlog.splice(idx, 1);
         (currentTasks["in-progress"] as unknown[]).push(approved);
       }
+    } else if (action === "trigger") {
+      // Trigger an agent: move task to in-progress + write to trigger queue for local relay
+      const { agent, title, description, fromCol: triggerFrom } = body;
+      const srcCol = triggerFrom || "backlog";
+      const srcTasks = (currentTasks[srcCol] as Array<Record<string, unknown>>) || [];
+      const tIdx = srcTasks.findIndex((t) => t.id === taskId);
+      if (tIdx !== -1) {
+        const [triggered] = srcTasks.splice(tIdx, 1);
+        triggered.startedAt = new Date().toISOString();
+        (currentTasks["in-progress"] as unknown[]).push(triggered);
+        currentTasks[srcCol] = srcTasks;
+      }
+      // Write trigger to Firestore queue — bridge sync reads this and writes to agents/inbox.md
+      const triggerEntry = {
+        taskId: taskId || `task-${Date.now()}`,
+        agent: agent || "Atlas",
+        title: title || "Untitled task",
+        description: description || "",
+        triggeredAt: new Date().toISOString(),
+        status: "pending",
+      };
+      await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: toFirestoreFields({
+            pending: [triggerEntry],
+            _updatedAt: new Date().toISOString(),
+          }),
+        }),
+      }).catch(() => {});
+      // Fall through to persist task move below
     } else {
-      return NextResponse.json({ error: "invalid action. use: move, create, approve" }, { status: 400 });
+      return NextResponse.json({ error: "invalid action. use: move, create, approve, trigger" }, { status: 400 });
     }
 
     // Write updated tasks back to Firestore
@@ -201,7 +233,7 @@ export async function PATCH(req: NextRequest) {
 // POST: Sync data from local machine
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
-  if (authHeader !== BRIDGE_SECRET) {
+  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

@@ -1,7 +1,8 @@
 // ── Utility Functions ─────────────────────────────────────────────────
 
 import type { Athlete } from "./types";
-import { LEVELS, POOL_CPS, DIVING_CPS, WATERPOLO_CPS } from "./constants";
+import { POOL_CPS, DIVING_CPS, WATERPOLO_CPS } from "./constants";
+import { getSportConfig } from "./lib/sport-config";
 
 export const today = () => {
   const d = new Date();
@@ -10,29 +11,31 @@ export const today = () => {
 
 // ── Game Engine ─────────────────────────────────────────────────────
 
-export function getLevel(xp: number) {
-  for (let i = LEVELS.length - 1; i >= 0; i--) {
-    if (xp >= LEVELS[i].xp) return LEVELS[i];
+export function getLevel(xp: number, sport = "swimming") {
+  const levels = getSportConfig(sport).levels;
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (xp >= levels[i].xpThreshold) return levels[i];
   }
-  return LEVELS[0];
+  return levels[0];
 }
 
-export function getNextLevel(xp: number) {
-  for (const lv of LEVELS) {
-    if (xp < lv.xp) return lv;
+export function getNextLevel(xp: number, sport = "swimming") {
+  const levels = getSportConfig(sport).levels;
+  for (const lv of levels) {
+    if (xp < lv.xpThreshold) return lv;
   }
   return null;
 }
 
-export function getLevelProgress(xp: number) {
-  const cur = getLevel(xp);
-  const nxt = getNextLevel(xp);
+export function getLevelProgress(xp: number, sport = "swimming") {
+  const cur = getLevel(xp, sport);
+  const nxt = getNextLevel(xp, sport);
   if (!nxt) return { percent: 100, remaining: 0 };
-  const range = nxt.xp - cur.xp;
-  const prog = xp - cur.xp;
+  const range = nxt.xpThreshold - cur.xpThreshold;
+  const prog = xp - cur.xpThreshold;
   return {
     percent: Math.min(100, Math.round((prog / range) * 100)),
-    remaining: nxt.xp - xp,
+    remaining: nxt.xpThreshold - xp,
   };
 }
 

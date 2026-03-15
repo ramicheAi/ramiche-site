@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
+import { getPageSEO } from "@/lib/seo";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -15,8 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Parallax Operations",
-  description: "Automation dock — all projects, all signals, one view",
+  ...getPageSEO("home"),
   manifest: "/manifest.json",
   icons: {
     icon: "/parallax-icon-192.png",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     title: "Parallax",
   },
   other: {
-    "theme-color": "#1a1a5e",
+    "theme-color": "#0a0a0a",
   },
 };
 
@@ -44,21 +44,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" style={{ colorScheme: "dark" }}>
+    <html lang="en" className="dark" style={{ colorScheme: "dark", backgroundColor: "#0a0a0a" }}>
       <head>
+        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="Pragma" content="no-cache" />
+        <meta httpEquiv="Expires" content="0" />
         <script dangerouslySetInnerHTML={{ __html: `
-          if('serviceWorker' in navigator){
-            navigator.serviceWorker.getRegistrations().then(function(regs){
-              regs.forEach(function(r){r.unregister()});
-            });
-            caches.keys().then(function(keys){
-              keys.forEach(function(k){caches.delete(k)});
-            });
-          }
+          try{
+            if('serviceWorker' in navigator){
+              navigator.serviceWorker.getRegistrations().then(function(regs){
+                regs.forEach(function(r){r.unregister()});
+              }).catch(function(){});
+              caches.keys().then(function(keys){
+                keys.forEach(function(k){caches.delete(k)});
+              }).catch(function(){});
+            }
+          }catch(e){}
         `}} />
       </head>
 
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${geistSans.variable} ${geistMono.variable}`} style={{ backgroundColor: "#0a0a0a", color: "#ededed" }}>
         {children}
         <SpeedInsights />
         <Analytics />

@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import pipelineTasksData from "@/data/pipeline-tasks.json";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TASK BOARD — Kanban sub-page of Command Center
@@ -46,76 +47,140 @@ const PRIORITY_STYLES: Record<string, { color: string; bg: string }> = {
 const INITIAL_TASKS: Record<ColumnId, Task[]> = {
   backlog: [
     {
-      id: "t1", title: "Push notification scheduler",
-      description: "Build cron-based push notification system for training reminders",
-      priority: "HIGH", assignee: "Atlas", avatar: "🤖", accent: "#C9A84C",
-      tags: ["backend", "firebase"],
-    },
-    {
-      id: "t2", title: "Dark mode toggle — global",
-      description: "Implement theme switcher across all Command Center pages",
-      priority: "MEDIUM", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
-      tags: ["ui", "design-system"],
-    },
-    {
-      id: "t3", title: "Stripe webhook hardening",
-      description: "Add retry logic and idempotency keys to Stripe webhook handlers",
-      priority: "HIGH", assignee: "KIYOSAKI", avatar: "💰", accent: "#22c55e",
-      tags: ["payments", "reliability"],
-    },
-    {
-      id: "t4", title: "SEO meta generator",
-      description: "Auto-generate Open Graph and Twitter cards for all public pages",
-      priority: "LOW", assignee: "PROXIMON", avatar: "🌐", accent: "#3b82f6",
-      tags: ["seo", "marketing"],
-    },
-  ],
-  "in-progress": [
-    {
-      id: "t5", title: "Coach dashboard v2",
-      description: "Rebuild coach dashboard with real-time athlete stats and leaderboard",
-      priority: "CRITICAL", assignee: "Atlas", avatar: "🤖", accent: "#C9A84C",
-      tags: ["frontend", "firebase"],
-    },
-    {
-      id: "t6", title: "Quest engine — branching paths",
-      description: "Add conditional quest logic so athletes unlock different paths",
-      priority: "HIGH", assignee: "MICHAEL", avatar: "🏊", accent: "#06b6d4",
-      tags: ["game-engine", "logic"],
-    },
-  ],
-  review: [
-    {
-      id: "t7", title: "Athlete portal — Firestore roster",
-      description: "Load roster from Firestore so portal works on any device",
+      id: "2.1", title: "2.1 Settings — agent list",
+      description: "Wire Settings page agent list to show all 20 agents with live status",
       priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
-      tags: ["backend", "firebase"],
+      tags: ["settings", "frontend"],
     },
     {
-      id: "t8", title: "3D Hangar mobile viewport",
-      description: "Fix compact 3D Hangar rendering for mobile screens",
-      priority: "MEDIUM", assignee: "PROXIMON", avatar: "🌐", accent: "#3b82f6",
-      tags: ["3d", "responsive"],
+      id: "2.2", title: "2.2 Settings — model changes",
+      description: "Let users swap LLM models per agent from the Settings page",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["settings", "frontend"],
+    },
+    {
+      id: "2.3", title: "2.3 Task board — wire pipeline",
+      description: "Replace static placeholder tasks with real PIPELINE.md data",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["tasks", "frontend"],
+    },
+    {
+      id: "2.4", title: "2.4 Task board — approve / reject",
+      description: "Add approve/reject workflow so tasks move through review with feedback",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["tasks", "frontend"],
+    },
+    {
+      id: "2.5", title: "2.5 Task board — holographic redesign",
+      description: "Redesign task board with holographic sci-fi aesthetic matching Command Center",
+      priority: "MEDIUM", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["tasks", "design"],
+    },
+    {
+      id: "2.6", title: "2.6 Security — wire ClawGuard",
+      description: "Connect Security page to ClawGuard real-time threat monitoring",
+      priority: "CRITICAL", assignee: "SHURI + WIDOW", avatar: "🕷️", accent: "#ef4444",
+      tags: ["security", "integration"],
+    },
+    {
+      id: "2.7", title: "2.7 Security — audit",
+      description: "Full security audit of Command Center auth, API routes, and data access",
+      priority: "HIGH", assignee: "ATLAS", avatar: "🤖", accent: "#C9A84C",
+      tags: ["security", "audit"],
+    },
+    {
+      id: "3.1", title: "3.1 Specialty group chats",
+      description: "Enable multi-agent group chat channels for cross-team collaboration",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["chat", "frontend"],
+    },
+    {
+      id: "3.2", title: "3.2 Legal update",
+      description: "Update legal pages with latest terms, privacy policy, and compliance docs",
+      priority: "MEDIUM", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["legal", "content"],
+    },
+    {
+      id: "3.3", title: "3.3 Strategy QA",
+      description: "QA pass on Strategy page — verify data accuracy and UI consistency",
+      priority: "MEDIUM", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["strategy", "qa"],
+    },
+    {
+      id: "3.4", title: "3.4 Strategy — war room",
+      description: "Build interactive war room view for real-time strategy collaboration",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["strategy", "frontend"],
+    },
+    {
+      id: "4.1", title: "4.1 Content Publish",
+      description: "Ship content publishing pipeline — draft, review, publish workflow",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["content", "publishing"],
+    },
+    {
+      id: "4.2", title: "4.2 Social scanner",
+      description: "Build social media monitoring dashboard with sentiment analysis",
+      priority: "MEDIUM", assignee: "SHURI + ECHO", avatar: "📡", accent: "#06b6d4",
+      tags: ["social", "integration"],
+    },
+    {
+      id: "4.3", title: "4.3 Meta ads",
+      description: "Integrate Meta Ads manager for campaign creation and performance tracking",
+      priority: "MEDIUM", assignee: "SHURI + VEE", avatar: "📊", accent: "#f59e0b",
+      tags: ["ads", "integration"],
+    },
+    {
+      id: "4.4", title: "4.4 Baba Studio",
+      description: "Launch Baba Studio — AI-assisted music production and beat creation",
+      priority: "MEDIUM", assignee: "SHURI + MAESTRO", avatar: "🎵", accent: "#f472b6",
+      tags: ["studio", "creative"],
+    },
+    {
+      id: "4.5", title: "4.5 Wellness",
+      description: "Build wellness dashboard — meditation, journaling, and mood tracking",
+      priority: "LOW", assignee: "SHURI + SELAH", avatar: "🧘", accent: "#a78bfa",
+      tags: ["wellness", "lifestyle"],
+    },
+    {
+      id: "4.6", title: "4.6 Fabrication",
+      description: "Launch Fabrication lab — 3D printing, prototyping, and design tools",
+      priority: "LOW", assignee: "SHURI + NOVA", avatar: "🔧", accent: "#22d3ee",
+      tags: ["fabrication", "creative"],
     },
   ],
+  "in-progress": [],
+  review: [],
   done: [
     {
-      id: "t9", title: "Service Worker + offline PWA",
-      description: "Register SW with cache-first strategy for offline access",
-      priority: "HIGH", assignee: "TRIAGE", avatar: "🚑", accent: "#ef4444",
-      tags: ["pwa", "performance"],
+      id: "1.1", title: "1.1 Fix realtime chat",
+      description: "Fixed Supabase realtime subscriptions — messages now stream instantly",
+      priority: "CRITICAL", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["chat", "realtime"],
     },
     {
-      id: "t10", title: "PIN-based coach auth",
-      description: "Four-digit PIN lock for coach-only pages with session persistence",
-      priority: "CRITICAL", assignee: "Atlas", avatar: "🤖", accent: "#C9A84C",
-      tags: ["auth", "security"],
+      id: "1.2", title: "1.2 Fix DM routing",
+      description: "Fixed agent DM routing — messages reach the correct agent channel",
+      priority: "CRITICAL", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["chat", "routing"],
     },
     {
-      id: "t11", title: "Parallax Publish landing page",
-      description: "Ship the animated landing page with scroll-driven parallax",
-      priority: "MEDIUM", assignee: "SELAH", avatar: "🎨", accent: "#f472b6",
-      tags: ["marketing", "animation"],
+      id: "1.3", title: "1.3 Fix typing indicator",
+      description: "Fixed typing indicator for all chat types — clears on error",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["chat", "ux"],
+    },
+    {
+      id: "1.4", title: "1.4 Show all 20 agents",
+      description: "Sidebar now displays all 20 agents with correct avatars and status",
+      priority: "HIGH", assignee: "SHURI", avatar: "🛡️", accent: "#8b5cf6",
+      tags: ["sidebar", "agents"],
+    },
+    {
+      id: "1.5", title: "1.5 Sidebar layout",
+      description: "Rebuilt sidebar layout — collapsible sections, responsive, clean hierarchy",
+      priority: "HIGH", assignee: "ATLAS", avatar: "🤖", accent: "#C9A84C",
+      tags: ["sidebar", "layout"],
     },
   ],
 };
@@ -130,19 +195,59 @@ export default function TaskBoardPage() {
   const [newDesc, setNewDesc] = useState("");
   const [newAssignee, setNewAssignee] = useState("Atlas");
   const [newPriority, setNewPriority] = useState<Task["priority"]>("MEDIUM");
+  const [reviseTask, setReviseTask] = useState<Task | null>(null);
+  const [reviseFeedback, setReviseFeedback] = useState("");
 
-  // Fetch live tasks from bridge API
+  // Fetch live tasks from bridge API OR fallback to pipeline data
   useEffect(() => {
     const fetchTasks = async () => {
       try {
+        // Try bridge API first
         const res = await fetch("/api/bridge?type=tasks");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (data?.tasks && typeof data.tasks === "object") {
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.tasks && typeof data.tasks === "object") {
+            const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+            for (const col of COLUMNS) {
+              if (Array.isArray(data.tasks[col.id])) {
+                live[col.id] = data.tasks[col.id];
+              }
+            }
+            const total = Object.values(live).reduce((s, a) => s + a.length, 0);
+            if (total > 0) {
+              setColumns(live);
+              return;
+            }
+          }
+        }
+        
+        // Fallback 1: Load pipeline data from local API
+        try {
+          const pipelineRes = await fetch("/api/pipeline-tasks");
+          if (pipelineRes.ok) {
+            const pipelineData = await pipelineRes.json();
+            if (pipelineData?.tasks && typeof pipelineData.tasks === "object") {
+              const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+              for (const col of COLUMNS) {
+                if (Array.isArray(pipelineData.tasks[col.id])) {
+                  live[col.id] = pipelineData.tasks[col.id];
+                }
+              }
+              const total = Object.values(live).reduce((s, a) => s + a.length, 0);
+              if (total > 0) {
+                setColumns(live);
+                return;
+              }
+            }
+          }
+        } catch {}
+        
+        // Fallback 2: Use static pipeline data
+        if (pipelineTasksData?.tasks && typeof pipelineTasksData.tasks === "object") {
           const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
           for (const col of COLUMNS) {
-            if (Array.isArray(data.tasks[col.id])) {
-              live[col.id] = data.tasks[col.id];
+            if (Array.isArray(pipelineTasksData.tasks[col.id])) {
+              live[col.id] = pipelineTasksData.tasks[col.id] as Task[];
             }
           }
           const total = Object.values(live).reduce((s, a) => s + a.length, 0);
@@ -155,14 +260,30 @@ export default function TaskBoardPage() {
     return () => clearInterval(iv);
   }, []);
 
-  // Persist task move to API
-  const persistMove = async (taskId: string, toCol: ColumnId) => {
+  // Persist task move to API + trigger agent when starting
+  const persistMove = async (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
     try {
-      await fetch("/api/bridge", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "tasks", taskId, update: { status: toCol } }),
-      });
+      if (toCol === "in-progress" && task.assignee) {
+        // Single call: moves task to in-progress AND triggers the agent
+        await fetch("/api/bridge", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "trigger",
+            taskId: task.id,
+            fromCol,
+            agent: task.assignee,
+            title: task.title,
+            description: task.description,
+          }),
+        });
+      } else {
+        await fetch("/api/bridge", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "move", taskId: task.id, fromCol, toCol }),
+        });
+      }
     } catch {}
   };
 
@@ -192,7 +313,31 @@ export default function TaskBoardPage() {
     } catch {}
   };
 
-  // Quick action: move task to next column
+  // Send revision back to agent with feedback
+  const submitRevision = async (task: Task) => {
+    if (!reviseFeedback.trim()) return;
+    // Move task back to in-progress
+    quickAction(task, "review", "in-progress");
+    // Trigger agent re-spawn with feedback via bridge API
+    try {
+      await fetch("/api/bridge", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "trigger",
+          taskId: task.id,
+          fromCol: "review",
+          agent: task.assignee,
+          title: `[REVISION] ${task.title}`,
+          description: `REVISION FEEDBACK: ${reviseFeedback.trim()}. Original task: ${task.description}`,
+        }),
+      });
+    } catch {}
+    setReviseTask(null);
+    setReviseFeedback("");
+  };
+
+  // Quick action: move task to next column + trigger agent
   const quickAction = (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
     if (fromCol === toCol) return;
     setColumns((prev) => {
@@ -200,7 +345,7 @@ export default function TaskBoardPage() {
       const toTasks = [...prev[toCol], task];
       return { ...prev, [fromCol]: fromTasks, [toCol]: toTasks };
     });
-    persistMove(task.id, toCol);
+    persistMove(task, fromCol, toCol);
   };
 
   const handleDragStart = useCallback((e: React.DragEvent, task: Task, fromCol: ColumnId) => {
@@ -253,7 +398,7 @@ export default function TaskBoardPage() {
       const toTasks = [...prev[toCol], draggedTask.task];
       return { ...prev, [draggedTask.fromCol]: fromTasks, [toCol]: toTasks };
     });
-    persistMove(draggedTask.task.id, toCol);
+    persistMove(draggedTask.task, draggedTask.fromCol, toCol);
     setDraggedTask(null);
   }, [draggedTask]);
 
@@ -482,7 +627,7 @@ export default function TaskBoardPage() {
                             <button
                               className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
                               style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
-                              onClick={() => quickAction(task, col.id, "in-progress")}
+                              onClick={() => { setReviseTask(task); setReviseFeedback(""); }}
                             >
                               Revise
                             </button>
@@ -579,6 +724,53 @@ export default function TaskBoardPage() {
                 className="px-6 py-3 rounded-xl text-sm"
                 style={{ color: "rgba(255,255,255,0.4)" }}
                 onClick={() => setShowNewTask(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Revision Feedback Modal ──────────────────────────────────────── */}
+      {reviseTask && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.7)" }}
+          onClick={() => setReviseTask(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl p-6 space-y-4"
+            style={{ background: "#12121a", border: "2px solid rgba(245,158,11,0.2)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-bold" style={{ color: "#e2e8f0" }}>
+              Revise: {reviseTask.title}
+            </h2>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Tell {reviseTask.assignee} what needs to change. They&apos;ll be re-spawned with your feedback.
+            </p>
+            <textarea
+              className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              placeholder="What needs to change?"
+              rows={4}
+              value={reviseFeedback}
+              onChange={(e) => setReviseFeedback(e.target.value)}
+              autoFocus
+            />
+            <div className="flex gap-3 pt-2">
+              <button
+                className="flex-1 py-3 rounded-xl text-sm font-medium transition-all hover:scale-105"
+                style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "2px solid rgba(245,158,11,0.3)" }}
+                onClick={() => submitRevision(reviseTask)}
+              >
+                Send Revision
+              </button>
+              <button
+                className="px-6 py-3 rounded-xl text-sm"
+                style={{ color: "rgba(255,255,255,0.4)" }}
+                onClick={() => setReviseTask(null)}
               >
                 Cancel
               </button>

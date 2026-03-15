@@ -4,8 +4,8 @@
   "description": "Agent marketplace & operations — all projects, all signals, one view",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#1a1a5e",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
   "orientation": "portrait-primary",
   "categories": ["business", "productivity"],
   "icons": [

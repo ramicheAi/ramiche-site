@@ -55,10 +55,26 @@ function lsSet(key: string, data: unknown): void {
 // Each operation: write localStorage immediately, then async push to Firebase
 
 export function syncSave<T>(key: string, data: T, fbPath?: string): void {
+  // GUARD: If writing roster data with zero XP, use fbSaveRoster (has protection)
+  if (fbPath && (fbPath.startsWith("rosters/")) && Array.isArray(data)) {
+    const totalXP = (data as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
+    if (totalXP === 0) {
+      console.warn("[Sync] BLOCKED localStorage write of zero-XP roster to", key);
+      return; // Don't overwrite localStorage OR Firestore with empty data
+    }
+  }
   // 1. Instant local write
   lsSet(key, data);
   // 2. Async Firebase push (fire-and-forget)
   if (hasConfig && fbPath) {
+    // Route roster writes through fbSaveRoster (has zero-XP guard)
+    if (fbPath.startsWith("rosters/") && Array.isArray(data)) {
+      const groupId = fbPath.replace("rosters/", "");
+      fbSaveRoster(groupId, data as unknown[]).catch((e) => {
+        console.warn("[Sync] Firebase roster write error:", fbPath, e);
+      });
+      return;
+    }
     // Wrap arrays in an object — Firestore can't store raw arrays at document root
     const payload = Array.isArray(data) ? { _items: data } : (data as Record<string, unknown>);
     fbSet(fbPath, payload).catch((e) => {
@@ -90,6 +106,12 @@ export async function syncLoad<T>(key: string, fbPath?: string): Promise<T | nul
     if (hasConfig && fbPath) {
       fbGet<Record<string, unknown>>(fbPath).then((remote) => {
         if (!remote) {
+          // Route roster backfills through fbSaveRoster (has zero-XP guard)
+          if (fbPath.startsWith("rosters/") && Array.isArray(local)) {
+            const groupId = fbPath.replace("rosters/", "");
+            fbSaveRoster(groupId, local as unknown[]).catch(() => {});
+            return;
+          }
           const payload = Array.isArray(local) ? { _items: local } : (local as Record<string, unknown>);
           fbSet(fbPath, payload).catch(() => {});
         }
@@ -114,6 +136,12 @@ export async function syncLoad<T>(key: string, fbPath?: string): Promise<T | nul
 // ── Roster-specific sync ───────────────────────────────────────────
 
 export function syncSaveRoster(key: string, groupId: string, athletes: unknown[]): void {
+  // GUARD: Never write zero-XP roster to localStorage or Firestore
+  const totalXP = (athletes as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
+  if (totalXP === 0) {
+    console.warn("[Sync] BLOCKED zero-XP roster write to", key, groupId);
+    return;
+  }
   lsSet(key, athletes);
   if (hasConfig) {
     fbSaveRoster(groupId, athletes).catch(() => {});

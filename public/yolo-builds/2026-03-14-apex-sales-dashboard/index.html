@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APEX Sales Dashboard — METTLE Pipeline Builder</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #0a0a12;
+            --surface: #12121e;
+            --surface-2: #1a1a2e;
+            --border: rgba(168, 85, 247, 0.15);
+            --border-hover: rgba(168, 85, 247, 0.35);
+            --purple: #a855f7;
+            --purple-glow: rgba(168, 85, 247, 0.25);
+            --blue: #3b82f6;
+            --green: #22c55e;
+            --orange: #f97316;
+            --red: #ef4444;
+            --gold: #eab308;
+            --text: #f1f5f9;
+            --text-dim: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(ellipse at 30% 20%, rgba(168, 85, 247, 0.04) 0%, transparent 50%),
+                        radial-gradient(ellipse at 70% 80%, rgba(59, 130, 246, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            margin-bottom: 64px;
+            padding-bottom: 48px;
+            border-bottom: 1px solid var(--border);
+        }
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--purple);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 24px;
+        }
+        .hero h1 {
+            font-size: 42px;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            background: linear-gradient(135deg, #f1f5f9 0%, #a855f7 50%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+        .hero p {
+            font-size: 17px;
+            color: var(--text-dim);
+            max-width: 480px;
+            margin: 0 auto 28px;
+        }
+        .hero-price {
+            display: inline-flex;
+            align-items: baseline;
+            gap: 4px;
+            padding: 12px 28px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+        }
+        .hero-price .amount {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .hero-price .period {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+
+        /* Section spacing */
+        .section {
+            margin-bottom: 56px;
+        }
+        .section-header {
+            margin-bottom: 24px;
+        }
+        .section-header h2 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .section-header p {
+            font-size: 14px;
+            color: var(--text-muted);
+        }
+        .section-divider {
+            height: 1px;
+            background: var(--border);
+            margin-bottom: 56px;
+        }
+
+        /* Stat cards — stacked linear */
+        .stat-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        .stat-card:hover {
+            border-color: var(--border-hover);
+        }
+        .stat-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .stat-delta {
+            font-size: 14px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 100px;
+        }
+        .stat-delta.green { background: rgba(34, 197, 94, 0.1); color: var(--green); }
+        .stat-delta.blue { background: rgba(59, 130, 246, 0.1); color: var(--blue); }
+        .stat-delta.orange { background: rgba(249, 115, 22, 0.1); color: var(--orange); }
+        .stat-delta.purple { background: rgba(168, 85, 247, 0.1); color: var(--purple); }
+        .stat-sub {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Lead cards */
+        .lead-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        .lead-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-1px);
+        }
+        .lead-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .lead-score {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 16px;
+        }
+        .lead-score.high { background: rgba(34, 197, 94, 0.15); color: var(--green); border: 1px solid rgba(34, 197, 94, 0.25); }
+        .lead-score.medium { background: rgba(168, 85, 247, 0.15); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.25); }
+        .lead-score.warm { background: rgba(59, 130, 246, 0.15); color: var(--blue); border: 1px solid rgba(59, 130, 246, 0.25); }
+        .lead-score.cold { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); border: 1px solid rgba(100, 116, 139, 0.25); }
+        .lead-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+        }
+        .lead-team {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+        .lead-value {
+            text-align: right;
+        }
+        .lead-amount {
+            font-weight: 700;
+            font-size: 16px;
+            color: var(--text);
+        }
+        .lead-stage {
+            font-size: 12px;
+            padding: 3px 10px;
+            border-radius: 100px;
+            font-weight: 600;
+            margin-top: 4px;
+            display: inline-block;
+        }
+        .stage-proposal { background: rgba(34, 197, 94, 0.1); color: var(--green); }
+        .stage-demo { background: rgba(168, 85, 247, 0.1); color: var(--purple); }
+        .stage-discovery { background: rgba(59, 130, 246, 0.1); color: var(--blue); }
+        .stage-prospect { background: rgba(100, 116, 139, 0.15); color: var(--text-muted); }
+
+        /* Pipeline bars */
+        .pipeline-item {
+            padding: 20px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+        }
+        .pipeline-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .pipeline-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+        }
+        .pipeline-pct {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-dim);
+        }
+        .bar-track {
+            width: 100%;
+            height: 8px;
+            background: var(--surface-2);
+            border-radius: 100px;
+            overflow: hidden;
+        }
+        .bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            transition: width 1s ease;
+        }
+        .bar-fill.blue { background: linear-gradient(90deg, var(--blue), #60a5fa); }
+        .bar-fill.purple { background: linear-gradient(90deg, var(--purple), #c084fc); }
+        .bar-fill.green { background: linear-gradient(90deg, var(--green), #4ade80); }
+        .bar-fill.orange { background: linear-gradient(90deg, var(--orange), #fb923c); }
+
+        .projection-box {
+            padding: 20px 24px;
+            background: rgba(168, 85, 247, 0.06);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 16px;
+            margin-top: 16px;
+        }
+        .projection-box .value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--purple);
+        }
+        .projection-box .note {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Email sequence */
+        .sequence-step {
+            position: relative;
+            padding: 20px 24px 20px 52px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+        }
+        .step-marker {
+            position: absolute;
+            left: 16px;
+            top: 20px;
+            width: 24px;
+            height: 24px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 800;
+            color: white;
+        }
+        .step-marker.d1 { background: var(--blue); }
+        .step-marker.d3 { background: var(--purple); }
+        .step-marker.d7 { background: var(--green); }
+        .step-marker.d14 { background: var(--orange); }
+        .step-title {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .step-copy {
+            font-size: 14px;
+            color: var(--text-dim);
+            font-style: italic;
+            margin-bottom: 8px;
+        }
+        .step-metric {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        /* Sequence performance */
+        .perf-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 12px;
+        }
+        .perf-label {
+            font-size: 14px;
+            color: var(--text-dim);
+        }
+        .perf-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        /* Pipeline stages */
+        .stage-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid;
+            border-radius: 16px;
+            margin-bottom: 12px;
+        }
+        .stage-card.gray { border-left-color: #475569; }
+        .stage-card.blue { border-left-color: var(--blue); }
+        .stage-card.purple { border-left-color: var(--purple); }
+        .stage-card.green { border-left-color: var(--green); }
+        .stage-name {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        .stage-count {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text);
+        }
+        .stage-desc {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        .stage-icon {
+            font-size: 24px;
+            opacity: 0.5;
+        }
+
+        /* CTA */
+        .cta-box {
+            text-align: center;
+            padding: 48px 24px;
+            background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(59, 130, 246, 0.06));
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            margin-bottom: 56px;
+        }
+        .cta-box h3 {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--text);
+            margin-bottom: 8px;
+        }
+        .cta-box p {
+            font-size: 14px;
+            color: var(--text-muted);
+            margin-bottom: 24px;
+        }
+        .cta-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 32px;
+            background: linear-gradient(135deg, var(--purple), var(--blue));
+            color: white;
+            font-weight: 700;
+            font-size: 15px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            min-height: 48px;
+        }
+        .cta-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 24px var(--purple-glow);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding-top: 32px;
+            border-top: 1px solid var(--border);
+        }
+        .footer p {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .footer p + p { margin-top: 4px; }
+
+        /* Pulse animation */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+
+        /* Scroll fade-in */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(12px);
+            transition: opacity 0.5s ease, transform 0.5s ease;
+        }
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 480px) {
+            .page-wrapper { padding: 32px 16px 64px; }
+            .hero h1 { font-size: 32px; }
+            .stat-value { font-size: 24px; }
+            .lead-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .lead-value { text-align: left; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-wrapper">
+
+        <!-- Hero -->
+        <section class="hero fade-in">
+            <div class="hero-badge">◆ METTLE Sales Lane</div>
+            <h1>APEX Sales Dashboard</h1>
+            <p>Lead scoring, email sequences & pipeline projections for the METTLE sales team</p>
+            <div class="hero-price">
+                <span class="amount">$349</span>
+                <span class="period">/mo per program</span>
+            </div>
+        </section>
+
+        <!-- Key Metrics -->
+        <section class="section fade-in">
+            <div class="section-header">
+                <h2>Key Metrics</h2>
+                <p>Live pipeline health at a glance</p>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">Total Pipeline</div>
+                    <div class="stat-value">$24,300</div>
+                    <div class="stat-sub">3 qualified leads</div>
+                </div>
+                <span class="stat-delta green">↑ 18%</span>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">Lead Score Average</div>
+                    <div class="stat-value">72</div>
+                    <div class="stat-sub">High intent</div>
+                </div>
+                <span class="stat-delta blue">+12</span>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">Emails Sent</div>
+                    <div class="stat-value">47</div>
+                    <div class="stat-sub">Sequence: Coach Outreach</div>
+                </div>
+                <span class="stat-delta orange pulse">3 pending</span>
+            </div>
+            <div class="stat-card">
+                <div>
+                    <div class="stat-label">Close Rate</div>
+                    <div class="stat-value">42%</div>
+                    <div class="stat-sub">vs. 34% last month</div>
+                </div>
+                <span class="stat-delta purple">↑ 8%</span>
+            </div>
+        </section>
+
+        <div class="section-divider"></div>
+
+        <!-- Lead Scoring Matrix -->
+        <section class="section fade-in">
+            <div class="section-header">
+                <h2>Lead Scoring Matrix</h2>
+                <p>Higher score = higher intent to buy</p>
+            </div>
+            <div id="leadList"></div>
+        </section>
+
+        <div class="section-divider"></div>
+
+        <!-- Pipeline Projection -->
+        <section class="section fade-in">
+            <div class="section-header">
+                <h2>Pipeline Projection</h2>
+                <p>Conversion rates between funnel stages</p>
+            </div>
+            <div class="pipeline-item">
+                <div class="pipeline-label">
+                    <span class="pipeline-name">Prospect → Discovery</span>
+                    <span class="pipeline-pct">65%</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill blue" style="width: 65%"></div>
+                </div>
+            </div>
+            <div class="pipeline-item">
+                <div class="pipeline-label">
+                    <span class="pipeline-name">Discovery → Demo</span>
+                    <span class="pipeline-pct">40%</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill purple" style="width: 40%"></div>
+                </div>
+            </div>
+            <div class="pipeline-item">
+                <div class="pipeline-label">
+                    <span class="pipeline-name">Demo → Proposal</span>
+                    <span class="pipeline-pct">55%</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill green" style="width: 55%"></div>
+                </div>
+            </div>
+            <div class="pipeline-item">
+                <div class="pipeline-label">
+                    <span class="pipeline-name">Proposal → Close</span>
+                    <span class="pipeline-pct">42%</span>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill orange" style="width: 42%"></div>
+                </div>
+            </div>
+            <div class="projection-box">
+                <div class="value">$8,100 → $3,240 /month projected</div>
+                <div class="note">Based on current pipeline × historical conversion rates</div>
+            </div>
+        </section>
+
+        <div class="section-divider"></div>
+
+        <!-- Email Sequence Builder -->
+        <section class="section fade-in">
+            <div class="section-header">
+                <h2>Email Sequence Builder</h2>
+                <p>4-step Coach Outreach sequence</p>
+            </div>
+            <div class="sequence-step">
+                <div class="step-marker d1">1</div>
+                <div class="step-title">Day 1: Value Hook</div>
+                <div class="step-copy">"TeamUnify runs your office. METTLE transforms your athletes."</div>
+                <div class="step-metric">Open rate: 68%</div>
+            </div>
+            <div class="sequence-step">
+                <div class="step-marker d3">3</div>
+                <div class="step-title">Day 3: Case Study</div>
+                <div class="step-copy">Saint Andrew's Aquatics: 240+ athletes, 20% retention boost</div>
+                <div class="step-metric">Click rate: 34%</div>
+            </div>
+            <div class="sequence-step">
+                <div class="step-marker d7">7</div>
+                <div class="step-title">Day 7: Demo Offer</div>
+                <div class="step-copy">15-minute walkthrough + 30-day trial</div>
+                <div class="step-metric">Reply rate: 22%</div>
+            </div>
+            <div class="sequence-step">
+                <div class="step-marker d14">14</div>
+                <div class="step-title">Day 14: Urgency Close</div>
+                <div class="step-copy">Limited onboarding slots + success guarantee</div>
+                <div class="step-metric">Conversion: 12%</div>
+            </div>
+
+            <div style="margin-top: 24px;">
+                <div class="section-header">
+                    <h2 style="font-size: 18px;">Sequence Performance</h2>
+                </div>
+                <div class="perf-row">
+                    <span class="perf-label">Overall Conversion</span>
+                    <span class="perf-value">9.8%</span>
+                </div>
+                <div class="perf-row">
+                    <span class="perf-label">Avg Time to Close</span>
+                    <span class="perf-value">18 days</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="section-divider"></div>
+
+        <!-- Pipeline Stages -->
+        <section class="section fade-in">
+            <div class="section-header">
+                <h2>Pipeline Stages</h2>
+                <p>Current leads by funnel position</p>
+            </div>
+            <div class="stage-card gray">
+                <div>
+                    <div class="stage-name">Prospect</div>
+                    <div class="stage-count">12</div>
+                    <div class="stage-desc">Cold leads</div>
+                </div>
+                <span class="stage-icon">◇</span>
+            </div>
+            <div class="stage-card blue">
+                <div>
+                    <div class="stage-name">Discovery</div>
+                    <div class="stage-count">5</div>
+                    <div class="stage-desc">Qualified calls</div>
+                </div>
+                <span class="stage-icon">◈</span>
+            </div>
+            <div class="stage-card purple">
+                <div>
+                    <div class="stage-name">Demo</div>
+                    <div class="stage-count">3</div>
+                    <div class="stage-desc">Active trials</div>
+                </div>
+                <span class="stage-icon">◆</span>
+            </div>
+            <div class="stage-card green">
+                <div>
+                    <div class="stage-name">Proposal</div>
+                    <div class="stage-count">2</div>
+                    <div class="stage-desc">Pending close</div>
+                </div>
+                <span class="stage-icon">★</span>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="cta-box fade-in">
+            <h3>Ready to close more coaches?</h3>
+            <p>Get METTLE into every program in your region</p>
+            <a href="mailto:ramichehq@gmail.com?subject=METTLE%20Sales%20Inquiry" class="cta-btn">
+                Contact Sales Team →
+            </a>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer fade-in">
+            <p>APEX Sales Dashboard · Built by MERCURY (Sales Lane)</p>
+            <p>Prototype for METTLE sales team — lead scoring, email sequences, pipeline projections</p>
+        </footer>
+
+    </div>
+
+    <script>
+        const leads = [
+            { name: "Coach Rodriguez", team: "Miami Dolphins Swim", size: 180, score: 88, value: 8100, stage: "Proposal", stageClass: "stage-proposal", scoreClass: "high" },
+            { name: "Program Director Lee", team: "Fort Lauderdale Fins", size: 75, score: 79, value: 2625, stage: "Demo", stageClass: "stage-demo", scoreClass: "medium" },
+            { name: "Director Chen", team: "Orlando Wave Aquatics", size: 95, score: 72, value: 3325, stage: "Demo", stageClass: "stage-demo", scoreClass: "medium" },
+            { name: "Board Treasurer Miller", team: "Tampa Bay Titans", size: 240, score: 65, value: 8400, stage: "Discovery", stageClass: "stage-discovery", scoreClass: "warm" },
+            { name: "Head Coach Williams", team: "Jacksonville Current", size: 120, score: 45, value: 4200, stage: "Prospect", stageClass: "stage-prospect", scoreClass: "cold" }
+        ];
+
+        function renderLeads() {
+            const container = document.getElementById('leadList');
+            container.innerHTML = leads
+                .sort((a, b) => b.score - a.score)
+                .map(lead => `
+                <div class="lead-card">
+                    <div class="lead-info">
+                        <div class="lead-score ${lead.scoreClass}">${lead.score}</div>
+                        <div>
+                            <div class="lead-name">${lead.name}</div>
+                            <div class="lead-team">${lead.team} · ${lead.size} athletes</div>
+                        </div>
+                    </div>
+                    <div class="lead-value">
+                        <div class="lead-amount">$${lead.value.toLocaleString()}</div>
+                        <span class="lead-stage ${lead.stageClass}">${lead.stage}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderLeads();
+
+            // Scroll fade-in observer
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+        });
+
+        // Simulate live score updates
+        setInterval(() => {
+            const lead = leads[Math.floor(Math.random() * leads.length)];
+            lead.score = Math.max(10, Math.min(99, lead.score + Math.floor(Math.random() * 7) - 3));
+            renderLeads();
+        }, 8000);
+    </script>
+</body>
+</html>

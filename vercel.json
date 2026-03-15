@@ -1,5 +1,35 @@
 {
+  "crons": [
+    {
+      "path": "/api/meet-results/cron",
+      "schedule": "0 * * * *"
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/apex-athlete",
+      "destination": "/apex-athlete/coach",
+      "permanent": true
+    }
+  ],
   "headers": [
+    {
+      "source": "/apex-athlete/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        },
+        {
+          "key": "Pragma",
+          "value": "no-cache"
+        },
+        {
+          "key": "Expires",
+          "value": "0"
+        }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [

@@ -25,7 +25,7 @@ const PORTALS = [
     id: "coach",
     title: "Coach",
     desc: "Command your team",
-    href: "/apex-athlete",
+    href: "/apex-athlete/coach",
     color: C.scarlet,
     brightColor: C.scarletBright,
     icon: (

@@ -1,10 +1,12 @@
-// Self-destructing service worker — clears ALL caches and unregisters itself
+// Self-destruct service worker — unregisters itself and clears all caches
+// This file exists only so that browsers with an old SW registration will fetch it,
+// activate it, and have it immediately destroy itself.
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
       .then(() => self.registration.unregister())
-      .then(() => self.clients.matchAll())
-      .then(clients => clients.forEach(c => c.navigate(c.url)))
   );
 });
+// No fetch handler — never cache anything

@@ -1,0 +1,17 @@
+{
+  "name": "Parallax Studio",
+  "slug": "ramiche-studio",
+  "accent": "#a855f7",
+  "status": "blocked",
+  "desc": "Creative Services — Sprint $400 / Starter $1,500 / Pro $3,000 / Elite $6,000+",
+  "priority": 5,
+  "priorityLabel": "MED",
+  "agents": ["Vee", "MERCURY"],
+  "lead": "Mercury",
+  "blockers": ["STRIPE_SECRET_KEY", "Gmail env vars", "First UGC video", "First 5 warm DMs"],
+  "link": { "label": "Studio", "href": "/studio" },
+  "repo": "ramicheAi/ramiche-site",
+  "repoPath": "src/app/studio",
+  "liveUrl": "https://ramiche-site.vercel.app/studio",
+  "stack": ["Next.js 16", "React 19", "Stripe"]
+}

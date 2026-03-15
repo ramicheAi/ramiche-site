@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STL Instant Quoter — Ramiche Fab Lab</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #12121a;
+    --border: rgba(139, 92, 246, 0.25);
+    --accent: #8b5cf6;
+    --accent2: #a78bfa;
+    --gold: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --success: #10b981;
+    --danger: #ef4444;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient particles */
+  #particles {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0;
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    width: 100%; padding: 24px 32px;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0; margin-bottom: 32px;
+    border-bottom: 2px solid var(--border);
+  }
+
+  header h1 {
+    font-size: 28px; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  header .badge {
+    font-size: 12px; color: var(--muted);
+    border: 1px solid var(--border); border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .card h2 {
+    font-size: 18px; font-weight: 600; margin-bottom: 16px;
+    color: var(--accent2);
+  }
+
+  /* Drop zone */
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(139, 92, 246, 0.03);
+  }
+
+  .dropzone:hover, .dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(139, 92, 246, 0.08);
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.15);
+  }
+
+  .dropzone svg {
+    width: 48px; height: 48px; margin-bottom: 12px;
+    color: var(--accent);
+  }
+
+  .dropzone p { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .dropzone .big { font-size: 16px; color: var(--text); font-weight: 500; }
+
+  input[type="file"] { display: none; }
+
+  /* File info */
+  .file-info {
+    margin-top: 16px; padding: 12px 16px;
+    background: rgba(139, 92, 246, 0.08);
+    border-radius: 8px;
+    display: none;
+  }
+
+  .file-info.visible { display: flex; align-items: center; gap: 12px; }
+  .file-info .name { font-weight: 500; flex: 1; }
+  .file-info .size { color: var(--muted); font-size: 13px; }
+
+  /* Geometry stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .stat-box {
+    background: rgba(139, 92, 246, 0.06);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .stat-box .label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-box .value { font-size: 20px; font-weight: 700; margin-top: 4px; color: var(--text); }
+  .stat-box .unit { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+  /* 3D Preview */
+  #preview-canvas {
+    width: 100%;
+    height: 280px;
+    border-radius: 8px;
+    background: #080810;
+    border: 1px solid var(--border);
+    margin-top: 16px;
+  }
+
+  /* Material selector */
+  .material-list {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 12px;
+  }
+
+  .material-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(139, 92, 246, 0.04);
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .material-row:hover { border-color: var(--border); }
+  .material-row.selected {
+    border-color: var(--accent);
+    background: rgba(139, 92, 246, 0.1);
+  }
+
+  .material-row .swatch {
+    width: 28px; height: 28px; border-radius: 6px;
+    border: 2px solid rgba(255,255,255,0.1);
+  }
+
+  .material-row .mat-name { font-weight: 500; }
+  .material-row .mat-props { font-size: 12px; color: var(--muted); }
+  .material-row .mat-price { font-weight: 600; color: var(--gold); }
+
+  /* Quote panel */
+  .quote-panel {
+    margin-top: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(245, 158, 11, 0.08));
+    border: 2px solid var(--accent);
+    border-radius: 12px;
+    display: none;
+  }
+
+  .quote-panel.visible { display: block; }
+
+  .quote-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+  }
+
+  .quote-row.total {
+    border-top: 2px solid var(--border);
+    margin-top: 8px; padding-top: 16px;
+    font-size: 22px; font-weight: 700;
+  }
+
+  .quote-row.total .price { color: var(--gold); }
+
+  .quote-label { color: var(--muted); }
+  .quote-value { font-weight: 500; }
+
+  /* Infill slider */
+  .infill-control {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(139, 92, 246, 0.04);
+    border-radius: 8px;
+  }
+
+  .infill-control label {
+    font-size: 13px; color: var(--muted); display: block; margin-bottom: 8px;
+  }
+
+  .infill-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  .infill-row input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    outline: none;
+  }
+
+  .infill-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px; height: 18px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+  }
+
+  .infill-val {
+    font-weight: 600; min-width: 40px; text-align: right;
+    color: var(--accent2);
+  }
+
+  /* Quantity */
+  .qty-control {
+    margin-top: 12px; display: flex; align-items: center; gap: 12px;
+  }
+
+  .qty-control label { font-size: 13px; color: var(--muted); }
+
+  .qty-btn {
+    width: 32px; height: 32px;
+    background: var(--card); border: 2px solid var(--border);
+    border-radius: 6px; color: var(--text);
+    font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .qty-btn:hover { border-color: var(--accent); }
+
+  .qty-display {
+    font-size: 18px; font-weight: 600; min-width: 30px; text-align: center;
+  }
+
+  /* Print time */
+  .time-estimate {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 8px;
+    display: flex; align-items: center; gap: 10px;
+    font-size: 14px;
+  }
+
+  .time-estimate svg { color: var(--success); width: 18px; height: 18px; flex-shrink: 0; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center; padding: 40px 20px; color: var(--muted);
+  }
+
+  /* Heartbeat animation on quote */
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+  }
+
+  .quote-panel.visible {
+    animation: heartbeat 1.39s ease-in-out infinite; /* 72 BPM */
+  }
+
+  /* Loading spinner */
+  .spinner {
+    width: 24px; height: 24px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .processing { display: none; text-align: center; padding: 24px; }
+  .processing.visible { display: block; }
+  .processing p { color: var(--muted); margin-top: 8px; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<canvas id="particles"></canvas>
+
+<div class="container">
+  <header>
+    <h1>STL Instant Quoter</h1>
+    <span class="badge">Ramiche Fab Lab &middot; Bambu A1</span>
+  </header>
+
+  <div class="layout">
+    <!-- LEFT: Upload + Geometry -->
+    <div>
+      <div class="card">
+        <h2>Upload STL File</h2>
+        <div class="dropzone" id="dropzone">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          <p class="big">Drop your STL file here</p>
+          <p>or click to browse &middot; Binary &amp; ASCII supported</p>
+        </div>
+        <input type="file" id="fileInput" accept=".stl">
+
+        <div class="file-info" id="fileInfo">
+          <span class="name" id="fileName"></span>
+          <span class="size" id="fileSize"></span>
+        </div>
+
+        <div class="processing" id="processing">
+          <div class="spinner"></div>
+          <p>Parsing geometry...</p>
+        </div>
+      </div>
+
+      <!-- Geometry Stats -->
+      <div class="card" style="margin-top: 20px;" id="geometryCard">
+        <h2>Geometry Analysis</h2>
+        <div class="empty-state" id="geoEmpty">Upload an STL to see geometry data</div>
+        <div class="stats-grid" id="statsGrid" style="display:none;">
+          <div class="stat-box">
+            <div class="label">Triangles</div>
+            <div class="value" id="statTriangles">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="label">Volume</div>
+            <div class="value" id="statVolume">— <span class="unit">cm&sup3;</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="label">Surface Area</div>
+            <div class="value" id="statArea">— <span class="unit">cm&sup2;</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="label">Bounding Box</div>
+            <div class="value" id="statBbox">—</div>
+          </div>
+          <div class="stat-box">
+            <div class="label">Est. Weight (PLA)</div>
+            <div class="value" id="statWeight">— <span class="unit">g</span></div>
+          </div>
+          <div class="stat-box">
+            <div class="label">Fits Bambu A1?</div>
+            <div class="value" id="statFits">—</div>
+          </div>
+        </div>
+
+        <!-- Simple wireframe preview -->
+        <canvas id="preview-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- RIGHT: Material + Quote -->
+    <div>
+      <div class="card">
+        <h2>Select Material</h2>
+        <div class="material-list" id="materialList"></div>
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h2>Print Settings</h2>
+
+        <div class="infill-control">
+          <label>Infill Density</label>
+          <div class="infill-row">
+            <input type="range" id="infillSlider" min="5" max="100" value="20" step="5">
+            <span class="infill-val" id="infillVal">20%</span>
+          </div>
+        </div>
+
+        <div class="qty-control">
+          <label>Quantity:</label>
+          <button class="qty-btn" id="qtyDown">-</button>
+          <span class="qty-display" id="qtyDisplay">1</span>
+          <button class="qty-btn" id="qtyUp">+</button>
+        </div>
+
+        <div class="time-estimate" id="timeEstimate" style="display:none;">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span id="timeText">—</span>
+        </div>
+      </div>
+
+      <!-- Quote -->
+      <div class="quote-panel" id="quotePanel">
+        <h2 style="color: var(--gold); margin-bottom: 12px;">Your Quote</h2>
+        <div class="quote-row">
+          <span class="quote-label">Material Cost</span>
+          <span class="quote-value" id="qMaterial">—</span>
+        </div>
+        <div class="quote-row">
+          <span class="quote-label">Machine Time</span>
+          <span class="quote-value" id="qTime">—</span>
+        </div>
+        <div class="quote-row">
+          <span class="quote-label">Setup Fee</span>
+          <span class="quote-value" id="qSetup">$5.00</span>
+        </div>
+        <div class="quote-row">
+          <span class="quote-label">Quantity Discount</span>
+          <span class="quote-value" id="qDiscount">—</span>
+        </div>
+        <div class="quote-row total">
+          <span>Total</span>
+          <span class="price" id="qTotal">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+// MATERIAL DATABASE
+// ═══════════════════════════════════════════
+const MATERIALS = [
+  { id: 'pla',   name: 'PLA',       color: '#4ade80', density: 1.24, pricePerKg: 25, tempBed: 60,  tempNozzle: 210, props: 'Easy print, biodegradable',  speedFactor: 1.0 },
+  { id: 'petg',  name: 'PETG',      color: '#38bdf8', density: 1.27, pricePerKg: 28, tempBed: 80,  tempNozzle: 235, props: 'Strong, food-safe capable',   speedFactor: 0.85 },
+  { id: 'abs',   name: 'ABS',       color: '#f87171', density: 1.04, pricePerKg: 22, tempBed: 100, tempNozzle: 245, props: 'Heat resistant, enclosure req', speedFactor: 0.8 },
+  { id: 'tpu',   name: 'TPU 95A',   color: '#c084fc', density: 1.21, pricePerKg: 35, tempBed: 50,  tempNozzle: 225, props: 'Flexible, shock absorbing',    speedFactor: 0.5 },
+  { id: 'asa',   name: 'ASA',       color: '#fbbf24', density: 1.07, pricePerKg: 30, tempBed: 100, tempNozzle: 250, props: 'UV resistant, outdoor use',    speedFactor: 0.8 },
+  { id: 'silk',  name: 'Silk PLA',  color: '#e879f9', density: 1.24, pricePerKg: 32, tempBed: 60,  tempNozzle: 215, props: 'Glossy finish, decorative',    speedFactor: 0.95 },
+];
+
+// Bambu A1 build volume (mm)
+const BED = { x: 256, y: 256, z: 256 };
+
+// Pricing constants
+const MACHINE_RATE_HR = 3.50;  // $/hr machine time
+const SETUP_FEE = 5.00;
+const BASE_SPEED_MM3S = 15;    // mm3/s average volumetric flow
+const WALL_THICKNESS_MM = 1.2; // 3 walls at 0.4mm
+
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let geometry = null;
+let selectedMaterial = 'pla';
+let infill = 20;
+let qty = 1;
+
+// ═══════════════════════════════════════════
+// STL PARSER (Binary + ASCII)
+// ═══════════════════════════════════════════
+function parseSTL(buffer) {
+  const view = new DataView(buffer);
+
+  // Check if ASCII: starts with "solid" and contains "facet"
+  const header = new Uint8Array(buffer, 0, Math.min(80, buffer.byteLength));
+  const headerStr = String.fromCharCode(...header);
+
+  if (headerStr.startsWith('solid') && buffer.byteLength > 84) {
+    // Could be ASCII — but binary files can also start with "solid"
+    // Check if there's a valid triangle count in binary position
+    const triCount = view.getUint32(80, true);
+    const expectedSize = 84 + triCount * 50;
+    if (Math.abs(expectedSize - buffer.byteLength) <= 10) {
+      return parseBinarySTL(view, triCount);
+    }
+    // Try ASCII
+    const text = new TextDecoder().decode(buffer);
+    if (text.includes('facet')) {
+      return parseASCIISTL(text);
+    }
+  }
+
+  // Default: binary
+  if (buffer.byteLength < 84) throw new Error('File too small to be a valid STL');
+  const triCount = view.getUint32(80, true);
+  return parseBinarySTL(view, triCount);
+}
+
+function parseBinarySTL(view, triCount) {
+  const triangles = [];
+  let offset = 84;
+
+  for (let i = 0; i < triCount; i++) {
+    const nx = view.getFloat32(offset, true); offset += 4;
+    const ny = view.getFloat32(offset, true); offset += 4;
+    const nz = view.getFloat32(offset, true); offset += 4;
+
+    const v1 = { x: view.getFloat32(offset, true), y: view.getFloat32(offset + 4, true), z: view.getFloat32(offset + 8, true) };
+    offset += 12;
+    const v2 = { x: view.getFloat32(offset, true), y: view.getFloat32(offset + 4, true), z: view.getFloat32(offset + 8, true) };
+    offset += 12;
+    const v3 = { x: view.getFloat32(offset, true), y: view.getFloat32(offset + 4, true), z: view.getFloat32(offset + 8, true) };
+    offset += 12;
+    offset += 2; // attribute byte count
+
+    triangles.push({ normal: { x: nx, y: ny, z: nz }, vertices: [v1, v2, v3] });
+  }
+
+  return analyzeGeometry(triangles);
+}
+
+function parseASCIISTL(text) {
+  const triangles = [];
+  const facetRe = /facet\s+normal\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+outer\s+loop\s+vertex\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+vertex\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+vertex\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+([\d.eE+-]+)\s+endloop\s+endfacet/gi;
+
+  let m;
+  while ((m = facetRe.exec(text)) !== null) {
+    triangles.push({
+      normal: { x: parseFloat(m[1]), y: parseFloat(m[2]), z: parseFloat(m[3]) },
+      vertices: [
+        { x: parseFloat(m[4]),  y: parseFloat(m[5]),  z: parseFloat(m[6]) },
+        { x: parseFloat(m[7]),  y: parseFloat(m[8]),  z: parseFloat(m[9]) },
+        { x: parseFloat(m[10]), y: parseFloat(m[11]), z: parseFloat(m[12]) },
+      ]
+    });
+  }
+
+  if (triangles.length === 0) throw new Error('No triangles found in ASCII STL');
+  return analyzeGeometry(triangles);
+}
+
+// ═══════════════════════════════════════════
+// GEOMETRY ANALYSIS
+// ═══════════════════════════════════════════
+function analyzeGeometry(triangles) {
+  let minX = Infinity, minY = Infinity, minZ = Infinity;
+  let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+  let totalVolume = 0;
+  let totalArea = 0;
+
+  for (const tri of triangles) {
+    for (const v of tri.vertices) {
+      minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x);
+      minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+      minZ = Math.min(minZ, v.z); maxZ = Math.max(maxZ, v.z);
+    }
+
+    // Signed volume of tetrahedron (vertex to origin)
+    const [a, b, c] = tri.vertices;
+    totalVolume += (
+      a.x * (b.y * c.z - b.z * c.y) -
+      a.y * (b.x * c.z - b.z * c.x) +
+      a.z * (b.x * c.y - b.y * c.x)
+    ) / 6.0;
+
+    // Triangle area via cross product
+    const ab = { x: b.x - a.x, y: b.y - a.y, z: b.z - a.z };
+    const ac = { x: c.x - a.x, y: c.y - a.y, z: c.z - a.z };
+    const cross = {
+      x: ab.y * ac.z - ab.z * ac.y,
+      y: ab.z * ac.x - ab.x * ac.z,
+      z: ab.x * ac.y - ab.y * ac.x,
+    };
+    totalArea += 0.5 * Math.sqrt(cross.x ** 2 + cross.y ** 2 + cross.z ** 2);
+  }
+
+  const volumeMM3 = Math.abs(totalVolume);
+  const volumeCM3 = volumeMM3 / 1000;
+  const areaMM2 = totalArea;
+  const areaCM2 = areaMM2 / 100;
+
+  const sizeX = maxX - minX;
+  const sizeY = maxY - minY;
+  const sizeZ = maxZ - minZ;
+
+  const fitsA1 = sizeX <= BED.x && sizeY <= BED.y && sizeZ <= BED.z;
+
+  return {
+    triangleCount: triangles.length,
+    volumeMM3, volumeCM3,
+    areaMM2, areaCM2,
+    bbox: { x: sizeX, y: sizeY, z: sizeZ },
+    min: { x: minX, y: minY, z: minZ },
+    max: { x: maxX, y: maxY, z: maxZ },
+    fitsA1,
+    triangles,
+  };
+}
+
+// ═══════════════════════════════════════════
+// COST CALCULATOR
+// ═══════════════════════════════════════════
+function calculateQuote(geo, mat, infillPct, quantity) {
+  // Effective volume: walls + infill interior
+  // Simplified: outer shell = surface area * wall thickness, interior = (vol - shell) * infill%
+  const shellVolMM3 = geo.areaMM2 * WALL_THICKNESS_MM;
+  const interiorVolMM3 = Math.max(0, geo.volumeMM3 - shellVolMM3);
+  const effectiveVolMM3 = shellVolMM3 + interiorVolMM3 * (infillPct / 100);
+
+  const weightG = (effectiveVolMM3 / 1000) * mat.density;
+  const materialCost = (weightG / 1000) * mat.pricePerKg;
+
+  // Time estimate: volume / flow rate, adjusted by material speed
+  const printTimeSec = (effectiveVolMM3 / BASE_SPEED_MM3S) / mat.speedFactor;
+  const printTimeHr = printTimeSec / 3600;
+  const timeCost = printTimeHr * MACHINE_RATE_HR;
+
+  // Quantity discount: 5% off 3+, 10% off 5+, 15% off 10+
+  let discountPct = 0;
+  if (quantity >= 10) discountPct = 15;
+  else if (quantity >= 5) discountPct = 10;
+  else if (quantity >= 3) discountPct = 5;
+
+  const perUnit = materialCost + timeCost;
+  const subtotal = perUnit * quantity + SETUP_FEE;
+  const discount = subtotal * (discountPct / 100);
+  const total = subtotal - discount;
+
+  return {
+    weightG,
+    materialCost,
+    timeCost,
+    printTimeHr,
+    perUnit,
+    discountPct,
+    discount,
+    total,
+  };
+}
+
+// ═══════════════════════════════════════════
+// SIMPLE 3D WIREFRAME RENDERER
+// ═══════════════════════════════════════════
+function render3DPreview(geo) {
+  const canvas = document.getElementById('preview-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth * 2;
+  const H = canvas.height = canvas.offsetHeight * 2;
+  ctx.scale(2, 2);
+  const w = W / 2, h = H / 2;
+
+  // Center and scale model
+  const cx = (geo.min.x + geo.max.x) / 2;
+  const cy = (geo.min.y + geo.max.y) / 2;
+  const cz = (geo.min.z + geo.max.z) / 2;
+  const maxDim = Math.max(geo.bbox.x, geo.bbox.y, geo.bbox.z);
+  const scale = (Math.min(w, h) * 0.35) / maxDim;
+
+  let angle = 0;
+
+  function project(v) {
+    const x = (v.x - cx) * scale;
+    const y = (v.y - cy) * scale;
+    const z = (v.z - cz) * scale;
+
+    // Rotate around Y axis
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const rx = x * cos - z * sin;
+    const rz = x * sin + z * cos;
+
+    // Simple perspective
+    const fov = 400;
+    const depth = fov / (fov + rz);
+
+    return {
+      sx: w / 2 + rx * depth,
+      sy: h / 2 - y * depth,
+      depth,
+    };
+  }
+
+  // Sample triangles for wireframe (max 2000 for performance)
+  const step = Math.max(1, Math.floor(geo.triangles.length / 2000));
+  const sampled = [];
+  for (let i = 0; i < geo.triangles.length; i += step) {
+    sampled.push(geo.triangles[i]);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+
+    // Background
+    ctx.fillStyle = '#080810';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.08)';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 10; i++) {
+      const x = (w / 10) * i;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      const y = (h / 10) * i;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    // Draw triangles as wireframe
+    ctx.strokeStyle = 'rgba(139, 92, 246, 0.35)';
+    ctx.lineWidth = 0.5;
+
+    for (const tri of sampled) {
+      const p = tri.vertices.map(project);
+      ctx.beginPath();
+      ctx.moveTo(p[0].sx, p[0].sy);
+      ctx.lineTo(p[1].sx, p[1].sy);
+      ctx.lineTo(p[2].sx, p[2].sy);
+      ctx.closePath();
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+    ctx.font = '10px SF Pro Display, sans-serif';
+    ctx.fillText(`${geo.triangleCount.toLocaleString()} triangles`, 8, h - 8);
+
+    angle += 0.008;
+    requestAnimationFrame(draw);
+  }
+
+  draw();
+}
+
+// ═══════════════════════════════════════════
+// AMBIENT PARTICLES
+// ═══════════════════════════════════════════
+(function initParticles() {
+  const canvas = document.getElementById('particles');
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const particles = [];
+
+  function resize() {
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  for (let i = 0; i < 60; i++) {
+    particles.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.5 + 0.5,
+      dx: (Math.random() - 0.5) * 0.3,
+      dy: (Math.random() - 0.5) * 0.3,
+      alpha: Math.random() * 0.3 + 0.1,
+    });
+  }
+
+  function animate() {
+    ctx.clearRect(0, 0, W, H);
+    for (const p of particles) {
+      p.x += p.dx;
+      p.y += p.dy;
+      if (p.x < 0) p.x = W;
+      if (p.x > W) p.x = 0;
+      if (p.y < 0) p.y = H;
+      if (p.y > H) p.y = 0;
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(139, 92, 246, ${p.alpha})`;
+      ctx.fill();
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+})();
+
+// ═══════════════════════════════════════════
+// UI WIRING
+// ═══════════════════════════════════════════
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+
+// Build material list
+const matList = document.getElementById('materialList');
+MATERIALS.forEach(mat => {
+  const row = document.createElement('div');
+  row.className = 'material-row' + (mat.id === selectedMaterial ? ' selected' : '');
+  row.dataset.id = mat.id;
+  row.innerHTML = `
+    <div class="swatch" style="background: ${mat.color}"></div>
+    <div>
+      <div class="mat-name">${mat.name}</div>
+      <div class="mat-props">${mat.props}</div>
+    </div>
+    <div class="mat-price">$${mat.pricePerKg}/kg</div>
+  `;
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.material-row').forEach(r => r.classList.remove('selected'));
+    row.classList.add('selected');
+    selectedMaterial = mat.id;
+    updateQuote();
+  });
+  matList.appendChild(row);
+});
+
+// Infill slider
+const infillSlider = document.getElementById('infillSlider');
+const infillVal = document.getElementById('infillVal');
+infillSlider.addEventListener('input', () => {
+  infill = parseInt(infillSlider.value);
+  infillVal.textContent = infill + '%';
+  updateQuote();
+});
+
+// Quantity
+const qtyDisplay = document.getElementById('qtyDisplay');
+document.getElementById('qtyUp').addEventListener('click', () => { qty++; qtyDisplay.textContent = qty; updateQuote(); });
+document.getElementById('qtyDown').addEventListener('click', () => { if (qty > 1) qty--; qtyDisplay.textContent = qty; updateQuote(); });
+
+// Drag and drop
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  if (!file.name.toLowerCase().endsWith('.stl')) {
+    alert('Please upload an STL file');
+    return;
+  }
+
+  // Show file info
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatBytes(file.size);
+  document.getElementById('fileInfo').classList.add('visible');
+
+  // Show processing
+  document.getElementById('processing').classList.add('visible');
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      geometry = parseSTL(e.target.result);
+      document.getElementById('processing').classList.remove('visible');
+      displayGeometry();
+      render3DPreview(geometry);
+      updateQuote();
+    } catch (err) {
+      document.getElementById('processing').classList.remove('visible');
+      alert('Error parsing STL: ' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function displayGeometry() {
+  document.getElementById('geoEmpty').style.display = 'none';
+  document.getElementById('statsGrid').style.display = 'grid';
+
+  document.getElementById('statTriangles').textContent = geometry.triangleCount.toLocaleString();
+  document.getElementById('statVolume').innerHTML = geometry.volumeCM3.toFixed(1) + ' <span class="unit">cm&sup3;</span>';
+  document.getElementById('statArea').innerHTML = geometry.areaCM2.toFixed(1) + ' <span class="unit">cm&sup2;</span>';
+  document.getElementById('statBbox').innerHTML =
+    `${geometry.bbox.x.toFixed(1)} &times; ${geometry.bbox.y.toFixed(1)} &times; ${geometry.bbox.z.toFixed(1)} <span class="unit">mm</span>`;
+
+  const mat = MATERIALS.find(m => m.id === selectedMaterial);
+  const weightG = (geometry.volumeCM3 * mat.density).toFixed(0);
+  document.getElementById('statWeight').innerHTML = weightG + ' <span class="unit">g</span>';
+
+  document.getElementById('statFits').innerHTML = geometry.fitsA1
+    ? '<span style="color: var(--success)">Yes</span>'
+    : '<span style="color: var(--danger)">No — exceeds 256mm</span>';
+}
+
+function updateQuote() {
+  if (!geometry) return;
+
+  const mat = MATERIALS.find(m => m.id === selectedMaterial);
+  const q = calculateQuote(geometry, mat, infill, qty);
+
+  // Update weight display with current material
+  document.getElementById('statWeight').innerHTML = q.weightG.toFixed(0) + ' <span class="unit">g</span>';
+
+  // Time estimate
+  const timeEl = document.getElementById('timeEstimate');
+  timeEl.style.display = 'flex';
+  const hrs = Math.floor(q.printTimeHr);
+  const mins = Math.round((q.printTimeHr - hrs) * 60);
+  document.getElementById('timeText').textContent =
+    `Est. print time: ${hrs > 0 ? hrs + 'h ' : ''}${mins}m per unit` +
+    (qty > 1 ? ` (${(q.printTimeHr * qty).toFixed(1)}h total)` : '');
+
+  // Quote panel
+  const panel = document.getElementById('quotePanel');
+  panel.classList.add('visible');
+
+  document.getElementById('qMaterial').textContent = '$' + (q.materialCost * qty).toFixed(2);
+  document.getElementById('qTime').textContent = '$' + (q.timeCost * qty).toFixed(2);
+  document.getElementById('qDiscount').textContent =
+    q.discountPct > 0 ? `-$${q.discount.toFixed(2)} (${q.discountPct}%)` : '—';
+  document.getElementById('qTotal').textContent = '$' + q.total.toFixed(2);
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1048576).toFixed(1) + ' MB';
+}
+</script>
+</body>
+</html>

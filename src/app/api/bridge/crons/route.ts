@@ -6,13 +6,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "parallax-bridge-2026";
+const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get("x-bridge-secret");
-  if (authHeader !== BRIDGE_SECRET) {
+  if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
@@ -98,24 +98,21 @@ export async function GET() {
     const bridgeCrons: Array<Record<string, string>> = [];
     if (bridgeRes?.ok) {
       const data = await bridgeRes.json();
-      // Bridge syncs crons as { jobs: { jobs: [...] } }
-      const jobs = data?.fields?.jobs?.mapValue?.fields?.jobs?.arrayValue?.values || [];
-      jobs.forEach((v: any) => {
+      // Bridge syncs crons as { items: [...] } via bridge-sync.mjs
+      const items = data?.fields?.items?.arrayValue?.values || [];
+      items.forEach((v: any) => {
         const f = v?.mapValue?.fields || {};
         const name = f.name?.stringValue || "";
         const id = f.id?.stringValue || "";
-        const schedule = f.schedule?.mapValue?.fields;
-        const scheduleStr = schedule?.cron?.stringValue ||
-          (schedule?.everyMs?.integerValue ? `every ${Math.round(Number(schedule.everyMs.integerValue) / 60000)}min` : "") ||
-          (schedule?.kind?.stringValue || "");
-        const agent = f.payload?.mapValue?.fields?.model?.stringValue || "system";
+        const schedule = f.schedule?.stringValue || "";
+        const agent = f.agent?.stringValue || "system";
         const enabled = f.enabled?.booleanValue !== false;
         bridgeCrons.push({
           id,
           name,
-          schedule: scheduleStr,
+          schedule,
           agent,
-          task: f.payload?.mapValue?.fields?.message?.stringValue?.slice(0, 80) || "",
+          task: "",
           status: enabled ? "active" : "disabled",
           source: "openclaw",
         });

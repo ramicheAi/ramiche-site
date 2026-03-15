@@ -1,0 +1,125 @@
+{
+  "tasks": {
+    "backlog": [
+      {
+        "id": "command-center-1",
+        "title": "Command Center: Supabase project setup",
+        "description": "Project: command-center\nPhase: Current Phase: Phase 1 — Real-Time Chat System\nOriginal: - [ ] Supabase project setup",
+        "priority": "MEDIUM",
+        "assignee": "SHURI",
+        "avatar": "🛡️",
+        "accent": "#8b5cf6",
+        "tags": ["command center", "current"],
+        "status": "backlog",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "command-center",
+        "phase": "Current Phase: Phase 1 — Real-Time Chat System"
+      },
+      {
+        "id": "command-center-2",
+        "title": "Command Center: Database schema design",
+        "description": "Project: command-center\nPhase: Current Phase: Phase 1 — Real-Time Chat System\nOriginal: - [ ] Database schema design",
+        "priority": "MEDIUM",
+        "assignee": "SHURI",
+        "avatar": "🛡️",
+        "accent": "#8b5cf6",
+        "tags": ["command center", "current"],
+        "status": "backlog",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "command-center",
+        "phase": "Current Phase: Phase 1 — Real-Time Chat System"
+      },
+      {
+        "id": "command-center-3",
+        "title": "Command Center: WebSocket architecture doc",
+        "description": "Project: command-center\nPhase: Current Phase: Phase 1 — Real-Time Chat System\nOriginal: - [ ] WebSocket architecture doc",
+        "priority": "MEDIUM",
+        "assignee": "SHURI",
+        "avatar": "🛡️",
+        "accent": "#8b5cf6",
+        "tags": ["command center", "current"],
+        "status": "backlog",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "command-center",
+        "phase": "Current Phase: Phase 1 — Real-Time Chat System"
+      },
+      {
+        "id": "command-center-4",
+        "title": "Command Center: Chat UI components",
+        "description": "Project: command-center\nPhase: Current Phase: Phase 1 — Real-Time Chat System\nOriginal: - [ ] Chat UI components",
+        "priority": "MEDIUM",
+        "assignee": "SHURI",
+        "avatar": "🛡️",
+        "accent": "#8b5cf6",
+        "tags": ["command center", "current"],
+        "status": "backlog",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "command-center",
+        "phase": "Current Phase: Phase 1 — Real-Time Chat System"
+      },
+      {
+        "id": "command-center-5",
+        "title": "Command Center: Channel system",
+        "description": "Project: command-center\nPhase: Current Phase: Phase 1 — Real-Time Chat System\nOriginal: - [ ] Channel system",
+        "priority": "MEDIUM",
+        "assignee": "SHURI",
+        "avatar": "🛡️",
+        "accent": "#8b5cf6",
+        "tags": ["command center", "current"],
+        "status": "backlog",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "command-center",
+        "phase": "Current Phase: Phase 1 — Real-Time Chat System"
+      }
+    ],
+    "in-progress": [],
+    "review": [],
+    "done": [
+      {
+        "id": "parallax-site-1",
+        "title": "Parallax Site: Agent marketplace e2e",
+        "description": "Project: parallax-site\nPhase: Sprint: VERIFIED\nOriginal: - Agent marketplace e2e (Feb 21)",
+        "priority": "MEDIUM",
+        "assignee": "ATLAS",
+        "avatar": "🤖",
+        "accent": "#C9A84C",
+        "tags": ["parallax site", "sprint"],
+        "status": "done",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "parallax-site",
+        "phase": "Sprint: VERIFIED"
+      },
+      {
+        "id": "parallax-site-2",
+        "title": "Parallax Site: /forge tools hub",
+        "description": "Project: parallax-site\nPhase: Sprint: VERIFIED\nOriginal: - /forge tools hub (Feb)",
+        "priority": "MEDIUM",
+        "assignee": "ATLAS",
+        "avatar": "🤖",
+        "accent": "#C9A84C",
+        "tags": ["parallax site", "sprint"],
+        "status": "done",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "parallax-site",
+        "phase": "Sprint: VERIFIED"
+      },
+      {
+        "id": "parallax-site-3",
+        "title": "Parallax Site: White-label system",
+        "description": "Project: parallax-site\nPhase: Sprint: VERIFIED\nOriginal: - White-label system (Feb)",
+        "priority": "MEDIUM",
+        "assignee": "ATLAS",
+        "avatar": "🤖",
+        "accent": "#C9A84C",
+        "tags": ["parallax site", "sprint"],
+        "status": "done",
+        "createdAt": "2026-03-14T15:30:00.000Z",
+        "project": "parallax-site",
+        "phase": "Sprint: VERIFIED"
+      }
+    ]
+  },
+  "count": 8,
+  "syncedAt": "2026-03-14T15:30:00.000Z",
+  "source": "pipeline-static"
+}

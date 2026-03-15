@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE — Meet Day Command Center</title>
+<style>
+  :root {
+    --purple: #5B21B6;
+    --purple-light: #7C3AED;
+    --purple-dark: #3B0764;
+    --scarlet: #DC2626;
+    --scarlet-light: #EF4444;
+    --gold: #D97706;
+    --gold-light: #F59E0B;
+    --blue: #2563EB;
+    --blue-light: #3B82F6;
+    --bg: #0F0B1A;
+    --card: #1A1330;
+    --card-hover: #231A40;
+    --border: rgba(124, 58, 237, 0.25);
+    --text: #F1E8FF;
+    --text-dim: #9B8DC2;
+    --text-muted: #6B5B8A;
+    --success: #10B981;
+    --warning: #F59E0B;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Ambient particles */
+  .particles {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .particle {
+    position: absolute;
+    width: 2px; height: 2px;
+    background: var(--purple-light);
+    border-radius: 50%;
+    opacity: 0;
+    animation: float linear infinite;
+  }
+  @keyframes float {
+    0% { opacity: 0; transform: translateY(100vh) scale(0); }
+    10% { opacity: 0.6; }
+    90% { opacity: 0.3; }
+    100% { opacity: 0; transform: translateY(-20px) scale(1.5); }
+  }
+
+  /* Heartbeat glow on header */
+  @keyframes heartbeat {
+    0%, 100% { box-shadow: 0 0 20px rgba(124, 58, 237, 0.15); }
+    50% { box-shadow: 0 0 40px rgba(124, 58, 237, 0.35); }
+  }
+
+  header {
+    position: sticky; top: 0; z-index: 100;
+    background: linear-gradient(135deg, var(--purple-dark), var(--bg));
+    border-bottom: 2px solid var(--border);
+    padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    animation: heartbeat 1.37s ease-in-out infinite;
+  }
+
+  .logo-area {
+    display: flex; align-items: center; gap: 16px;
+  }
+
+  .forged-m {
+    width: 48px; height: 48px;
+    background: linear-gradient(135deg, var(--purple), var(--gold));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 28px; color: white;
+    border: 2px solid var(--gold);
+  }
+
+  .header-title h1 {
+    font-size: 20px; font-weight: 800;
+    background: linear-gradient(90deg, var(--text), var(--gold-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header-title p {
+    font-size: 12px; color: var(--text-dim);
+  }
+
+  .meet-clock {
+    text-align: right;
+  }
+  .meet-clock .time {
+    font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums;
+    color: var(--gold-light);
+  }
+  .meet-clock .date {
+    font-size: 12px; color: var(--text-dim);
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px; padding: 16px 24px;
+    border-bottom: 2px solid var(--border);
+    background: rgba(26, 19, 48, 0.6);
+  }
+
+  .stat-card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    text-align: center;
+    transition: all 0.2s;
+  }
+  .stat-card:hover {
+    background: var(--card-hover);
+    border-color: var(--purple-light);
+    transform: translateY(-2px);
+  }
+  .stat-card .value {
+    font-size: 28px; font-weight: 900;
+    background: linear-gradient(135deg, var(--purple-light), var(--gold-light));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .stat-card .label {
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;
+    margin-top: 4px;
+  }
+
+  /* Tabs */
+  .tab-bar {
+    display: flex; gap: 0; border-bottom: 2px solid var(--border);
+    background: var(--card);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 12px 24px;
+    font-size: 13px; font-weight: 700;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .tab:hover { color: var(--text); background: rgba(124, 58, 237, 0.1); }
+  .tab.active {
+    color: var(--gold-light);
+    border-bottom-color: var(--gold);
+    background: rgba(217, 119, 6, 0.08);
+  }
+
+  /* Main content */
+  main {
+    padding: 20px 24px;
+    position: relative; z-index: 1;
+  }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Event timeline */
+  .event-timeline {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  .event-card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: all 0.2s;
+  }
+  .event-card:hover {
+    border-color: var(--purple-light);
+    transform: translateX(4px);
+  }
+  .event-card.current {
+    border-color: var(--gold);
+    box-shadow: 0 0 20px rgba(217, 119, 6, 0.2);
+  }
+  .event-card.completed {
+    opacity: 0.6;
+    border-color: rgba(16, 185, 129, 0.3);
+  }
+
+  .event-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+  }
+  .event-header .event-info {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .event-num {
+    background: var(--purple);
+    color: white; font-weight: 900; font-size: 14px;
+    width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .event-card.current .event-num { background: var(--gold); }
+  .event-card.completed .event-num { background: var(--success); }
+
+  .event-name { font-weight: 700; font-size: 15px; }
+  .event-meta { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+  .event-status {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .status-upcoming { background: rgba(124, 58, 237, 0.2); color: var(--purple-light); }
+  .status-warmup { background: rgba(245, 158, 11, 0.2); color: var(--gold-light); animation: pulse 2s infinite; }
+  .status-racing { background: rgba(220, 38, 38, 0.2); color: var(--scarlet-light); animation: pulse 1s infinite; }
+  .status-complete { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  .event-detail {
+    display: none;
+    padding: 0 18px 14px;
+    border-top: 1px solid var(--border);
+  }
+  .event-card.expanded .event-detail { display: block; }
+
+  /* Heat/lane grid */
+  .heat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .heat-lane {
+    background: rgba(91, 33, 182, 0.1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .lane-info .lane-num {
+    font-size: 11px; color: var(--text-muted); text-transform: uppercase;
+  }
+  .lane-info .athlete-name {
+    font-weight: 700; font-size: 14px;
+  }
+  .lane-info .seed-time {
+    font-size: 12px; color: var(--text-dim);
+  }
+  .lane-status {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .lane-status.ready { background: var(--success); box-shadow: 0 0 8px var(--success); }
+  .lane-status.warmup { background: var(--gold-light); box-shadow: 0 0 8px var(--gold-light); animation: pulse 2s infinite; }
+  .lane-status.racing { background: var(--scarlet); box-shadow: 0 0 8px var(--scarlet); animation: pulse 1s infinite; }
+  .lane-status.done { background: var(--text-muted); }
+
+  /* Warmup countdown panel */
+  .warmup-cards {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+  }
+  .warmup-card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .warmup-card .event-label {
+    font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px;
+  }
+  .warmup-card .event-title {
+    font-size: 18px; font-weight: 800; margin-top: 4px;
+  }
+  .warmup-card .countdown {
+    font-size: 42px; font-weight: 900; font-variant-numeric: tabular-nums;
+    margin: 16px 0 8px;
+    color: var(--gold-light);
+  }
+  .warmup-card .countdown.urgent {
+    color: var(--scarlet-light);
+    animation: pulse 1s infinite;
+  }
+  .warmup-card .countdown-label {
+    font-size: 12px; color: var(--text-dim);
+  }
+  .warmup-card .progress-bar {
+    height: 4px; background: rgba(124, 58, 237, 0.2);
+    border-radius: 2px; margin-top: 12px; overflow: hidden;
+  }
+  .warmup-card .progress-fill {
+    height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, var(--purple-light), var(--gold));
+    transition: width 0.5s;
+  }
+
+  /* Athlete roster */
+  .roster-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  .athlete-card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .athlete-card:hover {
+    border-color: var(--purple-light);
+    transform: translateY(-2px);
+  }
+  .athlete-card.active-athlete {
+    border-color: var(--gold);
+    box-shadow: 0 0 16px rgba(217, 119, 6, 0.15);
+  }
+  .athlete-top {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .athlete-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--purple), var(--blue));
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 16px; color: white;
+    border: 2px solid var(--border);
+  }
+  .athlete-name-area .name {
+    font-weight: 700; font-size: 15px;
+  }
+  .athlete-name-area .level {
+    font-size: 11px; color: var(--gold-light); text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .athlete-events {
+    margin-top: 12px;
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .athlete-event-tag {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px; font-weight: 600;
+    background: rgba(124, 58, 237, 0.15);
+    color: var(--purple-light);
+    border: 1px solid rgba(124, 58, 237, 0.2);
+  }
+  .athlete-event-tag.next {
+    background: rgba(217, 119, 6, 0.15);
+    color: var(--gold-light);
+    border-color: rgba(217, 119, 6, 0.3);
+  }
+  .athlete-status-row {
+    margin-top: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .athlete-status-badge {
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    padding: 3px 10px; border-radius: 12px;
+  }
+  .badge-ready { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+  .badge-warmup { background: rgba(245, 158, 11, 0.2); color: var(--gold-light); }
+  .badge-racing { background: rgba(220, 38, 38, 0.2); color: var(--scarlet-light); }
+  .badge-done { background: rgba(107, 91, 138, 0.2); color: var(--text-muted); }
+
+  .athlete-best-time {
+    font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums;
+  }
+
+  /* Results table */
+  .results-panel { overflow-x: auto; }
+  .results-table {
+    width: 100%; border-collapse: separate; border-spacing: 0;
+    border: 2px solid var(--border); border-radius: 12px;
+    overflow: hidden;
+  }
+  .results-table th {
+    background: var(--purple-dark);
+    padding: 12px 16px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-dim); text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+  .results-table td {
+    padding: 10px 16px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .results-table tr:hover td { background: var(--card-hover); }
+  .results-table .place-1 { color: var(--gold-light); font-weight: 900; }
+  .results-table .place-2 { color: #C0C0C0; font-weight: 700; }
+  .results-table .place-3 { color: #CD7F32; font-weight: 700; }
+  .results-table .time-drop {
+    color: var(--success); font-weight: 700;
+  }
+  .results-table .time-add {
+    color: var(--scarlet-light);
+  }
+
+  /* Quick actions floating bar */
+  .quick-actions {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 10px 16px;
+    z-index: 200;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+  .qa-btn {
+    background: rgba(124, 58, 237, 0.15);
+    border: 2px solid var(--border);
+    color: var(--text);
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .qa-btn:hover {
+    background: var(--purple);
+    border-color: var(--purple-light);
+    transform: translateY(-2px);
+  }
+  .qa-btn.danger {
+    background: rgba(220, 38, 38, 0.15);
+    border-color: rgba(220, 38, 38, 0.3);
+  }
+  .qa-btn.danger:hover {
+    background: var(--scarlet);
+    border-color: var(--scarlet-light);
+  }
+  .qa-btn.gold {
+    background: rgba(217, 119, 6, 0.15);
+    border-color: rgba(217, 119, 6, 0.3);
+  }
+  .qa-btn.gold:hover {
+    background: var(--gold);
+    border-color: var(--gold-light);
+  }
+
+  /* Activity log */
+  .activity-log {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 500px; overflow-y: auto;
+  }
+  .log-entry {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+  }
+  .log-time {
+    color: var(--text-muted); font-variant-numeric: tabular-nums;
+    white-space: nowrap; font-size: 12px;
+    min-width: 60px;
+  }
+  .log-icon { font-size: 16px; }
+  .log-text { color: var(--text-dim); flex: 1; }
+  .log-text strong { color: var(--text); }
+
+  /* Search/filter */
+  .search-bar {
+    margin-bottom: 16px;
+    display: flex; gap: 12px; align-items: center;
+  }
+  .search-input {
+    flex: 1;
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--purple-light); }
+  .search-input::placeholder { color: var(--text-muted); }
+
+  .filter-btn {
+    background: var(--card);
+    border: 2px solid var(--border);
+    color: var(--text-dim);
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .filter-btn.active { background: var(--purple); color: white; border-color: var(--purple-light); }
+  .filter-btn:hover { border-color: var(--purple-light); color: var(--text); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    header { padding: 12px 16px; }
+    .meet-clock .time { font-size: 22px; }
+    main { padding: 16px; }
+    .stats-bar { padding: 12px 16px; }
+    .quick-actions { flex-wrap: wrap; bottom: 10px; padding: 8px 12px; }
+    .qa-btn { padding: 8px 14px; font-size: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+
+<header>
+  <div class="logo-area">
+    <div class="forged-m">M</div>
+    <div class="header-title">
+      <h1>MEET DAY COMMAND CENTER</h1>
+      <p id="meetName">Saint Andrew's Aquatics — Spring Invitational 2026</p>
+    </div>
+  </div>
+  <div class="meet-clock">
+    <div class="time" id="clock">--:--:--</div>
+    <div class="date" id="clockDate">--</div>
+  </div>
+</header>
+
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card">
+    <div class="value" id="statAthletes">24</div>
+    <div class="label">Athletes</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" id="statEvents">12</div>
+    <div class="label">Events</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" id="statCompleted">0</div>
+    <div class="label">Completed</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" id="statPBs">0</div>
+    <div class="label">PBs Dropped</div>
+  </div>
+  <div class="stat-card">
+    <div class="value" id="statNextEvent">--:--</div>
+    <div class="label">Next Event</div>
+  </div>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" data-panel="events">Events</div>
+  <div class="tab" data-panel="warmups">Warmups</div>
+  <div class="tab" data-panel="roster">Roster</div>
+  <div class="tab" data-panel="results">Results</div>
+  <div class="tab" data-panel="log">Activity</div>
+</div>
+
+<main>
+  <!-- EVENTS PANEL -->
+  <div class="panel active" id="panel-events">
+    <div class="event-timeline" id="eventTimeline"></div>
+  </div>
+
+  <!-- WARMUP PANEL -->
+  <div class="panel" id="panel-warmups">
+    <div class="warmup-cards" id="warmupCards"></div>
+  </div>
+
+  <!-- ROSTER PANEL -->
+  <div class="panel" id="panel-roster">
+    <div class="search-bar">
+      <input type="text" class="search-input" id="rosterSearch" placeholder="Search athletes...">
+      <button class="filter-btn active" data-filter="all">All</button>
+      <button class="filter-btn" data-filter="ready">Ready</button>
+      <button class="filter-btn" data-filter="warmup">Warming Up</button>
+      <button class="filter-btn" data-filter="racing">Racing</button>
+    </div>
+    <div class="roster-grid" id="rosterGrid"></div>
+  </div>
+
+  <!-- RESULTS PANEL -->
+  <div class="panel" id="panel-results">
+    <div class="results-panel">
+      <table class="results-table" id="resultsTable">
+        <thead>
+          <tr>
+            <th>Place</th>
+            <th>Athlete</th>
+            <th>Event</th>
+            <th>Time</th>
+            <th>Seed</th>
+            <th>+/-</th>
+            <th>Splits</th>
+          </tr>
+        </thead>
+        <tbody id="resultsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ACTIVITY LOG PANEL -->
+  <div class="panel" id="panel-log">
+    <div class="activity-log" id="activityLog"></div>
+  </div>
+</main>
+
+<div class="quick-actions">
+  <button class="qa-btn gold" onclick="advanceSimulation()">&#9654; Advance Event</button>
+  <button class="qa-btn" onclick="addLogEntry('Coach announced warmup call', '📢')">Warmup Call</button>
+  <button class="qa-btn" onclick="addLogEntry('Relay lineup confirmed', '🏊')">Confirm Relay</button>
+  <button class="qa-btn danger" onclick="addLogEntry('⚠️ Scratch requested — check with athlete', '🚫')">Scratch</button>
+</div>
+
+<script>
+// ===== DATA =====
+const MEET = {
+  name: "Spring Invitational 2026",
+  team: "Saint Andrew's Aquatics",
+  date: "2026-03-10",
+  venue: "Fort Lauderdale Aquatic Center",
+  sessionStart: "08:00"
+};
+
+const ATHLETES = [
+  { id: 1, name: "Marcus Johnson", initials: "MJ", level: "Elite", events: [1, 3, 7, 11], bestTimes: { "50 Free": "23.45", "100 Free": "51.12", "100 Fly": "56.78", "200 Free Relay": "—" } },
+  { id: 2, name: "Sophia Chen", initials: "SC", level: "Warrior", events: [2, 5, 9], bestTimes: { "100 IM": "1:08.34", "50 Back": "31.22", "100 Back": "1:05.67" } },
+  { id: 3, name: "Elijah Williams", initials: "EW", level: "Captain", events: [1, 4, 8, 12], bestTimes: { "50 Free": "24.01", "100 Breast": "1:12.45", "200 IM": "2:15.33", "200 Medley Relay": "—" } },
+  { id: 4, name: "Aria Martinez", initials: "AM", level: "Elite", events: [2, 6, 10], bestTimes: { "100 IM": "1:06.89", "50 Fly": "28.94", "100 Free": "58.12" } },
+  { id: 5, name: "Jayden Thompson", initials: "JT", level: "Contender", events: [1, 3, 7], bestTimes: { "50 Free": "26.78", "100 Free": "57.90", "100 Fly": "1:02.34" } },
+  { id: 6, name: "Isabella Davis", initials: "ID", level: "Warrior", events: [2, 5, 9], bestTimes: { "100 IM": "1:10.45", "50 Back": "33.11", "100 Back": "1:08.90" } },
+  { id: 7, name: "Noah Brown", initials: "NB", level: "Legend", events: [1, 4, 8, 11, 12], bestTimes: { "50 Free": "22.89", "100 Breast": "1:08.12", "200 IM": "2:08.56", "200 Free Relay": "—", "200 Medley Relay": "—" } },
+  { id: 8, name: "Maya Wilson", initials: "MW", level: "Elite", events: [2, 6, 10], bestTimes: { "100 IM": "1:05.23", "50 Fly": "27.88", "100 Free": "56.78" } },
+  { id: 9, name: "Caleb Anderson", initials: "CA", level: "Contender", events: [1, 3], bestTimes: { "50 Free": "27.56", "100 Free": "59.34" } },
+  { id: 10, name: "Zoe Taylor", initials: "ZT", level: "Warrior", events: [2, 5, 9], bestTimes: { "100 IM": "1:09.67", "50 Back": "32.45", "100 Back": "1:07.23" } },
+  { id: 11, name: "Liam Garcia", initials: "LG", level: "Captain", events: [4, 7, 8, 11], bestTimes: { "100 Breast": "1:10.89", "100 Fly": "58.12", "200 IM": "2:12.45", "200 Free Relay": "—" } },
+  { id: 12, name: "Emma Jackson", initials: "EJ", level: "Elite", events: [2, 6, 10], bestTimes: { "100 IM": "1:07.56", "50 Fly": "29.34", "100 Free": "57.90" } },
+  { id: 13, name: "Aiden Lewis", initials: "AL", level: "Rookie", events: [1, 3], bestTimes: { "50 Free": "29.12", "100 Free": "1:03.45" } },
+  { id: 14, name: "Olivia Harris", initials: "OH", level: "Contender", events: [5, 9], bestTimes: { "50 Back": "34.67", "100 Back": "1:11.23" } },
+  { id: 15, name: "Ethan Clark", initials: "EC", level: "Warrior", events: [1, 4, 7, 12], bestTimes: { "50 Free": "25.34", "100 Breast": "1:14.56", "100 Fly": "1:00.12", "200 Medley Relay": "—" } },
+  { id: 16, name: "Ava Robinson", initials: "AR", level: "Elite", events: [2, 6, 10, 11], bestTimes: { "100 IM": "1:06.12", "50 Fly": "28.45", "100 Free": "55.89", "200 Free Relay": "—" } },
+  { id: 17, name: "Mason Young", initials: "MY", level: "Contender", events: [1, 8], bestTimes: { "50 Free": "26.45", "200 IM": "2:22.67" } },
+  { id: 18, name: "Lily King", initials: "LK", level: "Captain", events: [2, 5, 9, 12], bestTimes: { "100 IM": "1:04.78", "50 Back": "30.56", "100 Back": "1:04.12", "200 Medley Relay": "—" } },
+  { id: 19, name: "Jackson Wright", initials: "JW", level: "Warrior", events: [3, 4, 7], bestTimes: { "100 Free": "53.67", "100 Breast": "1:11.34", "100 Fly": "59.45" } },
+  { id: 20, name: "Chloe Hill", initials: "CH", level: "Contender", events: [6, 10], bestTimes: { "50 Fly": "30.89", "100 Free": "1:00.45" } },
+  { id: 21, name: "Daniel Scott", initials: "DS", level: "Elite", events: [1, 3, 8, 11], bestTimes: { "50 Free": "23.78", "100 Free": "52.34", "200 IM": "2:10.12", "200 Free Relay": "—" } },
+  { id: 22, name: "Mia Adams", initials: "MA", level: "Warrior", events: [2, 6], bestTimes: { "100 IM": "1:08.90", "50 Fly": "29.78" } },
+  { id: 23, name: "Lucas Baker", initials: "LB", level: "Rookie", events: [1], bestTimes: { "50 Free": "30.45" } },
+  { id: 24, name: "Grace Nelson", initials: "GN", level: "Contender", events: [5, 9], bestTimes: { "50 Back": "33.89", "100 Back": "1:10.56" } }
+];
+
+const EVENTS = [
+  { id: 1, num: 1, name: "50 Freestyle", gender: "Boys", startTime: "08:15", warmupMin: 20, heats: 3 },
+  { id: 2, num: 2, name: "100 IM", gender: "Girls", startTime: "08:30", warmupMin: 20, heats: 3 },
+  { id: 3, num: 3, name: "100 Freestyle", gender: "Boys", startTime: "08:50", warmupMin: 15, heats: 2 },
+  { id: 4, num: 4, name: "100 Breaststroke", gender: "Boys", startTime: "09:05", warmupMin: 15, heats: 2 },
+  { id: 5, num: 5, name: "50 Backstroke", gender: "Girls", startTime: "09:20", warmupMin: 15, heats: 2 },
+  { id: 6, num: 6, name: "50 Butterfly", gender: "Girls", startTime: "09:35", warmupMin: 15, heats: 2 },
+  { id: 7, num: 7, name: "100 Butterfly", gender: "Boys", startTime: "09:50", warmupMin: 20, heats: 2 },
+  { id: 8, num: 8, name: "200 IM", gender: "Boys", startTime: "10:10", warmupMin: 25, heats: 2 },
+  { id: 9, num: 9, name: "100 Backstroke", gender: "Girls", startTime: "10:35", warmupMin: 20, heats: 2 },
+  { id: 10, num: 10, name: "100 Freestyle", gender: "Girls", startTime: "10:55", warmupMin: 15, heats: 2 },
+  { id: 11, num: 11, name: "200 Free Relay", gender: "Mixed", startTime: "11:15", warmupMin: 20, heats: 1 },
+  { id: 12, num: 12, name: "200 Medley Relay", gender: "Mixed", startTime: "11:35", warmupMin: 20, heats: 1 }
+];
+
+// ===== STATE =====
+let state = {
+  currentEventIdx: 0,
+  eventStatuses: EVENTS.map(() => 'upcoming'), // upcoming, warmup, racing, complete
+  athleteStatuses: {},  // athleteId -> status
+  results: [],
+  log: [],
+  pbCount: 0
+};
+
+// Init athlete statuses
+ATHLETES.forEach(a => { state.athleteStatuses[a.id] = 'ready'; });
+
+// ===== CLOCK =====
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+  document.getElementById('clockDate').textContent = now.toLocaleDateString('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric', year: 'numeric'
+  });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ===== PARTICLES =====
+function initParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDuration = (8 + Math.random() * 15) + 's';
+    p.style.animationDelay = Math.random() * 10 + 's';
+    p.style.width = p.style.height = (1 + Math.random() * 3) + 'px';
+    const colors = ['var(--purple-light)', 'var(--gold-light)', 'var(--blue-light)'];
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    container.appendChild(p);
+  }
+}
+initParticles();
+
+// ===== TABS =====
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.panel).classList.add('active');
+  });
+});
+
+// ===== RENDER EVENTS =====
+function renderEvents() {
+  const container = document.getElementById('eventTimeline');
+  container.innerHTML = '';
+
+  EVENTS.forEach((evt, idx) => {
+    const status = state.eventStatuses[idx];
+    const athletes = ATHLETES.filter(a => a.events.includes(evt.id));
+    const statusClass = status === 'upcoming' ? '' :
+                        status === 'warmup' ? 'current' :
+                        status === 'racing' ? 'current' :
+                        'completed';
+    const statusLabel = status === 'upcoming' ? 'Upcoming' :
+                        status === 'warmup' ? 'Warmup' :
+                        status === 'racing' ? 'Racing' : 'Complete';
+    const statusBadge = status === 'upcoming' ? 'status-upcoming' :
+                        status === 'warmup' ? 'status-warmup' :
+                        status === 'racing' ? 'status-racing' : 'status-complete';
+
+    const card = document.createElement('div');
+    card.className = `event-card ${statusClass}`;
+    card.innerHTML = `
+      <div class="event-header" onclick="this.parentElement.classList.toggle('expanded')">
+        <div class="event-info">
+          <div class="event-num">${evt.num}</div>
+          <div>
+            <div class="event-name">${evt.name}</div>
+            <div class="event-meta">${evt.gender} · ${evt.heats} heat${evt.heats > 1 ? 's' : ''} · Start: ${evt.startTime} · ${athletes.length} athletes</div>
+          </div>
+        </div>
+        <span class="event-status ${statusBadge}">${statusLabel}</span>
+      </div>
+      <div class="event-detail">
+        <div style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Warmup: ${evt.warmupMin} min before start</div>
+        <div class="heat-grid">
+          ${athletes.map((a, li) => {
+            const eventName = evt.name.replace(/^\d+\s*/, '');
+            const bestKey = Object.keys(a.bestTimes).find(k => evt.name.includes(k.replace(/^\d+\s*/, '')) || k.includes(evt.name.split(' ').slice(1).join(' ')));
+            const seed = bestKey ? a.bestTimes[bestKey] : 'NT';
+            const aStatus = state.athleteStatuses[a.id] || 'ready';
+            return `
+              <div class="heat-lane">
+                <div class="lane-info">
+                  <div class="lane-num">Heat ${Math.floor(li / 8) + 1} · Lane ${(li % 8) + 1}</div>
+                  <div class="athlete-name">${a.name}</div>
+                  <div class="seed-time">Seed: ${seed}</div>
+                </div>
+                <div class="lane-status ${aStatus}"></div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+// ===== RENDER WARMUPS =====
+function renderWarmups() {
+  const container = document.getElementById('warmupCards');
+  container.innerHTML = '';
+
+  EVENTS.forEach((evt, idx) => {
+    const status = state.eventStatuses[idx];
+    if (status === 'complete') return;
+
+    const now = new Date();
+    const [h, m] = evt.startTime.split(':').map(Number);
+    const eventTime = new Date(now);
+    eventTime.setHours(h, m, 0, 0);
+    const warmupTime = new Date(eventTime.getTime() - evt.warmupMin * 60000);
+    const diff = warmupTime - now;
+    const totalWarmup = evt.warmupMin * 60000;
+    const elapsed = totalWarmup - (eventTime - now);
+    const progress = Math.max(0, Math.min(100, (elapsed / totalWarmup) * 100));
+
+    let countdownStr, urgent = false;
+    if (diff > 0) {
+      const mins = Math.floor(diff / 60000);
+      const secs = Math.floor((diff % 60000) / 1000);
+      countdownStr = `${mins}:${String(secs).padStart(2, '0')}`;
+      if (mins < 5) urgent = true;
+    } else if (status === 'warmup' || status === 'upcoming') {
+      const toEvent = eventTime - now;
+      if (toEvent > 0) {
+        const mins = Math.floor(toEvent / 60000);
+        const secs = Math.floor((toEvent % 60000) / 1000);
+        countdownStr = `${mins}:${String(secs).padStart(2, '0')}`;
+        urgent = mins < 3;
+      } else {
+        countdownStr = "NOW";
+        urgent = true;
+      }
+    } else {
+      countdownStr = "—";
+    }
+
+    const athletes = ATHLETES.filter(a => a.events.includes(evt.id));
+    const card = document.createElement('div');
+    card.className = 'warmup-card';
+    card.innerHTML = `
+      <div class="event-label">Event ${evt.num} · ${evt.gender}</div>
+      <div class="event-title">${evt.name}</div>
+      <div class="countdown ${urgent ? 'urgent' : ''}">${countdownStr}</div>
+      <div class="countdown-label">${diff > 0 ? 'Until warmup start' : (status !== 'complete' ? 'Until event start' : 'Complete')}</div>
+      <div style="margin-top:8px;font-size:12px;color:var(--text-dim)">
+        ${athletes.length} athletes · ${evt.heats} heat${evt.heats > 1 ? 's' : ''}
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${progress}%"></div></div>`;
+    container.appendChild(card);
+  });
+}
+
+// ===== RENDER ROSTER =====
+function renderRoster(filter = 'all', search = '') {
+  const container = document.getElementById('rosterGrid');
+  container.innerHTML = '';
+
+  let athletes = [...ATHLETES];
+  if (filter !== 'all') {
+    athletes = athletes.filter(a => state.athleteStatuses[a.id] === filter);
+  }
+  if (search) {
+    const s = search.toLowerCase();
+    athletes = athletes.filter(a => a.name.toLowerCase().includes(s));
+  }
+
+  athletes.forEach(a => {
+    const aStatus = state.athleteStatuses[a.id];
+    const nextEvent = EVENTS.find((e, i) => a.events.includes(e.id) && state.eventStatuses[i] !== 'complete');
+    const badgeClass = aStatus === 'ready' ? 'badge-ready' :
+                       aStatus === 'warmup' ? 'badge-warmup' :
+                       aStatus === 'racing' ? 'badge-racing' : 'badge-done';
+
+    const card = document.createElement('div');
+    card.className = `athlete-card ${aStatus === 'racing' ? 'active-athlete' : ''}`;
+    card.innerHTML = `
+      <div class="athlete-top">
+        <div class="athlete-avatar">${a.initials}</div>
+        <div class="athlete-name-area">
+          <div class="name">${a.name}</div>
+          <div class="level">${a.level}</div>
+        </div>
+      </div>
+      <div class="athlete-events">
+        ${a.events.map(eId => {
+          const ev = EVENTS.find(e => e.id === eId);
+          const isNext = nextEvent && nextEvent.id === eId;
+          return `<span class="athlete-event-tag ${isNext ? 'next' : ''}">${ev.name}</span>`;
+        }).join('')}
+      </div>
+      <div class="athlete-status-row">
+        <span class="athlete-status-badge ${badgeClass}">${aStatus}</span>
+        <span class="athlete-best-time">${nextEvent ? 'Next: ' + nextEvent.name : 'Done for day'}</span>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+// Roster search and filter
+document.getElementById('rosterSearch').addEventListener('input', (e) => {
+  const active = document.querySelector('.filter-btn.active');
+  renderRoster(active.dataset.filter, e.target.value);
+});
+document.querySelectorAll('.filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderRoster(btn.dataset.filter, document.getElementById('rosterSearch').value);
+  });
+});
+
+// ===== RENDER RESULTS =====
+function renderResults() {
+  const tbody = document.getElementById('resultsBody');
+  tbody.innerHTML = '';
+
+  if (state.results.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:40px">No results yet — events haven\'t started</td></tr>';
+    return;
+  }
+
+  state.results.forEach(r => {
+    const placeClass = r.place === 1 ? 'place-1' : r.place === 2 ? 'place-2' : r.place === 3 ? 'place-3' : '';
+    const diffClass = r.diff < 0 ? 'time-drop' : r.diff > 0 ? 'time-add' : '';
+    const diffStr = r.diff === 0 ? '—' : (r.diff < 0 ? '' : '+') + r.diff.toFixed(2);
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="${placeClass}">${r.place}</td>
+      <td><strong>${r.athlete}</strong></td>
+      <td>${r.event}</td>
+      <td style="font-variant-numeric:tabular-nums;font-weight:700">${r.time}</td>
+      <td style="font-variant-numeric:tabular-nums;color:var(--text-dim)">${r.seed}</td>
+      <td class="${diffClass}">${diffStr}</td>
+      <td style="font-size:12px;color:var(--text-dim)">${r.splits || '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+// ===== ACTIVITY LOG =====
+function addLogEntry(text, icon = '📋') {
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+  state.log.unshift({ time, text, icon });
+  renderLog();
+}
+
+function renderLog() {
+  const container = document.getElementById('activityLog');
+  container.innerHTML = '';
+  state.log.slice(0, 50).forEach(entry => {
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    div.innerHTML = `
+      <span class="log-time">${entry.time}</span>
+      <span class="log-icon">${entry.icon}</span>
+      <span class="log-text">${entry.text}</span>`;
+    container.appendChild(div);
+  });
+  if (state.log.length === 0) {
+    container.innerHTML = '<div style="text-align:center;color:var(--text-muted);padding:40px">No activity yet — events start at 08:15</div>';
+  }
+}
+
+// ===== SIMULATION =====
+function advanceSimulation() {
+  const idx = state.currentEventIdx;
+  if (idx >= EVENTS.length) {
+    addLogEntry('All events complete! Meet finished.', '🏆');
+    return;
+  }
+
+  const currentStatus = state.eventStatuses[idx];
+  const evt = EVENTS[idx];
+  const athletes = ATHLETES.filter(a => a.events.includes(evt.id));
+
+  if (currentStatus === 'upcoming') {
+    // Move to warmup
+    state.eventStatuses[idx] = 'warmup';
+    athletes.forEach(a => { state.athleteStatuses[a.id] = 'warmup'; });
+    addLogEntry(`<strong>Event ${evt.num} ${evt.name}</strong> — Warmup called (${evt.warmupMin} min)`, '📢');
+
+  } else if (currentStatus === 'warmup') {
+    // Move to racing
+    state.eventStatuses[idx] = 'racing';
+    athletes.forEach(a => { state.athleteStatuses[a.id] = 'racing'; });
+    addLogEntry(`<strong>Event ${evt.num} ${evt.name}</strong> — Heats in progress!`, '🏊');
+
+  } else if (currentStatus === 'racing') {
+    // Complete — generate results
+    state.eventStatuses[idx] = 'complete';
+    const eventResults = generateResults(evt, athletes);
+    state.results = [...eventResults, ...state.results];
+
+    // Count PBs
+    const pbs = eventResults.filter(r => r.diff < 0).length;
+    state.pbCount += pbs;
+
+    // Reset athlete statuses
+    athletes.forEach(a => {
+      const hasMore = a.events.some((eId, i) => {
+        const eIdx = EVENTS.findIndex(e => e.id === eId);
+        return eIdx > idx && state.eventStatuses[eIdx] !== 'complete';
+      });
+      state.athleteStatuses[a.id] = hasMore ? 'ready' : 'done';
+    });
+
+    addLogEntry(`<strong>Event ${evt.num} ${evt.name}</strong> — Complete! ${pbs > 0 ? pbs + ' PB(s) dropped!' : ''}`, pbs > 0 ? '🔥' : '✅');
+    state.currentEventIdx++;
+
+    document.getElementById('statCompleted').textContent = state.eventStatuses.filter(s => s === 'complete').length;
+    document.getElementById('statPBs').textContent = state.pbCount;
+
+    // Update next event time
+    if (state.currentEventIdx < EVENTS.length) {
+      document.getElementById('statNextEvent').textContent = EVENTS[state.currentEventIdx].startTime;
+    } else {
+      document.getElementById('statNextEvent').textContent = 'DONE';
+    }
+  }
+
+  renderAll();
+}
+
+function generateResults(evt, athletes) {
+  return athletes.map((a, i) => {
+    const eventName = evt.name;
+    const bestKey = Object.keys(a.bestTimes).find(k => eventName.includes(k.replace(/^\d+\s*/, '')) || k.includes(eventName.split(' ').slice(1).join(' ')));
+    const seedStr = bestKey ? a.bestTimes[bestKey] : null;
+
+    let seedSeconds = 0;
+    if (seedStr && seedStr !== '—' && seedStr !== 'NT') {
+      const parts = seedStr.split(':');
+      if (parts.length === 2) {
+        seedSeconds = parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+      } else {
+        seedSeconds = parseFloat(parts[0]);
+      }
+    } else {
+      seedSeconds = 30 + Math.random() * 30;
+    }
+
+    // Generate a realistic time: -2 to +3 seconds variation
+    const variation = (Math.random() - 0.45) * 3;
+    const finalSeconds = Math.max(seedSeconds * 0.9, seedSeconds + variation);
+    const diff = parseFloat((finalSeconds - seedSeconds).toFixed(2));
+
+    // Format time
+    let timeStr;
+    if (finalSeconds >= 60) {
+      const mins = Math.floor(finalSeconds / 60);
+      const secs = (finalSeconds % 60).toFixed(2);
+      timeStr = `${mins}:${secs.padStart(5, '0')}`;
+    } else {
+      timeStr = finalSeconds.toFixed(2);
+    }
+
+    // Generate splits for events >= 100m
+    let splits = null;
+    if (eventName.includes('100') || eventName.includes('200')) {
+      const numSplits = eventName.includes('200') ? 4 : 2;
+      const splitTimes = [];
+      let remaining = finalSeconds;
+      for (let s = 0; s < numSplits; s++) {
+        const isLast = s === numSplits - 1;
+        const portion = isLast ? remaining : remaining * (0.45 + Math.random() * 0.1);
+        splitTimes.push(portion.toFixed(2));
+        remaining -= portion;
+      }
+      splits = splitTimes.join(' / ');
+    }
+
+    return {
+      athlete: a.name,
+      event: eventName,
+      time: timeStr,
+      seed: seedStr || 'NT',
+      diff,
+      seconds: finalSeconds,
+      splits,
+      place: 0
+    };
+  }).sort((a, b) => a.seconds - b.seconds)
+    .map((r, i) => ({ ...r, place: i + 1 }));
+}
+
+// ===== RENDER ALL =====
+function renderAll() {
+  renderEvents();
+  renderWarmups();
+  renderRoster();
+  renderResults();
+  renderLog();
+}
+
+// ===== INIT =====
+addLogEntry('Meet Day Command Center initialized', '🚀');
+addLogEntry(`${MEET.team} — ${MEET.name}`, '🏊');
+addLogEntry(`Venue: ${MEET.venue}`, '📍');
+addLogEntry(`${ATHLETES.length} athletes registered across ${EVENTS.length} events`, '📋');
+document.getElementById('statNextEvent').textContent = EVENTS[0].startTime;
+renderAll();
+
+// Refresh warmup countdowns every second
+setInterval(renderWarmups, 1000);
+</script>
+</body>
+</html>

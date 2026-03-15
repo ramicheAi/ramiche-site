@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Squad Status Board — Parallax</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-hover: #1a1a26;
+    --border: rgba(139, 92, 246, 0.25);
+    --border-glow: rgba(139, 92, 246, 0.5);
+    --text: #e4e4e7;
+    --text-dim: #71717a;
+    --accent: #8b5cf6;
+    --accent-glow: rgba(139, 92, 246, 0.3);
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --gold: #d4a843;
+    --purple: #7c3aed;
+    --scarlet: #dc2626;
+    --blue: #3b82f6;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    width: 100%;
+    padding: 24px;
+  }
+
+  .header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .header h1 {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--accent), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: pulse-glow 4s ease-in-out infinite;
+  }
+
+  .header .subtitle {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    margin-top: 8px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { filter: brightness(1); }
+    50% { filter: brightness(1.2); }
+  }
+
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    15% { transform: scale(1.03); }
+    30% { transform: scale(1); }
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    transition: border-color 0.3s;
+  }
+
+  .stat-card:hover { border-color: var(--border-glow); }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+  }
+
+  .stat-label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 4px;
+  }
+
+  /* Agent grid */
+  .agent-grid {
+    display: grid;
+    grid-template-columns: repeat(1, 1fr);
+    gap: 16px;
+  }
+
+  @media (min-width: 640px) { .agent-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 1024px) { .agent-grid { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 1280px) { .agent-grid { grid-template-columns: repeat(4, 1fr); } }
+
+  .agent-card {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    animation: heartbeat 4s ease-in-out infinite;
+  }
+
+  .agent-card:hover {
+    border-color: var(--border-glow);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px var(--accent-glow);
+    animation-play-state: paused;
+  }
+
+  .agent-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .agent-card.tier-max::before { background: linear-gradient(90deg, var(--gold), var(--accent)); }
+  .agent-card.tier-cloud::before { background: var(--accent); }
+
+  .agent-name {
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .agent-model {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  .agent-role {
+    font-size: 0.8rem;
+    color: var(--gold);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+
+  .capability-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .cap-badge {
+    font-size: 0.65rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .cap-badge.yes { background: rgba(34, 197, 94, 0.15); color: var(--success); border: 1px solid rgba(34, 197, 94, 0.3); }
+  .cap-badge.no { background: rgba(239, 68, 68, 0.1); color: rgba(239, 68, 68, 0.5); border: 1px solid rgba(239, 68, 68, 0.15); }
+
+  .agent-provider {
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Ambient particles */
+  .particle {
+    position: fixed;
+    width: 2px; height: 2px;
+    background: var(--accent);
+    border-radius: 50%;
+    opacity: 0;
+    pointer-events: none;
+    animation: drift 8s linear infinite;
+  }
+
+  @keyframes drift {
+    0% { opacity: 0; transform: translateY(100vh) scale(0); }
+    10% { opacity: 0.4; }
+    90% { opacity: 0.1; }
+    100% { opacity: 0; transform: translateY(-20px) scale(1); }
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 8px 20px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .filter-btn:hover { border-color: var(--border-glow); color: var(--text); }
+  .filter-btn.active { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+
+  .updated-at {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.7rem;
+    margin-top: 32px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div id="particles"></div>
+
+<div class="header">
+  <h1>SQUAD STATUS BOARD</h1>
+  <div class="subtitle">Parallax &middot; 19 Agents &middot; All Cloud</div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-card">
+    <div class="stat-value" id="stat-total">19</div>
+    <div class="stat-label">Total Agents</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-max">0</div>
+    <div class="stat-label">Claude Max</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-openrouter">0</div>
+    <div class="stat-label">OpenRouter</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-value" id="stat-capabilities">0</div>
+    <div class="stat-label">Full Capability</div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <button class="filter-btn active" onclick="filterAgents('all')">All</button>
+  <button class="filter-btn" onclick="filterAgents('claude-max')">Claude Max</button>
+  <button class="filter-btn" onclick="filterAgents('openrouter')">OpenRouter</button>
+  <button class="filter-btn" onclick="filterAgents('full-cap')">Full Capability</button>
+</div>
+
+<div class="agent-grid" id="agent-grid"></div>
+
+<div class="updated-at" id="updated-at"></div>
+
+<script>
+// Generate ambient particles
+const pc = document.getElementById('particles');
+for (let i = 0; i < 20; i++) {
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.style.left = Math.random() * 100 + 'vw';
+  p.style.animationDelay = Math.random() * 8 + 's';
+  p.style.animationDuration = (6 + Math.random() * 6) + 's';
+  pc.appendChild(p);
+}
+
+const agents = [
+  {
+    name: "Atlas",
+    model: "Opus 4.6",
+    provider: "Claude Max",
+    role: "Operations Lead / Systems Thinker",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: true },
+    tier: "max"
+  },
+  {
+    name: "NOVA",
+    model: "Sonnet 4.5",
+    provider: "Claude Max",
+    role: "Overnight Builder / Full-Stack",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: true },
+    tier: "max"
+  },
+  {
+    name: "TRIAGE",
+    model: "Sonnet 4.5",
+    provider: "Claude Max",
+    role: "Priority Router / Quick Fixes",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: true },
+    tier: "max"
+  },
+  {
+    name: "TheMAESTRO",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Music Production / A&R",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "SIMONS",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Business Strategy / Finance",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "Dr. Strange",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Deep Research / Analysis",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "SHURI",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Creative Tech / Innovation",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "SELAH",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Spiritual / Devotional Content",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "HAVEN",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Wellness / Health / Fitness",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "INK",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Graphic Design / Visual Creative",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "KIYOSAKI",
+    model: "DeepSeek V3.2",
+    provider: "OpenRouter",
+    role: "Financial Education / Revenue",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "Vee",
+    model: "Kimi K2.5",
+    provider: "OpenRouter",
+    role: "Social Media / Content Strategy",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "Prophets",
+    model: "Kimi K2.5",
+    provider: "OpenRouter",
+    role: "Trend Forecasting / Intel",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "ECHO",
+    model: "Kimi K2.5",
+    provider: "OpenRouter",
+    role: "Communication / Messaging",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "PROXIMON",
+    model: "Gemini 3 Pro",
+    provider: "OpenRouter",
+    role: "Market Analysis / Proximity Intel",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "Aetherion",
+    model: "Gemini 3 Pro",
+    provider: "OpenRouter",
+    role: "Architecture / Planning",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "MERCURY",
+    model: "Gemini 3 Pro",
+    provider: "OpenRouter",
+    role: "Speed / Quick Execution",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "MICHAEL",
+    model: "GLM 4.6",
+    provider: "OpenRouter",
+    role: "Security / Protection",
+    capabilities: { webSearch: true, imageRead: false, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  },
+  {
+    name: "Widow",
+    model: "Claude 3.5 Haiku",
+    provider: "OpenRouter",
+    role: "Reconnaissance / Data Gathering",
+    capabilities: { webSearch: true, imageRead: true, scrape: true, interAgent: true, codeExec: true, fileOps: true, tts: false },
+    tier: "cloud"
+  }
+];
+
+let currentFilter = 'all';
+
+function filterAgents(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  render();
+}
+
+function render() {
+  let filtered = agents;
+  if (currentFilter === 'claude-max') filtered = agents.filter(a => a.provider === 'Claude Max');
+  if (currentFilter === 'openrouter') filtered = agents.filter(a => a.provider !== 'Claude Max');
+  if (currentFilter === 'full-cap') filtered = agents.filter(a => Object.values(a.capabilities).every(v => v));
+
+  // Stats
+  document.getElementById('stat-total').textContent = agents.length;
+  document.getElementById('stat-max').textContent = agents.filter(a => a.provider === 'Claude Max').length;
+  document.getElementById('stat-openrouter').textContent = agents.filter(a => a.provider !== 'Claude Max').length;
+  document.getElementById('stat-capabilities').textContent = agents.filter(a => Object.values(a.capabilities).every(v => v)).length;
+
+  const grid = document.getElementById('agent-grid');
+  grid.innerHTML = filtered.map(a => {
+    const caps = Object.entries(a.capabilities).map(([k, v]) => {
+      const labels = { webSearch: 'Search', imageRead: 'Vision', scrape: 'Scrape', interAgent: 'Comms', codeExec: 'Code', fileOps: 'Files', tts: 'TTS' };
+      return `<span class="cap-badge ${v ? 'yes' : 'no'}">${labels[k] || k}</span>`;
+    }).join('');
+
+    return `
+      <div class="agent-card tier-${a.tier}">
+        <div class="agent-name">${a.name}</div>
+        <div class="agent-model">${a.model}</div>
+        <div class="agent-role">${a.role}</div>
+        <div class="capability-list">${caps}</div>
+        <div class="agent-provider">${a.provider}</div>
+      </div>
+    `;
+  }).join('');
+
+  document.getElementById('updated-at').textContent = 'Last updated: ' + new Date().toLocaleString();
+}
+
+render();
+</script>
+</body>
+</html>

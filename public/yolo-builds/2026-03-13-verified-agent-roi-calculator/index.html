@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verified Agent Business — ROI Calculator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a12;--card:#12121f;--border:#2a2a4a;--glow:rgba(99,102,241,0.3);
+  --primary:#818cf8;--accent:#a78bfa;--success:#34d399;--warning:#fbbf24;
+  --text:#e2e8f0;--muted:#94a3b8;--white:#f8fafc;
+  --grad:linear-gradient(135deg,#818cf8,#a78bfa);
+}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:var(--primary);text-decoration:none}
+
+/* Ambient particles */
+.particles{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.particle{position:absolute;border-radius:50%;opacity:0;animation:float 8s ease-in-out infinite}
+@keyframes float{0%{transform:translateY(100vh) scale(0);opacity:0}20%{opacity:0.4}80%{opacity:0.2}100%{transform:translateY(-20vh) scale(1);opacity:0}}
+
+.container{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:24px}
+
+/* Header */
+.header{text-align:center;margin-bottom:40px;padding:40px 20px}
+.header h1{font-size:2.4rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+.header .subtitle{font-size:1.1rem;color:var(--muted);max-width:600px;margin:0 auto}
+.badge{display:inline-block;padding:4px 14px;border-radius:20px;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px;background:rgba(129,140,248,0.15);color:var(--primary);border:1px solid rgba(129,140,248,0.3);margin-bottom:16px}
+
+/* Grid */
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:32px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+
+/* Cards */
+.card{background:var(--card);border:2px solid var(--border);border-radius:16px;padding:28px;transition:border-color 0.3s}
+.card:hover{border-color:rgba(129,140,248,0.4)}
+.card h2{font-size:1.15rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+.card h2 .icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+
+/* Form elements */
+.form-group{margin-bottom:18px}
+.form-group label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:6px;font-weight:500}
+.form-group input,.form-group select{width:100%;padding:12px 14px;background:rgba(255,255,255,0.04);border:2px solid var(--border);border-radius:10px;color:var(--white);font-size:0.95rem;transition:border-color 0.2s}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px var(--glow)}
+.form-group select option{background:var(--card);color:var(--text)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-hint{font-size:0.72rem;color:var(--muted);margin-top:4px}
+
+/* Slider */
+.slider-group{margin-bottom:18px}
+.slider-group label{display:flex;justify-content:space-between;font-size:0.82rem;color:var(--muted);margin-bottom:8px;font-weight:500}
+.slider-group label span{color:var(--primary);font-weight:700;font-size:0.95rem}
+input[type="range"]{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:var(--border);outline:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 0 10px var(--glow)}
+
+/* Results */
+.results-panel{background:var(--card);border:2px solid var(--border);border-radius:16px;padding:32px;margin-bottom:32px}
+.results-header{text-align:center;margin-bottom:28px}
+.results-header h2{font-size:1.3rem;font-weight:700;margin-bottom:4px}
+.results-header p{color:var(--muted);font-size:0.85rem}
+
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+@media(max-width:900px){.metrics-grid{grid-template-columns:repeat(2,1fr)}}
+.metric{text-align:center;padding:20px 12px;background:rgba(255,255,255,0.02);border:2px solid var(--border);border-radius:12px;transition:all 0.3s}
+.metric:hover{border-color:var(--primary);transform:translateY(-2px)}
+.metric .value{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.metric .label{font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.metric.savings .value{color:var(--success)}
+.metric.roi .value{background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.metric.time .value{color:var(--warning)}
+.metric.cost .value{color:var(--accent)}
+
+/* Chart area */
+.chart-container{position:relative;margin-bottom:28px;padding:20px;background:rgba(255,255,255,0.02);border:2px solid var(--border);border-radius:12px}
+.chart-container h3{font-size:0.9rem;font-weight:600;margin-bottom:16px;color:var(--muted)}
+canvas{width:100%!important;height:280px!important}
+
+/* Breakdown table */
+.breakdown{width:100%;border-collapse:collapse}
+.breakdown th{text-align:left;padding:10px 14px;font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid var(--border)}
+.breakdown td{padding:12px 14px;font-size:0.88rem;border-bottom:1px solid rgba(255,255,255,0.04)}
+.breakdown tr:hover td{background:rgba(129,140,248,0.04)}
+.breakdown .amount{font-weight:700;font-variant-numeric:tabular-nums}
+.breakdown .positive{color:var(--success)}
+.breakdown .negative{color:#f87171}
+
+/* Verticals */
+.verticals{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:28px}
+@media(max-width:900px){.verticals{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.verticals{grid-template-columns:repeat(2,1fr)}}
+.vertical-btn{padding:14px 8px;background:rgba(255,255,255,0.03);border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all 0.2s;color:var(--text)}
+.vertical-btn:hover{border-color:rgba(129,140,248,0.3);background:rgba(129,140,248,0.05)}
+.vertical-btn.active{border-color:var(--primary);background:rgba(129,140,248,0.1);box-shadow:0 0 12px var(--glow)}
+.vertical-btn .v-icon{font-size:1.4rem;margin-bottom:6px}
+.vertical-btn .v-name{font-size:0.78rem;font-weight:600}
+.vertical-btn .v-rate{font-size:0.68rem;color:var(--muted);margin-top:2px}
+
+/* CTA */
+.cta-section{text-align:center;padding:40px 20px;background:linear-gradient(180deg,transparent,rgba(129,140,248,0.05));border-radius:16px;border:2px solid var(--border)}
+.cta-section h3{font-size:1.2rem;font-weight:700;margin-bottom:8px}
+.cta-section p{color:var(--muted);font-size:0.9rem;margin-bottom:20px}
+.cta-btn{display:inline-block;padding:14px 36px;background:var(--grad);color:var(--bg);font-weight:700;font-size:0.95rem;border-radius:10px;border:none;cursor:pointer;transition:transform 0.2s,box-shadow 0.2s}
+.cta-btn:hover{transform:translateY(-2px);box-shadow:0 8px 24px var(--glow)}
+
+/* Pulse animation */
+.pulse{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
+
+/* Footer */
+.footer{text-align:center;padding:32px;color:var(--muted);font-size:0.75rem}
+</style>
+</head>
+<body>
+
+<div class="particles" id="particles"></div>
+
+<div class="container">
+  <div class="header">
+    <div class="badge">Verified Agent Business</div>
+    <h1>Enterprise ROI Calculator</h1>
+    <p class="subtitle">See exactly how certified AI agents reduce costs, accelerate output, and deliver measurable returns across your organization.</p>
+  </div>
+
+  <!-- Vertical Selection -->
+  <div class="verticals" id="verticals">
+    <div class="vertical-btn active" data-vertical="sales" onclick="selectVertical('sales')">
+      <div class="v-icon">📈</div>
+      <div class="v-name">Sales</div>
+      <div class="v-rate">$150/hr</div>
+    </div>
+    <div class="vertical-btn" data-vertical="security" onclick="selectVertical('security')">
+      <div class="v-icon">🔒</div>
+      <div class="v-name">Security</div>
+      <div class="v-rate">$250/hr</div>
+    </div>
+    <div class="vertical-btn" data-vertical="legal" onclick="selectVertical('legal')">
+      <div class="v-icon">⚖️</div>
+      <div class="v-name">Legal</div>
+      <div class="v-rate">$350/hr</div>
+    </div>
+    <div class="vertical-btn" data-vertical="finance" onclick="selectVertical('finance')">
+      <div class="v-icon">💰</div>
+      <div class="v-name">Finance</div>
+      <div class="v-rate">$200/hr</div>
+    </div>
+    <div class="vertical-btn" data-vertical="psychology" onclick="selectVertical('psychology')">
+      <div class="v-icon">🧠</div>
+      <div class="v-name">Psychology</div>
+      <div class="v-rate">$175/hr</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- Current Costs -->
+    <div class="card">
+      <h2><span class="icon" style="background:rgba(248,113,113,0.15);color:#f87171">$</span> Current Staff Costs</h2>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Employees in This Function</label>
+          <input type="number" id="numEmployees" value="5" min="1" max="500" oninput="calculate()">
+        </div>
+        <div class="form-group">
+          <label>Avg. Annual Salary</label>
+          <input type="number" id="avgSalary" value="95000" min="30000" max="500000" step="5000" oninput="calculate()">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Benefits Overhead (%)</label>
+          <input type="number" id="benefitsRate" value="30" min="0" max="60" oninput="calculate()">
+          <div class="form-hint">Healthcare, 401k, PTO, etc.</div>
+        </div>
+        <div class="form-group">
+          <label>Annual Training Costs ($)</label>
+          <input type="number" id="trainingCost" value="5000" min="0" max="100000" step="500" oninput="calculate()">
+          <div class="form-hint">Per employee</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Avg. Hours/Week on Automatable Tasks</label>
+        <input type="number" id="autoHours" value="25" min="1" max="60" oninput="calculate()">
+        <div class="form-hint">Research, drafting, review, data entry, reporting</div>
+      </div>
+    </div>
+
+    <!-- Agent Deployment -->
+    <div class="card">
+      <h2><span class="icon" style="background:rgba(129,140,248,0.15);color:#818cf8">⚡</span> Agent Deployment Model</h2>
+      <div class="slider-group">
+        <label>Automation Rate <span id="autoRateLabel">60%</span></label>
+        <input type="range" id="autoRate" min="20" max="90" value="60" oninput="updateSlider(this,'autoRateLabel','%');calculate()">
+        <div class="form-hint">% of automatable tasks handled by agents</div>
+      </div>
+      <div class="slider-group">
+        <label>Agent Speed Multiplier <span id="speedLabel">3.0x</span></label>
+        <input type="range" id="speedMult" min="15" max="80" value="30" oninput="updateSlider(this,'speedLabel','x',10);calculate()">
+        <div class="form-hint">How much faster agents complete tasks vs. humans</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Agent Hours/Month Needed</label>
+          <input type="number" id="agentHours" value="400" min="10" max="10000" step="10" oninput="calculate()">
+        </div>
+        <div class="form-group">
+          <label>Agent Rate ($/hr)</label>
+          <input type="number" id="agentRate" value="150" min="50" max="500" step="25" readonly>
+          <div class="form-hint">Set by vertical selection above</div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Implementation Month</label>
+        <select id="implMonth" onchange="calculate()">
+          <option value="1">Month 1 — Pilot (1 agent)</option>
+          <option value="3">Month 3 — Expansion</option>
+          <option value="6" selected>Month 6 — Full Deploy</option>
+          <option value="12">Month 12 — Optimized</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div class="results-panel">
+    <div class="results-header">
+      <h2>Projected Annual Impact</h2>
+      <p>Based on your inputs, here's what certified AI agents deliver</p>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric savings">
+        <div class="value" id="metricSavings">$0</div>
+        <div class="label">Annual Savings</div>
+      </div>
+      <div class="metric roi">
+        <div class="value" id="metricROI">0%</div>
+        <div class="label">Return on Investment</div>
+      </div>
+      <div class="metric time">
+        <div class="value" id="metricHours">0</div>
+        <div class="label">Hours Reclaimed/Year</div>
+      </div>
+      <div class="metric cost">
+        <div class="value" id="metricPayback">0</div>
+        <div class="label">Payback (Months)</div>
+      </div>
+    </div>
+
+    <!-- 12-Month Projection Chart -->
+    <div class="chart-container">
+      <h3>12-Month Cumulative Savings vs. Agent Cost</h3>
+      <canvas id="projectionChart"></canvas>
+    </div>
+
+    <!-- Breakdown Table -->
+    <table class="breakdown">
+      <thead>
+        <tr>
+          <th>Category</th>
+          <th>Current Annual</th>
+          <th>With Agents</th>
+          <th>Difference</th>
+        </tr>
+      </thead>
+      <tbody id="breakdownBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Vertical-specific insights -->
+  <div class="card" style="margin-bottom:32px" id="insightsCard">
+    <h2><span class="icon" style="background:rgba(52,211,153,0.15);color:#34d399">✦</span> <span id="insightsTitle">Sales</span> Agent Capabilities</h2>
+    <div id="insightsContent"></div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <h3>Ready to Deploy Certified AI Agents?</h3>
+    <p>Join enterprises using Verified Agent Business to cut costs and accelerate output.</p>
+    <button class="cta-btn pulse" onclick="alert('Contact: parallaxventuresinc@gmail.com')">Schedule a Demo →</button>
+  </div>
+
+  <div class="footer">
+    © 2026 Parallax Ventures Inc. — Verified Agent Business<br>
+    Projections are estimates based on industry benchmarks. Actual results vary by implementation.
+  </div>
+</div>
+
+<script>
+// ── Particles ──
+(function(){
+  const c=document.getElementById('particles');
+  for(let i=0;i<30;i++){
+    const p=document.createElement('div');
+    p.className='particle';
+    p.style.cssText=`left:${Math.random()*100}%;width:${2+Math.random()*4}px;height:${2+Math.random()*4}px;background:${Math.random()>0.5?'#818cf8':'#a78bfa'};animation-delay:${Math.random()*8}s;animation-duration:${6+Math.random()*6}s`;
+    c.appendChild(p);
+  }
+})();
+
+// ── Vertical Data ──
+const verticals = {
+  sales: {
+    name: 'Sales', rate: 150,
+    humanRate: 75, // effective hourly cost of a human sales rep
+    insights: [
+      'Lead qualification and scoring across 50+ data points in seconds',
+      'Automated pipeline analysis with deal-risk scoring',
+      'Personalized outreach sequences generated per prospect profile',
+      'CRM data enrichment and hygiene — 10x faster than manual entry',
+      'Competitive intelligence briefings before every call',
+      'Proposal and SOW generation with pricing optimization'
+    ],
+    benchmarks: { avgDealCycle: '42 → 28 days', responseTime: '4hrs → 12min', leadConversion: '+34%' }
+  },
+  security: {
+    name: 'Security', rate: 250,
+    humanRate: 95,
+    insights: [
+      'Continuous vulnerability scanning across infrastructure and code',
+      'Incident response triage and automated containment',
+      'Compliance audit preparation (SOC2, ISO 27001, HIPAA)',
+      'Penetration test report analysis and remediation planning',
+      'Security policy drafting and gap analysis',
+      'Threat intelligence aggregation from 200+ feeds'
+    ],
+    benchmarks: { avgDetection: '197hrs → 4min', falsePositives: '-87%', complianceTime: '6wks → 3days' }
+  },
+  legal: {
+    name: 'Legal', rate: 350,
+    humanRate: 150,
+    insights: [
+      'Contract review and redlining — 500-page agreements in minutes',
+      'Legal research across case law, statutes, and regulatory databases',
+      'Due diligence document analysis for M&A',
+      'Compliance monitoring across jurisdictions',
+      'Litigation hold and e-discovery document classification',
+      'Board memo and regulatory filing drafting'
+    ],
+    benchmarks: { contractReview: '8hrs → 22min', researchTime: '12hrs → 45min', accuracy: '94% clause detection' }
+  },
+  finance: {
+    name: 'Finance', rate: 200,
+    humanRate: 85,
+    insights: [
+      'Financial modeling and scenario analysis with live data feeds',
+      'Regulatory reporting automation (SEC, FINRA, Basel III)',
+      'Audit trail generation and reconciliation',
+      'Portfolio risk assessment with Monte Carlo simulations',
+      'Tax optimization research across jurisdictions',
+      'Invoice processing and AP/AR automation'
+    ],
+    benchmarks: { closeTime: '15days → 3days', errorRate: '-96%', reportGen: '2days → 20min' }
+  },
+  psychology: {
+    name: 'Psychology', rate: 175,
+    humanRate: 70,
+    insights: [
+      'Employee sentiment analysis across surveys and communications',
+      'Organizational health diagnostics and culture mapping',
+      'Candidate assessment scoring and behavioral profiling',
+      'Training program design based on skill gap analysis',
+      'Change management communication drafting',
+      'Team dynamics analysis and conflict pattern identification'
+    ],
+    benchmarks: { assessmentTime: '3hrs → 15min', retention: '+22% predicted', engagementScore: '+18pts' }
+  }
+};
+
+let currentVertical = 'sales';
+
+function selectVertical(key) {
+  currentVertical = key;
+  document.querySelectorAll('.vertical-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-vertical="${key}"]`).classList.add('active');
+  document.getElementById('agentRate').value = verticals[key].rate;
+  calculate();
+  renderInsights();
+}
+
+function updateSlider(el, labelId, suffix, div) {
+  const val = div ? (el.value / div).toFixed(1) : el.value;
+  document.getElementById(labelId).textContent = val + suffix;
+}
+
+function renderInsights() {
+  const v = verticals[currentVertical];
+  document.getElementById('insightsTitle').textContent = v.name;
+  const bm = v.benchmarks;
+  const bmKeys = Object.keys(bm);
+  let html = '<ul style="list-style:none;padding:0;margin:0 0 20px 0">';
+  v.insights.forEach(i => {
+    html += `<li style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.88rem;display:flex;gap:8px"><span style="color:var(--primary)">→</span>${i}</li>`;
+  });
+  html += '</ul>';
+  html += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">';
+  const bmLabels = { avgDealCycle:'Deal Cycle', responseTime:'Response Time', leadConversion:'Lead Conversion',
+    avgDetection:'Detection Time', falsePositives:'False Positives', complianceTime:'Compliance Prep',
+    contractReview:'Contract Review', researchTime:'Research Time', accuracy:'Accuracy',
+    closeTime:'Month Close', errorRate:'Error Rate', reportGen:'Report Gen',
+    assessmentTime:'Assessment', retention:'Retention Impact', engagementScore:'Engagement' };
+  bmKeys.forEach(k => {
+    html += `<div style="padding:14px;background:rgba(255,255,255,0.02);border:2px solid var(--border);border-radius:10px;text-align:center"><div style="font-size:1rem;font-weight:700;color:var(--success);margin-bottom:4px">${bm[k]}</div><div style="font-size:0.7rem;color:var(--muted);text-transform:uppercase">${bmLabels[k]||k}</div></div>`;
+  });
+  html += '</div>';
+  document.getElementById('insightsContent').innerHTML = html;
+}
+
+function formatCurrency(n) {
+  if (Math.abs(n) >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000) return '$' + (n / 1000).toFixed(0) + 'K';
+  return '$' + n.toFixed(0);
+}
+
+function calculate() {
+  const v = verticals[currentVertical];
+  const numEmp = parseInt(document.getElementById('numEmployees').value) || 1;
+  const avgSalary = parseInt(document.getElementById('avgSalary').value) || 0;
+  const benefitsRate = parseInt(document.getElementById('benefitsRate').value) || 0;
+  const trainingCost = parseInt(document.getElementById('trainingCost').value) || 0;
+  const autoHours = parseInt(document.getElementById('autoHours').value) || 0;
+  const autoRate = parseInt(document.getElementById('autoRate').value) / 100;
+  const speedMult = parseInt(document.getElementById('speedMult').value) / 10;
+  const agentHoursMonth = parseInt(document.getElementById('agentHours').value) || 0;
+  const agentRate = v.rate;
+  const implMonth = parseInt(document.getElementById('implMonth').value);
+
+  // Current costs
+  const totalSalary = numEmp * avgSalary;
+  const totalBenefits = totalSalary * (benefitsRate / 100);
+  const totalTraining = numEmp * trainingCost;
+  const totalCurrentCost = totalSalary + totalBenefits + totalTraining;
+
+  // Automatable work value
+  const weeksPerYear = 52;
+  const totalAutoHoursYear = numEmp * autoHours * weeksPerYear;
+  const effectiveHourlyRate = totalCurrentCost / (numEmp * 2080); // 2080 = 40hrs * 52wks
+  const autoWorkValue = totalAutoHoursYear * effectiveHourlyRate;
+
+  // Agent costs
+  const agentCostYear = agentHoursMonth * 12 * agentRate;
+  const effectiveAgentHours = agentHoursMonth * 12 * speedMult; // agents do more per hour
+
+  // Hours automated by agents
+  const hoursAutomated = totalAutoHoursYear * autoRate;
+  const agentHoursNeeded = hoursAutomated / speedMult; // agents are faster
+
+  // Savings
+  const laborSavingsFromAutomation = hoursAutomated * effectiveHourlyRate;
+  const netSavings = laborSavingsFromAutomation - agentCostYear;
+  const roi = agentCostYear > 0 ? ((netSavings / agentCostYear) * 100) : 0;
+  const paybackMonths = netSavings > 0 ? Math.ceil(agentCostYear / (netSavings / 12)) : 99;
+
+  // With-agents cost
+  const withAgentsTotalCost = totalCurrentCost - laborSavingsFromAutomation + agentCostYear;
+
+  // Update metrics
+  document.getElementById('metricSavings').textContent = formatCurrency(Math.max(0, netSavings));
+  document.getElementById('metricROI').textContent = Math.max(0, roi).toFixed(0) + '%';
+  document.getElementById('metricHours').textContent = Math.round(hoursAutomated).toLocaleString();
+  document.getElementById('metricPayback').textContent = paybackMonths <= 24 ? paybackMonths : '24+';
+
+  // Breakdown table
+  const rows = [
+    ['Staff Salaries', totalSalary, totalSalary * (1 - autoRate * 0.3), null],
+    ['Benefits & Overhead', totalBenefits, totalBenefits * (1 - autoRate * 0.3), null],
+    ['Training & Development', totalTraining, totalTraining * 0.5, null],
+    ['AI Agent Subscription', 0, agentCostYear, null],
+    ['<strong>Total</strong>', totalCurrentCost, withAgentsTotalCost, totalCurrentCost - withAgentsTotalCost]
+  ];
+  let tbody = '';
+  rows.forEach(r => {
+    const diff = r[3] !== null ? r[3] : r[1] - r[2];
+    const cls = diff > 0 ? 'positive' : diff < 0 ? 'negative' : '';
+    tbody += `<tr>
+      <td>${r[0]}</td>
+      <td class="amount">${formatCurrency(r[1])}</td>
+      <td class="amount">${formatCurrency(r[2])}</td>
+      <td class="amount ${cls}">${diff > 0 ? '+' : ''}${formatCurrency(diff)}</td>
+    </tr>`;
+  });
+  document.getElementById('breakdownBody').innerHTML = tbody;
+
+  // Draw chart
+  drawChart(agentCostYear, laborSavingsFromAutomation, implMonth);
+}
+
+function drawChart(agentCostYear, savingsYear, implMonth) {
+  const canvas = document.getElementById('projectionChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 280 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width;
+  const H = 280;
+  const pad = { top: 20, right: 20, bottom: 40, left: 70 };
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // Calculate monthly data
+  const months = [];
+  let cumSavings = 0, cumCost = 0;
+  const monthlySavings = savingsYear / 12;
+  const monthlyCost = agentCostYear / 12;
+  let maxVal = 0;
+
+  for (let m = 1; m <= 12; m++) {
+    const rampFactor = m < implMonth ? m / implMonth * 0.3 : Math.min(1, 0.3 + (m - implMonth) / 6 * 0.7);
+    cumSavings += monthlySavings * rampFactor;
+    cumCost += monthlyCost * (m >= 1 ? 1 : 0);
+    months.push({ month: m, savings: cumSavings, cost: cumCost, net: cumSavings - cumCost });
+    maxVal = Math.max(maxVal, cumSavings, cumCost);
+  }
+
+  if (maxVal === 0) maxVal = 1000;
+  const yScale = cH / (maxVal * 1.15);
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+  ctx.lineWidth = 1;
+  const gridSteps = 5;
+  for (let i = 0; i <= gridSteps; i++) {
+    const y = pad.top + cH - (i / gridSteps) * cH;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(W - pad.right, y);
+    ctx.stroke();
+    ctx.fillStyle = '#64748b';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(formatCurrency((maxVal * 1.15 * i) / gridSteps), pad.left - 8, y + 4);
+  }
+
+  // Month labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  months.forEach((d, i) => {
+    const x = pad.left + (i / 11) * cW;
+    ctx.fillText('M' + d.month, x, H - 10);
+  });
+
+  // Draw lines
+  function drawLine(data, key, color, dash) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.setLineDash(dash || []);
+    ctx.beginPath();
+    data.forEach((d, i) => {
+      const x = pad.left + (i / 11) * cW;
+      const y = pad.top + cH - d[key] * yScale;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Fill area
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = color;
+    ctx.lineTo(pad.left + cW, pad.top + cH);
+    ctx.lineTo(pad.left, pad.top + cH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  drawLine(months, 'savings', '#34d399');
+  drawLine(months, 'cost', '#f87171', [6, 4]);
+
+  // Break-even marker
+  const bep = months.findIndex(d => d.net >= 0);
+  if (bep >= 0) {
+    const x = pad.left + (bep / 11) * cW;
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top);
+    ctx.lineTo(x, pad.top + cH);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#fbbf24';
+    ctx.font = 'bold 11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Break-even', x, pad.top - 4);
+  }
+
+  // Legend
+  const legendY = pad.top + 10;
+  ctx.font = '11px Inter, sans-serif';
+  ctx.fillStyle = '#34d399';
+  ctx.fillRect(W - pad.right - 160, legendY, 12, 3);
+  ctx.fillText('Cumulative Savings', W - pad.right - 142, legendY + 5);
+  ctx.fillStyle = '#f87171';
+  ctx.fillRect(W - pad.right - 160, legendY + 18, 12, 3);
+  ctx.fillText('Cumulative Cost', W - pad.right - 142, legendY + 23);
+}
+
+// ── Init ──
+renderInsights();
+calculate();
+window.addEventListener('resize', calculate);
+</script>
+</body>
+</html>

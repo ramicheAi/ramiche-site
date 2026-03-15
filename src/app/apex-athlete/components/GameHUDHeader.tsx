@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { AnimatedCounter } from "./AnimatedCounter";
+import { getSportConfig } from "@/app/apex-athlete/lib/sport-config";
 
 interface GameHUDHeaderProps {
   view: "coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness";
@@ -44,10 +45,13 @@ export function GameHUDHeader({
     [filteredRoster]
   );
 
+  // Get sport-specific terminology
+  const sportConfig = getSportConfig(currentSport);
+  
   const sportLabels = {
-    swimming: { pool: "🏊 Pool", weight: "🏋️ Weight Room", meet: "🏁 Meet Day" },
-    diving: { pool: "🤿 Board", weight: "🏋️ Dryland", meet: "🏁 Meet Day" },
-    waterpolo: { pool: "🤽 Pool", weight: "🏋️ Gym", meet: "🏁 Match Day" },
+    swimming: { pool: "🏊 Pool", weight: "🏋️ Weight Room", meet: `🏁 ${sportConfig.terminology.meet} Day` },
+    diving: { pool: "🤿 Board", weight: "🏋️ Dryland", meet: `🏁 ${sportConfig.terminology.meet} Day` },
+    waterpolo: { pool: "🤽 Pool", weight: "🏋️ Gym", meet: `🏁 ${sportConfig.terminology.meet} Day` },
   };
 
   const icons = {
@@ -142,7 +146,13 @@ export function GameHUDHeader({
             <span className="text-[#f59e0b]/30 text-[10px] font-mono uppercase">XP today</span>
           </div>
           <div className="w-px h-4 bg-[#00f0ff]/10" />
-          <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
+          <span className="text-[#00f0ff]/40 text-xs font-mono">
+            {sessionMode === "pool" 
+              ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") 
+              : sessionMode === "weight" 
+              ? "🏋️ WEIGHT" 
+              : `🏁 ${sportConfig.terminology.meet.toUpperCase()}`}
+          </span>
           {culture.weeklyQuote && (
             <>
               <div className="w-px h-4 bg-[#00f0ff]/10" />

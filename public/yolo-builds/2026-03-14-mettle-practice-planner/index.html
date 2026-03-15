@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE Practice Planner — Coach Workout Builder</title>
+<style>
+:root {
+  --purple: #6B21A8;
+  --purple-light: #A855F7;
+  --scarlet: #DC2626;
+  --gold: #D97706;
+  --gold-light: #F59E0B;
+  --blue: #2563EB;
+  --blue-light: #60A5FA;
+  --bg: #F8F7FF;
+  --card: #FFFFFF;
+  --text: #1E1B2E;
+  --text-muted: #6B7280;
+  --border: #E5E7EB;
+  --success: #10B981;
+  --en1: #3B82F6;
+  --en2: #8B5CF6;
+  --en3: #EC4899;
+  --sp1: #F59E0B;
+  --sp2: #EF4444;
+  --sp3: #DC2626;
+  --race: #B91C1C;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* Header */
+.header {
+  background: linear-gradient(135deg, var(--purple) 0%, #4C1D95 100%);
+  color: white;
+  padding: 20px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--gold);
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.logo {
+  width: 44px; height: 44px;
+  background: var(--gold);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 20px; color: var(--purple);
+}
+.header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.header-sub { font-size: 13px; opacity: 0.8; margin-top: 2px; }
+.header-right { display: flex; gap: 12px; }
+
+/* Buttons */
+.btn {
+  padding: 10px 20px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-primary { background: var(--gold); color: var(--purple); border-color: var(--gold-light); }
+.btn-primary:hover { background: var(--gold-light); }
+.btn-secondary { background: rgba(255,255,255,0.15); color: white; border-color: rgba(255,255,255,0.3); }
+.btn-secondary:hover { background: rgba(255,255,255,0.25); }
+.btn-danger { background: var(--scarlet); color: white; }
+.btn-danger:hover { background: #B91C1C; }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
+.btn-ghost:hover { border-color: var(--purple-light); background: #F5F3FF; }
+
+/* Layout */
+.main { display: flex; height: calc(100vh - 84px); }
+.sidebar {
+  width: 320px;
+  background: var(--card);
+  border-right: 2px solid var(--border);
+  overflow-y: auto;
+  padding: 20px;
+  flex-shrink: 0;
+}
+.workspace {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* Sidebar Sections */
+.sidebar-section { margin-bottom: 24px; }
+.sidebar-section h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  font-weight: 700;
+}
+
+/* Practice Info */
+.practice-info {
+  background: #F5F3FF;
+  border: 2px solid var(--purple-light);
+  border-radius: 10px;
+  padding: 16px;
+}
+.info-row { margin-bottom: 12px; }
+.info-row:last-child { margin-bottom: 0; }
+.info-row label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.info-row input, .info-row select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  background: white;
+}
+.info-row input:focus, .info-row select:focus {
+  outline: none;
+  border-color: var(--purple-light);
+  box-shadow: 0 0 0 3px rgba(168,85,247,0.15);
+}
+
+/* Set Templates */
+.template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.template-btn {
+  padding: 10px;
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.template-btn:hover {
+  border-color: var(--purple-light);
+  background: #F5F3FF;
+  transform: translateY(-1px);
+}
+.template-btn .icon { font-size: 20px; margin-bottom: 4px; }
+.template-btn .label { font-size: 12px; font-weight: 700; color: var(--text); }
+.template-btn .desc { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+/* Energy Zone Legend */
+.zone-legend { display: flex; flex-direction: column; gap: 6px; }
+.zone-item {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600;
+}
+.zone-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.zone-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.zone-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+/* Summary Stats */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.stat-card {
+  background: white;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+.stat-value {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--purple);
+}
+.stat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* Workout Card */
+.workout-header {
+  background: linear-gradient(135deg, var(--purple) 0%, #4C1D95 100%);
+  color: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.workout-title { font-size: 20px; font-weight: 800; }
+.workout-meta { font-size: 13px; opacity: 0.8; margin-top: 4px; }
+.workout-badges { display: flex; gap: 8px; }
+.badge {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.badge-gold { background: var(--gold); color: var(--purple); }
+.badge-blue { background: var(--blue); color: white; }
+
+/* Set Groups */
+.set-group {
+  background: var(--card);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.set-group:hover { border-color: var(--purple-light); }
+.set-group-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid var(--border);
+  cursor: grab;
+  background: #FAFAFA;
+}
+.set-group-header:active { cursor: grabbing; }
+.group-label {
+  display: flex; align-items: center; gap: 10px;
+}
+.group-type-badge {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.group-name {
+  font-weight: 700;
+  font-size: 15px;
+}
+.group-volume {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.group-actions { display: flex; gap: 6px; }
+.icon-btn {
+  width: 32px; height: 32px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+.icon-btn:hover { background: #F3F4F6; }
+
+/* Set Items */
+.set-items { padding: 12px 20px; }
+.set-item {
+  display: grid;
+  grid-template-columns: 60px 80px 1fr 100px 90px 80px 36px;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+.set-item:last-child { border-bottom: none; }
+.set-item input, .set-item select {
+  padding: 6px 8px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  background: white;
+}
+.set-item input:focus, .set-item select:focus {
+  outline: none;
+  border-color: var(--purple-light);
+}
+.zone-select {
+  padding: 6px 4px !important;
+  font-size: 12px !important;
+}
+.zone-select option { font-weight: 600; }
+.remove-btn {
+  width: 28px; height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.remove-btn:hover { background: #FEE2E2; color: var(--scarlet); }
+
+/* Set Item Labels (column header) */
+.set-labels {
+  display: grid;
+  grid-template-columns: 60px 80px 1fr 100px 90px 80px 36px;
+  gap: 10px;
+  padding: 8px 20px 4px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+/* Add Set Button */
+.add-item-row {
+  padding: 8px 20px 12px;
+}
+.add-item-btn {
+  width: 100%;
+  padding: 8px;
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.add-item-btn:hover {
+  border-color: var(--purple-light);
+  color: var(--purple);
+  background: #F5F3FF;
+}
+
+/* Add Group */
+.add-group-area {
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.add-group-btns { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+/* Export Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  border: 2px solid var(--border);
+}
+.modal h2 { font-size: 20px; margin-bottom: 16px; }
+
+/* Export Preview */
+.export-preview {
+  background: #FAFAFA;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 24px;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin-bottom: 16px;
+}
+
+/* Drag indicator */
+.set-group.dragging {
+  opacity: 0.5;
+  border-color: var(--purple);
+}
+.set-group.drag-over {
+  border-color: var(--gold);
+  border-style: dashed;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .main { flex-direction: column; height: auto; }
+  .sidebar { width: 100%; border-right: none; border-bottom: 2px solid var(--border); }
+  .set-item { grid-template-columns: 50px 70px 1fr 80px 70px 70px 30px; gap: 6px; }
+  .set-labels { grid-template-columns: 50px 70px 1fr 80px 70px 70px 30px; gap: 6px; }
+}
+
+/* Print styles */
+@media print {
+  .sidebar, .header-right, .add-group-area, .icon-btn, .remove-btn, .add-item-btn { display: none !important; }
+  .main { display: block; }
+  .workspace { padding: 0; }
+  .set-group { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">M</div>
+    <div>
+      <h1>Practice Planner</h1>
+      <div class="header-sub">METTLE Coach Workout Builder</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-secondary" onclick="loadDemo()">Load Demo</button>
+    <button class="btn btn-secondary" onclick="clearAll()">Clear All</button>
+    <button class="btn btn-secondary" onclick="showExport()">Export</button>
+    <button class="btn btn-primary" onclick="savePractice()">Save Practice</button>
+  </div>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <!-- Practice Info -->
+    <div class="sidebar-section">
+      <h3>Practice Info</h3>
+      <div class="practice-info">
+        <div class="info-row">
+          <label>Practice Title</label>
+          <input type="text" id="practiceTitle" placeholder="e.g. Tuesday AM Distance" value="">
+        </div>
+        <div class="info-row">
+          <label>Date</label>
+          <input type="date" id="practiceDate">
+        </div>
+        <div class="info-row">
+          <label>Group</label>
+          <select id="practiceGroup">
+            <option value="Senior">Senior</option>
+            <option value="Age Group">Age Group</option>
+            <option value="Junior">Junior</option>
+            <option value="Pre-Comp">Pre-Comp</option>
+            <option value="All">All Levels</option>
+          </select>
+        </div>
+        <div class="info-row">
+          <label>Focus</label>
+          <select id="practiceFocus">
+            <option value="Distance">Distance</option>
+            <option value="Sprint">Sprint</option>
+            <option value="IM">IM</option>
+            <option value="Technique">Technique</option>
+            <option value="Race Pace">Race Pace</option>
+            <option value="Recovery">Recovery</option>
+            <option value="Kick">Kick</option>
+            <option value="Pull">Pull</option>
+          </select>
+        </div>
+        <div class="info-row">
+          <label>Pool (Yards/Meters)</label>
+          <select id="poolCourse">
+            <option value="SCY">SCY (25 yards)</option>
+            <option value="SCM">SCM (25 meters)</option>
+            <option value="LCM">LCM (50 meters)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Add Templates -->
+    <div class="sidebar-section">
+      <h3>Quick Add Set</h3>
+      <div class="template-grid">
+        <div class="template-btn" onclick="addTemplate('warmup')">
+          <div class="icon">&#9728;</div>
+          <div class="label">Warm-Up</div>
+          <div class="desc">Mixed 400-800</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('main')">
+          <div class="icon">&#9889;</div>
+          <div class="label">Main Set</div>
+          <div class="desc">Quality reps</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('kick')">
+          <div class="icon">&#9875;</div>
+          <div class="label">Kick Set</div>
+          <div class="desc">Board work</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('pull')">
+          <div class="icon">&#9883;</div>
+          <div class="label">Pull Set</div>
+          <div class="desc">Paddles/buoy</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('drill')">
+          <div class="icon">&#9881;</div>
+          <div class="label">Drill</div>
+          <div class="desc">Technique focus</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('sprint')">
+          <div class="icon">&#9889;</div>
+          <div class="label">Sprint</div>
+          <div class="desc">Max effort</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('cooldown')">
+          <div class="icon">&#10052;</div>
+          <div class="label">Cool-Down</div>
+          <div class="desc">Easy 200-400</div>
+        </div>
+        <div class="template-btn" onclick="addTemplate('test')">
+          <div class="icon">&#9201;</div>
+          <div class="label">Test Set</div>
+          <div class="desc">Timed effort</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Energy Zone Distribution -->
+    <div class="sidebar-section">
+      <h3>Energy Zone Distribution</h3>
+      <div class="zone-legend" id="zoneLegend">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Workout Summary -->
+    <div class="sidebar-section">
+      <h3>Workout Summary</h3>
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-card">
+          <div class="stat-value" id="totalYards">0</div>
+          <div class="stat-label">Total Yards</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalSets">0</div>
+          <div class="stat-label">Sets</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="estTime">0</div>
+          <div class="stat-label">Est. Minutes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="totalItems">0</div>
+          <div class="stat-label">Intervals</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Practices -->
+    <div class="sidebar-section">
+      <h3>Saved Practices</h3>
+      <div id="savedList" style="font-size:13px; color: var(--text-muted);">
+        No saved practices yet.
+      </div>
+    </div>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <div class="workout-header">
+      <div>
+        <div class="workout-title" id="workoutTitleDisplay">New Practice</div>
+        <div class="workout-meta" id="workoutMetaDisplay">Add sets below to build your workout</div>
+      </div>
+      <div class="workout-badges">
+        <span class="badge badge-gold" id="badgeYards">0 yds</span>
+        <span class="badge badge-blue" id="badgeFocus">Distance</span>
+      </div>
+    </div>
+
+    <div id="setGroups">
+      <!-- Set groups rendered here -->
+    </div>
+
+    <div class="add-group-area">
+      <p style="color: var(--text-muted); margin-bottom: 12px; font-weight: 600;">Add a set group to get started</p>
+      <div class="add-group-btns">
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Warm-Up')">+ Warm-Up</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Pre-Set')">+ Pre-Set</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Main Set')">+ Main Set</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Kick')">+ Kick</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Pull')">+ Pull</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Drill')">+ Drill</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Sprint')">+ Sprint</button>
+        <button class="btn btn-ghost btn-sm" onclick="addGroup('Cool-Down')">+ Cool-Down</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <h2>Export Practice</h2>
+    <div class="export-preview" id="exportPreview"></div>
+    <div style="display: flex; gap: 12px;">
+      <button class="btn btn-primary" onclick="copyExport()">Copy to Clipboard</button>
+      <button class="btn btn-ghost" onclick="printPractice()">Print</button>
+      <button class="btn btn-ghost" onclick="closeExport()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ——————————————————————————————————————————————
+// DATA MODEL
+// ——————————————————————————————————————————————
+
+const ZONES = {
+  EN1: { label: 'EN1 — Aerobic', color: '#3B82F6', bpm: '120-140', desc: 'Easy/moderate', paceMultiplier: 1.25 },
+  EN2: { label: 'EN2 — Threshold', color: '#8B5CF6', bpm: '140-160', desc: 'Steady threshold', paceMultiplier: 1.15 },
+  EN3: { label: 'EN3 — VO2max', color: '#EC4899', bpm: '160-175', desc: 'Hard aerobic', paceMultiplier: 1.08 },
+  SP1: { label: 'SP1 — Lactate', color: '#F59E0B', bpm: '170-185', desc: 'Race pace', paceMultiplier: 1.03 },
+  SP2: { label: 'SP2 — Power', color: '#EF4444', bpm: '180-190', desc: 'Near max', paceMultiplier: 1.0 },
+  SP3: { label: 'SP3 — Max Speed', color: '#DC2626', bpm: '190+', desc: 'All out', paceMultiplier: 0.97 },
+  REC: { label: 'REC — Recovery', color: '#10B981', bpm: '<120', desc: 'Easy recovery', paceMultiplier: 1.4 }
+};
+
+const STROKES = ['Free', 'Back', 'Breast', 'Fly', 'IM', 'Choice', 'Kick', 'Pull', 'Drill'];
+
+const GROUP_COLORS = {
+  'Warm-Up': '#F59E0B',
+  'Pre-Set': '#8B5CF6',
+  'Main Set': '#DC2626',
+  'Kick': '#10B981',
+  'Pull': '#3B82F6',
+  'Drill': '#6366F1',
+  'Sprint': '#EF4444',
+  'Cool-Down': '#06B6D4',
+  'Test Set': '#F97316'
+};
+
+let practice = {
+  title: '',
+  date: '',
+  group: 'Senior',
+  focus: 'Distance',
+  course: 'SCY',
+  groups: []
+};
+
+let nextGroupId = 1;
+let nextItemId = 1;
+let dragSrcGroup = null;
+
+// ——————————————————————————————————————————————
+// INIT
+// ——————————————————————————————————————————————
+
+function init() {
+  document.getElementById('practiceDate').value = new Date().toISOString().split('T')[0];
+  renderZoneLegend();
+  loadSavedList();
+  bindInfoInputs();
+  updateSummary();
+}
+
+function bindInfoInputs() {
+  document.getElementById('practiceTitle').addEventListener('input', (e) => {
+    practice.title = e.target.value;
+    updateHeader();
+  });
+  document.getElementById('practiceDate').addEventListener('change', (e) => {
+    practice.date = e.target.value;
+    updateHeader();
+  });
+  document.getElementById('practiceGroup').addEventListener('change', (e) => {
+    practice.group = e.target.value;
+    updateHeader();
+  });
+  document.getElementById('practiceFocus').addEventListener('change', (e) => {
+    practice.focus = e.target.value;
+    updateHeader();
+    document.getElementById('badgeFocus').textContent = e.target.value;
+  });
+  document.getElementById('poolCourse').addEventListener('change', (e) => {
+    practice.course = e.target.value;
+    updateSummary();
+  });
+}
+
+// ——————————————————————————————————————————————
+// RENDER
+// ——————————————————————————————————————————————
+
+function renderGroups() {
+  const container = document.getElementById('setGroups');
+  container.innerHTML = '';
+  practice.groups.forEach((group, gi) => {
+    const el = createGroupEl(group, gi);
+    container.appendChild(el);
+  });
+  updateSummary();
+  updateHeader();
+}
+
+function createGroupEl(group, gi) {
+  const div = document.createElement('div');
+  div.className = 'set-group';
+  div.dataset.groupId = group.id;
+  div.draggable = true;
+
+  // Drag handlers
+  div.addEventListener('dragstart', (e) => {
+    dragSrcGroup = gi;
+    div.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  div.addEventListener('dragend', () => { div.classList.remove('dragging'); });
+  div.addEventListener('dragover', (e) => { e.preventDefault(); div.classList.add('drag-over'); });
+  div.addEventListener('dragleave', () => { div.classList.remove('drag-over'); });
+  div.addEventListener('drop', (e) => {
+    e.preventDefault();
+    div.classList.remove('drag-over');
+    const targetGi = practice.groups.findIndex(g => g.id === group.id);
+    if (dragSrcGroup !== null && dragSrcGroup !== targetGi) {
+      const moved = practice.groups.splice(dragSrcGroup, 1)[0];
+      practice.groups.splice(targetGi, 0, moved);
+      renderGroups();
+    }
+    dragSrcGroup = null;
+  });
+
+  const color = GROUP_COLORS[group.type] || '#6B7280';
+  const groupVol = calcGroupVolume(group);
+
+  div.innerHTML = `
+    <div class="set-group-header">
+      <div class="group-label">
+        <span class="group-type-badge" style="background: ${color}20; color: ${color}; border: 1px solid ${color}40;">${group.type}</span>
+        <span class="group-name">${group.name || group.type}</span>
+        <span class="group-volume">${groupVol} ${practice.course === 'SCY' ? 'yds' : 'm'}</span>
+      </div>
+      <div class="group-actions">
+        <button class="icon-btn" onclick="editGroupName(${gi})" title="Rename">&#9998;</button>
+        <button class="icon-btn" onclick="moveGroup(${gi}, -1)" title="Move Up">&#9650;</button>
+        <button class="icon-btn" onclick="moveGroup(${gi}, 1)" title="Move Down">&#9660;</button>
+        <button class="icon-btn" onclick="duplicateGroup(${gi})" title="Duplicate">&#10697;</button>
+        <button class="icon-btn" onclick="removeGroup(${gi})" title="Delete" style="color: var(--scarlet);">&#10005;</button>
+      </div>
+    </div>
+    <div class="set-labels">
+      <span>Reps</span>
+      <span>Distance</span>
+      <span>Stroke</span>
+      <span>Interval</span>
+      <span>Zone</span>
+      <span>Notes</span>
+      <span></span>
+    </div>
+    <div class="set-items" id="items-${group.id}">
+      ${group.items.map((item, ii) => createItemHTML(item, gi, ii)).join('')}
+    </div>
+    <div class="add-item-row">
+      <button class="add-item-btn" onclick="addItem(${gi})">+ Add Interval</button>
+    </div>
+  `;
+  return div;
+}
+
+function createItemHTML(item, gi, ii) {
+  const zoneColor = ZONES[item.zone] ? ZONES[item.zone].color : '#6B7280';
+  return `
+    <div class="set-item" style="border-left: 3px solid ${zoneColor}; padding-left: 8px;">
+      <input type="number" value="${item.reps}" min="1" max="100" onchange="updateItem(${gi},${ii},'reps',this.value)" style="text-align:center;">
+      <select onchange="updateItem(${gi},${ii},'distance',this.value)">
+        ${[25,50,75,100,125,150,200,250,300,400,500,600,800,1000,1500,1650].map(d =>
+          `<option value="${d}" ${item.distance === d ? 'selected' : ''}>${d}</option>`
+        ).join('')}
+      </select>
+      <select onchange="updateItem(${gi},${ii},'stroke',this.value)">
+        ${STROKES.map(s => `<option value="${s}" ${item.stroke === s ? 'selected' : ''}>${s}</option>`).join('')}
+      </select>
+      <input type="text" value="${item.interval}" placeholder="e.g. 1:30" onchange="updateItem(${gi},${ii},'interval',this.value)">
+      <select class="zone-select" onchange="updateItem(${gi},${ii},'zone',this.value)" style="border-color: ${zoneColor};">
+        ${Object.entries(ZONES).map(([k,v]) => `<option value="${k}" ${item.zone === k ? 'selected' : ''} style="color:${v.color};">${k}</option>`).join('')}
+      </select>
+      <input type="text" value="${item.notes || ''}" placeholder="—" onchange="updateItem(${gi},${ii},'notes',this.value)" style="font-size:12px;">
+      <button class="remove-btn" onclick="removeItem(${gi},${ii})" title="Remove">&times;</button>
+    </div>
+  `;
+}
+
+// ——————————————————————————————————————————————
+// ACTIONS
+// ——————————————————————————————————————————————
+
+function addGroup(type) {
+  practice.groups.push({
+    id: nextGroupId++,
+    type: type,
+    name: type,
+    items: [{
+      id: nextItemId++,
+      reps: 1,
+      distance: type === 'Sprint' ? 50 : (type === 'Cool-Down' ? 200 : 100),
+      stroke: type === 'Kick' ? 'Kick' : (type === 'Pull' ? 'Pull' : (type === 'Drill' ? 'Drill' : 'Free')),
+      interval: '',
+      zone: type === 'Warm-Up' || type === 'Cool-Down' ? 'REC' : (type === 'Sprint' ? 'SP2' : 'EN1'),
+      notes: ''
+    }]
+  });
+  renderGroups();
+}
+
+function addItem(gi) {
+  const group = practice.groups[gi];
+  const lastItem = group.items[group.items.length - 1];
+  group.items.push({
+    id: nextItemId++,
+    reps: lastItem ? lastItem.reps : 1,
+    distance: lastItem ? lastItem.distance : 100,
+    stroke: lastItem ? lastItem.stroke : 'Free',
+    interval: lastItem ? lastItem.interval : '',
+    zone: lastItem ? lastItem.zone : 'EN1',
+    notes: ''
+  });
+  renderGroups();
+}
+
+function removeItem(gi, ii) {
+  practice.groups[gi].items.splice(ii, 1);
+  if (practice.groups[gi].items.length === 0) {
+    practice.groups.splice(gi, 1);
+  }
+  renderGroups();
+}
+
+function updateItem(gi, ii, field, value) {
+  if (field === 'reps' || field === 'distance') value = parseInt(value) || 1;
+  practice.groups[gi].items[ii][field] = value;
+  renderGroups();
+}
+
+function removeGroup(gi) {
+  practice.groups.splice(gi, 1);
+  renderGroups();
+}
+
+function moveGroup(gi, dir) {
+  const newIdx = gi + dir;
+  if (newIdx < 0 || newIdx >= practice.groups.length) return;
+  const temp = practice.groups[gi];
+  practice.groups[gi] = practice.groups[newIdx];
+  practice.groups[newIdx] = temp;
+  renderGroups();
+}
+
+function duplicateGroup(gi) {
+  const orig = practice.groups[gi];
+  const clone = JSON.parse(JSON.stringify(orig));
+  clone.id = nextGroupId++;
+  clone.name = clone.name + ' (copy)';
+  clone.items.forEach(item => { item.id = nextItemId++; });
+  practice.groups.splice(gi + 1, 0, clone);
+  renderGroups();
+}
+
+function editGroupName(gi) {
+  const name = prompt('Set group name:', practice.groups[gi].name);
+  if (name) {
+    practice.groups[gi].name = name;
+    renderGroups();
+  }
+}
+
+// ——————————————————————————————————————————————
+// TEMPLATES
+// ——————————————————————————————————————————————
+
+function addTemplate(type) {
+  const templates = {
+    warmup: {
+      type: 'Warm-Up', name: 'Warm-Up',
+      items: [
+        { reps: 1, distance: 200, stroke: 'Free', interval: '', zone: 'REC', notes: 'Easy' },
+        { reps: 1, distance: 200, stroke: 'IM', interval: '', zone: 'REC', notes: 'Drill/Swim by 50' },
+        { reps: 4, distance: 50, stroke: 'Choice', interval: '1:00', zone: 'EN1', notes: 'Build' }
+      ]
+    },
+    main: {
+      type: 'Main Set', name: 'Main Set',
+      items: [
+        { reps: 4, distance: 100, stroke: 'Free', interval: '1:30', zone: 'EN2', notes: 'Descend 1-4' },
+        { reps: 4, distance: 100, stroke: 'Free', interval: '1:25', zone: 'EN3', notes: 'Hold pace' }
+      ]
+    },
+    kick: {
+      type: 'Kick', name: 'Kick Set',
+      items: [
+        { reps: 6, distance: 50, stroke: 'Kick', interval: '1:00', zone: 'EN1', notes: 'w/ board' },
+        { reps: 4, distance: 25, stroke: 'Kick', interval: '0:30', zone: 'SP1', notes: 'Fast' }
+      ]
+    },
+    pull: {
+      type: 'Pull', name: 'Pull Set',
+      items: [
+        { reps: 4, distance: 200, stroke: 'Pull', interval: '3:00', zone: 'EN2', notes: 'Paddles+buoy' }
+      ]
+    },
+    drill: {
+      type: 'Drill', name: 'Drill Set',
+      items: [
+        { reps: 4, distance: 50, stroke: 'Drill', interval: '1:10', zone: 'REC', notes: 'Catch-up' },
+        { reps: 4, distance: 50, stroke: 'Free', interval: '1:00', zone: 'EN1', notes: 'Apply drill' }
+      ]
+    },
+    sprint: {
+      type: 'Sprint', name: 'Sprint Set',
+      items: [
+        { reps: 6, distance: 25, stroke: 'Free', interval: '0:45', zone: 'SP3', notes: 'MAX' },
+        { reps: 2, distance: 50, stroke: 'Free', interval: '1:30', zone: 'SP2', notes: 'Fast' }
+      ]
+    },
+    cooldown: {
+      type: 'Cool-Down', name: 'Cool-Down',
+      items: [
+        { reps: 1, distance: 300, stroke: 'Choice', interval: '', zone: 'REC', notes: 'Easy swim' }
+      ]
+    },
+    test: {
+      type: 'Test Set', name: 'Test Set',
+      items: [
+        { reps: 1, distance: 200, stroke: 'Free', interval: '', zone: 'SP1', notes: 'ALL OUT — time trial' }
+      ]
+    }
+  };
+
+  const tmpl = templates[type];
+  if (!tmpl) return;
+
+  const group = {
+    id: nextGroupId++,
+    type: tmpl.type,
+    name: tmpl.name,
+    items: tmpl.items.map(item => ({
+      id: nextItemId++,
+      ...item
+    }))
+  };
+
+  practice.groups.push(group);
+  renderGroups();
+}
+
+// ——————————————————————————————————————————————
+// CALCULATIONS
+// ——————————————————————————————————————————————
+
+function calcGroupVolume(group) {
+  return group.items.reduce((sum, item) => sum + (item.reps * item.distance), 0);
+}
+
+function calcTotalVolume() {
+  return practice.groups.reduce((sum, g) => sum + calcGroupVolume(g), 0);
+}
+
+function calcTotalItems() {
+  return practice.groups.reduce((sum, g) => sum + g.items.length, 0);
+}
+
+function calcZoneDistribution() {
+  const dist = {};
+  Object.keys(ZONES).forEach(z => dist[z] = 0);
+  practice.groups.forEach(g => {
+    g.items.forEach(item => {
+      dist[item.zone] = (dist[item.zone] || 0) + (item.reps * item.distance);
+    });
+  });
+  return dist;
+}
+
+function calcEstTime() {
+  // Rough estimate: avg pace ~1:30/100 adjusted by zone
+  let totalSeconds = 0;
+  practice.groups.forEach(g => {
+    g.items.forEach(item => {
+      const basePace = 90; // 1:30/100
+      const mult = ZONES[item.zone] ? ZONES[item.zone].paceMultiplier : 1.2;
+      const secPer100 = basePace * mult;
+      const swimTime = (item.reps * item.distance / 100) * secPer100;
+      // Add rest: parse interval if available
+      let restTime = 0;
+      if (item.interval) {
+        const parts = item.interval.split(':');
+        if (parts.length === 2) {
+          const intervalSec = parseInt(parts[0]) * 60 + parseInt(parts[1]);
+          const swimPerRep = (item.distance / 100) * secPer100;
+          const restPerRep = Math.max(0, intervalSec - swimPerRep);
+          restTime = restPerRep * item.reps;
+        }
+      }
+      totalSeconds += swimTime + restTime;
+    });
+    // Add 30s transition between groups
+    totalSeconds += 30;
+  });
+  return Math.round(totalSeconds / 60);
+}
+
+// ——————————————————————————————————————————————
+// UPDATE UI
+// ——————————————————————————————————————————————
+
+function updateSummary() {
+  const vol = calcTotalVolume();
+  const unit = practice.course === 'SCY' ? 'yds' : 'm';
+  document.getElementById('totalYards').textContent = vol.toLocaleString();
+  document.getElementById('totalSets').textContent = practice.groups.length;
+  document.getElementById('estTime').textContent = calcEstTime();
+  document.getElementById('totalItems').textContent = calcTotalItems();
+  document.getElementById('badgeYards').textContent = `${vol.toLocaleString()} ${unit}`;
+  document.getElementById('statsGrid').querySelector('.stat-label').textContent = `Total ${unit === 'yds' ? 'Yards' : 'Meters'}`;
+  updateZoneLegend();
+}
+
+function updateHeader() {
+  const title = practice.title || 'New Practice';
+  const dateStr = practice.date ? new Date(practice.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' }) : '';
+  const meta = [practice.group, dateStr, practice.course].filter(Boolean).join(' • ');
+  document.getElementById('workoutTitleDisplay').textContent = title;
+  document.getElementById('workoutMetaDisplay').textContent = meta || 'Add sets below to build your workout';
+}
+
+function renderZoneLegend() {
+  const container = document.getElementById('zoneLegend');
+  container.innerHTML = Object.entries(ZONES).map(([key, zone]) => `
+    <div class="zone-item">
+      <div class="zone-dot" style="background: ${zone.color};"></div>
+      <span style="width: 32px;">${key}</span>
+      <div class="zone-bar">
+        <div class="zone-fill" id="zone-bar-${key}" style="width: 0%; background: ${zone.color};"></div>
+      </div>
+      <span style="min-width: 45px; text-align: right;" id="zone-pct-${key}">0%</span>
+    </div>
+  `).join('');
+}
+
+function updateZoneLegend() {
+  const dist = calcZoneDistribution();
+  const total = Object.values(dist).reduce((a, b) => a + b, 0) || 1;
+  Object.entries(dist).forEach(([zone, vol]) => {
+    const pct = Math.round((vol / total) * 100);
+    const bar = document.getElementById(`zone-bar-${zone}`);
+    const label = document.getElementById(`zone-pct-${zone}`);
+    if (bar) bar.style.width = pct + '%';
+    if (label) label.textContent = pct + '%';
+  });
+}
+
+// ——————————————————————————————————————————————
+// SAVE / LOAD
+// ——————————————————————————————————————————————
+
+function savePractice() {
+  practice.title = document.getElementById('practiceTitle').value;
+  practice.date = document.getElementById('practiceDate').value;
+  practice.group = document.getElementById('practiceGroup').value;
+  practice.focus = document.getElementById('practiceFocus').value;
+  practice.course = document.getElementById('poolCourse').value;
+
+  const key = 'mettle_practice_' + (practice.date || Date.now());
+  const saved = JSON.parse(localStorage.getItem('mettle_practices') || '{}');
+  saved[key] = {
+    ...practice,
+    savedAt: new Date().toISOString(),
+    totalVolume: calcTotalVolume()
+  };
+  localStorage.setItem('mettle_practices', JSON.stringify(saved));
+  loadSavedList();
+  alert('Practice saved!');
+}
+
+function loadSavedList() {
+  const saved = JSON.parse(localStorage.getItem('mettle_practices') || '{}');
+  const container = document.getElementById('savedList');
+  const keys = Object.keys(saved).sort().reverse();
+  if (keys.length === 0) {
+    container.innerHTML = '<span style="color: var(--text-muted);">No saved practices yet.</span>';
+    return;
+  }
+  container.innerHTML = keys.slice(0, 8).map(key => {
+    const p = saved[key];
+    return `<div style="padding: 6px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <div>
+        <div style="font-weight: 700; color: var(--text);">${p.title || 'Untitled'}</div>
+        <div style="font-size: 11px;">${p.date || '—'} • ${p.totalVolume || 0} ${p.course === 'SCY' ? 'yds' : 'm'}</div>
+      </div>
+      <div style="display: flex; gap: 4px;">
+        <button class="icon-btn" onclick="loadPractice('${key}')" title="Load" style="font-size:14px;">&#128194;</button>
+        <button class="icon-btn" onclick="deletePractice('${key}')" title="Delete" style="font-size:14px; color: var(--scarlet);">&#10005;</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function loadPractice(key) {
+  const saved = JSON.parse(localStorage.getItem('mettle_practices') || '{}');
+  if (!saved[key]) return;
+  const p = saved[key];
+  practice = { ...p };
+  delete practice.savedAt;
+  delete practice.totalVolume;
+
+  // Restore next IDs
+  nextGroupId = Math.max(...practice.groups.map(g => g.id), 0) + 1;
+  nextItemId = Math.max(...practice.groups.flatMap(g => g.items.map(i => i.id)), 0) + 1;
+
+  document.getElementById('practiceTitle').value = practice.title || '';
+  document.getElementById('practiceDate').value = practice.date || '';
+  document.getElementById('practiceGroup').value = practice.group || 'Senior';
+  document.getElementById('practiceFocus').value = practice.focus || 'Distance';
+  document.getElementById('poolCourse').value = practice.course || 'SCY';
+  renderGroups();
+}
+
+function deletePractice(key) {
+  const saved = JSON.parse(localStorage.getItem('mettle_practices') || '{}');
+  delete saved[key];
+  localStorage.setItem('mettle_practices', JSON.stringify(saved));
+  loadSavedList();
+}
+
+// ——————————————————————————————————————————————
+// EXPORT
+// ——————————————————————————————————————————————
+
+function showExport() {
+  const unit = practice.course === 'SCY' ? 'yds' : 'm';
+  const title = practice.title || 'Practice';
+  const date = practice.date ? new Date(practice.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '';
+
+  let text = `${'═'.repeat(50)}\n`;
+  text += `  METTLE Practice Plan\n`;
+  text += `  ${title}\n`;
+  text += `${'═'.repeat(50)}\n`;
+  text += `Date: ${date || '—'}  |  Group: ${practice.group}  |  Focus: ${practice.focus}  |  Course: ${practice.course}\n`;
+  text += `Total: ${calcTotalVolume().toLocaleString()} ${unit}  |  Est: ~${calcEstTime()} min\n`;
+  text += `${'─'.repeat(50)}\n\n`;
+
+  practice.groups.forEach(group => {
+    const vol = calcGroupVolume(group);
+    text += `▸ ${group.name.toUpperCase()} (${vol} ${unit})\n`;
+    text += `${'─'.repeat(40)}\n`;
+    group.items.forEach(item => {
+      const line = `  ${item.reps}x${item.distance} ${item.stroke}`;
+      const interval = item.interval ? ` @ ${item.interval}` : '';
+      const zone = ` [${item.zone}]`;
+      const notes = item.notes ? ` — ${item.notes}` : '';
+      text += `${line}${interval}${zone}${notes}\n`;
+    });
+    text += '\n';
+  });
+
+  // Zone summary
+  const dist = calcZoneDistribution();
+  const total = Object.values(dist).reduce((a, b) => a + b, 0) || 1;
+  text += `${'─'.repeat(50)}\n`;
+  text += `Energy Zone Breakdown:\n`;
+  Object.entries(dist).forEach(([zone, vol]) => {
+    if (vol > 0) {
+      const pct = Math.round((vol / total) * 100);
+      const bar = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
+      text += `  ${zone}: ${bar} ${pct}% (${vol} ${unit})\n`;
+    }
+  });
+  text += `${'═'.repeat(50)}\n`;
+  text += `Generated by METTLE Practice Planner\n`;
+
+  document.getElementById('exportPreview').textContent = text;
+  document.getElementById('exportModal').classList.add('active');
+}
+
+function closeExport() {
+  document.getElementById('exportModal').classList.remove('active');
+}
+
+function copyExport() {
+  const text = document.getElementById('exportPreview').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    alert('Copied to clipboard!');
+  });
+}
+
+function printPractice() {
+  window.print();
+}
+
+// ——————————————————————————————————————————————
+// CLEAR / DEMO
+// ——————————————————————————————————————————————
+
+function clearAll() {
+  if (!confirm('Clear all sets? This cannot be undone.')) return;
+  practice.groups = [];
+  renderGroups();
+}
+
+function loadDemo() {
+  practice.title = 'Tuesday AM — Distance & Threshold';
+  practice.date = new Date().toISOString().split('T')[0];
+  practice.group = 'Senior';
+  practice.focus = 'Distance';
+  practice.course = 'SCY';
+
+  document.getElementById('practiceTitle').value = practice.title;
+  document.getElementById('practiceDate').value = practice.date;
+  document.getElementById('practiceGroup').value = practice.group;
+  document.getElementById('practiceFocus').value = practice.focus;
+  document.getElementById('poolCourse').value = practice.course;
+
+  practice.groups = [
+    {
+      id: nextGroupId++, type: 'Warm-Up', name: 'Warm-Up',
+      items: [
+        { id: nextItemId++, reps: 1, distance: 400, stroke: 'Free', interval: '', zone: 'REC', notes: 'Easy swim' },
+        { id: nextItemId++, reps: 1, distance: 200, stroke: 'IM', interval: '', zone: 'REC', notes: 'Drill/Swim by 50' },
+        { id: nextItemId++, reps: 4, distance: 75, stroke: 'Choice', interval: '1:15', zone: 'EN1', notes: 'Build each 75' }
+      ]
+    },
+    {
+      id: nextGroupId++, type: 'Kick', name: 'Kick Set',
+      items: [
+        { id: nextItemId++, reps: 8, distance: 50, stroke: 'Kick', interval: '1:00', zone: 'EN1', notes: 'w/ board, alternate free/back' },
+        { id: nextItemId++, reps: 4, distance: 25, stroke: 'Kick', interval: '0:35', zone: 'SP1', notes: 'FAST — streamline' }
+      ]
+    },
+    {
+      id: nextGroupId++, type: 'Pre-Set', name: 'Pre-Set — Threshold Prep',
+      items: [
+        { id: nextItemId++, reps: 6, distance: 100, stroke: 'Free', interval: '1:30', zone: 'EN2', notes: 'Descend 1-3, repeat' },
+        { id: nextItemId++, reps: 2, distance: 50, stroke: 'Choice', interval: '1:00', zone: 'REC', notes: 'Easy recovery' }
+      ]
+    },
+    {
+      id: nextGroupId++, type: 'Main Set', name: 'Main Set — Broken 500s',
+      items: [
+        { id: nextItemId++, reps: 3, distance: 100, stroke: 'Free', interval: '1:20', zone: 'EN3', notes: 'Hold target pace' },
+        { id: nextItemId++, reps: 1, distance: 100, stroke: 'Free', interval: '1:40', zone: 'EN2', notes: 'Recovery 100' },
+        { id: nextItemId++, reps: 1, distance: 100, stroke: 'Free', interval: '', zone: 'SP1', notes: 'FAST finish — time it' }
+      ]
+    },
+    {
+      id: nextGroupId++, type: 'Main Set', name: 'Main Set — Repeat (set 2 of 2)',
+      items: [
+        { id: nextItemId++, reps: 3, distance: 100, stroke: 'Free', interval: '1:20', zone: 'EN3', notes: 'Match or beat set 1' },
+        { id: nextItemId++, reps: 1, distance: 100, stroke: 'Free', interval: '1:40', zone: 'EN2', notes: 'Recovery 100' },
+        { id: nextItemId++, reps: 1, distance: 100, stroke: 'Free', interval: '', zone: 'SP1', notes: 'FAST finish — PR effort' }
+      ]
+    },
+    {
+      id: nextGroupId++, type: 'Pull', name: 'Pull Set',
+      items: [
+        { id: nextItemId++, reps: 3, distance: 200, stroke: 'Pull', interval: '2:50', zone: 'EN2', notes: 'Paddles + buoy, even pace' }
+      ]
+    },
+    {
+      id: nextGroupId++, type: 'Cool-Down', name: 'Cool-Down',
+      items: [
+        { id: nextItemId++, reps: 1, distance: 200, stroke: 'Choice', interval: '', zone: 'REC', notes: 'Easy swim' },
+        { id: nextItemId++, reps: 1, distance: 100, stroke: 'Back', interval: '', zone: 'REC', notes: 'Stretch & loosen' }
+      ]
+    }
+  ];
+
+  renderGroups();
+}
+
+// ——————————————————————————————————————————————
+// INIT
+// ——————————————————————————————————————————————
+init();
+</script>
+</body>
+</html>

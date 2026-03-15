@@ -1,0 +1,15 @@
+{
+  "name": "Galactik Antics",
+  "slug": "galactik-antics",
+  "accent": "#00f0ff",
+  "status": "planning",
+  "desc": "AI art merch — Shopify store",
+  "priority": 3,
+  "priorityLabel": "HIGH",
+  "agents": ["Vee", "SHURI", "INK", "NOVA", "Aetherion"],
+  "lead": "Aetherion",
+  "blockers": ["Shopify API credentials", "GA art assets", "Timeline", "Kickstarter date"],
+  "link": { "label": "Printful", "href": "https://www.printful.com/dashboard" },
+  "liveUrl": null,
+  "stack": ["Shopify", "Printful"]
+}

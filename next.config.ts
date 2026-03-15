@@ -9,7 +9,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://*.googleapis.com https://*.stripe.com",
-      "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://api.stripe.com https://vitals.vercel-insights.com https://va.vercel-scripts.com wss://*.firebaseio.com",
+      "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://api.stripe.com https://vitals.vercel-insights.com https://va.vercel-scripts.com wss://*.firebaseio.com https://wttr.in https://bible-api.com https://*.supabase.co wss://*.supabase.co",
       "frame-src https://js.stripe.com https://*.firebaseapp.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -27,9 +27,16 @@ const nextConfig: NextConfig = {
   experimental: {
     staleTimes: {
       dynamic: 0,
-      static: 30,
+      static: 0,
     },
   },
+  redirects: async () => [
+    {
+      source: "/apex-athlete",
+      destination: "/apex-athlete/coach",
+      permanent: true,
+    },
+  ],
   headers: async () => [
     {
       source: "/(.*)",

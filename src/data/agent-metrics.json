@@ -1,0 +1,226 @@
+{
+  "generated": "2026-03-14T12:00:00Z",
+  "description": "Agent performance metrics — tasks, response times, status, lanes",
+  "agents": [
+    {
+      "name": "Atlas",
+      "model": "Opus 4.6 / Sonnet 4.5",
+      "role": "Operations Lead",
+      "lane": "operations",
+      "status": "active",
+      "tasksCompletedToday": 47,
+      "avgResponseTime": 3.2,
+      "lastActive": "2026-03-14T11:58:22Z",
+      "color": "#C9A84C"
+    },
+    {
+      "name": "TheMAESTRO",
+      "model": "DeepSeek V3.2",
+      "role": "Music Production AI",
+      "lane": "creative",
+      "status": "idle",
+      "tasksCompletedToday": 0,
+      "avgResponseTime": 5.1,
+      "lastActive": "2026-03-12T09:30:00Z",
+      "color": "#f59e0b"
+    },
+    {
+      "name": "SIMONS",
+      "model": "DeepSeek V3.2",
+      "role": "Algorithmic Analysis",
+      "lane": "analytics",
+      "status": "active",
+      "tasksCompletedToday": 12,
+      "avgResponseTime": 4.7,
+      "lastActive": "2026-03-14T11:55:10Z",
+      "color": "#22d3ee"
+    },
+    {
+      "name": "Dr. Strange",
+      "model": "DeepSeek V3.2",
+      "role": "Forecasting & Decisions",
+      "lane": "strategy",
+      "status": "idle",
+      "tasksCompletedToday": 0,
+      "avgResponseTime": 6.3,
+      "lastActive": "2026-03-13T18:45:00Z",
+      "color": "#a855f7"
+    },
+    {
+      "name": "SHURI",
+      "model": "DeepSeek V3.2",
+      "role": "Creative Coding",
+      "lane": "engineering",
+      "status": "active",
+      "tasksCompletedToday": 31,
+      "avgResponseTime": 2.8,
+      "lastActive": "2026-03-14T11:57:45Z",
+      "color": "#34d399"
+    },
+    {
+      "name": "Widow",
+      "model": "Haiku 4.5",
+      "role": "Cybersecurity & Intel",
+      "lane": "security",
+      "status": "active",
+      "tasksCompletedToday": 8,
+      "avgResponseTime": 1.9,
+      "lastActive": "2026-03-14T11:52:30Z",
+      "color": "#ef4444"
+    },
+    {
+      "name": "PROXIMON",
+      "model": "DeepSeek V3.2",
+      "role": "Systems Architect",
+      "lane": "architecture",
+      "status": "active",
+      "tasksCompletedToday": 14,
+      "avgResponseTime": 5.5,
+      "lastActive": "2026-03-14T11:50:00Z",
+      "color": "#f97316"
+    },
+    {
+      "name": "Vee",
+      "model": "Kimi K2.5",
+      "role": "Brand & Marketing",
+      "lane": "marketing",
+      "status": "active",
+      "tasksCompletedToday": 18,
+      "avgResponseTime": 4.2,
+      "lastActive": "2026-03-14T11:56:15Z",
+      "color": "#ec4899"
+    },
+    {
+      "name": "Aetherion",
+      "model": "Gemini 3.0 Pro",
+      "role": "Meta-Architect",
+      "lane": "creative",
+      "status": "idle",
+      "tasksCompletedToday": 3,
+      "avgResponseTime": 7.1,
+      "lastActive": "2026-03-14T08:20:00Z",
+      "color": "#818cf8"
+    },
+    {
+      "name": "MICHAEL",
+      "model": "GLM 4.6",
+      "role": "Swim Training AI",
+      "lane": "athletics",
+      "status": "active",
+      "tasksCompletedToday": 9,
+      "avgResponseTime": 3.8,
+      "lastActive": "2026-03-14T11:45:00Z",
+      "color": "#06b6d4"
+    },
+    {
+      "name": "Prophets",
+      "model": "Kimi K2.5",
+      "role": "Spiritual Wisdom",
+      "lane": "spiritual",
+      "status": "active",
+      "tasksCompletedToday": 5,
+      "avgResponseTime": 4.0,
+      "lastActive": "2026-03-14T07:15:00Z",
+      "color": "#d4a574"
+    },
+    {
+      "name": "SELAH",
+      "model": "DeepSeek V3.2",
+      "role": "Wellness & Sport Psychology",
+      "lane": "wellness",
+      "status": "idle",
+      "tasksCompletedToday": 2,
+      "avgResponseTime": 5.8,
+      "lastActive": "2026-03-14T09:30:00Z",
+      "color": "#10b981"
+    },
+    {
+      "name": "MERCURY",
+      "model": "DeepSeek V3.2",
+      "role": "Sales & Revenue Ops",
+      "lane": "sales",
+      "status": "active",
+      "tasksCompletedToday": 15,
+      "avgResponseTime": 3.5,
+      "lastActive": "2026-03-14T11:54:00Z",
+      "color": "#fbbf24"
+    },
+    {
+      "name": "ECHO",
+      "model": "Kimi K2.5",
+      "role": "Community & Social",
+      "lane": "community",
+      "status": "active",
+      "tasksCompletedToday": 22,
+      "avgResponseTime": 2.4,
+      "lastActive": "2026-03-14T11:59:00Z",
+      "color": "#38bdf8"
+    },
+    {
+      "name": "HAVEN",
+      "model": "DeepSeek V3.2",
+      "role": "Customer Success",
+      "lane": "support",
+      "status": "idle",
+      "tasksCompletedToday": 0,
+      "avgResponseTime": 4.5,
+      "lastActive": "2026-03-13T14:00:00Z",
+      "color": "#4ade80"
+    },
+    {
+      "name": "INK",
+      "model": "DeepSeek V3.2",
+      "role": "Content Creator",
+      "lane": "content",
+      "status": "active",
+      "tasksCompletedToday": 11,
+      "avgResponseTime": 3.9,
+      "lastActive": "2026-03-14T11:48:00Z",
+      "color": "#c084fc"
+    },
+    {
+      "name": "NOVA",
+      "model": "DeepSeek V3.2",
+      "role": "3D Fabrication",
+      "lane": "fabrication",
+      "status": "offline",
+      "tasksCompletedToday": 0,
+      "avgResponseTime": 3.1,
+      "lastActive": "2026-03-14T02:30:00Z",
+      "color": "#14b8a6"
+    },
+    {
+      "name": "KIYOSAKI",
+      "model": "DeepSeek V3.2",
+      "role": "Financial Intelligence",
+      "lane": "finance",
+      "status": "idle",
+      "tasksCompletedToday": 4,
+      "avgResponseTime": 6.0,
+      "lastActive": "2026-03-14T10:15:00Z",
+      "color": "#fcd34d"
+    },
+    {
+      "name": "TRIAGE",
+      "model": "Sonnet 4.5",
+      "role": "System Doctor",
+      "lane": "engineering",
+      "status": "idle",
+      "tasksCompletedToday": 0,
+      "avgResponseTime": 2.1,
+      "lastActive": "2026-03-13T22:00:00Z",
+      "color": "#f472b6"
+    },
+    {
+      "name": "THEMIS",
+      "model": "Opus 4.6",
+      "role": "Legal & Compliance",
+      "lane": "governance",
+      "status": "idle",
+      "tasksCompletedToday": 1,
+      "avgResponseTime": 5.4,
+      "lastActive": "2026-03-14T06:00:00Z",
+      "color": "#8b5cf6"
+    }
+  ]
+}

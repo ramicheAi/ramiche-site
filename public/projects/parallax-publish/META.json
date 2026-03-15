@@ -1,0 +1,16 @@
+{
+  "name": "Parallax Publish",
+  "slug": "parallax-publish",
+  "accent": "#7c3aed",
+  "status": "active",
+  "desc": "Multi-platform social media publishing — 4 platforms live",
+  "priority": 2,
+  "priorityLabel": "HIGH",
+  "agents": ["Atlas", "SHURI"],
+  "lead": "Shuri",
+  "blockers": ["Instagram blocked on Facebook Developer Portal"],
+  "link": { "label": "Open Publish", "href": "https://parallax-publish.vercel.app" },
+  "repo": "ramicheAi/parallax-publish",
+  "liveUrl": "https://parallax-publish.vercel.app",
+  "stack": ["Next.js", "React 19", "Tailwind 4", "OAuth2"]
+}
