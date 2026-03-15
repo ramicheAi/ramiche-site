@@ -823,17 +823,17 @@ export default function CommandCenter() {
   /* ── fetch live agent data from status.json (mount + every 15s) ── */
   useEffect(() => {
     const fetchStatus = () => {
-      fetch("/status.json", { cache: "no-store" })
+      fetch("/api/command-center/agents", { cache: "no-store" })
         .then(r => r.json())
-        .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
+        .then((data: { agents?: { id: string; name: string; model: string; role: string; status: string; skills?: string[] }[] }) => {
           if (!data.agents) return;
           const merged = AGENTS.map(a => {
-            const live = data.agents!.find(la => la.name === a.name);
+            const live = data.agents!.find(la => la.name.toLowerCase() === a.name.toLowerCase());
             if (!live) return a;
             return {
               ...a,
+              model: live.model || a.model,
               status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as typeof a.status,
-              activeTask: live.task || a.activeTask,
             };
           });
           setLiveAgents(merged);
