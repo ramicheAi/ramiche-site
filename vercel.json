@@ -1,4 +1,10 @@
 {
+  "crons": [
+    {
+      "path": "/api/meet-results/cron",
+      "schedule": "*/15 * * * *"
+    }
+  ],
   "redirects": [
     {
       "source": "/apex-athlete",
