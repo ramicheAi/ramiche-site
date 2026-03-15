@@ -5,6 +5,7 @@ import BgOrbs from "../components/BgOrbs";
 import type { Athlete, RosterGroup, SwimMeet, MeetEvent, MeetEventEntry, MeetBroadcast } from "../types";
 import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult } from "../../lib/meet-scoring";
 import MeetDayStatsBar from "../components/MeetDayStatsBar";
+import HeatLaneGrid from "../components/HeatLaneGrid";
 
 // Re-export meet types for consumers that imported from here
 export type { MeetEventEntry, MeetEvent, MeetBroadcast, SwimMeet };
@@ -450,29 +451,25 @@ export default function MeetsView({
                             </div>
                             {ev.entries.some(e => e.heat) && (() => {
                               const maxHeat = Math.max(...ev.entries.map(e => e.heat || 0));
+                              const gridEntries = ev.entries
+                                .filter(e => e.heat)
+                                .map(e => ({
+                                  athleteId: e.athleteId,
+                                  athleteName: roster.find(a => a.id === e.athleteId)?.name || "?",
+                                  heat: e.heat || 0,
+                                  lane: e.lane || 0,
+                                  seedTime: e.seedTime,
+                                  finalTime: e.finalTime,
+                                  improvement: e.improvement,
+                                  place: e.place,
+                                }));
                               return (
-                                <div className="space-y-2">
-                                  {Array.from({ length: maxHeat }, (_, i) => i + 1).map(h => {
-                                    const heatEntries = ev.entries.filter(e => e.heat === h).sort((a, b) => (a.lane || 0) - (b.lane || 0));
-                                    return (
-                                      <div key={h} className="bg-white/[0.02] rounded-lg p-2">
-                                        <div className="text-[10px] text-white/40 uppercase font-bold mb-1">Heat {h}{h === maxHeat ? " (Fast)" : ""}</div>
-                                        <div className="grid grid-cols-2 gap-1">
-                                          {heatEntries.map(e => {
-                                            const ath = roster.find(a => a.id === e.athleteId);
-                                            return (
-                                              <div key={e.athleteId} className="flex items-center gap-2 text-xs">
-                                                <span className="text-[#00f0ff]/50 font-mono w-5 text-right">L{e.lane}</span>
-                                                <span className="text-white/80 truncate">{ath?.name || "?"}</span>
-                                                <span className="text-white/40 font-mono ml-auto">{e.seedTime || "NT"}</span>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
+                                <HeatLaneGrid
+                                  entries={gridEntries}
+                                  maxHeats={maxHeat}
+                                  lanesPerHeat={ev.lanesPerHeat || 8}
+                                  showResults={editMeet.status === "completed"}
+                                />
                               );
                             })()}
                           </div>
