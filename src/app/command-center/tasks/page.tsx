@@ -247,7 +247,7 @@ export default function TaskBoardPage() {
           const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
           for (const col of COLUMNS) {
             if (Array.isArray(pipelineTasksData.tasks[col.id])) {
-              live[col.id] = pipelineTasksData.tasks[col.id];
+              live[col.id] = pipelineTasksData.tasks[col.id] as Task[];
             }
           }
           const total = Object.values(live).reduce((s, a) => s + a.length, 0);

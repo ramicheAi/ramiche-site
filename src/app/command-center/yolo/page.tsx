@@ -70,22 +70,48 @@ export default function YoloBuildsPage() {
 
   useEffect(() => {
     async function loadBuilds() {
+      // Step 1: Try fetching real build data from API
+      let apiBuilds: Build[] = [];
+      try {
+        const res = await fetch("/api/command-center/yolo-builds");
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            apiBuilds = data;
+          }
+        }
+      } catch {}
+
+      // Step 2: Merge API data with SEED_BUILDS (API takes priority, dedup by folder)
+      const seedWithDefaults = SEED_BUILDS.map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus }));
+      let merged: Build[];
+      if (apiBuilds.length > 0) {
+        const folderSet = new Set(apiBuilds.map(b => b.folder));
+        const apiWithDefaults = apiBuilds.map(b => ({ ...b, reviewStatus: (b.reviewStatus || "pending") as ReviewStatus }));
+        const uniqueSeeds = seedWithDefaults.filter(b => !folderSet.has(b.folder));
+        merged = [...apiWithDefaults, ...uniqueSeeds];
+      } else {
+        merged = seedWithDefaults;
+      }
+
+      // Step 3: Sort by date descending
+      merged.sort((a, b) => b.date.localeCompare(a.date));
+
+      // Step 4: If Firestore is available, sync
       if (db && hasConfig) {
         try {
           const q = query(collection(db, "yolo_builds"), orderBy("date", "desc"));
           const snap = await getDocs(q);
-          const data = snap.docs.map(d => ({ ...d.data(), id: d.id } as unknown as Build));
-          if (data.length > 0) { setBuilds(data); return; }
-          // Firestore empty — seed it
-          for (const build of SEED_BUILDS) {
+          const fsData = snap.docs.map(d => ({ ...d.data(), id: d.id } as unknown as Build));
+          if (fsData.length > 0) { setBuilds(fsData); return; }
+          // Firestore empty — seed it with merged data
+          for (const build of merged) {
             await setDoc(doc(db, "yolo_builds", build.folder), { ...build, reviewStatus: "pending" }, { merge: true });
           }
-          setBuilds(SEED_BUILDS.map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus })));
-          return;
         } catch {}
       }
-      // No Firestore — use seed data directly
-      setBuilds(SEED_BUILDS.map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus })));
+
+      setBuilds(merged);
     }
     loadBuilds();
   }, []);

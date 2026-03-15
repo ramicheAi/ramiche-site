@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import agentMetricsData from "@/data/agent-metrics.json";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER v4 — HOLOGRAPHIC MISSION CONTROL
@@ -1353,6 +1354,115 @@ export default function CommandCenter() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* ═══════ AGENT PERFORMANCE METRICS ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(168,85,247,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#a855f7]" style={{ boxShadow: '0 0 8px rgba(168,85,247,0.6)' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Agent Performance</h2>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(168,85,247,0.2), transparent)' }} />
+            </div>
+
+            {/* Summary bar */}
+            <div className="flex items-center gap-4 mb-4 flex-wrap">
+              {(() => {
+                const m = agentMetricsData.agents;
+                const activeCount = m.filter(a => a.status === 'active').length;
+                const idleCount = m.filter(a => a.status === 'idle').length;
+                const offlineCount = m.filter(a => a.status === 'offline').length;
+                const totalTasks = m.reduce((s, a) => s + a.tasksCompletedToday, 0);
+                const avgResp = (m.filter(a => a.status === 'active').reduce((s, a) => s + a.avgResponseTime, 0) / (activeCount || 1)).toFixed(1);
+                return (
+                  <>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(0,255,136,0.06)', border: '1px solid rgba(0,255,136,0.15)' }}>
+                      <div className="w-2 h-2 rounded-full bg-[#00ff88]" style={{ boxShadow: '0 0 6px rgba(0,255,136,0.5)' }} />
+                      <span className="text-[11px] font-mono text-[#00ff88]">{activeCount} Active</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(250,204,21,0.06)', border: '1px solid rgba(250,204,21,0.15)' }}>
+                      <div className="w-2 h-2 rounded-full bg-[#facc15]" />
+                      <span className="text-[11px] font-mono text-[#facc15]">{idleCount} Idle</span>
+                    </div>
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+                      <div className="w-2 h-2 rounded-full bg-[#555]" />
+                      <span className="text-[11px] font-mono text-[#555]">{offlineCount} Offline</span>
+                    </div>
+                    <div className="ml-auto flex items-center gap-4">
+                      <span className="text-[11px] font-mono text-[#888]">{totalTasks} tasks today</span>
+                      <span className="text-[11px] font-mono text-[#888]">~{avgResp}s avg</span>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Agent grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {agentMetricsData.agents.map((agent) => {
+                const statusColor = agent.status === 'active' ? '#00ff88' : agent.status === 'idle' ? '#facc15' : '#555';
+                const statusLabel = agent.status === 'active' ? 'ACTIVE' : agent.status === 'idle' ? 'IDLE' : 'OFFLINE';
+                const lastActiveDate = new Date(agent.lastActive);
+                const now = new Date();
+                const minsAgo = Math.round((now.getTime() - lastActiveDate.getTime()) / 60000);
+                const lastActiveStr = minsAgo < 60 ? `${minsAgo}m ago` : minsAgo < 1440 ? `${Math.round(minsAgo / 60)}h ago` : `${Math.round(minsAgo / 1440)}d ago`;
+
+                return (
+                  <div
+                    key={agent.name}
+                    className="relative p-4 rounded-xl transition-all duration-300 group hover:scale-[1.02]"
+                    style={{
+                      background: '#111111',
+                      border: `1px solid ${agent.status === 'active' ? agent.color + '25' : '#1e1e1e'}`,
+                      boxShadow: agent.status === 'active' ? `0 0 20px ${agent.color}08` : 'none',
+                    }}
+                  >
+                    {/* Status + name header */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <div
+                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${agent.status === 'active' ? 'animate-pulse' : ''}`}
+                        style={{
+                          background: statusColor,
+                          boxShadow: agent.status === 'active' ? `0 0 8px ${statusColor}80` : 'none',
+                        }}
+                      />
+                      <span className="text-sm font-bold truncate" style={{ color: agent.color }}>{agent.name}</span>
+                    </div>
+
+                    {/* Model tag */}
+                    <div className="mb-3">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded" style={{ color: '#888', background: 'rgba(255,255,255,0.04)', border: '1px solid #1e1e1e' }}>
+                        {agent.model}
+                      </span>
+                    </div>
+
+                    {/* Metrics */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-[#666]">Tasks</span>
+                        <span className="text-sm font-bold tabular-nums" style={{ color: agent.tasksCompletedToday > 0 ? '#e5e5e5' : '#555' }}>
+                          {agent.tasksCompletedToday}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono text-[#666]">Resp</span>
+                        <span className="text-sm font-mono tabular-nums" style={{ color: agent.avgResponseTime < 3 ? '#34d399' : agent.avgResponseTime < 5 ? '#facc15' : '#f97316' }}>
+                          {agent.avgResponseTime}s
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Footer: status + last active */}
+                    <div className="flex items-center justify-between mt-3 pt-2" style={{ borderTop: '1px solid #1e1e1e' }}>
+                      <span className="text-[8px] font-mono tracking-wider" style={{ color: statusColor }}>{statusLabel}</span>
+                      <span className="text-[8px] font-mono text-[#555]">{lastActiveStr}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

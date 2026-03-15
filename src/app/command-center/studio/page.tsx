@@ -138,11 +138,25 @@ export default function StudioPage() {
         </div>
 
         {/* Status Note */}
-        <div className="bg-amber-500/5 border-2 border-amber-500/20 rounded-xl p-4">
+        <div className="bg-amber-500/5 border-2 border-amber-500/20 rounded-xl p-4 mb-8">
           <p className="text-white/30 text-xs">
             <span className="text-amber-400 font-medium">NOTE:</span> The Baba Studio is temporarily shut down for relocation + recoding.
             Studio sessions will resume when the physical space is operational.
           </p>
+        </div>
+
+        {/* Project Management Tools */}
+        <h2 className="text-xs text-white/40 tracking-[0.2em] font-medium mb-3">PROJECT MANAGEMENT TOOLS</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+          <div className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: 'rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.03)' }}>
+            <h4 className="text-sm font-bold text-white/90 mb-1">Studio Project Tracker</h4>
+            <p className="text-xs text-white/50 mb-3">Client pipeline Kanban — 5 stages, tier pricing ($400-$6K+), revenue analytics</p>
+            <a href="/yolo-builds/2026-03-12-studio-project-tracker/index.html" target="_blank" rel="noopener noreferrer"
+              className="text-xs px-3 py-1.5 rounded border-2 font-semibold tracking-wider transition-all"
+              style={{ borderColor: 'rgba(201,168,76,0.4)', color: '#C9A84C' }}>
+              Launch Tool →
+            </a>
+          </div>
         </div>
       </div>
     </div>

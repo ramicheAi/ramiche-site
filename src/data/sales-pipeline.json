@@ -1,0 +1,82 @@
+[
+  {
+    "id": "lead-001",
+    "name": "Marcus Chen",
+    "company": "Velocity Fitness",
+    "product": "METTLE Coach",
+    "stage": "qualified",
+    "value": 1788,
+    "lastContact": "2026-03-12",
+    "notes": "Interested in team coaching platform for 12 trainers. Demo scheduled."
+  },
+  {
+    "id": "lead-002",
+    "name": "Sarah Okonkwo",
+    "company": "NovaTech Solutions",
+    "product": "ClawGuard Enterprise",
+    "stage": "proposal",
+    "value": 17988,
+    "lastContact": "2026-03-11",
+    "notes": "Annual security audit contract. Proposal sent for 3-year deal."
+  },
+  {
+    "id": "lead-003",
+    "name": "David Park",
+    "company": "Greenline Media",
+    "product": "Ramiche Studio Pro",
+    "stage": "negotiation",
+    "value": 3000,
+    "lastContact": "2026-03-13",
+    "notes": "Brand refresh project. Negotiating scope for additional deliverables."
+  },
+  {
+    "id": "lead-004",
+    "name": "Aisha Patel",
+    "company": "Meridian Health",
+    "product": "Verified Agents",
+    "stage": "lead",
+    "value": 24000,
+    "lastContact": "2026-03-10",
+    "notes": "Exploring AI agent rental for patient intake automation. Early stage."
+  },
+  {
+    "id": "lead-005",
+    "name": "James Thornton",
+    "company": "Apex Consulting",
+    "product": "Claude Skills",
+    "stage": "closed",
+    "value": 499,
+    "lastContact": "2026-03-14",
+    "notes": "Purchased premium Claude Skills bundle. Upsell opportunity for Setup Service."
+  },
+  {
+    "id": "lead-006",
+    "name": "Lisa Moreno",
+    "company": "Coastal Ventures",
+    "product": "Ramiche Studio Elite",
+    "stage": "qualified",
+    "value": 6000,
+    "lastContact": "2026-03-13",
+    "notes": "Full brand identity + web platform build. High-value prospect."
+  },
+  {
+    "id": "lead-007",
+    "name": "Ryan Foster",
+    "company": "TrueNorth Athletics",
+    "product": "METTLE Team",
+    "stage": "lead",
+    "value": 4188,
+    "lastContact": "2026-03-09",
+    "notes": "College swim program. Wants team analytics and performance tracking."
+  },
+  {
+    "id": "lead-008",
+    "name": "Natalie Wu",
+    "company": "PixelForge Studios",
+    "product": "ClawGuard Scan",
+    "stage": "closed",
+    "value": 299,
+    "lastContact": "2026-03-14",
+    "notes": "One-time security scan completed. Follow-up for Team tier in 30 days."
+  }
+]

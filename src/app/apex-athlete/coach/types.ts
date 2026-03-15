@@ -50,6 +50,23 @@ export interface RosterGroup {
   readonly icon: string;
 }
 
+export const ROSTER_GROUPS: readonly RosterGroup[] = [
+  { id: "platinum", name: "Platinum", sport: "swimming", color: "#c0c0ff", icon: "💎" },
+  { id: "gold", name: "Gold", sport: "swimming", color: "#f59e0b", icon: "🥇" },
+  { id: "silver", name: "Silver", sport: "swimming", color: "#94a3b8", icon: "🥈" },
+  { id: "bronze1", name: "Bronze 1", sport: "swimming", color: "#cd7f32", icon: "🥉" },
+  { id: "bronze2", name: "Bronze 2", sport: "swimming", color: "#cd7f32", icon: "🥉" },
+  { id: "diving", name: "Diving", sport: "diving", color: "#38bdf8", icon: "🤿" },
+  { id: "waterpolo", name: "Water Polo", sport: "waterpolo", color: "#f97316", icon: "🤽" },
+] as const;
+
+export type GroupId = typeof ROSTER_GROUPS[number]["id"];
+
+export function getSportForAthlete(athlete: { group: string }): string {
+  const groupDef = ROSTER_GROUPS.find(g => g.id === athlete.group);
+  return groupDef?.sport || "swimming";
+}
+
 // ── Meet types ──────────────────────────────────────────────
 
 export interface MeetEventEntry {

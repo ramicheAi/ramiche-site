@@ -790,6 +790,31 @@ export default function FinanceHQ() {
             </div>
           </div>
         )}
+
+        {/* Financial Analysis Tools */}
+        <div style={{ marginTop: 32 }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "#C9A84C", letterSpacing: "1.5px", marginBottom: "16px", textTransform: "uppercase" }}>Financial Analysis Tools</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "16px" }}>
+            <div className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: 'rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.03)' }}>
+              <h4 className="text-sm font-bold text-white/90 mb-1">Margin Simulator</h4>
+              <p className="text-xs text-white/50 mb-3">Agent fleet margin simulator — MRR projections, token cost modeling, gross margins</p>
+              <a href="/yolo-builds/2026-03-14-agent-margin-simulator/index.html" target="_blank" rel="noopener noreferrer"
+                className="text-xs px-3 py-1.5 rounded border-2 font-semibold tracking-wider transition-all"
+                style={{ borderColor: 'rgba(201,168,76,0.4)', color: '#C9A84C' }}>
+                Launch Tool →
+              </a>
+            </div>
+            <div className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: 'rgba(34,211,238,0.2)', background: 'rgba(34,211,238,0.03)' }}>
+              <h4 className="text-sm font-bold text-white/90 mb-1">APEX Sales Dashboard (Revenue View)</h4>
+              <p className="text-xs text-white/50 mb-3">Revenue pipeline and conversion forecasting</p>
+              <a href="/yolo-builds/2026-03-14-apex-sales-dashboard/index.html" target="_blank" rel="noopener noreferrer"
+                className="text-xs px-3 py-1.5 rounded border-2 font-semibold tracking-wider transition-all"
+                style={{ borderColor: 'rgba(34,211,238,0.4)', color: '#22d3ee' }}>
+                Launch Tool →
+              </a>
+            </div>
+          </div>
+        </div>
       </div>
 
       <style>{`

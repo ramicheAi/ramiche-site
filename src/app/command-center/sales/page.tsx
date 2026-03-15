@@ -3,12 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import pipelineData from "@/data/sales-pipeline.json";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SALES — MERCURY + HAVEN Revenue Ops & Customer Success
    ══════════════════════════════════════════════════════════════════════════════ */
 
 interface AgentStatus { id: string; name: string; status: string; role: string; }
+interface PipelineLead { id: string; name: string; company: string; product: string; stage: string; value: number; lastContact: string; notes: string; }
 
 const STAGE_COLORS: Record<string, string> = { lead: "#6b7280", qualified: "#f59e0b", proposal: "#818cf8", negotiation: "#06b6d4", closed: "#22c55e" };
 
@@ -49,6 +51,10 @@ export default function SalesPage() {
   }, []);
 
   useEffect(() => { fetchData(); const i = setInterval(fetchData, 30_000); return () => clearInterval(i); }, [fetchData]);
+
+  const leads: PipelineLead[] = pipelineData;
+  const stageCounts = leads.reduce<Record<string, number>>((acc, lead) => { acc[lead.stage] = (acc[lead.stage] || 0) + 1; return acc; }, {});
+  const totalPipelineValue = leads.reduce((sum, l) => sum + l.value, 0);
 
   const activeProducts = PRODUCTS.filter((p) => p.active);
   const upcomingProducts = PRODUCTS.filter((p) => !p.active);
@@ -96,8 +102,33 @@ export default function SalesPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12, marginBottom: 32 }}>
           {(["lead", "qualified", "proposal", "negotiation", "closed"] as const).map((stage) => (
             <div key={stage} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.08)", textAlign: "center", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-              <div style={{ fontSize: 28, fontWeight: 900, color: STAGE_COLORS[stage], marginBottom: 4 }}>0</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: STAGE_COLORS[stage], marginBottom: 4 }}>{stageCounts[stage] || 0}</div>
               <span style={{ fontSize: 10, color: "#525252", letterSpacing: "0.15em" }}>{stage.toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Pipeline Leads */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ fontSize: 12, fontWeight: 800, color: "#22c55e", letterSpacing: "0.15em", margin: 0, textTransform: "uppercase" }}>Pipeline Leads ({leads.length})</h2>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#22c55e" }}>${totalPipelineValue.toLocaleString()} total value</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 12, marginBottom: 32 }}>
+          {leads.map((lead) => (
+            <div key={lead.id} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: `1px solid ${STAGE_COLORS[lead.stage]}22`, boxShadow: `0 4px 20px rgba(0,0,0,0.3), 0 0 12px ${STAGE_COLORS[lead.stage]}08` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: "#e5e5e5" }}>{lead.name}</span>
+                  <p style={{ fontSize: 11, color: "#737373", margin: "2px 0 0" }}>{lead.company}</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", padding: "3px 8px", borderRadius: 6, background: `${STAGE_COLORS[lead.stage]}18`, color: STAGE_COLORS[lead.stage], textTransform: "uppercase" }}>{lead.stage}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: "#a3a3a3" }}>{lead.product}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>${lead.value.toLocaleString()}</span>
+              </div>
+              <p style={{ fontSize: 11, color: "#525252", margin: 0, lineHeight: 1.4 }}>{lead.notes}</p>
+              <span style={{ fontSize: 9, color: "#404040", marginTop: 8, display: "block" }}>Last contact: {lead.lastContact}</span>
             </div>
           ))}
         </div>
@@ -147,6 +178,24 @@ export default function SalesPage() {
                 <span style={{ fontSize: 10, color: "#22c55e", letterSpacing: "0.1em" }}>{channel.status.toUpperCase()}</span>
               </div>
               <p style={{ fontSize: 12, color: "#737373", margin: 0 }}>{channel.products}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Sales Intelligence Tools */}
+        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", marginBottom: 16, marginTop: 32, textTransform: "uppercase" }}>Sales Intelligence Tools</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+          {[
+            { name: "APEX Sales Dashboard", desc: "Lead scoring, email sequences, pipeline projection for METTLE sales", url: "/yolo-builds/2026-03-14-apex-sales-dashboard/index.html", accent: "#C9A84C" },
+            { name: "ROI Calculator", desc: "Enterprise ROI calculator for Verified Agent Business — 5 verticals", url: "/yolo-builds/2026-03-13-verified-agent-roi-calculator/index.html", accent: "#22d3ee" },
+            { name: "Margin Simulator", desc: "Interactive pricing and margin simulator — MRR, token costs, break-even", url: "/yolo-builds/2026-03-14-agent-margin-simulator/index.html", accent: "#a855f7" },
+          ].map((tool) => (
+            <div key={tool.name} className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: `${tool.accent}33`, background: `${tool.accent}08` }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.9)", marginBottom: 4, marginTop: 0 }}>{tool.name}</h4>
+              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 12, marginTop: 0 }}>{tool.desc}</p>
+              <a href={tool.url} target="_blank" rel="noopener noreferrer" className="rounded border-2 font-semibold tracking-wider transition-all" style={{ fontSize: 12, padding: "6px 12px", borderColor: `${tool.accent}66`, color: tool.accent, textDecoration: "none" }}>
+                Launch Tool →
+              </a>
             </div>
           ))}
         </div>
