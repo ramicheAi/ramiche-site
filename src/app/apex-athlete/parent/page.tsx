@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { MASTER_PIN, getSession, clearSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
+import PBOverlay from "../components/PBOverlay";
+type PBNotification = { event: string; oldTime: string; newTime: string; timeDrop: string; xpEarned: number; meetName?: string };
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Parent Portal (Read-Only)
@@ -369,6 +371,7 @@ interface Athlete {
   usaSwimmingId?: string;
   parentCode?: string;
   parentEmail?: string;
+  bestTimes?: Record<string, { time: string; meetId?: string; date?: string; course?: string }>;
 }
 
 const WEEK_TARGETS: Record<string, number> = {
@@ -985,6 +988,8 @@ export default function ParentPortal() {
   const [broadcasts, setBroadcasts] = useState<Broadcast[]>([]);
   const [absenceReason, setAbsenceReason] = useState("Illness");
   const [absenceDateStart, setAbsenceDateStart] = useState("");
+  const [pbQueue, setPbQueue] = useState<PBNotification[]>([]);
+  const [currentPb, setCurrentPb] = useState<PBNotification | null>(null);
   const [absenceDateEnd, setAbsenceDateEnd] = useState("");
   const [absenceNote, setAbsenceNote] = useState("");
   const [absenceSubmitted, setAbsenceSubmitted] = useState(false);
@@ -1068,6 +1073,25 @@ export default function ParentPortal() {
       } catch {}
     }
   }, [mounted]);
+
+  // PB detection for parent notification
+  useEffect(() => {
+    if (!athlete || !athlete.bestTimes) return;
+    const lastSeenKey = `apex-parent-pb-seen-${athlete.id}`;
+    const lastSeen: Record<string, string> = JSON.parse(localStorage.getItem(lastSeenKey) || "{}");
+    const newPbs: PBNotification[] = [];
+    const parseTime = (t: string) => { const p = t.split(/[:.]/).map(Number); return p.length === 3 ? p[0]*60+p[1]+p[2]/100 : p.length === 2 ? p[0]+p[1]/100 : 0; };
+    for (const [key, bt] of Object.entries(athlete.bestTimes)) {
+      const time = typeof bt === "object" && bt !== null ? (bt as { time: string }).time : String(bt);
+      if (lastSeen[key] && parseTime(time) < parseTime(lastSeen[key])) {
+        const drop = parseTime(lastSeen[key]) - parseTime(time);
+        newPbs.push({ event: key, oldTime: lastSeen[key], newTime: time, timeDrop: `-${drop.toFixed(2)}`, xpEarned: 50 + Math.min(50, Math.floor(drop / 0.5) * 5) });
+      }
+      lastSeen[key] = time;
+    }
+    localStorage.setItem(lastSeenKey, JSON.stringify(lastSeen));
+    if (newPbs.length > 0) { setPbQueue(newPbs); setCurrentPb(newPbs[0]); }
+  }, [athlete]);
 
   // Derived state — computed from nameInput, doesn't need useEffect
   const searchResults = useMemo(() => {
@@ -2009,6 +2033,11 @@ export default function ParentPortal() {
           <span className="text-white/30 text-[10px] tracking-wider">COPPA</span>
         </div>
       </div>
+      <PBOverlay notification={currentPb} onDismiss={() => {
+        const remaining = pbQueue.slice(1);
+        setPbQueue(remaining);
+        setCurrentPb(remaining[0] || null);
+      }} athleteColor="#00f0ff" />
     </div>
   );
 }
