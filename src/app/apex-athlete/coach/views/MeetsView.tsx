@@ -4,6 +4,7 @@ import React from "react";
 import BgOrbs from "../components/BgOrbs";
 import type { Athlete, RosterGroup, SwimMeet, MeetEvent, MeetEventEntry, MeetBroadcast } from "../types";
 import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult } from "../../lib/meet-scoring";
+import MeetDayStatsBar from "../components/MeetDayStatsBar";
 
 // Re-export meet types for consumers that imported from here
 export type { MeetEventEntry, MeetEvent, MeetBroadcast, SwimMeet };
@@ -365,6 +366,7 @@ export default function MeetsView({
             <button onClick={() => setEditingMeetId(null)} className="text-[#00f0ff]/50 text-xs font-mono mb-4 hover:text-[#00f0ff] transition-colors">
               ← Back to meets
             </button>
+            <MeetDayStatsBar meet={editMeet} roster={roster} />
             <Card className="p-5 mb-4" neon>
               <h3 className="font-bold text-white text-lg mb-1">{editMeet.name}</h3>
               <div className="flex items-center justify-between mb-4">
