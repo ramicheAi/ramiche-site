@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { MASTER_PIN, getSession, clearSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
@@ -748,7 +749,7 @@ const DEFAULT_CULTURE: TeamCulture = {
 /* ── standalone presentational components (outside main component to prevent re-render bugs) ── */
 
 const Card = ({ children, className = "", glow = false, neon = false }: { children: React.ReactNode; className?: string; glow?: boolean; neon?: boolean }) => (
-  <div style={{animation: 'glowBreathe 4s ease-in-out infinite'}} className={`game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
+  <div style={{animation: 'glowBreathe 4s ease-in-out infinite'}} className={`game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
 );
 
 // BgOrbs extracted to ./components/BgOrbs.tsx
@@ -2376,7 +2377,7 @@ export default function ApexAthletePage() {
   // ── loading ──────────────────────────────────────────────
 
   if (!mounted) return (
-    <div className="min-h-screen bg-[#06020f] flex items-center justify-center relative">
+    <div className="min-h-screen bg-[#0e0e18] flex items-center justify-center relative">
       <BgOrbs />
       <div className="text-center relative z-10">
         <div className="neon-text-cyan text-sm font-mono tracking-wider opacity-60">INITIALIZING...</div>
@@ -2417,7 +2418,16 @@ export default function ApexAthletePage() {
           {/* Title row — compact */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <img src="/mettle-brand/v5/mettle-icon.svg" alt="" className="w-9 h-9 sm:w-10 sm:h-10" style={{ filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.2))' }} />
+              <Image 
+                src="/mettle-brand/v5/mettle-icon.svg" 
+                alt="METTLE logo" 
+                width={40}
+                height={40}
+                className="w-9 h-9 sm:w-10 sm:h-10"
+                style={{ filter: 'drop-shadow(0 0 20px rgba(201,168,76,0.2))' }}
+                loading="lazy"
+                quality={85}
+              />
               <h1 className="text-3xl sm:text-4xl font-black tracking-[-0.04em] leading-none" style={{
                 background: 'linear-gradient(135deg, #C9A84C 0%, #FFD700 30%, #C9A84C 60%, #B8860B 100%)',
                 WebkitBackgroundClip: 'text',
@@ -2432,23 +2442,23 @@ export default function ApexAthletePage() {
             <div className="flex items-center gap-2">
               <button onClick={togglePushNotifications} disabled={pushLoading}
                 className={`game-btn w-10 h-10 flex items-center justify-center text-sm transition-all ${
-                  pushEnabled ? "text-[#00f0ff] border border-[#00f0ff]/30" : "text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/60"
+                  pushEnabled ? "text-[#00f0ff] border border-[#00f0ff]/30" : "text-[#f8fafc]/60 border border-white/[0.06] hover:text-[#00f0ff]/60"
                 }`} title={pushEnabled ? "Notifications ON" : "Enable notifications"}>
                 {pushLoading ? "..." : pushEnabled ? "🔔" : "🔕"}
               </button>
               {view === "coach" && (
                 <button onClick={() => { if (editingCulture) saveCulture(culture); setEditingCulture(!editingCulture); }}
-                  className="game-btn w-10 h-10 flex items-center justify-center text-xs font-mono tracking-wider uppercase text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
+                  className="game-btn w-10 h-10 flex items-center justify-center text-xs font-mono tracking-wider uppercase text-[#f8fafc]/60 border border-white/[0.06] hover:text-[#00f0ff]/60 hover:border-[#00f0ff]/20 transition-all">
                   {editingCulture ? "✓" : "✎"}
                 </button>
               )}
-              <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="game-btn w-10 h-10 flex items-center justify-center text-white/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 transition-all" title="Sign Out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+              <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="game-btn w-10 h-10 flex items-center justify-center text-[#f8fafc]/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 transition-all" title="Sign Out"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
             </div>
           </div>
 
           {/* Personalized greeting */}
           <div className="mb-3 px-1">
-            <span className="text-white/40 text-xs font-mono">
+            <span className="text-[#f8fafc]/40 text-xs font-mono">
               {(() => {
                 const h = new Date().getHours();
                 const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -2456,7 +2466,7 @@ export default function ApexAthletePage() {
                 return `${greeting}, ${name}`;
               })()}
             </span>
-            <span className="text-white/20 text-xs font-mono ml-2">
+            <span className="text-[#f8fafc]/20 text-xs font-mono ml-2">
               {new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
             </span>
           </div>
@@ -2472,7 +2482,7 @@ export default function ApexAthletePage() {
                 className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                   !p.href
                     ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                    : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                    : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
                 }`}>
                 {p.label}
               </button>
@@ -2480,7 +2490,7 @@ export default function ApexAthletePage() {
           </div>
 
           {/* Logout */}
-          <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-white/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
+          <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-[#f8fafc]/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
 
           {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
           <div className="md:hidden space-y-2 mb-4">
@@ -2492,7 +2502,7 @@ export default function ApexAthletePage() {
                     className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                       active
                         ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                        : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
                     }`}>
                     {t.label}
                   </button>
@@ -2507,7 +2517,7 @@ export default function ApexAthletePage() {
                     className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                       active
                         ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                        : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
                     }`}>
                     {t.label}
                   </button>
@@ -2523,7 +2533,7 @@ export default function ApexAthletePage() {
                   className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                      : "bg-[#06020f]/60 text-white/50 border border-white/[0.06] hover:text-white/70 hover:border-white/15 active:scale-[0.97]"
+                      : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
                   }`}>
                   {t.label}
                 </button>
@@ -2537,7 +2547,7 @@ export default function ApexAthletePage() {
               <span className="text-[#f59e0b] text-sm font-black">SA</span>
             </div>
             <div className="flex-1 min-w-0">
-              <span className="text-white/70 font-bold text-sm">{culture.teamName}</span>
+              <span className="text-[#f8fafc]/70 font-bold text-sm">{culture.teamName}</span>
               <span className="text-[#f59e0b]/30 text-xs ml-2 font-mono italic hidden sm:inline">{culture.mission}</span>
             </div>
           </div>
@@ -2553,11 +2563,11 @@ export default function ApexAthletePage() {
         </div>
 
         {/* Live HUD data strip — compact */}
-        <div className="relative border-y border-[#00f0ff]/10 bg-[#06020f]/90 backdrop-blur-xl">
+        <div className="relative border-y border-[#00f0ff]/10 bg-[#0e0e18]/90 backdrop-blur-xl">
           <div className="flex items-center justify-center gap-5 py-2.5 px-2">
             <div className="flex items-center gap-1.5">
               <div className={`w-1.5 h-1.5 rounded-full ${presentCount > 0 ? "bg-[#00f0ff] shadow-[0_0_8px_rgba(0,240,255,0.6)]" : "bg-white/10"}`} />
-              <span className="neon-text-cyan text-xs font-bold font-mono tabular-nums">{presentCount}<span className="text-white/50 font-normal">/{roster.length}</span></span>
+              <span className="neon-text-cyan text-xs font-bold font-mono tabular-nums">{presentCount}<span className="text-[#f8fafc]/50 font-normal">/{roster.length}</span></span>
             </div>
             <div className="w-px h-3 bg-[#00f0ff]/10" />
             <div className="flex items-center gap-1.5">
@@ -2570,7 +2580,7 @@ export default function ApexAthletePage() {
         </div>
         {/* Build version — tiny, for cache verification */}
         <div className="text-center py-0.5">
-          <span className="text-white/10 text-[9px] font-mono">v2026.03.07a</span>
+          <span className="text-[#f8fafc]/10 text-[9px] font-mono">v2026.03.07a</span>
         </div>
       </div>
     );
@@ -2596,14 +2606,14 @@ export default function ApexAthletePage() {
         {/* Profile card */}
         <Card className="p-6">
           <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-full bg-white/[0.06] flex items-center justify-center text-lg font-black text-white shrink-0"
+            <div className="w-16 h-16 rounded-full bg-white/[0.06] flex items-center justify-center text-lg font-black text-[#f8fafc] shrink-0"
               style={{ border: `3px solid ${lv.color}50`, boxShadow: `0 0 20px ${lv.color}20` }}>
               {athlete.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-white font-bold text-lg">{athlete.name}</div>
+              <div className="text-[#f8fafc] font-bold text-lg">{athlete.name}</div>
               <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <span className="text-white/60 text-xs">{athlete.age}y · {athlete.gender}</span>
+                <span className="text-[#f8fafc]/60 text-xs">{athlete.age}y · {athlete.gender}</span>
                 <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>
                   {lv.icon} {lv.name}
                 </span>
@@ -2613,8 +2623,8 @@ export default function ApexAthletePage() {
               </div>
               <div className="mt-3">
                 <div className="flex justify-between text-xs mb-1">
-                  <AnimatedCounter value={athlete.xp} suffix=" XP" className="text-white/60 font-bold" />
-                  <span className="text-white/60">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
+                  <AnimatedCounter value={athlete.xp} suffix=" XP" className="text-[#f8fafc]/60 font-bold" />
+                  <span className="text-[#f8fafc]/60">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
                   <div className="h-full rounded-full xp-shimmer transition-all duration-500" style={{ width: `${prog.percent}%` }} />
@@ -2633,34 +2643,34 @@ export default function ApexAthletePage() {
             { label: "Multiplier", val: sk.mult },
           ].map(s => (
             <Card key={s.label} className="py-4 px-3 text-center">
-              <div className="text-white font-black text-lg tabular-nums whitespace-nowrap">{s.val}</div>
-              <div className="text-white/60 text-xs uppercase tracking-wider font-medium mt-0.5">{s.label}</div>
+              <div className="text-[#f8fafc] font-black text-lg tabular-nums whitespace-nowrap">{s.val}</div>
+              <div className="text-[#f8fafc]/60 text-xs uppercase tracking-wider font-medium mt-0.5">{s.label}</div>
             </Card>
           ))}
         </div>
 
         {/* Daily cap */}
         <div className="flex items-center gap-3 text-sm">
-          <span className="text-white/60">Daily XP:</span>
+          <span className="text-[#f8fafc]/60">Daily XP:</span>
           <div className="flex-1 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
             <div className={`h-full rounded-full transition-all ${dailyUsed >= DAILY_XP_CAP ? "bg-red-500" : "bg-[#6b21a8]"}`} style={{ width: `${(dailyUsed / DAILY_XP_CAP) * 100}%` }} />
           </div>
-          <span className={`text-xs font-bold tabular-nums whitespace-nowrap ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-white/60"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
+          <span className={`text-xs font-bold tabular-nums whitespace-nowrap ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-[#f8fafc]/60"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
         </div>
 
         {/* Streaks */}
         <div className="flex gap-3">
           <Card className="flex-1 px-4 py-3 flex items-center justify-between">
             <div>
-              <div className="text-white/60 text-xs uppercase tracking-wider">Pool Streak</div>
-              <div className="text-white font-bold">{athlete.streak}d <span className="text-[#a855f7] text-xs">{sk.label}</span></div>
+              <div className="text-[#f8fafc]/60 text-xs uppercase tracking-wider">Pool Streak</div>
+              <div className="text-[#f8fafc] font-bold">{athlete.streak}d <span className="text-[#a855f7] text-xs">{sk.label}</span></div>
             </div>
             <span className="text-[#a855f7] font-bold text-sm">{sk.mult}</span>
           </Card>
           <Card className="flex-1 px-4 py-3 flex items-center justify-between">
             <div>
-              <div className="text-white/60 text-xs uppercase tracking-wider">Weight Streak</div>
-              <div className="text-white font-bold">{athlete.weightStreak}d <span className="text-[#f59e0b] text-xs">{wsk.label}</span></div>
+              <div className="text-[#f8fafc]/60 text-xs uppercase tracking-wider">Weight Streak</div>
+              <div className="text-[#f8fafc] font-bold">{athlete.weightStreak}d <span className="text-[#f59e0b] text-xs">{wsk.label}</span></div>
             </div>
             <span className="text-[#f59e0b] font-bold text-sm">{wsk.mult}</span>
           </Card>
@@ -2670,12 +2680,12 @@ export default function ApexAthletePage() {
         {sessionMode === "pool" && (
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h4>
-              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp today</span>
+              <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h4>
+              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
             </div>
             {!athlete.present && (
               <Card className="px-5 py-4">
-                <div className="text-white/40 text-sm text-center">Tap present on the roster to check in</div>
+                <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
               </Card>
             )}
             {athlete.present && (
@@ -2691,13 +2701,13 @@ export default function ApexAthletePage() {
                       <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
                         done ? "border-emerald-400 bg-emerald-500" : "border-white/15"
                       }`}>
-                        {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                        {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-white text-sm font-medium">{cp.name}</div>
-                        <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                        <div className="text-[#f8fafc] text-sm font-medium">{cp.name}</div>
+                        <div className="text-[#f8fafc]/40 text-[11px]">{cp.desc}</div>
                       </div>
-                      <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-white/30"}`}>+{cp.xp}</span>
+                      <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>+{cp.xp}</span>
                     </button>
                   );
                 })}
@@ -2709,7 +2719,7 @@ export default function ApexAthletePage() {
         {/* Standout awards — manual checkpoints coach taps for exceptional behavior */}
         {sessionMode === "pool" && (
           <div>
-            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Standout Awards</h4>
+            <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Standout Awards</h4>
             <Card className="divide-y divide-white/[0.04]">
               {MANUAL_POOL_CPS.map(cp => {
                 const done = cpMap[cp.id];
@@ -2722,13 +2732,13 @@ export default function ApexAthletePage() {
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
                       done ? "border-[#a855f7] bg-[#a855f7]" : "border-white/15"
                     }`}>
-                      {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-white text-sm font-medium">{cp.name}</div>
-                      <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                      <div className="text-[#f8fafc] text-sm font-medium">{cp.name}</div>
+                      <div className="text-[#f8fafc]/40 text-[11px]">{cp.desc}</div>
                     </div>
-                    <span className={`text-xs font-bold ${done ? "text-[#a855f7]" : "text-white/30"}`}>+{cp.xp}</span>
+                    <span className={`text-xs font-bold ${done ? "text-[#a855f7]" : "text-[#f8fafc]/30"}`}>+{cp.xp}</span>
                   </button>
                 );
               })}
@@ -2749,7 +2759,7 @@ export default function ApexAthletePage() {
         {/* Weight challenges */}
         {sessionMode === "weight" && (
           <div>
-            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Weight Challenges</h4>
+            <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Weight Challenges</h4>
             <Card className="divide-y divide-white/[0.04]">
               {WEIGHT_CHALLENGES.map(ch => {
                 const done = athlete.weightChallenges[ch.id];
@@ -2762,13 +2772,13 @@ export default function ApexAthletePage() {
                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
                       done ? "border-[#f59e0b] bg-[#f59e0b]" : "border-white/15"
                     }`}>
-                      {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-white text-sm font-medium">{ch.name}</div>
-                      <div className="text-white/60 text-[11px]">{ch.desc}</div>
+                      <div className="text-[#f8fafc] text-sm font-medium">{ch.name}</div>
+                      <div className="text-[#f8fafc]/60 text-[11px]">{ch.desc}</div>
                     </div>
-                    <span className={`text-xs font-bold ${done ? "text-[#f59e0b]" : "text-white/60"}`}>+{ch.xp} xp</span>
+                    <span className={`text-xs font-bold ${done ? "text-[#f59e0b]" : "text-[#f8fafc]/60"}`}>+{ch.xp} xp</span>
                   </button>
                 );
               })}
@@ -2780,14 +2790,14 @@ export default function ApexAthletePage() {
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Side Quests</h4>
+              <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Side Quests</h4>
               {Object.values(athlete.quests).filter(q => q === "submitted").length > 0 && (
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30 animate-pulse">
                   {Object.values(athlete.quests).filter(q => q === "submitted").length} to review
                 </span>
               )}
             </div>
-            <span className="text-white/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
+            <span className="text-[#f8fafc]/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
           </div>
           <Card className="divide-y divide-white/[0.04]">
             {QUEST_DEFS.map(q => {
@@ -2814,24 +2824,24 @@ export default function ApexAthletePage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-white text-sm font-medium">{q.name}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-white/40"}`}>
+                        <span className="text-[#f8fafc] text-sm font-medium">{q.name}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-[#f8fafc]/40"}`}>
                           {q.cat}
                         </span>
                       </div>
-                      <div className="text-white/40 text-xs mt-1">{q.desc}</div>
+                      <div className="text-[#f8fafc]/40 text-xs mt-1">{q.desc}</div>
                       <div className="flex items-center gap-2 mt-2">
                         <span className={`text-xs font-mono tracking-wider ${
-                          st === "done" ? "text-emerald-400/70" : st === "submitted" ? "text-[#f59e0b]/70" : st === "active" ? "text-[#a855f7]/70" : "text-white/25"
+                          st === "done" ? "text-emerald-400/70" : st === "submitted" ? "text-[#f59e0b]/70" : st === "active" ? "text-[#a855f7]/70" : "text-[#f8fafc]/25"
                         }`}>
                           {st === "done" ? "Completed" : st === "submitted" ? "Submitted — review now" : st === "active" ? "In progress" : "Not assigned"}
                         </span>
-                        <span className={`text-xs font-bold font-mono ${st === "done" ? "text-emerald-400/60" : "text-white/20"}`}>+{q.xp} xp</span>
+                        <span className={`text-xs font-bold font-mono ${st === "done" ? "text-emerald-400/60" : "text-[#f8fafc]/20"}`}>+{q.xp} xp</span>
                       </div>
                       {st === "submitted" && athlete.questNotes?.[q.id] && (
                         <div className="mt-2 p-2 rounded-lg bg-[#f59e0b]/5 border border-[#f59e0b]/15">
                           <span className="text-[#f59e0b]/60 text-[10px] uppercase tracking-wider font-bold">Athlete notes:</span>
-                          <p className="text-white/70 text-xs mt-0.5">{athlete.questNotes[q.id]}</p>
+                          <p className="text-[#f8fafc]/70 text-xs mt-0.5">{athlete.questNotes[q.id]}</p>
                         </div>
                       )}
                     </div>
@@ -2892,23 +2902,23 @@ export default function ApexAthletePage() {
         {/* Personal growth */}
         {growth && (
           <Card className="p-6">
-            <h4 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">You vs Last Month</h4>
+            <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">You vs Last Month</h4>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-white/60"}`}>
+                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-[#f8fafc]/60"}`}>
                   {growth.xpGain > 0 ? "+" : ""}{growth.xpGain}
                 </div>
-                <div className="text-white/60 text-xs uppercase mt-1">XP Gained</div>
+                <div className="text-[#f8fafc]/60 text-xs uppercase mt-1">XP Gained</div>
               </div>
               <div>
-                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-white/60"}`}>
+                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-[#f8fafc]/60"}`}>
                   {growth.streakDelta > 0 ? "+" : ""}{growth.streakDelta}d
                 </div>
-                <div className="text-white/60 text-xs uppercase mt-1">Streak</div>
+                <div className="text-[#f8fafc]/60 text-xs uppercase mt-1">Streak</div>
               </div>
               <div>
-                <div className="text-2xl font-black tabular-nums whitespace-nowrap text-white">{athlete.totalPractices}</div>
-                <div className="text-white/60 text-xs uppercase mt-1">Total Sessions</div>
+                <div className="text-2xl font-black tabular-nums whitespace-nowrap text-[#f8fafc]">{athlete.totalPractices}</div>
+                <div className="text-[#f8fafc]/60 text-xs uppercase mt-1">Total Sessions</div>
               </div>
             </div>
           </Card>
@@ -2934,7 +2944,7 @@ export default function ApexAthletePage() {
     const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
 
     return (
-      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+      <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] relative overflow-x-hidden">
         <BgOrbs />
         <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
           <div className="w-full max-w-3xl mx-auto py-6 sm:py-8">
@@ -2952,14 +2962,14 @@ export default function ApexAthletePage() {
               {/* Profile header */}
               <Card className="p-6 sm:p-8">
                 <div className="flex items-center gap-5">
-                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-black text-white shrink-0"
+                  <div className="w-20 h-20 rounded-full flex items-center justify-center text-xl font-black text-[#f8fafc] shrink-0"
                     style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `3px solid ${lv.color}60`, boxShadow: `0 0 30px ${lv.color}20` }}>
                     {athlete.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h2 className="text-white font-black text-2xl tracking-tight">{athlete.name}</h2>
+                    <h2 className="text-[#f8fafc] font-black text-2xl tracking-tight">{athlete.name}</h2>
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <span className="text-white/60 text-sm">{athlete.age}y · {athlete.gender === "M" ? "Male" : "Female"}</span>
+                      <span className="text-[#f8fafc]/60 text-sm">{athlete.age}y · {athlete.gender === "M" ? "Male" : "Female"}</span>
                       <span className="text-sm font-bold px-3 py-1 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>
                         {lv.icon} {lv.name}
                       </span>
@@ -2970,8 +2980,8 @@ export default function ApexAthletePage() {
                 {/* XP progress bar */}
                 <div className="mt-6">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-white font-bold">{lv.name} — <AnimatedCounter value={athlete.xp} />/{nxt ? nxt.xpThreshold : lv.xpThreshold} XP</span>
-                    <span className="text-white/50">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
+                    <span className="text-[#f8fafc] font-bold">{lv.name} — <AnimatedCounter value={athlete.xp} />/{nxt ? nxt.xpThreshold : lv.xpThreshold} XP</span>
+                    <span className="text-[#f8fafc]/50">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
                   </div>
                   <div className="h-3 rounded-full bg-white/[0.06] overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-500" style={{ width: `${prog.percent}%`, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)' }} />
@@ -2989,7 +2999,7 @@ export default function ApexAthletePage() {
                 ].map(s => (
                   <Card key={s.label} className="py-5 px-4 text-center">
                     <div className="text-2xl font-black tabular-nums whitespace-nowrap" style={{ color: s.color }}>{s.val}</div>
-                    <div className="text-white/50 text-xs uppercase tracking-wider font-bold mt-1">{s.label}</div>
+                    <div className="text-[#f8fafc]/50 text-xs uppercase tracking-wider font-bold mt-1">{s.label}</div>
                   </Card>
                 ))}
               </div>
@@ -2998,8 +3008,8 @@ export default function ApexAthletePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Card className="p-5 flex items-center justify-between">
                   <div>
-                    <div className="text-white/50 text-xs uppercase tracking-wider font-bold">Pool Streak</div>
-                    <div className="text-white font-black text-xl mt-1 flex items-center gap-2">
+                    <div className="text-[#f8fafc]/50 text-xs uppercase tracking-wider font-bold">Pool Streak</div>
+                    <div className="text-[#f8fafc] font-black text-xl mt-1 flex items-center gap-2">
                       <StreakFlame streak={athlete.streak} size={20} />
                       {athlete.streak}d
                       <span className="text-[#a855f7] text-sm font-bold">{sk.label}</span>
@@ -3009,8 +3019,8 @@ export default function ApexAthletePage() {
                 </Card>
                 <Card className="p-5 flex items-center justify-between">
                   <div>
-                    <div className="text-white/50 text-xs uppercase tracking-wider font-bold">Weight Streak</div>
-                    <div className="text-white font-black text-xl mt-1">{athlete.weightStreak}d
+                    <div className="text-[#f8fafc]/50 text-xs uppercase tracking-wider font-bold">Weight Streak</div>
+                    <div className="text-[#f8fafc] font-black text-xl mt-1">{athlete.weightStreak}d
                       <span className="text-[#f59e0b] text-sm font-bold ml-2">{wsk.label}</span>
                     </div>
                   </div>
@@ -3021,14 +3031,14 @@ export default function ApexAthletePage() {
               {/* Daily XP usage */}
               <Card className="p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily XP</h3>
-                  <span className={`text-sm font-bold tabular-nums ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-white/60"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
+                  <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily XP</h3>
+                  <span className={`text-sm font-bold tabular-nums ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-[#f8fafc]/60"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
                 </div>
                 <div className="h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
                   <div className={`h-full rounded-full transition-all ${dailyUsed >= DAILY_XP_CAP ? "bg-red-500" : ""}`}
                     style={{ width: `${(dailyUsed / DAILY_XP_CAP) * 100}%`, ...( dailyUsed < DAILY_XP_CAP ? { background: 'linear-gradient(90deg, #7C3AED, #A78BFA)' } : {}) }} />
                 </div>
-                <div className="flex justify-between text-xs text-white/40 mt-2">
+                <div className="flex justify-between text-xs text-[#f8fafc]/40 mt-2">
                   <span>Pool: {dxp.pool}</span>
                   <span>Weight: {dxp.weight}</span>
                   <span>Meet: {dxp.meet}</span>
@@ -3043,12 +3053,12 @@ export default function ApexAthletePage() {
                 return (
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h3>
-                      <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-white/30"}`}>{dailyUsed} xp today</span>
+                      <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h3>
+                      <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
                     </div>
                     {!athlete.present ? (
                       <Card className="px-5 py-4">
-                        <div className="text-white/40 text-sm text-center">Tap present on the roster to check in</div>
+                        <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
                       </Card>
                     ) : (
                       <Card className="divide-y divide-white/[0.04]">
@@ -3058,13 +3068,13 @@ export default function ApexAthletePage() {
                             <button key={cp.id} onClick={() => toggleCheckpoint(athlete.id, cp.id, cp.xp, sessionMode === "pool" ? "pool" : sessionMode === "weight" ? "weight" : "meet")}
                               className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${done ? "bg-emerald-500/5" : "hover:bg-white/[0.02]"}`}>
                               <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${done ? "border-emerald-400 bg-emerald-500" : "border-white/15"}`}>
-                                {done && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                                {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="text-white text-sm font-medium">{cp.name}</div>
-                                <div className="text-white/40 text-[11px]">{cp.desc}</div>
+                                <div className="text-[#f8fafc] text-sm font-medium">{cp.name}</div>
+                                <div className="text-[#f8fafc]/40 text-[11px]">{cp.desc}</div>
                               </div>
-                              <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-white/30"}`}>+{cp.xp}</span>
+                              <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>+{cp.xp}</span>
                             </button>
                           );
                         })}
@@ -3077,8 +3087,8 @@ export default function ApexAthletePage() {
               {/* Quests */}
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Quests</h3>
-                  <span className="text-white/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
+                  <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Quests</h3>
+                  <span className="text-[#f8fafc]/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
                 </div>
                 <Card className="divide-y divide-white/[0.04]">
                   {QUEST_DEFS.map(q => {
@@ -3091,17 +3101,17 @@ export default function ApexAthletePage() {
                           st === "active" ? "border-[#a855f7] bg-[#a855f7]/10" :
                           "border-white/15"
                         }`}>
-                          {st === "done" && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          {st === "done" && <svg className="w-4 h-4 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
                           {st === "submitted" && <span className="text-xs">!</span>}
                           {st === "active" && <span className="text-xs text-[#a855f7]">●</span>}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-bold">{q.name}</div>
-                          <div className="text-white/40 text-xs mt-0.5">{q.desc}</div>
+                          <div className="text-[#f8fafc] text-sm font-bold">{q.name}</div>
+                          <div className="text-[#f8fafc]/40 text-xs mt-0.5">{q.desc}</div>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[q.cat] || "text-white/30"}`}>{q.cat}</span>
-                          <span className="text-white/30 text-xs font-bold">+{q.xp}</span>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[q.cat] || "text-[#f8fafc]/30"}`}>{q.cat}</span>
+                          <span className="text-[#f8fafc]/30 text-xs font-bold">+{q.xp}</span>
                         </div>
                       </div>
                     );
@@ -3111,19 +3121,19 @@ export default function ApexAthletePage() {
 
               {/* Week overview */}
               <Card className="p-5">
-                <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">This Week</h3>
+                <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">This Week</h3>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div>
-                    <div className="text-xl font-black tabular-nums text-white">{athlete.weekSessions}</div>
-                    <div className="text-white/50 text-xs uppercase mt-1">Pool Sessions</div>
+                    <div className="text-xl font-black tabular-nums text-[#f8fafc]">{athlete.weekSessions}</div>
+                    <div className="text-[#f8fafc]/50 text-xs uppercase mt-1">Pool Sessions</div>
                   </div>
                   <div>
-                    <div className="text-xl font-black tabular-nums text-white">{athlete.weekWeightSessions}</div>
-                    <div className="text-white/50 text-xs uppercase mt-1">Weight Sessions</div>
+                    <div className="text-xl font-black tabular-nums text-[#f8fafc]">{athlete.weekWeightSessions}</div>
+                    <div className="text-[#f8fafc]/50 text-xs uppercase mt-1">Weight Sessions</div>
                   </div>
                   <div>
-                    <div className="text-xl font-black tabular-nums text-white">{athlete.weekTarget}</div>
-                    <div className="text-white/50 text-xs uppercase mt-1">Target</div>
+                    <div className="text-xl font-black tabular-nums text-[#f8fafc]">{athlete.weekTarget}</div>
+                    <div className="text-[#f8fafc]/50 text-xs uppercase mt-1">Target</div>
                   </div>
                 </div>
               </Card>
@@ -3155,7 +3165,7 @@ export default function ApexAthletePage() {
                 return (
                   <div>
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Best Times</h3>
+                      <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Best Times</h3>
                       <button onClick={fetchBestTimes} disabled={btState === "loading"}
                         className="text-xs font-bold px-3 py-1.5 rounded-full border border-[#00f0ff]/30 text-[#00f0ff] hover:bg-[#00f0ff]/10 transition-colors disabled:opacity-40 min-h-[32px]">
                         {btState === "loading" ? "Fetching…" : btState === "done" ? "Refresh" : "Fetch from SwimCloud"}
@@ -3163,22 +3173,22 @@ export default function ApexAthletePage() {
                     </div>
                     {btState === "loading" && (
                       <Card className="p-6 text-center">
-                        <div className="text-white/40 text-sm animate-pulse">Searching SwimCloud for {athlete.name}…</div>
+                        <div className="text-[#f8fafc]/40 text-sm animate-pulse">Searching SwimCloud for {athlete.name}…</div>
                       </Card>
                     )}
                     {btState === "error" && (
                       <Card className="p-5">
                         <div className="text-red-400 text-sm">{btData?.error || "Failed to fetch times"}</div>
-                        {btData?.message && <div className="text-white/40 text-xs mt-1">{btData.message}</div>}
+                        {btData?.message && <div className="text-[#f8fafc]/40 text-xs mt-1">{btData.message}</div>}
                       </Card>
                     )}
                     {btState === "done" && btData && (
                       <Card className="divide-y divide-white/[0.04]">
                         {btData.swimmer && (
                           <div className="px-5 py-3 flex items-center justify-between">
-                            <div className="text-white/50 text-xs">
+                            <div className="text-[#f8fafc]/50 text-xs">
                               {btData.swimmer} · {btData.team || ""}
-                              {btData.cached && <span className="text-white/30 ml-2">(cached)</span>}
+                              {btData.cached && <span className="text-[#f8fafc]/30 ml-2">(cached)</span>}
                             </div>
                             {btData.swimmerUrl && (
                               <a href={btData.swimmerUrl} target="_blank" rel="noopener noreferrer"
@@ -3187,7 +3197,7 @@ export default function ApexAthletePage() {
                           </div>
                         )}
                         {btData.times.length === 0 ? (
-                          <div className="px-5 py-4 text-white/40 text-sm text-center">
+                          <div className="px-5 py-4 text-[#f8fafc]/40 text-sm text-center">
                             {btData.message || "No times found"}
                           </div>
                         ) : (
@@ -3197,10 +3207,10 @@ export default function ApexAthletePage() {
                                 {t.course}
                               </span>
                               <div className="flex-1 min-w-0">
-                                <div className="text-white text-sm font-medium">{t.event} {t.stroke}</div>
-                                {(t.meet || t.date) && <div className="text-white/30 text-[10px] truncate">{t.meet}{t.date ? ` · ${t.date}` : ""}</div>}
+                                <div className="text-[#f8fafc] text-sm font-medium">{t.event} {t.stroke}</div>
+                                {(t.meet || t.date) && <div className="text-[#f8fafc]/30 text-[10px] truncate">{t.meet}{t.date ? ` · ${t.date}` : ""}</div>}
                               </div>
-                              <span className="text-white font-black text-lg tabular-nums">{t.time}</span>
+                              <span className="text-[#f8fafc] font-black text-lg tabular-nums">{t.time}</span>
                             </div>
                           ))
                         )}
@@ -3254,7 +3264,7 @@ export default function ApexAthletePage() {
 
     if (parentAthlete) {
       return (
-        <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] relative overflow-x-hidden">
           <BgOrbs /><XpFloats floats={xpFloats} /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
           <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
             <GameHUDHeader />
@@ -3268,7 +3278,7 @@ export default function ApexAthletePage() {
     }
 
     return (
-      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+      <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] relative overflow-x-hidden">
         <BgOrbs /><XpFloats floats={xpFloats} /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} /><ComboCounter comboCount={comboCount} comboExiting={comboExiting} />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
@@ -3281,22 +3291,22 @@ export default function ApexAthletePage() {
                 <div key={a.id} onClick={() => setSelectedAthlete(a.id)} className="cursor-pointer active:scale-[0.98] transition-all">
                 <Card className="p-5">
                   <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 rounded-full bg-[#6b21a8]/20 border border-[#6b21a8]/15 flex items-center justify-center text-xs font-bold text-white">
+                    <div className="w-10 h-10 rounded-full bg-[#6b21a8]/20 border border-[#6b21a8]/15 flex items-center justify-center text-xs font-bold text-[#f8fafc]">
                       {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="text-white font-medium text-sm truncate">{a.name}</div>
+                      <div className="text-[#f8fafc] font-medium text-sm truncate">{a.name}</div>
                       <div className="flex items-center gap-2 mt-0.5">
                         <span className="text-xs font-bold" style={{ color: lv.color }}>{lv.icon} {lv.name}</span>
-                        <span className="text-white/50 text-xs">{a.xp} XP</span>
+                        <span className="text-[#f8fafc]/50 text-xs">{a.xp} XP</span>
                       </div>
                     </div>
-                    <span className="text-white/20 text-xs">&rarr;</span>
+                    <span className="text-[#f8fafc]/20 text-xs">&rarr;</span>
                   </div>
                   <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-2">
                     <div className="h-full rounded-full xp-shimmer transition-all" style={{ width: `${prog.percent}%` }} />
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-white/60">
+                  <div className="flex items-center gap-3 text-xs text-[#f8fafc]/60">
                     <span>Streak: {a.streak}d</span><span>Practices: {a.totalPractices}</span>
                     {a.pin && <span className="ml-auto font-mono text-[#a855f7] font-bold bg-[#6b21a8]/20 px-2 py-0.5 rounded">PIN: {a.pin}</span>}
                   </div>
@@ -3306,10 +3316,10 @@ export default function ApexAthletePage() {
                     </div>
                   )}
                   <div className="mt-3 pt-3 border-t border-white/[0.04]">
-                    <div className="grid grid-cols-3 gap-2 text-xs text-white/60">
-                      <div><span className="text-white/40 font-bold">{a.totalPractices}</span> sessions</div>
-                      <div><span className="text-white/40 font-bold">{Object.values(a.quests).filter(q => q === "done").length}</span> quests</div>
-                      <div><span className="text-white/40 font-bold">{getStreakMult(a.streak)}x</span> multiplier</div>
+                    <div className="grid grid-cols-3 gap-2 text-xs text-[#f8fafc]/60">
+                      <div><span className="text-[#f8fafc]/40 font-bold">{a.totalPractices}</span> sessions</div>
+                      <div><span className="text-[#f8fafc]/40 font-bold">{Object.values(a.quests).filter(q => q === "done").length}</span> quests</div>
+                      <div><span className="text-[#f8fafc]/40 font-bold">{getStreakMult(a.streak)}x</span> multiplier</div>
                     </div>
                   </div>
                 </Card>
@@ -3317,7 +3327,7 @@ export default function ApexAthletePage() {
               );
             })}
           </div>
-          <p className="text-white/40 text-xs text-center mt-12">Coach manages all data. Parental consent required. Contact coach for data export.</p>
+          <p className="text-[#f8fafc]/40 text-xs text-center mt-12">Coach manages all data. Parental consent required. Contact coach for data export.</p>
         </div>
       </div>
     );
@@ -3326,17 +3336,17 @@ export default function ApexAthletePage() {
   // ── AUDIT VIEW ───────────────────────────────────────────
   if (view === "audit") {
     return (
-      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+      <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] relative overflow-x-hidden">
         <BgOrbs />
         <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10">
           <GameHUDHeader />
           <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-6">Audit Log</h2>
-          <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
-            {!auditLog.length && <p className="text-white/60 text-sm p-6 font-mono">No actions recorded yet.</p>}
+          <div className="game-panel game-panel-border bg-[#0e0e18]/80 backdrop-blur-2xl p-2 max-h-[70vh] overflow-y-auto shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
+            {!auditLog.length && <p className="text-[#f8fafc]/60 text-sm p-6 font-mono">No actions recorded yet.</p>}
             {auditLog.slice(0, 200).map((e, i) => (
               <div key={i} className="flex items-center gap-3 py-3 px-5 text-sm hover:bg-[#00f0ff]/[0.03] transition-colors border-b border-[#00f0ff]/5 last:border-0">
                 <span className="text-[#00f0ff]/25 text-xs w-36 shrink-0 font-mono">{new Date(e.timestamp).toLocaleString()}</span>
-                <span className="text-white/50 flex-1 truncate font-mono">{e.athleteName}: {e.action}</span>
+                <span className="text-[#f8fafc]/50 flex-1 truncate font-mono">{e.athleteName}: {e.action}</span>
                 {e.xpDelta > 0 && <span className="neon-text-gold font-bold text-sm font-mono">+{e.xpDelta}</span>}
               </div>
             ))}
@@ -3448,7 +3458,7 @@ export default function ApexAthletePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] relative overflow-x-hidden">
       <BgOrbs />
       <ParticleField variant="gold" count={40} speed={0.3} opacity={0.4} />
       <XpFloats floats={xpFloats} /><LevelUpOverlay name={levelUpName} level={levelUpLevel} color={levelUpColor} exiting={levelUpExiting} onDismiss={handleLevelUpDismiss} /><AchievementToasts toasts={achieveToasts} onDismiss={handleAchieveDismiss} />
@@ -3475,11 +3485,11 @@ export default function ApexAthletePage() {
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight neon-text-cyan">Leaderboard</h2>
-                <div className="flex gap-1 bg-[#06020f]/60 p-1 border border-[#00f0ff]/15 game-panel-sm">
+                <div className="flex gap-1 bg-[#0e0e18]/60 p-1 border border-[#00f0ff]/15 game-panel-sm">
                   {(["all", "M", "F"] as const).map(t => (
                     <button key={t} onClick={() => setLeaderTab(t)}
                       className={`game-btn px-4 py-2 text-xs font-bold transition-all min-h-[32px] font-mono tracking-wider ${
-                        leaderTab === t ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.3)]" : "text-white/60 hover:text-[#00f0ff]/50 border border-transparent"
+                        leaderTab === t ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.3)]" : "text-[#f8fafc]/60 hover:text-[#00f0ff]/50 border border-transparent"
                       }`}>
                       {t === "all" ? "ALL" : t === "M" ? "MALE" : "FEMALE"}
                     </button>
@@ -3491,19 +3501,19 @@ export default function ApexAthletePage() {
                 {mvpMale && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#f59e0b]/10 to-transparent border border-[#f59e0b]/15">
                     <span className="text-xs font-bold text-[#f59e0b] tracking-wider">♂ MVP</span>
-                    <span className="text-white text-xs font-medium">{mvpMale.name.split(" ")[0]}</span>
+                    <span className="text-[#f8fafc] text-xs font-medium">{mvpMale.name.split(" ")[0]}</span>
                   </div>
                 )}
                 {mvpFemale && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-[#e879f9]/10 to-transparent border border-[#e879f9]/15">
                     <span className="text-xs font-bold text-[#e879f9] tracking-wider">♀ MVP</span>
-                    <span className="text-white text-xs font-medium">{mvpFemale.name.split(" ")[0]}</span>
+                    <span className="text-[#f8fafc] text-xs font-medium">{mvpFemale.name.split(" ")[0]}</span>
                   </div>
                 )}
                 {mostImproved && (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-emerald-500/10 to-transparent border border-emerald-500/15">
                     <span className="text-xs font-bold text-emerald-400 tracking-wider">RISING</span>
-                    <span className="text-white text-xs font-medium">{mostImproved.name.split(" ")[0]}</span>
+                    <span className="text-[#f8fafc] text-xs font-medium">{mostImproved.name.split(" ")[0]}</span>
                   </div>
                 )}
               </div>
@@ -3536,11 +3546,11 @@ export default function ApexAthletePage() {
                       <div key={a.id} className={`game-panel game-panel-border relative p-4 sm:p-6 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} ${heights[rank]} flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] group`}>
                         {rank === 0 && <div className="absolute inset-0 gold-shimmer pointer-events-none" />}
                         <div className={`text-3xl sm:text-4xl mb-3 ${rank === 0 ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
-                        <div className={`${avatarSizes[rank]} mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-white mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
+                        <div className={`${avatarSizes[rank]} mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
                           style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": rank === 0 ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
-                        <div className={`text-base sm:text-lg font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-white"}`}>{a.name.split(" ")[0]}</div>
+                        <div className={`text-base sm:text-lg font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-[#f8fafc]"}`}>{a.name.split(" ")[0]}</div>
                         <div className="text-[#00f0ff]/20 text-[11px] truncate w-full font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
                         <div className="rank-badge text-[11px] font-bold mt-3 px-4 py-1.5 inline-flex items-center gap-1.5 font-mono" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
                           {lv.icon} {lv.name}
@@ -3549,7 +3559,7 @@ export default function ApexAthletePage() {
                           {a.xp}<span className="text-xs text-[#f59e0b]/30 ml-1">XP</span>
                         </div>
                         {a.streak > 0 && (
-                          <div className="text-white/60 text-xs mt-1 font-bold flex items-center gap-1"><StreakFlame streak={a.streak} size={14} /> {a.streak}d streak</div>
+                          <div className="text-[#f8fafc]/60 text-xs mt-1 font-bold flex items-center gap-1"><StreakFlame streak={a.streak} size={14} /> {a.streak}d streak</div>
                         )}
                       </div>
                     );
@@ -3563,7 +3573,7 @@ export default function ApexAthletePage() {
               <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Full Rankings</h3>
               <span className="text-[#00f0ff]/20 text-xs font-mono">{sorted.length} athletes</span>
             </div>
-            <div className="game-panel game-panel-border game-panel-scan relative bg-[#06020f]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
+            <div className="game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
               {sorted.map((a, i) => {
                 const lv = getLevel(a.xp, getSportForAthlete(a));
                 const sk = fmtStreak(a.streak);
@@ -3571,16 +3581,16 @@ export default function ApexAthletePage() {
                 const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
                 return (
                   <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${rank <= 3 ? "bg-white/[0.02]" : ""} ${i < sorted.length - 1 ? "border-b border-white/[0.03]" : ""}`}>
-                    <span className={`w-8 text-center text-sm font-black shrink-0 transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-white/40 group-hover:text-white/60"}`}>
+                    <span className={`w-8 text-center text-sm font-black shrink-0 transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-[#f8fafc]/40 group-hover:text-[#f8fafc]/60"}`}>
                       {medalEmoji || rank}
                     </span>
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white/70 shrink-0 transition-all duration-200 group-hover:scale-110"
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-[#f8fafc]/70 shrink-0 transition-all duration-200 group-hover:scale-110"
                       style={{ background: `radial-gradient(circle, ${lv.color}20, ${lv.color}08)`, border: `2px solid ${lv.color}${rank <= 3 ? "60" : "30"}`, boxShadow: `0 0 12px ${lv.color}${rank <= 3 ? "20" : "10"}` }}>
                       {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                     </div>
-                    <span className={`text-sm font-semibold flex-1 truncate group-hover:text-white transition-colors ${rank <= 3 ? "text-white" : "text-white/80"}`}>{a.name}</span>
+                    <span className={`text-sm font-semibold flex-1 truncate group-hover:text-[#f8fafc] transition-colors ${rank <= 3 ? "text-[#f8fafc]" : "text-[#f8fafc]/80"}`}>{a.name}</span>
                     <span className="text-xs font-bold px-2.5 py-1 rounded-full hidden sm:inline-flex items-center gap-1 transition-all" style={{ color: lv.color, background: `${lv.color}12`, boxShadow: `0 0 8px ${lv.color}08` }}>{lv.icon} {lv.name}</span>
-                    {a.streak > 0 && <span className="text-white/60 text-xs hidden sm:inline-flex items-center gap-0.5 font-bold"><StreakFlame streak={a.streak} size={12} /> {a.streak}d</span>}
+                    {a.streak > 0 && <span className="text-[#f8fafc]/60 text-xs hidden sm:inline-flex items-center gap-0.5 font-bold"><StreakFlame streak={a.streak} size={12} /> {a.streak}d</span>}
                     <AnimatedCounter value={a.xp} className="text-[#f59e0b] text-sm font-black w-16 text-right tabular-nums whitespace-nowrap shrink-0 drop-shadow-[0_0_8px_rgba(245,158,11,0.2)]" />
                   </div>
                 );
@@ -3614,7 +3624,7 @@ export default function ApexAthletePage() {
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_16px_rgba(0,240,255,0.2)]"
                           : isPending
                             ? "bg-amber-500/20 text-amber-300 border-2 border-amber-500/50 animate-pulse"
-                            : "bg-[#06020f]/60 text-white/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
+                            : "bg-[#0e0e18]/60 text-[#f8fafc]/60 border border-white/[0.06] hover:text-[#00f0ff]/50 active:scale-[0.97]"
                       }`}>
                       <ModeIcon /><span className="text-[11px]">{isPending ? "Tap to confirm" : labels[m]}</span>
                     </button>
@@ -3668,16 +3678,16 @@ export default function ApexAthletePage() {
               <button onClick={bulkMarkPresent} className="game-btn py-3 bg-[#00f0ff]/10 text-[#00f0ff]/70 text-xs font-mono tracking-wider border border-[#00f0ff]/20 hover:bg-[#00f0ff]/20 transition-all active:scale-[0.97] rounded-xl min-h-[48px] tap-feedback touch-glow-cyan">
                 Bulk
               </button>
-              <button onClick={exportCSV} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
-              <label className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#34d399]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px] flex items-center justify-center cursor-pointer">
+              <button onClick={exportCSV} className="game-btn py-3 bg-[#0e0e18]/60 text-[#f8fafc]/50 text-xs font-mono border border-white/[0.06] hover:text-[#00f0ff]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">Export</button>
+              <label className="game-btn py-3 bg-[#0e0e18]/60 text-[#f8fafc]/50 text-xs font-mono border border-white/[0.06] hover:text-[#34d399]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px] flex items-center justify-center cursor-pointer">
                 Import
                 <input type="file" accept=".csv,.txt" onChange={importCSV} className="hidden" />
               </label>
-              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="game-btn py-3 bg-[#06020f]/60 text-white/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+              <button onClick={() => setAddAthleteOpen(!addAthleteOpen)} className="game-btn py-3 bg-[#0e0e18]/60 text-[#f8fafc]/50 text-xs font-mono border border-white/[0.06] hover:text-[#a855f7]/50 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                 {addAthleteOpen ? "Cancel" : "+ Add"}
               </button>
               <div className="relative">
-                <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="w-full game-btn py-3 bg-[#06020f]/60 text-white/40 text-xs font-mono border border-white/[0.06] hover:text-white/60 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
+                <button onClick={() => setShowMoreMenu(!showMoreMenu)} className="w-full game-btn py-3 bg-[#0e0e18]/60 text-[#f8fafc]/40 text-xs font-mono border border-white/[0.06] hover:text-[#f8fafc]/60 transition-all active:scale-[0.97] rounded-xl min-h-[48px]">
                   More
                 </button>
                 {showMoreMenu && (
@@ -3685,12 +3695,12 @@ export default function ApexAthletePage() {
                     <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
                     <div className="absolute right-0 top-full mt-1 z-50 bg-[#0a0315]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-[0_8px_30px_rgba(0,0,0,0.5)] py-1 min-w-[160px]">
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "End current session? Attendance will be saved and a fresh slate will load.", action: endCurrentSession }); }} className="w-full text-left px-4 py-3 text-[#00f0ff]/80 text-xs font-mono hover:bg-[#00f0ff]/10 hover:text-[#00f0ff] transition-colors font-semibold">End Session + Save</button>
-                      <button onClick={() => { setShowMoreMenu(false); setShowSessionHistory(true); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Session History</button>
-                      <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-white/60 text-xs font-mono hover:bg-white/[0.05] hover:text-white/80 transition-colors">Undo Last</button>
+                      <button onClick={() => { setShowMoreMenu(false); setShowSessionHistory(true); }} className="w-full text-left px-4 py-3 text-[#f8fafc]/60 text-xs font-mono hover:bg-white/[0.05] hover:text-[#f8fafc]/80 transition-colors">Session History</button>
+                      <button onClick={() => { setShowMoreMenu(false); undoLast(); }} className="w-full text-left px-4 py-3 text-[#f8fafc]/60 text-xs font-mono hover:bg-white/[0.05] hover:text-[#f8fafc]/80 transition-colors">Undo Last</button>
                       <button onClick={() => { setShowMoreMenu(false); refreshInvites(); setShowInviteModal(true); }} className="w-full text-left px-4 py-3 text-[#a855f7]/70 text-xs font-mono hover:bg-[#a855f7]/10 hover:text-[#a855f7] transition-colors">Invite Links</button>
                       <div className="border-t border-white/[0.06] my-1" />
-                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
-                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset this week's sessions and check-ins?", action: resetWeek }); }} className="w-full text-left px-4 py-3 text-white/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Week</button>
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset today's check-ins for this group?", action: resetDay }); }} className="w-full text-left px-4 py-3 text-[#f8fafc]/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Day</button>
+                      <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset this week's sessions and check-ins?", action: resetWeek }); }} className="w-full text-left px-4 py-3 text-[#f8fafc]/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Week</button>
                       <button onClick={() => { setShowMoreMenu(false); setConfirmAction({ label: "Reset all monthly data, streaks, and quests?", action: resetMonth }); }} className="w-full text-left px-4 py-3 text-red-400/50 text-xs font-mono hover:bg-red-500/10 hover:text-red-400/80 transition-colors">Reset Month</button>
                     </div>
                   </>
@@ -3711,7 +3721,7 @@ export default function ApexAthletePage() {
               <div className="flex items-center justify-between gap-3 mb-3 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl">
                 <span className="text-red-400/80 text-xs font-mono">{confirmAction.label}</span>
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                  <button onClick={() => setConfirmAction(null)} className="px-3 py-1.5 bg-white/[0.05] text-[#f8fafc]/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
                   <button onClick={() => { confirmAction.action(); setConfirmAction(null); }} className="px-3 py-1.5 bg-red-500/20 text-red-400 text-xs font-bold font-mono rounded-lg hover:bg-red-500/30 transition-all active:scale-[0.97]">Confirm</button>
                 </div>
               </div>
@@ -3722,7 +3732,7 @@ export default function ApexAthletePage() {
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }}>
                 <div className="bg-[#0a0315] border border-white/10 rounded-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-bold text-lg font-mono">Session History</h3>
+                    <h3 className="text-[#f8fafc] font-bold text-lg font-mono">Session History</h3>
                     <div className="flex items-center gap-3">
                       {sessionHistory.filter(s => s.group === selectedGroup).length > 0 && (
                         <button
@@ -3732,7 +3742,7 @@ export default function ApexAthletePage() {
                           Clear All
                         </button>
                       )}
-                      <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }} className="text-white/40 hover:text-white text-2xl">&times;</button>
+                      <button onClick={() => { setShowSessionHistory(false); setEditingHistorySession(null); setConfirmDeleteSessionId(null); setConfirmClearAll(false); }} className="text-[#f8fafc]/40 hover:text-[#f8fafc] text-2xl">&times;</button>
                     </div>
                   </div>
                   {/* Clear All confirmation */}
@@ -3740,7 +3750,7 @@ export default function ApexAthletePage() {
                     <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                       <p className="text-red-400/80 text-xs font-mono mb-3">Delete all session history for this group? This cannot be undone.</p>
                       <div className="flex gap-2 justify-end">
-                        <button onClick={() => setConfirmClearAll(false)} className="px-3 py-1.5 bg-white/[0.05] text-white/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
+                        <button onClick={() => setConfirmClearAll(false)} className="px-3 py-1.5 bg-white/[0.05] text-[#f8fafc]/50 text-xs font-mono rounded-lg hover:bg-white/[0.1] transition-all">Cancel</button>
                         <button onClick={() => {
                           const updated = sessionHistory.filter(s => s.group !== selectedGroup);
                           save(K.SESSION_HISTORY, updated);
@@ -3751,21 +3761,21 @@ export default function ApexAthletePage() {
                     </div>
                   )}
                   {sessionHistory.filter(s => s.group === selectedGroup).length === 0 ? (
-                    <p className="text-white/30 text-sm font-mono text-center py-8">No saved sessions yet. Tap &ldquo;End Session + Save&rdquo; after practice to create history.</p>
+                    <p className="text-[#f8fafc]/30 text-sm font-mono text-center py-8">No saved sessions yet. Tap &ldquo;End Session + Save&rdquo; after practice to create history.</p>
                   ) : (
                     <div className="space-y-3">
                       {sessionHistory.filter(s => s.group === selectedGroup).slice(0, 20).map(session => (
                         <div key={session.id} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4">
                           <div className="flex items-center justify-between mb-2">
                             <div>
-                              <span className="text-white font-mono text-sm font-bold">{session.date}</span>
-                              <span className="text-white/40 font-mono text-xs ml-2">{session.sessionType.toUpperCase()} &middot; {session.startTime}</span>
+                              <span className="text-[#f8fafc] font-mono text-sm font-bold">{session.date}</span>
+                              <span className="text-[#f8fafc]/40 font-mono text-xs ml-2">{session.sessionType.toUpperCase()} &middot; {session.startTime}</span>
                             </div>
                             <div className="flex items-center gap-2">
                               <span className="text-[#00f0ff] font-mono text-sm font-bold">{session.totalPresent}/{session.totalAthletes}</span>
                               <button
                                 onClick={() => setEditingHistorySession(editingHistorySession === session.id ? null : session.id)}
-                                className="text-white/30 hover:text-white/60 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors"
+                                className="text-[#f8fafc]/30 hover:text-[#f8fafc]/60 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors"
                               >
                                 {editingHistorySession === session.id ? "Close" : "Edit"}
                               </button>
@@ -3777,12 +3787,12 @@ export default function ApexAthletePage() {
                                     setSessionHistory(updated);
                                     setConfirmDeleteSessionId(null);
                                   }} className="text-red-400 text-xs font-mono font-bold px-2 py-1 rounded bg-red-500/15 hover:bg-red-500/25 transition-colors">Delete</button>
-                                  <button onClick={() => setConfirmDeleteSessionId(null)} className="text-white/30 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors">Cancel</button>
+                                  <button onClick={() => setConfirmDeleteSessionId(null)} className="text-[#f8fafc]/30 text-xs font-mono px-2 py-1 rounded hover:bg-white/[0.05] transition-colors">Cancel</button>
                                 </div>
                               ) : (
                                 <button
                                   onClick={() => setConfirmDeleteSessionId(session.id)}
-                                  className="text-white/20 hover:text-red-400/60 text-xs font-mono px-1.5 py-1 rounded hover:bg-red-500/10 transition-colors"
+                                  className="text-[#f8fafc]/20 hover:text-red-400/60 text-xs font-mono px-1.5 py-1 rounded hover:bg-red-500/10 transition-colors"
                                   title="Delete session"
                                 >
                                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
@@ -3794,7 +3804,7 @@ export default function ApexAthletePage() {
                             <div className="mt-3 space-y-1 border-t border-white/[0.06] pt-3">
                               {session.attendance.map(a => (
                                 <div key={a.id} className="flex items-center justify-between py-1.5">
-                                  <span className="text-white/70 text-xs font-mono">{a.name}</span>
+                                  <span className="text-[#f8fafc]/70 text-xs font-mono">{a.name}</span>
                                   <button
                                     onClick={() => {
                                       const updated = sessionHistory.map(s => {
@@ -3806,7 +3816,7 @@ export default function ApexAthletePage() {
                                       setSessionHistory(updated);
                                     }}
                                     className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all min-w-[60px] ${
-                                      a.present ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-white/[0.03] text-white/30 border border-white/[0.06]"
+                                      a.present ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-white/[0.03] text-[#f8fafc]/30 border border-white/[0.06]"
                                     }`}
                                   >
                                     {a.present ? "Present" : "Absent"}
@@ -3827,15 +3837,15 @@ export default function ApexAthletePage() {
             {addAthleteOpen && (
               <div className="flex gap-3 mb-5 items-center flex-wrap">
                 <input value={newAthleteName} onChange={e => setNewAthleteName(e.target.value)} placeholder="Name"
-                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" style={{ fontSize: '16px' }} />
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-[#f8fafc] text-sm w-52 focus:outline-none focus:border-[#6b21a8]/40 min-h-[44px]" style={{ fontSize: '16px' }} />
                 <input value={newAthleteAge} onChange={e => setNewAthleteAge(e.target.value.replace(/\D/g, ""))} placeholder="Age"
-                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm w-20 focus:outline-none min-h-[44px]" style={{ fontSize: '16px' }} />
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-[#f8fafc] text-sm w-20 focus:outline-none min-h-[44px]" style={{ fontSize: '16px' }} />
                 <select value={newAthleteGender} onChange={e => setNewAthleteGender(e.target.value as "M" | "F")}
-                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none min-h-[44px]" style={{ fontSize: '16px' }}>
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-xl px-4 py-2.5 text-[#f8fafc] text-sm focus:outline-none min-h-[44px]" style={{ fontSize: '16px' }}>
                   <option value="M">M</option><option value="F">F</option>
                 </select>
                 <button onClick={addAthleteAction}
-                  className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-white text-sm font-bold min-h-[44px] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)] transition-all">
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-b from-[#7c3aed] to-[#6b21a8] text-[#f8fafc] text-sm font-bold min-h-[44px] hover:shadow-[0_0_20px_rgba(107,33,168,0.3)] transition-all">
                   Add
                 </button>
               </div>
@@ -3843,8 +3853,11 @@ export default function ApexAthletePage() {
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
             <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">// Roster Check-In</h3>
-            <div className="space-y-3 mb-12">
-              {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map(a => {
+            <div className="space-y-3 mb-12" style={{ 
+              contentVisibility: "auto",
+              containIntrinsicSize: "0 4000px" /* Estimate: ~50 athletes * 80px each */
+            }}>
+              {[...filteredRoster].sort((a, b) => a.name.localeCompare(b.name)).map((a, index) => {
                 const lv = getLevel(a.xp, getSportForAthlete(a));
                 const prog = getLevelProgress(a.xp, getSportForAthlete(a));
                 const sk = fmtStreak(a.streak);
@@ -3852,9 +3865,16 @@ export default function ApexAthletePage() {
                 const dailyUsed = a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0;
 
                 return (
-                  <div key={a.id} className="relative overflow-hidden transition-all duration-200 game-card">
+                  <div 
+                    key={a.id} 
+                    className="relative overflow-hidden transition-all duration-200 game-card"
+                    style={{
+                      contentVisibility: index > 15 ? "auto" : "visible",
+                      containIntrinsicSize: "0 88px" /* Each athlete card ~88px height */
+                    }}
+                  >
                     <div className="absolute left-0 top-0 bottom-0 w-[2px]" style={{ background: `linear-gradient(180deg, ${hasCk ? "#00f0ff" : lv.color}${hasCk ? "80" : "25"}, transparent)`, boxShadow: hasCk ? `0 0 8px ${lv.color}40` : "none" }} />
-                    <div className={`game-panel-sm bg-[#06020f]/70 backdrop-blur-xl border transition-all duration-200 ${
+                    <div className={`game-panel-sm bg-[#0e0e18]/70 backdrop-blur-xl border transition-all duration-200 ${
                       hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
@@ -3877,20 +3897,20 @@ export default function ApexAthletePage() {
                             <div className="w-2 h-2 rounded-full bg-white/15" />
                           )}
                         </button>
-                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-xs font-black text-white shrink-0 transition-all duration-300 group-hover:scale-110"
+                        <div className="w-11 h-11 rounded-full flex items-center justify-center text-xs font-black text-[#f8fafc] shrink-0 transition-all duration-300 group-hover:scale-110"
                           style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}30, ${lv.color}08)`, border: `2px solid ${lv.color}${hasCk ? "90" : "35"}`, boxShadow: hasCk ? `0 0 20px ${lv.color}20` : `0 0 8px ${lv.color}08` }}
                         >
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <button className="text-white text-sm font-semibold truncate hover:text-[#00f0ff] transition-colors text-left" onClick={(e) => { e.stopPropagation(); setSelectedAthlete(a.id); }}>{a.name}</button>
+                          <button className="text-[#f8fafc] text-sm font-semibold truncate hover:text-[#00f0ff] transition-colors text-left" onClick={(e) => { e.stopPropagation(); setSelectedAthlete(a.id); }}>{a.name}</button>
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>{lv.icon} {lv.name}</span>
                             {a.streak > 0 && <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]/70 inline-flex items-center gap-0.5"><StreakFlame streak={a.streak} size={12} /> {a.streak}d · {sk.mult}</span>}
                           </div>
                         </div>
                         <div className="w-28 shrink-0 text-right">
-                          <div className="text-white font-black text-sm tabular-nums whitespace-nowrap"><AnimatedCounter value={a.xp} /><span className="text-white/50 text-xs ml-1">XP</span></div>
+                          <div className="text-[#f8fafc] font-black text-sm tabular-nums whitespace-nowrap"><AnimatedCounter value={a.xp} /><span className="text-[#f8fafc]/50 text-xs ml-1">XP</span></div>
                           <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-1.5">
                             <div className="h-full rounded-full xp-shimmer" style={{ width: `${prog.percent}%` }} />
                           </div>
@@ -3911,12 +3931,12 @@ export default function ApexAthletePage() {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
                   const done = tc.current >= tc.target;
                   return (
-                    <div key={tc.id} className={`game-panel game-panel-border bg-[#06020f]/70 backdrop-blur-xl border p-5 transition-all card-press ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
+                    <div key={tc.id} className={`game-panel game-panel-border bg-[#0e0e18]/70 backdrop-blur-xl border p-5 transition-all card-press ${done ? "border-[#f59e0b]/30 neon-pulse-gold" : "border-[#00f0ff]/10"}`}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-white font-medium text-sm">{tc.name}</span>
-                        <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${done ? "text-[#f59e0b]" : "text-white/60"}`}>{tc.current}%<span className="text-white/40">/{tc.target}%</span></span>
+                        <span className="text-[#f8fafc] font-medium text-sm">{tc.name}</span>
+                        <span className={`text-sm font-bold tabular-nums whitespace-nowrap ${done ? "text-[#f59e0b]" : "text-[#f8fafc]/60"}`}>{tc.current}%<span className="text-[#f8fafc]/40">/{tc.target}%</span></span>
                       </div>
-                      <p className="text-white/50 text-[11px] mb-3">{tc.description} · <span className="text-[#f59e0b]/60">+{tc.reward} XP</span></p>
+                      <p className="text-[#f8fafc]/50 text-[11px] mb-3">{tc.description} · <span className="text-[#f59e0b]/60">+{tc.reward} XP</span></p>
                       <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
                         <div className={`h-full rounded-full transition-all duration-700 ${done ? "bg-gradient-to-r from-[#f59e0b] to-[#fbbf24]" : "bg-gradient-to-r from-[#6b21a8] to-[#7c3aed]"}`} style={{ width: `${pct}%` }} />
                       </div>
@@ -3933,13 +3953,13 @@ export default function ApexAthletePage() {
           <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowInviteModal(false)}>
             <div className="bg-[#0a0315] border border-[#a855f7]/20 rounded-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between mb-5">
-                <h3 className="text-white font-bold text-lg font-mono">Invite Links</h3>
-                <button onClick={() => setShowInviteModal(false)} className="text-white/40 hover:text-white text-2xl leading-none">&times;</button>
+                <h3 className="text-[#f8fafc] font-bold text-lg font-mono">Invite Links</h3>
+                <button onClick={() => setShowInviteModal(false)} className="text-[#f8fafc]/40 hover:text-[#f8fafc] text-2xl leading-none">&times;</button>
               </div>
 
               {/* Create new invite */}
               <div className="bg-[#a855f7]/5 border border-[#a855f7]/15 rounded-xl p-4 mb-5">
-                <p className="text-white/50 text-xs font-mono mb-3">Create a shareable link — no PIN needed</p>
+                <p className="text-[#f8fafc]/50 text-xs font-mono mb-3">Create a shareable link — no PIN needed</p>
                 <div className="flex gap-2 mb-3">
                   {(["athlete", "parent", "coach"] as InviteRole[]).map(r => (
                     <button key={r} onClick={() => setNewInviteRole(r)}
@@ -3948,7 +3968,7 @@ export default function ApexAthletePage() {
                           ? r === "athlete" ? "bg-[#a855f7]/20 text-[#a855f7] border border-[#a855f7]/40"
                           : r === "parent" ? "bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40"
                           : "bg-[#00f0ff]/20 text-[#00f0ff] border border-[#00f0ff]/40"
-                          : "bg-white/[0.03] text-white/30 border border-white/[0.06]"
+                          : "bg-white/[0.03] text-[#f8fafc]/30 border border-white/[0.06]"
                       }`}>
                       {r}
                     </button>
@@ -3960,7 +3980,7 @@ export default function ApexAthletePage() {
                     value={newInviteLabel}
                     onChange={e => setNewInviteLabel(e.target.value)}
                     placeholder={`e.g. "Gold Group Athletes"`}
-                    className="flex-1 px-3 py-2.5 bg-[#06020f]/80 border border-white/10 rounded-lg text-white text-sm placeholder:text-white/20 focus:outline-none focus:border-[#a855f7]/40"
+                    className="flex-1 px-3 py-2.5 bg-[#0e0e18]/80 border border-white/10 rounded-lg text-[#f8fafc] text-sm placeholder:text-[#f8fafc]/20 focus:outline-none focus:border-[#a855f7]/40"
                   />
                   <button onClick={handleCreateInvite}
                     className="px-4 py-2.5 bg-[#a855f7]/20 text-[#a855f7] text-xs font-bold font-mono rounded-lg border border-[#a855f7]/30 hover:bg-[#a855f7]/30 transition-all active:scale-[0.97]">
@@ -3972,7 +3992,7 @@ export default function ApexAthletePage() {
               {/* Active invites */}
               <div className="space-y-2">
                 {inviteList.length === 0 ? (
-                  <p className="text-white/20 text-sm font-mono text-center py-6">No invite links yet. Create one above.</p>
+                  <p className="text-[#f8fafc]/20 text-sm font-mono text-center py-6">No invite links yet. Create one above.</p>
                 ) : (
                   inviteList.slice().reverse().map(inv => {
                     const isExpired = inv.expiresAt > 0 && Date.now() > inv.expiresAt;
@@ -3986,9 +4006,9 @@ export default function ApexAthletePage() {
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ color: roleColor, background: `${roleColor}15`, border: `1px solid ${roleColor}25` }}>
                               {inv.role}
                             </span>
-                            <span className="text-white/60 text-sm">{inv.label}</span>
+                            <span className="text-[#f8fafc]/60 text-sm">{inv.label}</span>
                           </div>
-                          <span className="text-white/20 text-[10px] font-mono">{inv.useCount} used</span>
+                          <span className="text-[#f8fafc]/20 text-[10px] font-mono">{inv.useCount} used</span>
                         </div>
                         <div className="flex items-center gap-2">
                           {isActive && (
@@ -3996,7 +4016,7 @@ export default function ApexAthletePage() {
                               className={`flex-1 py-2 text-xs font-mono rounded-lg border transition-all active:scale-[0.97] ${
                                 copiedToken === inv.token
                                   ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30"
-                                  : "bg-white/[0.03] text-white/50 border-white/[0.06] hover:text-white/70"
+                                  : "bg-white/[0.03] text-[#f8fafc]/50 border-white/[0.06] hover:text-[#f8fafc]/70"
                               }`}>
                               {copiedToken === inv.token ? "Copied!" : "Copy Link"}
                             </button>
@@ -4008,7 +4028,7 @@ export default function ApexAthletePage() {
                             </button>
                           )}
                           {!isActive && (
-                            <span className="text-xs font-mono text-white/20">
+                            <span className="text-xs font-mono text-[#f8fafc]/20">
                               {!inv.active ? "Disabled" : isExpired ? "Expired" : "Max uses reached"}
                             </span>
                           )}
@@ -4028,7 +4048,7 @@ export default function ApexAthletePage() {
         )}
 
         {/* Privacy footer */}
-        <div className="text-center text-white/[0.05] text-xs py-10 space-y-1">
+        <div className="text-center text-[#f8fafc]/[0.05] text-xs py-10 space-y-1">
           <p>METTLE — Athlete Relations Manager</p>
           <p>Coach manages all data. Parental consent required.</p>
         </div>
