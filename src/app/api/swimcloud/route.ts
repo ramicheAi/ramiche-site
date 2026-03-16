@@ -227,17 +227,58 @@ export async function POST(req: Request) {
       });
     }
 
-    // Extract meet names + dates from the profile page itself (meet selector sidebar)
-    // Pattern: href="...?meet_id=ID"> <div class="u-text-truncate">NAME</div> <div class="u-color-mute u-text-small">DATE</div>
+    // Fetch meet names + dates from results pages (results IDs ≠ sidebar meet_ids)
     const meetInfoMap = new Map<string, { name: string; date: string }>();
-    const meetEntryRegex = /meet_id=(\d+)"[\s\S]*?<div[^>]*class="u-text-truncate"[^>]*>([^<]+)<\/div>\s*<div[^>]*class="u-color-mute[^"]*"[^>]*>([^<]+)<\/div>/g;
-    let meetMatch;
-    while ((meetMatch = meetEntryRegex.exec(html)) !== null) {
-      const [, mid, name, date] = meetMatch;
-      if (!meetInfoMap.has(mid)) {
-        meetInfoMap.set(mid, { name: name.trim(), date: date.trim() });
-      }
-    }
+    const uniqueResultIds = Array.from(meetIdSet);
+    await Promise.all(
+      uniqueResultIds.map(async (rid) => {
+        try {
+          const res = await fetch(`https://www.swimcloud.com/results/${rid}/`, {
+            headers: { "User-Agent": UA, "Accept": "text/html" },
+          });
+          if (!res.ok) return;
+          const rhtml = await res.text();
+          let meetName = "";
+          let dateStr = "";
+
+          // Try multiple patterns for meet name (SwimCloud changes HTML frequently)
+          const titleMatch = rhtml.match(/<title>([^<]+)<\/title>/);
+          const h1Match = rhtml.match(/<h1[^>]*>([^<]+)<\/h1>/);
+          const ogTitleMatch = rhtml.match(/<meta\s+property="og:title"\s+content="([^"]+)"/);
+          const breadcrumbMatch = rhtml.match(/class="[^"]*breadcrumb[^"]*"[^>]*>[\s\S]*?<a[^>]*>([^<]+)<\/a>\s*<\/li>\s*<\/[ou]l>/i);
+
+          if (ogTitleMatch) {
+            meetName = ogTitleMatch[1].replace(/\s*\|\s*SwimCloud.*$/i, "").trim();
+          } else if (h1Match) {
+            meetName = h1Match[1].trim();
+          } else if (titleMatch) {
+            meetName = titleMatch[1].replace(/\s*\|\s*SwimCloud.*$/i, "").trim();
+          } else if (breadcrumbMatch) {
+            meetName = breadcrumbMatch[1].trim();
+          }
+
+          // Try multiple patterns for date
+          const ogDescMatch = rhtml.match(/<meta\s+property="og:description"\s+content="([^"]+)"/);
+          const timeMatch2 = rhtml.match(/<time[^>]*datetime="([^"]+)"[^>]*>([^<]*)<\/time>/);
+          const dateTextMatch = rhtml.match(/(\w+\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?,?\s+\d{4})/);
+          const jsonLdMatch = rhtml.match(/"startDate"\s*:\s*"([^"]+)"/);
+
+          if (jsonLdMatch) {
+            dateStr = jsonLdMatch[1].trim();
+          } else if (timeMatch2) {
+            dateStr = timeMatch2[2].trim() || timeMatch2[1].trim();
+          } else if (ogDescMatch) {
+            dateStr = ogDescMatch[1].trim();
+          } else if (dateTextMatch) {
+            dateStr = dateTextMatch[1].trim();
+          }
+
+          if (meetName) {
+            meetInfoMap.set(rid, { name: meetName, date: dateStr });
+          }
+        } catch { /* skip failed fetches */ }
+      })
+    );
 
     // Second pass: merge times with meet info
     for (const { key, meetId, entry } of htmlTimes) {
