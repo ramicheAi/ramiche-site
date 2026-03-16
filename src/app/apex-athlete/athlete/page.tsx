@@ -7,6 +7,7 @@ import ParticleField from "@/components/ParticleField";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
 import PBOverlay from "../components/PBOverlay";
+import AthleteCard from "../components/AthleteCard";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -632,6 +633,7 @@ export default function AthletePortal() {
   const [celebration, setCelebration] = useState<{ level: string; color: string } | null>(null);
   const [pbNotification, setPbNotification] = useState<{ event: string; oldTime: string; newTime: string; timeDrop: string; xpEarned: number; meetName?: string } | null>(null);
   const [pbQueue, setPbQueue] = useState<typeof pbNotification[]>([]);
+  const [showCard, setShowCard] = useState(false);
   const prevLevelRef = { current: "" };
   // Auto-detect AM/PM from schedule (same logic as coach portal)
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
@@ -1396,6 +1398,23 @@ export default function AthletePortal() {
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[radial-gradient(ellipse,rgba(168,85,247,0.08)_0%,transparent_70%)]" />
       </div>
 
+      {/* Athlete Card Overlay */}
+      {showCard && athlete && (
+        <AthleteCard
+          name={athlete.name}
+          team={ROSTER_GROUPS.find(g => g.id === athlete.group)?.name ?? "METTLE"}
+          sport="Swimming"
+          level={level.name}
+          levelIcon={level.icon}
+          levelColor={level.color}
+          xp={athlete.xp}
+          streak={athlete.streak}
+          meets={Object.keys(athlete.meetCheckpoints || {}).filter(k => athlete.meetCheckpoints[k]).length}
+          bestTimes={(athlete.bestTimes || []).map(bt => ({ event: bt.event, time: bt.time }))}
+          onClose={() => setShowCard(false)}
+        />
+      )}
+
       {/* PB Notification Overlay */}
       <PBOverlay
         notification={pbNotification}
@@ -1455,6 +1474,7 @@ export default function AthletePortal() {
               }`}>
               {sessionTime === "am" ? "☀ AM" : "☽ PM"}
             </button>
+            <button onClick={() => setShowCard(true)} className="w-9 h-9 flex items-center justify-center rounded-lg text-white/30 hover:text-amber-400 border border-white/[0.06] hover:border-amber-400/30 transition-all" title="My Card"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></button>
             <button onClick={logout} className="w-9 h-9 flex items-center justify-center rounded-lg text-white/30 hover:text-red-400 border border-white/[0.06] hover:border-red-400/30 transition-all" title="Sign Out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
           </div>
         </div>
