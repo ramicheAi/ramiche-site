@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>METTLE — Athlete Check-In</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --purple:#6B21A8;--scarlet:#DC2626;--gold:#F59E0B;--blue:#2563EB;
+  --bg:#FAFAF9;--card:#FFFFFF;--text:#1C1917;--muted:#78716C;
+  --border:#E7E5E4;--success:#16A34A;--xp-glow:rgba(245,158,11,0.4);
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* Header */
+.header{background:linear-gradient(135deg,var(--purple),#7C3AED);padding:20px 16px 16px;color:#fff;position:sticky;top:0;z-index:100}
+.header h1{font-size:20px;font-weight:800;letter-spacing:1px}
+.header .sub{font-size:12px;opacity:0.8;margin-top:2px}
+.header .clock{position:absolute;right:16px;top:20px;font-size:28px;font-weight:700;font-variant-numeric:tabular-nums}
+
+/* Tab bar */
+.tabs{display:flex;background:#fff;border-bottom:2px solid var(--border);position:sticky;top:68px;z-index:99}
+.tab{flex:1;padding:12px 0;text-align:center;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;transition:all .2s}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.tab:hover{color:var(--purple)}
+
+/* Content */
+.content{padding:16px;max-width:600px;margin:0 auto}
+.section{display:none}.section.active{display:block}
+
+/* Check-in screen */
+.checkin-hero{text-align:center;padding:24px 0 16px}
+.checkin-hero .emoji{font-size:64px;margin-bottom:8px}
+.checkin-hero h2{font-size:22px;font-weight:700;color:var(--purple)}
+.checkin-hero p{font-size:14px;color:var(--muted);margin-top:4px}
+
+.pin-input-group{display:flex;gap:8px;justify-content:center;margin:20px 0}
+.pin-box{width:52px;height:60px;border:2px solid var(--border);border-radius:12px;font-size:28px;font-weight:700;text-align:center;color:var(--purple);background:#fff;transition:border-color .2s}
+.pin-box:focus{outline:none;border-color:var(--purple);box-shadow:0 0 0 3px rgba(107,33,168,0.15)}
+
+.btn{display:block;width:100%;padding:16px;border:none;border-radius:12px;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--purple);color:#fff}
+.btn-primary:hover{background:#7C3AED;transform:translateY(-1px)}
+.btn-primary:active{transform:translateY(0)}
+.btn-secondary{background:#F3F0FF;color:var(--purple);margin-top:8px}
+.btn-success{background:var(--success);color:#fff}
+.btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+/* Numpad */
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0}
+.numpad button{padding:16px;font-size:22px;font-weight:600;border:2px solid var(--border);border-radius:12px;background:#fff;cursor:pointer;transition:all .1s}
+.numpad button:active{background:#F3F0FF;border-color:var(--purple)}
+.numpad .num-clear{color:var(--scarlet);font-size:14px;font-weight:700}
+.numpad .num-back{font-size:18px}
+
+/* Success overlay */
+.checkin-success{display:none;text-align:center;padding:32px 0;animation:fadeIn .3s ease}
+.checkin-success.show{display:block}
+.checkin-success .check-circle{width:80px;height:80px;border-radius:50%;background:var(--success);display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px;animation:popIn .4s cubic-bezier(0.34,1.56,0.64,1)}
+.checkin-success .check-circle svg{width:40px;height:40px;color:#fff}
+.checkin-success h2{font-size:24px;font-weight:800;color:var(--success)}
+.checkin-success .athlete-name{font-size:18px;font-weight:600;color:var(--text);margin-top:4px}
+.checkin-success .xp-badge{display:inline-block;background:linear-gradient(135deg,var(--gold),#D97706);color:#fff;padding:8px 20px;border-radius:20px;font-size:16px;font-weight:700;margin-top:12px;box-shadow:0 0 20px var(--xp-glow);animation:pulse 1.5s infinite}
+.checkin-success .streak-info{margin-top:16px;padding:12px;background:#F0FDF4;border:2px solid #BBF7D0;border-radius:12px}
+.checkin-success .streak-info .streak-count{font-size:32px;font-weight:800;color:var(--success)}
+.checkin-success .streak-info .streak-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.checkin-success .level-info{margin-top:12px;font-size:14px;color:var(--muted)}
+.checkin-success .level-info strong{color:var(--purple)}
+
+/* Roster */
+.roster-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.roster-header h3{font-size:16px;font-weight:700}
+.roster-count{background:var(--purple);color:#fff;padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700}
+.athlete-card{display:flex;align-items:center;gap:12px;padding:12px;background:#fff;border:2px solid var(--border);border-radius:12px;margin-bottom:8px;transition:all .2s}
+.athlete-card.checked-in{border-color:#BBF7D0;background:#F0FDF4}
+.athlete-card .avatar{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;color:#fff;flex-shrink:0}
+.athlete-card .info{flex:1;min-width:0}
+.athlete-card .name{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.athlete-card .meta{font-size:12px;color:var(--muted)}
+.athlete-card .status{font-size:11px;font-weight:700;padding:4px 10px;border-radius:8px;flex-shrink:0}
+.athlete-card .status.in{background:#DCFCE7;color:#16A34A}
+.athlete-card .status.out{background:#F5F5F4;color:var(--muted)}
+.athlete-card .checkin-time{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Leaderboard */
+.lb-card{display:flex;align-items:center;gap:12px;padding:14px;background:#fff;border:2px solid var(--border);border-radius:12px;margin-bottom:8px}
+.lb-card.gold{border-color:var(--gold);background:linear-gradient(135deg,#FFFBEB,#FEF3C7)}
+.lb-card.silver{border-color:#9CA3AF;background:linear-gradient(135deg,#F9FAFB,#F3F4F6)}
+.lb-card.bronze{border-color:#D97706;background:linear-gradient(135deg,#FFFBEB,#FEF9C3)}
+.lb-rank{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.lb-card.gold .lb-rank{background:var(--gold);color:#fff}
+.lb-card.silver .lb-rank{background:#9CA3AF;color:#fff}
+.lb-card.bronze .lb-rank{background:#D97706;color:#fff}
+.lb-card:not(.gold):not(.silver):not(.bronze) .lb-rank{background:#E7E5E4;color:var(--muted)}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-weight:600;font-size:14px}
+.lb-streak{font-size:12px;color:var(--muted)}
+.lb-xp{font-weight:700;font-size:15px;color:var(--gold);flex-shrink:0}
+
+/* Stats */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.stat-box{background:#fff;border:2px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.stat-box .val{font-size:28px;font-weight:800;color:var(--purple)}
+.stat-box .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+.attendance-bar{display:flex;gap:3px;margin:12px 0}
+.attendance-dot{width:100%;height:28px;border-radius:6px;position:relative}
+.attendance-dot.present{background:#DCFCE7}
+.attendance-dot.absent{background:#FEE2E2}
+.attendance-dot.rest{background:#F5F5F4}
+.attendance-dot .day-label{position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);font-size:10px;color:var(--muted)}
+
+.activity-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.activity-dot.checkin{background:var(--success)}
+.activity-dot.xp{background:var(--gold)}
+.activity-dot.streak{background:var(--purple)}
+.activity-text{font-size:13px;color:var(--text)}
+.activity-time{font-size:11px;color:var(--muted)}
+
+/* Level badge */
+.level-badge{display:inline-block;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px}
+.level-rookie{background:#DBEAFE;color:var(--blue)}
+.level-contender{background:#E0E7FF;color:#4338CA}
+.level-warrior{background:#F3E8FF;color:var(--purple)}
+.level-elite{background:#FEF3C7;color:#D97706}
+.level-captain{background:#FFE4E6;color:var(--scarlet)}
+.level-legend{background:linear-gradient(135deg,#FEF3C7,#F3E8FF);color:var(--purple)}
+
+/* Animations */
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{0%{transform:scale(0)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 20px var(--xp-glow)}50%{box-shadow:0 0 35px var(--xp-glow)}}
+
+/* Coach mode toggle */
+.coach-toggle{position:fixed;bottom:16px;right:16px;width:48px;height:48px;border-radius:50%;background:var(--purple);color:#fff;border:none;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(107,33,168,0.3);z-index:200;display:flex;align-items:center;justify-content:center}
+
+/* Coach panel */
+.coach-panel{display:none;position:fixed;bottom:72px;right:16px;width:280px;background:#fff;border:2px solid var(--purple);border-radius:16px;padding:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:200}
+.coach-panel.show{display:block;animation:fadeIn .2s ease}
+.coach-panel h4{font-size:14px;font-weight:700;color:var(--purple);margin-bottom:12px}
+.coach-stat{display:flex;justify-content:space-between;padding:6px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.coach-stat:last-child{border-bottom:none}
+.coach-stat .cs-label{color:var(--muted)}
+.coach-stat .cs-val{font-weight:700}
+
+/* Search */
+.search-box{width:100%;padding:12px 16px;border:2px solid var(--border);border-radius:12px;font-size:14px;margin-bottom:12px;background:#fff}
+.search-box:focus{outline:none;border-color:var(--purple)}
+
+/* Demo banner */
+.demo-banner{background:#FEF3C7;border-bottom:2px solid var(--gold);padding:6px 16px;text-align:center;font-size:12px;font-weight:600;color:#92400E}
+</style>
+</head>
+<body>
+
+<div class="demo-banner">DEMO MODE — Saint Andrew's Aquatics</div>
+
+<div class="header">
+  <h1>METTLE</h1>
+  <div class="sub">Athlete Check-In</div>
+  <div class="clock" id="clock">--:--</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="checkin">Check In</div>
+  <div class="tab" data-tab="roster">Roster</div>
+  <div class="tab" data-tab="leaderboard">Streaks</div>
+  <div class="tab" data-tab="stats">Stats</div>
+</div>
+
+<div class="content">
+  <!-- CHECK-IN SECTION -->
+  <div class="section active" id="sec-checkin">
+    <div id="checkin-form">
+      <div class="checkin-hero">
+        <div class="emoji">🏊</div>
+        <h2>Welcome to Practice</h2>
+        <p>Enter your 4-digit athlete PIN</p>
+      </div>
+      <div class="pin-input-group">
+        <input class="pin-box" id="pin1" maxlength="1" inputmode="numeric" readonly>
+        <input class="pin-box" id="pin2" maxlength="1" inputmode="numeric" readonly>
+        <input class="pin-box" id="pin3" maxlength="1" inputmode="numeric" readonly>
+        <input class="pin-box" id="pin4" maxlength="1" inputmode="numeric" readonly>
+      </div>
+      <div class="numpad" id="numpad">
+        <button onclick="enterPin('1')">1</button>
+        <button onclick="enterPin('2')">2</button>
+        <button onclick="enterPin('3')">3</button>
+        <button onclick="enterPin('4')">4</button>
+        <button onclick="enterPin('5')">5</button>
+        <button onclick="enterPin('6')">6</button>
+        <button onclick="enterPin('7')">7</button>
+        <button onclick="enterPin('8')">8</button>
+        <button onclick="enterPin('9')">9</button>
+        <button class="num-clear" onclick="clearPin()">CLEAR</button>
+        <button onclick="enterPin('0')">0</button>
+        <button class="num-back" onclick="backspace()">&#9003;</button>
+      </div>
+      <button class="btn btn-primary" id="btn-checkin" onclick="doCheckin()" disabled>Check In</button>
+      <div id="checkin-error" style="color:var(--scarlet);text-align:center;font-size:13px;margin-top:8px;display:none"></div>
+    </div>
+    <div class="checkin-success" id="checkin-success">
+      <div class="check-circle">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <h2>Checked In!</h2>
+      <div class="athlete-name" id="success-name"></div>
+      <div class="xp-badge" id="success-xp"></div>
+      <div class="streak-info">
+        <div class="streak-count" id="success-streak"></div>
+        <div class="streak-label">Day Streak</div>
+      </div>
+      <div class="level-info" id="success-level"></div>
+      <button class="btn btn-secondary" onclick="resetCheckin()" style="margin-top:20px">Done</button>
+    </div>
+  </div>
+
+  <!-- ROSTER SECTION -->
+  <div class="section" id="sec-roster">
+    <input class="search-box" type="text" placeholder="Search athletes..." oninput="filterRoster(this.value)">
+    <div class="roster-header">
+      <h3>Today's Practice</h3>
+      <span class="roster-count" id="roster-count">0 / 0</span>
+    </div>
+    <div id="roster-list"></div>
+  </div>
+
+  <!-- LEADERBOARD SECTION -->
+  <div class="section" id="sec-leaderboard">
+    <h3 style="font-size:16px;font-weight:700;margin-bottom:12px">Attendance Streak Leaderboard</h3>
+    <div id="lb-list"></div>
+  </div>
+
+  <!-- STATS SECTION -->
+  <div class="section" id="sec-stats">
+    <div class="stat-grid">
+      <div class="stat-box"><div class="val" id="stat-total">0</div><div class="label">Check-ins Today</div></div>
+      <div class="stat-box"><div class="val" id="stat-rate">0%</div><div class="label">Attendance Rate</div></div>
+      <div class="stat-box"><div class="val" id="stat-avg-streak">0</div><div class="label">Avg Streak</div></div>
+      <div class="stat-box"><div class="val" id="stat-best-streak">0</div><div class="label">Best Streak</div></div>
+    </div>
+    <h4 style="font-size:14px;font-weight:700;margin-bottom:8px">This Week</h4>
+    <div class="attendance-bar" id="week-bar"></div>
+    <div style="height:24px"></div>
+    <h4 style="font-size:14px;font-weight:700;margin-bottom:8px">Recent Activity</h4>
+    <div id="activity-log"></div>
+  </div>
+</div>
+
+<!-- Coach FAB -->
+<button class="coach-toggle" id="coach-fab" onclick="toggleCoachPanel()">📋</button>
+<div class="coach-panel" id="coach-panel">
+  <h4>Coach Quick View</h4>
+  <div id="coach-stats"></div>
+</div>
+
+<script>
+// ========== DATA ==========
+const LEVELS = [
+  {name:'Rookie',min:0,cls:'level-rookie'},
+  {name:'Contender',min:200,cls:'level-contender'},
+  {name:'Warrior',min:500,cls:'level-warrior'},
+  {name:'Elite',min:1000,cls:'level-elite'},
+  {name:'Captain',min:2000,cls:'level-captain'},
+  {name:'Legend',min:5000,cls:'level-legend'}
+];
+const LEVEL_COLORS = ['#2563EB','#4338CA','#6B21A8','#D97706','#DC2626','#6B21A8'];
+
+const XP_CHECKIN = 15;
+const XP_STREAK_BONUS = [0,0,5,10,15,25,35,50]; // bonus at streak milestones 3,4,5,6,7,7+
+
+const ATHLETES = [
+  {id:1,name:'Marcus Williams',pin:'1234',group:'Senior',events:['100 Free','200 IM'],xp:680,streak:12,totalCheckins:45},
+  {id:2,name:'Sophia Chen',pin:'2345',group:'Senior',events:['200 Fly','100 Fly'],xp:520,streak:8,totalCheckins:38},
+  {id:3,name:'Jayden Brooks',pin:'3456',group:'Junior',events:['50 Free','100 Free'],xp:340,streak:5,totalCheckins:28},
+  {id:4,name:'Isabella Martinez',pin:'4567',group:'Senior',events:['200 Free','500 Free'],xp:890,streak:15,totalCheckins:52},
+  {id:5,name:'Ethan Park',pin:'5678',group:'Junior',events:['100 Back','200 Back'],xp:210,streak:3,totalCheckins:18},
+  {id:6,name:'Ava Thompson',pin:'6789',group:'Senior',events:['100 Breast','200 Breast'],xp:1150,streak:22,totalCheckins:61},
+  {id:7,name:'Liam O\'Connor',pin:'7890',group:'Junior',events:['200 IM','100 Fly'],xp:445,streak:6,totalCheckins:32},
+  {id:8,name:'Mia Rodriguez',pin:'8901',group:'Age Group',events:['50 Free','100 Back'],xp:155,streak:2,totalCheckins:12},
+  {id:9,name:'Noah Jackson',pin:'9012',group:'Senior',events:['100 Free','50 Free'],xp:780,streak:11,totalCheckins:48},
+  {id:10,name:'Emma Davis',pin:'0123',group:'Junior',events:['200 Free','100 Free'],xp:395,streak:7,totalCheckins:30},
+  {id:11,name:'Caleb Wright',pin:'1357',group:'Age Group',events:['50 Free','50 Back'],xp:90,streak:1,totalCheckins:8},
+  {id:12,name:'Olivia Kim',pin:'2468',group:'Senior',events:['200 IM','400 IM'],xp:1350,streak:19,totalCheckins:58},
+  {id:13,name:'Aiden Foster',pin:'3691',group:'Junior',events:['100 Breast','200 IM'],xp:280,streak:4,totalCheckins:22},
+  {id:14,name:'Chloe Nguyen',pin:'4826',group:'Age Group',events:['100 Free','50 Fly'],xp:120,streak:2,totalCheckins:10},
+  {id:15,name:'Dylan Harris',pin:'5937',group:'Senior',events:['200 Back','100 Back'],xp:960,streak:14,totalCheckins:50},
+  {id:16,name:'Zoe Miller',pin:'6048',group:'Junior',events:['100 Free','200 Free'],xp:310,streak:4,totalCheckins:25},
+  {id:17,name:'Lucas Scott',pin:'7159',group:'Age Group',events:['50 Breast','100 Breast'],xp:75,streak:1,totalCheckins:6},
+  {id:18,name:'Riley Adams',pin:'8260',group:'Senior',events:['500 Free','1000 Free'],xp:1080,streak:16,totalCheckins:55},
+  {id:19,name:'Mason Lee',pin:'9371',group:'Junior',events:['100 Fly','50 Free'],xp:260,streak:3,totalCheckins:20},
+  {id:20,name:'Harper Wilson',pin:'0482',group:'Age Group',events:['50 Free','100 IM'],xp:45,streak:0,totalCheckins:4},
+  {id:21,name:'Carter Brown',pin:'1593',group:'Senior',events:['200 Fly','100 Fly'],xp:720,streak:10,totalCheckins:44},
+  {id:22,name:'Ella Taylor',pin:'2604',group:'Junior',events:['100 Free','200 IM'],xp:410,streak:6,totalCheckins:33},
+  {id:23,name:'Jackson White',pin:'3715',group:'Age Group',events:['50 Back','50 Free'],xp:60,streak:0,totalCheckins:5},
+  {id:24,name:'Lily Anderson',pin:'4826',group:'Senior',events:['200 Breast','100 Breast'],xp:830,streak:13,totalCheckins:47}
+];
+
+// State
+let checkedIn = new Set();
+let pinValue = '';
+let activityLog = [];
+
+// Load from LocalStorage
+function loadState(){
+  const today = new Date().toISOString().slice(0,10);
+  const saved = localStorage.getItem('mettle-checkin-'+today);
+  if(saved){
+    const data = JSON.parse(saved);
+    checkedIn = new Set(data.checkedIn || []);
+    activityLog = data.activityLog || [];
+  }
+}
+function saveState(){
+  const today = new Date().toISOString().slice(0,10);
+  localStorage.setItem('mettle-checkin-'+today, JSON.stringify({
+    checkedIn: [...checkedIn],
+    activityLog
+  }));
+}
+
+// ========== LEVEL HELPERS ==========
+function getLevel(xp){
+  let lv = LEVELS[0];
+  for(const l of LEVELS) if(xp >= l.min) lv = l;
+  return lv;
+}
+function getNextLevel(xp){
+  for(const l of LEVELS) if(xp < l.min) return l;
+  return null;
+}
+function getLevelColor(xp){
+  const idx = LEVELS.findIndex(l => l === getLevel(xp));
+  return LEVEL_COLORS[idx] || LEVEL_COLORS[0];
+}
+
+// ========== CLOCK ==========
+function updateClock(){
+  const now = new Date();
+  const h = now.getHours();
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  document.getElementById('clock').textContent = `${h12}:${m}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ========== TABS ==========
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('sec-'+tab.dataset.tab).classList.add('active');
+    if(tab.dataset.tab === 'roster') renderRoster();
+    if(tab.dataset.tab === 'leaderboard') renderLeaderboard();
+    if(tab.dataset.tab === 'stats') renderStats();
+  });
+});
+
+// ========== PIN INPUT ==========
+function enterPin(digit){
+  if(pinValue.length >= 4) return;
+  pinValue += digit;
+  updatePinDisplay();
+  document.getElementById('checkin-error').style.display = 'none';
+  if(pinValue.length === 4){
+    document.getElementById('btn-checkin').disabled = false;
+  }
+}
+function clearPin(){
+  pinValue = '';
+  updatePinDisplay();
+  document.getElementById('btn-checkin').disabled = true;
+  document.getElementById('checkin-error').style.display = 'none';
+}
+function backspace(){
+  pinValue = pinValue.slice(0,-1);
+  updatePinDisplay();
+  document.getElementById('btn-checkin').disabled = pinValue.length < 4;
+}
+function updatePinDisplay(){
+  for(let i = 1; i <= 4; i++){
+    document.getElementById('pin'+i).value = pinValue[i-1] || '';
+  }
+}
+
+// ========== CHECK-IN ==========
+function doCheckin(){
+  const athlete = ATHLETES.find(a => a.pin === pinValue);
+  if(!athlete){
+    const err = document.getElementById('checkin-error');
+    err.textContent = 'PIN not found. Try again.';
+    err.style.display = 'block';
+    clearPin();
+    return;
+  }
+  if(checkedIn.has(athlete.id)){
+    const err = document.getElementById('checkin-error');
+    err.textContent = `${athlete.name.split(' ')[0]} is already checked in!`;
+    err.style.display = 'block';
+    clearPin();
+    return;
+  }
+
+  // Process check-in
+  checkedIn.add(athlete.id);
+  athlete.streak += 1;
+  athlete.totalCheckins += 1;
+
+  // Calculate XP
+  let xpEarned = XP_CHECKIN;
+  const streakIdx = Math.min(athlete.streak, 7);
+  if(streakIdx >= 3) xpEarned += XP_STREAK_BONUS[streakIdx];
+  athlete.xp += xpEarned;
+
+  // Log activity
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  activityLog.unshift({
+    type:'checkin',
+    text:`${athlete.name} checked in`,
+    time: timeStr
+  });
+  if(xpEarned > XP_CHECKIN){
+    activityLog.unshift({
+      type:'streak',
+      text:`${athlete.name.split(' ')[0]} hit a ${athlete.streak}-day streak! +${XP_STREAK_BONUS[streakIdx]} bonus XP`,
+      time: timeStr
+    });
+  }
+
+  saveState();
+
+  // Show success
+  document.getElementById('checkin-form').style.display = 'none';
+  const successEl = document.getElementById('checkin-success');
+  successEl.classList.add('show');
+  document.getElementById('success-name').textContent = athlete.name;
+  document.getElementById('success-xp').textContent = `+${xpEarned} XP`;
+  document.getElementById('success-streak').textContent = athlete.streak;
+
+  const level = getLevel(athlete.xp);
+  const next = getNextLevel(athlete.xp);
+  let levelText = `Level: <strong>${level.name}</strong> (${athlete.xp} XP)`;
+  if(next) levelText += ` — ${next.min - athlete.xp} XP to ${next.name}`;
+  document.getElementById('success-level').innerHTML = levelText;
+
+  clearPin();
+  updateCoachPanel();
+}
+
+function resetCheckin(){
+  document.getElementById('checkin-form').style.display = 'block';
+  document.getElementById('checkin-success').classList.remove('show');
+  document.getElementById('btn-checkin').disabled = true;
+}
+
+// ========== ROSTER ==========
+function renderRoster(filter=''){
+  const list = document.getElementById('roster-list');
+  const filtered = ATHLETES.filter(a =>
+    !filter || a.name.toLowerCase().includes(filter.toLowerCase()) || a.group.toLowerCase().includes(filter.toLowerCase())
+  );
+  // Sort: checked-in first, then alphabetical
+  filtered.sort((a,b) => {
+    const aIn = checkedIn.has(a.id) ? 0 : 1;
+    const bIn = checkedIn.has(b.id) ? 0 : 1;
+    if(aIn !== bIn) return aIn - bIn;
+    return a.name.localeCompare(b.name);
+  });
+
+  const checkedCount = ATHLETES.filter(a => checkedIn.has(a.id)).length;
+  document.getElementById('roster-count').textContent = `${checkedCount} / ${ATHLETES.length}`;
+
+  list.innerHTML = filtered.map(a => {
+    const isIn = checkedIn.has(a.id);
+    const level = getLevel(a.xp);
+    const color = getLevelColor(a.xp);
+    const initials = a.name.split(' ').map(n=>n[0]).join('');
+    return `<div class="athlete-card ${isIn ? 'checked-in' : ''}">
+      <div class="avatar" style="background:${color}">${initials}</div>
+      <div class="info">
+        <div class="name">${a.name} <span class="level-badge ${level.cls}">${level.name}</span></div>
+        <div class="meta">${a.group} · ${a.events[0]} · ${a.streak}d streak</div>
+        ${isIn ? '<div class="checkin-time">Checked in today</div>' : ''}
+      </div>
+      <div class="status ${isIn ? 'in' : 'out'}">${isIn ? 'IN' : '—'}</div>
+    </div>`;
+  }).join('');
+}
+function filterRoster(val){ renderRoster(val); }
+
+// ========== LEADERBOARD ==========
+function renderLeaderboard(){
+  const sorted = [...ATHLETES].sort((a,b) => b.streak - a.streak);
+  const list = document.getElementById('lb-list');
+  list.innerHTML = sorted.map((a, i) => {
+    const cls = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    const level = getLevel(a.xp);
+    return `<div class="lb-card ${cls}">
+      <div class="lb-rank">${i+1}</div>
+      <div class="lb-info">
+        <div class="lb-name">${a.name} <span class="level-badge ${level.cls}">${level.name}</span></div>
+        <div class="lb-streak">${a.streak}-day streak · ${a.totalCheckins} total check-ins</div>
+      </div>
+      <div class="lb-xp">${a.xp} XP</div>
+    </div>`;
+  }).join('');
+}
+
+// ========== STATS ==========
+function renderStats(){
+  const checkedCount = checkedIn.size;
+  const rate = ATHLETES.length > 0 ? Math.round((checkedCount / ATHLETES.length) * 100) : 0;
+  const avgStreak = ATHLETES.length > 0 ? Math.round(ATHLETES.reduce((s,a) => s + a.streak, 0) / ATHLETES.length) : 0;
+  const bestStreak = Math.max(...ATHLETES.map(a => a.streak));
+
+  document.getElementById('stat-total').textContent = checkedCount;
+  document.getElementById('stat-rate').textContent = rate + '%';
+  document.getElementById('stat-avg-streak').textContent = avgStreak;
+  document.getElementById('stat-best-streak').textContent = bestStreak;
+
+  // Week bar
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const today = new Date().getDay(); // 0=Sun
+  const todayIdx = today === 0 ? 6 : today - 1;
+  const bar = document.getElementById('week-bar');
+  bar.innerHTML = days.map((d, i) => {
+    let cls = 'rest';
+    if(i < todayIdx) cls = Math.random() > 0.15 ? 'present' : 'absent'; // simulated past days
+    else if(i === todayIdx) cls = checkedCount > 0 ? 'present' : 'rest';
+    return `<div class="attendance-dot ${cls}"><span class="day-label">${d}</span></div>`;
+  }).join('');
+
+  // Activity log
+  const logEl = document.getElementById('activity-log');
+  const items = activityLog.length > 0 ? activityLog.slice(0, 15) : [
+    {type:'checkin',text:'Demo mode — check in an athlete to see activity',time:'—'}
+  ];
+  logEl.innerHTML = items.map(a => `
+    <div class="activity-item">
+      <div class="activity-dot ${a.type}"></div>
+      <div>
+        <div class="activity-text">${a.text}</div>
+        <div class="activity-time">${a.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ========== COACH PANEL ==========
+function toggleCoachPanel(){
+  const panel = document.getElementById('coach-panel');
+  panel.classList.toggle('show');
+  if(panel.classList.contains('show')) updateCoachPanel();
+}
+function updateCoachPanel(){
+  const checkedCount = checkedIn.size;
+  const rate = ATHLETES.length > 0 ? Math.round((checkedCount / ATHLETES.length) * 100) : 0;
+  const groups = {};
+  ATHLETES.forEach(a => {
+    if(!groups[a.group]) groups[a.group] = {total:0,in:0};
+    groups[a.group].total++;
+    if(checkedIn.has(a.id)) groups[a.group].in++;
+  });
+  let html = `
+    <div class="coach-stat"><span class="cs-label">Checked In</span><span class="cs-val">${checkedCount} / ${ATHLETES.length}</span></div>
+    <div class="coach-stat"><span class="cs-label">Attendance</span><span class="cs-val">${rate}%</span></div>
+  `;
+  for(const [g, d] of Object.entries(groups)){
+    html += `<div class="coach-stat"><span class="cs-label">${g}</span><span class="cs-val">${d.in}/${d.total}</span></div>`;
+  }
+  const missing = ATHLETES.filter(a => !checkedIn.has(a.id)).slice(0,5);
+  if(missing.length > 0 && checkedCount > 0){
+    html += `<div style="margin-top:8px;font-size:12px;font-weight:600;color:var(--scarlet)">Not yet in:</div>`;
+    missing.forEach(a => {
+      html += `<div style="font-size:12px;color:var(--muted);padding:2px 0">${a.name} (${a.group})</div>`;
+    });
+  }
+  document.getElementById('coach-stats').innerHTML = html;
+}
+
+// ========== SIMULATE SOME CHECK-INS (demo) ==========
+function seedDemo(){
+  // Pre-check-in some athletes for a realistic view
+  const preChecked = [1, 2, 4, 6, 9, 12, 15, 18, 21];
+  const now = new Date();
+  preChecked.forEach((id, i) => {
+    if(!checkedIn.has(id)){
+      checkedIn.add(id);
+      const a = ATHLETES.find(x => x.id === id);
+      const mins = 30 - i * 3;
+      const t = new Date(now.getTime() - mins * 60000);
+      activityLog.push({
+        type:'checkin',
+        text:`${a.name} checked in`,
+        time: t.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'})
+      });
+    }
+  });
+  activityLog.sort((a,b) => 0); // keep insertion order
+  saveState();
+}
+
+// ========== INIT ==========
+loadState();
+if(checkedIn.size === 0) seedDemo();
+updateCoachPanel();
+</script>
+</body>
+</html>

@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE — Team Recruitment Portal</title>
+<style>
+:root {
+  --purple: #5B21B6;
+  --purple-light: #7C3AED;
+  --purple-dark: #3B0764;
+  --scarlet: #DC2626;
+  --scarlet-light: #EF4444;
+  --gold: #D97706;
+  --gold-light: #F59E0B;
+  --blue: #2563EB;
+  --blue-light: #3B82F6;
+  --bg: #FAFAFA;
+  --card-bg: #FFFFFF;
+  --text: #1E1B2E;
+  --text-muted: #6B7280;
+  --border: #E5E7EB;
+  --success: #059669;
+  --success-light: #10B981;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* HEADER */
+.header {
+  background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 50%, var(--blue) 100%);
+  padding: 40px 24px 60px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 20% 80%, rgba(217,119,6,0.15) 0%, transparent 50%),
+              radial-gradient(circle at 80% 20%, rgba(220,38,38,0.1) 0%, transparent 50%);
+}
+.header-content { position: relative; z-index: 1; max-width: 800px; margin: 0 auto; }
+.logo {
+  font-size: 48px;
+  font-weight: 900;
+  color: white;
+  letter-spacing: 6px;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.3);
+}
+.logo span { color: var(--gold-light); }
+.tagline {
+  font-size: 18px;
+  color: rgba(255,255,255,0.85);
+  font-weight: 400;
+  margin-bottom: 24px;
+}
+.header-stats {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+.header-stat {
+  text-align: center;
+}
+.header-stat-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--gold-light);
+}
+.header-stat-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* NAV TABS */
+.nav-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  margin-top: -24px;
+  position: relative;
+  z-index: 2;
+  padding: 0 16px;
+}
+.nav-tab {
+  padding: 14px 28px;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-bottom: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-muted);
+  transition: all 0.2s;
+  border-radius: 12px 12px 0 0;
+  position: relative;
+}
+.nav-tab:hover { color: var(--purple); background: #F5F3FF; }
+.nav-tab.active {
+  color: var(--purple);
+  background: var(--card-bg);
+  border-color: var(--purple);
+  border-bottom: 2px solid var(--card-bg);
+  z-index: 3;
+}
+
+/* MAIN CONTENT */
+.main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 16px 60px;
+}
+.tab-panel {
+  display: none;
+  background: var(--card-bg);
+  border: 2px solid var(--border);
+  border-radius: 0 0 16px 16px;
+  padding: 32px;
+  animation: fadeIn 0.3s;
+}
+.tab-panel.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+h2 {
+  font-size: 24px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: var(--purple-dark);
+}
+h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 24px 0 12px;
+  color: var(--text);
+}
+.subtitle {
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+/* FORM STYLES */
+.form-group {
+  margin-bottom: 20px;
+}
+.form-group label {
+  display: block;
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%;
+  padding: 12px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  background: var(--bg);
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+  outline: none;
+  border-color: var(--purple);
+  box-shadow: 0 0 0 3px rgba(91,33,182,0.1);
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* BUTTONS */
+.btn {
+  padding: 14px 28px;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-light) 100%);
+  color: white;
+  box-shadow: 0 4px 14px rgba(91,33,182,0.3);
+}
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(91,33,182,0.4);
+}
+.btn-secondary {
+  background: var(--bg);
+  color: var(--purple);
+  border: 2px solid var(--purple);
+}
+.btn-secondary:hover { background: #F5F3FF; }
+.btn-success {
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+  color: white;
+}
+
+/* READINESS ASSESSMENT */
+.assessment-category {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.assessment-category-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.assessment-question {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.assessment-question:last-child { border-bottom: none; }
+.toggle-group {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.toggle-btn {
+  padding: 4px 12px;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.toggle-btn.yes.selected { background: var(--success); color: white; border-color: var(--success); }
+.toggle-btn.no.selected { background: var(--scarlet); color: white; border-color: var(--scarlet); }
+.toggle-btn.partial.selected { background: var(--gold); color: white; border-color: var(--gold); }
+
+/* RESULTS */
+.score-card {
+  background: linear-gradient(135deg, var(--purple-dark) 0%, var(--purple) 100%);
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  color: white;
+  margin: 24px 0;
+}
+.score-value {
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1;
+}
+.score-label {
+  font-size: 16px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+.score-tier {
+  display: inline-block;
+  padding: 6px 20px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  margin-top: 12px;
+}
+.tier-ready { background: var(--success); }
+.tier-almost { background: var(--gold); }
+.tier-building { background: var(--scarlet); }
+
+/* ROADMAP */
+.roadmap {
+  position: relative;
+  padding-left: 32px;
+}
+.roadmap::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--border);
+  border-radius: 2px;
+}
+.roadmap-step {
+  position: relative;
+  padding: 16px 0 16px 20px;
+}
+.roadmap-step::before {
+  content: '';
+  position: absolute;
+  left: -25px;
+  top: 22px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 3px solid var(--purple);
+  background: white;
+}
+.roadmap-step.completed::before {
+  background: var(--success);
+  border-color: var(--success);
+}
+.roadmap-step.current::before {
+  background: var(--purple);
+  border-color: var(--purple);
+  box-shadow: 0 0 0 4px rgba(91,33,182,0.2);
+}
+.roadmap-step-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.roadmap-step-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.roadmap-step-time {
+  font-size: 12px;
+  color: var(--purple);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* VALUE PROPS */
+.value-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+.value-card {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s;
+}
+.value-card:hover {
+  border-color: var(--purple);
+  box-shadow: 0 4px 12px rgba(91,33,182,0.08);
+}
+.value-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 12px;
+  font-weight: 800;
+}
+.value-card-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.value-card-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* COMPARISON TABLE */
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+}
+.comparison-table th {
+  background: var(--purple-dark);
+  color: white;
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 700;
+}
+.comparison-table th:first-child { border-radius: 10px 0 0 0; }
+.comparison-table th:last-child { border-radius: 0 10px 0 0; }
+.comparison-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.comparison-table tr:nth-child(even) td { background: var(--bg); }
+.check { color: var(--success); font-weight: 700; }
+.cross { color: var(--text-muted); }
+.mettle-col { background: rgba(91,33,182,0.05); font-weight: 600; }
+
+/* PRICING */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 24px 0;
+}
+.pricing-card {
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 24px 16px;
+  text-align: center;
+  transition: all 0.2s;
+  position: relative;
+}
+.pricing-card.featured {
+  border-color: var(--purple);
+  box-shadow: 0 8px 24px rgba(91,33,182,0.15);
+  transform: scale(1.02);
+}
+.pricing-card.featured::before {
+  content: 'MOST POPULAR';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--purple);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 12px;
+  border-radius: 10px;
+  letter-spacing: 1px;
+}
+.pricing-name {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.pricing-price {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--purple);
+  margin: 8px 0;
+}
+.pricing-price span { font-size: 14px; font-weight: 400; color: var(--text-muted); }
+.pricing-features {
+  list-style: none;
+  text-align: left;
+  margin: 16px 0;
+}
+.pricing-features li {
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pricing-features li::before {
+  content: '\2713';
+  color: var(--success);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* SUCCESS MODAL */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  max-width: 480px;
+  width: 90%;
+  text-align: center;
+  animation: modalIn 0.3s;
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+.modal-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+  font-size: 28px;
+  color: white;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .form-row { grid-template-columns: 1fr; }
+  .value-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr 1fr; }
+  .header-stats { gap: 16px; }
+  .nav-tab { padding: 10px 16px; font-size: 12px; }
+}
+@media (max-width: 480px) {
+  .pricing-grid { grid-template-columns: 1fr; }
+}
+
+/* PULSE */
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(91,33,182,0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(91,33,182,0); }
+}
+.pulse { animation: pulse 2s infinite; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-content">
+    <div class="logo">M<span>E</span>TTL<span>E</span></div>
+    <div class="tagline">Gamified Athlete Development — Team Recruitment Portal</div>
+    <div class="header-stats">
+      <div class="header-stat">
+        <div class="header-stat-value" id="stat-teams">12</div>
+        <div class="header-stat-label">Teams Onboarded</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="stat-athletes">580+</div>
+        <div class="header-stat-label">Athletes Active</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="stat-pbs">2,400+</div>
+        <div class="header-stat-label">PBs Tracked</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="stat-rating">4.9</div>
+        <div class="header-stat-label">Coach Rating</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav-tabs">
+  <div class="nav-tab active" data-tab="why">Why METTLE</div>
+  <div class="nav-tab" data-tab="assess">Readiness Check</div>
+  <div class="nav-tab" data-tab="pricing">Plans</div>
+  <div class="nav-tab" data-tab="apply">Get Started</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- WHY METTLE -->
+  <div class="tab-panel active" id="tab-why">
+    <h2>TeamUnify Runs Your Office. METTLE Transforms Your Athletes.</h2>
+    <p class="subtitle">METTLE is the first gamified athlete development platform — built by coaches, for coaches. Turn routine practice into progression quests.</p>
+
+    <div class="value-grid">
+      <div class="value-card">
+        <div class="value-icon" style="background: rgba(91,33,182,0.1); color: var(--purple);">L</div>
+        <div class="value-card-title">Level System</div>
+        <div class="value-card-desc">Rookie → Contender → Warrior → Elite → Captain → Legend. Athletes see real progression, not just times.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-icon" style="background: rgba(220,38,38,0.1); color: var(--scarlet);">X</div>
+        <div class="value-card-title">XP Engine</div>
+        <div class="value-card-desc">Practice attendance, race improvements, technique milestones — every effort counts toward leveling up.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-icon" style="background: rgba(217,119,6,0.1); color: var(--gold);">M</div>
+        <div class="value-card-title">Meet Day Tools</div>
+        <div class="value-card-desc">Event timelines, heat/lane grids, live results with PB detection, warmup management — all poolside on your phone.</div>
+      </div>
+      <div class="value-card">
+        <div class="value-icon" style="background: rgba(37,99,235,0.1); color: var(--blue);">P</div>
+        <div class="value-card-title">Parent Portal</div>
+        <div class="value-card-desc">Parents see their child's progress, XP breakdown, upcoming meets, and achievements — no coach time required.</div>
+      </div>
+    </div>
+
+    <h3>METTLE vs. The Status Quo</h3>
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>TeamUnify</th>
+          <th>OnDeck</th>
+          <th class="mettle-col">METTLE</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Roster Management</td>
+          <td class="check">Yes</td>
+          <td class="check">Yes</td>
+          <td class="mettle-col check">Yes</td>
+        </tr>
+        <tr>
+          <td>Meet Entries</td>
+          <td class="check">Yes</td>
+          <td class="check">Yes</td>
+          <td class="mettle-col check">Yes</td>
+        </tr>
+        <tr>
+          <td>Gamified Progression</td>
+          <td class="cross">No</td>
+          <td class="cross">No</td>
+          <td class="mettle-col check">6 Levels + XP</td>
+        </tr>
+        <tr>
+          <td>Athlete Motivation</td>
+          <td class="cross">None</td>
+          <td class="cross">None</td>
+          <td class="mettle-col check">Missions + Trophies</td>
+        </tr>
+        <tr>
+          <td>Parent Dashboard</td>
+          <td class="cross">Basic</td>
+          <td class="cross">None</td>
+          <td class="mettle-col check">Full Portal</td>
+        </tr>
+        <tr>
+          <td>Practice Planning</td>
+          <td class="cross">No</td>
+          <td class="cross">No</td>
+          <td class="mettle-col check">Set Builder + Zones</td>
+        </tr>
+        <tr>
+          <td>Best Time Tracking</td>
+          <td class="check">Manual</td>
+          <td class="check">Manual</td>
+          <td class="mettle-col check">Auto-Fetch + PB Alerts</td>
+        </tr>
+        <tr>
+          <td>Modern UI</td>
+          <td class="cross">Legacy</td>
+          <td class="cross">Dated</td>
+          <td class="mettle-col check">Game-Like UX</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div style="text-align: center; margin-top: 32px;">
+      <button class="btn btn-primary pulse" onclick="switchTab('assess')">Check Your Team's Readiness →</button>
+    </div>
+  </div>
+
+  <!-- READINESS ASSESSMENT -->
+  <div class="tab-panel" id="tab-assess">
+    <h2>Team Readiness Assessment</h2>
+    <p class="subtitle">Answer these questions to see how ready your team is for METTLE and get a personalized onboarding plan.</p>
+
+    <div id="assessment-form">
+      <!-- Team Infrastructure -->
+      <div class="assessment-category">
+        <div class="assessment-category-title">
+          <span style="color: var(--purple);">&#9670;</span> Team Infrastructure
+        </div>
+        <div class="assessment-question" data-q="roster">
+          <span style="flex:1;">Do you have a digital roster with athlete names, ages, and groups?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'roster', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'roster', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'roster', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="groups">
+          <span style="flex:1;">Are athletes organized into training groups (e.g., Age Group, Senior, Masters)?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'groups', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'groups', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'groups', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="times">
+          <span style="flex:1;">Do you track best times per athlete per event?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'times', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'times', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'times', 0)">No</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Coaching Practice -->
+      <div class="assessment-category">
+        <div class="assessment-category-title">
+          <span style="color: var(--scarlet);">&#9670;</span> Coaching Practice
+        </div>
+        <div class="assessment-question" data-q="attendance">
+          <span style="flex:1;">Do you track practice attendance?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'attendance', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'attendance', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'attendance', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="sets">
+          <span style="flex:1;">Do you write practice sets with specific intervals and distances?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'sets', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'sets', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'sets', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="goals">
+          <span style="flex:1;">Do athletes have individual performance goals?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'goals', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'goals', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'goals', 0)">No</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meet Operations -->
+      <div class="assessment-category">
+        <div class="assessment-category-title">
+          <span style="color: var(--gold);">&#9670;</span> Meet Operations
+        </div>
+        <div class="assessment-question" data-q="meets">
+          <span style="flex:1;">Does your team compete in sanctioned meets?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'meets', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'meets', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'meets', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="hytek">
+          <span style="flex:1;">Do you use Hy-Tek or similar meet management software?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'hytek', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'hytek', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'hytek', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="results">
+          <span style="flex:1;">Do you record and share meet results with families?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'results', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'results', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'results', 0)">No</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Parent Engagement -->
+      <div class="assessment-category">
+        <div class="assessment-category-title">
+          <span style="color: var(--blue);">&#9670;</span> Parent Engagement
+        </div>
+        <div class="assessment-question" data-q="parent_comms">
+          <span style="flex:1;">Do you have a system for communicating with parents (email, app, etc.)?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'parent_comms', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'parent_comms', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'parent_comms', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="parent_updates">
+          <span style="flex:1;">Do parents receive regular updates on their child's progress?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'parent_updates', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'parent_updates', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'parent_updates', 0)">No</button>
+          </div>
+        </div>
+        <div class="assessment-question" data-q="motivation">
+          <span style="flex:1;">Do you currently use any incentive or recognition system for athletes?</span>
+          <div class="toggle-group">
+            <button class="toggle-btn yes" onclick="setAnswer(this, 'motivation', 2)">Yes</button>
+            <button class="toggle-btn partial" onclick="setAnswer(this, 'motivation', 1)">Partial</button>
+            <button class="toggle-btn no" onclick="setAnswer(this, 'motivation', 0)">No</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 24px;">
+        <button class="btn btn-primary" onclick="calculateReadiness()">Calculate My Team's Readiness →</button>
+      </div>
+    </div>
+
+    <!-- RESULTS -->
+    <div id="assessment-results" style="display: none;">
+      <div class="score-card">
+        <div class="score-value" id="score-value">0</div>
+        <div class="score-label">Readiness Score</div>
+        <div class="score-tier" id="score-tier">Calculating...</div>
+      </div>
+
+      <div id="score-summary" style="margin-bottom: 24px; font-size: 15px; line-height: 1.6;"></div>
+
+      <h3>Your Personalized Onboarding Roadmap</h3>
+      <div class="roadmap" id="roadmap"></div>
+
+      <div style="text-align: center; margin-top: 32px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn btn-secondary" onclick="resetAssessment()">Retake Assessment</button>
+        <button class="btn btn-primary" onclick="switchTab('apply')">Apply for Beta Access →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="tab-panel" id="tab-pricing">
+    <h2>Simple, Transparent Pricing</h2>
+    <p class="subtitle">Every plan includes the full METTLE platform — levels, XP, missions, meet tools, and all three portals.</p>
+
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-name">Sprint</div>
+        <div class="pricing-price">$149<span>/mo</span></div>
+        <ul class="pricing-features">
+          <li>Up to 50 athletes</li>
+          <li>Coach portal</li>
+          <li>Level system + XP</li>
+          <li>Basic meet tools</li>
+          <li>Email support</li>
+        </ul>
+        <button class="btn btn-secondary" style="width:100%;" onclick="switchTab('apply')">Get Started</button>
+      </div>
+
+      <div class="pricing-card featured">
+        <div class="pricing-name">Starter</div>
+        <div class="pricing-price">$349<span>/mo</span></div>
+        <ul class="pricing-features">
+          <li>Up to 150 athletes</li>
+          <li>All 3 portals</li>
+          <li>Practice planner</li>
+          <li>Full meet management</li>
+          <li>Auto best time fetch</li>
+          <li>Priority support</li>
+        </ul>
+        <button class="btn btn-primary" style="width:100%;" onclick="switchTab('apply')">Get Started</button>
+      </div>
+
+      <div class="pricing-card">
+        <div class="pricing-name">Pro</div>
+        <div class="pricing-price">$549<span>/mo</span></div>
+        <ul class="pricing-features">
+          <li>Up to 300 athletes</li>
+          <li>Multi-location</li>
+          <li>Custom branding</li>
+          <li>API access</li>
+          <li>Advanced analytics</li>
+          <li>Dedicated success mgr</li>
+        </ul>
+        <button class="btn btn-secondary" style="width:100%;" onclick="switchTab('apply')">Get Started</button>
+      </div>
+
+      <div class="pricing-card">
+        <div class="pricing-name">Enterprise</div>
+        <div class="pricing-price">Custom</div>
+        <ul class="pricing-features">
+          <li>Unlimited athletes</li>
+          <li>White-label</li>
+          <li>SSO integration</li>
+          <li>Custom features</li>
+          <li>SLA guarantee</li>
+          <li>Onsite training</li>
+        </ul>
+        <button class="btn btn-secondary" style="width:100%;" onclick="switchTab('apply')">Contact Us</button>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:16px; color:var(--text-muted); font-size:13px;">
+      All plans include a 30-day free trial. No credit card required to start.
+    </div>
+  </div>
+
+  <!-- APPLY -->
+  <div class="tab-panel" id="tab-apply">
+    <h2>Apply for Beta Access</h2>
+    <p class="subtitle">We're onboarding select swim teams for our beta program. Tell us about your team and we'll get you set up.</p>
+
+    <form id="apply-form" onsubmit="submitApplication(event)">
+      <h3>Coach Information</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" id="coach-name" required placeholder="Coach Sarah Miller">
+        </div>
+        <div class="form-group">
+          <label>Email *</label>
+          <input type="email" id="coach-email" required placeholder="sarah@aquaticclub.com">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" id="coach-phone" placeholder="(555) 123-4567">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select id="coach-role">
+            <option value="head">Head Coach</option>
+            <option value="assistant">Assistant Coach</option>
+            <option value="director">Aquatics Director</option>
+            <option value="board">Board Member</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <h3>Team Information</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Team / Club Name *</label>
+          <input type="text" id="team-name" required placeholder="Riverside Aquatic Club">
+        </div>
+        <div class="form-group">
+          <label>USA Swimming LSC</label>
+          <select id="team-lsc">
+            <option value="">Select LSC...</option>
+            <option value="AD">Adirondack (AD)</option>
+            <option value="AM">Allegheny Mountain (AM)</option>
+            <option value="AR">Arkansas (AR)</option>
+            <option value="AZ">Arizona (AZ)</option>
+            <option value="CA">Southern California (CA)</option>
+            <option value="CC">Central California (CC)</option>
+            <option value="CO">Colorado (CO)</option>
+            <option value="CT">Connecticut (CT)</option>
+            <option value="FG">Florida Gold Coast (FG)</option>
+            <option value="FL">Florida (FL)</option>
+            <option value="GA">Georgia (GA)</option>
+            <option value="GU">Gulf (GU)</option>
+            <option value="HI">Hawaii (HI)</option>
+            <option value="IA">Iowa (IA)</option>
+            <option value="IL">Illinois (IL)</option>
+            <option value="IN">Indiana (IN)</option>
+            <option value="KY">Kentucky (KY)</option>
+            <option value="LA">Louisiana (LA)</option>
+            <option value="LE">Lake Erie (LE)</option>
+            <option value="MA">Middle Atlantic (MA)</option>
+            <option value="MD">Maryland (MD)</option>
+            <option value="ME">Maine (ME)</option>
+            <option value="MI">Michigan (MI)</option>
+            <option value="MN">Minnesota (MN)</option>
+            <option value="MR">Metropolitan (MR)</option>
+            <option value="MS">Mississippi (MS)</option>
+            <option value="MT">Montana (MT)</option>
+            <option value="MV">Missouri Valley (MV)</option>
+            <option value="NC">North Carolina (NC)</option>
+            <option value="ND">North Dakota (ND)</option>
+            <option value="NE">New England (NE)</option>
+            <option value="NI">Niagara (NI)</option>
+            <option value="NJ">New Jersey (NJ)</option>
+            <option value="NM">New Mexico (NM)</option>
+            <option value="NT">North Texas (NT)</option>
+            <option value="OH">Ohio (OH)</option>
+            <option value="OK">Oklahoma (OK)</option>
+            <option value="OR">Oregon (OR)</option>
+            <option value="OZ">Ozark (OZ)</option>
+            <option value="PC">Pacific (PC)</option>
+            <option value="PN">Pacific Northwest (PN)</option>
+            <option value="PV">Potomac Valley (PV)</option>
+            <option value="SC">South Carolina (SC)</option>
+            <option value="SD">South Dakota (SD)</option>
+            <option value="SE">Southeastern (SE)</option>
+            <option value="SI">San Diego-Imperial (SI)</option>
+            <option value="SN">Sierra Nevada (SN)</option>
+            <option value="SR">Snake River (SR)</option>
+            <option value="ST">South Texas (ST)</option>
+            <option value="UT">Utah (UT)</option>
+            <option value="VA">Virginia (VA)</option>
+            <option value="WI">Wisconsin (WI)</option>
+            <option value="WV">West Virginia (WV)</option>
+            <option value="WY">Wyoming (WY)</option>
+            <option value="other">Other / Non-USA Swimming</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Number of Athletes *</label>
+          <select id="team-size" required>
+            <option value="">Select range...</option>
+            <option value="1-25">1-25 (Small)</option>
+            <option value="26-75">26-75 (Medium)</option>
+            <option value="76-150">76-150 (Large)</option>
+            <option value="151-300">151-300 (XL)</option>
+            <option value="300+">300+ (Mega)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Current Software</label>
+          <select id="current-software">
+            <option value="none">None / Spreadsheets</option>
+            <option value="teamunify">TeamUnify</option>
+            <option value="ondeck">OnDeck</option>
+            <option value="swimtopia">SwimTopia</option>
+            <option value="active">Active Network</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>What's your biggest coaching pain point?</label>
+        <textarea id="pain-point" rows="3" placeholder="e.g., 'Keeping athletes motivated between meets' or 'Parents constantly asking for updates'"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>How did you hear about METTLE?</label>
+        <select id="referral">
+          <option value="">Select...</option>
+          <option value="coach">Another coach</option>
+          <option value="social">Social media</option>
+          <option value="search">Google search</option>
+          <option value="conference">Conference / Meet</option>
+          <option value="article">Article / Blog</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div style="text-align: center; margin-top: 24px;">
+        <button type="submit" class="btn btn-success pulse" style="font-size: 16px; padding: 16px 40px;">Submit Application</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal-overlay" id="success-modal">
+  <div class="modal-content">
+    <div class="modal-icon">&#10003;</div>
+    <h2 style="margin-bottom: 8px;">Application Received!</h2>
+    <p style="color: var(--text-muted); margin-bottom: 16px;">We'll review your application and reach out within 48 hours to schedule your onboarding call.</p>
+    <div style="background: var(--bg); border-radius: 10px; padding: 16px; text-align: left; margin-bottom: 20px;">
+      <div style="font-weight: 700; margin-bottom: 8px;">What happens next:</div>
+      <div style="font-size: 13px; color: var(--text-muted); line-height: 1.8;">
+        1. Our team reviews your application<br>
+        2. We schedule a 15-minute onboarding call<br>
+        3. We set up your team workspace<br>
+        4. You import your roster (CSV or manual)<br>
+        5. Athletes start leveling up!
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="closeModal()">Got It</button>
+  </div>
+</div>
+
+<script>
+// State
+const answers = {};
+let totalQuestions = 12;
+
+// Tab switching
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+
+function switchTab(tabId) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+}
+
+// Assessment
+function setAnswer(btn, key, value) {
+  answers[key] = value;
+  const group = btn.parentElement;
+  group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+}
+
+function calculateReadiness() {
+  const keys = ['roster','groups','times','attendance','sets','goals','meets','hytek','results','parent_comms','parent_updates','motivation'];
+  let answered = 0;
+  let total = 0;
+  keys.forEach(k => {
+    if (answers[k] !== undefined) {
+      answered++;
+      total += answers[k];
+    }
+  });
+
+  if (answered < 6) {
+    alert('Please answer at least 6 questions to get your readiness score.');
+    return;
+  }
+
+  const maxScore = answered * 2;
+  const pct = Math.round((total / maxScore) * 100);
+
+  document.getElementById('assessment-form').style.display = 'none';
+  document.getElementById('assessment-results').style.display = 'block';
+
+  // Animate score
+  const scoreEl = document.getElementById('score-value');
+  let current = 0;
+  const interval = setInterval(() => {
+    current += 2;
+    if (current >= pct) { current = pct; clearInterval(interval); }
+    scoreEl.textContent = current + '%';
+  }, 20);
+
+  // Tier
+  const tierEl = document.getElementById('score-tier');
+  if (pct >= 75) {
+    tierEl.textContent = 'LAUNCH READY';
+    tierEl.className = 'score-tier tier-ready';
+  } else if (pct >= 45) {
+    tierEl.textContent = 'ALMOST THERE';
+    tierEl.className = 'score-tier tier-almost';
+  } else {
+    tierEl.textContent = 'BUILDING FOUNDATIONS';
+    tierEl.className = 'score-tier tier-building';
+  }
+
+  // Summary
+  const summaryEl = document.getElementById('score-summary');
+  const strengths = [];
+  const gaps = [];
+
+  if (answers.roster === 2) strengths.push('digital roster');
+  if (answers.times === 2) strengths.push('best time tracking');
+  if (answers.meets === 2) strengths.push('meet participation');
+  if (answers.sets === 2) strengths.push('structured practices');
+  if (answers.parent_comms === 2) strengths.push('parent communication');
+
+  if (!answers.roster || answers.roster === 0) gaps.push('digital roster setup');
+  if (!answers.times || answers.times === 0) gaps.push('best time tracking');
+  if (!answers.attendance || answers.attendance === 0) gaps.push('attendance system');
+  if (!answers.goals || answers.goals === 0) gaps.push('individual athlete goals');
+  if (!answers.motivation || answers.motivation === 0) gaps.push('recognition/incentive system');
+
+  let summaryHTML = '';
+  if (strengths.length) summaryHTML += '<strong>Strengths:</strong> You already have ' + strengths.join(', ') + ' in place — METTLE will amplify these.<br>';
+  if (gaps.length) summaryHTML += '<strong>Opportunities:</strong> METTLE will help you build ' + gaps.join(', ') + ' from day one.<br>';
+  summaryHTML += '<br>Based on your responses, here\'s your custom onboarding plan:';
+  summaryEl.innerHTML = summaryHTML;
+
+  // Generate roadmap
+  const roadmapEl = document.getElementById('roadmap');
+  const steps = [];
+
+  steps.push({
+    title: 'Account Setup & Team Config',
+    desc: 'Create your METTLE workspace, set team name, colors, and coaching staff.',
+    time: 'Day 1 — 15 minutes',
+    status: 'current'
+  });
+
+  if (!answers.roster || answers.roster < 2) {
+    steps.push({
+      title: 'Roster Import',
+      desc: 'Upload your athlete roster via CSV or enter manually. We\'ll match USA Swimming IDs automatically.',
+      time: 'Day 1-2 — 30 minutes',
+      status: ''
+    });
+  } else {
+    steps.push({
+      title: 'Roster Import',
+      desc: 'Your existing digital roster makes this easy — CSV upload takes under 5 minutes.',
+      time: 'Day 1 — 5 minutes',
+      status: ''
+    });
+  }
+
+  if (!answers.times || answers.times < 2) {
+    steps.push({
+      title: 'Best Times Sync',
+      desc: 'METTLE auto-fetches best times from SwimCloud using USA Swimming IDs. No manual entry needed.',
+      time: 'Day 2 — Automatic',
+      status: ''
+    });
+  }
+
+  steps.push({
+    title: 'Level Assignment',
+    desc: 'METTLE automatically assigns initial levels (Rookie → Legend) based on imported performance data and coach input.',
+    time: 'Day 2-3 — 10 minutes review',
+    status: ''
+  });
+
+  if (!answers.attendance || answers.attendance < 2) {
+    steps.push({
+      title: 'Practice Setup',
+      desc: 'Configure practice schedule, enable attendance tracking, and set up your first weekly plan.',
+      time: 'Day 3-4 — 20 minutes',
+      status: ''
+    });
+  }
+
+  steps.push({
+    title: 'Parent Invitations',
+    desc: 'Send parent portal invites via email. Parents download the app and connect to their child\'s profile.',
+    time: 'Week 1 — 10 minutes',
+    status: ''
+  });
+
+  steps.push({
+    title: 'First Meet Day',
+    desc: 'Use METTLE\'s meet tools for your next competition. Event timelines, heat sheets, live results, and PB alerts.',
+    time: 'First meet weekend',
+    status: ''
+  });
+
+  steps.push({
+    title: 'Full Team Launch',
+    desc: 'Athletes earning XP, parents checking progress, coaches running practices with zone-based planning. METTLE is live.',
+    time: 'Week 2-3',
+    status: ''
+  });
+
+  roadmapEl.innerHTML = steps.map(s =>
+    `<div class="roadmap-step ${s.status}">
+      <div class="roadmap-step-title">${s.title}</div>
+      <div class="roadmap-step-desc">${s.desc}</div>
+      <div class="roadmap-step-time">${s.time}</div>
+    </div>`
+  ).join('');
+}
+
+function resetAssessment() {
+  Object.keys(answers).forEach(k => delete answers[k]);
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('assessment-form').style.display = 'block';
+  document.getElementById('assessment-results').style.display = 'none';
+}
+
+// Application form
+function submitApplication(e) {
+  e.preventDefault();
+  const data = {
+    coach: {
+      name: document.getElementById('coach-name').value,
+      email: document.getElementById('coach-email').value,
+      phone: document.getElementById('coach-phone').value,
+      role: document.getElementById('coach-role').value
+    },
+    team: {
+      name: document.getElementById('team-name').value,
+      lsc: document.getElementById('team-lsc').value,
+      size: document.getElementById('team-size').value,
+      currentSoftware: document.getElementById('current-software').value
+    },
+    painPoint: document.getElementById('pain-point').value,
+    referral: document.getElementById('referral').value,
+    readinessScore: Object.keys(answers).length > 0
+      ? Math.round((Object.values(answers).reduce((a,b) => a+b, 0) / (Object.keys(answers).length * 2)) * 100)
+      : null,
+    submittedAt: new Date().toISOString()
+  };
+
+  // Save to localStorage
+  const apps = JSON.parse(localStorage.getItem('mettle-applications') || '[]');
+  apps.push(data);
+  localStorage.setItem('mettle-applications', JSON.stringify(apps));
+
+  console.log('Application submitted:', data);
+  document.getElementById('success-modal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('success-modal').classList.remove('show');
+  document.getElementById('apply-form').reset();
+  switchTab('why');
+}
+
+// Animate header stats on load
+function animateStats() {
+  const targets = { 'stat-teams': 12, 'stat-athletes': 580, 'stat-pbs': 2400, 'stat-rating': 4.9 };
+  Object.entries(targets).forEach(([id, target]) => {
+    const el = document.getElementById(id);
+    let current = 0;
+    const isDecimal = target < 10;
+    const step = isDecimal ? 0.1 : Math.ceil(target / 30);
+    const interval = setInterval(() => {
+      current += step;
+      if (current >= target) {
+        current = target;
+        clearInterval(interval);
+      }
+      if (isDecimal) {
+        el.textContent = current.toFixed(1);
+      } else {
+        el.textContent = Math.round(current).toLocaleString() + (target > 100 ? '+' : '');
+      }
+    }, 40);
+  });
+}
+animateStats();
+</script>
+</body>
+</html>

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METTLE Gamification ROI & Retention Forecaster</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0F172A; color: #E2E8F0; }
+        .glass-panel { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .accent-gradient { background: linear-gradient(135deg, #3B82F6, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .slider { -webkit-appearance: none; width: 100%; height: 6px; border-radius: 3px; background: #334155; outline: none; }
+        .slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #3B82F6; cursor: pointer; transition: 0.2s; }
+        .slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        canvas { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body class="min-h-screen p-6">
+    <div class="max-w-6xl mx-auto space-y-6">
+        <header class="text-center pb-4 border-b border-slate-700">
+            <h1 class="text-4xl font-extrabold tracking-tight mb-2"><span class="accent-gradient">METTLE</span> ROI & Retention Forecaster</h1>
+            <p class="text-slate-400">Quantify the financial impact of gamification on swim club retention and upsells. The math doesn't lie.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Inputs Panel -->
+            <div class="glass-panel p-6 rounded-2xl lg:col-span-4 space-y-6">
+                <h2 class="text-xl font-bold mb-4 border-b border-slate-700 pb-2">Club Baseline Data</h2>
+                
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-400 font-medium">Active Athletes</label>
+                        <span id="val-athletes" class="font-bold text-white">240</span>
+                    </div>
+                    <input type="range" id="athletes" class="slider" min="50" max="1000" step="10" value="240" oninput="updateModel()">
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-400 font-medium">Avg Monthly Dues ($)</label>
+                        <span id="val-dues" class="font-bold text-white">$185</span>
+                    </div>
+                    <input type="range" id="dues" class="slider" min="50" max="500" step="5" value="185" oninput="updateModel()">
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-400 font-medium">Baseline Monthly Churn (%)</label>
+                        <span id="val-churn" class="font-bold text-white">4.5%</span>
+                    </div>
+                    <input type="range" id="churn" class="slider" min="0.5" max="15.0" step="0.5" value="4.5" oninput="updateModel()">
+                </div>
+
+                <div class="pt-4 border-t border-slate-700">
+                    <h2 class="text-xl font-bold mb-4">METTLE Impact Assumptions</h2>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-400 font-medium">Expected Churn Reduction (%)</label>
+                        <span id="val-reduction" class="font-bold text-green-400">35%</span>
+                    </div>
+                    <input type="range" id="reduction" class="slider" min="5" max="80" step="5" value="35" oninput="updateModel()">
+                    <p class="text-xs text-slate-500">Gamification keeps kids engaged through plateau periods.</p>
+                </div>
+
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-400 font-medium">Tier Upgrade Lift (%)</label>
+                        <span id="val-upgrade" class="font-bold text-blue-400">12%</span>
+                    </div>
+                    <input type="range" id="upgrade" class="slider" min="0" max="30" step="1" value="12" oninput="updateModel()">
+                    <p class="text-xs text-slate-500">Parents upgrading practice groups due to visible progress tracking.</p>
+                </div>
+                
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                        <label class="text-slate-400 font-medium">Avg Premium Dues Delta ($)</label>
+                        <span id="val-delta" class="font-bold text-white">$65</span>
+                    </div>
+                    <input type="range" id="delta" class="slider" min="10" max="200" step="5" value="65" oninput="updateModel()">
+                </div>
+            </div>
+
+            <!-- Dashboard Output -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- Top KPI Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="glass-panel p-5 rounded-xl border-t-4 border-blue-500 text-center">
+                        <p class="text-sm text-slate-400 mb-1">METTLE SaaS Cost (Mo)</p>
+                        <h3 id="out-cost" class="text-3xl font-bold text-white">-$299</h3>
+                        <p class="text-xs text-slate-500 mt-2">Based on volume tier</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl border-t-4 border-green-500 text-center">
+                        <p class="text-sm text-slate-400 mb-1">New Monthly Profit</p>
+                        <h3 id="out-profit" class="text-3xl font-bold text-green-400">+$2,145</h3>
+                        <p class="text-xs text-slate-500 mt-2">Gross lift - SaaS cost</p>
+                    </div>
+                    <div class="glass-panel p-5 rounded-xl border-t-4 border-purple-500 text-center">
+                        <p class="text-sm text-slate-400 mb-1">Annual Net ROI</p>
+                        <h3 id="out-roi" class="text-3xl font-bold text-purple-400">717%</h3>
+                        <p class="text-xs text-slate-500 mt-2">Yearly return on software</p>
+                    </div>
+                </div>
+
+                <!-- Financial Breakdown -->
+                <div class="glass-panel p-6 rounded-2xl">
+                    <h2 class="text-lg font-bold mb-4 flex items-center justify-between">
+                        12-Month Trajectory Projection
+                        <span class="text-sm font-normal text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">Cumulative Lift</span>
+                    </h2>
+                    
+                    <div class="h-64 relative w-full border-b border-l border-slate-600 mb-4 pl-2 pb-2">
+                        <!-- Chart container -->
+                        <canvas id="roiChart"></canvas>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mt-6">
+                        <div class="bg-slate-800/50 p-4 rounded-lg">
+                            <h4 class="text-sm text-slate-400 font-medium">Value Source: Retention</h4>
+                            <div class="text-2xl font-bold mt-1" id="out-retention-val">+$1,554/mo</div>
+                            <p class="text-xs text-slate-500 mt-1" id="out-retention-desc">Saving 8.4 athletes from churning.</p>
+                        </div>
+                        <div class="bg-slate-800/50 p-4 rounded-lg">
+                            <h4 class="text-sm text-slate-400 font-medium">Value Source: Upgrades</h4>
+                            <div class="text-2xl font-bold mt-1" id="out-upgrade-val">+$1,872/mo</div>
+                            <p class="text-xs text-slate-500 mt-1" id="out-upgrade-desc">28.8 kids moved to premium tiers.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        let chartInstance = null;
+
+        function updateModel() {
+            // Get values
+            const athletes = parseInt(document.getElementById('athletes').value);
+            const dues = parseInt(document.getElementById('dues').value);
+            const churnRate = parseFloat(document.getElementById('churn').value) / 100;
+            const churnReduc = parseFloat(document.getElementById('reduction').value) / 100;
+            const upgradeRate = parseFloat(document.getElementById('upgrade').value) / 100;
+            const upgradeDelta = parseInt(document.getElementById('delta').value);
+
+            // Update UI displays
+            document.getElementById('val-athletes').innerText = athletes;
+            document.getElementById('val-dues').innerText = '$' + dues;
+            document.getElementById('val-churn').innerText = (churnRate * 100).toFixed(1) + '%';
+            document.getElementById('val-reduction').innerText = (churnReduc * 100).toFixed(0) + '%';
+            document.getElementById('val-upgrade').innerText = (upgradeRate * 100).toFixed(0) + '%';
+            document.getElementById('val-delta').innerText = '$' + upgradeDelta;
+
+            // METTLE Tier Pricing Logic
+            let monthlySaaSCost = 199; // Base
+            if (athletes > 100) monthlySaaSCost = 299;
+            if (athletes > 300) monthlySaaSCost = 499;
+            if (athletes > 600) monthlySaaSCost = 799;
+
+            // Math Math Math
+            const baselineChurnedAthletes = athletes * churnRate;
+            const savedAthletes = baselineChurnedAthletes * churnReduc;
+            const retainedRevenue = savedAthletes * dues;
+
+            const upgradedAthletes = athletes * upgradeRate;
+            const upsellRevenue = upgradedAthletes * upgradeDelta;
+
+            const grossMonthlyLift = retainedRevenue + upsellRevenue;
+            const netMonthlyProfit = grossMonthlyLift - monthlySaaSCost;
+
+            const annualSaaSCost = monthlySaaSCost * 12;
+            const annualNetProfit = netMonthlyProfit * 12;
+            const roi = annualSaaSCost > 0 ? (annualNetProfit / annualSaaSCost) * 100 : 0;
+
+            // Update Outputs
+            document.getElementById('out-cost').innerText = '-$' + monthlySaaSCost;
+            document.getElementById('out-profit').innerText = netMonthlyProfit >= 0 ? '+$' + Math.round(netMonthlyProfit).toLocaleString() : '-$' + Math.abs(Math.round(netMonthlyProfit)).toLocaleString();
+            document.getElementById('out-profit').className = netMonthlyProfit >= 0 ? "text-3xl font-bold text-green-400" : "text-3xl font-bold text-red-400";
+            
+            document.getElementById('out-roi').innerText = Math.round(roi).toLocaleString() + '%';
+            document.getElementById('out-roi').className = roi >= 100 ? "text-3xl font-bold text-purple-400" : "text-3xl font-bold text-orange-400";
+
+            document.getElementById('out-retention-val').innerText = '+$' + Math.round(retainedRevenue).toLocaleString() + '/mo';
+            document.getElementById('out-retention-desc').innerText = `Saving ${savedAthletes.toFixed(1)} athletes from churning per month.`;
+
+            document.getElementById('out-upgrade-val').innerText = '+$' + Math.round(upsellRevenue).toLocaleString() + '/mo';
+            document.getElementById('out-upgrade-desc').innerText = `${upgradedAthletes.toFixed(1)} kids moved to premium tiers.`;
+
+            // Draw Chart
+            drawChart(monthlySaaSCost, retainedRevenue, upsellRevenue);
+        }
+
+        function drawChart(cost, retention, upsell) {
+            const ctx = document.getElementById('roiChart').getContext('2d');
+            
+            const months = Array.from({length: 12}, (_, i) => `Month ${i+1}`);
+            
+            // Cumulative arrays
+            let costArr = [];
+            let liftArr = [];
+            let netArr = [];
+            
+            let cCost = 0, cLift = 0;
+            const monthlyLift = retention + upsell;
+
+            for(let i=0; i<12; i++) {
+                cCost += cost;
+                cLift += monthlyLift;
+                costArr.push(-cCost);
+                liftArr.push(cLift);
+                netArr.push(cLift - cCost);
+            }
+
+            if(chartInstance) {
+                chartInstance.destroy();
+            }
+
+            Chart.defaults.color = '#94A3B8';
+            Chart.defaults.font.family = 'Inter';
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: months,
+                    datasets: [
+                        {
+                            label: 'Cumulative Gross Lift ($)',
+                            data: liftArr,
+                            borderColor: '#10B981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Cumulative Net Profit ($)',
+                            data: netArr,
+                            borderColor: '#8B5CF6',
+                            borderWidth: 3,
+                            borderDash: [5, 5],
+                            tension: 0.3
+                        },
+                        {
+                            label: 'Cumulative SaaS Cost ($)',
+                            data: costArr,
+                            borderColor: '#EF4444',
+                            borderWidth: 2,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, boxWidth: 8 } },
+                        tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', titleColor: '#F8FAFC', bodyColor: '#CBD5E1', borderColor: '#334155', borderWidth: 1 }
+                    },
+                    scales: {
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { callback: function(value) { return '$' + value; } } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Initialize on load
+        window.onload = updateModel;
+    </script>
+</body>
+</html>
