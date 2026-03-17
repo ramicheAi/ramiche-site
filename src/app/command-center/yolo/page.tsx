@@ -456,6 +456,88 @@ export default function YoloBuildsPage() {
                       })}
                     </div>
                   )}
+                  {/* Promotion Panel — appears when tier is assigned */}
+                  {build.tier === 1 && (
+                    <div
+                      className="rounded-lg border-2 p-3 mt-1 flex flex-col gap-2"
+                      style={{ borderColor: `${TIER_CONFIG[1].color}40`, background: `${TIER_CONFIG[1].color}08` }}
+                    >
+                      <div className="text-[10px] tracking-wider text-white/60">
+                        Ready to deploy to <span className="font-bold" style={{ color: TIER_CONFIG[1].color }}>/tools/{build.folder}</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(`vercel deploy --prod ./yolo-builds/${build.folder} --name tools-${build.folder}`);
+                          setToast({ message: "Deploy command copied to clipboard", color: TIER_CONFIG[1].color });
+                        }}
+                        className="text-[10px] font-bold tracking-wider py-1.5 rounded border-2 transition-all hover:brightness-125"
+                        style={{
+                          borderColor: TIER_CONFIG[1].color,
+                          color: TIER_CONFIG[1].color,
+                          background: `${TIER_CONFIG[1].color}15`,
+                        }}
+                      >
+                        DEPLOY TO TOOLS
+                      </button>
+                      <div className="text-[10px] tracking-wider font-medium" style={{ color: TIER_CONFIG[1].color }}>
+                        Awaiting deployment
+                      </div>
+                    </div>
+                  )}
+                  {build.tier === 2 && (
+                    <div
+                      className="rounded-lg border-2 p-3 mt-1 flex flex-col gap-2"
+                      style={{ borderColor: `${TIER_CONFIG[2].color}40`, background: `${TIER_CONFIG[2].color}08` }}
+                    >
+                      <textarea
+                        data-packet={build.folder}
+                        className="w-full rounded border-2 bg-transparent text-[10px] tracking-wider text-white/70 p-2 resize-none focus:outline-none"
+                        style={{ borderColor: `${TIER_CONFIG[2].color}30` }}
+                        rows={7}
+                        defaultValue={`AGENT: \nTARGET PROJECT: \nSOURCE: /yolo-builds/${build.folder}\nTASK: Extract core logic and integrate into target\nDONE CRITERIA: `}
+                      />
+                      <button
+                        onClick={() => {
+                          const textarea = document.querySelector<HTMLTextAreaElement>(`textarea[data-packet="${build.folder}"]`);
+                          const text = textarea?.value || `AGENT: \nTARGET PROJECT: \nSOURCE: /yolo-builds/${build.folder}\nTASK: Extract core logic and integrate into target\nDONE CRITERIA: `;
+                          navigator.clipboard.writeText(text);
+                          setToast({ message: "Delegation packet copied", color: TIER_CONFIG[2].color });
+                        }}
+                        className="text-[10px] font-bold tracking-wider py-1.5 rounded border-2 transition-all hover:brightness-125"
+                        style={{
+                          borderColor: TIER_CONFIG[2].color,
+                          color: TIER_CONFIG[2].color,
+                          background: `${TIER_CONFIG[2].color}15`,
+                        }}
+                      >
+                        COPY PACKET
+                      </button>
+                    </div>
+                  )}
+                  {build.tier === 3 && (
+                    <div
+                      className="rounded-lg border-2 p-3 mt-1 flex flex-col gap-2"
+                      style={{ borderColor: `${TIER_CONFIG[3].color}40`, background: `${TIER_CONFIG[3].color}08` }}
+                    >
+                      {[
+                        "Create repo",
+                        "Set up domain",
+                        "Wire Stripe",
+                        "Build landing page",
+                        "Deploy to production",
+                      ].map((item) => (
+                        <label key={item} className="flex items-center gap-2 cursor-pointer group">
+                          <input
+                            type="checkbox"
+                            className="accent-[#C9A84C] w-3 h-3"
+                          />
+                          <span className="text-[10px] tracking-wider text-white/60 group-hover:text-white/80 transition-colors">
+                            {item}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             );
