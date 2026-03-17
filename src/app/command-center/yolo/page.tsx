@@ -114,22 +114,24 @@ export default function YoloBuildsPage() {
       // Step 3: Sort by date descending
       merged.sort((a, b) => b.date.localeCompare(a.date));
 
-      // Step 4: If Firestore is available, merge with SEED_BUILDS (never skip seeds)
+      // Step 4: SEED_BUILDS is always source of truth. Firestore only overlays review status.
       if (db && hasConfig) {
         try {
           const q = query(collection(db, "yolo_builds"), orderBy("date", "desc"));
           const snap = await getDocs(q);
-          const fsData = snap.docs.map(d => ({ ...d.data(), id: d.id } as unknown as Build));
-          // Merge: Firestore data + any SEED_BUILDS not yet in Firestore
-          const fsFolders = new Set(fsData.map(b => b.folder));
-          const missingSeed = merged.filter(b => !fsFolders.has(b.folder));
-          // Seed missing builds into Firestore
-          for (const build of missingSeed) {
-            await setDoc(doc(db, "yolo_builds", build.folder), { ...build, reviewStatus: "pending" }, { merge: true });
-          }
-          const allBuilds = [...fsData.map(b => ({ ...b, reviewStatus: (b.reviewStatus || "pending") as ReviewStatus })), ...missingSeed];
-          allBuilds.sort((a, b) => b.date.localeCompare(a.date));
-          setBuilds(allBuilds);
+          const fsReviews = new Map<string, ReviewStatus>();
+          snap.docs.forEach(d => {
+            const data = d.data();
+            if (data.reviewStatus && data.reviewStatus !== "pending") {
+              fsReviews.set(d.id, data.reviewStatus as ReviewStatus);
+            }
+          });
+          // Apply review status from Firestore to merged builds
+          const withReviews = merged.map(b => ({
+            ...b,
+            reviewStatus: fsReviews.get(b.folder) || b.reviewStatus || ("pending" as ReviewStatus),
+          }));
+          setBuilds(withReviews);
           return;
         } catch {}
       }
