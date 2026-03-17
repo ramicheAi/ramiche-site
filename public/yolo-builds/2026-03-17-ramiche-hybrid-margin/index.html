@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ramiche Studio | Hybrid Margin Pricing Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'ramiche-dark': '#0B0D17',
+                        'ramiche-blue': '#4F46E5',
+                        'ramiche-neon': '#38BDF8',
+                        'ramiche-accent': '#F472B6'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+    /* ULTRA-LINEAR: single-column centered layout */
+    body { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+        body { background-color: #0B0D17; color: #F3F4F6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+        }
+        input[type=range] {
+            accent-color: #38BDF8;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-6">
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 flex justify-between items-end border-b border-gray-800 pb-4">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-white mb-1"><i class="fa-solid fa-bolt text-ramiche-neon mr-3"></i>Ramiche Studio</h1>
+                <h2 class="text-lg text-gray-400">Hybrid Creative Margin Engine</h2>
+            </div>
+            <div class="text-right">
+                <p class="text-sm text-gray-500 uppercase tracking-widest">Model: SIMONS</p>
+                <p class="text-xs text-ramiche-neon font-mono mt-1">Live Profitability Analytics</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Controls Sidebar -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <!-- Presets -->
+                <div class="glass-panel p-5">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"><i class="fa-solid fa-folder-open mr-2"></i>Project Templates</h3>
+                    <div class="grid grid-cols-2 gap-3" id="preset-buttons">
+                        <button onclick="applyPreset('brand')" class="preset-btn bg-gray-800 hover:bg-ramiche-blue transition-colors rounded p-2 text-sm border border-gray-700">Brand Kit</button>
+                        <button onclick="applyPreset('web')" class="preset-btn bg-gray-800 hover:bg-ramiche-blue transition-colors rounded p-2 text-sm border border-gray-700">Web Build</button>
+                        <button onclick="applyPreset('social')" class="preset-btn bg-gray-800 hover:bg-ramiche-blue transition-colors rounded p-2 text-sm border border-gray-700">Social Retainer</button>
+                        <button onclick="applyPreset('agent')" class="preset-btn bg-gray-800 hover:bg-ramiche-blue transition-colors rounded p-2 text-sm border border-gray-700">Custom Agent</button>
+                    </div>
+                </div>
+
+                <!-- Inputs -->
+                <div class="glass-panel p-5 space-y-6">
+                    <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2"><i class="fa-solid fa-sliders mr-2"></i>Unit Economics</h3>
+                    
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm text-gray-300">Human Bill Rate ($/hr)</label>
+                            <span id="val-human-rate" class="text-sm text-ramiche-neon font-mono">$150</span>
+                        </div>
+                        <input type="range" id="in-human-rate" min="50" max="300" step="10" value="150" class="w-full" oninput="updateModel()">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-sm text-gray-300">Agent Bill Rate ($/hr)</label>
+                            <span id="val-agent-rate" class="text-sm text-ramiche-neon font-mono">$100</span>
+                        </div>
+                        <input type="range" id="in-agent-rate" min="50" max="300" step="10" value="100" class="w-full" oninput="updateModel()">
+                    </div>
+
+                    <div class="border-t border-gray-700 my-4 pt-4">
+                        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4"><i class="fa-solid fa-clock mr-2"></i>Scope Delivery</h3>
+                        
+                        <div class="mb-4">
+                            <div class="flex justify-between mb-1">
+                                <label class="text-sm text-gray-300">Human Hours</label>
+                                <span id="val-human-hrs" class="text-sm text-white font-mono">40</span>
+                            </div>
+                            <input type="range" id="in-human-hrs" min="0" max="200" step="5" value="40" class="w-full" oninput="updateModel()">
+                            <p class="text-xs text-gray-500 mt-1">Cost to deliver: $50/hr (staff overhead)</p>
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <label class="text-sm text-gray-300">Agent Hours</label>
+                                <span id="val-agent-hrs" class="text-sm text-white font-mono">60</span>
+                            </div>
+                            <input type="range" id="in-agent-hrs" min="0" max="200" step="5" value="60" class="w-full" oninput="updateModel()">
+                            <p class="text-xs text-gray-500 mt-1">Cost to deliver: $2.50/hr (compute tokens)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dashboard Analytics -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- KPIs -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="glass-panel p-4 border-t-2 border-t-ramiche-neon">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Client Price</p>
+                        <p class="text-2xl font-bold text-white mt-1" id="kpi-price">$0</p>
+                        <p class="text-xs text-gray-500 mt-1">Total Quote Value</p>
+                    </div>
+                    <div class="glass-panel p-4 border-t-2 border-t-red-400">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Delivery Cost</p>
+                        <p class="text-2xl font-bold text-white mt-1" id="kpi-cost">$0</p>
+                        <p class="text-xs text-gray-500 mt-1">Human + Compute</p>
+                    </div>
+                    <div class="glass-panel p-4 border-t-2 border-t-green-400">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Gross Profit</p>
+                        <p class="text-2xl font-bold text-white mt-1" id="kpi-profit">$0</p>
+                        <p class="text-xs text-gray-500 mt-1">EBITDA Contribution</p>
+                    </div>
+                    <div class="glass-panel p-4 border-t-2 border-t-purple-400">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Blended Margin</p>
+                        <p class="text-2xl font-bold text-white mt-1" id="kpi-margin">0%</p>
+                        <p class="text-xs text-gray-500 mt-1">Target &gt; 75%</p>
+                    </div>
+                </div>
+
+                <!-- Charts -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="glass-panel p-5">
+                        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 text-center">Value Delivery Mix</h3>
+                        <div class="relative h-64">
+                            <canvas id="mixChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel p-5">
+                        <h3 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4 text-center">Economics Waterfall</h3>
+                        <div class="relative h-64">
+                            <canvas id="waterfallChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Insights Engine -->
+                <div class="glass-panel p-5 border-l-4 border-ramiche-blue">
+                    <div class="flex items-start">
+                        <div class="bg-blue-900/50 p-3 rounded-full mr-4 flex-shrink-0">
+                            <i class="fa-solid fa-brain text-ramiche-neon"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold text-white mb-1">Simons Analysis</h3>
+                            <p id="insight-text" class="text-sm text-gray-300 leading-relaxed">Adjust parameters to generate insights...</p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const HUMAN_COST_RATE = 50; 
+        const AGENT_COST_RATE = 2.5;
+        
+        // Charts
+        let mixChart, waterfallChart;
+
+        // Presets
+        const presets = {
+            brand: { humanRate: 150, agentRate: 100, humanHrs: 40, agentHrs: 15 },
+            web: { humanRate: 150, agentRate: 100, humanHrs: 25, agentHrs: 80 },
+            social: { humanRate: 120, agentRate: 80, humanHrs: 10, agentHrs: 50 },
+            agent: { humanRate: 200, agentRate: 150, humanHrs: 60, agentHrs: 120 }
+        };
+
+        function initCharts() {
+            Chart.defaults.color = '#9CA3AF';
+            Chart.defaults.font.family = '-apple-system, system-ui, sans-serif';
+
+            const mixCtx = document.getElementById('mixChart').getContext('2d');
+            mixChart = new Chart(mixCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Human Value', 'Agent Value'],
+                    datasets: [{
+                        data: [50, 50],
+                        backgroundColor: ['#4F46E5', '#38BDF8'],
+                        borderWidth: 0,
+                        cutout: '75%'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            const wfCtx = document.getElementById('waterfallChart').getContext('2d');
+            waterfallChart = new Chart(wfCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Total Revenue', 'Human Cost', 'Compute Cost', 'Net Profit'],
+                    datasets: [{
+                        label: 'Financials',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: ['#38BDF8', '#F87171', '#FCA5A5', '#4ADE80'],
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' } } }
+                }
+            });
+        }
+
+        function formatCurrency(num) {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(num);
+        }
+
+        function applyPreset(type, event) {
+            const p = presets[type];
+            document.getElementById('in-human-rate').value = p.humanRate;
+            document.getElementById('in-agent-rate').value = p.agentRate;
+            document.getElementById('in-human-hrs').value = p.humanHrs;
+            document.getElementById('in-agent-hrs').value = p.agentHrs;
+            
+            // Highlight active button
+            if (event) {
+                document.querySelectorAll('.preset-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-ramiche-neon'));
+                event.target.classList.add('ring-2', 'ring-ramiche-neon');
+            } else {
+                // If loaded by code
+                const buttons = document.querySelectorAll('.preset-btn');
+                if(buttons.length > 1) {
+                    buttons.forEach(btn => btn.classList.remove('ring-2', 'ring-ramiche-neon'));
+                    buttons[1].classList.add('ring-2', 'ring-ramiche-neon'); // web build
+                }
+            }
+            
+            updateModel();
+        }
+
+        function updateModel() {
+            // Get inputs
+            const hRate = parseFloat(document.getElementById('in-human-rate').value);
+            const aRate = parseFloat(document.getElementById('in-agent-rate').value);
+            const hHrs = parseFloat(document.getElementById('in-human-hrs').value);
+            const aHrs = parseFloat(document.getElementById('in-agent-hrs').value);
+
+            // Update UI Labels
+            document.getElementById('val-human-rate').innerText = '$' + hRate;
+            document.getElementById('val-agent-rate').innerText = '$' + aRate;
+            document.getElementById('val-human-hrs').innerText = hHrs;
+            document.getElementById('val-agent-hrs').innerText = aHrs;
+
+            // Calculate Economics
+            const hRev = hHrs * hRate;
+            const aRev = aHrs * aRate;
+            const totalRev = hRev + aRev;
+
+            const hCost = hHrs * HUMAN_COST_RATE;
+            const aCost = aHrs * AGENT_COST_RATE;
+            const totalCost = hCost + aCost;
+
+            const profit = totalRev - totalCost;
+            const margin = totalRev > 0 ? (profit / totalRev) * 100 : 0;
+
+            // Update KPIs
+            document.getElementById('kpi-price').innerText = formatCurrency(totalRev);
+            document.getElementById('kpi-cost').innerText = formatCurrency(totalCost);
+            document.getElementById('kpi-profit').innerText = formatCurrency(profit);
+            
+            const marginEl = document.getElementById('kpi-margin');
+            marginEl.innerText = margin.toFixed(1) + '%';
+            if(margin >= 75) {
+                marginEl.className = 'text-2xl font-bold text-white mt-1 text-green-400';
+            } else if (margin >= 50) {
+                marginEl.className = 'text-2xl font-bold text-white mt-1 text-yellow-400';
+            } else {
+                marginEl.className = 'text-2xl font-bold text-white mt-1 text-red-400';
+            }
+
+            // Update Charts
+            mixChart.data.datasets[0].data = [hRev, aRev];
+            mixChart.update();
+
+            waterfallChart.data.datasets[0].data = [totalRev, -hCost, -aCost, profit];
+            waterfallChart.update();
+
+            // Generate Insights
+            generateInsights(totalRev, profit, margin, hHrs, aHrs, hCost, aCost, hRate, aRate);
+        }
+
+        function generateInsights(rev, profit, margin, hHrs, aHrs, hCost, aCost, hRate, aRate) {
+            let insight = '';
+            
+            if (rev === 0) {
+                insight = 'No billable hours entered. Add scope to model profitability.';
+            } else if (margin < 50) {
+                insight = '<strong>Warning: Margin Compression.</strong> At ' + margin.toFixed(1) + '% gross margin, this project structure is highly inefficient. You are over-indexing on human labor (' + hHrs + ' hrs vs ' + aHrs + ' agent hrs). To expand EBITDA, shift at least ' + (hHrs * 0.3).toFixed(0) + ' hours to agent execution.';
+            } else if (margin >= 75 && aHrs > hHrs * 1.5) {
+                insight = '<strong>High-Leverage Asymmetry.</strong> Excellent margin profile (' + margin.toFixed(1) + '%). By leveraging ' + aHrs + ' compute hours at $2.50/hr to command $' + aRate + '/hr, you have created significant arbitrage. The compute cost is negligible (' + formatCurrency(aCost) + ') compared to the human overhead (' + formatCurrency(hCost) + ').';
+            } else {
+                insight = '<strong>Healthy Baseline.</strong> The mix of human oversight (' + hHrs + 'h) and agent scale (' + aHrs + 'h) yields a ' + margin.toFixed(1) + '% gross margin. Every 10 hours shifted from human to agent execution will increase absolute profit by $' + ((HUMAN_COST_RATE - AGENT_COST_RATE) * 10).toFixed(0) + ' while preserving output quality.';
+            }
+            
+            document.getElementById('insight-text').innerHTML = insight;
+        }
+
+        // Initialize
+        window.onload = () => {
+            initCharts();
+            applyPreset('web', null);
+        };
+    </script>
+</body>
+</html>

@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>METTLE — Meet Day Command Center</title>
 <style>
+    /* ULTRA-LINEAR: single-column centered layout */
+    body { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
   :root {
     --purple: #5B21B6;
     --purple-light: #7C3AED;
@@ -106,7 +109,7 @@
 
   /* Stats bar */
   .stats-bar {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    display: grid; grid-template-columns: 1fr;
     gap: 12px; padding: 16px 24px;
     border-bottom: 2px solid var(--border);
     background: rgba(26, 19, 48, 0.6);
@@ -240,7 +243,7 @@
   /* Heat/lane grid */
   .heat-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: 1fr;
     gap: 8px;
     margin-top: 12px;
   }
@@ -270,7 +273,7 @@
 
   /* Warmup countdown panel */
   .warmup-cards {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    display: grid; grid-template-columns: 1fr;
     gap: 16px;
   }
   .warmup-card {
@@ -311,7 +314,7 @@
 
   /* Athlete roster */
   .roster-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    display: grid; grid-template-columns: 1fr;
     gap: 12px;
   }
   .athlete-card {

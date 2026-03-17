@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ramiche Studio — Project Tracker</title>
 <style>
+    /* ULTRA-LINEAR: single-column centered layout */
+    body { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
   :root {
     --bg: #0a0a0f;
     --surface: #12121a;
@@ -104,10 +107,10 @@
   /* Pipeline Board */
   .pipeline {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: 1fr;
     gap: 16px;
   }
-  @media (max-width: 1200px) { .pipeline { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 1200px) { .pipeline { grid-template-columns: 1fr; } }
   @media (max-width: 768px) { .pipeline { grid-template-columns: 1fr; } }
   .column {
     background: var(--surface);
@@ -230,7 +233,7 @@
     border-color: var(--accent);
   }
   .form-group textarea { resize: vertical; min-height: 100px; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-row { display: grid; grid-template-columns: 1fr; gap: 16px; }
   .form-submit {
     padding: 14px 32px;
     background: linear-gradient(135deg, var(--accent), #6d28d9);
@@ -249,10 +252,10 @@
   /* Tiers Overview */
   .tiers-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: 1fr;
     gap: 16px;
   }
-  @media (max-width: 900px) { .tiers-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 900px) { .tiers-grid { grid-template-columns: 1fr; } }
   @media (max-width: 500px) { .tiers-grid { grid-template-columns: 1fr; } }
   .tier-card {
     background: var(--surface);
@@ -296,7 +299,7 @@
   /* Revenue Panel */
   .revenue-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: 16px;
     margin-bottom: 24px;
   }

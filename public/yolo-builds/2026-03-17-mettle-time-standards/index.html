@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE | Time Standards & Converter</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --purple:#6C2BD9;--scarlet:#E63946;--gold:#F5A623;--blue:#2196F3;
+  --bg:#F8F7FC;--card:#FFFFFF;--text:#1A1A2E;--muted:#6B7280;
+  --success:#10B981;--border:#E5E7EB;
+}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{background:linear-gradient(135deg,var(--purple),#4C1D95);color:white;padding:24px 32px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.header h1{font-size:28px;font-weight:800;letter-spacing:-0.5px}
+.header .subtitle{font-size:14px;opacity:0.8}
+.header .badge{background:var(--gold);color:#1A1A2E;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700}
+.tabs{display:flex;gap:0;background:white;border-bottom:2px solid var(--border);padding:0 32px;overflow-x:auto}
+.tab{padding:14px 24px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:3px solid transparent;color:var(--muted);transition:all 0.2s;white-space:nowrap}
+.tab:hover{color:var(--purple)}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.container{padding:24px 32px;max-width:100%}
+
+/* Converter Tab */
+.converter-grid{display:grid;grid-template-columns: 1fr;gap:24px}
+@media(max-width:768px){.converter-grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:2px solid var(--border);border-radius:12px;padding:24px;transition:border-color 0.2s}
+.card:hover{border-color:var(--purple)}
+.card h3{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin-bottom:6px}
+.form-group select,.form-group input{width:100%;padding:10px 14px;border:2px solid var(--border);border-radius:8px;font-size:14px;transition:border-color 0.2s;background:white}
+.form-group select:focus,.form-group input:focus{outline:none;border-color:var(--purple)}
+.time-input-group{display:flex;gap:8px;align-items:center}
+.time-input-group input{width:80px;text-align:center}
+.time-input-group span{font-weight:700;color:var(--muted)}
+.btn{padding:12px 24px;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:8px}
+.btn-primary{background:var(--purple);color:white}
+.btn-primary:hover{background:#5521B5}
+.btn-secondary{background:var(--bg);color:var(--purple);border:2px solid var(--purple)}
+.result-card{background:linear-gradient(135deg,#F3E8FF,#EDE9FE);border:2px solid var(--purple);border-radius:12px;padding:20px;margin-top:16px}
+.result-card h4{font-size:14px;color:var(--purple);margin-bottom:12px}
+.result-times{display:grid;grid-template-columns: 1fr;gap:12px}
+.result-time{text-align:center;padding:12px;background:white;border-radius:8px;border:2px solid var(--border)}
+.result-time .course{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase}
+.result-time .time{font-size:20px;font-weight:800;color:var(--purple);font-variant-numeric:tabular-nums}
+.result-time.source{border-color:var(--gold);background:#FFFBEB}
+.result-time.source .course::after{content:" (input)";color:var(--gold)}
+
+/* Standards Tab */
+.standards-header{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;align-items:flex-end}
+.standards-header .form-group{margin-bottom:0;min-width:150px}
+.standards-table{width:100%;border-collapse:separate;border-spacing:0;background:white;border:2px solid var(--border);border-radius:12px;overflow:hidden}
+.standards-table thead{background:linear-gradient(135deg,var(--purple),#4C1D95)}
+.standards-table th{padding:12px 16px;color:white;font-size:13px;font-weight:700;text-align:center}
+.standards-table th:first-child{text-align:left}
+.standards-table td{padding:10px 16px;text-align:center;border-bottom:1px solid var(--border);font-size:14px;font-variant-numeric:tabular-nums}
+.standards-table td:first-child{text-align:left;font-weight:600}
+.standards-table tr:last-child td{border-bottom:none}
+.standards-table tr:hover{background:#F9FAFB}
+.std-achieved{background:#D1FAE5;color:#065F46;font-weight:700;border-radius:4px;padding:2px 6px}
+.std-next{background:#FEF3C7;color:#92400E;font-weight:700;border-radius:4px;padding:2px 6px;position:relative}
+.std-future{color:var(--muted)}
+
+/* Compare Tab */
+.compare-section{display:grid;grid-template-columns: 1fr;gap:24px}
+@media(max-width:768px){.compare-section{grid-template-columns:1fr}}
+.athlete-card{background:white;border:2px solid var(--border);border-radius:12px;padding:20px}
+.athlete-card h3{margin-bottom:16px}
+.athlete-card .name{font-size:20px;font-weight:800;color:var(--purple)}
+.progress-bar-container{margin-top:8px}
+.progress-label{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
+.progress-bar{height:12px;background:var(--border);border-radius:6px;overflow:hidden;position:relative}
+.progress-fill{height:100%;border-radius:6px;transition:width 0.6s ease}
+.gap-indicator{margin-top:16px;padding:16px;background:#F3E8FF;border-radius:8px;text-align:center}
+.gap-indicator .gap-time{font-size:28px;font-weight:800;color:var(--scarlet)}
+.gap-indicator .gap-label{font-size:12px;color:var(--muted);margin-top:4px}
+
+/* Dropdown Tab */
+.drop-card{background:white;border:2px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px}
+.drop-card h3{margin-bottom:16px}
+.drop-visual{display:flex;align-items:center;gap:16px;margin-top:12px;padding:16px;background:var(--bg);border-radius:8px;flex-wrap:wrap}
+.drop-visual .old-time{font-size:24px;color:var(--muted);text-decoration:line-through}
+.drop-visual .arrow{font-size:24px;color:var(--success)}
+.drop-visual .new-time{font-size:24px;font-weight:800;color:var(--success)}
+.drop-visual .drop-amount{background:var(--success);color:white;padding:4px 12px;border-radius:20px;font-size:14px;font-weight:700}
+.drop-history{margin-top:16px}
+.drop-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.drop-row:last-child{border-bottom:none}
+.drop-row .date{font-size:12px;color:var(--muted);min-width:80px}
+.drop-row .event{font-weight:600;flex:1}
+.drop-row .time{font-variant-numeric:tabular-nums;font-weight:700}
+.drop-row .change{font-size:12px;padding:2px 8px;border-radius:10px}
+.drop-row .change.positive{background:#D1FAE5;color:#065F46}
+.drop-row .change.negative{background:#FEE2E2;color:#991B1B}
+.drop-row .change.neutral{background:#F3F4F6;color:var(--muted)}
+
+.hidden{display:none}
+.pulse{animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.7}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>METTLE Time Standards</h1>
+    <div class="subtitle">Course Converter &bull; Motivational Standards &bull; Drop Tracker</div>
+  </div>
+  <div class="badge">METTLE v5</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="converter">Course Converter</div>
+  <div class="tab" data-tab="standards">Time Standards</div>
+  <div class="tab" data-tab="compare">Gap Analysis</div>
+  <div class="tab" data-tab="drops">Drop Tracker</div>
+</div>
+
+<div class="container">
+  <!-- CONVERTER TAB -->
+  <div id="tab-converter" class="tab-content">
+    <div class="converter-grid">
+      <div class="card">
+        <h3>Convert a Time</h3>
+        <div class="form-group">
+          <label>Event</label>
+          <select id="conv-event"></select>
+        </div>
+        <div class="form-group">
+          <label>Source Course</label>
+          <select id="conv-source-course">
+            <option value="SCY">SCY (25 yards)</option>
+            <option value="SCM">SCM (25 meters)</option>
+            <option value="LCM">LCM (50 meters)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Time</label>
+          <div class="time-input-group">
+            <input type="number" id="conv-min" min="0" max="59" placeholder="MM" value="0">
+            <span>:</span>
+            <input type="number" id="conv-sec" min="0" max="59" placeholder="SS" value="30">
+            <span>.</span>
+            <input type="number" id="conv-hun" min="0" max="99" placeholder="HH" value="00">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select id="conv-gender">
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="convertTime()">Convert</button>
+        <div id="conv-result" class="hidden"></div>
+      </div>
+      <div class="card">
+        <h3>How Conversion Works</h3>
+        <p style="font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:16px">
+          USA Swimming uses empirically-derived conversion factors based on thousands of elite performances. Factors account for:
+        </p>
+        <ul style="font-size:14px;color:var(--muted);line-height:1.8;padding-left:20px">
+          <li><strong>Turn differential</strong> — more turns in short course = faster times due to underwater speed off walls</li>
+          <li><strong>Stroke mechanics</strong> — some strokes benefit more from walls than others</li>
+          <li><strong>Distance scaling</strong> — longer events have more turns, larger differentials</li>
+          <li><strong>Gender differences</strong> — slight variations in conversion factors between male and female swimmers</li>
+        </ul>
+        <div style="margin-top:16px;padding:12px;background:#F3E8FF;border-radius:8px;font-size:13px;color:var(--purple)">
+          <strong>Note:</strong> Conversions are approximations. Actual performance varies based on an athlete's individual strengths (turns, underwaters, endurance).
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STANDARDS TAB -->
+  <div id="tab-standards" class="tab-content hidden">
+    <div class="standards-header">
+      <div class="form-group">
+        <label>Gender</label>
+        <select id="std-gender" onchange="renderStandards()">
+          <option value="M">Male</option>
+          <option value="F">Female</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Age Group</label>
+        <select id="std-age" onchange="renderStandards()">
+          <option value="10U">10 & Under</option>
+          <option value="11-12">11-12</option>
+          <option value="13-14">13-14</option>
+          <option value="15-16" selected>15-16</option>
+          <option value="17-18">17-18</option>
+          <option value="Senior">Senior/Open</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Course</label>
+        <select id="std-course" onchange="renderStandards()">
+          <option value="SCY">SCY (25 yards)</option>
+          <option value="LCM">LCM (50 meters)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Athlete Time (optional — highlight achieved)</label>
+        <input type="text" id="std-athlete-time" placeholder="e.g. 25.43" oninput="renderStandards()">
+      </div>
+    </div>
+    <div id="standards-table-container"></div>
+  </div>
+
+  <!-- GAP ANALYSIS TAB -->
+  <div id="tab-compare" class="tab-content hidden">
+    <div class="card" style="margin-bottom:24px">
+      <h3>How far am I from the next standard?</h3>
+      <div class="standards-header" style="margin-bottom:0">
+        <div class="form-group">
+          <label>Event</label>
+          <select id="gap-event" onchange="renderGap()"></select>
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select id="gap-gender" onchange="renderGap()">
+            <option value="M">Male</option>
+            <option value="F">Female</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Age Group</label>
+          <select id="gap-age" onchange="renderGap()">
+            <option value="10U">10 & Under</option>
+            <option value="11-12">11-12</option>
+            <option value="13-14">13-14</option>
+            <option value="15-16" selected>15-16</option>
+            <option value="17-18">17-18</option>
+            <option value="Senior">Senior/Open</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Course</label>
+          <select id="gap-course" onchange="renderGap()">
+            <option value="SCY">SCY</option>
+            <option value="LCM">LCM</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Current Best Time</label>
+          <div class="time-input-group">
+            <input type="number" id="gap-min" min="0" max="59" placeholder="MM" value="0" onchange="renderGap()">
+            <span>:</span>
+            <input type="number" id="gap-sec" min="0" max="59" placeholder="SS" value="28" onchange="renderGap()">
+            <span>.</span>
+            <input type="number" id="gap-hun" min="0" max="99" placeholder="HH" value="50" onchange="renderGap()">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="gap-result"></div>
+  </div>
+
+  <!-- DROP TRACKER TAB -->
+  <div id="tab-drops" class="tab-content hidden">
+    <div class="drop-card">
+      <h3>Time Drop Calculator</h3>
+      <p style="font-size:14px;color:var(--muted);margin-bottom:16px">Enter times from two meets to calculate the drop. Track improvement over a season.</p>
+      <div class="standards-header" style="margin-bottom:16px">
+        <div class="form-group">
+          <label>Event</label>
+          <select id="drop-event"></select>
+        </div>
+        <div class="form-group">
+          <label>Previous Time</label>
+          <div class="time-input-group">
+            <input type="number" id="drop-old-min" min="0" value="0" placeholder="MM">
+            <span>:</span>
+            <input type="number" id="drop-old-sec" min="0" value="31" placeholder="SS">
+            <span>.</span>
+            <input type="number" id="drop-old-hun" min="0" value="20" placeholder="HH">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>New Time</label>
+          <div class="time-input-group">
+            <input type="number" id="drop-new-min" min="0" value="0" placeholder="MM">
+            <span>:</span>
+            <input type="number" id="drop-new-sec" min="0" value="29" placeholder="SS">
+            <span>.</span>
+            <input type="number" id="drop-new-hun" min="0" value="85" placeholder="HH">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="calculateDrop()">Calculate Drop</button>
+      </div>
+      <div id="drop-result"></div>
+    </div>
+    <div class="drop-card">
+      <h3>Demo: Season Progression — Marcus Williams, 50 Free (SCY)</h3>
+      <div id="demo-drops"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==================== DATA ====================
+
+// Events with IDs
+const EVENTS = [
+  {id:'50FR',name:'50 Freestyle',stroke:'Free'},
+  {id:'100FR',name:'100 Freestyle',stroke:'Free'},
+  {id:'200FR',name:'200 Freestyle',stroke:'Free'},
+  {id:'500FR',name:'500 Freestyle',stroke:'Free'},
+  {id:'1000FR',name:'1000 Freestyle',stroke:'Free'},
+  {id:'1650FR',name:'1650 Freestyle',stroke:'Free'},
+  {id:'100BK',name:'100 Backstroke',stroke:'Back'},
+  {id:'200BK',name:'200 Backstroke',stroke:'Back'},
+  {id:'100BR',name:'100 Breaststroke',stroke:'Breast'},
+  {id:'200BR',name:'200 Breaststroke',stroke:'Breast'},
+  {id:'100FL',name:'100 Butterfly',stroke:'Fly'},
+  {id:'200FL',name:'200 Butterfly',stroke:'Fly'},
+  {id:'200IM',name:'200 Individual Medley',stroke:'IM'},
+  {id:'400IM',name:'400 Individual Medley',stroke:'IM'},
+];
+
+// Conversion factors: SCY-to-LCM multipliers (approximate USA Swimming derived)
+// To convert SCY→LCM: multiply by factor. SCY→SCM: multiply by SCM factor. LCM→SCY: divide by factor.
+const CONV_FACTORS = {
+  M: {
+    '50FR':  {scy_lcm: 1.110, scy_scm: 1.020},
+    '100FR': {scy_lcm: 1.115, scy_scm: 1.025},
+    '200FR': {scy_lcm: 1.120, scy_scm: 1.030},
+    '500FR': {scy_lcm: 1.125, scy_scm: 1.035}, // 500y ≈ 400m
+    '1000FR':{scy_lcm: 1.130, scy_scm: 1.040},
+    '1650FR':{scy_lcm: 1.135, scy_scm: 1.045}, // 1650y ≈ 1500m
+    '100BK': {scy_lcm: 1.115, scy_scm: 1.025},
+    '200BK': {scy_lcm: 1.125, scy_scm: 1.030},
+    '100BR': {scy_lcm: 1.110, scy_scm: 1.020},
+    '200BR': {scy_lcm: 1.120, scy_scm: 1.025},
+    '100FL': {scy_lcm: 1.115, scy_scm: 1.025},
+    '200FL': {scy_lcm: 1.125, scy_scm: 1.030},
+    '200IM': {scy_lcm: 1.120, scy_scm: 1.028},
+    '400IM': {scy_lcm: 1.130, scy_scm: 1.035},
+  },
+  F: {
+    '50FR':  {scy_lcm: 1.112, scy_scm: 1.022},
+    '100FR': {scy_lcm: 1.118, scy_scm: 1.028},
+    '200FR': {scy_lcm: 1.123, scy_scm: 1.032},
+    '500FR': {scy_lcm: 1.128, scy_scm: 1.038},
+    '1000FR':{scy_lcm: 1.133, scy_scm: 1.042},
+    '1650FR':{scy_lcm: 1.138, scy_scm: 1.048},
+    '100BK': {scy_lcm: 1.118, scy_scm: 1.028},
+    '200BK': {scy_lcm: 1.128, scy_scm: 1.032},
+    '100BR': {scy_lcm: 1.113, scy_scm: 1.023},
+    '200BR': {scy_lcm: 1.123, scy_scm: 1.028},
+    '100FL': {scy_lcm: 1.118, scy_scm: 1.028},
+    '200FL': {scy_lcm: 1.128, scy_scm: 1.032},
+    '200IM': {scy_lcm: 1.123, scy_scm: 1.030},
+    '400IM': {scy_lcm: 1.133, scy_scm: 1.038},
+  }
+};
+
+// Motivational Time Standards (SCY) — representative values for common age groups
+// Format: seconds. These are approximations of USA Swimming Motivational Times.
+// Standards: B, BB, A, AA, AAA, AAAA
+const STANDARDS_SCY = {
+  M: {
+    '15-16': {
+      '50FR':  [26.99, 25.19, 23.49, 22.39, 21.49, 20.49],
+      '100FR': [58.99, 55.29, 51.49, 48.89, 46.89, 44.79],
+      '200FR': [2*60+10.99, 2*60+2.99, 1*60+53.99, 1*60+47.49, 1*60+42.49, 1*60+37.49],
+      '500FR': [5*60+50.99, 5*60+28.99, 5*60+5.49, 4*60+49.99, 4*60+37.49, 4*60+24.99],
+      '100BK': [1*60+5.99, 1*60+1.49, 57.49, 54.49, 52.49, 50.49],
+      '200BK': [2*60+21.99, 2*60+12.49, 2*60+3.99, 1*60+57.49, 1*60+52.99, 1*60+48.49],
+      '100BR': [1*60+12.99, 1*60+8.49, 1*60+3.49, 1*60+0.49, 58.49, 56.49],
+      '200BR': [2*60+37.99, 2*60+27.49, 2*60+17.99, 2*60+10.99, 2*60+5.99, 2*60+0.99],
+      '100FL': [1*60+2.99, 59.49, 55.49, 52.99, 50.99, 48.99],
+      '200FL': [2*60+18.99, 2*60+10.49, 2*60+1.99, 1*60+55.99, 1*60+51.49, 1*60+46.99],
+      '200IM': [2*60+17.99, 2*60+9.49, 2*60+0.49, 1*60+55.49, 1*60+51.49, 1*60+47.49],
+      '400IM': [4*60+54.99, 4*60+36.99, 4*60+18.99, 4*60+6.99, 3*60+57.99, 3*60+48.99],
+    },
+    '13-14': {
+      '50FR':  [28.49, 26.79, 24.99, 23.89, 22.99, 21.99],
+      '100FR': [1*60+2.99, 58.99, 54.99, 52.39, 50.29, 48.19],
+      '200FR': [2*60+20.99, 2*60+12.49, 2*60+2.49, 1*60+55.49, 1*60+49.99, 1*60+44.49],
+      '500FR': [6*60+15.99, 5*60+52.49, 5*60+27.49, 5*60+10.49, 4*60+56.99, 4*60+43.49],
+      '100BK': [1*60+10.99, 1*60+6.49, 1*60+1.49, 58.49, 56.49, 54.49],
+      '200BK': [2*60+32.99, 2*60+23.49, 2*60+13.49, 2*60+6.49, 2*60+1.49, 1*60+56.49],
+      '100BR': [1*60+18.49, 1*60+13.49, 1*60+8.49, 1*60+4.99, 1*60+2.49, 59.99],
+      '200BR': [2*60+50.99, 2*60+39.49, 2*60+28.49, 2*60+20.99, 2*60+15.49, 2*60+9.99],
+      '100FL': [1*60+8.49, 1*60+4.49, 59.99, 57.49, 55.49, 53.49],
+      '200FL': [2*60+30.99, 2*60+21.49, 2*60+11.49, 2*60+4.99, 2*60+0.49, 1*60+55.99],
+      '200IM': [2*60+28.49, 2*60+19.49, 2*60+9.49, 2*60+3.99, 1*60+59.49, 1*60+54.99],
+      '400IM': [5*60+18.99, 4*60+59.99, 4*60+39.99, 4*60+26.49, 4*60+16.49, 4*60+6.49],
+    },
+    '11-12': {
+      '50FR':  [31.49, 29.49, 27.49, 26.19, 25.19, 24.19],
+      '100FR': [1*60+9.99, 1*60+5.49, 1*60+0.99, 57.99, 55.89, 53.79],
+      '200FR': [2*60+35.99, 2*60+26.49, 2*60+16.49, 2*60+9.49, 2*60+3.99, 1*60+58.49],
+      '500FR': [6*60+55.99, 6*60+29.99, 6*60+2.49, 5*60+43.49, 5*60+28.99, 5*60+14.49],
+      '100BK': [1*60+17.99, 1*60+13.49, 1*60+8.49, 1*60+4.99, 1*60+2.49, 59.99],
+      '200BK': [2*60+48.99, 2*60+38.49, 2*60+27.49, 2*60+19.99, 2*60+14.49, 2*60+8.99],
+      '100BR': [1*60+25.99, 1*60+20.49, 1*60+14.99, 1*60+11.49, 1*60+8.49, 1*60+5.49],
+      '200BR': [3*60+6.99, 2*60+54.49, 2*60+41.49, 2*60+33.49, 2*60+27.49, 2*60+21.49],
+      '100FL': [1*60+14.99, 1*60+10.49, 1*60+5.49, 1*60+2.49, 1*60+0.49, 58.49],
+      '200FL': [2*60+48.99, 2*60+38.49, 2*60+27.49, 2*60+19.99, 2*60+14.49, 2*60+8.99],
+      '200IM': [2*60+42.99, 2*60+32.99, 2*60+22.49, 2*60+15.99, 2*60+11.49, 2*60+6.99],
+      '400IM': [5*60+50.99, 5*60+28.99, 5*60+5.49, 4*60+51.49, 4*60+39.99, 4*60+28.49],
+    },
+    '10U': {
+      '50FR':  [35.99, 33.49, 30.99, 29.49, 28.29, 27.09],
+      '100FR': [1*60+19.99, 1*60+14.49, 1*60+8.99, 1*60+5.49, 1*60+2.99, 1*60+0.49],
+      '200FR': [2*60+55.99, 2*60+44.49, 2*60+32.99, 2*60+24.99, 2*60+18.99, 2*60+12.99],
+      '500FR': [7*60+45.99, 7*60+15.49, 6*60+44.49, 6*60+22.49, 6*60+5.49, 5*60+48.49],
+      '100BK': [1*60+28.99, 1*60+23.49, 1*60+17.49, 1*60+13.49, 1*60+10.49, 1*60+7.49],
+      '200BK': [3*60+10.99, 2*60+58.49, 2*60+45.49, 2*60+36.99, 2*60+30.49, 2*60+23.99],
+      '100BR': [1*60+36.99, 1*60+30.49, 1*60+23.49, 1*60+19.49, 1*60+16.49, 1*60+13.49],
+      '200BR': [3*60+28.99, 3*60+14.49, 2*60+59.49, 2*60+50.49, 2*60+43.49, 2*60+36.49],
+      '100FL': [1*60+24.99, 1*60+19.49, 1*60+13.49, 1*60+9.99, 1*60+7.49, 1*60+4.99],
+      '200FL': [3*60+10.99, 2*60+58.49, 2*60+45.49, 2*60+36.99, 2*60+30.49, 2*60+23.99],
+      '200IM': [3*60+4.99, 2*60+53.49, 2*60+41.49, 2*60+33.99, 2*60+28.49, 2*60+22.99],
+      '400IM': [6*60+35.99, 6*60+10.49, 5*60+44.49, 5*60+27.49, 5*60+14.49, 5*60+1.49],
+    },
+    '17-18': {
+      '50FR':  [25.99, 24.19, 22.49, 21.49, 20.69, 19.89],
+      '100FR': [56.99, 53.29, 49.49, 47.09, 45.29, 43.49],
+      '200FR': [2*60+5.99, 1*60+57.99, 1*60+49.49, 1*60+43.49, 1*60+38.99, 1*60+34.49],
+      '500FR': [5*60+38.99, 5*60+17.49, 4*60+54.99, 4*60+40.49, 4*60+28.99, 4*60+17.49],
+      '100BK': [1*60+3.49, 59.49, 55.49, 52.99, 50.99, 48.99],
+      '200BK': [2*60+17.49, 2*60+8.49, 1*60+59.99, 1*60+53.99, 1*60+49.49, 1*60+44.99],
+      '100BR': [1*60+10.49, 1*60+5.99, 1*60+1.49, 58.49, 56.49, 54.49],
+      '200BR': [2*60+33.49, 2*60+23.49, 2*60+13.99, 2*60+7.49, 2*60+2.49, 1*60+57.49],
+      '100FL': [1*60+0.49, 57.49, 53.49, 51.49, 49.49, 47.49],
+      '200FL': [2*60+14.49, 2*60+5.99, 1*60+57.49, 1*60+51.99, 1*60+47.99, 1*60+43.99],
+      '200IM': [2*60+13.49, 2*60+5.49, 1*60+56.99, 1*60+51.99, 1*60+48.49, 1*60+44.99],
+      '400IM': [4*60+46.49, 4*60+28.99, 4*60+11.49, 3*60+59.99, 3*60+51.49, 3*60+42.99],
+    },
+    'Senior': {
+      '50FR':  [24.99, 23.29, 21.69, 20.79, 19.99, 19.19],
+      '100FR': [54.99, 51.49, 47.99, 45.69, 43.99, 42.29],
+      '200FR': [2*60+1.99, 1*60+54.49, 1*60+46.49, 1*60+40.49, 1*60+36.49, 1*60+32.49],
+      '500FR': [5*60+28.99, 5*60+8.49, 4*60+46.49, 4*60+32.49, 4*60+21.49, 4*60+10.49],
+      '100BK': [1*60+1.49, 57.49, 53.99, 51.49, 49.49, 47.49],
+      '200BK': [2*60+13.49, 2*60+4.99, 1*60+56.99, 1*60+51.49, 1*60+47.49, 1*60+43.49],
+      '100BR': [1*60+8.49, 1*60+3.99, 59.49, 56.99, 54.99, 52.99],
+      '200BR': [2*60+29.49, 2*60+19.49, 2*60+9.99, 2*60+3.99, 1*60+59.49, 1*60+54.99],
+      '100FL': [58.49, 55.49, 51.99, 49.99, 47.99, 45.99],
+      '200FL': [2*60+10.49, 2*60+2.49, 1*60+53.99, 1*60+48.99, 1*60+44.99, 1*60+40.99],
+      '200IM': [2*60+9.49, 2*60+1.99, 1*60+53.99, 1*60+49.49, 1*60+45.99, 1*60+42.49],
+      '400IM': [4*60+38.49, 4*60+21.49, 4*60+3.99, 3*60+53.49, 3*60+44.99, 3*60+36.49],
+    },
+  },
+  F: {
+    '15-16': {
+      '50FR':  [28.49, 26.69, 24.99, 23.89, 23.09, 22.29],
+      '100FR': [1*60+2.99, 58.99, 54.99, 52.49, 50.49, 48.49],
+      '200FR': [2*60+16.99, 2*60+8.49, 1*60+59.49, 1*60+53.49, 1*60+48.99, 1*60+44.49],
+      '500FR': [5*60+58.99, 5*60+36.99, 5*60+13.49, 4*60+57.49, 4*60+44.99, 4*60+32.49],
+      '100BK': [1*60+8.99, 1*60+4.49, 59.99, 57.49, 55.49, 53.49],
+      '200BK': [2*60+28.99, 2*60+19.49, 2*60+9.49, 2*60+2.99, 1*60+58.49, 1*60+53.99],
+      '100BR': [1*60+17.49, 1*60+12.49, 1*60+7.49, 1*60+3.99, 1*60+1.49, 58.99],
+      '200BR': [2*60+48.99, 2*60+37.49, 2*60+25.99, 2*60+18.49, 2*60+12.99, 2*60+7.49],
+      '100FL': [1*60+6.99, 1*60+2.99, 58.99, 56.49, 54.49, 52.49],
+      '200FL': [2*60+26.99, 2*60+17.99, 2*60+8.49, 2*60+2.49, 1*60+57.99, 1*60+53.49],
+      '200IM': [2*60+24.99, 2*60+15.99, 2*60+6.99, 2*60+1.49, 1*60+57.49, 1*60+53.49],
+      '400IM': [5*60+10.99, 4*60+52.49, 4*60+33.49, 4*60+20.49, 4*60+10.49, 4*60+0.49],
+    },
+    '13-14': {
+      '50FR':  [29.99, 28.19, 26.49, 25.29, 24.49, 23.69],
+      '100FR': [1*60+6.49, 1*60+2.49, 57.99, 55.49, 53.49, 51.49],
+      '200FR': [2*60+26.99, 2*60+17.99, 2*60+8.49, 2*60+1.49, 1*60+56.49, 1*60+51.49],
+      '500FR': [6*60+25.99, 6*60+1.49, 5*60+35.49, 5*60+17.49, 5*60+3.49, 4*60+49.49],
+      '100BK': [1*60+14.49, 1*60+9.49, 1*60+4.49, 1*60+1.49, 59.49, 57.49],
+      '200BK': [2*60+40.99, 2*60+30.49, 2*60+19.49, 2*60+12.49, 2*60+7.49, 2*60+2.49],
+      '100BR': [1*60+22.49, 1*60+17.49, 1*60+11.99, 1*60+8.49, 1*60+5.49, 1*60+2.49],
+      '200BR': [3*60+0.99, 2*60+49.49, 2*60+37.49, 2*60+29.49, 2*60+23.49, 2*60+17.49],
+      '100FL': [1*60+12.49, 1*60+7.99, 1*60+3.49, 1*60+0.49, 58.49, 56.49],
+      '200FL': [2*60+38.99, 2*60+29.49, 2*60+19.49, 2*60+12.49, 2*60+7.49, 2*60+2.49],
+      '200IM': [2*60+36.99, 2*60+27.49, 2*60+17.49, 2*60+11.49, 2*60+6.99, 2*60+2.49],
+      '400IM': [5*60+36.99, 5*60+16.49, 4*60+55.49, 4*60+41.49, 4*60+30.49, 4*60+19.49],
+    },
+    '11-12': {
+      '50FR':  [32.99, 30.99, 28.99, 27.69, 26.69, 25.69],
+      '100FR': [1*60+12.99, 1*60+8.49, 1*60+3.49, 1*60+0.49, 58.49, 56.49],
+      '200FR': [2*60+40.99, 2*60+30.99, 2*60+20.49, 2*60+12.99, 2*60+7.49, 2*60+1.99],
+      '500FR': [7*60+5.99, 6*60+38.49, 6*60+10.49, 5*60+50.49, 5*60+35.49, 5*60+20.49],
+      '100BK': [1*60+22.49, 1*60+17.49, 1*60+11.99, 1*60+8.49, 1*60+5.49, 1*60+2.49],
+      '200BK': [2*60+57.99, 2*60+46.49, 2*60+34.49, 2*60+26.49, 2*60+20.49, 2*60+14.49],
+      '100BR': [1*60+30.49, 1*60+24.49, 1*60+18.49, 1*60+14.49, 1*60+11.49, 1*60+8.49],
+      '200BR': [3*60+16.99, 3*60+3.49, 2*60+49.49, 2*60+40.49, 2*60+33.49, 2*60+26.49],
+      '100FL': [1*60+19.49, 1*60+14.49, 1*60+9.49, 1*60+5.99, 1*60+3.49, 1*60+0.99],
+      '200FL': [2*60+55.99, 2*60+44.49, 2*60+32.49, 2*60+24.49, 2*60+18.49, 2*60+12.49],
+      '200IM': [2*60+50.99, 2*60+40.49, 2*60+29.49, 2*60+22.49, 2*60+17.49, 2*60+12.49],
+      '400IM': [6*60+8.99, 5*60+44.49, 5*60+19.49, 5*60+3.49, 4*60+51.49, 4*60+39.49],
+    },
+    '10U': {
+      '50FR':  [37.49, 34.99, 32.49, 30.99, 29.79, 28.59],
+      '100FR': [1*60+22.99, 1*60+16.99, 1*60+10.99, 1*60+7.49, 1*60+4.99, 1*60+2.49],
+      '200FR': [3*60+0.99, 2*60+49.49, 2*60+37.49, 2*60+28.99, 2*60+22.99, 2*60+16.99],
+      '500FR': [8*60+0.99, 7*60+28.49, 6*60+54.49, 6*60+31.49, 6*60+13.49, 5*60+55.49],
+      '100BK': [1*60+32.99, 1*60+27.49, 1*60+21.49, 1*60+17.49, 1*60+14.49, 1*60+11.49],
+      '200BK': [3*60+18.99, 3*60+6.49, 2*60+53.49, 2*60+44.49, 2*60+37.49, 2*60+30.49],
+      '100BR': [1*60+40.99, 1*60+34.49, 1*60+27.49, 1*60+23.49, 1*60+20.49, 1*60+17.49],
+      '200BR': [3*60+38.99, 3*60+23.49, 3*60+7.49, 2*60+57.49, 2*60+49.99, 2*60+42.49],
+      '100FL': [1*60+28.99, 1*60+23.49, 1*60+17.49, 1*60+13.49, 1*60+10.49, 1*60+7.49],
+      '200FL': [3*60+18.99, 3*60+6.49, 2*60+53.49, 2*60+44.49, 2*60+37.49, 2*60+30.49],
+      '200IM': [3*60+12.99, 3*60+0.99, 2*60+48.49, 2*60+40.49, 2*60+34.49, 2*60+28.49],
+      '400IM': [6*60+55.99, 6*60+28.49, 6*60+0.49, 5*60+42.49, 5*60+28.49, 5*60+14.49],
+    },
+    '17-18': {
+      '50FR':  [27.49, 25.69, 23.99, 22.89, 22.09, 21.29],
+      '100FR': [1*60+0.49, 56.49, 52.49, 50.49, 48.49, 46.49],
+      '200FR': [2*60+12.49, 2*60+3.99, 1*60+55.49, 1*60+49.49, 1*60+45.49, 1*60+41.49],
+      '500FR': [5*60+48.49, 5*60+26.99, 5*60+4.49, 4*60+49.49, 4*60+37.49, 4*60+25.49],
+      '100BK': [1*60+6.49, 1*60+2.49, 57.99, 55.49, 53.49, 51.49],
+      '200BK': [2*60+24.49, 2*60+15.49, 2*60+5.99, 1*60+59.99, 1*60+55.49, 1*60+50.99],
+      '100BR': [1*60+14.99, 1*60+10.49, 1*60+5.49, 1*60+1.99, 59.49, 56.99],
+      '200BR': [2*60+44.49, 2*60+33.49, 2*60+21.99, 2*60+14.99, 2*60+9.49, 2*60+3.99],
+      '100FL': [1*60+4.49, 1*60+0.49, 56.49, 54.49, 52.49, 50.49],
+      '200FL': [2*60+22.49, 2*60+13.49, 2*60+4.49, 1*60+58.49, 1*60+53.99, 1*60+49.49],
+      '200IM': [2*60+20.49, 2*60+11.99, 2*60+2.99, 1*60+57.99, 1*60+53.99, 1*60+49.99],
+      '400IM': [5*60+2.49, 4*60+44.49, 4*60+25.99, 4*60+13.49, 4*60+3.49, 3*60+53.49],
+    },
+    'Senior': {
+      '50FR':  [26.49, 24.79, 23.19, 22.09, 21.29, 20.49],
+      '100FR': [58.49, 54.49, 50.99, 48.99, 47.19, 45.39],
+      '200FR': [2*60+8.49, 2*60+0.49, 1*60+52.49, 1*60+46.99, 1*60+42.99, 1*60+38.99],
+      '500FR': [5*60+40.49, 5*60+19.49, 4*60+57.49, 4*60+42.49, 4*60+30.99, 4*60+19.49],
+      '100BK': [1*60+4.49, 1*60+0.49, 56.49, 53.99, 51.99, 49.99],
+      '200BK': [2*60+20.49, 2*60+11.49, 2*60+2.49, 1*60+56.49, 1*60+52.49, 1*60+48.49],
+      '100BR': [1*60+12.99, 1*60+8.49, 1*60+3.49, 1*60+0.49, 57.99, 55.49],
+      '200BR': [2*60+40.49, 2*60+29.49, 2*60+18.49, 2*60+11.49, 2*60+5.99, 2*60+0.49],
+      '100FL': [1*60+2.49, 58.49, 54.99, 52.49, 50.49, 48.49],
+      '200FL': [2*60+18.49, 2*60+9.99, 2*60+0.99, 1*60+55.49, 1*60+50.99, 1*60+46.49],
+      '200IM': [2*60+16.49, 2*60+8.49, 1*60+59.99, 1*60+55.49, 1*60+51.49, 1*60+47.49],
+      '400IM': [4*60+54.49, 4*60+37.49, 4*60+19.49, 4*60+7.49, 3*60+57.99, 3*60+48.49],
+    },
+  }
+};
+
+const STD_NAMES = ['B','BB','A','AA','AAA','AAAA'];
+const STD_COLORS = ['#94A3B8','#64748B','#2196F3','#6C2BD9','#E63946','#F5A623'];
+
+// Demo season data for drop tracker
+const DEMO_SEASON = [
+  {date:'Sep 14',meet:'Intrasquad Time Trial',time:26.82},
+  {date:'Oct 5',meet:'Fall Invitational',time:26.45},
+  {date:'Oct 26',meet:'Dual Meet vs Panthers',time:26.31},
+  {date:'Nov 16',meet:'November Showcase',time:25.89},
+  {date:'Dec 7',meet:'Winter Championship',time:25.62},
+  {date:'Jan 11',meet:'MLK Invitational',time:25.48},
+  {date:'Feb 8',meet:'Senior Champs Qualifier',time:25.21},
+  {date:'Mar 1',meet:'District Championships',time:24.93},
+];
+
+// ==================== UTILITIES ====================
+
+function timeToSeconds(min, sec, hun) {
+  return (parseInt(min)||0)*60 + (parseInt(sec)||0) + (parseInt(hun)||0)/100;
+}
+
+function secondsToTime(s) {
+  if (s <= 0) return '0:00.00';
+  const min = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  const hun = Math.round((s % 1) * 100);
+  if (min > 0) return `${min}:${sec.toString().padStart(2,'0')}.${hun.toString().padStart(2,'0')}`;
+  return `${sec}.${hun.toString().padStart(2,'0')}`;
+}
+
+function parseTimeString(str) {
+  if (!str) return null;
+  str = str.trim();
+  let m = 0, s = 0;
+  if (str.includes(':')) {
+    const parts = str.split(':');
+    m = parseInt(parts[0]) || 0;
+    s = parseFloat(parts[1]) || 0;
+  } else {
+    s = parseFloat(str) || 0;
+  }
+  return m * 60 + s;
+}
+
+// ==================== TABS ====================
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.remove('hidden');
+  });
+});
+
+// ==================== POPULATE SELECTS ====================
+
+function populateEventSelect(selectId) {
+  const sel = document.getElementById(selectId);
+  EVENTS.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.name;
+    sel.appendChild(opt);
+  });
+}
+
+populateEventSelect('conv-event');
+populateEventSelect('gap-event');
+populateEventSelect('drop-event');
+
+// ==================== CONVERTER ====================
+
+function convertTime() {
+  const eventId = document.getElementById('conv-event').value;
+  const sourceCourse = document.getElementById('conv-source-course').value;
+  const gender = document.getElementById('conv-gender').value;
+  const min = document.getElementById('conv-min').value;
+  const sec = document.getElementById('conv-sec').value;
+  const hun = document.getElementById('conv-hun').value;
+  const inputSec = timeToSeconds(min, sec, hun);
+
+  if (inputSec <= 0) return;
+
+  const factors = CONV_FACTORS[gender][eventId];
+  if (!factors) return;
+
+  let scyTime, scmTime, lcmTime;
+
+  if (sourceCourse === 'SCY') {
+    scyTime = inputSec;
+    scmTime = inputSec * factors.scy_scm;
+    lcmTime = inputSec * factors.scy_lcm;
+  } else if (sourceCourse === 'SCM') {
+    scmTime = inputSec;
+    scyTime = inputSec / factors.scy_scm;
+    lcmTime = scyTime * factors.scy_lcm;
+  } else { // LCM
+    lcmTime = inputSec;
+    scyTime = inputSec / factors.scy_lcm;
+    scmTime = scyTime * factors.scy_scm;
+  }
+
+  const resultDiv = document.getElementById('conv-result');
+  resultDiv.classList.remove('hidden');
+  resultDiv.innerHTML = `
+    <div class="result-card">
+      <h4>Converted Times — ${EVENTS.find(e=>e.id===eventId).name}</h4>
+      <div class="result-times">
+        <div class="result-time ${sourceCourse==='SCY'?'source':''}">
+          <div class="course">SCY (25y)</div>
+          <div class="time">${secondsToTime(scyTime)}</div>
+        </div>
+        <div class="result-time ${sourceCourse==='SCM'?'source':''}">
+          <div class="course">SCM (25m)</div>
+          <div class="time">${secondsToTime(scmTime)}</div>
+        </div>
+        <div class="result-time ${sourceCourse==='LCM'?'source':''}">
+          <div class="course">LCM (50m)</div>
+          <div class="time">${secondsToTime(lcmTime)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ==================== STANDARDS TABLE ====================
+
+function renderStandards() {
+  const gender = document.getElementById('std-gender').value;
+  const age = document.getElementById('std-age').value;
+  const course = document.getElementById('std-course').value;
+  const athleteTimeStr = document.getElementById('std-athlete-time').value;
+  const athleteTime = parseTimeString(athleteTimeStr);
+
+  const ageData = STANDARDS_SCY[gender]?.[age];
+  if (!ageData) {
+    document.getElementById('standards-table-container').innerHTML = '<p style="color:var(--muted)">No standards data for this selection.</p>';
+    return;
+  }
+
+  let html = `<table class="standards-table">
+    <thead><tr><th>Event</th>`;
+  STD_NAMES.forEach((n,i) => {
+    html += `<th style="background:${STD_COLORS[i]}30;color:${STD_COLORS[i]}">${n}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  const eventList = Object.keys(ageData);
+  eventList.forEach(eventId => {
+    const eventName = EVENTS.find(e => e.id === eventId)?.name || eventId;
+    const stds = ageData[eventId];
+    if (!stds) return;
+
+    // If LCM course, convert standards from SCY
+    let displayStds = stds;
+    if (course === 'LCM') {
+      const factors = CONV_FACTORS[gender][eventId];
+      if (factors) {
+        displayStds = stds.map(s => s * factors.scy_lcm);
+      }
+    }
+
+    html += `<tr><td>${eventName}</td>`;
+    let foundNext = false;
+    displayStds.forEach((std, i) => {
+      const timeStr = secondsToTime(std);
+      let cls = 'std-future';
+      if (athleteTime !== null && athleteTimeStr) {
+        // Check if this is the event the user typed a time for
+        // We highlight based on the first event with standards
+        if (athleteTime <= std && !foundNext) {
+          cls = 'std-achieved';
+        } else if (athleteTime > std && (i === 0 || athleteTime <= displayStds[i-1])) {
+          cls = 'std-next';
+          foundNext = true;
+        } else if (athleteTime <= std) {
+          cls = 'std-achieved';
+        }
+      }
+      html += `<td><span class="${cls}">${timeStr}</span></td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+
+  if (athleteTimeStr) {
+    html += `<div style="margin-top:12px;font-size:13px;color:var(--muted)">
+      Highlighting shows achieved (green) and next target (yellow) standards for your entered time.
+      Enter a time in MM:SS.HH or SS.HH format.
+    </div>`;
+  }
+
+  document.getElementById('standards-table-container').innerHTML = html;
+}
+
+// ==================== GAP ANALYSIS ====================
+
+function renderGap() {
+  const eventId = document.getElementById('gap-event').value;
+  const gender = document.getElementById('gap-gender').value;
+  const age = document.getElementById('gap-age').value;
+  const course = document.getElementById('gap-course').value;
+  const min = document.getElementById('gap-min').value;
+  const sec = document.getElementById('gap-sec').value;
+  const hun = document.getElementById('gap-hun').value;
+  const currentTime = timeToSeconds(min, sec, hun);
+
+  if (currentTime <= 0) return;
+
+  const ageData = STANDARDS_SCY[gender]?.[age];
+  if (!ageData || !ageData[eventId]) {
+    document.getElementById('gap-result').innerHTML = '<p style="color:var(--muted)">No standards data for this selection.</p>';
+    return;
+  }
+
+  let stds = ageData[eventId];
+  if (course === 'LCM') {
+    const factors = CONV_FACTORS[gender][eventId];
+    if (factors) stds = stds.map(s => s * factors.scy_lcm);
+  }
+
+  const eventName = EVENTS.find(e => e.id === eventId)?.name || eventId;
+
+  // Find current standard and next target
+  let currentStd = 'Below B';
+  let currentStdIdx = -1;
+  let nextStd = null;
+  let nextStdIdx = -1;
+
+  for (let i = stds.length - 1; i >= 0; i--) {
+    if (currentTime <= stds[i]) {
+      currentStd = STD_NAMES[i];
+      currentStdIdx = i;
+    }
+  }
+
+  if (currentStdIdx < stds.length - 1) {
+    nextStdIdx = currentStdIdx + 1;
+    nextStd = STD_NAMES[nextStdIdx];
+  }
+
+  let html = `<div class="compare-section">`;
+
+  // Current standing card
+  html += `<div class="athlete-card">
+    <h3>Current Standing — ${eventName}</h3>
+    <div style="text-align:center;padding:20px">
+      <div style="font-size:36px;font-weight:800;color:var(--purple)">${secondsToTime(currentTime)}</div>
+      <div style="font-size:16px;margin-top:8px">
+        Standard: <span style="color:${STD_COLORS[currentStdIdx]||'var(--muted)'};font-weight:700;font-size:20px">${currentStd}</span>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">`;
+
+  STD_NAMES.forEach((name, i) => {
+    const achieved = currentTime <= stds[i];
+    html += `<div style="padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;
+      background:${achieved ? STD_COLORS[i]+'20' : '#F3F4F6'};
+      color:${achieved ? STD_COLORS[i] : '#D1D5DB'};
+      border:2px solid ${achieved ? STD_COLORS[i] : '#E5E7EB'}">
+      ${achieved ? '✓ ' : ''}${name}
+    </div>`;
+  });
+
+  html += `</div></div>`;
+
+  // Gap to next standard
+  if (nextStd) {
+    const gap = currentTime - stds[nextStdIdx];
+    const pct = Math.min(100, Math.max(0, (1 - gap / (currentTime - (stds[currentStdIdx] || currentTime))) * 100));
+
+    // Estimate drops needed (using 0.3-0.5s per meet as typical drop rate)
+    const meetsNeeded = Math.ceil(gap / 0.4);
+
+    html += `<div class="athlete-card">
+      <h3>Gap to ${nextStd} Standard</h3>
+      <div class="gap-indicator">
+        <div class="gap-time">-${secondsToTime(gap)}</div>
+        <div class="gap-label">needed to reach ${nextStd} (${secondsToTime(stds[nextStdIdx])})</div>
+      </div>
+      <div class="progress-bar-container" style="margin-top:16px">
+        <div class="progress-label">
+          <span>${currentStd} (${secondsToTime(stds[currentStdIdx] || currentTime)})</span>
+          <span>${nextStd} (${secondsToTime(stds[nextStdIdx])})</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,${STD_COLORS[currentStdIdx]||'var(--muted)'},${STD_COLORS[nextStdIdx]})"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px;padding:12px;background:#F3E8FF;border-radius:8px;font-size:13px;text-align:center">
+        At typical drop rates (~0.3-0.5s/meet), estimated <strong>${meetsNeeded} meets</strong> to achieve ${nextStd}.
+      </div>
+    </div>`;
+  } else if (currentStdIdx === stds.length - 1) {
+    html += `<div class="athlete-card">
+      <h3 style="color:var(--gold)">AAAA Standard Achieved!</h3>
+      <div style="text-align:center;padding:40px;font-size:48px">🏆</div>
+      <p style="text-align:center;color:var(--muted)">This athlete has achieved the highest motivational time standard. Next stop: Sectionals, Futures, and Nationals cuts.</p>
+    </div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('gap-result').innerHTML = html;
+}
+
+// ==================== DROP TRACKER ====================
+
+function calculateDrop() {
+  const oldMin = document.getElementById('drop-old-min').value;
+  const oldSec = document.getElementById('drop-old-sec').value;
+  const oldHun = document.getElementById('drop-old-hun').value;
+  const newMin = document.getElementById('drop-new-min').value;
+  const newSec = document.getElementById('drop-new-sec').value;
+  const newHun = document.getElementById('drop-new-hun').value;
+
+  const oldTime = timeToSeconds(oldMin, oldSec, oldHun);
+  const newTime = timeToSeconds(newMin, newSec, newHun);
+  const drop = oldTime - newTime;
+
+  const resultDiv = document.getElementById('drop-result');
+  const eventName = EVENTS.find(e => e.id === document.getElementById('drop-event').value)?.name || '';
+
+  if (drop > 0) {
+    resultDiv.innerHTML = `
+      <div class="drop-visual">
+        <div class="old-time">${secondsToTime(oldTime)}</div>
+        <div class="arrow">→</div>
+        <div class="new-time">${secondsToTime(newTime)}</div>
+        <div class="drop-amount">▼ ${secondsToTime(drop)} drop!</div>
+      </div>
+      <div style="margin-top:12px;text-align:center;color:var(--success);font-weight:600;font-size:14px">
+        ${drop >= 2 ? '🔥 Massive drop!' : drop >= 1 ? '💪 Great improvement!' : '👍 Solid progress!'} — ${(drop/oldTime*100).toFixed(1)}% faster in ${eventName}
+      </div>`;
+  } else if (drop < 0) {
+    resultDiv.innerHTML = `
+      <div class="drop-visual">
+        <div class="old-time" style="text-decoration:none">${secondsToTime(oldTime)}</div>
+        <div class="arrow" style="color:var(--scarlet)">→</div>
+        <div class="new-time" style="color:var(--scarlet)">${secondsToTime(newTime)}</div>
+        <div class="drop-amount" style="background:var(--scarlet)">▲ ${secondsToTime(Math.abs(drop))} add</div>
+      </div>
+      <div style="margin-top:12px;text-align:center;color:var(--muted);font-size:14px">
+        Times go up sometimes — taper, rest, and mental game all play a role. Focus on the long-term trend.
+      </div>`;
+  } else {
+    resultDiv.innerHTML = `<div style="text-align:center;padding:12px;color:var(--muted)">Same time — no change.</div>`;
+  }
+}
+
+// Render demo season
+function renderDemoDrops() {
+  const container = document.getElementById('demo-drops');
+  let html = '';
+
+  DEMO_SEASON.forEach((entry, i) => {
+    const prev = i > 0 ? DEMO_SEASON[i-1].time : null;
+    const change = prev ? entry.time - prev : 0;
+    const changeClass = change < 0 ? 'positive' : change > 0 ? 'negative' : 'neutral';
+    const changeStr = change < 0 ? `▼ ${Math.abs(change).toFixed(2)}` : change > 0 ? `▲ ${change.toFixed(2)}` : '—';
+
+    html += `
+      <div class="drop-row">
+        <span class="date">${entry.date}</span>
+        <span class="event">${entry.meet}</span>
+        <span class="time">${entry.time.toFixed(2)}</span>
+        <span class="change ${changeClass}">${changeStr}</span>
+      </div>`;
+  });
+
+  // Total season drop
+  const totalDrop = DEMO_SEASON[0].time - DEMO_SEASON[DEMO_SEASON.length-1].time;
+  html += `
+    <div style="margin-top:16px;padding:16px;background:linear-gradient(135deg,#D1FAE5,#ECFDF5);border-radius:8px;text-align:center">
+      <div style="font-size:12px;color:var(--muted);text-transform:uppercase;font-weight:700">Season Total Drop</div>
+      <div style="font-size:32px;font-weight:800;color:#065F46">▼ ${totalDrop.toFixed(2)}s</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">${DEMO_SEASON[0].time.toFixed(2)} → ${DEMO_SEASON[DEMO_SEASON.length-1].time.toFixed(2)} (${(totalDrop/DEMO_SEASON[0].time*100).toFixed(1)}% improvement)</div>
+    </div>`;
+
+  container.innerHTML = html;
+}
+
+// ==================== INIT ====================
+renderStandards();
+renderGap();
+renderDemoDrops();
+</script>
+</body>
+</html>

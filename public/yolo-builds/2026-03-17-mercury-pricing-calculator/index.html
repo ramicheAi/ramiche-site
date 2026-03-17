@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mercury Pricing Calculator — Ramiche Studio</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--purple:#6C2BD9;--scarlet:#E63946;--gold:#F5A623;--dark:#0A0A14;--card:#12121F;--text:#E8E8F0;--muted:#7878AA;--green:#22C55E;--border:#222240}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--dark);color:var(--text);min-height:100vh;line-height:1.6}
+.app{max-width:720px;margin:0 auto;padding:24px 20px}
+.header{padding:48px 0 40px;text-align:center;border-bottom:1px solid var(--border)}
+.header .badge{display:inline-block;background:rgba(108,43,217,.15);color:var(--purple);font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;padding:6px 14px;border-radius:20px;margin-bottom:16px}
+.header h1{font-size:2rem;font-weight:800;background:linear-gradient(135deg,var(--purple),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header p{color:var(--muted);font-size:.95rem;margin-top:8px}
+.form-section{margin-top:36px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px}
+.form-section h3{font-size:1rem;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:20px}
+.form-group label{display:block;font-size:.8rem;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.form-group select,.form-group input{width:100%;background:var(--dark);border:2px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-size:1rem;outline:none;transition:border .2s}
+.form-group select:focus,.form-group input:focus{border-color:var(--purple)}
+.btn{width:100%;padding:14px;border:none;border-radius:8px;font-size:1.05rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,var(--purple),var(--scarlet));color:#fff;transition:opacity .15s}
+.btn:hover{opacity:.9}
+.results{margin-top:32px;display:none}
+.results.active{display:block}
+.tier{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:16px;transition:border-color .2s;position:relative}
+.tier:hover{border-color:var(--purple)}
+.tier.recommended{border-color:var(--gold)}
+.tier.recommended::after{content:'RECOMMENDED';position:absolute;top:-10px;right:16px;background:var(--gold);color:var(--dark);font-size:.65rem;font-weight:800;letter-spacing:1px;padding:3px 10px;border-radius:10px}
+.tier-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.tier-name{font-weight:700;font-size:1.05rem}
+.tier-price{font-size:1.6rem;font-weight:800;color:var(--green)}
+.tier-scope{color:var(--muted);font-size:.85rem;line-height:1.7}
+.tier-scope li{margin-bottom:4px}
+.warning{background:rgba(230,57,70,.1);border:1px solid rgba(230,57,70,.3);border-radius:8px;padding:12px 16px;margin-top:16px;font-size:.85rem;color:var(--scarlet);display:none}
+.warning.active{display:block}
+@media print{body{background:#fff;color:#111}.app{max-width:100%}.header{border:none}.tier{border:1px solid #ddd;break-inside:avoid}.tier-price{color:#111}.form-section,.btn{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="header">
+  <div class="badge">Mercury Revenue Tools</div>
+  <h1>Pricing Calculator</h1>
+  <p>Value-based pricing for Ramiche Studio services. Three tiers, zero guesswork.</p>
+</div>
+<div class="form-section">
+  <h3>Configure Quote</h3>
+  <div class="form-group">
+    <label>Service Type</label>
+    <select id="service">
+      <option value="Brand Sprint">Brand Sprint (48h)</option>
+      <option value="Content Retainer">Content Retainer (Monthly)</option>
+      <option value="Full Architecture">Full Architecture</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label>Client Budget / Project Value ($)</label>
+    <input type="number" id="budget" placeholder="e.g. 50000" min="1000" step="1000"/>
+  </div>
+  <button class="btn" onclick="calculate()">Generate Quote</button>
+</div>
+<div id="warning" class="warning"></div>
+<div class="results" id="results">
+  <div class="tier" id="tier-anchor">
+    <div class="tier-header"><span class="tier-name">Anchor (Essential)</span><span class="tier-price" id="price-anchor"></span></div>
+    <ul class="tier-scope"><li>Core deliverables only</li><li>Standard timeline</li><li>No raw/source files</li></ul>
+  </div>
+  <div class="tier recommended" id="tier-target">
+    <div class="tier-header"><span class="tier-name">Target (Full Scope)</span><span class="tier-price" id="price-target"></span></div>
+    <ul class="tier-scope" id="scope-target"></ul>
+  </div>
+  <div class="tier" id="tier-premium">
+    <div class="tier-header"><span class="tier-name">Premium (Scale)</span><span class="tier-price" id="price-premium"></span></div>
+    <ul class="tier-scope" id="scope-premium"></ul>
+  </div>
+</div>
+</div>
+<script>
+const MULTIPLIERS={"Brand Sprint":1.0,"Content Retainer":0.8,"Full Architecture":1.5};
+const SPRINT_FLOOR=10000;
+const SCOPES={
+  "Brand Sprint":{target:["Full 48h Sprint scope","Strategy + identity + launch assets","Standard revisions included","Strategy alignment session"],premium:["48h Sprint + Growth Assets","Priority support & source files","Expedited delivery","Brand guidelines document"]},
+  "Content Retainer":{target:["Monthly content package","Strategy alignment","Standard revisions","Performance reporting"],premium:["Monthly content + growth assets","Priority support","Source files included","Dedicated account manager"]},
+  "Full Architecture":{target:["Complete brand architecture","Strategy + identity + systems","Extended revision rounds","Full asset library"],premium:["Full architecture + scaling playbook","White-glove priority support","All source files & templates","Quarterly strategy reviews"]}
+};
+function fmt(n){return '$'+n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0})}
+function calculate(){
+  const service=document.getElementById('service').value;
+  const budget=parseFloat(document.getElementById('budget').value);
+  if(!budget||budget<1000){alert('Enter a budget of at least $1,000');return}
+  const baseValue=budget*0.10;
+  const mult=MULTIPLIERS[service]||1;
+  let target=baseValue*mult;
+  const anchor=target*0.75;
+  const premium=target*1.5;
+  const warn=document.getElementById('warning');
+  if(service==='Brand Sprint'&&target<SPRINT_FLOOR){
+    warn.textContent='Note: Value-based price is below the standard 48h Sprint floor rate ('+fmt(SPRINT_FLOOR)+'). Recommend using the floor rate.';
+    warn.classList.add('active');
+    target=SPRINT_FLOOR;
+  }else{warn.classList.remove('active')}
+  document.getElementById('price-anchor').textContent=fmt(anchor);
+  document.getElementById('price-target').textContent=fmt(target);
+  document.getElementById('price-premium').textContent=fmt(premium);
+  const sc=SCOPES[service];
+  document.getElementById('scope-target').innerHTML=sc.target.map(s=>'<li>'+s+'</li>').join('');
+  document.getElementById('scope-premium').innerHTML=sc.premium.map(s=>'<li>'+s+'</li>').join('');
+  document.getElementById('results').classList.add('active');
+}
+</script>
+</body>
+</html>

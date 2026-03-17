@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>METTLE Practice Planner — Coach Workout Builder</title>
 <style>
+    /* ULTRA-LINEAR: single-column centered layout */
+    body { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
 :root {
   --purple: #6B21A8;
   --purple-light: #A855F7;
@@ -141,7 +144,7 @@ body {
 }
 
 /* Set Templates */
-.template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.template-grid { display: grid; grid-template-columns: 1fr; gap: 8px; }
 .template-btn {
   padding: 10px;
   background: white;
@@ -187,7 +190,7 @@ body {
 /* Summary Stats */
 .stats-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 8px;
 }
 .stat-card {
@@ -291,7 +294,7 @@ body {
 .set-items { padding: 12px 20px; }
 .set-item {
   display: grid;
-  grid-template-columns: 60px 80px 1fr 100px 90px 80px 36px;
+  grid-template-columns: 1fr 100px 90px 80px 36px;
   gap: 10px;
   align-items: center;
   padding: 8px 0;
@@ -330,7 +333,7 @@ body {
 /* Set Item Labels (column header) */
 .set-labels {
   display: grid;
-  grid-template-columns: 60px 80px 1fr 100px 90px 80px 36px;
+  grid-template-columns: 1fr 100px 90px 80px 36px;
   gap: 10px;
   padding: 8px 20px 4px;
   font-size: 10px;
@@ -422,8 +425,8 @@ body {
 @media (max-width: 900px) {
   .main { flex-direction: column; height: auto; }
   .sidebar { width: 100%; border-right: none; border-bottom: 2px solid var(--border); }
-  .set-item { grid-template-columns: 50px 70px 1fr 80px 70px 70px 30px; gap: 6px; }
-  .set-labels { grid-template-columns: 50px 70px 1fr 80px 70px 70px 30px; gap: 6px; }
+  .set-item { grid-template-columns: 1fr 80px 70px 70px 30px; gap: 6px; }
+  .set-labels { grid-template-columns: 1fr 80px 70px 70px 30px; gap: 6px; }
 }
 
 /* Print styles */

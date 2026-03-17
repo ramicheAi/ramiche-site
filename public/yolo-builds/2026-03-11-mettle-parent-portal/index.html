@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>METTLE — Parent Portal</title>
 <style>
+    /* ULTRA-LINEAR: single-column centered layout */
+    body { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
   :root {
     --purple: #6B2FA0;
     --purple-light: #8B4FC0;
@@ -241,11 +244,11 @@
   .stats-grid {
     display: grid;
     grid-cols: repeat(2, 1fr);
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 12px;
     margin-bottom: 20px;
   }
-  @media (min-width: 768px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 768px) { .stats-grid { grid-template-columns: 1fr; } }
   .stat-card {
     background: white;
     border: 2px solid var(--border);
@@ -469,11 +472,11 @@
   /* Achievements */
   .achievements-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 12px;
   }
-  @media (min-width: 768px) { .achievements-grid { grid-template-columns: repeat(3, 1fr); } }
-  @media (min-width: 1024px) { .achievements-grid { grid-template-columns: repeat(4, 1fr); } }
+  @media (min-width: 768px) { .achievements-grid { grid-template-columns: 1fr; } }
+  @media (min-width: 1024px) { .achievements-grid { grid-template-columns: 1fr; } }
   .achievement-card {
     background: white;
     border: 2px solid var(--border);
@@ -561,14 +564,14 @@
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  @media (min-width: 768px) { .grid-2 { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
   .grid-3 {
     display: grid;
     grid-template-columns: 1fr;
     gap: 16px;
   }
-  @media (min-width: 768px) { .grid-3 { grid-template-columns: 1fr 1fr; } }
-  @media (min-width: 1024px) { .grid-3 { grid-template-columns: 1fr 1fr 1fr; } }
+  @media (min-width: 768px) { .grid-3 { grid-template-columns: 1fr; } }
+  @media (min-width: 1024px) { .grid-3 { grid-template-columns: 1fr; } }
 
   /* Particle BG */
   #particles {
