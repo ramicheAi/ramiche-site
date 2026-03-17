@@ -2,7 +2,7 @@
 
 ## In Progress
 
-- [ ] SwimCloud meet/date parsing fix (times returned but meet name + date fields empty)
+(none)
 
 ## Backlog (Priority Order)
 
@@ -10,7 +10,6 @@
 - [ ] Firebase Authentication (replace localStorage auth)
 - [ ] Cognitive load audit
 - [ ] Mobile verification (full device test on M5 MacBook Pro)
-- [ ] Parent portal: coach-side preview (select athlete → see parent view)
 - [ ] Instagram connection for METTLE social
 - [ ] Trademark filing (Classes 9+41+42)
 - [ ] Patent completion at USPTO
@@ -18,6 +17,9 @@
 
 ## Completed (Recent)
 
+- [x] SwimCloud meet/date parsing — robust multi-pattern extraction (6 fallbacks for name, 4 for date) — Mar 16
+- [x] PracticePlanner + AthleteCard components + athlete page update — Mar 16
+- [x] Parent portal: coach-side preview modal (ParentPreviewModal.tsx) — Mar 16
 - [x] Best Times Fetch — SwimCloud API with USA Swimming ID matching, Firestore cache, athlete detail UI
 - [x] Security: role-based portal isolation (coach/athlete/parent strict separation)
 - [x] Session extended 24h → 30 days + smart root redirect

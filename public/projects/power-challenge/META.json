@@ -3,9 +3,8 @@
   "slug": "power-challenge",
   "client": "Jesse Vassallo",
   "type": "client-project",
-  "status": "active",
+  "status": "proposal",
   "created": "2026-03-13",
-  "link": "https://power-challenge.vercel.app",
   "pricing": {
     "build": 1500,
     "maintenance": 50,
