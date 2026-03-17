@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { MASTER_PIN, getSession, clearSession } from "../auth";
+import { MASTER_PIN, clearSession } from "../auth";
+import { useCoachAuth } from "../hooks/useCoachAuth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
@@ -26,6 +27,7 @@ import MeetsView from "./views/MeetsView";
 import AnalyticsDashboard from "./views/AnalyticsDashboard";
 import type { Athlete, DailyXP, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, RosterGroup, SwimMeet, MentalReadiness, BreathworkSession, JournalEntry, RecoveryLog, WellnessData } from "./types";
 import type { ScoringResult } from "../lib/meet-scoring";
+import ParentPreviewModal from "./components/ParentPreviewModal";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -761,10 +763,9 @@ const Card = ({ children, className = "", glow = false, neon = false }: { childr
 export default function ApexAthletePage() {
   const router = useRouter();
   const [roster, setRoster] = useState<Athlete[]>([]);
-  const [coachPin, setCoachPin] = useState("");
-  const [pinInput, setPinInput] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const { coachPin, setCoachPin, pinInput, setPinInput, unlocked, setUnlocked } = useCoachAuth();
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
+  const [parentPreviewAthlete, setParentPreviewAthlete] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
   // Pending mode switch — requires confirmation tap to actually switch
@@ -867,13 +868,6 @@ export default function ApexAthletePage() {
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTouchEndRef = useRef(0);
 
-  // ── Auth gate: auto-unlock if already authenticated ──
-  useEffect(() => {
-    const session = getSession();
-    if (session && (session.role === "coach" || session.role === "admin")) {
-      setUnlocked(true);
-    }
-  }, []);
 
   useEffect(() => {
     const markScrolling = () => {
@@ -2632,6 +2626,10 @@ export default function ApexAthletePage() {
               </div>
             </div>
           </div>
+          <button onClick={(e) => { e.stopPropagation(); setParentPreviewAthlete(athlete.id); }}
+            className="mt-3 w-full rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-2 text-xs font-medium text-purple-300 hover:bg-purple-900/40 hover:border-purple-500/50 transition-colors">
+            Preview Parent View
+          </button>
         </Card>
 
         {/* Stats row */}
@@ -4085,6 +4083,11 @@ export default function ApexAthletePage() {
           animation: recapEnter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}</style>
+      {parentPreviewAthlete && (() => {
+        const a = roster.find(r => r.id === parentPreviewAthlete);
+        if (!a) return null;
+        return <ParentPreviewModal isOpen={true} onClose={() => setParentPreviewAthlete(null)} athlete={{ id: a.id, name: a.name, group: a.group, bestTimes: a.bestTimes ? Object.fromEntries(Object.entries(a.bestTimes).map(([k, v]) => [k, v.time])) : undefined, level: getLevel(a.xp, getSportForAthlete(a)).name, xp: a.xp, streak: a.streak }} />;
+      })()}
     </div>
   );
 }
