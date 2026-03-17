@@ -45,6 +45,7 @@ const YOLO_AGENTS = [
 ];
 
 const SEED_BUILDS: Build[] = [
+  { date: "2026-03-17", name: "FORGE — Material Science Lab", idea: "Interactive material science explorer for 3D printing — 12 FDM materials with real engineering data, live thermal phase simulator, radar-chart head-to-head comparison, print setting optimizer by part type and priority, and cost estimator with waste factoring", status: "working", takeaway: "50KB single HTML. 12 materials with real datasheet values. Thermal simulator shows glass transition, softening, melting, degradation phases in real time. Radar chart comparison with canvas rendering. Print optimizer adjusts 13 slicer parameters by material × part type × priority. Nobody else on the team can build this.", folder: "2026-03-17-nova-forge-material-lab", agent: "Nova" },
   { date: "2026-03-17", name: "Signal Wire — Agent Communication Visualiser", idea: "Real-time particle network showing every message, task handoff, and decision flowing between 20 agents. Animated canvas with orbital node layout, signal trails, and live feed. Ultra-linear dark UI.", status: "working", takeaway: "28KB single HTML. Canvas particle system with trail rendering. Orbital dual-ring layout (core 6 inner, 14 outer). Signal feed with type filtering. Organic emission timing (1.5-6s) feels alive. Agent roster with signal-strength bars.", folder: "2026-03-17-proximon-signal-wire", agent: "Proximon" },
   { date: "2026-03-17", name: "Nerve Centre — R&D Operations Intelligence", idea: "Live operational dashboard with experiment timeline, agent signal-strength grid, bottleneck radar, cost distribution, flywheel visualiser, and system pulse — all real data from Proximon's experiment log", status: "working", takeaway: "Ultra-linear layout with scanline overlay and grid background. Signal-strength bars per agent. Pulse bar with 60 animated segments. Every experiment I've shipped is tracked with status + delta.", folder: "2026-03-17-proximon-nerve-centre", agent: "Proximon" },
   { date: "2026-03-17", name: "METTLE Time Standards & Converter", idea: "4-in-1 swim time utility — course converter (SCY/SCM/LCM), motivational time standards table (B-AAAA), gap analysis with progress bar, drop tracker with season progression", status: "working", takeaway: "44KB single HTML. 14 events x 6 age groups x 2 genders x 6 standards = full coverage. Gap analysis showing estimated meets to next standard is killer for parent engagement.", folder: "2026-03-17-mettle-time-standards", agent: "Nova" },
@@ -109,17 +110,23 @@ export default function YoloBuildsPage() {
       // Step 3: Sort by date descending
       merged.sort((a, b) => b.date.localeCompare(a.date));
 
-      // Step 4: If Firestore is available, sync
+      // Step 4: If Firestore is available, merge with SEED_BUILDS (never skip seeds)
       if (db && hasConfig) {
         try {
           const q = query(collection(db, "yolo_builds"), orderBy("date", "desc"));
           const snap = await getDocs(q);
           const fsData = snap.docs.map(d => ({ ...d.data(), id: d.id } as unknown as Build));
-          if (fsData.length > 0) { setBuilds(fsData); return; }
-          // Firestore empty — seed it with merged data
-          for (const build of merged) {
+          // Merge: Firestore data + any SEED_BUILDS not yet in Firestore
+          const fsFolders = new Set(fsData.map(b => b.folder));
+          const missingSeed = merged.filter(b => !fsFolders.has(b.folder));
+          // Seed missing builds into Firestore
+          for (const build of missingSeed) {
             await setDoc(doc(db, "yolo_builds", build.folder), { ...build, reviewStatus: "pending" }, { merge: true });
           }
+          const allBuilds = [...fsData.map(b => ({ ...b, reviewStatus: (b.reviewStatus || "pending") as ReviewStatus })), ...missingSeed];
+          allBuilds.sort((a, b) => b.date.localeCompare(a.date));
+          setBuilds(allBuilds);
+          return;
         } catch {}
       }
 
