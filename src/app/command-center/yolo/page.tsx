@@ -21,8 +21,20 @@ interface Build {
   folder: string;
   agent: string;
   reviewStatus?: "approved" | "rejected" | "pending";
+  tier?: 1 | 2 | 3;
   score?: number;
 }
+
+/* ── TIER SYSTEM ────────────────────────────────────────────────────────────
+   Tier 1: Internal Tool — auto-deploy to /tools/{slug}, available immediately
+   Tier 2: Feature Integration — extract core logic, wire into existing project
+   Tier 3: Standalone Product — own repo, domain, Stripe, landing page
+   ────────────────────────────────────────────────────────────────────────── */
+const TIER_CONFIG: Record<number, { label: string; icon: string; color: string; bg: string; desc: string }> = {
+  1: { label: "TOOL", icon: "🔧", color: "#22d3ee", bg: "rgba(34,211,238,0.15)", desc: "Internal tool — auto-deploy to /tools/" },
+  2: { label: "INTEGRATE", icon: "🔗", color: "#a855f7", bg: "rgba(168,85,247,0.15)", desc: "Extract & wire into existing project" },
+  3: { label: "PRODUCT", icon: "🚀", color: "#C9A84C", bg: "rgba(201,168,76,0.15)", desc: "Standalone product — own repo & domain" },
+};
 
 type ReviewStatus = "pending" | "approved" | "rejected";
 
@@ -158,12 +170,26 @@ export default function YoloBuildsPage() {
       prev.map((b) => (b.folder === folder ? { ...b, reviewStatus: status } : b)),
     );
     if (status === "approved") {
-      setToast({ message: "Build approved", color: "#22c55e" });
+      setToast({ message: "Build approved — select a tier to promote", color: "#22c55e" });
     } else if (status === "rejected") {
       setToast({ message: "Build rejected", color: "#ef4444" });
     } else {
       setToast({ message: "Review reset", color: "#a3a3a3" });
     }
+  };
+
+  const setTier = async (folder: string, tier: 1 | 2 | 3) => {
+    if (db && hasConfig) {
+      try {
+        const docRef = doc(db, "yolo_builds", folder);
+        await setDoc(docRef, { tier, tierAssignedAt: new Date().toISOString() }, { merge: true });
+      } catch {}
+    }
+    setBuilds((prev) =>
+      prev.map((b) => (b.folder === folder ? { ...b, tier, reviewStatus: "approved" as ReviewStatus } : b)),
+    );
+    const t = TIER_CONFIG[tier];
+    setToast({ message: `${t.icon} Promoted to ${t.label}`, color: t.color });
   };
 
   const filtered = filter === "all"
@@ -251,6 +277,25 @@ export default function YoloBuildsPage() {
           })}
         </div>
 
+        {/* Tier Key */}
+        <div className="mb-6 border-2 border-white/[0.06] rounded-xl p-4">
+          <h3 className="text-[10px] font-bold tracking-widest mb-3 text-white/40">POST-APPROVAL TIER KEY</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[1, 2, 3].map((t) => {
+              const cfg = TIER_CONFIG[t as 1 | 2 | 3];
+              return (
+                <div key={t} className="flex items-center gap-3 rounded-lg border-2 px-3 py-2" style={{ borderColor: `${cfg.color}30`, background: cfg.bg }}>
+                  <span className="text-lg">{cfg.icon}</span>
+                  <div>
+                    <div className="text-xs font-bold" style={{ color: cfg.color }}>TIER {t}: {cfg.label}</div>
+                    <div className="text-[10px] text-white/40">{cfg.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Build Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filtered.map((build) => {
@@ -336,43 +381,81 @@ export default function YoloBuildsPage() {
                   </div>
                 )}
 
-                {/* Footer: actions */}
-                <div className="flex items-center justify-between mt-auto pt-3 border-t border-white/[0.06]">
-                  <span className="text-xs text-white/40">
-                    Built by <span className="text-white/60 font-medium">{build.agent}</span>
-                  </span>
-                  <div className="flex gap-2">
-                    <a
-                      href={`/yolo-builds/${build.folder}/index.html`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs px-2 py-1 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors"
+                {/* Tier badge (if assigned) */}
+                {build.tier && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded"
+                      style={{ background: TIER_CONFIG[build.tier].bg, color: TIER_CONFIG[build.tier].color }}
                     >
-                      Test
-                    </a>
-                    <button
-                      onClick={() => setReview(build.folder, isApproved ? "pending" : "approved")}
-                      className="text-xs px-2 py-1 rounded border transition-colors"
-                      style={{
-                        borderColor: isApproved ? "rgba(34,197,94,0.6)" : "rgba(34,197,94,0.3)",
-                        color: isApproved ? "#fff" : "#4ade80",
-                        background: isApproved ? "rgba(34,197,94,0.3)" : "transparent",
-                      }}
-                    >
-                      {isApproved ? "\u2713" : "Approve"}
-                    </button>
-                    <button
-                      onClick={() => setReview(build.folder, isRejected ? "pending" : "rejected")}
-                      className="text-xs px-2 py-1 rounded border transition-colors"
-                      style={{
-                        borderColor: isRejected ? "rgba(239,68,68,0.6)" : "rgba(239,68,68,0.3)",
-                        color: isRejected ? "#fff" : "#f87171",
-                        background: isRejected ? "rgba(239,68,68,0.3)" : "transparent",
-                      }}
-                    >
-                      {isRejected ? "\u2717" : "Reject"}
-                    </button>
+                      {TIER_CONFIG[build.tier].icon} TIER {build.tier}: {TIER_CONFIG[build.tier].label}
+                    </span>
                   </div>
+                )}
+
+                {/* Footer: actions */}
+                <div className="flex flex-col gap-2 mt-auto pt-3 border-t border-white/[0.06]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-white/40">
+                      Built by <span className="text-white/60 font-medium">{build.agent}</span>
+                    </span>
+                    <div className="flex gap-2">
+                      <a
+                        href={`/yolo-builds/${build.folder}/index.html`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs px-2 py-1 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors"
+                      >
+                        Test
+                      </a>
+                      <button
+                        onClick={() => setReview(build.folder, isApproved ? "pending" : "approved")}
+                        className="text-xs px-2 py-1 rounded border transition-colors"
+                        style={{
+                          borderColor: isApproved ? "rgba(34,197,94,0.6)" : "rgba(34,197,94,0.3)",
+                          color: isApproved ? "#fff" : "#4ade80",
+                          background: isApproved ? "rgba(34,197,94,0.3)" : "transparent",
+                        }}
+                      >
+                        {isApproved ? "\u2713" : "Approve"}
+                      </button>
+                      <button
+                        onClick={() => setReview(build.folder, isRejected ? "pending" : "rejected")}
+                        className="text-xs px-2 py-1 rounded border transition-colors"
+                        style={{
+                          borderColor: isRejected ? "rgba(239,68,68,0.6)" : "rgba(239,68,68,0.3)",
+                          color: isRejected ? "#fff" : "#f87171",
+                          background: isRejected ? "rgba(239,68,68,0.3)" : "transparent",
+                        }}
+                      >
+                        {isRejected ? "\u2717" : "Reject"}
+                      </button>
+                    </div>
+                  </div>
+                  {/* Tier selector — shows after approval */}
+                  {isApproved && (
+                    <div className="flex gap-2">
+                      {([1, 2, 3] as const).map((t) => {
+                        const cfg = TIER_CONFIG[t];
+                        const isActive = build.tier === t;
+                        return (
+                          <button
+                            key={t}
+                            onClick={() => setTier(build.folder, t)}
+                            className="flex-1 text-[10px] font-bold tracking-wider py-1.5 rounded border-2 transition-all"
+                            style={{
+                              borderColor: isActive ? cfg.color : `${cfg.color}30`,
+                              color: isActive ? "#fff" : cfg.color,
+                              background: isActive ? cfg.bg : "transparent",
+                              boxShadow: isActive ? `0 0 12px ${cfg.color}25` : "none",
+                            }}
+                          >
+                            {cfg.icon} T{t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             );
