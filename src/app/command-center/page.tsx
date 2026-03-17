@@ -372,6 +372,8 @@ const LINKS = [
   { label: "Parallax Publish", href: "https://parallax-publish.vercel.app", icon: "PP", accent: "#38bdf8" },
   { label: "ClawGuard Pro", href: "https://parallax-site-ashen.vercel.app/clawguard", icon: "CG", accent: "#22d3ee" },
   { label: "YOLO Builds", href: "/command-center/yolo", icon: "Y", accent: "#f59e0b" },
+  { label: "Nerve Center", href: "/command-center/nerve-center", icon: "NC", accent: "#7C3AED" },
+  { label: "Signal Wire", href: "/command-center/signal-wire", icon: "SW", accent: "#22d3ee" },
   { label: "Vercel", href: "https://vercel.com/dashboard", icon: "V", accent: "#ffffff" },
   { label: "GitHub", href: "https://github.com/ramicheAi", icon: "GH", accent: "#737373" },
   { label: "Firebase", href: "https://console.firebase.google.com/project/apex-athlete-73755", icon: "FB", accent: "#f59e0b" },
