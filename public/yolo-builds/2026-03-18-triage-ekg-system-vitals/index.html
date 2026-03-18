@@ -2,275 +2,225 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>The EKG: System Vitals Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Vitals Dashboard | TRIAGE</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap');
-    :root {
-      --bg: #0a0a0a;
-      --fg: #f5f5f5;
-      --accent: #22d3ee;
-      --warning: #f59e0b;
-      --critical: #ef4444;
-      --steady: #34d399;
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Segoe UI', sans-serif;
+      background: #0a0a0a; color: #f0f0f0; line-height: 1.6;
+      max-width: 720px; margin: 0 auto; padding: 2rem 1rem;
     }
-    body {
-      background-color: var(--bg);
-      color: var(--fg);
-      font-family: 'Inter', sans-serif;
-      overflow-x: hidden;
+    .header { margin-bottom: 2rem; }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; color: #22c55e; }
+    .subtitle { color: #94a3b8; margin-bottom: 1.5rem; }
+    .card { 
+      background: rgba(30, 30, 30, 0.7); border: 1px solid #333;
+      border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem;
     }
-    .mono {
-      font-family: 'Space Mono', monospace;
+    .ekg-container { 
+      height: 200px; background: #111; border-radius: 0.5rem;
+      position: relative; overflow: hidden; margin: 1rem 0;
     }
-    .track-line {
-      position: absolute;
-      left: 1.5rem;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: linear-gradient(to bottom, var(--accent) 0%, transparent 90%);
-      z-index: 0;
+    canvas { width: 100%; height: 100%; }
+    .vitals-grid { 
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem; margin: 1.5rem 0;
     }
-    .node {
-      position: relative;
-      z-index: 1;
+    .vital { 
+      background: rgba(40, 40, 40, 0.8); padding: 1rem; border-radius: 0.5rem;
+      border-left: 4px solid #22c55e;
     }
-    .node::before {
-      content: '';
-      position: absolute;
-      left: -0.5rem;
-      top: 0.5rem;
-      width: 1.5rem;
-      height: 1.5rem;
-      border-radius: 50%;
-      border: 2px solid;
-      background-color: var(--bg);
-      z-index: 2;
+    .vital.critical { border-left-color: #ef4444; }
+    .vital.warning { border-left-color: #f59e0b; }
+    .vital-label { font-size: 0.875rem; color: #94a3b8; margin-bottom: 0.25rem; }
+    .vital-value { font-size: 1.5rem; font-weight: bold; }
+    .vital-unit { font-size: 0.875rem; color: #64748b; margin-left: 0.25rem; }
+    .history { margin-top: 2rem; }
+    .event { 
+      padding: 0.75rem; border-left: 3px solid #22c55e; 
+      background: rgba(40, 40, 40, 0.5); margin-bottom: 0.5rem;
+      border-radius: 0 0.5rem 0.5rem 0;
     }
-    .node.critical::before {
-      border-color: var(--critical);
-      box-shadow: 0 0 12px var(--critical);
-      background-color: var(--critical);
-    }
-    .node.warning::before {
-      border-color: var(--warning);
-      box-shadow: 0 0 8px var(--warning);
-    }
-    .node.steady::before {
-      border-color: var(--steady);
-      box-shadow: 0 0 4px var(--steady);
-    }
-    .node.neutral::before {
-      border-color: #666;
-    }
-    .prescription {
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 0.5s ease-out;
-    }
-    .prescription.open {
-      max-height: 300px;
-    }
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-    .pulse {
-      animation: pulse 2s infinite;
-    }
+    .event.warning { border-left-color: #f59e0b; }
+    .event.critical { border-left-color: #ef4444; }
+    .event-time { font-size: 0.75rem; color: #64748b; }
   </style>
 </head>
-<body class="min-h-screen p-6 md:p-12">
-  <div class="max-w-3xl mx-auto relative">
-    <!-- Track line -->
-    <div class="track-line"></div>
+<body>
+  <div class="header">
+    <h1>System Vitals Dashboard</h1>
+    <div class="subtitle">Real-time health monitor with EKG visualization</div>
+  </div>
 
-    <header class="mb-16 ml-12">
-      <h1 class="text-4xl md:text-5xl font-bold tracking-tighter mb-2" style="color: var(--accent);">THE EKG</h1>
-      <p class="mono text-sm text-neutral-400 uppercase tracking-widest">OpenClaw Ecosystem Vitals // Ultra-Linear Format</p>
-      <p class="text-neutral-500 text-sm mt-4">Real‑time system health dashboard visualizing lane congestion, memory bloat, token burn, and hardware core status. Each node is a vital sign; click to reveal the healing protocol.</p>
-    </header>
-
-    <div class="space-y-20 ml-12">
-      <!-- Node 1: Lane Congestion -->
-      <div class="node critical">
-        <div class="mb-4">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="mono text-xs font-bold uppercase tracking-widest" style="color: var(--critical);">Critical Flow</span>
-            <span class="text-xs px-2 py-0.5 rounded-full border border-red-500/50 text-red-400">HIGH SEVERITY</span>
-          </div>
-          <h2 class="text-2xl md:text-3xl font-bold mb-2">Lane Congestion Detected</h2>
-          <p class="text-neutral-400">14 agents queued in the <code class="bg-neutral-900 px-1">main</code> lane. Maximum wait time: <span class="font-bold text-red-300">259 seconds</span>.</p>
-        </div>
-        <div class="mb-4">
-          <div class="flex items-center justify-between text-sm mb-1">
-            <span class="mono">Queue Depth</span>
-            <span class="font-bold">14</span>
-          </div>
-          <div class="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-red-500 to-red-700" style="width: 92%;"></div>
-          </div>
-        </div>
-        <button class="heal-btn mono text-xs font-bold tracking-widest border border-red-500/30 text-red-400 hover:bg-red-500/10 px-4 py-2 rounded-lg transition-colors" data-id="1">
-          SHOW HEALING PROTOCOL
-        </button>
-        <div class="prescription mt-4 border-l-2 border-red-500/30 pl-4">
-          <h3 class="mono text-sm font-bold mb-2 uppercase tracking-widest" style="color: var(--critical);">Prescription</h3>
-          <ul class="text-sm text-neutral-300 space-y-1">
-            <li>• Reduce concurrent agents in <code>main</code> lane from 12 → 8.</li>
-            <li>• Stagger agent heartbeats by 15‑second offsets.</li>
-            <li>• Create dedicated lanes for high‑volume agents (Aetherion, Widow).</li>
-            <li>• Monitor with <code>openclaw status --deep</code> every 30 minutes.</li>
-          </ul>
-          <p class="text-xs text-neutral-500 mt-3"><em>Expected recovery time: 2‑3 minutes after config change.</em></p>
-        </div>
+  <div class="card">
+    <h3 style="margin-bottom: 1rem;">EKG Heartbeat</h3>
+    <div class="ekg-container">
+      <canvas id="ekgCanvas"></canvas>
+    </div>
+    
+    <div class="vitals-grid">
+      <div class="vital" id="cpuVital">
+        <div class="vital-label">CPU Usage</div>
+        <div class="vital-value">24<span class="vital-unit">%</span></div>
       </div>
-
-      <!-- Node 2: Memory Bloat -->
-      <div class="node warning">
-        <div class="mb-4">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="mono text-xs font-bold uppercase tracking-widest" style="color: var(--warning);">Warning State</span>
-            <span class="text-xs px-2 py-0.5 rounded-full border border-amber-500/50 text-amber-400">GROWING</span>
-          </div>
-          <h2 class="text-2xl md:text-3xl font-bold mb-2">Memory Bloat</h2>
-          <p class="text-neutral-400">Aetherion workspace has exceeded <span class="font-bold text-amber-300">3.2GB</span> threshold (YUMMYZ NFT high‑res assets).</p>
-        </div>
-        <div class="mb-4">
-          <div class="flex items-center justify-between text-sm mb-1">
-            <span class="mono">Disk Usage</span>
-            <span class="font-bold">3.2 GB / 466 GB</span>
-          </div>
-          <div class="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-amber-500 to-amber-700" style="width: 75%;"></div>
-          </div>
-        </div>
-        <button class="heal-btn mono text-xs font-bold tracking-widest border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 px-4 py-2 rounded-lg transition-colors" data-id="2">
-          SHOW HEALING PROTOCOL
-        </button>
-        <div class="prescription mt-4 border-l-2 border-amber-500/30 pl-4">
-          <h3 class="mono text-sm font-bold mb-2 uppercase tracking-widest" style="color: var(--warning);">Prescription</h3>
-          <ul class="text-sm text-neutral-300 space-y-1">
-            <li>• Migrate YUMMYZ assets to external storage (S3, Backblaze) or shared artifact folder.</li>
-            <li>• Run <code>scripts/workspace-health-check.sh</code> daily to flag workspace bloat.</li>
-            <li>• Implement agent workspace quotas with automated cleanup cron.</li>
-            <li>• Archive historical mockups >30 days old.</li>
-          </ul>
-          <p class="text-xs text-neutral-500 mt-3"><em>Risk: Disk at 95% capacity. Immediate action required.</em></p>
-        </div>
+      <div class="vital" id="memoryVital">
+        <div class="vital-label">Memory</div>
+        <div class="vital-value">3.2<span class="vital-unit">GB</span></div>
       </div>
-
-      <!-- Node 3: Token Burn Rate -->
-      <div class="node steady">
-        <div class="mb-4">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="mono text-xs font-bold uppercase tracking-widest" style="color: var(--steady);">Steady State</span>
-            <span class="text-xs px-2 py-0.5 rounded-full border border-emerald-500/50 text-emerald-400">WITHIN BUDGET</span>
-          </div>
-          <h2 class="text-2xl md:text-3xl font-bold mb-2">Token Burn Rate</h2>
-          <p class="text-neutral-400">Weekly spend: <span class="font-bold text-emerald-300">~$250</span>. 294M input tokens processed, 2M output, 223M cache reads.</p>
-        </div>
-        <div class="mb-4">
-          <div class="flex items-center justify-between text-sm mb-1">
-            <span class="mono">Cost Per Week</span>
-            <span class="font-bold">$250</span>
-          </div>
-          <div class="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
-            <div class="h-full bg-gradient-to-r from-emerald-500 to-emerald-700" style="width: 33%;"></div>
-          </div>
-        </div>
-        <button class="heal-btn mono text-xs font-bold tracking-widest border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 px-4 py-2 rounded-lg transition-colors" data-id="3">
-          SHOW HEALING PROTOCOL
-        </button>
-        <div class="prescription mt-4 border-l-2 border-emerald-500/30 pl-4">
-          <h3 class="mono text-sm font-bold mb-2 uppercase tracking-widest" style="color: var(--steady);">Optimization</h3>
-          <ul class="text-sm text-neutral-300 space-y-1">
-            <li>• Top spenders: Aetherion ($61), Widow ($41), Selah ($24), SwimElite ($23).</li>
-            <li>• Shift high‑volume agents to lower‑cost models (DeepSeek, Gemini).</li>
-            <li>• Implement semantic caching for SHARED_CONTEXT reads (90% cost reduction).</li>
-            <li>• Route heartbeats to local Ollama models (qwen3:8b) where possible.</li>
-          </ul>
-          <p class="text-xs text-neutral-500 mt-3"><em>Projected monthly: ~$1,000. Acceptable for current operational scale.</em></p>
-        </div>
+      <div class="vital" id="diskVital">
+        <div class="vital-label">Disk I/O</div>
+        <div class="vital-value">42<span class="vital-unit">MB/s</span></div>
       </div>
-
-      <!-- Node 4: M5 Subsystem -->
-      <div class="node neutral">
-        <div class="mb-4">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="mono text-xs font-bold uppercase tracking-widest" style="color: var(--accent);">Hardware Core</span>
-            <span class="text-xs px-2 py-0.5 rounded-full border border-blue-500/50 text-blue-400">ACTIVE</span>
-          </div>
-          <h2 class="text-2xl md:text-3xl font-bold mb-2">M5 Subsystem Status</h2>
-          <p class="text-neutral-400">Apple M5, 24GB unified memory, 1TB SSD. Foundation Models CLI active. SpeechAnalyzer server live. Image Playground limited (no headless API).</p>
-        </div>
-        <div class="mb-4 grid grid-cols-2 gap-4">
-          <div>
-            <div class="mono text-sm mb-1">Foundation Models</div>
-            <div class="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
-              <div class="h-full bg-blue-500" style="width: 90%;"></div>
-            </div>
-            <div class="text-xs text-neutral-500 mt-1">✅ LIVE @ port 8001</div>
-          </div>
-          <div>
-            <div class="mono text-sm mb-1">Speech Transcription</div>
-            <div class="h-2 w-full bg-neutral-900 rounded-full overflow-hidden">
-              <div class="h-full bg-blue-500" style="width: 85%;"></div>
-            </div>
-            <div class="text-xs text-neutral-500 mt-1">✅ LIVE @ port 8002</div>
-          </div>
-        </div>
-        <button class="heal-btn mono text-xs font-bold tracking-widest border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 px-4 py-2 rounded-lg transition-colors" data-id="4">
-          SHOW HEALING PROTOCOL
-        </button>
-        <div class="prescription mt-4 border-l-2 border-blue-500/30 pl-4">
-          <h3 class="mono text-sm font-bold mb-2 uppercase tracking-widest" style="color: var(--accent);">Maintenance</h3>
-          <ul class="text-sm text-neutral-300 space-y-1">
-            <li>• Image Playground cannot run headless — fallback to nano‑banana‑pro or OpenAI Image.</li>
-            <li>• Ensure SSH bridge (ramonwalton@10.0.0.114) stable for hybrid Intel‑M5 setup.</li>
-            <li>• Monitor Ollama models memory usage; keep total under 20GB.</li>
-            <li>• App Intents/Spotlight integration pending native macOS wrapper.</li>
-          </ul>
-          <p class="text-xs text-neutral-500 mt-3"><em>Hybrid brain: M5 primary, Intel overflow farm.</em></p>
-        </div>
+      <div class="vital" id="networkVital">
+        <div class="vital-label">Network</div>
+        <div class="vital-value">18<span class="vital-unit">Mbps</span></div>
       </div>
     </div>
+  </div>
 
-    <footer class="mt-24 ml-12 pt-8 border-t border-neutral-800">
-      <div class="mono text-xs text-neutral-500 uppercase tracking-widest mb-2">YOLO BUILD #TRIAGE‑001</div>
-      <p class="text-sm text-neutral-400">Built by <span class="font-bold" style="color: var(--accent);">TRIAGE</span> — the system healer. This dashboard synthesizes real diagnostic data from OpenClaw ecosystem audits (cost, memory, lane congestion, hardware). Ultra‑linear format for clarity; each node reveals a healing protocol. Deployable as an internal tool for ongoing system health monitoring.</p>
-      <p class="text-xs text-neutral-600 mt-4">Source: memory/cost‑report.md, memory/agent‑optimization‑audit‑2026‑03‑07.md, memory/command‑center‑map.md</p>
-    </footer>
+  <div class="card">
+    <h3 style="margin-bottom: 1rem;">Diagnostic Timeline</h3>
+    <div class="history">
+      <div class="event">
+        <div>System heartbeat normal</div>
+        <div class="event-time">Just now</div>
+      </div>
+      <div class="event warning">
+        <div>CPU spike detected (82%)</div>
+        <div class="event-time">2 minutes ago</div>
+      </div>
+      <div class="event">
+        <div>Memory usage stabilized</div>
+        <div class="event-time">5 minutes ago</div>
+      </div>
+      <div class="event">
+        <div>Dashboard initialized</div>
+        <div class="event-time">10 minutes ago</div>
+      </div>
+    </div>
   </div>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const buttons = document.querySelectorAll('.heal-btn');
-      buttons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const id = btn.getAttribute('data-id');
-          const prescription = btn.nextElementSibling;
-          prescription.classList.toggle('open');
-          btn.textContent = prescription.classList.contains('open')
-            ? 'HIDE HEALING PROTOCOL'
-            : 'SHOW HEALING PROTOCOL';
-        });
-      });
-
-      // Simulate live updates (mock)
-      function simulatePulse() {
-        const nodes = document.querySelectorAll('.node');
-        nodes.forEach(node => {
-          if (node.classList.contains('critical')) {
-            node.style.animation = 'pulse 2s infinite';
-            setTimeout(() => node.style.animation = '', 2000);
-          }
-        });
+    const canvas = document.getElementById('ekgCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth * 2;
+      canvas.height = canvas.clientHeight * 2;
+      drawEKG();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    
+    // EKG data
+    let ekgPoints = [];
+    let time = 0;
+    
+    // Generate EKG-like waveform
+    function generateEKGPoint(t) {
+      // Simplified EKG waveform
+      const pWave = Math.sin(t * 0.5) * 0.1;
+      const qrsComplex = Math.sin(t * 20) * Math.exp(-Math.pow((t % 1) - 0.5, 2) * 100) * 0.5;
+      const tWave = Math.sin(t * 0.3) * 0.2 * Math.exp(-Math.pow((t % 2) - 1, 2) * 10);
+      return pWave + qrsComplex + tWave;
+    }
+    
+    // Draw EKG
+    function drawEKG() {
+      const width = canvas.width;
+      const height = canvas.height;
+      
+      // Clear
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Draw grid
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
       }
-      setInterval(simulatePulse, 10000);
-    });
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      
+      // Generate points if needed
+      while (ekgPoints.length < width / 2) {
+        const y = generateEKGPoint(time) * 0.4 + 0.5;
+        ekgPoints.push(y);
+        time += 0.05;
+      }
+      
+      // Draw EKG line
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      
+      const scaleY = height * 0.7;
+      const offsetY = height * 0.15;
+      
+      for (let i = 0; i < ekgPoints.length; i++) {
+        const x = (i / ekgPoints.length) * width;
+        const y = ekgPoints[i] * scaleY + offsetY;
+        
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      
+      // Remove old points
+      if (ekgPoints.length > width / 2) {
+        ekgPoints.shift();
+      }
+    }
+    
+    // Update vitals
+    function updateVitals() {
+      // Simulate changing values
+      const cpu = 20 + Math.random() * 30;
+      const memory = 2.5 + Math.random() * 2;
+      const disk = 20 + Math.random() * 40;
+      const network = 10 + Math.random() * 20;
+      
+      document.querySelector('#cpuVital .vital-value').innerHTML = 
+        `${cpu.toFixed(0)}<span class="vital-unit">%</span>`;
+      document.querySelector('#memoryVital .vital-value').innerHTML = 
+        `${memory.toFixed(1)}<span class="vital-unit">GB</span>`;
+      document.querySelector('#diskVital .vital-value').innerHTML = 
+        `${disk.toFixed(0)}<span class="vital-unit">MB/s</span>`;
+      document.querySelector('#networkVital .vital-value').innerHTML = 
+        `${network.toFixed(0)}<span class="vital-unit">Mbps</span>`;
+      
+      // Update colors based on thresholds
+      document.getElementById('cpuVital').className = 
+        `vital ${cpu > 70 ? 'critical' : cpu > 50 ? 'warning' : ''}`;
+      document.getElementById('memoryVital').className = 
+        `vital ${memory > 4 ? 'warning' : ''}`;
+      document.getElementById('diskVital').className = 
+        `vital ${disk > 80 ? 'warning' : ''}`;
+      document.getElementById('networkVital').className = 
+        `vital ${network > 50 ? 'warning' : ''}`;
+    }
+    
+    // Animation loop
+    function animate() {
+      drawEKG();
+      requestAnimationFrame(animate);
+    }
+    
+    // Initialize
+    animate();
+    setInterval(updateVitals, 2000);
+    updateVitals();
   </script>
 </body>
 </html>
