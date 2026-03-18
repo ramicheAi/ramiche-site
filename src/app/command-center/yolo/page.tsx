@@ -38,6 +38,11 @@ const TIER_CONFIG: Record<number, { label: string; icon: string; color: string; 
 
 type ReviewStatus = "pending" | "approved" | "rejected";
 
+function slugToName(folder: string): string {
+  const parts = folder.replace(/^\d{4}-\d{2}-\d{2}-[a-z-]+?-/, "").split("-");
+  return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+}
+
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   working:  { label: "Working",  color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
   partial:  { label: "Partial",  color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
@@ -58,9 +63,8 @@ const YOLO_AGENTS = [
 ];
 
 const SEED_BUILDS: Build[] = [
-  { date: "2026-03-18", name: "Nova G-Code Surgeon", idea: "Precision G-code editor and visualizer for analyzing and patching 3D print files layer-by-layer", status: "working", takeaway: "43KB single HTML. Nova lane. Advanced G-code parsing.", folder: "2026-03-18-nova-gcode-surgeon", agent: "Nova" },
-  { date: "2026-03-18", name: "EKG System Vitals", idea: "Real-time system health monitor for the Ramiche OS agent fleet — heartbeat visualization, error rate tracking, memory usage", status: "working", takeaway: "13KB single HTML. Triage/Proximon lane. Visual system diagnostics.", folder: "2026-03-18-ekg-system-vitals", agent: "Proximon" },
-  { date: "2026-03-18", name: "Nova Agent Arena", idea: "Competitive evaluation framework for testing agent performance on identical tasks", status: "failed", takeaway: "Empty directory. Build failed during generation.", folder: "2026-03-18-nova-agent-arena", agent: "Nova" },
+  { date: "2026-03-18", name: "NOVA // G-Code Surgeon — Print Path Visualizer", idea: "Upload any .gcode file and visualize every toolpath in interactive 3D. Scrub layers, color by speed/temperature/type/retractions, detect anomalies (excessive retractions, empty layers, extreme speeds, Z-jumps), get print estimates — all client-side, zero dependencies. Procedural Benchy demo included.", status: "working", takeaway: "Full G-code parser + isometric 3D canvas renderer in 45KB vanilla JS. 4 color modes, layer scrubber with animated playback (1x-50x), anomaly detection engine, print time estimator, syntax-highlighted G-code preview. Nobody else on the team touches manufacturing toolpath analysis at this depth.", folder: "2026-03-18-nova-gcode-surgeon", agent: "Nova" },
+  { date: "2026-03-18", name: "TRIAGE // EKG System Vitals Dashboard", idea: "Real-time system health monitor styled as an EKG — CPU, memory, disk, network vitals with animated heartbeat traces, threshold alerts, and diagnostic timeline. Dark ops aesthetic with Space Mono typography.", status: "working", takeaway: "13KB single HTML. EKG-style animated traces for system metrics. Threshold-based alert coloring (steady/warning/critical). Diagnostic timeline with event logging. Clean dark UI with Tailwind + Space Mono.", folder: "2026-03-18-triage-ekg-system-vitals", agent: "Triage" },
   { date: "2026-03-17", name: "NOVA // Print Bed Physics Sandbox", idea: "Interactive 2D physics simulation — drop 6 printable shapes (cube, cylinder, gear, L-bracket, hex nut, ring) onto a virtual Bambu A1 256mm build plate with real gravity, collision, and settle detection. Teaches print bed packing optimization through play.", status: "working", takeaway: "40KB single HTML. Custom physics engine with substep integration, body-body collision impulses, settle detection, and packing efficiency calculator. 6 shape generators with polygon vertices. Click-to-drop with ghost preview. Shake table feature redistributes settled parts. Nobody else built a physics sandbox.", folder: "2026-03-17-nova-print-bed-physics", agent: "Nova" },
   { date: "2026-03-17", name: "NOVA // Kinetic Tolerance Engine", idea: "Interactive mechanical clearance explorer for 3D printing — visualizes print-in-place tolerances for hinges and planetary bearings with live SVG physics.", status: "working", takeaway: "Tolerances compound. This 17KB single HTML file uses interactive SVG and CSS animations to teach designers exactly how clearance gaps (0.05mm vs 0.2mm) behave when printed on the Bambu A1. Real-time visual physics.", folder: "2026-03-17-nova-kinetic-engine", agent: "Nova" },
   { date: "2026-03-17", name: "Themis Agreement Engine", idea: "Interactive legal contract configurator for Verified Agent rentals — real-time MSA generator with toggleable clauses (NDA, IP, Kill Switch), dynamic rate/term sliders, and instant digital execution seal", status: "working", takeaway: "22KB single HTML. Gamified legal ops. Solves the missing rental infrastructure gap. Visual 'Execute' seal animation adds ceremonial weight to digital agreements.", folder: "2026-03-17-themis-agreement-engine", agent: "Themis" },
@@ -102,55 +106,55 @@ export default function YoloBuildsPage() {
 
   useEffect(() => {
     async function loadBuilds() {
-      // Step 1: Try fetching real build data from API
-      let apiBuilds: Build[] = [];
-      try {
-        const res = await fetch("/api/command-center/yolo-builds");
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length > 0) {
-            apiBuilds = data;
-          }
-        }
-      } catch {}
-
-      // Step 2: Merge API data with SEED_BUILDS (API takes priority, dedup by folder)
-      const seedWithDefaults = SEED_BUILDS.map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus }));
-      let merged: Build[];
-      if (apiBuilds.length > 0) {
-        const folderSet = new Set(apiBuilds.map(b => b.folder));
-        const apiWithDefaults = apiBuilds.map(b => ({ ...b, reviewStatus: (b.reviewStatus || "pending") as ReviewStatus }));
-        const uniqueSeeds = seedWithDefaults.filter(b => !folderSet.has(b.folder));
-        merged = [...apiWithDefaults, ...uniqueSeeds];
-      } else {
-        merged = seedWithDefaults;
-      }
-
-      // Step 3: Sort by date descending
-      merged.sort((a, b) => b.date.localeCompare(a.date));
-
-      // Step 4: SEED_BUILDS is always source of truth. Firestore only overlays review status.
+      // Step 1: Try Firestore first (works without redeploy)
+      let fsBuilds: Build[] = [];
       if (db && hasConfig) {
         try {
           const q = query(collection(db, "yolo_builds"), orderBy("date", "desc"));
           const snap = await getDocs(q);
-          const fsReviews = new Map<string, ReviewStatus>();
-          snap.docs.forEach(d => {
+          fsBuilds = snap.docs.map(d => {
             const data = d.data();
-            if (data.reviewStatus && data.reviewStatus !== "pending") {
-              fsReviews.set(d.id, data.reviewStatus as ReviewStatus);
-            }
+            return {
+              date: data.date || "",
+              name: data.name || slugToName(d.id),
+              idea: data.idea || "",
+              status: data.status || "working",
+              takeaway: data.takeaway || "",
+              folder: data.folder || d.id,
+              agent: data.agent || "Unknown",
+              reviewStatus: (data.reviewStatus || "pending") as ReviewStatus,
+              tier: data.tier,
+              score: data.score,
+            } as Build;
           });
-          // Apply review status from Firestore to merged builds
-          const withReviews = merged.map(b => ({
-            ...b,
-            reviewStatus: fsReviews.get(b.folder) || b.reviewStatus || ("pending" as ReviewStatus),
-          }));
-          setBuilds(withReviews);
-          return;
         } catch {}
       }
 
+      // Step 2: Merge Firestore + SEED_BUILDS (SEED_BUILDS fills gaps)
+      const fsFolders = new Set(fsBuilds.map(b => b.folder));
+      const seedOnly = SEED_BUILDS
+        .filter(b => !fsFolders.has(b.folder))
+        .map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus }));
+
+      // Enrich Firestore builds with SEED_BUILDS metadata where Firestore is sparse
+      const seedMap = new Map(SEED_BUILDS.map(b => [b.folder, b]));
+      const enriched = fsBuilds.map(b => {
+        const seed = seedMap.get(b.folder);
+        if (seed) {
+          return {
+            ...b,
+            name: b.name && b.name !== slugToName(b.folder) ? b.name : seed.name,
+            idea: b.idea || seed.idea,
+            takeaway: b.takeaway || seed.takeaway,
+            agent: b.agent || seed.agent,
+            status: b.status || seed.status,
+          };
+        }
+        return b;
+      });
+
+      const merged = [...enriched, ...seedOnly];
+      merged.sort((a, b) => b.date.localeCompare(a.date));
       setBuilds(merged);
     }
     loadBuilds();

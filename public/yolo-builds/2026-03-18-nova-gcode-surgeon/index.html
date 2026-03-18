@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA // G-Code Surgeon — Live Print Path Visualizer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#050508;--surface:#0c0c14;--card:#12121e;--border:#1a1a2e;
+  --text:#e8e8f0;--muted:#555570;--faint:#2a2a40;
+  --nova:#7c3aed;--cyan:#22d3ee;--green:#22c55e;--red:#ef4444;
+  --amber:#f59e0b;--gold:#C9A84C;--rose:#f43f5e;--blue:#3b82f6;
+  --hot:#ff6b35;--cool:#0ea5e9;
+}
+@font-face{font-family:'Mono';src:local('SF Mono'),local('Fira Code'),local('Consolas')}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.mono{font-family:'Mono','SF Mono','Fira Code',monospace}
+
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px)}
+
+.grid-bg{position:fixed;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(124,58,237,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(124,58,237,0.03) 1px,transparent 1px);
+  background-size:60px 60px}
+
+.container{max-width:720px;margin:0 auto;padding:24px 16px 80px;position:relative;z-index:1}
+
+/* Header */
+.header{padding:32px 0 24px;border-bottom:1px solid var(--border)}
+.header .label{font-size:10px;letter-spacing:4px;color:var(--nova);font-weight:700;text-transform:uppercase;margin-bottom:8px}
+.header h1{font-size:28px;font-weight:800;letter-spacing:-0.5px;background:linear-gradient(135deg,var(--nova),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .sub{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+
+/* Sections */
+.section{padding:32px 0;border-bottom:1px solid var(--border)}
+.section:last-child{border-bottom:none}
+.section-label{font-size:10px;letter-spacing:3px;color:var(--nova);font-weight:700;text-transform:uppercase;margin-bottom:16px}
+.section-title{font-size:18px;font-weight:700;margin-bottom:6px}
+.section-desc{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5}
+
+/* Drop Zone */
+.drop-zone{
+  border:2px dashed var(--border);border-radius:16px;padding:48px 24px;text-align:center;
+  cursor:pointer;transition:all 0.3s;position:relative;overflow:hidden;
+}
+.drop-zone:hover,.drop-zone.dragover{border-color:var(--nova);background:rgba(124,58,237,0.05)}
+.drop-zone .icon{font-size:48px;margin-bottom:12px;opacity:0.4}
+.drop-zone .title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.drop-zone .hint{font-size:11px;color:var(--muted)}
+.drop-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+@media(max-width:600px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center}
+.stat-val{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.stat-key{font-size:9px;letter-spacing:2px;color:var(--muted);margin-top:2px;text-transform:uppercase}
+
+/* 3D Viewport */
+.viewport-wrap{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.viewport-wrap canvas{display:block;width:100%;cursor:grab}
+.viewport-wrap canvas:active{cursor:grabbing}
+.viewport-overlay{position:absolute;top:12px;right:12px;display:flex;flex-direction:column;gap:6px;z-index:2}
+.viewport-btn{width:32px;height:32px;border-radius:8px;background:rgba(12,12,20,0.85);border:1px solid var(--border);color:var(--muted);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.viewport-btn:hover{color:var(--nova);border-color:var(--nova)}
+.viewport-info{position:absolute;bottom:12px;left:12px;font-size:10px;color:var(--muted);font-family:'Mono',monospace;z-index:2}
+
+/* Layer Scrubber */
+.scrubber{margin-bottom:24px}
+.scrubber-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.scrubber-label{font-size:10px;letter-spacing:3px;color:var(--nova);font-weight:700;text-transform:uppercase}
+.scrubber-val{font-size:13px;font-weight:700;color:var(--cyan);font-family:'Mono',monospace}
+.scrubber input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--card);outline:none;cursor:pointer}
+.scrubber input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--nova);border:2px solid var(--bg);cursor:grab;box-shadow:0 0 12px rgba(124,58,237,0.4)}
+.scrubber-range{display:flex;justify-content:space-between;font-size:9px;color:var(--faint);margin-top:4px}
+
+/* Color Mode Toggle */
+.color-modes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px}
+.color-mode-btn{padding:6px 14px;border-radius:8px;font-size:11px;font-weight:600;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;letter-spacing:0.5px}
+.color-mode-btn.active{background:rgba(124,58,237,0.15);border-color:var(--nova);color:var(--nova)}
+.color-mode-btn:hover{border-color:var(--nova);color:var(--text)}
+
+/* Layer Analysis */
+.layer-analysis{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:24px}
+.layer-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.layer-bar-label{font-size:10px;color:var(--muted);width:80px;text-align:right;flex-shrink:0}
+.layer-bar-track{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;position:relative}
+.layer-bar-fill{height:100%;border-radius:4px;transition:width 0.3s}
+.layer-bar-val{font-size:10px;color:var(--text);width:50px;font-family:'Mono',monospace;font-weight:600}
+
+/* Heatmap Legend */
+.heatmap-legend{display:flex;align-items:center;gap:8px;margin-bottom:24px;padding:10px 14px;background:var(--card);border-radius:10px;border:1px solid var(--border)}
+.heatmap-gradient{flex:1;height:12px;border-radius:6px}
+.heatmap-label{font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;white-space:nowrap}
+
+/* Anomaly Cards */
+.anomaly-card{background:var(--card);border-radius:10px;padding:14px;margin-bottom:10px;border-left:3px solid var(--amber)}
+.anomaly-card.critical{border-left-color:var(--red)}
+.anomaly-card .type{font-size:9px;letter-spacing:2px;font-weight:700;text-transform:uppercase;margin-bottom:4px}
+.anomaly-card .desc{font-size:12px;color:var(--text);line-height:1.4}
+.anomaly-card .meta{font-size:10px;color:var(--muted);margin-top:6px}
+
+/* Print Stats Table */
+.print-stats{width:100%;border-collapse:collapse}
+.print-stats td{padding:8px 0;font-size:12px;border-bottom:1px solid var(--border)}
+.print-stats td:first-child{color:var(--muted);width:45%}
+.print-stats td:last-child{font-weight:600;font-family:'Mono',monospace;text-align:right}
+
+/* Playback controls */
+.playback{display:flex;align-items:center;gap:8px;margin-bottom:24px}
+.play-btn{width:40px;height:40px;border-radius:50%;background:rgba(124,58,237,0.15);border:2px solid var(--nova);color:var(--nova);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
+.play-btn:hover{background:rgba(124,58,237,0.3);transform:scale(1.05)}
+.speed-chip{padding:4px 10px;border-radius:6px;font-size:10px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all 0.2s;font-family:'Mono',monospace}
+.speed-chip.active{background:rgba(34,211,238,0.15);border-color:var(--cyan);color:var(--cyan)}
+
+/* Gcode preview */
+.gcode-preview{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;max-height:200px;overflow-y:auto;font-family:'Mono',monospace;font-size:11px;line-height:1.6;color:var(--muted)}
+.gcode-preview .line-num{color:var(--faint);display:inline-block;width:40px;text-align:right;margin-right:8px;user-select:none}
+.gcode-preview .g0{color:#555570}
+.gcode-preview .g1{color:var(--cyan)}
+.gcode-preview .g28{color:var(--amber)}
+.gcode-preview .m{color:var(--rose)}
+.gcode-preview .comment{color:#333350;font-style:italic}
+.gcode-preview .highlight{background:rgba(124,58,237,0.15);display:block;border-radius:3px;padding:0 4px}
+
+/* Footer */
+.footer{padding:24px 0;text-align:center;font-size:10px;color:var(--faint);letter-spacing:2px}
+
+/* Demo Banner */
+.demo-banner{background:linear-gradient(135deg,rgba(124,58,237,0.15),rgba(34,211,238,0.1));border:1px solid rgba(124,58,237,0.3);border-radius:12px;padding:16px;text-align:center;margin-bottom:24px;cursor:pointer;transition:all 0.3s}
+.demo-banner:hover{border-color:var(--nova);transform:translateY(-1px)}
+.demo-banner .title{font-size:13px;font-weight:700;color:var(--nova);margin-bottom:4px}
+.demo-banner .hint{font-size:11px;color:var(--muted)}
+
+/* Animations */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.pulse{animation:pulse 2s infinite}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.slide-up{animation:slideUp 0.4s ease-out}
+
+/* Responsive */
+@media(max-width:600px){
+  .header h1{font-size:22px}
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header slide-up">
+    <div class="label">NOVA // FABRICATION INTELLIGENCE</div>
+    <h1>G-Code Surgeon</h1>
+    <div class="sub">Upload any .gcode file. See every toolpath in interactive 3D. Scrub layers, color by speed or temperature, catch problems before they waste 8 hours of print time.</div>
+  </div>
+
+  <!-- Upload Section -->
+  <div class="section slide-up" id="upload-section">
+    <div class="drop-zone" id="drop-zone">
+      <div class="icon">&#9000;</div>
+      <div class="title">Drop G-Code File</div>
+      <div class="hint">.gcode or .gco — parsed entirely client-side</div>
+      <input type="file" id="file-input" accept=".gcode,.gco,.gc,.g">
+    </div>
+  </div>
+
+  <!-- Demo Banner -->
+  <div class="demo-banner slide-up" id="demo-btn">
+    <div class="title">Load Demo: 3DBenchy Calibration Print</div>
+    <div class="hint">No file? Try a procedurally generated Benchy-style toolpath</div>
+  </div>
+
+  <!-- Main Content (hidden until file loaded) -->
+  <div id="main-content" style="display:none">
+
+    <!-- File Stats -->
+    <div class="section slide-up">
+      <div class="section-label">FILE ANALYSIS</div>
+      <div class="stats-row" id="file-stats"></div>
+    </div>
+
+    <!-- 3D Viewport -->
+    <div class="section slide-up">
+      <div class="section-label">3D TOOLPATH VIEWER</div>
+      <div class="section-desc">Click & drag to orbit. Scroll to zoom. Shift+drag to pan.</div>
+      <div class="viewport-wrap">
+        <canvas id="viewport" width="1400" height="800"></canvas>
+        <div class="viewport-overlay">
+          <button class="viewport-btn" id="btn-reset" title="Reset view">&#8634;</button>
+          <button class="viewport-btn" id="btn-top" title="Top view">&#9650;</button>
+          <button class="viewport-btn" id="btn-front" title="Front view">&#9654;</button>
+          <button class="viewport-btn" id="btn-iso" title="Isometric">&#9674;</button>
+        </div>
+        <div class="viewport-info" id="viewport-info">Layer 0 / 0 | 0 moves</div>
+      </div>
+
+      <!-- Color Modes -->
+      <div class="color-modes" id="color-modes">
+        <button class="color-mode-btn active" data-mode="type">BY TYPE</button>
+        <button class="color-mode-btn" data-mode="speed">BY SPEED</button>
+        <button class="color-mode-btn" data-mode="layer">BY LAYER</button>
+        <button class="color-mode-btn" data-mode="retract">RETRACTIONS</button>
+      </div>
+
+      <!-- Heatmap Legend -->
+      <div class="heatmap-legend" id="heatmap-legend" style="display:none">
+        <span class="heatmap-label" id="legend-low">SLOW</span>
+        <div class="heatmap-gradient" id="legend-gradient"></div>
+        <span class="heatmap-label" id="legend-high">FAST</span>
+      </div>
+    </div>
+
+    <!-- Layer Scrubber -->
+    <div class="section slide-up">
+      <div class="section-label">LAYER NAVIGATION</div>
+      <div class="scrubber">
+        <div class="scrubber-header">
+          <span class="scrubber-label">CURRENT LAYER</span>
+          <span class="scrubber-val" id="layer-display">0 / 0</span>
+        </div>
+        <input type="range" id="layer-slider" min="0" max="0" value="0">
+        <div class="scrubber-range">
+          <span>Layer 0</span>
+          <span id="layer-max-label">Layer 0</span>
+        </div>
+      </div>
+
+      <!-- Playback -->
+      <div class="playback">
+        <button class="play-btn" id="play-btn">&#9654;</button>
+        <span style="font-size:11px;color:var(--muted)">Animate</span>
+        <div style="flex:1"></div>
+        <button class="speed-chip active" data-speed="1">1x</button>
+        <button class="speed-chip" data-speed="3">3x</button>
+        <button class="speed-chip" data-speed="10">10x</button>
+        <button class="speed-chip" data-speed="50">50x</button>
+      </div>
+    </div>
+
+    <!-- Layer Analysis -->
+    <div class="section slide-up">
+      <div class="section-label">LAYER BREAKDOWN</div>
+      <div class="section-desc">Move distribution for the current layer</div>
+      <div class="layer-analysis" id="layer-analysis"></div>
+    </div>
+
+    <!-- Anomaly Detection -->
+    <div class="section slide-up">
+      <div class="section-label">ANOMALY DETECTION</div>
+      <div class="section-desc">Potential issues identified from toolpath analysis</div>
+      <div id="anomalies"></div>
+    </div>
+
+    <!-- Print Estimate -->
+    <div class="section slide-up">
+      <div class="section-label">PRINT ESTIMATE</div>
+      <table class="print-stats" id="print-stats"></table>
+    </div>
+
+    <!-- G-Code Preview -->
+    <div class="section slide-up">
+      <div class="section-label">G-CODE PREVIEW</div>
+      <div class="section-desc">First 100 lines — syntax highlighted</div>
+      <div class="gcode-preview" id="gcode-preview"></div>
+    </div>
+
+  </div>
+
+  <div class="footer">NOVA // G-CODE SURGEON — RAMICHE FABRICATION INTELLIGENCE</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// NOVA // G-Code Surgeon — Full G-Code Parser + 3D Renderer
+// Zero dependencies. Pure vanilla JS + Canvas 2D with isometric projection.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const state = {
+  layers: [],        // [{z, moves:[{x0,y0,x1,y1,type,speed,e}]}]
+  maxLayer: 0,
+  currentLayer: 0,
+  colorMode: 'type',
+  camera: { rotX: 0.6, rotY: -0.8, zoom: 1.2, panX: 0, panY: 0 },
+  bounds: { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: 0, maxZ: 0 },
+  playing: false,
+  playSpeed: 1,
+  playTimer: null,
+  stats: { totalMoves: 0, travelMoves: 0, extrudeMoves: 0, retractions: 0, totalDistance: 0, filamentUsed: 0, maxSpeed: 0, minSpeed: Infinity, layers: 0, estimatedTime: 0 },
+  raw: ''
+};
+
+// ── G-CODE PARSER ──────────────────────────────────────────────────────
+function parseGcode(text) {
+  state.raw = text;
+  const lines = text.split('\n');
+  const layers = [];
+  let currentZ = 0;
+  let currentLayer = null;
+  let x = 0, y = 0, z = 0, e = 0, f = 1200;
+  let lastE = 0;
+  let totalDist = 0, totalFilament = 0, retractions = 0;
+  let moveCounts = { travel: 0, extrude: 0, total: 0 };
+  let maxF = 0, minF = Infinity;
+  let timeAccum = 0;
+
+  const bounds = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, minZ: 0, maxZ: 0 };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line || line.startsWith(';')) continue;
+
+    const cmd = line.split(';')[0].trim();
+    if (!cmd) continue;
+
+    const parts = cmd.split(/\s+/);
+    const g = parts[0].toUpperCase();
+
+    if (g === 'G0' || g === 'G1') {
+      let nx = x, ny = y, nz = z, ne = e, nf = f;
+      for (let j = 1; j < parts.length; j++) {
+        const p = parts[j];
+        const val = parseFloat(p.substring(1));
+        if (isNaN(val)) continue;
+        switch (p[0].toUpperCase()) {
+          case 'X': nx = val; break;
+          case 'Y': ny = val; break;
+          case 'Z': nz = val; break;
+          case 'E': ne = val; break;
+          case 'F': nf = val; break;
+        }
+      }
+
+      // Layer change
+      if (nz !== z && nz > z) {
+        currentZ = nz;
+        currentLayer = { z: nz, moves: [] };
+        layers.push(currentLayer);
+      }
+
+      if (!currentLayer) {
+        currentLayer = { z: 0, moves: [] };
+        layers.push(currentLayer);
+      }
+
+      const dx = nx - x, dy = ny - y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const de = ne - lastE;
+      const isExtrude = de > 0.001 && dist > 0.01;
+      const isRetract = de < -0.01;
+      const isTravel = !isExtrude && dist > 0.01;
+
+      if (dist > 0.01) {
+        const type = isExtrude ? 'extrude' : 'travel';
+        currentLayer.moves.push({
+          x0: x, y0: y, x1: nx, y1: ny,
+          type, speed: nf, e: Math.abs(de),
+          retract: isRetract
+        });
+
+        totalDist += dist;
+        if (isExtrude) { moveCounts.extrude++; totalFilament += de; }
+        else moveCounts.travel++;
+        moveCounts.total++;
+
+        if (nf > maxF) maxF = nf;
+        if (nf < minF && nf > 0) minF = nf;
+
+        // Time estimate: dist in mm, speed in mm/min
+        if (nf > 0) timeAccum += (dist / nf) * 60;
+
+        bounds.minX = Math.min(bounds.minX, nx, x);
+        bounds.maxX = Math.max(bounds.maxX, nx, x);
+        bounds.minY = Math.min(bounds.minY, ny, y);
+        bounds.maxY = Math.max(bounds.maxY, ny, y);
+      }
+
+      if (isRetract) retractions++;
+
+      x = nx; y = ny; z = nz; e = ne; f = nf; lastE = ne;
+    }
+    else if (g === 'G28') {
+      x = 0; y = 0; z = 0;
+    }
+    else if (g === 'G92') {
+      for (let j = 1; j < parts.length; j++) {
+        const p = parts[j];
+        const val = parseFloat(p.substring(1));
+        if (p[0].toUpperCase() === 'E') { e = val; lastE = val; }
+      }
+    }
+  }
+
+  bounds.maxZ = currentZ;
+  state.layers = layers;
+  state.maxLayer = layers.length - 1;
+  state.bounds = bounds;
+  state.stats = {
+    totalMoves: moveCounts.total,
+    travelMoves: moveCounts.travel,
+    extrudeMoves: moveCounts.extrude,
+    retractions: retractions,
+    totalDistance: totalDist,
+    filamentUsed: totalFilament,
+    maxSpeed: maxF,
+    minSpeed: minF === Infinity ? 0 : minF,
+    layers: layers.length,
+    estimatedTime: timeAccum
+  };
+}
+
+// ── 3D RENDERER (Canvas 2D Isometric) ─────────────────────────────────
+const canvas = document.getElementById('viewport');
+const ctx = canvas.getContext('2d');
+
+function project(px, py, pz) {
+  const cx = (state.bounds.maxX + state.bounds.minX) / 2;
+  const cy = (state.bounds.maxY + state.bounds.minY) / 2;
+  let x = px - cx, y = py - cy;
+
+  // Rotate Y
+  const cosY = Math.cos(state.camera.rotY), sinY = Math.sin(state.camera.rotY);
+  const rx = x * cosY - pz * sinY;
+  const rz = x * sinY + pz * cosY;
+
+  // Rotate X
+  const cosX = Math.cos(state.camera.rotX), sinX = Math.sin(state.camera.rotX);
+  const ry = y * cosX - rz * sinX;
+  const rz2 = y * sinX + rz * cosX;
+
+  const scale = state.camera.zoom * 2.2;
+  const screenX = canvas.width / 2 + rx * scale + state.camera.panX;
+  const screenY = canvas.height / 2 + ry * scale + state.camera.panY;
+  return [screenX, screenY, rz2];
+}
+
+function getColor(move, layerIdx) {
+  if (state.colorMode === 'type') {
+    if (move.type === 'travel') return 'rgba(85,85,112,0.2)';
+    if (move.retract) return '#ef4444';
+    return '#22d3ee';
+  }
+  if (state.colorMode === 'speed') {
+    const range = state.stats.maxSpeed - state.stats.minSpeed;
+    if (range === 0) return '#22d3ee';
+    const t = (move.speed - state.stats.minSpeed) / range;
+    const r = Math.round(14 + t * 241);
+    const g = Math.round(165 - t * 60);
+    const b = Math.round(233 - t * 180);
+    return `rgb(${r},${g},${b})`;
+  }
+  if (state.colorMode === 'layer') {
+    const t = state.maxLayer > 0 ? layerIdx / state.maxLayer : 0;
+    const h = t * 270;
+    return `hsl(${h}, 80%, 55%)`;
+  }
+  if (state.colorMode === 'retract') {
+    if (move.retract) return '#ef4444';
+    if (move.type === 'travel') return 'rgba(85,85,112,0.15)';
+    return 'rgba(34,211,238,0.3)';
+  }
+  return '#22d3ee';
+}
+
+function render() {
+  ctx.fillStyle = '#0c0c14';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw bed grid
+  const bx = state.bounds.minX, by = state.bounds.minY;
+  const bw = state.bounds.maxX - state.bounds.minX;
+  const bh = state.bounds.maxY - state.bounds.minY;
+  const bedSize = Math.max(bw, bh, 200);
+  const bedMin = -bedSize * 0.1;
+  const bedMax = bedSize * 1.1;
+
+  ctx.strokeStyle = 'rgba(124,58,237,0.08)';
+  ctx.lineWidth = 0.5;
+  const step = bedSize / 10;
+  for (let i = 0; i <= 10; i++) {
+    const v = bedMin + (bedMax - bedMin) * (i / 10);
+    const [x0, y0] = project(v + bx, bedMin + by, 0);
+    const [x1, y1] = project(v + bx, bedMax + by, 0);
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+    const [x2, y2] = project(bedMin + bx, v + by, 0);
+    const [x3, y3] = project(bedMax + bx, v + by, 0);
+    ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x3, y3); ctx.stroke();
+  }
+
+  // Draw layers up to current
+  const endLayer = state.currentLayer;
+  for (let li = 0; li <= endLayer && li < state.layers.length; li++) {
+    const layer = state.layers[li];
+    const alpha = li === endLayer ? 1 : 0.15 + (li / endLayer) * 0.35;
+
+    for (const move of layer.moves) {
+      const color = getColor(move, li);
+      const [sx, sy] = project(move.x0, move.y0, layer.z);
+      const [ex, ey] = project(move.x1, move.y1, layer.z);
+
+      ctx.strokeStyle = color;
+      ctx.globalAlpha = li === endLayer ? 1 : alpha;
+      ctx.lineWidth = move.type === 'extrude' ? (li === endLayer ? 1.5 : 0.8) : 0.3;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(ex, ey);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Update viewport info
+  const currentLayerData = state.layers[endLayer];
+  const moveCount = currentLayerData ? currentLayerData.moves.length : 0;
+  const zHeight = currentLayerData ? currentLayerData.z.toFixed(2) : '0.00';
+  document.getElementById('viewport-info').textContent =
+    `Layer ${endLayer} / ${state.maxLayer} | ${moveCount} moves | Z: ${zHeight}mm`;
+}
+
+// ── CAMERA CONTROLS ───────────────────────────────────────────────────
+let isDragging = false, lastMX = 0, lastMY = 0, isShift = false;
+
+canvas.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  lastMX = e.clientX;
+  lastMY = e.clientY;
+  isShift = e.shiftKey;
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastMX;
+  const dy = e.clientY - lastMY;
+  if (isShift || e.shiftKey) {
+    state.camera.panX += dx;
+    state.camera.panY += dy;
+  } else {
+    state.camera.rotY += dx * 0.008;
+    state.camera.rotX += dy * 0.008;
+    state.camera.rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.camera.rotX));
+  }
+  lastMX = e.clientX;
+  lastMY = e.clientY;
+  render();
+});
+
+canvas.addEventListener('mouseup', () => isDragging = false);
+canvas.addEventListener('mouseleave', () => isDragging = false);
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  state.camera.zoom *= e.deltaY > 0 ? 0.92 : 1.08;
+  state.camera.zoom = Math.max(0.2, Math.min(10, state.camera.zoom));
+  render();
+}, { passive: false });
+
+// Touch controls
+let lastTouch = null, lastTouchDist = 0;
+canvas.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    lastTouchDist = Math.sqrt(dx * dx + dy * dy);
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  if (e.touches.length === 1 && lastTouch) {
+    const dx = e.touches[0].clientX - lastTouch.x;
+    const dy = e.touches[0].clientY - lastTouch.y;
+    state.camera.rotY += dx * 0.008;
+    state.camera.rotX += dy * 0.008;
+    state.camera.rotX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, state.camera.rotX));
+    lastTouch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    render();
+  } else if (e.touches.length === 2) {
+    const dx = e.touches[1].clientX - e.touches[0].clientX;
+    const dy = e.touches[1].clientY - e.touches[0].clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (lastTouchDist > 0) {
+      state.camera.zoom *= dist / lastTouchDist;
+      state.camera.zoom = Math.max(0.2, Math.min(10, state.camera.zoom));
+    }
+    lastTouchDist = dist;
+    render();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => { lastTouch = null; lastTouchDist = 0; });
+
+// View buttons
+document.getElementById('btn-reset').addEventListener('click', () => {
+  state.camera = { rotX: 0.6, rotY: -0.8, zoom: 1.2, panX: 0, panY: 0 };
+  render();
+});
+document.getElementById('btn-top').addEventListener('click', () => {
+  state.camera.rotX = 1.5; state.camera.rotY = 0; render();
+});
+document.getElementById('btn-front').addEventListener('click', () => {
+  state.camera.rotX = 0; state.camera.rotY = 0; render();
+});
+document.getElementById('btn-iso').addEventListener('click', () => {
+  state.camera.rotX = 0.6; state.camera.rotY = -0.8; render();
+});
+
+// ── LAYER SLIDER ──────────────────────────────────────────────────────
+const slider = document.getElementById('layer-slider');
+slider.addEventListener('input', () => {
+  state.currentLayer = parseInt(slider.value);
+  updateLayerDisplay();
+  render();
+  updateLayerAnalysis();
+});
+
+function updateLayerDisplay() {
+  document.getElementById('layer-display').textContent =
+    `${state.currentLayer} / ${state.maxLayer}`;
+}
+
+// ── PLAYBACK ──────────────────────────────────────────────────────────
+const playBtn = document.getElementById('play-btn');
+playBtn.addEventListener('click', () => {
+  if (state.playing) {
+    stopPlay();
+  } else {
+    startPlay();
+  }
+});
+
+function startPlay() {
+  state.playing = true;
+  playBtn.innerHTML = '&#9646;&#9646;';
+  if (state.currentLayer >= state.maxLayer) state.currentLayer = 0;
+  tick();
+}
+
+function stopPlay() {
+  state.playing = false;
+  playBtn.innerHTML = '&#9654;';
+  if (state.playTimer) { cancelAnimationFrame(state.playTimer); state.playTimer = null; }
+}
+
+let lastPlayTime = 0;
+function tick() {
+  if (!state.playing) return;
+  const now = performance.now();
+  if (now - lastPlayTime > (50 / state.playSpeed)) {
+    state.currentLayer = Math.min(state.currentLayer + 1, state.maxLayer);
+    slider.value = state.currentLayer;
+    updateLayerDisplay();
+    render();
+    updateLayerAnalysis();
+    lastPlayTime = now;
+    if (state.currentLayer >= state.maxLayer) { stopPlay(); return; }
+  }
+  state.playTimer = requestAnimationFrame(tick);
+}
+
+document.querySelectorAll('.speed-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.speed-chip').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.playSpeed = parseInt(btn.dataset.speed);
+  });
+});
+
+// ── COLOR MODES ───────────────────────────────────────────────────────
+document.querySelectorAll('.color-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.color-mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.colorMode = btn.dataset.mode;
+    updateLegend();
+    render();
+  });
+});
+
+function updateLegend() {
+  const legend = document.getElementById('heatmap-legend');
+  if (state.colorMode === 'speed') {
+    legend.style.display = 'flex';
+    document.getElementById('legend-low').textContent = `${Math.round(state.stats.minSpeed)} mm/min`;
+    document.getElementById('legend-high').textContent = `${Math.round(state.stats.maxSpeed)} mm/min`;
+    document.getElementById('legend-gradient').style.background =
+      'linear-gradient(90deg, #0ea5e9, #22d3ee, #f59e0b, #ff6b35)';
+  } else if (state.colorMode === 'layer') {
+    legend.style.display = 'flex';
+    document.getElementById('legend-low').textContent = 'BOTTOM';
+    document.getElementById('legend-high').textContent = 'TOP';
+    document.getElementById('legend-gradient').style.background =
+      'linear-gradient(90deg, hsl(0,80%,55%), hsl(60,80%,55%), hsl(120,80%,55%), hsl(180,80%,55%), hsl(240,80%,55%), hsl(270,80%,55%))';
+  } else {
+    legend.style.display = 'none';
+  }
+}
+
+// ── LAYER ANALYSIS ────────────────────────────────────────────────────
+function updateLayerAnalysis() {
+  const layer = state.layers[state.currentLayer];
+  if (!layer) return;
+
+  let extrude = 0, travel = 0, retracts = 0, totalDist = 0;
+  let speeds = [];
+  for (const m of layer.moves) {
+    const d = Math.sqrt((m.x1 - m.x0) ** 2 + (m.y1 - m.y0) ** 2);
+    totalDist += d;
+    if (m.type === 'extrude') extrude++;
+    else travel++;
+    if (m.retract) retracts++;
+    speeds.push(m.speed);
+  }
+
+  const avgSpeed = speeds.length > 0 ? speeds.reduce((a, b) => a + b, 0) / speeds.length : 0;
+  const maxSpeed = speeds.length > 0 ? Math.max(...speeds) : 0;
+
+  const bars = [
+    { label: 'Extrude', val: extrude, max: layer.moves.length, color: 'var(--cyan)' },
+    { label: 'Travel', val: travel, max: layer.moves.length, color: 'var(--muted)' },
+    { label: 'Retracts', val: retracts, max: Math.max(retracts, 20), color: 'var(--red)' },
+    { label: 'Avg Speed', val: avgSpeed, max: state.stats.maxSpeed, color: 'var(--amber)', unit: ' mm/m' },
+    { label: 'Distance', val: totalDist, max: state.stats.totalDistance / state.stats.layers, color: 'var(--green)', unit: ' mm' },
+  ];
+
+  const el = document.getElementById('layer-analysis');
+  el.innerHTML = bars.map(b => {
+    const pct = b.max > 0 ? Math.min((b.val / b.max) * 100, 100) : 0;
+    const display = b.unit ? b.val.toFixed(1) + b.unit : b.val;
+    return `<div class="layer-bar">
+      <div class="layer-bar-label">${b.label}</div>
+      <div class="layer-bar-track"><div class="layer-bar-fill" style="width:${pct}%;background:${b.color}"></div></div>
+      <div class="layer-bar-val" style="color:${b.color}">${display}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── ANOMALY DETECTION ─────────────────────────────────────────────────
+function detectAnomalies() {
+  const anomalies = [];
+
+  // Check for excessive retractions
+  if (state.stats.retractions > state.stats.extrudeMoves * 0.3) {
+    anomalies.push({
+      type: 'warning',
+      title: 'Excessive Retractions',
+      desc: `${state.stats.retractions} retractions for ${state.stats.extrudeMoves} extrude moves (${(state.stats.retractions / state.stats.extrudeMoves * 100).toFixed(1)}%). This may cause heat creep or grinding. Consider adjusting travel distance threshold in slicer.`,
+      layer: 'All layers'
+    });
+  }
+
+  // Check for very thin layers (< 3 moves)
+  let thinLayers = 0;
+  for (let i = 0; i < state.layers.length; i++) {
+    if (state.layers[i].moves.filter(m => m.type === 'extrude').length < 3) thinLayers++;
+  }
+  if (thinLayers > 2) {
+    anomalies.push({
+      type: 'warning',
+      title: 'Near-Empty Layers',
+      desc: `${thinLayers} layers have fewer than 3 extrude moves. May indicate bridging issues, thin geometry, or z-hop artifacts.`,
+      layer: `${thinLayers} layers affected`
+    });
+  }
+
+  // Check for speed extremes
+  for (const layer of state.layers) {
+    for (const m of layer.moves) {
+      if (m.type === 'extrude' && m.speed > 8000) {
+        anomalies.push({
+          type: 'critical',
+          title: 'Extreme Extrude Speed',
+          desc: `${m.speed} mm/min extrude speed detected at Z=${layer.z.toFixed(2)}mm. Most FDM printers max out at 6000mm/min for quality prints. May cause under-extrusion.`,
+          layer: `Z=${layer.z.toFixed(2)}mm`
+        });
+        break;
+      }
+    }
+  }
+
+  // Check for large Z-jumps
+  for (let i = 1; i < state.layers.length; i++) {
+    const dz = state.layers[i].z - state.layers[i - 1].z;
+    if (dz > 0.5) {
+      anomalies.push({
+        type: 'warning',
+        title: 'Large Layer Height Jump',
+        desc: `${dz.toFixed(2)}mm gap between layers ${i - 1} and ${i} (Z: ${state.layers[i - 1].z.toFixed(2)} → ${state.layers[i].z.toFixed(2)}). May indicate adaptive layer height or slicing artifact.`,
+        layer: `Layer ${i}`
+      });
+      break;
+    }
+  }
+
+  // No issues
+  if (anomalies.length === 0) {
+    anomalies.push({
+      type: 'info',
+      title: 'Clean Toolpath',
+      desc: 'No anomalies detected. G-code looks clean for printing.',
+      layer: 'All layers'
+    });
+  }
+
+  const el = document.getElementById('anomalies');
+  el.innerHTML = anomalies.map(a => `
+    <div class="anomaly-card ${a.type === 'critical' ? 'critical' : ''}">
+      <div class="type" style="color:${a.type === 'critical' ? 'var(--red)' : a.type === 'warning' ? 'var(--amber)' : 'var(--green)'}">${a.title}</div>
+      <div class="desc">${a.desc}</div>
+      <div class="meta">${a.layer}</div>
+    </div>
+  `).join('');
+}
+
+// ── FILE STATS ────────────────────────────────────────────────────────
+function updateFileStats() {
+  const s = state.stats;
+  const cards = [
+    { val: s.layers, key: 'LAYERS', color: 'var(--nova)' },
+    { val: s.extrudeMoves.toLocaleString(), key: 'EXTRUDE MOVES', color: 'var(--cyan)' },
+    { val: s.travelMoves.toLocaleString(), key: 'TRAVEL MOVES', color: 'var(--muted)' },
+    { val: s.retractions.toLocaleString(), key: 'RETRACTIONS', color: 'var(--amber)' },
+  ];
+
+  document.getElementById('file-stats').innerHTML = cards.map(c =>
+    `<div class="stat-card"><div class="stat-val" style="color:${c.color}">${c.val}</div><div class="stat-key">${c.key}</div></div>`
+  ).join('');
+}
+
+function updatePrintStats() {
+  const s = state.stats;
+  const hours = Math.floor(s.estimatedTime / 3600);
+  const mins = Math.floor((s.estimatedTime % 3600) / 60);
+  const timeStr = hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
+  const filamentM = (s.filamentUsed / 1000).toFixed(2);
+  const filamentG = (s.filamentUsed * 0.00325).toFixed(1); // ~PLA density
+
+  const rows = [
+    ['Total Distance', `${(s.totalDistance / 1000).toFixed(2)} m`],
+    ['Filament Used', `${filamentM} m (${filamentG}g PLA est.)`],
+    ['Speed Range', `${Math.round(s.minSpeed)} — ${Math.round(s.maxSpeed)} mm/min`],
+    ['Layer Count', `${s.layers}`],
+    ['Build Height', `${state.bounds.maxZ.toFixed(2)} mm`],
+    ['Build Area', `${(state.bounds.maxX - state.bounds.minX).toFixed(1)} × ${(state.bounds.maxY - state.bounds.minY).toFixed(1)} mm`],
+    ['Est. Print Time', timeStr],
+    ['Total Moves', s.totalMoves.toLocaleString()],
+    ['Retraction Rate', s.extrudeMoves > 0 ? `${(s.retractions / s.extrudeMoves * 100).toFixed(1)}%` : '0%'],
+  ];
+
+  document.getElementById('print-stats').innerHTML = rows.map(([k, v]) =>
+    `<tr><td>${k}</td><td>${v}</td></tr>`
+  ).join('');
+}
+
+// ── GCODE PREVIEW ─────────────────────────────────────────────────────
+function updateGcodePreview() {
+  const lines = state.raw.split('\n').slice(0, 100);
+  const el = document.getElementById('gcode-preview');
+  el.innerHTML = lines.map((line, i) => {
+    const num = `<span class="line-num">${i + 1}</span>`;
+    const trimmed = line.trim();
+    if (trimmed.startsWith(';')) return `<span>${num}<span class="comment">${escHtml(line)}</span></span>`;
+    const upper = trimmed.toUpperCase();
+    let cls = '';
+    if (upper.startsWith('G0 ') || upper === 'G0') cls = 'g0';
+    else if (upper.startsWith('G1 ') || upper === 'G1') cls = 'g1';
+    else if (upper.startsWith('G28')) cls = 'g28';
+    else if (upper.startsWith('M')) cls = 'm';
+    return `<span>${num}<span class="${cls}">${escHtml(line)}</span></span>`;
+  }).join('\n');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ── DEMO G-CODE GENERATOR ─────────────────────────────────────────────
+function generateDemoGcode() {
+  let gcode = '; NOVA // G-Code Surgeon — Demo: Benchy-style calibration\n';
+  gcode += '; Generated procedurally for visualization\n';
+  gcode += 'G28 ; Home all axes\n';
+  gcode += 'G92 E0\n';
+  gcode += 'M104 S210 ; Set nozzle temp\n';
+  gcode += 'M140 S60 ; Set bed temp\n\n';
+
+  const layers = 120;
+  const layerH = 0.2;
+  let e = 0;
+
+  for (let l = 0; l < layers; l++) {
+    const z = (l + 1) * layerH;
+    gcode += `\n; Layer ${l}\n`;
+    gcode += `G0 Z${z.toFixed(3)} F3000\n`;
+
+    // Boat hull shape — varies by height
+    const t = l / layers;
+    const baseW = 30, baseD = 15;
+    const w = baseW * (1 - t * 0.3);
+    const d = baseD * (1 - t * 0.2);
+    const cx = 110, cy = 110;
+
+    // Outer perimeter (rounded rect-ish shape)
+    const pts = [];
+    const segments = 40;
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const r = w * d / Math.sqrt((d * Math.cos(a)) ** 2 + (w * Math.sin(a)) ** 2);
+      // Add some boat-like deformation
+      const deform = l < layers * 0.4 ? Math.sin(a) * 5 * (1 - t * 2) : 0;
+      pts.push([cx + Math.cos(a) * (r + deform), cy + Math.sin(a) * r]);
+    }
+
+    // Travel to start
+    gcode += `G0 X${pts[0][0].toFixed(3)} Y${pts[0][1].toFixed(3)} F6000\n`;
+
+    // Outer wall
+    const speed = l < 3 ? 1200 : 2400;
+    for (let i = 1; i < pts.length; i++) {
+      const dx = pts[i][0] - pts[i - 1][0];
+      const dy = pts[i][1] - pts[i - 1][1];
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      e += dist * 0.033;
+      gcode += `G1 X${pts[i][0].toFixed(3)} Y${pts[i][1].toFixed(3)} E${e.toFixed(4)} F${speed}\n`;
+    }
+
+    // Inner wall (offset)
+    const offset = 0.45;
+    const inner = [];
+    for (let i = 0; i <= segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const r = (w - offset) * (d - offset) / Math.sqrt(((d - offset) * Math.cos(a)) ** 2 + ((w - offset) * Math.sin(a)) ** 2);
+      const deform = l < layers * 0.4 ? Math.sin(a) * 4.5 * (1 - t * 2) : 0;
+      inner.push([cx + Math.cos(a) * (r + deform), cy + Math.sin(a) * (r)]);
+    }
+
+    // Retract
+    e -= 1;
+    gcode += `G1 E${e.toFixed(4)} F3000 ; retract\n`;
+    gcode += `G0 X${inner[0][0].toFixed(3)} Y${inner[0][1].toFixed(3)} F6000\n`;
+    e += 1;
+    gcode += `G1 E${e.toFixed(4)} F3000 ; unretract\n`;
+
+    for (let i = 1; i < inner.length; i++) {
+      const dx = inner[i][0] - inner[i - 1][0];
+      const dy = inner[i][1] - inner[i - 1][1];
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      e += dist * 0.033;
+      gcode += `G1 X${inner[i][0].toFixed(3)} Y${inner[i][1].toFixed(3)} E${e.toFixed(4)} F${speed + 200}\n`;
+    }
+
+    // Infill every 2 layers
+    if (l % 2 === 0 && l > 2) {
+      const infillAngle = l % 4 === 0 ? 0.785 : -0.785; // 45° alternating
+      const cos = Math.cos(infillAngle), sin = Math.sin(infillAngle);
+      const infillSpacing = 4;
+      const range = Math.max(w, d) + 5;
+
+      for (let j = -range; j <= range; j += infillSpacing) {
+        const x0 = cx + j * cos - range * sin;
+        const y0 = cy + j * sin + range * cos;
+        const x1 = cx + j * cos + range * sin;
+        const y1 = cy + j * sin - range * cos;
+
+        // Clip to bounds (simple)
+        if (x0 > cx - w - 2 && x0 < cx + w + 2 && y0 > cy - d - 2 && y0 < cy + d + 2) {
+          const dist = Math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
+          e += dist * 0.033 * 0.3;
+          gcode += `G1 X${x0.toFixed(3)} Y${y0.toFixed(3)} E${e.toFixed(4)} F${speed + 600}\n`;
+          e += dist * 0.033 * 0.3;
+          gcode += `G1 X${x1.toFixed(3)} Y${y1.toFixed(3)} E${e.toFixed(4)} F${speed + 600}\n`;
+        }
+      }
+    }
+  }
+
+  gcode += '\n; End\nG28 X Y\nM104 S0\nM140 S0\nM84\n';
+  return gcode;
+}
+
+// ── MAIN INIT ─────────────────────────────────────────────────────────
+function loadFile(text) {
+  parseGcode(text);
+  state.currentLayer = state.maxLayer;
+  slider.max = state.maxLayer;
+  slider.value = state.maxLayer;
+  document.getElementById('layer-max-label').textContent = `Layer ${state.maxLayer}`;
+
+  document.getElementById('main-content').style.display = '';
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('demo-btn').style.display = 'none';
+
+  updateLayerDisplay();
+  updateFileStats();
+  updatePrintStats();
+  updateGcodePreview();
+  updateLayerAnalysis();
+  detectAnomalies();
+  updateLegend();
+  render();
+}
+
+// File drop zone
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) readFile(file);
+});
+fileInput.addEventListener('change', (e) => {
+  if (e.target.files[0]) readFile(e.target.files[0]);
+});
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => loadFile(e.target.result);
+  reader.readAsText(file);
+}
+
+// Demo button
+document.getElementById('demo-btn').addEventListener('click', () => {
+  loadFile(generateDemoGcode());
+});
+
+// Resize handler
+function resizeCanvas() {
+  const wrap = canvas.parentElement;
+  const w = wrap.clientWidth;
+  const h = Math.max(400, Math.min(600, w * 0.6));
+  canvas.width = w * 2;
+  canvas.height = h * 2;
+  canvas.style.height = h + 'px';
+  if (state.layers.length > 0) render();
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+</script>
+</body>
+</html>
