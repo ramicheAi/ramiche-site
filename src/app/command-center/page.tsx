@@ -505,6 +505,7 @@ export default function CommandCenter() {
   const [commandInput, setCommandInput] = useState("");
   const [commandHistory, setCommandHistory] = useState<{text: string; time: string; status: "sent"|"done"}[]>([]);
   const [readingPlan, setReadingPlan] = useState<{book: string; chapter: number; progress: number}>(() => {
+    if (typeof window === "undefined") return { book: "Proverbs", chapter: 1, progress: 3 };
     try {
       const saved = localStorage.getItem("cc-reading-plan");
       return saved ? JSON.parse(saved) : { book: "Proverbs", chapter: 1, progress: 3 };
@@ -516,6 +517,7 @@ export default function CommandCenter() {
     return focuses[dayIndex];
   });
   const [spiritualStreak, setSpiritualStreak] = useState<number>(() => {
+    if (typeof window === "undefined") return 0;
     try {
       const saved = localStorage.getItem("cc-spiritual-streak");
       if (!saved) return 0;
@@ -528,6 +530,7 @@ export default function CommandCenter() {
     } catch { return 0; }
   });
   const [devotionalCheckedIn, setDevotionalCheckedIn] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
     try {
       const saved = localStorage.getItem("cc-spiritual-streak");
       if (!saved) return false;
@@ -562,7 +565,10 @@ export default function CommandCenter() {
       try {
         const res = await fetch("/api/bridge?type=all", { cache: "no-store" });
         if (res.ok) {
-          const data = await res.json();
+          const text = await res.text();
+          if (!text) return;
+          let data: Record<string, any>;
+          try { data = JSON.parse(text); } catch { return; }
           setBridgeData(data);
           // Update agent status from bridge display array (pre-formatted by sync script)
           const displayAgents = data?.agents?.display;
@@ -620,7 +626,7 @@ export default function CommandCenter() {
     const fetchCrons = async () => {
       try {
         const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
-        if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
+        if (res.ok) { const data = await res.json().catch(() => null); if (data) setLiveCrons(Array.isArray(data.items) ? data.items : []); }
       } catch { /* silent */ }
     };
     fetchCrons();
@@ -633,7 +639,7 @@ export default function CommandCenter() {
     const fetchTasks = async () => {
       try {
         const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
-        if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
+        if (res.ok) { const data = await res.json().catch(() => null); if (data) setLiveTasks(Array.isArray(data.items) ? data.items : []); }
       } catch { /* silent */ }
     };
     fetchTasks();
@@ -646,7 +652,7 @@ export default function CommandCenter() {
     const fetchChat = async () => {
       try {
         const res = await fetch('/api/bridge/chat', { cache: 'no-store' });
-        if (res.ok) { const data = await res.json(); setChatMessages(data.items || data.messages || []); }
+        if (res.ok) { const data = await res.json().catch(() => null); if (data) setChatMessages(Array.isArray(data.items) ? data.items : Array.isArray(data.messages) ? data.messages : []); }
       } catch { /* silent */ }
     };
     fetchChat();
@@ -930,7 +936,9 @@ export default function CommandCenter() {
   const fetchWeather = useCallback(async () => {
     try {
       const r = await fetch("https://wttr.in/BocaRaton?format=j1");
+      if (!r.ok) return;
       const d = await r.json();
+      if (!d) return;
       const c = d.current_condition?.[0];
       setWeather({
         tempF: c?.temp_F ?? "--",
@@ -952,7 +960,9 @@ export default function CommandCenter() {
   const fetchVerse = useCallback(async () => {
     try {
       const r = await fetch("https://bible-api.com/?random=verse");
+      if (!r.ok) return;
       const d = await r.json();
+      if (!d) return;
       setVerse({ text: d.text?.trim() ?? "", ref: d.reference ?? "" });
     } catch { /* silent */ }
   }, []);
@@ -984,15 +994,15 @@ export default function CommandCenter() {
   /* ── fetch live agent data from status.json ── */
   useEffect(() => {
     fetch("/status.json", { cache: "no-store" })
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error("status.json fetch failed"); return r.json(); })
       .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
-        if (!data.agents) return;
+        if (!data?.agents || !Array.isArray(data.agents)) return;
         const merged = AGENTS.map(a => {
           const live = data.agents!.find(la => la.name === a.name);
           if (!live) return a;
           return {
             ...a,
-            status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as typeof a.status,
+            status: (live.status === "active" ? "active" : "idle") as typeof a.status,
             activeTask: live.task || a.activeTask,
           };
         });
@@ -1138,13 +1148,13 @@ export default function CommandCenter() {
 
   /* ── computed ── */
   const totalT = liveMissions
-    ? missions.reduce((s: number, p: any) => s + (p.totalTasks || 0), 0)
+    ? missions.reduce((s: number, p: any) => s + (p.totalTasks || (Array.isArray(p.tasks) ? p.tasks.length : 0)), 0)
     : MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
   const doneT = liveMissions
-    ? missions.reduce((s: number, p: any) => s + (p.completedTasks || 0), 0)
+    ? missions.reduce((s: number, p: any) => s + (p.completedTasks || (Array.isArray(p.tasks) ? p.tasks.filter((t: any) => t.done).length : 0)), 0)
     : MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
   const pct = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
-  const activeAgents = agents.filter((a) => a.status === "active").length;
+  const activeAgents = agents.filter((a: any) => a.status === "active").length;
   const activeMissions = missions.filter((m: any) => m.status === "active").length;
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -1249,14 +1259,16 @@ export default function CommandCenter() {
 
           {/* ═══════ WHAT'S NEXT — #1 PRIORITY (DYNAMIC) ═══════ */}
           {(() => {
-            const topMission = missions.find((m: any) => m.priority === "CRITICAL" || m.priority === 1) || missions[0];
+            const topMission = missions.find((m: any) => m.priority === "CRITICAL" || m.priority === 1) || missions[0] || null;
+            if (!topMission) return null;
             const mName = topMission?.name || "METTLE";
-            const mDesc = topMission?.desc || topMission?.description || "";
+            const mDesc = topMission?.desc || (topMission as any)?.description || "";
             const mAccent = topMission?.accent || "#C9A84C";
-            const mLink = topMission?.link || (typeof topMission?.link === 'object' ? (topMission as any)?.link?.href : "/apex-athlete");
+            const rawLink = topMission?.link;
+            const mLink = typeof rawLink === 'string' ? rawLink : (rawLink && typeof rawLink === 'object' && 'href' in rawLink) ? (rawLink as any).href : null;
             const mPriority = topMission?.priority || "HIGH";
-            const mDone = topMission?.completedTasks ?? (topMission?.tasks?.filter((t: any) => t.done).length ?? 0);
-            const mTotal = topMission?.totalTasks ?? (topMission?.tasks?.length ?? 0);
+            const mDone = (topMission as any)?.completedTasks ?? (Array.isArray(topMission?.tasks) ? topMission.tasks.filter((t: any) => t.done).length : 0);
+            const mTotal = (topMission as any)?.totalTasks ?? (Array.isArray(topMission?.tasks) ? topMission.tasks.length : 0);
             return (
             <div style={{ marginBottom: 24 }}>
               <div className="heartbeat-btn" style={{ display: 'block', padding: '24px 28px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', transition: 'all 150ms ease-in-out' }}>
@@ -1317,7 +1329,11 @@ export default function CommandCenter() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {notifications.map((n: any, i: number) => (
+              {notifications.map((n: any, i: number) => {
+                const nAccent = n.accent || n.color || '#888888';
+                const nIcon = n.icon || '\u25C8';
+                const nText = n.text || n.message || '';
+                return (
                 <div
                   key={i}
                   className="relative p-4 flex items-center gap-3 group cursor-pointer"
@@ -1325,25 +1341,26 @@ export default function CommandCenter() {
                     background: 'rgba(255,255,255,0.02)',
                     border: '1px solid #1e1e1e',
                     borderRadius: 12,
-                    borderLeft: `3px solid ${n.accent}`,
+                    borderLeft: `3px solid ${nAccent}`,
                     transition: 'all 150ms ease-in-out',
                   }}
                 >
                   <div
                     className="w-8 h-8 rounded-md flex items-center justify-center text-sm font-bold flex-shrink-0"
                     style={{
-                      background: `${n.accent}12`,
-                      color: n.accent,
-                      border: `1px solid ${n.accent}25`,
+                      background: `${nAccent}12`,
+                      color: nAccent,
+                      border: `1px solid ${nAccent}25`,
                     }}
                   >
-                    {n.icon}
+                    {nIcon}
                   </div>
                   <span className="text-sm text-[#888888] group-hover:text-[#e5e5e5] leading-snug min-w-0" style={{ transition: 'color 150ms ease-in-out' }}>
-                    {n.text}
+                    {nText}
                   </span>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
@@ -1386,7 +1403,7 @@ export default function CommandCenter() {
                       <div className="text-sm font-semibold text-[#e5e5e5] truncate">{cron.name || cron.label || 'Unnamed'}</div>
                       <div className="text-[10px] font-mono text-[#888888]">{cron.schedule || cron.cron || '—'} · {cron.agent || '—'}</div>
                     </div>
-                    <button onClick={() => handleDeleteCron(cron.id || cron.cronId)} className="ml-2 px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, cursor: 'pointer' }}>
+                    <button onClick={() => { const id = cron.id || cron.cronId; if (id) handleDeleteCron(id); }} className="ml-2 px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, cursor: 'pointer' }}>
                       Del
                     </button>
                   </div>
@@ -1445,8 +1462,8 @@ export default function CommandCenter() {
                       </div>
                       {(task.status === 'pending' || !task.status) && (
                         <div className="flex gap-1.5 flex-shrink-0">
-                          <button onClick={() => handleApproveTask(task.id || task.taskId)} className="px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 4, cursor: 'pointer' }}>OK</button>
-                          <button onClick={() => handleRejectTask(task.id || task.taskId)} className="px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, cursor: 'pointer' }}>Rej</button>
+                          <button onClick={() => { const id = task.id || task.taskId; if (id) handleApproveTask(id); }} className="px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669', border: '1px solid rgba(5,150,105,0.2)', borderRadius: 4, cursor: 'pointer' }}>OK</button>
+                          <button onClick={() => { const id = task.id || task.taskId; if (id) handleRejectTask(id); }} className="px-2 py-1 text-[9px] font-mono uppercase" style={{ background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 4, cursor: 'pointer' }}>Rej</button>
                         </div>
                       )}
                     </div>
@@ -1483,7 +1500,7 @@ export default function CommandCenter() {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-mono font-bold" style={{ color: msg.sender === 'commander' ? '#34d399' : '#f59e0b' }}>{(msg.sender || 'system').toUpperCase()}</span>
                       {msg.targetAgent && <span className="text-[10px] text-[#888888]">→ {msg.targetAgent}</span>}
-                      {msg.timestamp && <span className="text-[9px] font-mono text-[#555]">{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>}
+                      {msg.timestamp && !isNaN(new Date(msg.timestamp).getTime()) && <span className="text-[9px] font-mono text-[#555]">{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>}
                     </div>
                     <div className="text-sm text-[#e5e5e5]">{msg.message || msg.text || ''}</div>
                   </div>
@@ -1639,7 +1656,8 @@ function AgentCard({
   const isActive = agent.status === "active";
   const isHovered = hovered === index;
   const isLead = index === 0;
-  const creditPct = Math.round((agent.credits.used / agent.credits.limit) * 100);
+  const credits = agent.credits || { used: 0, limit: 5000 };
+  const creditPct = credits.limit > 0 ? Math.round((credits.used / credits.limit) * 100) : 0;
 
   return (
     <div
