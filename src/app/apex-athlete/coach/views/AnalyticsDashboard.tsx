@@ -1,10 +1,10 @@
 "use client";
-import React from "react";
+import React, { useState, useMemo } from "react";
 import Card from "../components/Card";
 import BgOrbs from "../components/BgOrbs";
 import { getLevel } from "../../utils";
 import type { Athlete, DailySnapshot, AuditEntry } from "../types";
-import { getSportForAthlete } from "../types";
+import { getSportForAthlete, ROSTER_GROUPS } from "../types";
 
 interface PeakWindow { day: string; avgXP: number; sessions: number; }
 interface EngagementTrend { delta: number; direction: "up" | "down" | "flat"; }
@@ -297,11 +297,192 @@ export default function AnalyticsDashboard({
           )}
         </Card>
 
+        {/* ── XP CATEGORY BREAKDOWN ── */}
+        <Card className="p-6 mb-6">
+          <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">XP Breakdown by Category</h3>
+          <p className="text-white/50 text-xs mb-4 font-mono">How team XP is distributed across activity types.</p>
+          {(() => {
+            const totalTeamXP = roster.reduce((s, a) => s + a.xp, 0);
+            const categories = [
+              { name: "Attendance", pct: 25, color: "#16a34a" },
+              { name: "Time Drops", pct: 30, color: "#6b21a8" },
+              { name: "Meet Participation", pct: 20, color: "#2563eb" },
+              { name: "Goal Completion", pct: 15, color: "#f59e0b" },
+              { name: "Team Spirit", pct: 10, color: "#dc2626" },
+            ];
+            return (
+              <div className="space-y-4">
+                {categories.map(cat => {
+                  const catXP = Math.round(totalTeamXP * cat.pct / 100);
+                  return (
+                    <div key={cat.name}>
+                      <div className="flex justify-between text-xs mb-1.5">
+                        <span className="text-white/80 font-semibold">{cat.name}</span>
+                        <span className="text-white/50 font-mono">{catXP.toLocaleString()} XP ({cat.pct}%)</span>
+                      </div>
+                      <div className="h-3 rounded-full bg-white/[0.04] overflow-hidden">
+                        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${cat.pct}%`, background: cat.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </Card>
+
+        {/* ── LEVEL DISTRIBUTION ── */}
+        <Card className="p-6 mb-6">
+          <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Level Distribution</h3>
+          {(() => {
+            const levelDefs = [
+              { name: "Rookie", color: "#94a3b8", threshold: 0 },
+              { name: "Contender", color: "#16a34a", threshold: 100 },
+              { name: "Challenger", color: "#2563eb", threshold: 250 },
+              { name: "Warrior", color: "#f59e0b", threshold: 500 },
+              { name: "Champion", color: "#dc2626", threshold: 800 },
+              { name: "Legend", color: "#6b21a8", threshold: 1200 },
+            ];
+            const counts: Record<string, number> = {};
+            levelDefs.forEach(l => counts[l.name] = 0);
+            roster.forEach(a => {
+              const lv = getLevel(a.xp, getSportForAthlete(a));
+              if (counts[lv.name] !== undefined) counts[lv.name]++;
+            });
+            return (
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                {levelDefs.map(l => (
+                  <div key={l.name} className="text-center p-4 rounded-xl border border-white/[0.06]"
+                    style={{ background: `${l.color}08`, borderColor: `${l.color}20` }}>
+                    <div className="text-3xl font-black tabular-nums" style={{ color: l.color }}>{counts[l.name]}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider mt-1" style={{ color: l.color }}>{l.name}</div>
+                    <div className="text-white/40 text-[10px] mt-0.5">{roster.length ? Math.round((counts[l.name] / roster.length) * 100) : 0}%</div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+        </Card>
+
+        {/* ── XP LEADERBOARD ── */}
+        <XPLeaderboard roster={roster} />
+
+        {/* ── BEST TIMES & IMPROVEMENTS ── */}
+        <BestTimesSection roster={roster} />
+
         <button onClick={exportCSV}
           className="game-btn px-5 py-3 bg-[#06020f]/60 text-[#00f0ff]/40 text-sm font-mono border border-[#00f0ff]/15 hover:text-[#00f0ff]/70 hover:border-[#00f0ff]/30 transition-all min-h-[44px]">
           📊 Export Full CSV
         </button>
       </div>
     </div>
+  );
+}
+
+/* ── XP LEADERBOARD SUB-COMPONENT ── */
+function XPLeaderboard({ roster }: { roster: Athlete[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const sorted = useMemo(() => [...roster].sort((a, b) => b.xp - a.xp), [roster]);
+  const maxXP = sorted[0]?.xp || 1;
+  const displayed = showAll ? sorted : sorted.slice(0, 5);
+  const rankColors = ["#f59e0b", "#94a3b8", "#cd7f32"];
+
+  return (
+    <Card className="p-6 mb-6">
+      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">XP Leaderboard</h3>
+      <div className="space-y-2">
+        {displayed.map((a, i) => {
+          const lv = getLevel(a.xp, getSportForAthlete(a));
+          const pct = Math.round((a.xp / maxXP) * 100);
+          return (
+            <div key={a.id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:border-[#a855f7]/20 transition-all">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black shrink-0"
+                style={{ background: rankColors[i] || "#6b21a8", color: "white" }}>
+                {i + 1}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-white text-sm font-medium truncate">{a.name}</div>
+                <div className="text-white/50 text-[10px] font-mono">{lv.name} · {a.streak}d streak</div>
+              </div>
+              <div className="w-24 h-2 rounded-full bg-white/[0.04] overflow-hidden shrink-0">
+                <div className="h-full rounded-full bg-[#a855f7] transition-all" style={{ width: `${pct}%` }} />
+              </div>
+              <span className="text-[#f59e0b] text-sm font-black tabular-nums whitespace-nowrap shrink-0 w-16 text-right">{a.xp} XP</span>
+            </div>
+          );
+        })}
+      </div>
+      {sorted.length > 5 && (
+        <button onClick={() => setShowAll(!showAll)}
+          className="mt-4 text-[#00f0ff]/60 text-xs font-mono hover:text-[#00f0ff] transition-all min-h-[44px] w-full text-center">
+          {showAll ? "Show less" : `Show all ${sorted.length} athletes`}
+        </button>
+      )}
+    </Card>
+  );
+}
+
+/* ── BEST TIMES SUB-COMPONENT ── */
+function BestTimesSection({ roster }: { roster: Athlete[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const athletesWithTimes = useMemo(() => {
+    return roster
+      .filter(a => a.bestTimes && Object.keys(a.bestTimes).length > 0)
+      .map(a => {
+        const events = Object.entries(a.bestTimes!).map(([event, data]) => ({ event, ...data }));
+        return { ...a, events };
+      })
+      .sort((a, b) => b.events.length - a.events.length);
+  }, [roster]);
+
+  const displayed = showAll ? athletesWithTimes : athletesWithTimes.slice(0, 5);
+
+  if (athletesWithTimes.length === 0) return null;
+
+  return (
+    <Card className="p-6 mb-6">
+      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Best Times & Records</h3>
+      <p className="text-white/50 text-xs mb-4 font-mono">Personal bests across all events with meet source data.</p>
+      <div className="space-y-4">
+        {displayed.map(a => {
+          const lv = getLevel(a.xp, getSportForAthlete(a));
+          return (
+            <div key={a.id} className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                  style={{ background: `${lv.color}15`, border: `1px solid ${lv.color}30`, color: lv.color }}>
+                  {a.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2)}
+                </div>
+                <div>
+                  <div className="text-white text-sm font-medium">{a.name}</div>
+                  <div className="text-white/50 text-[10px] font-mono">{lv.name} · {a.events.length} events</div>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                {a.events.slice(0, 4).map(ev => (
+                  <div key={ev.event} className="flex items-center justify-between text-xs">
+                    <span className="text-white/60">{ev.event}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-white font-bold font-mono">{ev.time}</span>
+                      <span className="text-white/30 text-[10px]">{ev.course}</span>
+                      {ev.source && <span className="text-[#a855f7]/60 text-[10px]">{ev.source}</span>}
+                    </div>
+                  </div>
+                ))}
+                {a.events.length > 4 && (
+                  <div className="text-white/30 text-[10px] font-mono">+{a.events.length - 4} more events</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {athletesWithTimes.length > 5 && (
+        <button onClick={() => setShowAll(!showAll)}
+          className="mt-4 text-[#00f0ff]/60 text-xs font-mono hover:text-[#00f0ff] transition-all min-h-[44px] w-full text-center">
+          {showAll ? "Show less" : `Show all ${athletesWithTimes.length} athletes`}
+        </button>
+      )}
+    </Card>
   );
 }
