@@ -464,6 +464,9 @@ const NAV = [
   { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE" },
   { label: "DOCS", href: "/command-center/docs", icon: "\u2261" },
   { label: "OFFICE", href: "/command-center/office", icon: "\u25A3" },
+  { label: "EKG", href: "/command-center/ekg", icon: "\u2665" },
+  { label: "NERVE", href: "/command-center/nerve-center", icon: "\u29BF" },
+  { label: "SIGNAL", href: "/command-center/signal-wire", icon: "\u2301" },
   { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
 ];
 
@@ -1504,6 +1507,7 @@ export default function CommandCenter() {
               { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE", accent: "#f59e0b", desc: "Agent journal", sub: "Daily logs, search, timeline" },
               { label: "DOCS", href: "/command-center/docs", icon: "\u2261", accent: "#3b82f6", desc: "Doc viewer", sub: "Plans, SOPs, configs, reports" },
               { label: "OFFICE", href: "/command-center/office", icon: "\u25A3", accent: "#a855f7", desc: "3D Office", sub: "Isometric workspace, live status" },
+              { label: "EKG", href: "/command-center/ekg", icon: "\u2665", accent: "#22c55e", desc: "System Pulse", sub: "Live agents, git, relay, builds" },
             ].map((card) => (
               <Link
                 key={card.href}
@@ -1538,12 +1542,15 @@ export default function CommandCenter() {
               <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(201,168,76,0.2), transparent)' }} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-              {links.map((link: any, i: number) => (
+              {links.map((link: any, i: number) => {
+                const linkHref = link.href || link.url || '#';
+                const accent = link.accent || '#888888';
+                return (
                 <a
                   key={i}
-                  href={link.href}
-                  target={link.href.startsWith('http') ? '_blank' : undefined}
-                  rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  href={linkHref}
+                  target={linkHref.startsWith('http') ? '_blank' : undefined}
+                  rel={linkHref.startsWith('http') ? 'noopener noreferrer' : undefined}
                   className="group relative p-4 flex flex-col items-center gap-2 text-center"
                   style={{
                     background: 'rgba(255,255,255,0.02)',
@@ -1555,9 +1562,9 @@ export default function CommandCenter() {
                   <div
                     className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-black"
                     style={{
-                      background: `${link.accent}12`,
-                      color: link.accent,
-                      border: `1px solid ${link.accent}30`,
+                      background: `${accent}12`,
+                      color: accent,
+                      border: `1px solid ${accent}30`,
                     }}
                   >
                     {link.icon}
@@ -1566,7 +1573,8 @@ export default function CommandCenter() {
                     {link.label}
                   </span>
                 </a>
-              ))}
+                );
+              })}
             </div>
           </div>
 
