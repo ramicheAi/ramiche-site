@@ -591,6 +591,9 @@ export default function CommandCenter() {
           if (data?.links?.items && Array.isArray(data.links.items) && data.links.items.length > 0) {
             setLiveLinks(data.links.items);
           }
+          if (data?.agentActivity?.items && Array.isArray(data.agentActivity.items) && data.agentActivity.items.length > 0) {
+            setLiveAgentActivity(data.agentActivity.items);
+          }
         }
       } catch { /* silent — fallback to hardcoded */ }
     };
@@ -606,6 +609,7 @@ export default function CommandCenter() {
   const [liveOpps, setLiveOpps] = useState<any[] | null>(null);
   const [liveActivity, setLiveActivity] = useState<any[] | null>(null);
   const [liveLinks, setLiveLinks] = useState<any[] | null>(null);
+  const [liveAgentActivity, setLiveAgentActivity] = useState<any[] | null>(null);
 
   /* ── live CRUD state ── */
   const [liveCrons, setLiveCrons] = useState<any[]>([]);
@@ -1538,6 +1542,44 @@ export default function CommandCenter() {
               </Link>
             ))}
           </div>
+          {/* ═══════ AGENT ACTIVITY FEED ═══════ */}
+          {liveAgentActivity && liveAgentActivity.length > 0 && (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(34,211,238,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#22d3ee]" style={{ boxShadow: '0 0 8px rgba(34,211,238,0.6)', animation: 'pulse 2s ease-in-out infinite' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Agent Activity Feed</h2>
+                <span className="text-[9px] font-mono text-[#22d3ee]">{liveAgentActivity.length} entries</span>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(34,211,238,0.2), transparent)' }} />
+            </div>
+            <div style={{ maxHeight: 400, overflowY: 'auto', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', padding: 16 }}>
+              {liveAgentActivity.filter((e: any) => e.source === 'daily-log' || e.source === 'scratch').slice(0, 40).map((entry: any, i: number) => {
+                const agentMatch = agents.find((a: any) => a.name?.toLowerCase().replace(/[\s.]/g, '') === entry.agent?.toLowerCase().replace(/[\s.]/g, '') || a.key === entry.agent);
+                const agentColor = agentMatch?.color || '#888888';
+                const agentIcon = agentMatch?.icon || '🤖';
+                const agentLabel = agentMatch?.name || entry.agent;
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 12, padding: '10px 0', borderBottom: i < 39 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
+                    <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, background: `${agentColor}15`, border: `1px solid ${agentColor}30` }}>
+                      {agentIcon}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: agentColor }}>{agentLabel}</span>
+                        {entry.date && <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#555' }}>{entry.date}{entry.time ? ` ${entry.time}` : ''}</span>}
+                        {entry.source === 'scratch' && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 600 }}>THINKING</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: '#ccc', fontWeight: 500, lineHeight: 1.4 }}>{entry.title}</div>
+                      {entry.body && <div style={{ fontSize: 10, color: '#666', marginTop: 4, lineHeight: 1.4, fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: 60, overflow: 'hidden' }}>{entry.body.slice(0, 200)}</div>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          )}
           {/* ═══════ QUICK LINKS ═══════ */}
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-3">
