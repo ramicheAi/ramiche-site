@@ -13,6 +13,7 @@ import { join } from "path";
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
 const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
 const WORKSPACE = process.env.OPENCLAW_WORKSPACE || "/Users/admin/.openclaw/workspace";
+const OPENCLAW_ROOT = process.env.OPENCLAW_ROOT || "/Users/admin/.openclaw";
 const SYNC_INTERVAL = 60_000; // 60 seconds
 
 // ── Helpers ──────────────────────────────────────────────────────────
@@ -36,7 +37,8 @@ async function pushToFirestore(type, data) {
       body: JSON.stringify({ type, data }),
     });
     if (!res.ok) {
-      console.error(`[bridge] push ${type} failed: ${res.status}`);
+      const errBody = await res.text().catch(() => "");
+      console.error(`[bridge] push ${type} failed: ${res.status} ${errBody.slice(0, 200)}`);
     }
     return res.ok;
   } catch (e) {
@@ -204,6 +206,147 @@ function getRecentActivity() {
   }
 
   return activities.slice(-30); // Last 30 items
+}
+
+// ── All-Agent Activity (scans every workspace-*) ─────────────────────
+
+function getAllAgentActivity() {
+  const entries = [];
+  const today = new Date();
+  const dates = [
+    today.toISOString().slice(0, 10),
+    new Date(today - 86400000).toISOString().slice(0, 10),
+    new Date(today - 2 * 86400000).toISOString().slice(0, 10),
+  ];
+
+  let dirs;
+  try {
+    dirs = readdirSync(OPENCLAW_ROOT).filter(d => d.startsWith("workspace-"));
+  } catch { return entries; }
+
+  for (const wsDir of dirs) {
+    const agentName = wsDir.replace("workspace-", "");
+    const wsPath = join(OPENCLAW_ROOT, wsDir);
+    const memDir = join(wsPath, "memory");
+
+    // Read daily logs
+    if (existsSync(memDir)) {
+      for (const date of dates) {
+        const logPath = join(memDir, `${date}.md`);
+        if (!existsSync(logPath)) continue;
+        try {
+          const content = readFileSync(logPath, "utf8");
+          const sections = content.split(/^## /m).slice(1);
+          for (const section of sections.slice(-10)) {
+            const lines = section.trim().split("\n");
+            const header = lines[0] || "";
+            const body = lines.slice(1).join(" ").trim().slice(0, 100);
+            const timeMatch = header.match(/\[(\d{1,2}:\d{2})\]/);
+            entries.push({
+              agent: agentName,
+              date,
+              time: timeMatch ? timeMatch[1] : "",
+              title: header.replace(/\[\d{1,2}:\d{2}\]\s*/, "").slice(0, 80),
+              body,
+              source: "daily-log",
+            });
+          }
+        } catch { /* skip */ }
+      }
+
+      // Read scratch.md if it exists (current thinking)
+      const scratchPath = join(memDir, "scratch.md");
+      if (existsSync(scratchPath)) {
+        try {
+          const s = statSync(scratchPath);
+          const ageMs = Date.now() - s.mtimeMs;
+          if (ageMs < 24 * 60 * 60 * 1000) { // Only if updated in last 24h
+            const content = readFileSync(scratchPath, "utf8").slice(0, 150);
+            if (content.trim()) {
+              entries.push({
+                agent: agentName,
+                date: today.toISOString().slice(0, 10),
+                time: new Date(s.mtimeMs).toTimeString().slice(0, 5),
+                title: "Current thinking (scratch)",
+                body: content.trim(),
+                source: "scratch",
+              });
+            }
+          }
+        } catch { /* skip */ }
+      }
+
+      // Read intel-scan.md if it exists
+      const intelPath = join(memDir, "intel-scan.md");
+      if (existsSync(intelPath)) {
+        try {
+          const s = statSync(intelPath);
+          const ageMs = Date.now() - s.mtimeMs;
+          if (ageMs < 24 * 60 * 60 * 1000) {
+            const content = readFileSync(intelPath, "utf8").slice(0, 150);
+            entries.push({
+              agent: agentName,
+              date: today.toISOString().slice(0, 10),
+              time: new Date(s.mtimeMs).toTimeString().slice(0, 5),
+              title: "Intel scan results",
+              body: content.trim(),
+              source: "intel",
+            });
+          }
+        } catch { /* skip */ }
+      }
+    }
+
+    // Read IDENTITY.md for agent summary
+    const idPath = join(wsPath, "IDENTITY.md");
+    if (existsSync(idPath)) {
+      try {
+        const id = readFileSync(idPath, "utf8").slice(0, 200);
+        const nameMatch = id.match(/Name:\s*\*?\*?(.+?)[\n*]/);
+        const vibeMatch = id.match(/Vibe:\s*(.+)/);
+        if (nameMatch) {
+          entries.push({
+            agent: agentName,
+            date: "",
+            time: "",
+            title: `Identity: ${nameMatch[1].trim()}`,
+            body: vibeMatch ? vibeMatch[1].trim() : "",
+            source: "identity",
+          });
+        }
+      } catch { /* skip */ }
+    }
+
+    // Read HEARTBEAT.md — if it has tasks, show them
+    const hbPath = join(wsPath, "HEARTBEAT.md");
+    if (existsSync(hbPath)) {
+      try {
+        const hb = readFileSync(hbPath, "utf8").trim();
+        if (hb && !hb.startsWith("#") || hb.split("\n").filter(l => !l.startsWith("#") && l.trim()).length > 0) {
+          const tasks = hb.split("\n").filter(l => l.trim() && !l.startsWith("#")).slice(0, 5);
+          if (tasks.length > 0) {
+            entries.push({
+              agent: agentName,
+              date: today.toISOString().slice(0, 10),
+              time: "",
+              title: "Heartbeat tasks",
+              body: tasks.join("\n"),
+              source: "heartbeat",
+            });
+          }
+        }
+      } catch { /* skip */ }
+    }
+  }
+
+  // Sort by date+time descending
+  entries.sort((a, b) => {
+    const da = `${a.date} ${a.time}`;
+    const db = `${b.date} ${b.time}`;
+    return db.localeCompare(da);
+  });
+
+  return entries.slice(0, 50); // Cap at 50 entries (Firestore document size limit)
 }
 
 // ── Projects (LIVE from workspace/projects/) ─────────────────────────
@@ -567,6 +710,7 @@ async function syncAll() {
   const agents = getAgentStatus();
   const crons = getCronJobs();
   const activity = getRecentActivity();
+  const agentActivity = getAllAgentActivity(); // NEW: scans all 20 agent workspaces
   const projects = getProjectStatus(); // Now reads LIVE from workspace/projects/
   const links = getQuickLinks();
   const missions = getMissions(); // Derived from live projects
@@ -609,6 +753,7 @@ async function syncAll() {
     pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
     pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
     pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
+    pushToFirestore("agentActivity", { items: agentActivity.slice(0, 30).map(e => ({ agent: e.agent || "", date: e.date || "", time: e.time || "", title: (e.title || "").slice(0, 60), body: (e.body || "").slice(0, 80), source: e.source || "" })), count: agentActivity.length, lastSync: timestamp }),
     pushToFirestore("projects", { projects, items: projects, count: projects.length, lastSync: timestamp }),
     pushToFirestore("links", { items: links, count: links.length, lastSync: timestamp }),
     pushToFirestore("missions", { items: missions, count: missions.length, lastSync: timestamp }),

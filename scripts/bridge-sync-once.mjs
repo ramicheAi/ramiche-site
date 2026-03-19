@@ -231,6 +231,37 @@ function getTasks() {
   catch { return { backlog: [], "in-progress": [], review: [], done: [] }; }
 }
 
+function getAllAgentActivity() {
+  const entries = [];
+  const today = new Date();
+  const dates = [today.toISOString().slice(0,10), new Date(today-86400000).toISOString().slice(0,10), new Date(today-2*86400000).toISOString().slice(0,10)];
+  const OPENCLAW_ROOT = process.env.OPENCLAW_ROOT || "/Users/admin/.openclaw";
+  let dirs;
+  try { dirs = readdirSync(OPENCLAW_ROOT).filter(d => d.startsWith("workspace-")); } catch { return entries; }
+  for (const wsDir of dirs) {
+    const agentName = wsDir.replace("workspace-","");
+    const memDir = join(OPENCLAW_ROOT, wsDir, "memory");
+    if (!existsSync(memDir)) continue;
+    for (const date of dates) {
+      const logPath = join(memDir, `${date}.md`);
+      if (!existsSync(logPath)) continue;
+      try {
+        const content = readFileSync(logPath, "utf8");
+        const sections = content.split(/^## /m).slice(1);
+        for (const section of sections.slice(-10)) {
+          const lines = section.trim().split("\n");
+          const header = lines[0] || "";
+          const body = lines.slice(1).join(" ").trim().slice(0,80);
+          const timeMatch = header.match(/\[(\d{1,2}:\d{2})\]/);
+          entries.push({ agent: agentName, date, time: timeMatch ? timeMatch[1] : "", title: header.replace(/\[\d{1,2}:\d{2}\]\s*/,"").slice(0,60), body, source: "daily-log" });
+        }
+      } catch {}
+    }
+  }
+  entries.sort((a,b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
+  return entries.slice(0,30);
+}
+
 // ── Run once ──
 const timestamp = new Date().toISOString();
 console.log(`[bridge] one-shot sync at ${timestamp}`);
@@ -238,6 +269,7 @@ console.log(`[bridge] one-shot sync at ${timestamp}`);
 const agents = getAgentStatus();
 const crons = getCronJobs();
 const activity = getRecentActivity();
+const agentActivity = getAllAgentActivity();
 const links = getQuickLinks();
 const missions = getMissions();
 const schedule = getSchedule();
@@ -249,6 +281,7 @@ const results = await Promise.all([
   pushToFirestore("agents", { ...agents, display: agents.display, lastSync: timestamp }),
   pushToFirestore("crons", { items: crons, count: crons.length, lastSync: timestamp }),
   pushToFirestore("activity", { items: activity, count: activity.length, lastSync: timestamp }),
+  pushToFirestore("agentActivity", { items: agentActivity, count: agentActivity.length, lastSync: timestamp }),
   pushToFirestore("links", { items: links, count: links.length, lastSync: timestamp }),
   pushToFirestore("missions", { items: missions, count: missions.length, lastSync: timestamp }),
   pushToFirestore("schedule", { items: schedule, count: schedule.length, lastSync: timestamp }),

@@ -85,7 +85,7 @@ function fromFirestoreFields(fields: Record<string, Record<string, unknown>>): R
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
-  const validTypes = ["agents", "crons", "activity", "projects", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
+  const validTypes = ["agents", "crons", "activity", "agentActivity", "projects", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
 
   try {
     if (type === "all") {
@@ -100,7 +100,15 @@ export async function GET(req: NextRequest) {
           return [t, doc.fields ? fromFirestoreFields(doc.fields) : null];
         })
       );
-      const data = Object.fromEntries(results);
+      const data: Record<string, unknown> = Object.fromEntries(results);
+      // agentActivity stores items as JSON string to avoid Firestore nested map limits
+      if (data.agentActivity && typeof data.agentActivity === "object") {
+        const aa = data.agentActivity as Record<string, unknown>;
+        if (typeof aa.itemsJson === "string") {
+          try { aa.items = JSON.parse(aa.itemsJson); } catch { aa.items = []; }
+          delete aa.itemsJson;
+        }
+      }
       return NextResponse.json({ ...data, _syncedAt: new Date().toISOString() });
     }
 
@@ -251,7 +259,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "type and data required" }, { status: 400 });
     }
 
-    const validTypes = ["agents", "crons", "activity", "projects", "memory", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
+    const validTypes = ["agents", "crons", "activity", "agentActivity", "projects", "memory", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
     if (!validTypes.includes(type)) {
       return NextResponse.json({ error: `invalid type. use: ${validTypes.join(", ")}` }, { status: 400 });
     }
