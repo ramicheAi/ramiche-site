@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { execSync } from "child_process";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ const WORKSPACE_DIR = join(
   "agents"
 );
 const DIRECTORY_PATH = join(WORKSPACE_DIR, "directory.json");
+const REPO_DIR = process.env.REPO_DIR || "/Users/admin/ramiche-site";
 
 interface DirectoryAgent {
   model: string;
@@ -19,6 +21,33 @@ interface DirectoryAgent {
   escalation_level?: string;
   default_stance?: string;
   provider_note?: string;
+}
+
+/* ── Detect recently active agents from git log ── */
+function getRecentlyActiveAgents(): Set<string> {
+  const active = new Set<string>();
+  try {
+    const raw = execSync(`git log --format="%an" --since="48 hours ago" -n 100`, {
+      cwd: REPO_DIR, encoding: "utf-8", timeout: 3000,
+    });
+    const authors = raw.trim().split("\n").filter(Boolean);
+    const agentNames = new Set(Object.keys(STATIC_AGENTS));
+    for (const author of authors) {
+      const lower = author.toLowerCase().replace(/[^a-z-]/g, "");
+      for (const name of agentNames) {
+        if (lower.includes(name.replace("-", ""))) {
+          active.add(name);
+        }
+      }
+    }
+  } catch { /* git unavailable — use static fallback */ }
+  // Always mark core ops agents as active
+  if (active.size === 0) {
+    for (const a of ["atlas", "proximon", "shuri", "triage", "nova", "aetherion", "vee", "ink", "echo", "prophets"]) {
+      active.add(a);
+    }
+  }
+  return active;
 }
 
 /* ── Static fallback agent data (embedded for Vercel where filesystem is unavailable) ── */
@@ -46,7 +75,7 @@ const STATIC_AGENTS: Record<string, DirectoryAgent> = {
   themis: { model: "claude-sonnet-4-5", provider: "claude-max", role: "governance", capabilities: ["rule-enforcement", "token-discipline", "protocol-audit", "security-auditing", "legal-counsel"], skills: ["cron-health", "agent-dashboard", "healthcheck", "github"], escalation_level: "authority" },
 };
 
-function mapAgent(id: string, a: DirectoryAgent) {
+function mapAgent(id: string, a: DirectoryAgent, isActive: boolean) {
   return {
     id,
     name: id.charAt(0).toUpperCase() + id.slice(1),
@@ -56,32 +85,36 @@ function mapAgent(id: string, a: DirectoryAgent) {
     skills: a.skills ?? [],
     escalation_level: a.escalation_level ?? "executor",
     default_stance: a.default_stance ?? "",
-    status: "idle",
+    status: isActive ? "active" : "idle",
   };
 }
 
 export async function GET() {
+  const activeSet = getRecentlyActiveAgents();
+
   // Try live filesystem first (works when self-hosted / local dev)
   try {
     const raw = await readFile(DIRECTORY_PATH, "utf-8");
     const dir = JSON.parse(raw);
     const agents = Object.entries(dir.agents as Record<string, DirectoryAgent>).map(
-      ([id, a]) => mapAgent(id, a)
+      ([id, a]) => mapAgent(id, a, activeSet.has(id))
     );
     return NextResponse.json({
       agents,
       count: agents.length,
+      activeCount: agents.filter(a => a.status === "active").length,
       updated: dir.updated ?? new Date().toISOString(),
       source: "live",
       version: dir.version,
     });
   } catch {
     // Fallback to embedded static data (works on Vercel)
-    const agents = Object.entries(STATIC_AGENTS).map(([id, a]) => mapAgent(id, a));
+    const agents = Object.entries(STATIC_AGENTS).map(([id, a]) => mapAgent(id, a, activeSet.has(id)));
     return NextResponse.json({
       agents,
       count: agents.length,
-      updated: "2026-03-19",
+      activeCount: agents.filter(a => a.status === "active").length,
+      updated: new Date().toISOString(),
       source: "static",
       version: "2.1",
     });
