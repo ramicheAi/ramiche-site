@@ -6,6 +6,7 @@ import type { Athlete, RosterGroup, SwimMeet, MeetEvent, MeetEventEntry, MeetBro
 import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult } from "../../lib/meet-scoring";
 import MeetDayStatsBar from "../components/MeetDayStatsBar";
 import HeatLaneGrid from "../components/HeatLaneGrid";
+import RelayLineupBuilder from "../components/RelayLineupBuilder";
 
 // Re-export meet types for consumers that imported from here
 export type { MeetEventEntry, MeetEvent, MeetBroadcast, SwimMeet };
@@ -472,6 +473,17 @@ export default function MeetsView({
                                 />
                               );
                             })()}
+                          </div>
+                        )}
+                        {/* Relay Lineup Builder — shown for relay events */}
+                        {ev.name.toLowerCase().includes("relay") && (
+                          <div className="mt-3 border-t border-white/[0.04] pt-3">
+                            <h5 className="text-xs font-bold text-amber-400/70 uppercase tracking-wider mb-2">⚡ Relay Lineup Builder</h5>
+                            <RelayLineupBuilder
+                              eventName={ev.name}
+                              roster={filteredRoster}
+                              course={editMeet.course}
+                            />
                           </div>
                         )}
                       </div>
