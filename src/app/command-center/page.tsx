@@ -13,12 +13,12 @@ import ParticleField from "@/components/ParticleField";
 /* ── AGENTS ─────────────────────────────────────────────────────────────────── */
 const AGENTS = [
   {
-    name: "Atlas", model: "Opus 4.6 / Sonnet 4.5", role: "Operations Lead",
+    name: "Atlas", model: "Opus 4.6", role: "Operations Lead",
     status: "active" as const, color: "#C9A84C", icon: "🧭",
     desc: "Carries the weight — orchestrates 18 agents, ships products, memory, mission control",
     connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
     credits: { used: 4800, limit: 5000 },
-    activeTask: "Command Center upgrade + 120+ commits this week + ByteByteGo 52/52 implemented",
+    activeTask: "YOLO build fix + Command Center update + Power Challenge email wiring",
   },
   {
     name: "TheMAESTRO", model: "DeepSeek V3.2", role: "Music Production AI",
@@ -30,11 +30,11 @@ const AGENTS = [
   },
   {
     name: "SIMONS", model: "DeepSeek V3.2", role: "Algorithmic Analysis",
-    status: "done" as const, color: "#22d3ee", icon: "📊",
+    status: "idle" as const, color: "#22d3ee", icon: "📊",
     desc: "Jim Simons — pattern recognition, statistical arbitrage, pricing models",
     connections: [0, 4],
     credits: { used: 620, limit: 5000 },
-    activeTask: "DELIVERED: Pricing analysis + marketing playbook + ClawGuard scanner + conversion strategies",
+    activeTask: "DELIVERED: Pricing analysis + marketing playbook + ClawGuard scanner",
   },
   {
     name: "Dr. Strange", model: "DeepSeek V3.2", role: "Forecasting & Decisions",
@@ -46,27 +46,27 @@ const AGENTS = [
   },
   {
     name: "SHURI", model: "DeepSeek V3.2", role: "Creative Coding",
-    status: "done" as const, color: "#34d399", icon: "⚡",
+    status: "idle" as const, color: "#34d399", icon: "⚡",
     desc: "Prototyping, design systems, tech innovation, rapid builds",
     connections: [0, 7],
     credits: { used: 1800, limit: 5000 },
-    activeTask: "DELIVERED: 18+ PRs — portals, meet mgmt, invite system, brand assets, desktop layouts",
+    activeTask: "DELIVERED: 18+ PRs — portals, meet mgmt, invite system, brand assets",
   },
   {
-    name: "Widow", model: "Haiku 4.5", role: "Cybersecurity & Intel",
-    status: "done" as const, color: "#ef4444", icon: "🕷",
-    desc: "Threat monitoring, risk analysis, data intelligence, security audits",
+    name: "Widow", model: "Haiku 3.5", role: "Cybersecurity & Intel",
+    status: "idle" as const, color: "#ef4444", icon: "🕷",
+    desc: "Read-only security scanner. Threat monitoring, risk analysis, security audits",
     connections: [0, 2],
     credits: { used: 480, limit: 5000 },
-    activeTask: "DELIVERED: ClawGuard Pro (12-domain, $299-$1499) + CSP headers + Firestore rules + API security",
+    activeTask: "DELIVERED: ClawGuard Pro + CSP headers + Firestore rules + API security",
   },
   {
-    name: "PROXIMON", model: "Gemini 3.0 Pro", role: "Systems Architect",
-    status: "done" as const, color: "#f97316", icon: "🏗",
+    name: "PROXIMON", model: "Gemini 3 Pro", role: "Systems Architect",
+    status: "active" as const, color: "#f97316", icon: "🏗",
     desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
     connections: [0, 3, 4],
     credits: { used: 880, limit: 5000 },
-    activeTask: "DELIVERED: Event sourcing + BFF pattern + DR plan + real-time sync hooks + denormalization",
+    activeTask: "YOLO overnight builds + architecture reviews",
   },
   {
     name: "Vee", model: "Kimi K2.5", role: "Brand & Marketing",
@@ -74,23 +74,23 @@ const AGENTS = [
     desc: "Gary Vee + Seth Godin + Hormozi + Blakely + Virgil — makes brands impossible to ignore",
     connections: [0, 1, 6],
     credits: { used: 950, limit: 5000 },
-    activeTask: "15-strategy conversion playbook + X/LinkedIn positioning + METTLE brand v5 consulting",
+    activeTask: "Brand strategy + X/LinkedIn positioning + METTLE brand v5",
   },
   {
-    name: "Aetherion", model: "Gemini 3.0 Pro", role: "Meta-Architect",
-    status: "done" as const, color: "#818cf8", icon: "🌀",
-    desc: "The Architect of Architects — patterns, emergence, meta-systems, blueprinting reality itself",
+    name: "Aetherion", model: "Gemini 3 Pro", role: "Visual & Brand Design",
+    status: "idle" as const, color: "#818cf8", icon: "🌀",
+    desc: "Visuals, animation, brand identity — the creative eye of the operation",
     connections: [0, 3, 6],
     credits: { used: 200, limit: 5000 },
     activeTask: "DELIVERED: Inter-agent workflow chains + white-label architecture",
   },
   {
     name: "MICHAEL", model: "GLM 4.6", role: "Swim Training AI",
-    status: "done" as const, color: "#06b6d4", icon: "🏊",
+    status: "active" as const, color: "#06b6d4", icon: "🏊",
     desc: "Phelps + Kobe + MJ + Bolt — swim mastery, mamba mentality, competitive fire",
     connections: [0, 3],
     credits: { used: 510, limit: 5000 },
-    activeTask: "DELIVERED: Full meet management + splits + results + CSV export + post-meet reports",
+    activeTask: "METTLE coaching intelligence + race strategy + athlete motivation",
   },
   {
     name: "Prophets", model: "Kimi K2.5", role: "Spiritual Wisdom",
@@ -102,19 +102,19 @@ const AGENTS = [
   },
   {
     name: "SELAH", model: "DeepSeek V3.2", role: "Wellness & Sport Psychology",
-    status: "done" as const, color: "#10b981", icon: "🧘",
+    status: "idle" as const, color: "#10b981", icon: "🧘",
     desc: "Robbins + Dispenza + Maté + Greene + Bashar — therapy, peak performance, mental transformation",
     connections: [0, 9, 10],
     credits: { used: 190, limit: 5000 },
     activeTask: "DELIVERED: Wellness check-in + journal + meditation in athlete portal",
   },
   {
-    name: "MERCURY", model: "Gemini 3.0 Pro", role: "Sales & Revenue Ops",
-    status: "active" as const, color: "#fbbf24", icon: "💰",
+    name: "MERCURY", model: "DeepSeek V3.2", role: "Sales & Revenue Ops",
+    status: "idle" as const, color: "#fbbf24", icon: "💰",
     desc: "Razor-sharp dealmaker — reads people and numbers simultaneously. Architects wins.",
     connections: [0, 7],
     credits: { used: 520, limit: 5000 },
-    activeTask: "Upwork proposals + Stripe checkout wired + ClawGuard sales page + conversion strategies",
+    activeTask: "Upwork proposals + Stripe checkout + ClawGuard sales",
   },
   {
     name: "ECHO", model: "Kimi K2.5", role: "Community & Social",
@@ -122,7 +122,7 @@ const AGENTS = [
     desc: "The heartbeat of the community — turns strangers into superfans with genuine warmth",
     connections: [0, 7],
     credits: { used: 540, limit: 5000 },
-    activeTask: "X/LinkedIn posting + social listening cron + Berman thread + Building in Public content",
+    activeTask: "Social posting + community engagement + NEURAL RADIO",
   },
   {
     name: "HAVEN", model: "DeepSeek V3.2", role: "Customer Success",
@@ -130,39 +130,39 @@ const AGENTS = [
     desc: "Infinitely patient with a detective's eye — treats every ticket like a puzzle worth solving",
     connections: [0],
     credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: First customer onboarding (Derrick deployment complete)",
+    activeTask: "Awaiting: First customer onboarding",
   },
   {
     name: "INK", model: "DeepSeek V3.2", role: "Content Creator",
-    status: "done" as const, color: "#c084fc", icon: "✒",
+    status: "active" as const, color: "#c084fc", icon: "✒",
     desc: "Prolific voice-chameleon — technical blog at dawn, viral tweet at noon, cinematic script by sunset",
     connections: [0, 7],
     credits: { used: 650, limit: 5000 },
-    activeTask: "DELIVERED: Weekly content calendar + Building in Public posts + coach quick-start guide + Berman analysis",
+    activeTask: "Content calendar + Building in Public + daily social posts",
   },
   {
-    name: "NOVA", model: "DeepSeek V3.2", role: "3D Fabrication",
-    status: "idle" as const, color: "#14b8a6", icon: "🔧",
-    desc: "Brilliant fabrication expert — runway model energy with patents. Bambu Lab A1 specialist.",
+    name: "NOVA", model: "Sonnet 4.5", role: "Overnight Builder",
+    status: "active" as const, color: "#14b8a6", icon: "🔧",
+    desc: "YOLO overnight prototype builder — ships functional apps while you sleep",
     connections: [0, 4],
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Bambu Lab production pipeline",
+    credits: { used: 300, limit: 5000 },
+    activeTask: "YOLO builds — G-Code Surgeon, Agent Arena + 44 builds shipped",
   },
   {
     name: "KIYOSAKI", model: "DeepSeek V3.2", role: "Financial Intelligence",
-    status: "done" as const, color: "#fcd34d", icon: "💎",
+    status: "idle" as const, color: "#fcd34d", icon: "💎",
     desc: "ORACLE — 8 financial minds. Wealth architecture + business plan + patent strategy.",
     connections: [0, 2, 3],
     credits: { used: 720, limit: 5000 },
-    activeTask: "DELIVERED: METTLE business plan v2 + tiered pricing + provisional patent (filing in progress)",
+    activeTask: "DELIVERED: METTLE business plan v2 + tiered pricing + provisional patent",
   },
   {
     name: "TRIAGE", model: "Sonnet 4.5", role: "System Doctor",
-    status: "idle" as const, color: "#f472b6", icon: "🩺",
+    status: "active" as const, color: "#f472b6", icon: "🩺",
     desc: "Best SWE-bench score in the squad (77.2). Debugging, failure tracing, diagnostics.",
     connections: [0, 4],
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Available on demand — system diagnostics + debugging",
+    credits: { used: 100, limit: 5000 },
+    activeTask: "YOLO builds + system diagnostics + EKG System Vitals",
   },
   {
     name: "THEMIS", model: "Opus 4.6", role: "Legal & Compliance",
@@ -170,7 +170,7 @@ const AGENTS = [
     desc: "IP protection, compliance frameworks, contract review, legal strategy — the law is the shield",
     connections: [0, 5],
     credits: { used: 0, limit: 5000 },
-    activeTask: "SOC 2 / HIPAA / GDPR compliance + patent filing support",
+    activeTask: "Patent filing support + trademark Class 9+41+42",
   },
 ];
 
@@ -270,10 +270,25 @@ const MISSIONS = [
       { t: "ByteByteGo: 52/52 items implemented", done: true },
       { t: "Copyright filed (Feb 17, 2026)", done: true },
       { t: "Beta invite system + CSV import + setup wizard", done: true },
+      { t: "SwimCloud scraping fixed (multi-pattern fallback)", done: true },
+      { t: "Cognitive load audit complete", done: true },
+      { t: "Firebase Auth migration (multi-file)", done: false },
+      { t: "Coach portal refactor (extract hooks)", done: false },
       { t: "Patent filing at USPTO ($65 micro entity)", done: false },
       { t: "Trademark: Class 9+41+42", done: false },
     ],
     link: { label: "Open App", href: "/apex-athlete" },
+  },
+  {
+    name: "Verified Agents", accent: "#7c3aed", status: "active" as const,
+    desc: "Rent certified AI agents $100-500/hr — co-founder: Eric", priority: "HIGH",
+    tasks: [
+      { t: "Business model + positioning", done: true },
+      { t: "Landing page + intake flow", done: false },
+      { t: "Agent certification framework", done: false },
+      { t: "Billing + time tracking", done: false },
+    ],
+    link: null,
   },
   {
     name: "Command Center", accent: "#7c3aed", status: "active" as const,
@@ -283,9 +298,9 @@ const MISSIONS = [
       { t: "Frontend wired to bridge with 60s polling", done: true },
       { t: "Bridge sync script (iMac → Firestore)", done: true },
       { t: "Chat relay to agents", done: true },
-      { t: "Task approval API", done: true },
-      { t: "Cron CRUD API", done: true },
-      { t: "Live data rendering (replace hardcoded)", done: false },
+      { t: "Task approval API + Cron CRUD API", done: true },
+      { t: "Quick links section (fixed — was missing from render)", done: true },
+      { t: "Live data rendering (replace all hardcoded)", done: false },
       { t: "Office page redesign", done: false },
     ],
     link: { label: "Command Center", href: "/command-center" },
@@ -313,23 +328,41 @@ const MISSIONS = [
       { t: "6-tab UI (Compose, History, Calendar, Accounts, Analytics, AI Writer)", done: true },
       { t: "Instagram OAuth (blocked on Facebook Developer Portal)", done: false },
       { t: "Scheduling backend (SQLite → hosted DB)", done: false },
-      { t: "Facebook/Threads/TikTok/YouTube", done: false },
     ],
     link: { label: "Parallax Publish", href: "https://parallax-publish.vercel.app" },
   },
   {
+    name: "Power Challenge", accent: "#ef4444", status: "active" as const,
+    desc: "Swim Power Challenge event site — Stripe + Resend wired", priority: "HIGH",
+    tasks: [
+      { t: "Landing page + Stripe checkout", done: true },
+      { t: "Resend email integration wired", done: true },
+      { t: "Stripe webhook (waiting on Jesse)", done: false },
+      { t: "Custom domain email (DNS records from Jesse)", done: false },
+    ],
+    link: { label: "Power Challenge", href: "https://www.powerchallenge.org" },
+  },
+  {
     name: "Ramiche Studio", accent: "#e879f9", status: "active" as const,
-    desc: "Creative services — $400/$1,500/$3,000/$6,000+", priority: "HIGH",
+    desc: "Creative services — $400/$1,500/$3,000/$6,000+", priority: "MED",
     tasks: [
       { t: "Landing page + inquiry form + checkout", done: true },
       { t: "4-platform DM scripts + email sequences", done: true },
       { t: "UGC video scripts + SOPs + onboarding runbook", done: true },
-      { t: "Niche outreach kit (skincare, coffee, supplements, pet)", done: true },
       { t: "Stripe integration (needs STRIPE_SECRET_KEY)", done: false },
-      { t: "First UGC video filmed", done: false },
       { t: "First 5 warm DMs sent", done: false },
     ],
     link: { label: "Studio", href: "/studio" },
+  },
+  {
+    name: "ClawGuard Pro", accent: "#22d3ee", status: "active" as const,
+    desc: "Security scanner — $299/$799/$1,499 — LIVE", priority: "MED",
+    tasks: [
+      { t: "Scanner live + Stripe wired", done: true },
+      { t: "GitHub integration", done: true },
+      { t: "Customer onboarding flow", done: false },
+    ],
+    link: { label: "ClawGuard", href: "https://parallax-site-ashen.vercel.app/clawguard" },
   },
   {
     name: "Galactik Antics", accent: "#00f0ff", status: "active" as const,
@@ -342,24 +375,14 @@ const MISSIONS = [
     ],
     link: null,
   },
-  {
-    name: "ClawGuard Pro", accent: "#22d3ee", status: "active" as const,
-    desc: "Security scanner — $299/$799/$1,499 — LIVE", priority: "MED",
-    tasks: [
-      { t: "Scanner live + Stripe wired", done: true },
-      { t: "GitHub integration", done: true },
-      { t: "Customer onboarding flow", done: false },
-    ],
-    link: { label: "ClawGuard", href: "https://parallax-site-ashen.vercel.app/clawguard" },
-  },
 ];
 
 /* ── OPPORTUNITIES ───────────────────────────────────────────────────────────────── */
 const OPPS = [
+  { title: "METTLE SaaS", rev: "$149-$549/mo", tag: "BETA", accent: "#C9A84C", desc: "Gamified athlete management — 240+ beta users" },
+  { title: "Verified Agents", rev: "$100-500/hr", tag: "BUILDING", accent: "#7c3aed", desc: "Rent certified AI agents — co-founder: Eric" },
   { title: "Ramiche Studio Sprint", rev: "$400", tag: "LIVE", accent: "#e879f9", desc: "48h Creative Direction Sprint" },
-  { title: "Ramiche Studio Starter", rev: "$1,500", tag: "LIVE", accent: "#a855f7", desc: "Full brand kit + strategy" },
-  { title: "Ramiche Studio Pro", rev: "$3,000", tag: "LIVE", accent: "#7c3aed", desc: "Complete brand transformation" },
-  { title: "Ramiche Studio Elite", rev: "$6,000+", tag: "LIVE", accent: "#C9A84C", desc: "Enterprise-level creative ops" },
+  { title: "Ramiche Studio Pro", rev: "$3,000", tag: "LIVE", accent: "#a855f7", desc: "Complete brand transformation" },
   { title: "ClawGuard Pro", rev: "$299-$1,499", tag: "LIVE", accent: "#22d3ee", desc: "Security scanning as a service" },
   { title: "Claude Skills", rev: "$149-$499", tag: "LIVE", accent: "#a855f7", desc: "Agent skills marketplace" },
   { title: "AI Agent Setup", rev: "$1-3K", tag: "SOON", accent: "#00f0ff", desc: "OpenClaw-style full setup" },
@@ -383,45 +406,51 @@ const LINKS = [
 
 /* ── ACTIVITY LOG ────────────────────────────────────────────────────────────────── */
 const LOG = [
-  { time: "Mar 5", text: "Chat listener built — Command Center messages now reach agents", color: "#7c3aed" },
+  { time: "Mar 19", text: "Command Center — quick links fix (notifications guard), full data refresh", color: "#7c3aed" },
+  { time: "Mar 18", text: "Power Challenge — Resend API key wired, confirmation emails live on deploy", color: "#ef4444" },
+  { time: "Mar 18", text: "YOLO builds — 3 new builds added to SEED_BUILDS, pushed to main", color: "#f59e0b" },
+  { time: "Mar 18", text: "Echo session restarted on Kimi K2.5 after persona loss", color: "#38bdf8" },
+  { time: "Mar 16", text: "Intelligence layer deployed — spawn-gate.py, yolo-allocator, Q-learning model select", color: "#a855f7" },
+  { time: "Mar 16", text: "SwimCloud scraping FIXED — multi-pattern fallback (commit 7e7f35b)", color: "#22d3ee" },
+  { time: "Mar 16", text: "Cognitive load audit — Coach=4101 lines/81 useState (CRITICAL flagged)", color: "#C9A84C" },
+  { time: "Mar 16", text: "Inter-agent communication rewrite — inbox/outbox DEAD, sessions_spawn/send only", color: "#00f0ff" },
+  { time: "Mar 13", text: "Event-driven triggers + SOL priority queue (P0/P1/P2) implemented", color: "#059669" },
+  { time: "Mar 8", text: "Auth changes atomic-only rule enforced after cascading failure", color: "#ef4444" },
   { time: "Mar 5", text: "Bridge sync live — 21 agents, 39 crons syncing to Firestore every 60s", color: "#059669" },
-  { time: "Mar 5", text: "Command Center backend wired — task approval, cron CRUD, chat relay APIs deployed", color: "#7c3aed" },
-  { time: "Mar 5", text: "Daily content posting schedule built — weekly rotation, VEE/INK/ECHO pipeline", color: "#a855f7" },
-  { time: "Mar 5", text: "Inter-agent communication system — directory, escalation protocol, comms log", color: "#00f0ff" },
-  { time: "Mar 5", text: "Smart cron system — scheduling playbook, audit trail, budget caps", color: "#f59e0b" },
-  { time: "Mar 4", text: "SHURI: Agents page + CC main page Linear restyle deployed", color: "#e879f9" },
   { time: "Mar 3", text: "Parallax Publish — 3 platforms live (Twitter, Bluesky, LinkedIn)", color: "#38bdf8" },
-  { time: "Mar 2", text: "Service worker ban enforced — self-destruct SW deployed across all apps", color: "#ef4444" },
-  { time: "Mar 1", text: "Ramiche Studio client acquisition kit COMPLETE — all assets built", color: "#e879f9" },
-  { time: "Feb 28", text: "Context+ MCP server installed — AST parsing, semantic search, blast radius", color: "#22d3ee" },
-  { time: "Feb 27", text: "Parallax Publish launched — Twitter + Bluesky + LinkedIn OAuth2", color: "#38bdf8" },
   { time: "Feb 24", text: "ByteByteGo: 52/52 topics fully implemented across ecosystem", color: "#00f0ff" },
 ];
 
 /* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
 const SCHEDULE = [
-  { time: "2:30 AM", event: "Night shift build (Atlas, isolated)", accent: "#C9A84C" },
+  { time: "12:30 AM", event: "YOLO: Proximon overnight build", accent: "#f97316" },
+  { time: "1:00 AM", event: "YOLO: Nova overnight build", accent: "#14b8a6" },
+  { time: "1:30 AM", event: "YOLO: Simons overnight build", accent: "#22d3ee" },
+  { time: "2:00 AM", event: "YOLO: Mercury overnight build", accent: "#fbbf24" },
+  { time: "2:30 AM", event: "YOLO: Dr Strange overnight build", accent: "#a855f7" },
+  { time: "3:00 AM", event: "Sunday Memory Maintenance", accent: "#C9A84C" },
   { time: "6:30 AM", event: "AI Self-Improvement Digest", accent: "#00f0ff" },
   { time: "7:00 AM", event: "Daily Scripture & Prayer (Prophets)", accent: "#d4a574" },
-  { time: "7:15 AM", event: "Morning Brief Enhanced (weather, git, calendar, priorities)", accent: "#a855f7" },
+  { time: "7:15 AM", event: "Morning Brief (weather, git, calendar, priorities)", accent: "#a855f7" },
+  { time: "8:00 AM", event: "Intel scans begin (8AM-12:15PM)", accent: "#38bdf8" },
+  { time: "8:30 AM", event: "LinkedIn Intelligence Scan", accent: "#38bdf8" },
   { time: "1:00 PM", event: "Midday Checkpoint (pulse check, blockers)", accent: "#22d3ee" },
   { time: "2:00 PM", event: "Social Listening Scan (X, LinkedIn, mentions)", accent: "#38bdf8" },
   { time: "6:00 PM", event: "Weekly Strategy Review (Fridays only)", accent: "#f59e0b" },
   { time: "7:00 AM", event: "Competitor Watch (Mondays only)", accent: "#ef4444" },
-  { time: "9:00 PM", event: "Night build session", accent: "#22d3ee" },
   { time: "10:00 PM", event: "End of Day Recap", accent: "#C9A84C" },
 ];
 
 /* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
 const NOTIFICATIONS = [
-  { text: "METTLE beta-ready — 18 PRs merged, security hardened, onboarding complete", accent: "#C9A84C", icon: "\u25C8" },
-  { text: "ByteByteGo PDF: 52/52 implementations complete across ecosystem", accent: "#00f0ff", icon: "\u25C8" },
-  { text: "ClawGuard Pro LIVE — $299/$799/$1499, Stripe checkout wired", accent: "#ef4444", icon: "\u25C8" },
-  { text: "Provisional patent filing in progress — USPTO Patent Center", accent: "#a855f7", icon: "\u25C8" },
-  { text: "Conversion strategies deployed site-wide (15 ad agency tactics)", accent: "#ec4899", icon: "\u25C8" },
-  { text: "Social listening cron active — daily X/LinkedIn/web monitoring", accent: "#38bdf8", icon: "\u25C8" },
-  { text: "Hy-Tek import \u2014 .hy3/.ev3 iOS fix deployed, needs user test", accent: "#22d3ee", icon: "\u25C8" },
-  { text: "TheMAESTRO blocked \u2014 needs release timeline from Ramon", accent: "#f59e0b", icon: "\u26A0" },
+  { text: "METTLE beta-ready — 240+ athletes, 3 portals, meet management, game engine live", accent: "#C9A84C", icon: "\u25C8" },
+  { text: "Power Challenge — Resend email wired, waiting on Jesse for Stripe webhook", accent: "#ef4444", icon: "\u26A0" },
+  { text: "YOLO Builds — 44 builds on disk, auto-registration pipeline needed", accent: "#f59e0b", icon: "\u26A0" },
+  { text: "Firebase service account key MISSING from Vercel — blocks server-side Firestore writes", accent: "#ef4444", icon: "\u26A0" },
+  { text: "Echo session restarted — Kimi K2.5 persona was lost on local qwen3:14b", accent: "#38bdf8", icon: "\u25C8" },
+  { text: "Intelligence layer active — spawn-gate dedup + Q-learning model selection", accent: "#a855f7", icon: "\u25C8" },
+  { text: "SwimCloud scraping FIXED — multi-pattern fallback (commit 7e7f35b)", accent: "#22d3ee", icon: "\u25C8" },
+  { text: "167 skills installed (ClawHub + custom + Anthropic official)", accent: "#00f0ff", icon: "\u25C8" },
 ];
 
 /* ── NAV ───────────────────────────────────────────────────────────────────── */
@@ -544,7 +573,7 @@ export default function CommandCenter() {
           if (data?.schedule?.items && Array.isArray(data.schedule.items) && data.schedule.items.length > 0) {
             setLiveSchedule(data.schedule.items);
           }
-          if (data?.notifications?.items && Array.isArray(data.notifications.items)) {
+          if (data?.notifications?.items && Array.isArray(data.notifications.items) && data.notifications.items.length > 0) {
             setLiveNotifications(data.notifications.items);
           }
           if (data?.opportunities?.items && Array.isArray(data.opportunities.items) && data.opportunities.items.length > 0) {
@@ -1498,6 +1527,49 @@ export default function CommandCenter() {
               </Link>
             ))}
           </div>
+          {/* ═══════ QUICK LINKS ═══════ */}
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to right, rgba(201,168,76,0.2), transparent)' }} />
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-[#C9A84C]" style={{ boxShadow: '0 0 8px rgba(201,168,76,0.6)' }} />
+                <h2 className="text-xs tracking-[0.25em] uppercase text-[#888888] font-medium">Quick Links</h2>
+              </div>
+              <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(201,168,76,0.2), transparent)' }} />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {links.map((link: any, i: number) => (
+                <a
+                  key={i}
+                  href={link.href}
+                  target={link.href.startsWith('http') ? '_blank' : undefined}
+                  rel={link.href.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  className="group relative p-4 flex flex-col items-center gap-2 text-center"
+                  style={{
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid #1e1e1e',
+                    borderRadius: 12,
+                    transition: 'all 150ms ease-in-out',
+                  }}
+                >
+                  <div
+                    className="w-10 h-10 rounded-lg flex items-center justify-center text-xs font-black"
+                    style={{
+                      background: `${link.accent}12`,
+                      color: link.accent,
+                      border: `1px solid ${link.accent}30`,
+                    }}
+                  >
+                    {link.icon}
+                  </div>
+                  <span className="text-[11px] font-semibold text-[#888888] group-hover:text-[#e5e5e5]" style={{ transition: 'color 150ms ease-in-out' }}>
+                    {link.label}
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+
           {/* ═══════ FOOTER ═══════ */}
           <footer className="text-center py-8" style={{ borderTop: '1px solid #1e1e1e' }}>
             <div className="text-[9px] font-mono text-[#888888] tracking-[0.4em] uppercase">
