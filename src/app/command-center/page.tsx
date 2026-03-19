@@ -556,8 +556,9 @@ export default function CommandCenter() {
     return () => clearInterval(id);
   }, []);
 
-  /* ── live bridge data (auto-refresh every 60s) ── */
+  /* ── live bridge data (auto-refresh every 15s) ── */
   const [bridgeData, setBridgeData] = useState<Record<string, unknown> | null>(null);
+  const [lastSynced, setLastSynced] = useState<string>("");
   useEffect(() => {
     const fetchBridge = async () => {
       try {
@@ -565,6 +566,7 @@ export default function CommandCenter() {
         if (res.ok) {
           const data = await res.json();
           setBridgeData(data);
+          setLastSynced(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
           // Update agent status from bridge display array (pre-formatted by sync script)
           const displayAgents = data?.agents?.display;
           if (Array.isArray(displayAgents) && displayAgents.length > 0) {
@@ -593,7 +595,7 @@ export default function CommandCenter() {
       } catch { /* silent — fallback to hardcoded */ }
     };
     fetchBridge();
-    const id = setInterval(fetchBridge, 60000);
+    const id = setInterval(fetchBridge, 15000);
     return () => clearInterval(id);
   }, []);
 
@@ -1203,8 +1205,9 @@ export default function CommandCenter() {
 
         {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
         <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 60px', position: 'relative' }}>
-          <div style={{ display: 'inline-block', padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
-            MISSION CONTROL &middot; LIVE
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: lastSynced ? '#22c55e' : '#ef4444', boxShadow: lastSynced ? '0 0 8px #22c55e' : '0 0 8px #ef4444', animation: 'pulse 2s ease-in-out infinite' }} />
+            MISSION CONTROL &middot; LIVE{lastSynced ? ` · ${lastSynced}` : ''}
           </div>
           <h1 style={{ fontSize: 'clamp(40px, 7vw, 72px)', fontWeight: 800, lineHeight: 1.05, marginBottom: 16 }}>
             <span style={{ color: '#e5e5e5' }}>Command</span>{' '}
