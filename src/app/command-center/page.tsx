@@ -397,6 +397,7 @@ const LINKS = [
   { label: "YOLO Builds", href: "/command-center/yolo", icon: "Y", accent: "#f59e0b" },
   { label: "Nerve Center", href: "/command-center/nerve-center", icon: "NC", accent: "#7C3AED" },
   { label: "Signal Wire", href: "/command-center/signal-wire", icon: "SW", accent: "#22d3ee" },
+  { label: "Nexus Lab", href: "/command-center/nexus", icon: "NX", accent: "#f97316" },
   { label: "Vercel", href: "https://vercel.com/dashboard", icon: "V", accent: "#ffffff" },
   { label: "GitHub", href: "https://github.com/ramicheAi", icon: "GH", accent: "#737373" },
   { label: "Firebase", href: "https://console.firebase.google.com/project/apex-athlete-73755", icon: "FB", accent: "#f59e0b" },
