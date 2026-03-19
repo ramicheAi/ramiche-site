@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Card from "../components/Card";
 import BgOrbs from "../components/BgOrbs";
 import { getLevel } from "../../utils";
@@ -370,6 +370,15 @@ export default function AnalyticsDashboard({
         {/* ── BEST TIMES & IMPROVEMENTS ── */}
         <BestTimesSection roster={roster} />
 
+        {/* ── ATTENDANCE HEATMAP ── */}
+        <AttendanceHeatmap roster={roster} snapshots={snapshots} selectedGroup={selectedGroup} />
+
+        {/* ── GROUP PERFORMANCE ── */}
+        <GroupPerformance roster={roster} snapshots={snapshots} auditLog={auditLog} avgAtt={avgAtt} />
+
+        {/* ── SEASON REPORT ── */}
+        <SeasonReport roster={roster} snapshots={snapshots} avgAtt={avgAtt} avgXP={avgXP} mostImproved={mostImproved} />
+
         <button onClick={exportCSV}
           className="game-btn px-5 py-3 bg-[#06020f]/60 text-[#00f0ff]/40 text-sm font-mono border border-[#00f0ff]/15 hover:text-[#00f0ff]/70 hover:border-[#00f0ff]/30 transition-all min-h-[44px]">
           📊 Export Full CSV
@@ -418,6 +427,195 @@ function XPLeaderboard({ roster }: { roster: Athlete[] }) {
           {showAll ? "Show less" : `Show all ${sorted.length} athletes`}
         </button>
       )}
+    </Card>
+  );
+}
+
+/* ── ATTENDANCE HEATMAP ── */
+function AttendanceHeatmap({ roster, snapshots, selectedGroup }: { roster: Athlete[]; snapshots: DailySnapshot[]; selectedGroup: string }) {
+  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const heatData = useMemo(() => {
+    const groupRoster = roster.filter(a => a.group === selectedGroup);
+    const last7 = snapshots.slice(-7);
+    return groupRoster.map(a => {
+      const dayData = last7.map(s => {
+        const xp = s.athleteXPs?.[a.id] || 0;
+        return xp > 0 ? 1 : 0;
+      });
+      // Pad to 7 days if we have fewer snapshots
+      while (dayData.length < 7) dayData.unshift(0);
+      const rate = Math.round((dayData.filter(v => v).length / dayData.length) * 100);
+      return { name: a.name, days: dayData.slice(-7), rate };
+    }).sort((a, b) => b.rate - a.rate);
+  }, [roster, snapshots, selectedGroup]);
+
+  if (heatData.length === 0) return null;
+
+  return (
+    <Card className="p-6 mb-6">
+      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Attendance Heatmap</h3>
+      <p className="text-white/50 text-xs mb-4 font-mono">Last 7 sessions · per-athlete check-in pattern.</p>
+      <div className="space-y-1.5">
+        {/* Header row */}
+        <div className="flex items-center gap-1">
+          <div className="w-28 shrink-0" />
+          {DAYS.map(d => (
+            <div key={d} className="flex-1 text-center text-white/40 text-[10px] font-bold">{d}</div>
+          ))}
+          <div className="w-12 text-right text-white/40 text-[10px] font-bold">Rate</div>
+        </div>
+        {heatData.map(row => (
+          <div key={row.name} className="flex items-center gap-1">
+            <div className="w-28 shrink-0 text-white/70 text-xs font-medium truncate">{row.name.split(" ")[0]}</div>
+            {row.days.map((v, i) => (
+              <div key={i} className="flex-1 flex items-center justify-center">
+                <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                  v ? "bg-emerald-500/80 text-white" : "bg-white/[0.03] text-white/20"
+                }`}>{v ? "✓" : "✗"}</div>
+              </div>
+            ))}
+            <div className={`w-12 text-right text-xs font-bold font-mono ${
+              row.rate >= 80 ? "text-emerald-400" : row.rate >= 50 ? "text-[#f59e0b]" : "text-red-400"
+            }`}>{row.rate}%</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/* ── GROUP PERFORMANCE ── */
+function GroupPerformance({ roster, snapshots, auditLog, avgAtt }: { roster: Athlete[]; snapshots: DailySnapshot[]; auditLog: AuditEntry[]; avgAtt: (s: DailySnapshot[]) => number }) {
+  const groups = useMemo(() => {
+    return ROSTER_GROUPS.map(g => {
+      const members = roster.filter(a => a.group === g.id);
+      if (members.length === 0) return null;
+      const avgXP = Math.round(members.reduce((s, a) => s + a.xp, 0) / members.length);
+      const avgStreak = (members.reduce((s, a) => s + a.streak, 0) / members.length).toFixed(1);
+      const presentCount = members.filter(a => a.present).length;
+      const attRate = members.length ? Math.round((presentCount / members.length) * 100) : 0;
+      const totalPractices = Math.round(members.reduce((s, a) => s + a.totalPractices, 0) / members.length);
+      return { ...g, members: members.length, avgXP, avgStreak, attRate, totalPractices };
+    }).filter(Boolean) as (typeof ROSTER_GROUPS[number] & { members: number; avgXP: number; avgStreak: string; attRate: number; totalPractices: number })[];
+  }, [roster]);
+
+  if (groups.length === 0) return null;
+
+  return (
+    <Card className="p-6 mb-6">
+      <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-5">Training Group Performance</h3>
+      <div className="space-y-4">
+        {groups.map(g => (
+          <div key={g.id} className="rounded-xl bg-white/[0.02] border border-white/[0.04] p-4" style={{ borderLeftWidth: 3, borderLeftColor: g.color }}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-lg">{g.icon}</span>
+              <span className="text-white font-bold text-sm" style={{ color: g.color }}>{g.name}</span>
+              <span className="text-white/40 text-xs ml-auto font-mono">{g.members} athletes</span>
+            </div>
+            <div className="text-white/50 text-[10px] font-mono mb-3">{g.sport}</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="text-center p-3 rounded-lg bg-white/[0.02]">
+                <div className="text-xl font-black tabular-nums" style={{ color: g.color }}>{g.avgXP}</div>
+                <div className="text-white/40 text-[10px] uppercase">Avg XP</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-white/[0.02]">
+                <div className="text-xl font-black tabular-nums text-emerald-400">{g.attRate}%</div>
+                <div className="text-white/40 text-[10px] uppercase">Attendance</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-white/[0.02]">
+                <div className="text-xl font-black tabular-nums text-white">{g.avgStreak}</div>
+                <div className="text-white/40 text-[10px] uppercase">Avg Streak</div>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-white/[0.02]">
+                <div className="text-xl font-black tabular-nums text-[#a855f7]">{g.totalPractices}</div>
+                <div className="text-white/40 text-[10px] uppercase">Avg Sessions</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+/* ── SEASON REPORT ── */
+function SeasonReport({ roster, snapshots, avgAtt, avgXP, mostImproved }: {
+  roster: Athlete[]; snapshots: DailySnapshot[];
+  avgAtt: (s: DailySnapshot[]) => number; avgXP: (s: DailySnapshot[]) => number;
+  mostImproved: Athlete | null;
+}) {
+  const totalXP = roster.reduce((s, a) => s + a.xp, 0);
+  const avgAttRate = avgAtt(snapshots.slice(-30));
+  const avgXPDay = avgXP(snapshots.slice(-30));
+  const topAthlete = [...roster].sort((a, b) => b.xp - a.xp)[0];
+  const longestStreak = [...roster].sort((a, b) => b.streak - a.streak)[0];
+  const champPlus = roster.filter(a => {
+    const lv = getLevel(a.xp, getSportForAthlete(a));
+    return ["Champion", "Legend"].includes(lv.name);
+  }).length;
+
+  const exportReport = useCallback(() => {
+    let text = `METTLE TEAM REPORT\n`;
+    text += `Generated ${new Date().toLocaleDateString()}\n`;
+    text += `${"=".repeat(40)}\n\n`;
+    text += `ATHLETES: ${roster.length}\n`;
+    text += `TOTAL XP: ${totalXP.toLocaleString()}\n`;
+    text += `30-DAY ATTENDANCE: ${avgAttRate}%\n`;
+    text += `AVG XP/DAY: ${avgXPDay}\n\n`;
+    text += `TOP ATHLETE: ${topAthlete?.name || "N/A"} (${topAthlete?.xp || 0} XP)\n`;
+    text += `LONGEST STREAK: ${longestStreak?.name || "N/A"} (${longestStreak?.streak || 0} days)\n`;
+    text += `CHAMPION+ ATHLETES: ${champPlus}\n`;
+    if (mostImproved) text += `MOST IMPROVED: ${mostImproved.name}\n`;
+    text += `\nGROUPS:\n`;
+    ROSTER_GROUPS.forEach(g => {
+      const m = roster.filter(a => a.group === g.id);
+      if (m.length === 0) return;
+      const gAvg = Math.round(m.reduce((s, a) => s + a.xp, 0) / m.length);
+      text += `  ${g.name}: ${m.length} athletes, ${gAvg} avg XP\n`;
+    });
+    const blob = new Blob([text], { type: "text/plain" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "mettle-team-report.txt";
+    a.click();
+  }, [roster, totalXP, avgAttRate, avgXPDay, topAthlete, longestStreak, champPlus, mostImproved]);
+
+  return (
+    <Card className="p-6 mb-6">
+      <div className="flex items-center justify-between mb-5">
+        <h3 className="text-white/60 text-[11px] uppercase tracking-[0.15em] font-bold">Season Report</h3>
+        <button onClick={exportReport}
+          className="text-[#00f0ff]/60 text-xs font-mono hover:text-[#00f0ff] transition-all px-3 py-1.5 border border-[#00f0ff]/15 rounded-lg min-h-[32px]">
+          Export Text
+        </button>
+      </div>
+      <div className="space-y-4 text-sm text-white/70 leading-relaxed">
+        <p>
+          The team has <span className="text-white font-bold">{roster.length} active athletes</span> across{" "}
+          {ROSTER_GROUPS.filter(g => roster.some(a => a.group === g.id)).length} training groups,
+          accumulating <span className="text-[#f59e0b] font-bold">{totalXP.toLocaleString()} total XP</span> through the METTLE gamification system.
+        </p>
+        <p>
+          <span className="text-white font-semibold">Attendance:</span> The 30-day average sits at{" "}
+          <span className="text-emerald-400 font-bold">{avgAttRate}%</span> with{" "}
+          <span className="text-[#a855f7] font-bold">{avgXPDay} XP/day</span> average team output.
+          {longestStreak && (
+            <> The longest active streak belongs to <span className="text-white font-semibold">{longestStreak.name}</span> at {longestStreak.streak} days.</>
+          )}
+        </p>
+        <p>
+          <span className="text-white font-semibold">Standout:</span>{" "}
+          {topAthlete && (
+            <><span className="text-[#f59e0b] font-bold">{topAthlete.name}</span> leads the team with {topAthlete.xp.toLocaleString()} XP at the {getLevel(topAthlete.xp, getSportForAthlete(topAthlete)).name} level. </>
+          )}
+          <span className="text-white font-semibold">{champPlus}</span> athlete{champPlus !== 1 ? "s have" : " has"} reached Champion or Legend status.
+        </p>
+        {mostImproved && (
+          <p className="pt-2 border-t border-white/[0.04] text-emerald-400 font-medium">
+            Most Improved: {mostImproved.name}
+          </p>
+        )}
+      </div>
     </Card>
   );
 }
