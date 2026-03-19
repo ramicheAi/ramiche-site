@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEXUS — Agent Experiment Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#050508;--surface:#0a0a0f;--card:#0f0f16;--border:#1a1a2e;
+  --text:#e8e8f0;--text-dim:#6b6b80;--text-muted:#3a3a50;
+  --accent:#6366f1;--accent-glow:#818cf822;--accent-solid:#4f46e5;
+  --green:#10b981;--green-bg:#10b98115;--green-glow:#10b98130;
+  --red:#ef4444;--red-bg:#ef444415;--red-glow:#ef444430;
+  --amber:#f59e0b;--amber-bg:#f59e0b15;
+  --cyan:#06b6d4;--cyan-bg:#06b6d415;
+  --purple:#a855f7;--purple-bg:#a855f715;
+  --radius:12px;--radius-sm:8px;--radius-xs:6px;
+}
+html{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;scroll-behavior:smooth}
+body{min-height:100vh;position:relative}
+body::before{content:'';position:fixed;top:0;left:0;right:0;height:600px;background:radial-gradient(ellipse 80% 50% at 50% -20%,#6366f108,transparent);pointer-events:none;z-index:0}
+
+/* ULTRA LINEAR LAYOUT */
+.nexus-container{max-width:100%;margin:0 auto;position:relative;z-index:1}
+
+/* HERO */
+.hero{width:100%;padding:80px 60px 60px;border-bottom:1px solid var(--border);position:relative;overflow:hidden}
+.hero::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;padding:6px 16px;border-radius:100px;background:var(--accent-glow);border:1px solid #6366f130;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:24px}
+.hero-badge .pulse{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.5)}}
+.hero h1{font-size:56px;font-weight:900;letter-spacing:-2px;line-height:1;margin-bottom:12px;background:linear-gradient(135deg,#e8e8f0 0%,#6366f1 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:16px;color:var(--text-dim);max-width:600px;line-height:1.6}
+
+/* STATS BAR */
+.stats-bar{display:flex;width:100%;border-bottom:1px solid var(--border)}
+.stat-cell{flex:1;padding:32px 40px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:4px}
+.stat-cell:last-child{border-right:none}
+.stat-cell .label{font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted)}
+.stat-cell .value{font-size:36px;font-weight:800;font-family:'JetBrains Mono',monospace;letter-spacing:-1px}
+.stat-cell .delta{font-size:12px;font-weight:500;margin-top:2px}
+.stat-cell .delta.up{color:var(--green)}
+.stat-cell .delta.down{color:var(--red)}
+
+/* SECTION HEADERS */
+.section{width:100%;border-bottom:1px solid var(--border)}
+.section-header{padding:40px 60px 24px;display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);display:flex;align-items:center;gap:10px}
+.section-title::before{content:'';width:3px;height:16px;background:var(--accent);border-radius:2px}
+
+/* EXPERIMENT DESIGNER */
+.designer{padding:0 60px 40px;display:grid;grid-template-columns:1fr 1fr;gap:0;border:1px solid var(--border);margin:0 60px 0;border-radius:var(--radius)}
+.designer-left,.designer-right{padding:32px}
+.designer-left{border-right:1px solid var(--border)}
+.form-group{margin-bottom:24px}
+.form-label{display:block;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px}
+.form-input,.form-select,.form-textarea{width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-xs);color:var(--text);font-family:'Inter',sans-serif;font-size:14px;transition:border .2s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow)}
+.form-textarea{resize:vertical;min-height:80px}
+.form-select{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b6b80' d='M6 8L1 3h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
+
+/* BUTTONS */
+.btn{padding:10px 24px;border-radius:var(--radius-xs);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;font-family:'Inter',sans-serif;letter-spacing:.3px}
+.btn-primary{background:var(--accent);color:white}
+.btn-primary:hover{background:var(--accent-solid);transform:translateY(-1px);box-shadow:0 4px 20px var(--accent-glow)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--text-dim)}
+.btn-ghost:hover{border-color:var(--accent);color:var(--text)}
+.btn-sm{padding:6px 14px;font-size:12px}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid var(--red-glow)}
+
+/* METRIC SELECTOR */
+.metric-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+.metric-chip{padding:6px 14px;border-radius:100px;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:all .2s;color:var(--text-dim)}
+.metric-chip.active{border-color:var(--accent);background:var(--accent-glow);color:var(--accent)}
+.metric-chip:hover{border-color:var(--accent)}
+
+/* PRODUCT SELECTOR */
+.product-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.product-card{padding:16px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);cursor:pointer;transition:all .2s;text-align:center}
+.product-card:hover{border-color:var(--accent)}
+.product-card.active{border-color:var(--accent);background:var(--accent-glow)}
+.product-card .icon{font-size:24px;margin-bottom:6px}
+.product-card .name{font-size:12px;font-weight:600;color:var(--text)}
+
+/* EXPERIMENT CARDS — TIMELINE */
+.timeline{padding:0 60px 40px}
+.timeline-line{position:relative;padding-left:40px}
+.timeline-line::before{content:'';position:absolute;left:15px;top:0;bottom:0;width:1px;background:var(--border)}
+.exp-card{position:relative;margin-bottom:16px;padding:24px 28px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);transition:all .3s;cursor:pointer}
+.exp-card::before{content:'';position:absolute;left:-33px;top:28px;width:11px;height:11px;border-radius:50%;border:2px solid var(--border);background:var(--bg)}
+.exp-card.running::before{border-color:var(--amber);background:var(--amber);animation:pulse 2s infinite}
+.exp-card.winner::before{border-color:var(--green);background:var(--green)}
+.exp-card.loser::before{border-color:var(--red);background:var(--red)}
+.exp-card.pending::before{border-color:var(--text-muted);background:var(--text-muted)}
+.exp-card:hover{border-color:var(--accent);transform:translateX(4px)}
+.exp-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.exp-card-title{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.exp-status{padding:4px 12px;border-radius:100px;font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+.exp-status.running{background:var(--amber-bg);color:var(--amber)}
+.exp-status.winner{background:var(--green-bg);color:var(--green)}
+.exp-status.loser{background:var(--red-bg);color:var(--red)}
+.exp-status.pending{background:var(--surface);color:var(--text-muted)}
+.exp-meta{display:flex;gap:24px;margin-bottom:16px}
+.exp-meta-item{font-size:12px;color:var(--text-dim);display:flex;align-items:center;gap:6px}
+.exp-meta-item .dot{width:4px;height:4px;border-radius:50%;background:var(--text-muted)}
+
+/* VARIANT BARS */
+.variant-row{display:flex;align-items:center;gap:16px;margin-bottom:10px}
+.variant-label{font-size:12px;font-weight:600;width:80px;font-family:'JetBrains Mono',monospace;color:var(--text-dim)}
+.variant-bar-track{flex:1;height:32px;background:var(--bg);border-radius:var(--radius-xs);overflow:hidden;position:relative}
+.variant-bar-fill{height:100%;border-radius:var(--radius-xs);transition:width 1.5s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;padding:0 12px}
+.variant-bar-fill.a{background:linear-gradient(90deg,#6366f130,#6366f160)}
+.variant-bar-fill.b{background:linear-gradient(90deg,#06b6d430,#06b6d460)}
+.variant-value{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--text)}
+.variant-delta{font-size:11px;font-weight:600;margin-left:auto}
+
+/* LIVE CHART */
+.chart-container{padding:24px 28px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin:0 60px 40px}
+.chart-canvas{width:100%;height:280px;position:relative}
+canvas{width:100%!important;height:100%!important}
+
+/* AGENT LEADERBOARD */
+.leaderboard{padding:0 60px 40px}
+.lb-row{display:flex;align-items:center;padding:16px 24px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;background:var(--card);transition:all .2s}
+.lb-row:hover{border-color:var(--accent);transform:translateX(4px)}
+.lb-rank{font-size:24px;font-weight:900;font-family:'JetBrains Mono',monospace;width:50px;color:var(--text-muted)}
+.lb-rank.gold{color:#f59e0b}
+.lb-rank.silver{color:#94a3b8}
+.lb-rank.bronze{color:#b45309}
+.lb-name{font-size:15px;font-weight:700;flex:1}
+.lb-stats{display:flex;gap:24px;align-items:center}
+.lb-stat{text-align:right}
+.lb-stat .val{font-size:18px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.lb-stat .lbl{font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+.lb-bar{width:120px;height:6px;background:var(--bg);border-radius:3px;overflow:hidden;margin-left:16px}
+.lb-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--green))}
+
+/* HYPOTHESIS BUILDER */
+.hyp-builder{padding:24px;background:var(--bg);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.hyp-sentence{font-size:18px;font-weight:500;line-height:2;color:var(--text-dim)}
+.hyp-sentence .editable{color:var(--text);background:var(--surface);border-bottom:2px solid var(--accent);padding:2px 8px;cursor:text;min-width:80px;display:inline-block;font-weight:700;transition:all .2s}
+.hyp-sentence .editable:focus{outline:none;background:var(--accent-glow)}
+.hyp-sentence .keyword{color:var(--accent);font-weight:700}
+
+/* SAMPLE SIZE CALCULATOR */
+.calc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.calc-card{padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);text-align:center}
+.calc-card .big{font-size:32px;font-weight:800;font-family:'JetBrains Mono',monospace;margin-bottom:4px}
+.calc-card .sub{font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+
+/* CONFIDENCE GAUGE */
+.gauge-wrap{display:flex;justify-content:center;padding:24px}
+.gauge{width:200px;height:100px;position:relative}
+.gauge-arc{fill:none;stroke-width:12;stroke-linecap:round}
+.gauge-bg{stroke:var(--border)}
+.gauge-fill{stroke:var(--green);transition:stroke-dashoffset 1.5s ease}
+.gauge-value{position:absolute;bottom:0;left:50%;transform:translateX(-50%);font-size:36px;font-weight:900;font-family:'JetBrains Mono',monospace}
+.gauge-label{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)}
+
+/* ACTIONS BAR */
+.actions-bar{position:fixed;bottom:0;left:0;right:0;padding:16px 60px;background:var(--bg);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:100;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);background:rgba(5,5,8,.85)}
+.actions-left{display:flex;align-items:center;gap:12px}
+.actions-right{display:flex;align-items:center;gap:12px}
+
+/* DETAIL PANEL (slide-in) */
+.detail-panel{position:fixed;top:0;right:-500px;width:500px;height:100vh;background:var(--surface);border-left:1px solid var(--border);z-index:200;transition:right .4s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:40px}
+.detail-panel.open{right:0}
+.detail-panel-close{position:absolute;top:20px;right:20px;width:32px;height:32px;border-radius:50%;background:var(--bg);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:18px;transition:all .2s}
+.detail-panel-close:hover{border-color:var(--accent);color:var(--text)}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .hero{padding:40px 24px 32px}
+  .hero h1{font-size:36px}
+  .stats-bar{flex-wrap:wrap}
+  .stat-cell{min-width:50%;border-bottom:1px solid var(--border)}
+  .section-header,.timeline,.leaderboard,.chart-container{padding-left:24px;padding-right:24px}
+  .designer{grid-template-columns:1fr;margin:0 24px}
+  .designer-left{border-right:none;border-bottom:1px solid var(--border)}
+  .product-grid{grid-template-columns:repeat(2,1fr)}
+  .calc-grid{grid-template-columns:1fr}
+  .actions-bar{padding:12px 24px}
+}
+
+/* ANIMATIONS */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideIn{from{opacity:0;transform:translateX(-20px)}to{opacity:1;transform:translateX(0)}}
+.animate-in{animation:fadeInUp .6s ease forwards}
+.animate-slide{animation:slideIn .4s ease forwards}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--text-muted)}
+
+/* FOOTER SPACER */
+.footer-spacer{height:80px}
+
+/* TAB SYSTEM */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 60px}
+.tab{padding:14px 24px;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.3px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* RISK METER */
+.risk-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px}
+.risk-seg{flex:1;border-radius:2px;transition:opacity .3s}
+.risk-seg.low{background:var(--green)}
+.risk-seg.med{background:var(--amber)}
+.risk-seg.high{background:var(--red)}
+.risk-seg.inactive{opacity:.15}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge"><span class="pulse"></span> PROXIMON — R&D SYSTEMS</div>
+  <h1>NEXUS</h1>
+  <p>Agent Experiment Lab. Design, run, and measure A/B experiments across every RAMICHE product. Data-driven decisions, not guesswork.</p>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-cell">
+    <span class="label">Active Experiments</span>
+    <span class="value" id="stat-active">3</span>
+    <span class="delta up">↑ 2 this week</span>
+  </div>
+  <div class="stat-cell">
+    <span class="label">Total Runs</span>
+    <span class="value" id="stat-total">47</span>
+    <span class="delta up">↑ 12 vs last month</span>
+  </div>
+  <div class="stat-cell">
+    <span class="label">Win Rate</span>
+    <span class="value" id="stat-winrate">68%</span>
+    <span class="delta up">↑ 5% improvement</span>
+  </div>
+  <div class="stat-cell">
+    <span class="label">Avg Confidence</span>
+    <span class="value" id="stat-confidence">94%</span>
+    <span class="delta up">↑ solid significance</span>
+  </div>
+  <div class="stat-cell">
+    <span class="label">Impact Score</span>
+    <span class="value" id="stat-impact">8.4</span>
+    <span class="delta up">↑ high leverage</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" data-tab="experiments">Experiments</div>
+  <div class="tab" data-tab="designer">New Experiment</div>
+  <div class="tab" data-tab="leaderboard">Agent Leaderboard</div>
+  <div class="tab" data-tab="insights">Insights Engine</div>
+</div>
+
+<!-- TAB: EXPERIMENTS -->
+<div class="tab-content active" id="tab-experiments">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Live & Recent Experiments</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="filterExps('all')">All</button>
+        <button class="btn btn-ghost btn-sm" onclick="filterExps('running')">Running</button>
+        <button class="btn btn-ghost btn-sm" onclick="filterExps('winner')">Winners</button>
+        <button class="btn btn-ghost btn-sm" onclick="filterExps('loser')">Losers</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="timeline">
+    <div class="timeline-line" id="experiments-list"></div>
+  </div>
+
+  <!-- LIVE CHART -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Live Conversion Trend</div>
+      <div class="metric-chips">
+        <span class="metric-chip active" data-metric="conversion">Conversion</span>
+        <span class="metric-chip" data-metric="engagement">Engagement</span>
+        <span class="metric-chip" data-metric="retention">Retention</span>
+        <span class="metric-chip" data-metric="revenue">Revenue</span>
+      </div>
+    </div>
+  </div>
+  <div class="chart-container">
+    <canvas id="trend-chart"></canvas>
+  </div>
+</div>
+
+<!-- TAB: DESIGNER -->
+<div class="tab-content" id="tab-designer">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Experiment Designer</div>
+    </div>
+  </div>
+
+  <div style="padding:24px 60px 40px">
+    <div class="designer">
+      <div class="designer-left">
+        <div class="form-group">
+          <label class="form-label">Experiment Name</label>
+          <input class="form-input" id="exp-name" placeholder="e.g., Coach Onboarding Flow v2" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Target Product</label>
+          <div class="product-grid" id="product-grid">
+            <div class="product-card active" data-product="apex">
+              <div class="icon">🏊</div>
+              <div class="name">Apex Athlete</div>
+            </div>
+            <div class="product-card" data-product="galactik">
+              <div class="icon">🌌</div>
+              <div class="name">Galactik Antics</div>
+            </div>
+            <div class="product-card" data-product="studio">
+              <div class="icon">🎵</div>
+              <div class="name">RAMICHE Music</div>
+            </div>
+            <div class="product-card" data-product="parallax">
+              <div class="icon">🏷️</div>
+              <div class="name">Parallax</div>
+            </div>
+            <div class="product-card" data-product="agents">
+              <div class="icon">🤖</div>
+              <div class="name">Agent System</div>
+            </div>
+            <div class="product-card" data-product="command">
+              <div class="icon">🎛️</div>
+              <div class="name">Command Center</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Primary Metric</label>
+          <select class="form-select" id="exp-metric">
+            <option value="conversion">Conversion Rate</option>
+            <option value="engagement">User Engagement</option>
+            <option value="retention">Retention</option>
+            <option value="revenue">Revenue Impact</option>
+            <option value="speed">Time-to-Value</option>
+            <option value="satisfaction">Satisfaction (NPS)</option>
+            <option value="adoption">Feature Adoption</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Risk Level</label>
+          <div class="risk-bar" id="risk-bar">
+            <div class="risk-seg low" data-risk="1"></div>
+            <div class="risk-seg low" data-risk="2"></div>
+            <div class="risk-seg med inactive" data-risk="3"></div>
+            <div class="risk-seg med inactive" data-risk="4"></div>
+            <div class="risk-seg high inactive" data-risk="5"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px">
+            <span style="font-size:10px;color:var(--green);font-weight:600">LOW</span>
+            <span style="font-size:10px;color:var(--amber);font-weight:600">MEDIUM</span>
+            <span style="font-size:10px;color:var(--red);font-weight:600">HIGH</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="designer-right">
+        <div class="form-group">
+          <label class="form-label">Hypothesis Builder</label>
+          <div class="hyp-builder">
+            <div class="hyp-sentence">
+              <span class="keyword">IF</span> we change
+              <span class="editable" contenteditable="true" id="hyp-change">the onboarding flow</span>
+              <br>
+              <span class="keyword">THEN</span>
+              <span class="editable" contenteditable="true" id="hyp-outcome">conversion will increase</span>
+              <br>
+              <span class="keyword">BECAUSE</span>
+              <span class="editable" contenteditable="true" id="hyp-reason">reduced friction in signup</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Variant A (Control)</label>
+          <textarea class="form-textarea" id="variant-a" placeholder="Describe the current experience..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Variant B (Treatment)</label>
+          <textarea class="form-textarea" id="variant-b" placeholder="Describe what changes..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Sample Size Estimate</label>
+          <div class="calc-grid">
+            <div class="calc-card">
+              <div class="big" id="calc-sample">1,200</div>
+              <div class="sub">Users Needed</div>
+            </div>
+            <div class="calc-card">
+              <div class="big" id="calc-days">14</div>
+              <div class="sub">Est. Days</div>
+            </div>
+            <div class="calc-card">
+              <div class="big" id="calc-power">80%</div>
+              <div class="sub">Stat Power</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px">
+          <button class="btn btn-ghost" onclick="saveDraft()">Save Draft</button>
+          <button class="btn btn-primary" onclick="launchExperiment()">Launch Experiment →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TAB: LEADERBOARD -->
+<div class="tab-content" id="tab-leaderboard">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Agent Experiment Leaderboard</div>
+      <div style="font-size:12px;color:var(--text-muted)">Ranked by experiment success rate × impact</div>
+    </div>
+  </div>
+  <div class="leaderboard" id="leaderboard"></div>
+</div>
+
+<!-- TAB: INSIGHTS -->
+<div class="tab-content" id="tab-insights">
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Pattern Recognition Engine</div>
+    </div>
+  </div>
+  <div style="padding:0 60px 40px">
+    <div id="insights-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px"></div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-panel-close" onclick="closeDetail()">✕</div>
+  <div id="detail-content"></div>
+</div>
+
+<!-- ACTIONS BAR -->
+<div class="actions-bar">
+  <div class="actions-left">
+    <span style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace" id="clock"></span>
+    <span style="font-size:12px;color:var(--text-muted)">•</span>
+    <span style="font-size:12px;color:var(--text-dim)">NEXUS v1.0 — Proximon R&D</span>
+  </div>
+  <div class="actions-right">
+    <button class="btn btn-ghost btn-sm" onclick="exportData()">Export JSON</button>
+    <button class="btn btn-primary btn-sm" onclick="switchTab('designer')">+ New Experiment</button>
+  </div>
+</div>
+
+<div class="footer-spacer"></div>
+
+<script>
+// ============================================================
+// NEXUS — Agent Experiment Lab
+// Full interactive experiment designer + tracker + leaderboard
+// ============================================================
+
+// EXPERIMENT DATA STORE
+const EXPERIMENTS = [
+  {
+    id: 'EXP-001', name: 'Coach Onboarding Simplification',
+    product: 'Apex Athlete', agent: 'Proximon', status: 'winner',
+    startDate: '2026-03-10', endDate: '2026-03-17',
+    hypothesis: 'Reducing onboarding from 5 steps to 3 will increase coach completion rate',
+    metric: 'conversion', variantA: 'Current 5-step onboarding', variantB: '3-step streamlined flow',
+    resultA: 42, resultB: 67, confidence: 97, risk: 2,
+    impact: 9.2, sampleSize: 840, insight: 'Step 3 (roster import) was causing 38% abandonment. Deferring it post-onboarding eliminated the friction.'
+  },
+  {
+    id: 'EXP-002', name: 'Galactik Tier Progress Bar',
+    product: 'Galactik Antics', agent: 'Proximon', status: 'winner',
+    startDate: '2026-03-12', endDate: '2026-03-16',
+    hypothesis: 'Showing tier progress on product pages will increase repeat purchase rate',
+    metric: 'retention', variantA: 'No progress indicator', variantB: 'Animated progress bar with next-tier preview',
+    resultA: 18, resultB: 31, confidence: 94, risk: 1,
+    impact: 8.5, sampleSize: 560, insight: 'Voyager→Pioneer threshold (3 purchases) hit 72% faster with visibility. Cosmic tier preview drives aspiration.'
+  },
+  {
+    id: 'EXP-003', name: 'Agent Fallback Chain Optimization',
+    product: 'Agent System', agent: 'Proximon', status: 'running',
+    startDate: '2026-03-17', endDate: null,
+    hypothesis: 'Optimized fallback ordering by latency profile will reduce agent error rate by 40%',
+    metric: 'speed', variantA: 'Static fallback order', variantB: 'Dynamic latency-weighted ordering',
+    resultA: 12, resultB: 5.8, confidence: 78, risk: 3,
+    impact: 7.8, sampleSize: 2100, insight: 'Running — DeepSeek latency variance is 3x higher at peak hours. Dynamic routing showing promise.'
+  },
+  {
+    id: 'EXP-004', name: 'Swimmer Race Ghost Visualization',
+    product: 'Apex Athlete', agent: 'Proximon', status: 'running',
+    startDate: '2026-03-17', endDate: null,
+    hypothesis: 'Ghost-race visualization against personal bests will increase practice engagement by 25%',
+    metric: 'engagement', variantA: 'Text-only time display', variantB: 'Animated dual-lane ghost race',
+    resultA: 34, resultB: 52, confidence: 82, risk: 1,
+    impact: 8.9, sampleSize: 1600, insight: 'Running — Early data shows 53% increase in athletes checking their times. Ghost effect is compelling.'
+  },
+  {
+    id: 'EXP-005', name: 'Command Center Chat API Routing',
+    product: 'Command Center', agent: 'Proximon', status: 'winner',
+    startDate: '2026-03-11', endDate: '2026-03-14',
+    hypothesis: 'Direct API routing (skip OpenRouter) will reduce chat costs by 80% with no quality loss',
+    metric: 'revenue', variantA: 'All traffic via OpenRouter', variantB: 'Direct Gemini→DeepSeek→OpenRouter cascade',
+    resultA: 100, resultB: 18, confidence: 99, risk: 2,
+    impact: 9.8, sampleSize: 3200, insight: 'Confirmed 82% cost reduction. Quality maintained — direct APIs have lower latency too. Now standard.'
+  },
+  {
+    id: 'EXP-006', name: 'Collector Badge Email Triggers',
+    product: 'Galactik Antics', agent: 'Vee', status: 'loser',
+    startDate: '2026-03-13', endDate: '2026-03-16',
+    hypothesis: 'Badge-unlock email notifications will drive 15% more return visits',
+    metric: 'retention', variantA: 'No badge notifications', variantB: 'Automated badge unlock emails',
+    resultA: 22, resultB: 24, confidence: 43, risk: 1,
+    impact: 3.2, sampleSize: 420, insight: 'Insufficient sample size and only 2pp lift. Email open rate was 61% but click-through was 8%. Needs richer content.'
+  },
+  {
+    id: 'EXP-007', name: 'Practice Target Auto-Calibration',
+    product: 'Apex Athlete', agent: 'MICHAEL', status: 'winner',
+    startDate: '2026-03-14', endDate: '2026-03-17',
+    hypothesis: 'Auto-calibrating practice targets based on recent performance will reduce coach adjustment time by 60%',
+    metric: 'speed', variantA: 'Manual target setting', variantB: 'AI auto-calibration with coach override',
+    resultA: 45, resultB: 12, confidence: 96, risk: 2,
+    impact: 8.1, sampleSize: 180, insight: 'Coaches spent avg 45 min/week adjusting targets → now 12 min. Override rate was only 8%, meaning AI calibration matched coach intent 92% of the time.'
+  },
+  {
+    id: 'EXP-008', name: 'Gateway Timeout Extension',
+    product: 'Agent System', agent: 'Proximon', status: 'winner',
+    startDate: '2026-03-13', endDate: '2026-03-13',
+    hypothesis: 'Increasing gateway timeout from 300s to 1800s will eliminate timeout-related agent failures',
+    metric: 'conversion', variantA: '300s timeout', variantB: '1800s timeout',
+    resultA: 73, resultB: 99, confidence: 99, risk: 1,
+    impact: 9.5, sampleSize: 500, insight: 'Zero timeout failures since deployment. Complex agent tasks (decomposition, multi-file edits) now complete reliably.'
+  },
+  {
+    id: 'EXP-009', name: 'Zombie Session Cleanup Cron',
+    product: 'Agent System', agent: 'Proximon', status: 'winner',
+    startDate: '2026-03-13', endDate: '2026-03-14',
+    hypothesis: 'Automated 4am session pruning will prevent memory leaks and reduce agent restart frequency',
+    metric: 'speed', variantA: 'Manual cleanup', variantB: 'Daily 4am cron (>8hr idle sessions)',
+    resultA: 0, resultB: 109, confidence: 99, risk: 1,
+    impact: 7.5, sampleSize: 109, insight: 'Pruned 109 zombie sessions on first run. Memory usage dropped 40%. No false positives — only truly idle sessions removed.'
+  },
+  {
+    id: 'EXP-010', name: 'Merch Page Scarcity Counter',
+    product: 'Galactik Antics', agent: 'Mercury', status: 'pending',
+    startDate: null, endDate: null,
+    hypothesis: 'Adding "X left in stock" countdown on limited editions will increase conversion by 20%',
+    metric: 'conversion', variantA: 'Standard product page', variantB: 'With scarcity counter + urgency gradient',
+    resultA: null, resultB: null, confidence: 0, risk: 2,
+    impact: null, sampleSize: 800, insight: 'Queued — waiting for Shopify store launch.'
+  }
+];
+
+// AGENT LEADERBOARD DATA
+const AGENTS = [
+  { name: 'Proximon', experiments: 6, wins: 5, losses: 0, running: 1, avgImpact: 8.8, avgConfidence: 92 },
+  { name: 'MICHAEL', experiments: 3, wins: 2, losses: 0, running: 1, avgImpact: 7.9, avgConfidence: 88 },
+  { name: 'Nova', experiments: 4, wins: 3, losses: 1, running: 0, avgImpact: 7.2, avgConfidence: 85 },
+  { name: 'Shuri', experiments: 3, wins: 2, losses: 1, running: 0, avgImpact: 7.5, avgConfidence: 82 },
+  { name: 'Vee', experiments: 2, wins: 0, losses: 1, running: 1, avgImpact: 4.8, avgConfidence: 52 },
+  { name: 'Mercury', experiments: 1, wins: 0, losses: 0, running: 0, avgImpact: 0, avgConfidence: 0 },
+  { name: 'Simons', experiments: 2, wins: 1, losses: 1, running: 0, avgImpact: 6.4, avgConfidence: 76 },
+  { name: 'Dr. Strange', experiments: 1, wins: 1, losses: 0, running: 0, avgImpact: 7.0, avgConfidence: 89 },
+];
+
+// INSIGHTS DATA
+const INSIGHTS = [
+  { title: 'Low-Risk = High Win Rate', body: 'Experiments with risk level 1-2 have a 78% win rate vs 45% for risk 3+. Start safe, scale winners.', type: 'pattern', icon: '📊' },
+  { title: 'Agent System = Highest Impact', body: 'Infrastructure experiments (timeout, routing, cleanup) averaged 8.9 impact — highest across all products.', type: 'finding', icon: '⚡' },
+  { title: 'Sample Size Matters', body: '3 experiments failed confidence threshold due to <500 samples. Minimum viable sample: 800 users for 95% confidence.', type: 'warning', icon: '⚠️' },
+  { title: 'Onboarding Is the Bottleneck', body: 'Apex Athlete experiments consistently show onboarding friction as the #1 conversion killer. Every 1-step reduction = ~8% lift.', type: 'opportunity', icon: '🎯' },
+  { title: 'Visual Feedback Wins', body: 'Experiments adding visual progress indicators (bars, ghosts, gauges) show 40-70% engagement lift vs text-only.', type: 'pattern', icon: '👁️' },
+  { title: 'Cost Experiments Ship Fast', body: 'Revenue/cost optimization experiments reach significance 3x faster than engagement experiments. Quick wins.', type: 'finding', icon: '💰' },
+];
+
+// ============================================================
+// RENDER FUNCTIONS
+// ============================================================
+
+function renderExperiments(filter = 'all') {
+  const list = document.getElementById('experiments-list');
+  const filtered = filter === 'all' ? EXPERIMENTS : EXPERIMENTS.filter(e => e.status === filter);
+
+  list.innerHTML = filtered.map((exp, i) => {
+    const hasResults = exp.resultA !== null && exp.resultB !== null;
+    const deltaVal = hasResults ? (exp.resultB - exp.resultA) : 0;
+    const deltaStr = deltaVal > 0 ? `+${deltaVal}pp` : `${deltaVal}pp`;
+    const deltaClass = deltaVal > 0 ? 'up' : 'down';
+
+    return `
+      <div class="exp-card ${exp.status} animate-slide" style="animation-delay:${i * 0.08}s" onclick="openDetail('${exp.id}')">
+        <div class="exp-card-header">
+          <span class="exp-card-title">${exp.name}</span>
+          <span class="exp-status ${exp.status}">${exp.status}</span>
+        </div>
+        <div class="exp-meta">
+          <span class="exp-meta-item"><span class="dot"></span>${exp.product}</span>
+          <span class="exp-meta-item"><span class="dot"></span>${exp.agent}</span>
+          <span class="exp-meta-item"><span class="dot"></span>${exp.id}</span>
+          ${exp.startDate ? `<span class="exp-meta-item"><span class="dot"></span>${exp.startDate}</span>` : ''}
+        </div>
+        <div style="font-size:13px;color:var(--text-dim);margin-bottom:16px;line-height:1.5">${exp.hypothesis}</div>
+        ${hasResults ? `
+          <div class="variant-row">
+            <span class="variant-label">Control</span>
+            <div class="variant-bar-track">
+              <div class="variant-bar-fill a" style="width:${exp.resultA}%">
+                <span class="variant-value">${exp.resultA}%</span>
+              </div>
+            </div>
+          </div>
+          <div class="variant-row">
+            <span class="variant-label">Variant B</span>
+            <div class="variant-bar-track">
+              <div class="variant-bar-fill b" style="width:${exp.resultB}%">
+                <span class="variant-value">${exp.resultB}%</span>
+                <span class="variant-delta ${deltaClass}" style="margin-left:auto">${deltaStr}</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;gap:16px;margin-top:12px">
+            <span style="font-size:11px;color:var(--text-muted)">Confidence: <strong style="color:${exp.confidence > 90 ? 'var(--green)' : exp.confidence > 70 ? 'var(--amber)' : 'var(--red)'}">${exp.confidence}%</strong></span>
+            <span style="font-size:11px;color:var(--text-muted)">Impact: <strong style="color:var(--accent)">${exp.impact}/10</strong></span>
+            <span style="font-size:11px;color:var(--text-muted)">Sample: <strong>${exp.sampleSize.toLocaleString()}</strong></span>
+          </div>
+        ` : `
+          <div style="font-size:12px;color:var(--text-muted);font-style:italic">Awaiting data collection...</div>
+        `}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLeaderboard() {
+  const lb = document.getElementById('leaderboard');
+  const sorted = [...AGENTS].sort((a, b) => {
+    const scoreA = a.wins > 0 ? (a.wins / a.experiments) * a.avgImpact : 0;
+    const scoreB = b.wins > 0 ? (b.wins / b.experiments) * b.avgImpact : 0;
+    return scoreB - scoreA;
+  });
+
+  lb.innerHTML = sorted.map((agent, i) => {
+    const score = agent.wins > 0 ? ((agent.wins / agent.experiments) * agent.avgImpact).toFixed(1) : '0.0';
+    const winRate = agent.experiments > 0 ? Math.round((agent.wins / agent.experiments) * 100) : 0;
+    const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+
+    return `
+      <div class="lb-row animate-slide" style="animation-delay:${i * 0.06}s">
+        <span class="lb-rank ${rankClass}">#${i + 1}</span>
+        <span class="lb-name">${agent.name}</span>
+        <div class="lb-stats">
+          <div class="lb-stat">
+            <div class="val" style="color:var(--green)">${agent.wins}</div>
+            <div class="lbl">Wins</div>
+          </div>
+          <div class="lb-stat">
+            <div class="val" style="color:var(--red)">${agent.losses}</div>
+            <div class="lbl">Losses</div>
+          </div>
+          <div class="lb-stat">
+            <div class="val">${winRate}%</div>
+            <div class="lbl">Win Rate</div>
+          </div>
+          <div class="lb-stat">
+            <div class="val" style="color:var(--accent)">${agent.avgImpact || '—'}</div>
+            <div class="lbl">Avg Impact</div>
+          </div>
+          <div class="lb-stat">
+            <div class="val">${score}</div>
+            <div class="lbl">Score</div>
+          </div>
+          <div class="lb-bar">
+            <div class="lb-bar-fill" style="width:${Math.min(100, score * 12)}%"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderInsights() {
+  const grid = document.getElementById('insights-grid');
+  const typeColors = {
+    pattern: { bg: 'var(--accent-glow)', border: '#6366f130', color: 'var(--accent)' },
+    finding: { bg: 'var(--green-bg)', border: 'var(--green-glow)', color: 'var(--green)' },
+    warning: { bg: 'var(--amber-bg)', border: '#f59e0b30', color: 'var(--amber)' },
+    opportunity: { bg: 'var(--cyan-bg)', border: '#06b6d430', color: 'var(--cyan)' }
+  };
+
+  grid.innerHTML = INSIGHTS.map((ins, i) => {
+    const c = typeColors[ins.type];
+    return `
+      <div class="animate-in" style="animation-delay:${i * 0.1}s;padding:24px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);border-left:3px solid ${c.color}">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <span style="font-size:20px">${ins.icon}</span>
+          <span style="font-size:14px;font-weight:700">${ins.title}</span>
+          <span style="margin-left:auto;padding:3px 10px;border-radius:100px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;background:${c.bg};color:${c.color};border:1px solid ${c.border}">${ins.type}</span>
+        </div>
+        <p style="font-size:13px;color:var(--text-dim);line-height:1.6">${ins.body}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============================================================
+// DETAIL PANEL
+// ============================================================
+
+function openDetail(id) {
+  const exp = EXPERIMENTS.find(e => e.id === id);
+  if (!exp) return;
+
+  const panel = document.getElementById('detail-panel');
+  const content = document.getElementById('detail-content');
+
+  const hasResults = exp.resultA !== null;
+  const circumference = Math.PI * 80;
+  const offset = circumference - (circumference * (exp.confidence / 100));
+
+  content.innerHTML = `
+    <div style="margin-bottom:32px">
+      <span class="exp-status ${exp.status}" style="margin-bottom:12px;display:inline-block">${exp.status.toUpperCase()}</span>
+      <h2 style="font-size:24px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px">${exp.name}</h2>
+      <div style="font-size:13px;color:var(--text-dim)">${exp.id} • ${exp.product} • ${exp.agent}</div>
+    </div>
+
+    <div style="margin-bottom:28px">
+      <div class="form-label" style="margin-bottom:12px">Hypothesis</div>
+      <div style="font-size:14px;line-height:1.6;color:var(--text);padding:16px;background:var(--bg);border-radius:var(--radius-sm);border-left:3px solid var(--accent)">${exp.hypothesis}</div>
+    </div>
+
+    <div style="margin-bottom:28px">
+      <div class="form-label" style="margin-bottom:12px">Variants</div>
+      <div style="padding:12px 16px;background:var(--bg);border-radius:var(--radius-xs);margin-bottom:8px;border-left:3px solid #6366f1">
+        <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px">CONTROL (A)</div>
+        <div style="font-size:13px;color:var(--text-dim)">${exp.variantA}</div>
+      </div>
+      <div style="padding:12px 16px;background:var(--bg);border-radius:var(--radius-xs);border-left:3px solid var(--cyan)">
+        <div style="font-size:11px;font-weight:600;color:var(--cyan);margin-bottom:4px">TREATMENT (B)</div>
+        <div style="font-size:13px;color:var(--text-dim)">${exp.variantB}</div>
+      </div>
+    </div>
+
+    ${hasResults ? `
+      <div style="margin-bottom:28px">
+        <div class="form-label" style="margin-bottom:16px">Confidence</div>
+        <div class="gauge-wrap">
+          <div class="gauge">
+            <svg viewBox="0 0 200 110" style="width:200px;height:110px">
+              <path class="gauge-arc gauge-bg" d="M 20 100 A 80 80 0 0 1 180 100"/>
+              <path class="gauge-arc gauge-fill" d="M 20 100 A 80 80 0 0 1 180 100"
+                stroke-dasharray="${circumference}"
+                stroke-dashoffset="${offset}"
+                style="stroke:${exp.confidence > 90 ? 'var(--green)' : exp.confidence > 70 ? 'var(--amber)' : 'var(--red)'}"/>
+            </svg>
+            <div class="gauge-value">${exp.confidence}%</div>
+            <div class="gauge-label">Statistical Confidence</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:28px">
+        <div class="form-label" style="margin-bottom:12px">Results</div>
+        <div class="calc-grid" style="grid-template-columns:1fr 1fr">
+          <div class="calc-card">
+            <div class="big" style="color:var(--text-dim)">${exp.resultA}%</div>
+            <div class="sub">Control</div>
+          </div>
+          <div class="calc-card">
+            <div class="big" style="color:${exp.resultB > exp.resultA ? 'var(--green)' : 'var(--red)'}">${exp.resultB}%</div>
+            <div class="sub">Variant B</div>
+          </div>
+        </div>
+      </div>
+    ` : ''}
+
+    <div style="margin-bottom:28px">
+      <div class="form-label" style="margin-bottom:12px">Key Insight</div>
+      <div style="font-size:13px;line-height:1.6;color:var(--text);padding:16px;background:var(--green-bg);border-radius:var(--radius-sm);border:1px solid var(--green-glow)">${exp.insight}</div>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:24px">
+      <button class="btn btn-ghost btn-sm" onclick="duplicateExp('${exp.id}')">Duplicate</button>
+      ${exp.status === 'running' ? `<button class="btn btn-danger btn-sm" onclick="stopExp('${exp.id}')">Stop Experiment</button>` : ''}
+    </div>
+  `;
+
+  panel.classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+// ============================================================
+// CHART — HAND-ROLLED CANVAS (no dependencies)
+// ============================================================
+
+function drawChart() {
+  const canvas = document.getElementById('trend-chart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 280 * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = '280px';
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = 280;
+  const pad = { top: 20, right: 20, bottom: 40, left: 50 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  // Generate data
+  const days = 14;
+  const dataA = [], dataB = [];
+  let valA = 35, valB = 35;
+  for (let i = 0; i < days; i++) {
+    valA += (Math.random() - 0.48) * 3;
+    valB += (Math.random() - 0.35) * 3.5;
+    valA = Math.max(20, Math.min(80, valA));
+    valB = Math.max(20, Math.min(80, valB));
+    dataA.push(valA);
+    dataB.push(valB);
+  }
+
+  const maxVal = 80;
+  const minVal = 20;
+
+  // Grid
+  ctx.strokeStyle = '#1a1a2e';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (chartH / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+
+    const val = maxVal - ((maxVal - minVal) / 4) * i;
+    ctx.fillStyle = '#3a3a50';
+    ctx.font = '11px JetBrains Mono';
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toFixed(0) + '%', pad.left - 8, y + 4);
+  }
+
+  // X labels
+  ctx.fillStyle = '#3a3a50';
+  ctx.textAlign = 'center';
+  ctx.font = '10px Inter';
+  for (let i = 0; i < days; i++) {
+    const x = pad.left + (chartW / (days - 1)) * i;
+    const date = new Date(2026, 2, 4 + i);
+    ctx.fillText(`Mar ${date.getDate()}`, x, h - 10);
+  }
+
+  // Draw line function
+  function drawLine(data, color, glow) {
+    // Glow
+    ctx.shadowColor = glow;
+    ctx.shadowBlur = 12;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    data.forEach((val, i) => {
+      const x = pad.left + (chartW / (days - 1)) * i;
+      const y = pad.top + chartH - ((val - minVal) / (maxVal - minVal)) * chartH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Fill
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = color;
+    ctx.lineTo(pad.left + chartW, pad.top + chartH);
+    ctx.lineTo(pad.left, pad.top + chartH);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Dots
+    data.forEach((val, i) => {
+      const x = pad.left + (chartW / (days - 1)) * i;
+      const y = pad.top + chartH - ((val - minVal) / (maxVal - minVal)) * chartH;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+    });
+  }
+
+  drawLine(dataA, '#6366f1', '#6366f150');
+  drawLine(dataB, '#06b6d4', '#06b6d450');
+
+  // Legend
+  ctx.fillStyle = '#6366f1';
+  ctx.fillRect(w - 180, 8, 12, 3);
+  ctx.fillStyle = '#6b6b80';
+  ctx.font = '11px Inter';
+  ctx.textAlign = 'left';
+  ctx.fillText('Control (A)', w - 164, 12);
+
+  ctx.fillStyle = '#06b6d4';
+  ctx.fillRect(w - 90, 8, 12, 3);
+  ctx.fillStyle = '#6b6b80';
+  ctx.fillText('Variant (B)', w - 74, 12);
+}
+
+// ============================================================
+// TAB SYSTEM
+// ============================================================
+
+function switchTab(tabId) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.tab[data-tab="${tabId}"]`).classList.add('active');
+  document.getElementById(`tab-${tabId}`).classList.add('active');
+
+  if (tabId === 'experiments') { renderExperiments(); setTimeout(drawChart, 100); }
+  if (tabId === 'leaderboard') renderLeaderboard();
+  if (tabId === 'insights') renderInsights();
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+
+// ============================================================
+// INTERACTIONS
+// ============================================================
+
+function filterExps(filter) { renderExperiments(filter); }
+
+// Product selector
+document.querySelectorAll('.product-card').forEach(card => {
+  card.addEventListener('click', () => {
+    document.querySelectorAll('.product-card').forEach(c => c.classList.remove('active'));
+    card.classList.add('active');
+  });
+});
+
+// Risk bar
+document.querySelectorAll('.risk-seg').forEach(seg => {
+  seg.addEventListener('click', () => {
+    const risk = parseInt(seg.dataset.risk);
+    document.querySelectorAll('.risk-seg').forEach((s, i) => {
+      s.classList.toggle('inactive', i + 1 > risk);
+    });
+  });
+});
+
+// Metric chips
+document.querySelectorAll('.metric-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.metric-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    drawChart();
+  });
+});
+
+// Sample size calculator
+function updateCalc() {
+  const metric = document.getElementById('exp-metric').value;
+  const bases = { conversion: 1200, engagement: 2000, retention: 1600, revenue: 800, speed: 600, satisfaction: 1400, adoption: 1000 };
+  const sample = bases[metric] || 1200;
+  const days = Math.ceil(sample / 85);
+  document.getElementById('calc-sample').textContent = sample.toLocaleString();
+  document.getElementById('calc-days').textContent = days;
+}
+document.getElementById('exp-metric').addEventListener('change', updateCalc);
+
+// Launch experiment
+function launchExperiment() {
+  const name = document.getElementById('exp-name').value;
+  if (!name) { document.getElementById('exp-name').style.borderColor = 'var(--red)'; return; }
+
+  const product = document.querySelector('.product-card.active')?.dataset.product || 'apex';
+  const productNames = { apex: 'Apex Athlete', galactik: 'Galactik Antics', studio: 'RAMICHE Music', parallax: 'Parallax', agents: 'Agent System', command: 'Command Center' };
+
+  const newExp = {
+    id: `EXP-${String(EXPERIMENTS.length + 1).padStart(3, '0')}`,
+    name: name,
+    product: productNames[product],
+    agent: 'Proximon',
+    status: 'running',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: null,
+    hypothesis: `If we change ${document.getElementById('hyp-change').textContent}, then ${document.getElementById('hyp-outcome').textContent}, because ${document.getElementById('hyp-reason').textContent}`,
+    metric: document.getElementById('exp-metric').value,
+    variantA: document.getElementById('variant-a').value || 'Current experience',
+    variantB: document.getElementById('variant-b').value || 'Modified experience',
+    resultA: null, resultB: null, confidence: 0, risk: 2,
+    impact: null, sampleSize: parseInt(document.getElementById('calc-sample').textContent.replace(',', '')),
+    insight: 'Experiment launched — awaiting data.'
+  };
+
+  EXPERIMENTS.unshift(newExp);
+  updateStats();
+  switchTab('experiments');
+
+  // Flash animation
+  const firstCard = document.querySelector('.exp-card');
+  if (firstCard) {
+    firstCard.style.borderColor = 'var(--green)';
+    firstCard.style.boxShadow = '0 0 30px var(--green-glow)';
+    setTimeout(() => { firstCard.style.borderColor = ''; firstCard.style.boxShadow = ''; }, 2000);
+  }
+}
+
+function saveDraft() {
+  const name = document.getElementById('exp-name').value || 'Untitled Draft';
+  const drafts = JSON.parse(localStorage.getItem('nexus-drafts') || '[]');
+  drafts.push({
+    name, product: document.querySelector('.product-card.active')?.dataset.product,
+    hypothesis: { change: document.getElementById('hyp-change').textContent, outcome: document.getElementById('hyp-outcome').textContent, reason: document.getElementById('hyp-reason').textContent },
+    savedAt: new Date().toISOString()
+  });
+  localStorage.setItem('nexus-drafts', JSON.stringify(drafts));
+}
+
+function duplicateExp(id) {
+  const exp = EXPERIMENTS.find(e => e.id === id);
+  if (!exp) return;
+  document.getElementById('exp-name').value = exp.name + ' (v2)';
+  document.getElementById('hyp-change').textContent = exp.hypothesis.split('change ')[1]?.split(',')[0] || 'the variable';
+  document.getElementById('variant-a').value = exp.variantA;
+  document.getElementById('variant-b').value = exp.variantB;
+  closeDetail();
+  switchTab('designer');
+}
+
+function stopExp(id) {
+  const exp = EXPERIMENTS.find(e => e.id === id);
+  if (exp) { exp.status = 'loser'; exp.endDate = new Date().toISOString().split('T')[0]; }
+  closeDetail();
+  renderExperiments();
+  updateStats();
+}
+
+function exportData() {
+  const data = JSON.stringify({ experiments: EXPERIMENTS, agents: AGENTS, exportedAt: new Date().toISOString() }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'nexus-experiments.json'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ============================================================
+// STATS UPDATE
+// ============================================================
+
+function updateStats() {
+  const active = EXPERIMENTS.filter(e => e.status === 'running').length;
+  const total = EXPERIMENTS.length;
+  const completed = EXPERIMENTS.filter(e => e.status === 'winner' || e.status === 'loser');
+  const winRate = completed.length > 0 ? Math.round((EXPERIMENTS.filter(e => e.status === 'winner').length / completed.length) * 100) : 0;
+  const avgConf = completed.length > 0 ? Math.round(completed.reduce((sum, e) => sum + e.confidence, 0) / completed.length) : 0;
+  const avgImpact = completed.filter(e => e.impact).length > 0 ? (completed.filter(e => e.impact).reduce((sum, e) => sum + e.impact, 0) / completed.filter(e => e.impact).length).toFixed(1) : '—';
+
+  document.getElementById('stat-active').textContent = active;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-winrate').textContent = winRate + '%';
+  document.getElementById('stat-confidence').textContent = avgConf + '%';
+  document.getElementById('stat-impact').textContent = avgImpact;
+}
+
+// CLOCK
+function updateClock() {
+  const now = new Date();
+  const h = now.getHours().toString().padStart(2, '0');
+  const m = now.getMinutes().toString().padStart(2, '0');
+  const s = now.getSeconds().toString().padStart(2, '0');
+  document.getElementById('clock').textContent = `${h}:${m}:${s} ET`;
+}
+setInterval(updateClock, 1000);
+
+// ============================================================
+// INIT
+// ============================================================
+
+window.addEventListener('load', () => {
+  renderExperiments();
+  renderLeaderboard();
+  renderInsights();
+  updateStats();
+  updateClock();
+  setTimeout(drawChart, 200);
+});
+
+window.addEventListener('resize', () => { drawChart(); });
+
+// Close detail panel on escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+
+// Close detail panel on outside click
+document.addEventListener('click', (e) => {
+  const panel = document.getElementById('detail-panel');
+  if (panel.classList.contains('open') && !panel.contains(e.target) && !e.target.closest('.exp-card')) {
+    closeDetail();
+  }
+});
+</script>
+</body>
+</html>

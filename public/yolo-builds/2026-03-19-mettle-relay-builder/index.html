@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Relay Lineup Builder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0f0f14;--surface:#1a1a24;--card:#22223a;--border:#333358;
+  --purple:#7c3aed;--scarlet:#ef4444;--gold:#f59e0b;--blue:#3b82f6;
+  --green:#22c55e;--text:#e2e8f0;--muted:#94a3b8;
+  --font:'Segoe UI',system-ui,-apple-system,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh}
+header{background:linear-gradient(135deg,var(--purple),#4c1d95);padding:24px 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--gold)}
+header h1{font-size:1.6rem;letter-spacing:2px;font-weight:800}
+header h1 span{color:var(--gold)}
+header .badge{background:var(--gold);color:#000;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:700;letter-spacing:1px}
+.container{max-width:1400px;margin:0 auto;padding:24px}
+.top-bar{display:flex;gap:16px;margin-bottom:24px;flex-wrap:wrap;align-items:center}
+.top-bar select,.top-bar input{background:var(--surface);border:2px solid var(--border);color:var(--text);padding:10px 16px;border-radius:8px;font-size:.9rem}
+.top-bar select:focus,.top-bar input:focus{outline:none;border-color:var(--purple)}
+.top-bar button{background:var(--purple);color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.9rem;transition:all .2s}
+.top-bar button:hover{background:#6d28d9;transform:translateY(-1px)}
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:2px solid var(--border);border-radius:12px;overflow:hidden}
+.panel-header{padding:16px 20px;border-bottom:2px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-header h2{font-size:1.1rem;font-weight:700}
+.panel-header .count{background:var(--purple);padding:2px 10px;border-radius:12px;font-size:.8rem}
+.roster{padding:12px;max-height:500px;overflow-y:auto}
+.swimmer{background:var(--card);border:2px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px;cursor:grab;display:flex;align-items:center;justify-content:space-between;transition:all .15s}
+.swimmer:hover{border-color:var(--purple);transform:translateX(4px)}
+.swimmer.selected{border-color:var(--gold);background:#2a2a3d;box-shadow:0 0 12px rgba(245,158,11,.15)}
+.swimmer .name{font-weight:700;font-size:.95rem}
+.swimmer .time{font-family:'Courier New',monospace;font-size:1rem;color:var(--gold);font-weight:700}
+.swimmer .meta{font-size:.75rem;color:var(--muted);margin-top:2px}
+.swimmer .check{width:20px;height:20px;border:2px solid var(--border);border-radius:4px;display:flex;align-items:center;justify-content:center;margin-right:12px;flex-shrink:0;transition:all .15s}
+.swimmer.selected .check{background:var(--gold);border-color:var(--gold)}
+.swimmer.selected .check::after{content:'✓';color:#000;font-weight:900;font-size:.8rem}
+.relay-slots{padding:16px}
+.slot{background:var(--card);border:2px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;min-height:70px;position:relative;transition:all .2s}
+.slot.filled{border-color:var(--green)}
+.slot.drag-over{border-color:var(--gold);background:#2a2a3d;box-shadow:0 0 16px rgba(245,158,11,.2)}
+.slot-label{position:absolute;top:8px;left:12px;font-size:.7rem;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:700}
+.slot-order{position:absolute;top:8px;right:12px;font-size:.7rem;color:var(--muted)}
+.slot .swimmer-info{margin-top:20px;display:flex;align-items:center;justify-content:space-between}
+.slot .swimmer-info .name{font-weight:700}
+.slot .swimmer-info .time{font-family:'Courier New',monospace;color:var(--gold);font-weight:700}
+.slot .remove{background:var(--scarlet);color:#fff;border:none;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.8rem;display:flex;align-items:center;justify-content:center}
+.slot.empty{border-style:dashed}
+.slot.empty .placeholder{margin-top:20px;color:var(--muted);font-size:.85rem;text-align:center}
+.results{margin-top:24px}
+.results-card{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:24px}
+.results-card h2{margin-bottom:16px;font-size:1.2rem}
+.projected{display:flex;align-items:baseline;gap:12px;margin-bottom:20px}
+.projected .total-time{font-family:'Courier New',monospace;font-size:2.4rem;font-weight:900;color:var(--gold)}
+.projected .label{font-size:.85rem;color:var(--muted)}
+.split-bars{margin-bottom:20px}
+.split-bar{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.split-bar .leg-label{width:60px;font-size:.8rem;color:var(--muted);text-align:right}
+.split-bar .bar-track{flex:1;height:28px;background:var(--card);border-radius:6px;overflow:hidden;position:relative}
+.split-bar .bar-fill{height:100%;border-radius:6px;display:flex;align-items:center;padding:0 10px;font-size:.75rem;font-weight:700;transition:width .4s ease}
+.split-bar .bar-fill.leg1{background:linear-gradient(90deg,var(--purple),#6d28d9)}
+.split-bar .bar-fill.leg2{background:linear-gradient(90deg,var(--blue),#2563eb)}
+.split-bar .bar-fill.leg3{background:linear-gradient(90deg,var(--green),#16a34a)}
+.split-bar .bar-fill.leg4{background:linear-gradient(90deg,var(--gold),#d97706)}
+.split-bar .time-label{width:70px;font-family:'Courier New',monospace;font-size:.85rem;font-weight:700}
+.strategy{padding:16px;background:var(--card);border-radius:8px;border-left:4px solid var(--purple)}
+.strategy h3{font-size:.9rem;margin-bottom:8px;color:var(--purple)}
+.strategy p{font-size:.85rem;line-height:1.5;color:var(--muted)}
+.optimize-bar{display:flex;gap:8px;margin-top:16px}
+.optimize-bar button{flex:1;padding:10px;border:2px solid var(--border);background:var(--card);color:var(--text);border-radius:8px;cursor:pointer;font-weight:700;font-size:.8rem;transition:all .15s}
+.optimize-bar button:hover{border-color:var(--purple)}
+.optimize-bar button.active{border-color:var(--gold);background:rgba(245,158,11,.1)}
+.empty-state{text-align:center;padding:40px;color:var(--muted)}
+.empty-state .icon{font-size:2rem;margin-bottom:8px}
+.age-group-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:.65rem;font-weight:700;margin-left:8px}
+.ag-8u{background:#7c3aed33;color:var(--purple)}
+.ag-10u{background:#3b82f633;color:var(--blue)}
+.ag-12u{background:#22c55e33;color:var(--green)}
+.ag-14u{background:#f59e0b33;color:var(--gold)}
+.ag-sr{background:#ef444433;color:var(--scarlet)}
+footer{text-align:center;padding:20px;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border);margin-top:32px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>METTLE <span>//</span> RELAY LINEUP BUILDER</h1>
+  <div class="badge">COACH TOOL</div>
+</header>
+
+<div class="container">
+  <div class="top-bar">
+    <select id="eventSelect">
+      <option value="200free">200 Free Relay</option>
+      <option value="200medley">200 Medley Relay</option>
+      <option value="400free">400 Free Relay</option>
+      <option value="400medley">400 Medley Relay</option>
+      <option value="800free">800 Free Relay</option>
+    </select>
+    <select id="genderSelect">
+      <option value="M">Boys</option>
+      <option value="F">Girls</option>
+      <option value="X">Mixed</option>
+    </select>
+    <select id="ageGroupSelect">
+      <option value="all">All Ages</option>
+      <option value="8U">8 &amp; Under</option>
+      <option value="10U">9-10</option>
+      <option value="12U">11-12</option>
+      <option value="14U">13-14</option>
+      <option value="SR">Senior</option>
+    </select>
+    <input type="text" id="searchInput" placeholder="Search swimmers..." style="flex:1;min-width:150px">
+    <button onclick="autoOptimize()">⚡ Auto-Optimize</button>
+    <button onclick="clearRelay()" style="background:var(--scarlet)">✕ Clear</button>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🏊 Roster</h2>
+        <span class="count" id="rosterCount">0 swimmers</span>
+      </div>
+      <div class="roster" id="rosterList"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2>🔥 Relay Lineup</h2>
+        <span class="count" id="lineupStatus">0/4 filled</span>
+      </div>
+      <div class="relay-slots" id="relaySlots"></div>
+      <div class="optimize-bar" id="optimizeBar" style="padding:0 16px 16px">
+        <button class="active" onclick="setStrategy('fastest')">Fastest Total</button>
+        <button onclick="setStrategy('backload')">Strong Finish</button>
+        <button onclick="setStrategy('frontload')">Fast Start</button>
+        <button onclick="setStrategy('even')">Even Splits</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="results" id="resultsSection" style="display:none">
+    <div class="results-card">
+      <h2>📊 Projected Relay Time</h2>
+      <div class="projected">
+        <span class="total-time" id="totalTime">0:00.00</span>
+        <span class="label">projected total</span>
+      </div>
+      <div class="split-bars" id="splitBars"></div>
+      <div class="strategy" id="strategyBox">
+        <h3>💡 Coaching Insight</h3>
+        <p id="strategyText"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>METTLE // Relay Lineup Builder — Built by NOVA for Ramiche × Parallax</footer>
+
+<script>
+const EVENTS = {
+  '200free': {name:'200 Free Relay', legs:4, dist:50, strokes:['Free','Free','Free','Free']},
+  '200medley': {name:'200 Medley Relay', legs:4, dist:50, strokes:['Back','Breast','Fly','Free']},
+  '400free': {name:'400 Free Relay', legs:4, dist:100, strokes:['Free','Free','Free','Free']},
+  '400medley': {name:'400 Medley Relay', legs:4, dist:100, strokes:['Back','Breast','Fly','Free']},
+  '800free': {name:'800 Free Relay', legs:4, dist:200, strokes:['Free','Free','Free','Free']}
+};
+
+const NAMES_M = ['Ethan Rivera','Marcus Chen','Jaylen Brooks','Tyler Nakamura','Owen Schmidt','Caleb Washington','Liam Foster','Noah Petrov','Dylan Ortiz','Kai Anderson','Mateo Reeves','Brandon Liu','Aiden Kowalski','Jordan Hayes','Cameron Singh'];
+const NAMES_F = ['Sophia Martinez','Ava Thompson','Isabella Nguyen','Mia Robinson','Emma Kowalski','Olivia Chen','Zara Brooks','Chloe Yamamoto','Lily Foster','Harper Reeves','Amelia Singh','Grace Liu','Ella Washington','Scarlett Petrov','Riley Ortiz'];
+const AGE_GROUPS = ['8U','10U','12U','14U','SR'];
+const STROKES = ['Free','Back','Breast','Fly'];
+
+function generateTimes(ag) {
+  const base = {
+    '8U':  {Free:{50:42,100:95},Back:{50:48,100:108},Breast:{50:52,100:115},Fly:{50:46,100:105}},
+    '10U': {Free:{50:35,100:78},Back:{50:41,100:92},Breast:{50:44,100:98},Fly:{50:39,100:88}},
+    '12U': {Free:{50:30,100:65},Back:{50:36,100:78},Breast:{50:38,100:82},Fly:{50:33,100:73}},
+    '14U': {Free:{50:26,100:56},Back:{50:31,100:67},Breast:{50:33,100:71},Fly:{50:29,100:62}},
+    'SR':  {Free:{50:23,100:50,200:108},Back:{50:28,100:59,200:128},Breast:{50:30,100:64,200:138},Fly:{50:26,100:56,200:120}}
+  };
+  const times = {};
+  for (const stroke of STROKES) {
+    times[stroke] = {};
+    for (const dist of [50,100,200]) {
+      const b = (base[ag] && base[ag][stroke] && base[ag][stroke][dist]);
+      if (b) {
+        const variation = b * (0.92 + Math.random() * 0.16);
+        times[stroke][dist] = Math.round(variation * 100) / 100;
+      }
+    }
+  }
+  return times;
+}
+
+function formatTime(seconds) {
+  if (!seconds || seconds <= 0) return '--';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  if (mins > 0) return `${mins}:${secs < 10 ? '0' : ''}${secs.toFixed(2)}`;
+  return secs.toFixed(2);
+}
+
+function parseTimeToSeconds(str) {
+  if (!str || str === '--') return Infinity;
+  if (str.includes(':')) {
+    const [m, s] = str.split(':');
+    return parseInt(m) * 60 + parseFloat(s);
+  }
+  return parseFloat(str);
+}
+
+let allSwimmers = [];
+let relaySlots = [null, null, null, null];
+let currentStrategy = 'fastest';
+
+function initRoster() {
+  allSwimmers = [];
+  let id = 0;
+  for (const ag of AGE_GROUPS) {
+    const mCount = 4 + Math.floor(Math.random() * 4);
+    const fCount = 4 + Math.floor(Math.random() * 4);
+    for (let i = 0; i < mCount; i++) {
+      allSwimmers.push({
+        id: id++,
+        name: NAMES_M[i % NAMES_M.length],
+        gender: 'M',
+        ageGroup: ag,
+        times: generateTimes(ag)
+      });
+    }
+    for (let i = 0; i < fCount; i++) {
+      allSwimmers.push({
+        id: id++,
+        name: NAMES_F[i % NAMES_F.length],
+        gender: 'F',
+        ageGroup: ag,
+        times: generateTimes(ag)
+      });
+    }
+  }
+}
+
+function getRelevantTime(swimmer, stroke, dist) {
+  return (swimmer.times[stroke] && swimmer.times[stroke][dist]) || null;
+}
+
+function getEventConfig() {
+  return EVENTS[document.getElementById('eventSelect').value];
+}
+
+function filterSwimmers() {
+  const gender = document.getElementById('genderSelect').value;
+  const ag = document.getElementById('ageGroupSelect').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const evt = getEventConfig();
+  const selectedIds = new Set(relaySlots.filter(s => s).map(s => s.id));
+
+  return allSwimmers.filter(s => {
+    if (gender !== 'X' && s.gender !== gender) return false;
+    if (ag !== 'all' && s.ageGroup !== ag) return false;
+    if (search && !s.name.toLowerCase().includes(search)) return false;
+    if (selectedIds.has(s.id)) return false;
+    return true;
+  }).sort((a, b) => {
+    const tA = getRelevantTime(a, evt.strokes[0], evt.dist) || 999;
+    const tB = getRelevantTime(b, evt.strokes[0], evt.dist) || 999;
+    return tA - tB;
+  });
+}
+
+function renderRoster() {
+  const list = document.getElementById('rosterList');
+  const filtered = filterSwimmers();
+  const evt = getEventConfig();
+
+  document.getElementById('rosterCount').textContent = `${filtered.length} swimmers`;
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🏊</div>No swimmers match filters</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(s => {
+    const bestTime = getBestTimeForEvent(s, evt);
+    const agClass = 'ag-' + s.ageGroup.toLowerCase();
+    return `
+      <div class="swimmer" draggable="true" data-id="${s.id}" onclick="toggleSwimmer(${s.id})" ondragstart="onDragStart(event, ${s.id})">
+        <div style="display:flex;align-items:center">
+          <div class="check"></div>
+          <div>
+            <div class="name">${s.name} <span class="age-group-tag ${agClass}">${s.ageGroup}</span></div>
+            <div class="meta">${s.gender === 'M' ? 'Boys' : 'Girls'} • Best: ${bestTime}</div>
+          </div>
+        </div>
+        <div class="time">${bestTime}</div>
+      </div>`;
+  }).join('');
+}
+
+function getBestTimeForEvent(swimmer, evt) {
+  // For medley, find best stroke; for free relay, use free time
+  if (evt.strokes.every(s => s === 'Free')) {
+    const t = getRelevantTime(swimmer, 'Free', evt.dist);
+    return t ? formatTime(t) : '--';
+  }
+  // Find best stroke match
+  let best = null;
+  let bestVal = Infinity;
+  for (const stroke of [...new Set(evt.strokes)]) {
+    const t = getRelevantTime(swimmer, stroke, evt.dist);
+    if (t && t < bestVal) { bestVal = t; best = t; }
+  }
+  return best ? formatTime(best) : '--';
+}
+
+function renderSlots() {
+  const container = document.getElementById('relaySlots');
+  const evt = getEventConfig();
+  const filled = relaySlots.filter(s => s).length;
+  document.getElementById('lineupStatus').textContent = `${filled}/4 filled`;
+
+  container.innerHTML = relaySlots.map((slot, i) => {
+    const legLabel = evt.strokes[i] === 'Free' && evt.strokes.every(s => s === 'Free')
+      ? `Leg ${i+1}` : evt.strokes[i];
+    const orderLabels = ['1st (Dive Start)', '2nd (Relay Exchange)', '3rd (Relay Exchange)', '4th (Anchor)'];
+
+    if (slot) {
+      const t = getRelevantTime(slot, evt.strokes[i], evt.dist);
+      return `
+        <div class="slot filled" data-slot="${i}" ondragover="onDragOver(event)" ondrop="onDrop(event,${i})">
+          <div class="slot-label">${legLabel}</div>
+          <div class="slot-order">${orderLabels[i]}</div>
+          <div class="swimmer-info">
+            <div>
+              <div class="name">${slot.name} <span class="age-group-tag ag-${slot.ageGroup.toLowerCase()}">${slot.ageGroup}</span></div>
+              <div class="meta">${evt.strokes[i]} ${evt.dist}m</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="time">${t ? formatTime(t) : '--'}</div>
+              <button class="remove" onclick="removeFromSlot(${i})">✕</button>
+            </div>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="slot empty" data-slot="${i}" ondragover="onDragOver(event)" ondrop="onDrop(event,${i})">
+        <div class="slot-label">${legLabel}</div>
+        <div class="slot-order">${orderLabels[i]}</div>
+        <div class="placeholder">Click a swimmer or drag here</div>
+      </div>`;
+  }).join('');
+
+  renderResults();
+}
+
+function toggleSwimmer(id) {
+  const swimmer = allSwimmers.find(s => s.id === id);
+  if (!swimmer) return;
+
+  // Check if already in relay
+  const existingSlot = relaySlots.indexOf(swimmer);
+  if (existingSlot >= 0) {
+    relaySlots[existingSlot] = null;
+  } else {
+    const emptySlot = relaySlots.indexOf(null);
+    if (emptySlot < 0) return; // All slots filled
+    relaySlots[emptySlot] = swimmer;
+  }
+  renderRoster();
+  renderSlots();
+}
+
+function removeFromSlot(i) {
+  relaySlots[i] = null;
+  renderRoster();
+  renderSlots();
+}
+
+function clearRelay() {
+  relaySlots = [null, null, null, null];
+  renderRoster();
+  renderSlots();
+}
+
+// Drag and drop
+let dragSwimmerId = null;
+function onDragStart(e, id) {
+  dragSwimmerId = id;
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
+}
+function onDrop(e, slotIdx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (dragSwimmerId === null) return;
+  const swimmer = allSwimmers.find(s => s.id === dragSwimmerId);
+  if (!swimmer) return;
+  // Remove from any existing slot
+  const existing = relaySlots.indexOf(swimmer);
+  if (existing >= 0) relaySlots[existing] = null;
+  // If slot occupied, swap
+  if (relaySlots[slotIdx]) {
+    if (existing >= 0) relaySlots[existing] = relaySlots[slotIdx];
+  }
+  relaySlots[slotIdx] = swimmer;
+  dragSwimmerId = null;
+  renderRoster();
+  renderSlots();
+}
+
+// Auto-optimize
+function autoOptimize() {
+  const evt = getEventConfig();
+  const gender = document.getElementById('genderSelect').value;
+  const ag = document.getElementById('ageGroupSelect').value;
+
+  let pool = allSwimmers.filter(s => {
+    if (gender !== 'X' && s.gender !== gender) return false;
+    if (ag !== 'all' && s.ageGroup !== ag) return false;
+    return true;
+  });
+
+  if (evt.strokes.every(s => s === 'Free')) {
+    // Free relay: pick 4 fastest in free at the distance
+    pool.sort((a, b) => {
+      const tA = getRelevantTime(a, 'Free', evt.dist) || 999;
+      const tB = getRelevantTime(b, 'Free', evt.dist) || 999;
+      return tA - tB;
+    });
+    const top4 = pool.slice(0, 4);
+
+    if (currentStrategy === 'fastest') {
+      relaySlots = [...top4];
+    } else if (currentStrategy === 'backload') {
+      // Slowest first, fastest anchor
+      top4.sort((a, b) => {
+        const tA = getRelevantTime(a, 'Free', evt.dist) || 999;
+        const tB = getRelevantTime(b, 'Free', evt.dist) || 999;
+        return tB - tA;
+      });
+      relaySlots = [...top4];
+    } else if (currentStrategy === 'frontload') {
+      // Fastest first, slowest anchor
+      relaySlots = [...top4];
+    } else {
+      // Even: distribute by alternating fast/slow
+      top4.sort((a, b) => {
+        const tA = getRelevantTime(a, 'Free', evt.dist) || 999;
+        const tB = getRelevantTime(b, 'Free', evt.dist) || 999;
+        return tA - tB;
+      });
+      relaySlots = [top4[0], top4[2], top4[3], top4[1]];
+    }
+  } else {
+    // Medley: find best swimmer for each stroke
+    const used = new Set();
+    relaySlots = [null, null, null, null];
+
+    // Score each swimmer for each leg
+    const legScores = [];
+    for (let leg = 0; leg < 4; leg++) {
+      const stroke = evt.strokes[leg];
+      for (const s of pool) {
+        const t = getRelevantTime(s, stroke, evt.dist);
+        if (t) legScores.push({ leg, swimmer: s, time: t });
+      }
+    }
+    legScores.sort((a, b) => a.time - b.time);
+
+    // Greedy assignment: best times first, no double-booking
+    for (const entry of legScores) {
+      if (relaySlots[entry.leg] !== null) continue;
+      if (used.has(entry.swimmer.id)) continue;
+      relaySlots[entry.leg] = entry.swimmer;
+      used.add(entry.swimmer.id);
+      if (relaySlots.every(s => s)) break;
+    }
+  }
+
+  // Pad with nulls if less than 4
+  while (relaySlots.length < 4) relaySlots.push(null);
+  relaySlots = relaySlots.slice(0, 4);
+
+  renderRoster();
+  renderSlots();
+}
+
+function setStrategy(strat) {
+  currentStrategy = strat;
+  document.querySelectorAll('.optimize-bar button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (relaySlots.some(s => s)) autoOptimize();
+}
+
+function renderResults() {
+  const section = document.getElementById('resultsSection');
+  const filled = relaySlots.filter(s => s);
+  if (filled.length === 0) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  const evt = getEventConfig();
+  let total = 0;
+  const legs = [];
+
+  for (let i = 0; i < 4; i++) {
+    const s = relaySlots[i];
+    if (s) {
+      const t = getRelevantTime(s, evt.strokes[i], evt.dist) || 0;
+      legs.push({ name: s.name, stroke: evt.strokes[i], time: t });
+      total += t;
+    } else {
+      legs.push({ name: '—', stroke: evt.strokes[i], time: 0 });
+    }
+  }
+
+  document.getElementById('totalTime').textContent = filled.length === 4 ? formatTime(total) : '—:——.——';
+
+  const maxTime = Math.max(...legs.map(l => l.time).filter(t => t > 0), 1);
+  document.getElementById('splitBars').innerHTML = legs.map((l, i) => {
+    const pct = l.time > 0 ? (l.time / maxTime) * 100 : 0;
+    return `
+      <div class="split-bar">
+        <div class="leg-label">Leg ${i+1}</div>
+        <div class="bar-track">
+          <div class="bar-fill leg${i+1}" style="width:${pct}%">${l.name}</div>
+        </div>
+        <div class="time-label">${l.time > 0 ? formatTime(l.time) : '--'}</div>
+      </div>`;
+  }).join('');
+
+  // Generate coaching insight
+  generateInsight(legs, total, evt);
+}
+
+function generateInsight(legs, total, evt) {
+  const times = legs.map(l => l.time).filter(t => t > 0);
+  if (times.length < 4) {
+    document.getElementById('strategyText').textContent = 'Fill all 4 legs to get a complete analysis.';
+    return;
+  }
+
+  const avg = total / 4;
+  const fastest = Math.min(...times);
+  const slowest = Math.max(...times);
+  const spread = slowest - fastest;
+  const firstHalf = times[0] + times[1];
+  const secondHalf = times[2] + times[3];
+  const diff = secondHalf - firstHalf;
+
+  let insight = '';
+
+  if (spread < avg * 0.04) {
+    insight = `Excellent balance — only ${spread.toFixed(2)}s spread across all legs. This lineup minimizes risk; no single leg is a liability. `;
+  } else if (spread > avg * 0.12) {
+    insight = `Wide spread of ${spread.toFixed(2)}s between fastest and slowest legs. Consider swapping leg ${times.indexOf(slowest)+1} (${legs[times.indexOf(slowest)].name}) for a more competitive swimmer. `;
+  }
+
+  if (diff < -2) {
+    insight += `Front-loaded by ${Math.abs(diff).toFixed(2)}s — strong start but the anchor may feel pressure. Great for building early lead in a close race.`;
+  } else if (diff > 2) {
+    insight += `Back-loaded by ${diff.toFixed(2)}s — strong finish strategy. Your anchor will close hard. Effective when chasing from behind.`;
+  } else {
+    insight += `Even pacing with ${Math.abs(diff).toFixed(2)}s differential between halves — textbook relay distribution for consistent pressure.`;
+  }
+
+  if (evt.strokes[0] !== evt.strokes[1]) {
+    // Medley
+    const backIdx = evt.strokes.indexOf('Back');
+    const freeIdx = evt.strokes.indexOf('Free');
+    if (backIdx >= 0 && freeIdx >= 0 && times[freeIdx] < times[backIdx]) {
+      insight += ` Your Free leg is your weapon — consider saving your strongest swimmer for the anchor to close out.`;
+    }
+  }
+
+  document.getElementById('strategyText').textContent = insight;
+}
+
+// Event listeners
+document.getElementById('eventSelect').addEventListener('change', () => { clearRelay(); renderRoster(); renderSlots(); });
+document.getElementById('genderSelect').addEventListener('change', () => { clearRelay(); renderRoster(); renderSlots(); });
+document.getElementById('ageGroupSelect').addEventListener('change', () => { renderRoster(); });
+document.getElementById('searchInput').addEventListener('input', () => { renderRoster(); });
+
+// Remove drag-over class on drag leave
+document.addEventListener('dragleave', e => {
+  if (e.target.classList) e.target.classList.remove('drag-over');
+});
+
+// Init
+initRoster();
+renderRoster();
+renderSlots();
+</script>
+</body>
+</html>

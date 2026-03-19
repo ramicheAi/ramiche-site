@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PULSE — Ecosystem Vitals</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #030308;
+  --surface: #0a0a14;
+  --surface-2: #10101e;
+  --border: rgba(99, 235, 180, 0.12);
+  --border-glow: rgba(99, 235, 180, 0.35);
+  --text: #e8eaed;
+  --text-dim: #5a5e72;
+  --text-muted: #3a3e52;
+  --pulse-green: #63ebb4;
+  --pulse-green-dim: rgba(99, 235, 180, 0.15);
+  --artery-red: #ff4d6a;
+  --artery-red-dim: rgba(255, 77, 106, 0.15);
+  --vein-blue: #4d9aff;
+  --vein-blue-dim: rgba(77, 154, 255, 0.15);
+  --nerve-purple: #a855f7;
+  --nerve-purple-dim: rgba(168, 85, 247, 0.15);
+  --warning: #fbbf24;
+  --warning-dim: rgba(251, 191, 36, 0.15);
+  --gold: #d4a843;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ─── Ambient background ─── */
+.ambient {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 30%, rgba(99, 235, 180, 0.03) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 80% at 80% 70%, rgba(77, 154, 255, 0.02) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 50% 50%, rgba(168, 85, 247, 0.02) 0%, transparent 70%);
+}
+
+/* ─── Layout ─── */
+.app { position: relative; z-index: 1; padding: 24px; max-width: 1600px; margin: 0 auto; }
+
+/* ─── Header ─── */
+.header {
+  text-align: center;
+  padding: 40px 0 32px;
+  position: relative;
+}
+
+.header-icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 16px;
+  position: relative;
+}
+
+.header-icon .heart {
+  width: 48px; height: 48px;
+  animation: heartbeat 1.5s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.15); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.1); }
+  60% { transform: scale(1); }
+}
+
+.header h1 {
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--pulse-green), var(--vein-blue), var(--nerve-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% 200%;
+  animation: gradient-shift 8s ease-in-out infinite;
+}
+
+@keyframes gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.header .tagline {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+
+.header .ekg-line {
+  display: block;
+  margin: 16px auto 0;
+  width: 280px;
+  height: 30px;
+}
+
+.ekg-line path {
+  stroke: var(--pulse-green);
+  stroke-width: 2;
+  fill: none;
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: ekg-draw 3s linear infinite;
+  filter: drop-shadow(0 0 4px var(--pulse-green));
+}
+
+@keyframes ekg-draw {
+  0% { stroke-dashoffset: 400; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* ─── Vital Signs Bar ─── */
+.vitals-bar {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.vital-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px 16px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.vital-card:hover {
+  border-color: var(--border-glow);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(99, 235, 180, 0.08);
+}
+
+.vital-card .indicator {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  position: absolute;
+  top: 12px; right: 12px;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 4px currentColor; }
+  50% { opacity: 0.5; box-shadow: 0 0 12px currentColor; }
+}
+
+.vital-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.8rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.vital-label {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-top: 8px;
+}
+
+.vital-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ─── Main Grid ─── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+/* ─── Body Map (Circulatory Visualization) ─── */
+.body-map {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  position: relative;
+  min-height: 620px;
+}
+
+.body-map h2 {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.body-map h2::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--pulse-green);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.body-canvas {
+  width: 100%;
+  height: 560px;
+  position: relative;
+}
+
+.body-canvas canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* ─── Organ Panel (Right sidebar) ─── */
+.organ-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.organ-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 18px;
+  transition: all 0.3s ease;
+}
+
+.organ-card:hover {
+  border-color: var(--border-glow);
+}
+
+.organ-card h3 {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ─── Agent Nodes ─── */
+.agent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.agent-list::-webkit-scrollbar { width: 4px; }
+.agent-list::-webkit-scrollbar-track { background: transparent; }
+.agent-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.agent-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.agent-row:hover {
+  background: rgba(99, 235, 180, 0.06);
+}
+
+.agent-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.agent-name {
+  font-weight: 600;
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.agent-model {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.agent-cost {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--pulse-green);
+  text-align: right;
+  min-width: 50px;
+}
+
+/* ─── Flow Chart ─── */
+.flow-chart {
+  height: 100px;
+  position: relative;
+}
+
+.flow-chart canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* ─── Circulation Map ─── */
+.circulation-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.circulation-section h2 {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.circulation-section h2::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--artery-red);
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+.cost-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+.cost-block {
+  background: var(--surface-2);
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-align: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.cost-block:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+
+.cost-block .bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  border-radius: 0 0 10px 10px;
+  opacity: 0.15;
+  transition: height 0.6s ease;
+}
+
+.cost-block .name {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  position: relative;
+  z-index: 1;
+}
+
+.cost-block .amount {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: 6px;
+  position: relative;
+  z-index: 1;
+}
+
+.cost-block .role {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ─── Token Flow Visualization ─── */
+.token-flow {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+  margin-bottom: 28px;
+}
+
+.token-flow h2 {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.token-flow h2::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--vein-blue);
+  animation: pulse-dot 2.2s ease-in-out infinite;
+}
+
+.token-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.token-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-items: center;
+  gap: 12px;
+}
+
+.token-row .label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.token-row .bar-track {
+  height: 20px;
+  background: var(--surface-2);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.token-row .bar-fill {
+  height: 100%;
+  border-radius: 10px;
+  position: relative;
+  transition: width 1.5s ease;
+}
+
+.token-row .bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 20px; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2));
+  animation: shimmer 2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+.token-row .value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* ─── Diagnosis Log ─── */
+.diagnosis-section {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.diagnosis-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 24px;
+}
+
+.diagnosis-card h2 {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin-bottom: 16px;
+}
+
+.diagnosis-item {
+  display: flex;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(99, 235, 180, 0.06);
+  align-items: flex-start;
+}
+
+.diagnosis-item:last-child { border: none; }
+
+.severity {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.diagnosis-text {
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.diagnosis-text strong {
+  color: var(--text);
+}
+
+.diagnosis-text span {
+  color: var(--text-dim);
+}
+
+.diagnosis-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ─── Footer ─── */
+.footer {
+  text-align: center;
+  padding: 32px 0;
+  border-top: 1px solid var(--border);
+}
+
+.footer p {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+}
+
+.footer .credit {
+  margin-top: 4px;
+  color: var(--pulse-green);
+  opacity: 0.4;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 1200px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .cost-grid { grid-template-columns: 1fr; }
+  .diagnosis-section { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .vitals-bar { grid-template-columns: 1fr; }
+  .cost-grid { grid-template-columns: 1fr; }
+  .app { padding: 12px; }
+}
+
+/* ─── Tooltip ─── */
+.tooltip {
+  position: fixed;
+  background: #1a1a2e;
+  border: 1px solid var(--border-glow);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.75rem;
+  pointer-events: none;
+  z-index: 100;
+  max-width: 260px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tooltip.visible { opacity: 1; }
+
+.tooltip .tt-name {
+  font-weight: 700;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.tooltip .tt-role {
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.tooltip .tt-stat {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  margin-top: 6px;
+  color: var(--pulse-green);
+}
+</style>
+</head>
+<body>
+
+<div class="ambient"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="header-icon">
+      <svg class="heart" viewBox="0 0 48 48">
+        <path d="M24 42s-16-10.4-16-22.2C8 13.2 12.6 8 18 8c3.2 0 6 2 6 2s2.8-2 6-2c5.4 0 10 5.2 10 11.8C40 31.6 24 42 24 42z"
+              fill="none" stroke="var(--pulse-green)" stroke-width="2.5" stroke-linecap="round"
+              filter="url(#glow)"/>
+        <defs>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+      </svg>
+    </div>
+    <h1>PULSE</h1>
+    <p class="tagline">Ecosystem Vitals &mdash; 21 Agents &bull; 1 Living System</p>
+    <svg class="ekg-line" viewBox="0 0 280 30">
+      <path d="M0 15 L60 15 L70 15 L80 5 L90 25 L100 10 L110 20 L120 15 L200 15 L210 15 L220 3 L230 27 L240 8 L250 22 L260 15 L280 15"/>
+    </svg>
+  </header>
+
+  <!-- Vital Signs -->
+  <section class="vitals-bar" id="vitals-bar"></section>
+
+  <!-- Main Grid: Body Map + Organ Panel -->
+  <section class="main-grid">
+    <div class="body-map">
+      <h2>Circulatory Map — Agent Topology</h2>
+      <div class="body-canvas">
+        <canvas id="bodyCanvas"></canvas>
+      </div>
+    </div>
+    <div class="organ-panel">
+      <div class="organ-card">
+        <h3>🫀 Agent Registry</h3>
+        <div class="agent-list" id="agentList"></div>
+      </div>
+      <div class="organ-card">
+        <h3>🩺 Lane Pressure</h3>
+        <div class="flow-chart">
+          <canvas id="flowCanvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Cost Circulation -->
+  <section class="circulation-section">
+    <h2>Cost Circulation — Weekly Token Spend by Agent</h2>
+    <div class="cost-grid" id="costGrid"></div>
+  </section>
+
+  <!-- Token Flow -->
+  <section class="token-flow">
+    <h2>Token Flow — Ecosystem Blood Work</h2>
+    <div class="token-bars" id="tokenBars"></div>
+  </section>
+
+  <!-- Diagnosis Log -->
+  <section class="diagnosis-section">
+    <div class="diagnosis-card">
+      <h2>🔬 Active Diagnoses</h2>
+      <div id="diagActive"></div>
+    </div>
+    <div class="diagnosis-card">
+      <h2>💊 Resolved</h2>
+      <div id="diagResolved"></div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>PULSE v1.0 — Real-time ecosystem health for RAMICHE HQ</p>
+    <p class="credit">Built by TRIAGE — The System Healer</p>
+  </footer>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PULSE — Ecosystem Vitals Engine
+// ═══════════════════════════════════════════════════════════════
+
+const AGENTS = [
+  { id: 'atlas', name: 'ATLAS', role: 'Operations Lead', model: 'Sonnet 4.5', tier: 'brain', cost: 61, color: '#63ebb4', sessions: 89, tokensIn: 52000000, tokensOut: 380000, cacheReads: 41000000 },
+  { id: 'triage', name: 'TRIAGE', role: 'System Healer', model: 'Sonnet 4.5', tier: 'brain', cost: 18, color: '#63ebb4', sessions: 34, tokensIn: 18000000, tokensOut: 120000, cacheReads: 14000000 },
+  { id: 'shuri', name: 'SHURI', role: 'Engineering', model: 'DeepSeek V3', tier: 'muscle', cost: 12, color: '#4d9aff', sessions: 45, tokensIn: 22000000, tokensOut: 190000, cacheReads: 17000000 },
+  { id: 'proximon', name: 'PROXIMON', role: 'Architecture', model: 'Sonnet 4.5', tier: 'brain', cost: 15, color: '#63ebb4', sessions: 22, tokensIn: 14000000, tokensOut: 95000, cacheReads: 11000000 },
+  { id: 'aetherion', name: 'AETHERION', role: 'Creative Dir.', model: 'Gemini 3 Pro', tier: 'heart', cost: 61, color: '#ff4d6a', sessions: 67, tokensIn: 48000000, tokensOut: 410000, cacheReads: 38000000 },
+  { id: 'simons', name: 'SIMONS', role: 'Data Analysis', model: 'DeepSeek V3', tier: 'nerve', cost: 8, color: '#a855f7', sessions: 18, tokensIn: 9000000, tokensOut: 65000, cacheReads: 7000000 },
+  { id: 'mercury', name: 'MERCURY', role: 'Sales', model: 'DeepSeek V3', tier: 'muscle', cost: 7, color: '#4d9aff', sessions: 15, tokensIn: 8000000, tokensOut: 58000, cacheReads: 6000000 },
+  { id: 'vee', name: 'VEE', role: 'Brand Strategy', model: 'Kimi K2.5', tier: 'nerve', cost: 6, color: '#a855f7', sessions: 12, tokensIn: 7000000, tokensOut: 48000, cacheReads: 5500000 },
+  { id: 'ink', name: 'INK', role: 'Copywriting', model: 'DeepSeek V3', tier: 'muscle', cost: 5, color: '#4d9aff', sessions: 14, tokensIn: 6000000, tokensOut: 42000, cacheReads: 4800000 },
+  { id: 'echo', name: 'ECHO', role: 'Community', model: 'Qwen3 14B', tier: 'local', cost: 0.5, color: '#fbbf24', sessions: 11, tokensIn: 4000000, tokensOut: 28000, cacheReads: 3200000 },
+  { id: 'haven', name: 'HAVEN', role: 'Support', model: 'DeepSeek V3', tier: 'muscle', cost: 4, color: '#4d9aff', sessions: 10, tokensIn: 5000000, tokensOut: 35000, cacheReads: 4000000 },
+  { id: 'widow', name: 'WIDOW', role: 'Security', model: 'Qwen3 14B', tier: 'local', cost: 0.3, color: '#fbbf24', sessions: 8, tokensIn: 3500000, tokensOut: 22000, cacheReads: 2800000 },
+  { id: 'dr_strange', name: 'DR STRANGE', role: 'Forecasting', model: 'DeepSeek V3', tier: 'nerve', cost: 3, color: '#a855f7', sessions: 7, tokensIn: 3000000, tokensOut: 19000, cacheReads: 2400000 },
+  { id: 'kiyosaki', name: 'KIYOSAKI', role: 'Finance', model: 'DeepSeek V3', tier: 'nerve', cost: 4, color: '#a855f7', sessions: 9, tokensIn: 4000000, tokensOut: 26000, cacheReads: 3200000 },
+  { id: 'michael', name: 'MICHAEL', role: 'Swim Coach', model: 'Qwen3 14B', tier: 'local', cost: 0.2, color: '#fbbf24', sessions: 6, tokensIn: 2500000, tokensOut: 15000, cacheReads: 2000000 },
+  { id: 'selah', name: 'SELAH', role: 'Psychology', model: 'Qwen3 14B', tier: 'local', cost: 0.4, color: '#fbbf24', sessions: 24, tokensIn: 8000000, tokensOut: 55000, cacheReads: 6400000 },
+  { id: 'prophets', name: 'PROPHETS', role: 'Spiritual', model: 'Qwen3 14B', tier: 'local', cost: 0.3, color: '#fbbf24', sessions: 5, tokensIn: 2000000, tokensOut: 12000, cacheReads: 1600000 },
+  { id: 'themaestro', name: 'MAESTRO', role: 'Music', model: 'Qwen3 14B', tier: 'local', cost: 0.3, color: '#fbbf24', sessions: 7, tokensIn: 3000000, tokensOut: 18000, cacheReads: 2400000 },
+  { id: 'nova', name: 'NOVA', role: 'Fabrication', model: 'Sonnet 4.5', tier: 'heart', cost: 19, color: '#ff4d6a', sessions: 52, tokensIn: 28000000, tokensOut: 250000, cacheReads: 22000000 },
+  { id: 'themis', name: 'THEMIS', role: 'Governance', model: 'Sonnet 4.5', tier: 'brain', cost: 8, color: '#63ebb4', sessions: 12, tokensIn: 7000000, tokensOut: 48000, cacheReads: 5600000 },
+  { id: 'archivist', name: 'ARCHIVIST', role: 'Indexer', model: 'Flash Lite', tier: 'local', cost: 0.1, color: '#fbbf24', sessions: 20, tokensIn: 5000000, tokensOut: 30000, cacheReads: 4000000 },
+];
+
+const KNOWN_ISSUES = [
+  { text: 'Lane congestion — 300+ wait events, max 259s wait', severity: 'high', time: 'Feb 10', status: 'active' },
+  { text: 'Aetherion workspace 3.2GB — midnight-foundry/ NFT assets', severity: 'high', time: 'Mar 7', status: 'active' },
+  { text: 'Disk at 95% — 26GB free on Intel iMac', severity: 'critical', time: 'Mar 7', status: 'active' },
+  { text: 'OpenAI API key invalid — memory embeddings broken', severity: 'medium', time: 'Feb 10', status: 'active' },
+  { text: 'Zero cost tracking in config — all models $0', severity: 'medium', time: 'Mar 7', status: 'active' },
+  { text: 'Aetherion 400 errors — direct Gemini in embedded context', severity: 'high', time: 'Mar 16', status: 'resolved' },
+  { text: 'Missing "atlas" session — 14 resolution failures', severity: 'high', time: 'Feb 10', status: 'resolved' },
+  { text: 'JSON streaming parse failure — truncated responses', severity: 'low', time: 'Feb 10', status: 'resolved' },
+  { text: 'Missing memory dirs for haven, kiyosaki, triage', severity: 'low', time: 'Feb 10', status: 'resolved' },
+  { text: 'M5 hybrid setup — SSH bridge configured', severity: 'info', time: 'Mar 12', status: 'resolved' },
+];
+
+const ECOSYSTEM = {
+  totalCostWeek: 250,
+  totalCostMonth: 1000,
+  totalTokensIn: 294000000,
+  totalTokensOut: 2000000,
+  totalCacheReads: 223000000,
+  agentCount: 21,
+  sessionCount: 559,
+  laneMaxWait: 259,
+  laneQueueDepth: 14,
+  diskUsedPct: 95,
+};
+
+// ─── Vital Signs ───
+function renderVitals() {
+  const vitals = [
+    { value: ECOSYSTEM.agentCount, label: 'Live Agents', sub: `${ECOSYSTEM.sessionCount} sessions/wk`, color: 'var(--pulse-green)' },
+    { value: `$${ECOSYSTEM.totalCostWeek}`, label: 'Weekly Burn', sub: `~$${ECOSYSTEM.totalCostMonth}/mo`, color: 'var(--artery-red)' },
+    { value: `${(ECOSYSTEM.totalTokensIn / 1e6).toFixed(0)}M`, label: 'Tokens In', sub: 'input/week', color: 'var(--vein-blue)' },
+    { value: `${(ECOSYSTEM.totalCacheReads / 1e6).toFixed(0)}M`, label: 'Cache Reads', sub: `${((ECOSYSTEM.totalCacheReads / ECOSYSTEM.totalTokensIn) * 100).toFixed(0)}% hit rate`, color: 'var(--nerve-purple)' },
+    { value: `${ECOSYSTEM.diskUsedPct}%`, label: 'Disk Usage', sub: '26GB free', color: ECOSYSTEM.diskUsedPct > 90 ? 'var(--artery-red)' : 'var(--pulse-green)' },
+  ];
+
+  const bar = document.getElementById('vitals-bar');
+  bar.innerHTML = vitals.map(v => `
+    <div class="vital-card">
+      <div class="indicator" style="color:${v.color};background:${v.color}"></div>
+      <div class="vital-value" style="color:${v.color}">${v.value}</div>
+      <div class="vital-label">${v.label}</div>
+      <div class="vital-sub">${v.sub}</div>
+    </div>
+  `).join('');
+}
+
+// ─── Agent List ───
+function renderAgentList() {
+  const list = document.getElementById('agentList');
+  const sorted = [...AGENTS].sort((a, b) => b.cost - a.cost);
+
+  list.innerHTML = sorted.map(a => `
+    <div class="agent-row" data-agent="${a.id}"
+         onmouseenter="showTooltip(event, '${a.id}')"
+         onmouseleave="hideTooltip()">
+      <div class="agent-dot" style="background:${a.color};box-shadow:0 0 6px ${a.color}"></div>
+      <div class="agent-name">${a.name}</div>
+      <div class="agent-model">${a.model}</div>
+      <div class="agent-cost">$${a.cost.toFixed(a.cost < 1 ? 1 : 0)}</div>
+    </div>
+  `).join('');
+}
+
+// ─── Cost Circulation Grid ───
+function renderCostGrid() {
+  const grid = document.getElementById('costGrid');
+  const maxCost = Math.max(...AGENTS.map(a => a.cost));
+  const topSpenders = [...AGENTS].sort((a, b) => b.cost - a.cost).slice(0, 14);
+
+  grid.innerHTML = topSpenders.map(a => {
+    const pct = (a.cost / maxCost) * 100;
+    return `
+      <div class="cost-block" onmouseenter="showTooltip(event, '${a.id}')" onmouseleave="hideTooltip()">
+        <div class="bar" style="height:${pct}%;background:${a.color}"></div>
+        <div class="name" style="color:${a.color}">${a.name}</div>
+        <div class="amount">$${a.cost.toFixed(a.cost < 1 ? 1 : 0)}</div>
+        <div class="role">${a.role}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── Token Flow Bars ───
+function renderTokenBars() {
+  const bars = document.getElementById('tokenBars');
+  const maxTokens = ECOSYSTEM.totalTokensIn;
+
+  const flows = [
+    { label: 'Input', value: ECOSYSTEM.totalTokensIn, color: 'var(--vein-blue)', display: `${(ECOSYSTEM.totalTokensIn/1e6).toFixed(0)}M` },
+    { label: 'Cache Reads', value: ECOSYSTEM.totalCacheReads, color: 'var(--pulse-green)', display: `${(ECOSYSTEM.totalCacheReads/1e6).toFixed(0)}M` },
+    { label: 'Output', value: ECOSYSTEM.totalTokensOut, color: 'var(--artery-red)', display: `${(ECOSYSTEM.totalTokensOut/1e6).toFixed(1)}M` },
+  ];
+
+  // Top 5 agents by tokens
+  const topByTokens = [...AGENTS].sort((a, b) => b.tokensIn - a.tokensIn).slice(0, 5);
+  topByTokens.forEach(a => {
+    flows.push({ label: a.name, value: a.tokensIn, color: a.color, display: `${(a.tokensIn/1e6).toFixed(0)}M` });
+  });
+
+  bars.innerHTML = flows.map(f => {
+    const pct = Math.max(2, (f.value / maxTokens) * 100);
+    return `
+      <div class="token-row">
+        <div class="label">${f.label}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${pct}%;background:${f.color}"></div>
+        </div>
+        <div class="value">${f.display}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ─── Diagnosis Log ───
+function renderDiagnosis() {
+  const active = document.getElementById('diagActive');
+  const resolved = document.getElementById('diagResolved');
+
+  const severityColors = { critical: 'var(--artery-red)', high: '#ff8c42', medium: 'var(--warning)', low: 'var(--vein-blue)', info: 'var(--text-muted)' };
+
+  const activeIssues = KNOWN_ISSUES.filter(i => i.status === 'active');
+  const resolvedIssues = KNOWN_ISSUES.filter(i => i.status === 'resolved');
+
+  active.innerHTML = activeIssues.map(i => `
+    <div class="diagnosis-item">
+      <div class="severity" style="background:${severityColors[i.severity]};box-shadow:0 0 6px ${severityColors[i.severity]}"></div>
+      <div>
+        <div class="diagnosis-text"><strong>${i.severity.toUpperCase()}</strong> — <span>${i.text}</span></div>
+        <div class="diagnosis-time">Since ${i.time}</div>
+      </div>
+    </div>
+  `).join('');
+
+  resolved.innerHTML = resolvedIssues.map(i => `
+    <div class="diagnosis-item">
+      <div class="severity" style="background:var(--pulse-green);opacity:0.4"></div>
+      <div>
+        <div class="diagnosis-text" style="opacity:0.6"><span>${i.text}</span></div>
+        <div class="diagnosis-time">Resolved ${i.time}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Tooltip ───
+function showTooltip(e, agentId) {
+  const agent = AGENTS.find(a => a.id === agentId);
+  if (!agent) return;
+  const tt = document.getElementById('tooltip');
+  tt.innerHTML = `
+    <div class="tt-name" style="color:${agent.color}">${agent.name}</div>
+    <div class="tt-role">${agent.role} — ${agent.model}</div>
+    <div class="tt-stat">$${agent.cost}/wk · ${agent.sessions} sessions · ${(agent.tokensIn/1e6).toFixed(0)}M tokens</div>
+  `;
+  tt.style.left = Math.min(e.clientX + 12, window.innerWidth - 280) + 'px';
+  tt.style.top = (e.clientY - 60) + 'px';
+  tt.classList.add('visible');
+}
+
+function hideTooltip() {
+  document.getElementById('tooltip').classList.remove('visible');
+}
+
+// ─── Circulatory Body Map (Canvas) ───
+function drawBodyMap() {
+  const canvas = document.getElementById('bodyCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width;
+  const H = rect.height;
+  const cx = W / 2;
+  const cy = H / 2;
+
+  // Tier radiuses
+  const tiers = {
+    brain: { r: 80, label: 'BRAIN', color: '#63ebb4' },
+    heart: { r: 150, label: 'HEART', color: '#ff4d6a' },
+    muscle: { r: 220, label: 'MUSCLE', color: '#4d9aff' },
+    nerve: { r: 270, label: 'NERVE', color: '#a855f7' },
+    local: { r: 310, label: 'LOCAL', color: '#fbbf24' },
+  };
+
+  const time = Date.now() / 1000;
+
+  // Draw orbit rings
+  Object.values(tiers).forEach(t => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, t.r, 0, Math.PI * 2);
+    ctx.strokeStyle = t.color + '15';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Label
+    ctx.save();
+    ctx.font = '500 9px "JetBrains Mono"';
+    ctx.fillStyle = t.color + '40';
+    ctx.textAlign = 'center';
+    ctx.fillText(t.label, cx, cy - t.r - 6);
+    ctx.restore();
+  });
+
+  // Draw connections (arteries)
+  const brainAgents = AGENTS.filter(a => a.tier === 'brain');
+  const otherAgents = AGENTS.filter(a => a.tier !== 'brain');
+
+  // Pre-calculate positions
+  const positions = {};
+  Object.entries(tiers).forEach(([tierName, tier]) => {
+    const tierAgents = AGENTS.filter(a => a.tier === tierName);
+    tierAgents.forEach((agent, i) => {
+      const angle = (i / tierAgents.length) * Math.PI * 2 - Math.PI / 2 + time * 0.05;
+      const x = cx + Math.cos(angle) * tier.r;
+      const y = cy + Math.sin(angle) * tier.r;
+      positions[agent.id] = { x, y, angle };
+    });
+  });
+
+  // Draw artery connections from brain to heart
+  brainAgents.forEach(brain => {
+    const bp = positions[brain.id];
+    if (!bp) return;
+    AGENTS.filter(a => a.tier === 'heart').forEach(heart => {
+      const hp = positions[heart.id];
+      if (!hp) return;
+      ctx.beginPath();
+      ctx.moveTo(bp.x, bp.y);
+      const midX = (bp.x + hp.x) / 2 + Math.sin(time * 0.8) * 15;
+      const midY = (bp.y + hp.y) / 2 + Math.cos(time * 0.8) * 15;
+      ctx.quadraticCurveTo(midX, midY, hp.x, hp.y);
+      ctx.strokeStyle = 'rgba(255, 77, 106, 0.08)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    });
+  });
+
+  // Draw pulse particles along connections
+  const drawPulse = (x1, y1, x2, y2, color, speed) => {
+    const t = ((time * speed) % 1);
+    const px = x1 + (x2 - x1) * t;
+    const py = y1 + (y2 - y1) * t;
+    ctx.beginPath();
+    ctx.arc(px, py, 2, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  };
+
+  // Draw agent nodes
+  AGENTS.forEach(agent => {
+    const pos = positions[agent.id];
+    if (!pos) return;
+
+    const nodeR = Math.max(8, Math.min(20, 8 + agent.cost * 0.2));
+    const pulseR = nodeR + 4 + Math.sin(time * 2 + pos.angle) * 3;
+
+    // Glow
+    const grd = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, pulseR + 10);
+    grd.addColorStop(0, agent.color + '30');
+    grd.addColorStop(1, agent.color + '00');
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, pulseR + 10, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, pulseR, 0, Math.PI * 2);
+    ctx.strokeStyle = agent.color + '40';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Core node
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, nodeR, 0, Math.PI * 2);
+    ctx.fillStyle = agent.color + 'cc';
+    ctx.fill();
+
+    // Label
+    ctx.save();
+    ctx.font = '700 9px Inter';
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const shortName = agent.name.length > 6 ? agent.name.slice(0, 5) : agent.name;
+    ctx.fillText(shortName, pos.x, pos.y);
+    ctx.restore();
+
+    // Cost label below
+    ctx.save();
+    ctx.font = '500 8px "JetBrains Mono"';
+    ctx.fillStyle = agent.color + '80';
+    ctx.textAlign = 'center';
+    ctx.fillText(`$${agent.cost.toFixed(agent.cost < 1 ? 1 : 0)}`, pos.x, pos.y + nodeR + 12);
+    ctx.restore();
+  });
+
+  // Center label
+  ctx.save();
+  ctx.font = '800 14px Inter';
+  ctx.fillStyle = '#63ebb4';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('RAMICHE', cx, cy - 8);
+  ctx.font = '400 9px "JetBrains Mono"';
+  ctx.fillStyle = '#63ebb480';
+  ctx.fillText('HQ', cx, cy + 8);
+  ctx.restore();
+
+  requestAnimationFrame(drawBodyMap);
+}
+
+// ─── Lane Pressure Chart ───
+function drawFlowChart() {
+  const canvas = document.getElementById('flowCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  ctx.scale(dpr, dpr);
+
+  const W = rect.width;
+  const H = rect.height;
+  const time = Date.now() / 1000;
+
+  // Simulated lane pressure data (would be real-time in production)
+  const points = 60;
+  const data = [];
+  for (let i = 0; i < points; i++) {
+    const t = i / points;
+    const base = 3 + Math.sin(t * 4 + time * 0.3) * 2;
+    const spike = Math.random() > 0.92 ? Math.random() * 8 : 0;
+    data.push(Math.max(0, base + spike + Math.sin(t * 8 + time) * 1.5));
+  }
+
+  const max = Math.max(...data, 14);
+  const stepX = W / (points - 1);
+
+  // Fill gradient
+  const grd = ctx.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, 'rgba(255, 77, 106, 0.15)');
+  grd.addColorStop(1, 'rgba(255, 77, 106, 0)');
+
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  data.forEach((v, i) => {
+    const x = i * stepX;
+    const y = H - (v / max) * (H - 10);
+    if (i === 0) ctx.lineTo(x, y);
+    else {
+      const px = (i - 1) * stepX;
+      const py = H - (data[i-1] / max) * (H - 10);
+      const cpx = (px + x) / 2;
+      ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
+    }
+  });
+  ctx.lineTo(W, H);
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((v, i) => {
+    const x = i * stepX;
+    const y = H - (v / max) * (H - 10);
+    if (i === 0) ctx.moveTo(x, y);
+    else {
+      const px = (i - 1) * stepX;
+      const py = H - (data[i-1] / max) * (H - 10);
+      const cpx = (px + x) / 2;
+      ctx.bezierCurveTo(cpx, py, cpx, y, x, y);
+    }
+  });
+  ctx.strokeStyle = '#ff4d6a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Threshold line
+  const threshY = H - (10 / max) * (H - 10);
+  ctx.beginPath();
+  ctx.setLineDash([4, 4]);
+  ctx.moveTo(0, threshY);
+  ctx.lineTo(W, threshY);
+  ctx.strokeStyle = 'rgba(251, 191, 36, 0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.font = '500 8px "JetBrains Mono"';
+  ctx.fillStyle = '#5a5e72';
+  ctx.textAlign = 'left';
+  ctx.fillText('Queue depth', 4, 12);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#fbbf2460';
+  ctx.fillText('⚠ Congestion threshold', W - 4, threshY - 4);
+
+  requestAnimationFrame(drawFlowChart);
+}
+
+// ─── Init ───
+renderVitals();
+renderAgentList();
+renderCostGrid();
+renderTokenBars();
+renderDiagnosis();
+drawBodyMap();
+drawFlowChart();
+
+// Resize handler
+window.addEventListener('resize', () => {
+  drawBodyMap();
+  drawFlowChart();
+});
+</script>
+</body>
+</html>

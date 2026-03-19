@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Arbitrage Calculator | Parallax</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Parallax Light Theme - Game-like */
+        body {
+            background-color: #f8fafc; /* Slate 50 */
+            color: #0f172a; /* Slate 900 */
+            font-family: 'Courier New', Courier, monospace; /* Brutalist/Tech feel */
+        }
+        
+        .box {
+            border: 2px solid #000;
+            background: #fff;
+            box-shadow: 4px 4px 0px #000;
+            transition: all 0.2s;
+        }
+        
+        .box:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0px #000;
+        }
+
+        .input-brutal {
+            border: 2px solid #000;
+            background: #f1f5f9;
+            padding: 0.5rem;
+            width: 100%;
+            font-family: inherit;
+            font-weight: bold;
+            outline: none;
+        }
+        
+        .input-brutal:focus {
+            background: #e2e8f0;
+            border-color: #3b82f6; /* Blue 500 */
+        }
+
+        .heartbeat {
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+
+        .bar-human {
+            background-color: #ef4444; /* Red 500 */
+            border: 2px solid #000;
+            transition: height 0.5s ease-out;
+        }
+
+        .bar-agent {
+            background-color: #22c55e; /* Green 500 */
+            border: 2px solid #000;
+            transition: height 0.5s ease-out;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="p-8 min-h-screen">
+    <header class="mb-12 border-b-2 border-black pb-4">
+        <h1 class="text-4xl font-black uppercase tracking-tighter">Verified Agent Business</h1>
+        <p class="text-xl font-bold text-gray-600">Arbitrage Yield Calculator</p>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-2 gap-12 w-full">
+        <!-- Input Section -->
+        <section class="box p-8 space-y-6">
+            <h2 class="text-2xl font-black mb-6 border-b-2 border-black pb-2">PARAMETERS</h2>
+            
+            <div>
+                <label class="block font-bold mb-2 uppercase">Monthly Human/Agency Spend ($)</label>
+                <input type="number" id="humanSpend" value="5000" class="input-brutal text-xl">
+            </div>
+
+            <div>
+                <label class="block font-bold mb-2 uppercase">Human Hours Spent (Monthly)</label>
+                <input type="number" id="humanHours" value="80" class="input-brutal text-xl">
+            </div>
+
+            <div>
+                <label class="block font-bold mb-2 uppercase">Agent Tier</label>
+                <select id="agentRate" class="input-brutal text-xl">
+                    <option value="100">Standard ($100/hr) - Routine tasks</option>
+                    <option value="250" selected>Advanced ($250/hr) - Complex workflows</option>
+                    <option value="500">Elite ($500/hr) - Custom deployment</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="block font-bold mb-2 uppercase">Agent Speed Multiplier</label>
+                <div class="flex items-center gap-4">
+                    <input type="range" id="speedMultiplier" min="2" max="50" value="10" class="flex-1">
+                    <span id="speedValue" class="font-black text-2xl w-16 text-right">10x</span>
+                </div>
+                <p class="text-sm text-gray-500 mt-1 font-bold">Agents work faster than humans.</p>
+            </div>
+        </section>
+
+        <!-- Output Section -->
+        <section class="box p-8 flex flex-col justify-between">
+            <h2 class="text-2xl font-black mb-6 border-b-2 border-black pb-2">ARBITRAGE YIELD</h2>
+            
+            <div class="grid grid-cols-2 gap-6 mb-8">
+                <div class="p-4 border-2 border-black bg-gray-50 text-center">
+                    <p class="text-sm font-bold uppercase text-gray-500">Agent Cost</p>
+                    <p class="text-3xl font-black" id="outAgentCost">$---</p>
+                </div>
+                <div class="p-4 border-2 border-black bg-green-100 text-center heartbeat">
+                    <p class="text-sm font-bold uppercase text-gray-500">Net Savings</p>
+                    <p class="text-3xl font-black text-green-700" id="outSavings">$---</p>
+                </div>
+                <div class="p-4 border-2 border-black bg-blue-100 text-center col-span-2">
+                    <p class="text-sm font-bold uppercase text-gray-500">Time Returned to Business</p>
+                    <p class="text-4xl font-black text-blue-700" id="outTimeSaved">-- hrs</p>
+                </div>
+            </div>
+
+            <!-- Visualization -->
+            <div class="flex-1 mt-4 relative border-l-2 border-b-2 border-black flex items-end justify-around pb-0 pt-10 px-4 h-64">
+                <!-- Human Bar -->
+                <div class="w-1/3 flex flex-col justify-end h-full">
+                    <div id="barHuman" class="bar-human w-full flex items-start justify-center pt-2" style="height: 100%;">
+                        <span class="font-black text-white text-sm bg-black px-1" id="labelHuman">$0</span>
+                    </div>
+                    <p class="text-center font-bold mt-2 uppercase">Human</p>
+                </div>
+                
+                <!-- Agent Bar -->
+                <div class="w-1/3 flex flex-col justify-end h-full">
+                    <div id="barAgent" class="bar-agent w-full flex items-start justify-center pt-2" style="height: 10%;">
+                        <span class="font-black text-white text-sm bg-black px-1" id="labelAgent">$0</span>
+                    </div>
+                    <p class="text-center font-bold mt-2 uppercase text-green-700">Agent</p>
+                </div>
+                
+                <span class="absolute top-2 left-2 text-xs font-bold text-gray-400 uppercase">Cost ($)</span>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const DOM = {
+            humanSpend: document.getElementById('humanSpend'),
+            humanHours: document.getElementById('humanHours'),
+            agentRate: document.getElementById('agentRate'),
+            speedMultiplier: document.getElementById('speedMultiplier'),
+            speedValue: document.getElementById('speedValue'),
+            outAgentCost: document.getElementById('outAgentCost'),
+            outSavings: document.getElementById('outSavings'),
+            outTimeSaved: document.getElementById('outTimeSaved'),
+            barHuman: document.getElementById('barHuman'),
+            barAgent: document.getElementById('barAgent'),
+            labelHuman: document.getElementById('labelHuman'),
+            labelAgent: document.getElementById('labelAgent')
+        };
+
+        DOM.speedMultiplier.addEventListener('input', (e) => {
+            DOM.speedValue.textContent = e.target.value + 'x';
+            calculate();
+        });
+
+        // Auto-calc on input changes for snappy UX
+        [DOM.humanSpend, DOM.humanHours, DOM.agentRate].forEach(el => {
+            el.addEventListener('input', calculate);
+        });
+
+        function calculate() {
+            const hSpend = parseFloat(DOM.humanSpend.value) || 0;
+            const hHours = parseFloat(DOM.humanHours.value) || 0;
+            const aRate = parseFloat(DOM.agentRate.value) || 0;
+            const speed = parseFloat(DOM.speedMultiplier.value) || 1;
+
+            // Agent math
+            const aHours = hHours / speed;
+            const aCost = aHours * aRate;
+            const savings = hSpend - aCost;
+            const timeSaved = hHours - aHours;
+
+            // Update text
+            DOM.outAgentCost.textContent = '$' + aCost.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            DOM.outSavings.textContent = '$' + savings.toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0});
+            DOM.outTimeSaved.textContent = Math.round(timeSaved) + ' hrs';
+
+            // Colors for savings
+            if(savings < 0) {
+                DOM.outSavings.parentElement.classList.replace('bg-green-100', 'bg-red-100');
+                DOM.outSavings.classList.replace('text-green-700', 'text-red-700');
+            } else {
+                DOM.outSavings.parentElement.classList.replace('bg-red-100', 'bg-green-100');
+                DOM.outSavings.classList.replace('text-red-700', 'text-green-700');
+            }
+
+            // Update Bars
+            const maxVal = Math.max(hSpend, aCost, 1);
+            
+            const hPct = (hSpend / maxVal) * 100;
+            const aPct = (aCost / maxVal) * 100;
+
+            DOM.barHuman.style.height = `${Math.max(hPct, 5)}%`;
+            DOM.barAgent.style.height = `${Math.max(aPct, 5)}%`;
+
+            DOM.labelHuman.textContent = '$' + Math.round(hSpend).toLocaleString();
+            DOM.labelAgent.textContent = '$' + Math.round(aCost).toLocaleString();
+        }
+
+        // Init
+        calculate();
+    </script>
+</body>
+</html>

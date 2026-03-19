@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE — Team Analytics Dashboard</title>
+<style>
+:root {
+  --purple: #6B21A8;
+  --purple-light: #A855F7;
+  --scarlet: #DC2626;
+  --gold: #F59E0B;
+  --blue: #2563EB;
+  --bg: #F8FAFC;
+  --card: #FFFFFF;
+  --text: #1E293B;
+  --muted: #64748B;
+  --border: #E2E8F0;
+  --success: #16A34A;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); }
+
+/* Header */
+.header { background: linear-gradient(135deg, var(--purple) 0%, #4C1D95 100%); color: white; padding: 20px 24px; }
+.header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.header h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
+.header h1 span { color: var(--gold); }
+.header-subtitle { font-size: 13px; opacity: 0.8; }
+.team-badge { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; padding: 6px 14px; font-size: 12px; font-weight: 600; }
+
+/* KPI Strip */
+.kpi-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 16px 24px; background: white; border-bottom: 2px solid var(--border); }
+.kpi-card { text-align: center; padding: 12px 8px; }
+.kpi-value { font-size: 28px; font-weight: 800; }
+.kpi-label { font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: 0.5px; margin-top: 2px; }
+.kpi-delta { font-size: 11px; font-weight: 600; margin-top: 4px; }
+.kpi-delta.up { color: var(--success); }
+.kpi-delta.down { color: var(--scarlet); }
+
+/* Tabs */
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); background: white; padding: 0 24px; overflow-x: auto; }
+.tab { padding: 12px 20px; font-size: 13px; font-weight: 600; cursor: pointer; border-bottom: 3px solid transparent; color: var(--muted); white-space: nowrap; transition: all 0.2s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+/* Content */
+.content { padding: 20px 24px; }
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* Section */
+.section-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.section-title .icon { font-size: 18px; }
+
+/* Charts */
+.chart-container { background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.chart-label { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+canvas { width: 100% !important; height: auto !important; }
+
+/* Heatmap */
+.heatmap { display: grid; grid-template-columns: 100px repeat(7, 1fr); gap: 2px; font-size: 11px; }
+.heatmap-header { font-weight: 700; text-align: center; padding: 6px 4px; color: var(--muted); }
+.heatmap-name { padding: 6px 8px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heatmap-cell { border-radius: 4px; display: flex; align-items: center; justify-content: center; min-height: 28px; font-weight: 600; font-size: 10px; }
+
+/* Leaderboard */
+.leaderboard { display: flex; flex-direction: column; gap: 8px; }
+.leader-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: var(--card); border: 2px solid var(--border); border-radius: 10px; }
+.leader-rank { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 13px; color: white; flex-shrink: 0; }
+.leader-info { flex: 1; }
+.leader-name { font-weight: 700; font-size: 14px; }
+.leader-detail { font-size: 11px; color: var(--muted); }
+.leader-stat { text-align: right; }
+.leader-stat-value { font-size: 18px; font-weight: 800; }
+.leader-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+/* Group Grid */
+.group-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.group-card { background: var(--card); border: 2px solid var(--border); border-radius: 12px; padding: 16px; }
+.group-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.group-meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+.group-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.group-stat { text-align: center; padding: 8px; background: var(--bg); border-radius: 8px; }
+.group-stat-val { font-size: 18px; font-weight: 800; }
+.group-stat-lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; }
+
+/* XP Distribution */
+.xp-bar-container { margin-bottom: 10px; }
+.xp-bar-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.xp-bar-label span:first-child { font-weight: 600; }
+.xp-bar-label span:last-child { color: var(--muted); }
+.xp-bar-track { height: 20px; background: var(--bg); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.xp-bar-fill { height: 100%; border-radius: 10px; transition: width 0.8s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 6px; font-size: 10px; font-weight: 700; color: white; }
+
+/* Event Table */
+.event-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.event-table th { text-align: left; padding: 8px 12px; background: var(--bg); font-weight: 700; text-transform: uppercase; font-size: 10px; color: var(--muted); letter-spacing: 0.5px; border-bottom: 2px solid var(--border); }
+.event-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); }
+.event-table tr:hover td { background: #F1F5F9; }
+.drop-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px; }
+.drop-badge.good { background: #DCFCE7; color: #166534; }
+.drop-badge.great { background: #FEF3C7; color: #92400E; }
+.drop-badge.elite { background: #F3E8FF; color: #6B21A8; }
+
+/* Level Distribution */
+.level-dist { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; }
+.level-box { text-align: center; padding: 12px 8px; border-radius: 10px; border: 2px solid var(--border); }
+.level-count { font-size: 28px; font-weight: 800; }
+.level-name { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+.level-pct { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* Season Trend */
+.season-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.season-stat { background: var(--card); border: 2px solid var(--border); border-radius: 10px; padding: 14px; text-align: center; }
+.season-stat-val { font-size: 24px; font-weight: 800; }
+.season-stat-lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+
+/* Export bar */
+.export-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.btn { padding: 8px 18px; border-radius: 8px; font-size: 12px; font-weight: 700; border: 2px solid var(--border); background: white; cursor: pointer; transition: all 0.2s; }
+.btn:hover { border-color: var(--purple); color: var(--purple); }
+.btn-primary { background: var(--purple); color: white; border-color: var(--purple); }
+.btn-primary:hover { background: #5B21B6; }
+
+/* Filter */
+.filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
+.filter-bar select { padding: 6px 12px; border-radius: 8px; border: 2px solid var(--border); font-size: 12px; font-weight: 600; background: white; }
+.filter-label { font-size: 12px; color: var(--muted); font-weight: 600; }
+
+@media (max-width: 768px) {
+  .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+  .heatmap { grid-template-columns: 80px repeat(7, 1fr); font-size: 9px; }
+  .group-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <h1><span>METTLE</span> Team Analytics</h1>
+      <div class="header-subtitle">Saint Andrew's Aquatics — 2025-26 Season</div>
+    </div>
+    <div class="team-badge">24 Athletes &bull; 3 Groups</div>
+  </div>
+</div>
+
+<div class="kpi-strip" id="kpiStrip"></div>
+
+<div class="tabs" id="tabs">
+  <div class="tab active" data-tab="overview">Overview</div>
+  <div class="tab" data-tab="drops">Time Drops</div>
+  <div class="tab" data-tab="attendance">Attendance</div>
+  <div class="tab" data-tab="xp">XP & Levels</div>
+  <div class="tab" data-tab="groups">Groups</div>
+  <div class="tab" data-tab="report">Team Report</div>
+</div>
+
+<div class="content">
+  <!-- Overview Panel -->
+  <div class="panel active" id="panel-overview">
+    <div class="section-title"><span class="icon">🏅</span> Top Improvers This Month</div>
+    <div class="leaderboard" id="topImprovers"></div>
+    <br>
+    <div class="chart-container">
+      <div class="chart-label">Team Time Drop Trend (Last 6 Meets)</div>
+      <canvas id="dropTrendChart" height="200"></canvas>
+    </div>
+    <div class="section-title"><span class="icon">📊</span> Level Distribution</div>
+    <div class="level-dist" id="levelDist"></div>
+  </div>
+
+  <!-- Time Drops Panel -->
+  <div class="panel" id="panel-drops">
+    <div class="filter-bar">
+      <span class="filter-label">Event:</span>
+      <select id="eventFilter"><option value="all">All Events</option></select>
+      <span class="filter-label">Group:</span>
+      <select id="groupFilter"><option value="all">All Groups</option></select>
+    </div>
+    <div class="chart-container">
+      <div class="chart-label">Average Drop by Event (seconds)</div>
+      <canvas id="eventDropChart" height="220"></canvas>
+    </div>
+    <div class="section-title"><span class="icon">⏱️</span> Individual Time Drops</div>
+    <div style="overflow-x:auto;">
+      <table class="event-table" id="dropsTable">
+        <thead><tr><th>Athlete</th><th>Event</th><th>Old Time</th><th>New Time</th><th>Drop</th><th>%</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Attendance Panel -->
+  <div class="panel" id="panel-attendance">
+    <div class="section-title"><span class="icon">📅</span> Weekly Attendance Heatmap</div>
+    <div class="chart-container">
+      <div class="heatmap" id="attendanceHeatmap"></div>
+    </div>
+    <div class="chart-container">
+      <div class="chart-label">Attendance Rate by Week</div>
+      <canvas id="attendanceChart" height="180"></canvas>
+    </div>
+  </div>
+
+  <!-- XP & Levels Panel -->
+  <div class="panel" id="panel-xp">
+    <div class="section-title"><span class="icon">⚡</span> XP Breakdown by Category</div>
+    <div class="chart-container" id="xpBreakdown"></div>
+    <div class="section-title"><span class="icon">🎮</span> XP Leaderboard</div>
+    <div class="leaderboard" id="xpLeaderboard"></div>
+  </div>
+
+  <!-- Groups Panel -->
+  <div class="panel" id="panel-groups">
+    <div class="section-title"><span class="icon">👥</span> Training Group Performance</div>
+    <div class="group-grid" id="groupGrid"></div>
+    <br>
+    <div class="chart-container">
+      <div class="chart-label">Group Comparison — Key Metrics</div>
+      <canvas id="groupCompChart" height="200"></canvas>
+    </div>
+  </div>
+
+  <!-- Report Panel -->
+  <div class="panel" id="panel-report">
+    <div class="export-bar">
+      <button class="btn btn-primary" onclick="exportReport()">Export as Text</button>
+      <button class="btn" onclick="window.print()">Print Report</button>
+    </div>
+    <div class="section-title"><span class="icon">📋</span> Season Summary — Team Report Card</div>
+    <div class="season-grid" id="seasonGrid"></div>
+    <div class="chart-container" id="reportContent"></div>
+  </div>
+</div>
+
+<script>
+// =====================================================
+// DEMO DATA — Saint Andrew's Aquatics
+// =====================================================
+const GROUPS = [
+  { name: 'Senior Elite', code: 'SE', color: '#6B21A8', ageRange: '15-18', coach: 'Coach Williams' },
+  { name: 'Junior Varsity', code: 'JV', color: '#2563EB', ageRange: '12-14', coach: 'Coach Davis' },
+  { name: 'Age Group', code: 'AG', color: '#16A34A', ageRange: '9-11', coach: 'Coach Martinez' }
+];
+
+const EVENTS = ['50 Free','100 Free','200 Free','50 Back','100 Back','50 Breast','100 Breast','50 Fly','100 Fly','200 IM'];
+
+const ATHLETES = [
+  { name:'Marcus Williams', group:'SE', age:17, level:'Warrior', xp:680, bestTimes:{'50 Free':22.14,'100 Free':49.81,'200 Free':112.4,'100 Back':58.2,'200 IM':121.5}, streak:12 },
+  { name:'Sophia Chen', group:'SE', age:16, level:'Champion', xp:920, bestTimes:{'50 Free':25.01,'100 Free':54.3,'200 Free':119.8,'100 Breast':72.1,'200 IM':132.0}, streak:18 },
+  { name:'Jake Morrison', group:'SE', age:17, level:'Warrior', xp:710, bestTimes:{'50 Free':22.89,'100 Free':50.44,'50 Fly':25.1,'100 Fly':55.8,'200 IM':118.9}, streak:9 },
+  { name:'Ava Johnson', group:'SE', age:18, level:'Legend', xp:1150, bestTimes:{'50 Free':24.32,'100 Free':52.7,'200 Free':116.3,'50 Back':29.1,'100 Back':62.4}, streak:24 },
+  { name:'Tyler Brooks', group:'SE', age:16, level:'Challenger', xp:480, bestTimes:{'50 Free':23.55,'100 Free':51.2,'50 Breast':30.8,'100 Breast':67.4,'200 IM':125.1}, streak:6 },
+  { name:'Mia Rodriguez', group:'SE', age:17, level:'Champion', xp:880, bestTimes:{'50 Free':25.44,'100 Free':55.1,'50 Fly':28.3,'100 Fly':62.7,'200 IM':135.2}, streak:15 },
+  { name:'Ethan Park', group:'SE', age:16, level:'Warrior', xp:620, bestTimes:{'50 Free':23.01,'100 Free':50.88,'200 Free':113.7,'100 Back':59.4,'200 IM':122.8}, streak:8 },
+  { name:'Emma Davis', group:'SE', age:18, level:'Champion', xp:950, bestTimes:{'50 Free':24.88,'100 Free':53.9,'200 Free':118.1,'50 Back':30.2,'100 Back':64.8}, streak:20 },
+  { name:'Noah Kim', group:'JV', age:14, level:'Challenger', xp:440, bestTimes:{'50 Free':26.77,'100 Free':58.3,'50 Back':32.1,'100 Back':69.2,'200 IM':142.5}, streak:7 },
+  { name:'Lily Thompson', group:'JV', age:13, level:'Warrior', xp:560, bestTimes:{'50 Free':28.12,'100 Free':61.4,'50 Breast':35.8,'100 Breast':77.2,'200 IM':148.0}, streak:11 },
+  { name:'Ryan Martinez', group:'JV', age:14, level:'Challenger', xp:390, bestTimes:{'50 Free':27.33,'100 Free':59.8,'50 Fly':29.9,'100 Fly':66.1,'200 IM':140.3}, streak:5 },
+  { name:'Zoe Anderson', group:'JV', age:13, level:'Contender', xp:280, bestTimes:{'50 Free':29.45,'100 Free':63.2,'200 Free':138.9,'50 Back':34.6,'100 Back':73.8}, streak:4 },
+  { name:'Caleb White', group:'JV', age:14, level:'Warrior', xp:590, bestTimes:{'50 Free':26.11,'100 Free':57.0,'50 Free':26.11,'100 Back':67.5,'200 IM':139.1}, streak:13 },
+  { name:'Grace Lee', group:'JV', age:12, level:'Contender', xp:310, bestTimes:{'50 Free':30.22,'100 Free':65.8,'50 Breast':38.4,'100 Breast':82.6,'200 IM':155.3}, streak:6 },
+  { name:'Mason Taylor', group:'JV', age:13, level:'Challenger', xp:420, bestTimes:{'50 Free':27.88,'100 Free':60.5,'50 Fly':31.2,'100 Fly':69.4,'200 IM':144.8}, streak:8 },
+  { name:'Olivia Brown', group:'JV', age:14, level:'Warrior', xp:540, bestTimes:{'50 Free':28.56,'100 Free':62.0,'200 Free':135.2,'50 Back':33.9,'100 Back':71.5}, streak:10 },
+  { name:'Lucas Garcia', group:'AG', age:11, level:'Contender', xp:240, bestTimes:{'50 Free':32.14,'100 Free':70.3,'50 Back':37.8,'100 Back':80.5}, streak:5 },
+  { name:'Chloe Wilson', group:'AG', age:10, level:'Rookie', xp:120, bestTimes:{'50 Free':35.67,'100 Free':78.2,'50 Breast':42.1,'100 Breast':91.3}, streak:3 },
+  { name:'Aiden Hall', group:'AG', age:11, level:'Contender', xp:260, bestTimes:{'50 Free':31.55,'100 Free':68.9,'50 Fly':35.4,'100 Fly':78.2}, streak:7 },
+  { name:'Ella Scott', group:'AG', age:9, level:'Rookie', xp:80, bestTimes:{'50 Free':38.22,'100 Free':84.1,'50 Back':41.5}, streak:2 },
+  { name:'Owen Harris', group:'AG', age:10, level:'Rookie', xp:150, bestTimes:{'50 Free':34.01,'100 Free':74.6,'50 Breast':40.7,'100 Breast':88.4}, streak:4 },
+  { name:'Isabella Clark', group:'AG', age:11, level:'Challenger', xp:350, bestTimes:{'50 Free':30.89,'100 Free':67.2,'200 Free':148.5,'50 Back':36.1,'100 Back':77.3}, streak:9 },
+  { name:'Jack Robinson', group:'AG', age:10, level:'Contender', xp:200, bestTimes:{'50 Free':33.44,'100 Free':72.8,'50 Fly':37.2}, streak:3 },
+  { name:'Harper Lewis', group:'AG', age:9, level:'Rookie', xp:60, bestTimes:{'50 Free':39.88,'100 Free':87.5}, streak:1 }
+];
+
+const LEVELS = ['Rookie','Contender','Challenger','Warrior','Champion','Legend'];
+const LEVEL_COLORS = { Rookie:'#94A3B8', Contender:'#16A34A', Challenger:'#2563EB', Warrior:'#F59E0B', Champion:'#DC2626', Legend:'#6B21A8' };
+const LEVEL_XP = { Rookie:0, Contender:200, Challenger:400, Warrior:600, Champion:800, Legend:1000 };
+
+// Generate time drops (simulated season data)
+const TIME_DROPS = [];
+ATHLETES.forEach(a => {
+  Object.keys(a.bestTimes).forEach(evt => {
+    const baseTime = a.bestTimes[evt];
+    const dropPct = (Math.random() * 3 + 0.5) / 100;
+    const drop = baseTime * dropPct;
+    const oldTime = baseTime + drop;
+    TIME_DROPS.push({
+      athlete: a.name, group: a.group, event: evt,
+      oldTime: oldTime, newTime: baseTime, drop: drop, pct: dropPct * 100
+    });
+  });
+});
+TIME_DROPS.sort((a,b) => b.pct - a.pct);
+
+// Attendance data (last 4 weeks, Mon-Sat + optional Sun)
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const ATTENDANCE = {};
+ATHLETES.forEach(a => {
+  ATTENDANCE[a.name] = DAYS.map(d => {
+    if (d === 'Sun') return Math.random() > 0.7 ? 1 : 0;
+    if (d === 'Sat') return Math.random() > 0.3 ? 1 : 0;
+    return Math.random() > 0.15 ? 1 : 0;
+  });
+});
+
+// Weekly attendance rates (8 weeks)
+const WEEKLY_RATES = [78, 82, 85, 81, 88, 91, 87, 93];
+
+// Meet names for trend chart
+const MEETS = ['Oct Invitational','Nov Classic','Dec Championship','Jan Dual','Feb Sectionals','Mar Qualifier'];
+const MEET_DROPS = [0.8, 1.2, 1.5, 1.1, 1.8, 2.1]; // avg team drop % per meet
+
+// XP categories
+const XP_CATEGORIES = [
+  { name:'Attendance', pct: 25, color:'#16A34A' },
+  { name:'Time Drops', pct: 30, color:'#6B21A8' },
+  { name:'Meet Participation', pct: 20, color:'#2563EB' },
+  { name:'Goal Completion', pct: 15, color:'#F59E0B' },
+  { name:'Team Spirit', pct: 10, color:'#DC2626' }
+];
+
+// =====================================================
+// RENDER FUNCTIONS
+// =====================================================
+
+function formatTime(secs) {
+  if (secs >= 60) {
+    const m = Math.floor(secs / 60);
+    const s = (secs % 60).toFixed(2);
+    return `${m}:${s.padStart(5, '0')}`;
+  }
+  return secs.toFixed(2);
+}
+
+// KPI Strip
+function renderKPIs() {
+  const totalDrops = TIME_DROPS.length;
+  const avgDrop = TIME_DROPS.reduce((s,d) => s + d.pct, 0) / totalDrops;
+  const avgAttendance = WEEKLY_RATES[WEEKLY_RATES.length-1];
+  const totalXP = ATHLETES.reduce((s,a) => s + a.xp, 0);
+  const avgStreak = (ATHLETES.reduce((s,a) => s + a.streak, 0) / ATHLETES.length).toFixed(1);
+  const pbCount = TIME_DROPS.filter(d => d.pct > 2).length;
+
+  const kpis = [
+    { value: ATHLETES.length, label:'Athletes', delta:'+3 from Oct', up:true },
+    { value: avgDrop.toFixed(1)+'%', label:'Avg Time Drop', delta:'+0.4% vs last month', up:true },
+    { value: avgAttendance+'%', label:'Attendance Rate', delta:'+5% vs last month', up:true },
+    { value: totalXP.toLocaleString(), label:'Total Team XP', delta:'+2,400 this month', up:true },
+    { value: avgStreak, label:'Avg Streak (days)', delta:'+1.2 vs last month', up:true },
+    { value: pbCount, label:'PBs This Season', delta:'', up:true }
+  ];
+
+  const strip = document.getElementById('kpiStrip');
+  strip.innerHTML = kpis.map(k => `
+    <div class="kpi-card">
+      <div class="kpi-value" style="color:${k.value.toString().includes('%') ? 'var(--success)' : 'var(--purple)'}">${k.value}</div>
+      <div class="kpi-label">${k.label}</div>
+      ${k.delta ? `<div class="kpi-delta ${k.up?'up':'down'}">${k.up?'↑':'↓'} ${k.delta}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+// Tab Navigation
+function initTabs() {
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+}
+
+// Top Improvers
+function renderTopImprovers() {
+  const byAthlete = {};
+  TIME_DROPS.forEach(d => {
+    if (!byAthlete[d.athlete]) byAthlete[d.athlete] = [];
+    byAthlete[d.athlete].push(d);
+  });
+  const improvers = Object.entries(byAthlete).map(([name, drops]) => {
+    const avgPct = drops.reduce((s,d) => s + d.pct, 0) / drops.length;
+    const athlete = ATHLETES.find(a => a.name === name);
+    return { name, avgPct, drops: drops.length, group: athlete.group, level: athlete.level };
+  }).sort((a,b) => b.avgPct - a.avgPct).slice(0, 8);
+
+  const colors = ['var(--gold)','#94A3B8','#CD7F32','var(--purple)','var(--purple)','var(--purple)','var(--purple)','var(--purple)'];
+  document.getElementById('topImprovers').innerHTML = improvers.map((imp, i) => `
+    <div class="leader-row">
+      <div class="leader-rank" style="background:${colors[i] || 'var(--muted)'}">${i+1}</div>
+      <div class="leader-info">
+        <div class="leader-name">${imp.name}</div>
+        <div class="leader-detail">${GROUPS.find(g=>g.code===imp.group).name} · ${imp.level} · ${imp.drops} events</div>
+      </div>
+      <div class="leader-stat">
+        <div class="leader-stat-value" style="color:var(--success)">-${imp.avgPct.toFixed(1)}%</div>
+        <div class="leader-stat-label">Avg Drop</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Drop Trend Chart (Canvas)
+function renderDropTrendChart() {
+  const canvas = document.getElementById('dropTrendChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 200;
+  canvas.width = W * 2; canvas.height = H * 2;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.scale(2, 2);
+
+  const pad = { top: 20, right: 20, bottom: 40, left: 50 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  const maxVal = Math.max(...MEET_DROPS) * 1.2;
+
+  // Grid
+  ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    ctx.fillStyle = '#94A3B8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText((maxVal - (maxVal/4)*i).toFixed(1) + '%', pad.left - 8, y + 4);
+  }
+
+  // Bars + line
+  const barW = cw / MEETS.length * 0.6;
+  const gap = cw / MEETS.length;
+
+  MEETS.forEach((meet, i) => {
+    const x = pad.left + gap * i + gap * 0.2;
+    const barH = (MEET_DROPS[i] / maxVal) * ch;
+    const y = pad.top + ch - barH;
+
+    // Bar
+    const grad = ctx.createLinearGradient(x, y, x, pad.top + ch);
+    grad.addColorStop(0, '#A855F7');
+    grad.addColorStop(1, '#6B21A8');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, [4, 4, 0, 0]);
+    ctx.fill();
+
+    // Value
+    ctx.fillStyle = '#6B21A8'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(MEET_DROPS[i].toFixed(1) + '%', x + barW/2, y - 6);
+
+    // Label
+    ctx.fillStyle = '#64748B'; ctx.font = '9px sans-serif';
+    const label = meet.split(' ')[0];
+    ctx.fillText(label, x + barW/2, pad.top + ch + 16);
+  });
+
+  // Trend line
+  ctx.strokeStyle = '#DC2626'; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+  ctx.beginPath();
+  MEETS.forEach((_, i) => {
+    const x = pad.left + gap * i + gap * 0.2 + barW/2;
+    const y = pad.top + ch - (MEET_DROPS[i] / maxVal) * ch;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// Level Distribution
+function renderLevelDist() {
+  const counts = {};
+  LEVELS.forEach(l => counts[l] = 0);
+  ATHLETES.forEach(a => counts[a.level]++);
+
+  document.getElementById('levelDist').innerHTML = LEVELS.map(l => `
+    <div class="level-box" style="border-color:${LEVEL_COLORS[l]}20; background:${LEVEL_COLORS[l]}08">
+      <div class="level-count" style="color:${LEVEL_COLORS[l]}">${counts[l]}</div>
+      <div class="level-name" style="color:${LEVEL_COLORS[l]}">${l}</div>
+      <div class="level-pct">${((counts[l]/ATHLETES.length)*100).toFixed(0)}%</div>
+    </div>
+  `).join('');
+}
+
+// Drops Table & Filters
+function renderDropsPanel() {
+  const evtFilter = document.getElementById('eventFilter');
+  const grpFilter = document.getElementById('groupFilter');
+  EVENTS.forEach(e => { const o = document.createElement('option'); o.value = e; o.text = e; evtFilter.appendChild(o); });
+  GROUPS.forEach(g => { const o = document.createElement('option'); o.value = g.code; o.text = g.name; grpFilter.appendChild(o); });
+
+  function render() {
+    const evt = evtFilter.value;
+    const grp = grpFilter.value;
+    let filtered = TIME_DROPS;
+    if (evt !== 'all') filtered = filtered.filter(d => d.event === evt);
+    if (grp !== 'all') filtered = filtered.filter(d => d.group === grp);
+    filtered = filtered.slice(0, 30);
+
+    document.querySelector('#dropsTable tbody').innerHTML = filtered.map(d => {
+      const cls = d.pct > 2 ? 'elite' : d.pct > 1.5 ? 'great' : 'good';
+      return `<tr>
+        <td style="font-weight:600">${d.athlete}</td>
+        <td>${d.event}</td>
+        <td>${formatTime(d.oldTime)}</td>
+        <td style="font-weight:700">${formatTime(d.newTime)}</td>
+        <td style="color:var(--success);font-weight:700">-${d.drop.toFixed(2)}s</td>
+        <td><span class="drop-badge ${cls}">-${d.pct.toFixed(1)}%</span></td>
+      </tr>`;
+    }).join('');
+  }
+
+  evtFilter.addEventListener('change', render);
+  grpFilter.addEventListener('change', render);
+  render();
+  renderEventDropChart();
+}
+
+// Event Drop Chart
+function renderEventDropChart() {
+  const canvas = document.getElementById('eventDropChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 220;
+  canvas.width = W * 2; canvas.height = H * 2;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.scale(2, 2);
+
+  const eventAvgs = {};
+  EVENTS.forEach(e => {
+    const drops = TIME_DROPS.filter(d => d.event === e);
+    if (drops.length) eventAvgs[e] = drops.reduce((s,d) => s + d.drop, 0) / drops.length;
+  });
+
+  const events = Object.keys(eventAvgs);
+  const vals = Object.values(eventAvgs);
+  const maxVal = Math.max(...vals) * 1.3;
+
+  const pad = { top: 20, right: 20, bottom: 50, left: 50 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  const barW = cw / events.length * 0.65;
+  const gap = cw / events.length;
+
+  // Grid
+  ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ch / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    ctx.fillStyle = '#94A3B8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText((maxVal - (maxVal/4)*i).toFixed(1) + 's', pad.left - 8, y + 4);
+  }
+
+  events.forEach((evt, i) => {
+    const x = pad.left + gap * i + gap * 0.175;
+    const barH = (vals[i] / maxVal) * ch;
+    const y = pad.top + ch - barH;
+
+    const colors = ['#6B21A8','#2563EB','#16A34A','#F59E0B','#DC2626','#6B21A8','#2563EB','#16A34A','#F59E0B','#DC2626'];
+    ctx.fillStyle = colors[i % colors.length];
+    ctx.beginPath(); ctx.roundRect(x, y, barW, barH, [4,4,0,0]); ctx.fill();
+
+    ctx.fillStyle = '#1E293B'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(vals[i].toFixed(2) + 's', x + barW/2, y - 6);
+
+    ctx.save(); ctx.translate(x + barW/2, pad.top + ch + 10);
+    ctx.rotate(-Math.PI/6);
+    ctx.fillStyle = '#64748B'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(evt, 0, 0);
+    ctx.restore();
+  });
+}
+
+// Attendance Heatmap
+function renderAttendance() {
+  const hm = document.getElementById('attendanceHeatmap');
+  let html = '<div class="heatmap-header"></div>';
+  DAYS.forEach(d => html += `<div class="heatmap-header">${d}</div>`);
+
+  ATHLETES.forEach(a => {
+    html += `<div class="heatmap-name">${a.name.split(' ')[0]}</div>`;
+    ATTENDANCE[a.name].forEach(v => {
+      const bg = v ? '#16A34A' : '#FEE2E2';
+      const fg = v ? 'white' : '#DC2626';
+      html += `<div class="heatmap-cell" style="background:${bg};color:${fg}">${v ? '✓' : '✗'}</div>`;
+    });
+  });
+  hm.innerHTML = html;
+
+  // Weekly chart
+  const canvas = document.getElementById('attendanceChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 180;
+  canvas.width = W * 2; canvas.height = H * 2;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.scale(2, 2);
+
+  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+
+  // Grid
+  ctx.strokeStyle = '#E2E8F0'; ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ch/4)*i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left+cw, y); ctx.stroke();
+    ctx.fillStyle = '#94A3B8'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(Math.round(100 - (25*i)) + '%', pad.left-8, y+4);
+  }
+
+  // Area
+  const gap = cw / (WEEKLY_RATES.length - 1);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, pad.top + ch);
+  WEEKLY_RATES.forEach((r, i) => {
+    const x = pad.left + gap * i;
+    const y = pad.top + ch - ((r - 70) / 30) * ch;
+    ctx.lineTo(x, y);
+  });
+  ctx.lineTo(pad.left + cw, pad.top + ch);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+  grad.addColorStop(0, 'rgba(22,163,74,0.3)');
+  grad.addColorStop(1, 'rgba(22,163,74,0.02)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.strokeStyle = '#16A34A'; ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  WEEKLY_RATES.forEach((r, i) => {
+    const x = pad.left + gap * i;
+    const y = pad.top + ch - ((r - 70) / 30) * ch;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots + values
+  WEEKLY_RATES.forEach((r, i) => {
+    const x = pad.left + gap * i;
+    const y = pad.top + ch - ((r - 70) / 30) * ch;
+    ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI*2);
+    ctx.fillStyle = '#16A34A'; ctx.fill();
+    ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = '#1E293B'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(r + '%', x, y - 10);
+    ctx.fillStyle = '#94A3B8'; ctx.font = '9px sans-serif';
+    ctx.fillText('W' + (i+1), x, pad.top + ch + 16);
+  });
+}
+
+// XP Panel
+function renderXP() {
+  // Breakdown bars
+  const container = document.getElementById('xpBreakdown');
+  const totalTeamXP = ATHLETES.reduce((s,a) => s + a.xp, 0);
+  container.innerHTML = XP_CATEGORIES.map(cat => {
+    const catXP = Math.round(totalTeamXP * cat.pct / 100);
+    return `<div class="xp-bar-container">
+      <div class="xp-bar-label"><span>${cat.name}</span><span>${catXP.toLocaleString()} XP (${cat.pct}%)</span></div>
+      <div class="xp-bar-track">
+        <div class="xp-bar-fill" style="width:${cat.pct}%;background:${cat.color}">${cat.pct}%</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // XP Leaderboard
+  const sorted = [...ATHLETES].sort((a,b) => b.xp - a.xp).slice(0, 10);
+  const maxXP = sorted[0].xp;
+  const colors = ['var(--gold)','#94A3B8','#CD7F32','var(--purple)','var(--purple)','var(--purple)','var(--purple)','var(--purple)','var(--purple)','var(--purple)'];
+  document.getElementById('xpLeaderboard').innerHTML = sorted.map((a, i) => `
+    <div class="leader-row">
+      <div class="leader-rank" style="background:${colors[i]}">${i+1}</div>
+      <div class="leader-info">
+        <div class="leader-name">${a.name}</div>
+        <div class="leader-detail">${GROUPS.find(g=>g.code===a.group).name} · ${a.level} · ${a.streak}-day streak</div>
+      </div>
+      <div class="leader-stat">
+        <div class="leader-stat-value" style="color:${LEVEL_COLORS[a.level]}">${a.xp.toLocaleString()}</div>
+        <div class="leader-stat-label">XP</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// Groups Panel
+function renderGroups() {
+  const grid = document.getElementById('groupGrid');
+  grid.innerHTML = GROUPS.map(g => {
+    const members = ATHLETES.filter(a => a.group === g.code);
+    const avgXP = Math.round(members.reduce((s,a) => s + a.xp, 0) / members.length);
+    const avgStreak = (members.reduce((s,a) => s + a.streak, 0) / members.length).toFixed(1);
+    const drops = TIME_DROPS.filter(d => d.group === g.code);
+    const avgDrop = drops.length ? (drops.reduce((s,d) => s + d.pct, 0) / drops.length).toFixed(1) : '0.0';
+    const att = members.reduce((s,a) => {
+      const ad = ATTENDANCE[a.name];
+      return s + ad.filter(v => v).length / ad.length;
+    }, 0) / members.length * 100;
+
+    return `<div class="group-card" style="border-left: 4px solid ${g.color}">
+      <div class="group-name" style="color:${g.color}">${g.name}</div>
+      <div class="group-meta">${g.coach} · Ages ${g.ageRange} · ${members.length} athletes</div>
+      <div class="group-stats">
+        <div class="group-stat"><div class="group-stat-val" style="color:${g.color}">${avgXP}</div><div class="group-stat-lbl">Avg XP</div></div>
+        <div class="group-stat"><div class="group-stat-val" style="color:var(--success)">-${avgDrop}%</div><div class="group-stat-lbl">Avg Drop</div></div>
+        <div class="group-stat"><div class="group-stat-val">${avgStreak}</div><div class="group-stat-lbl">Avg Streak</div></div>
+        <div class="group-stat"><div class="group-stat-val">${att.toFixed(0)}%</div><div class="group-stat-lbl">Attendance</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  renderGroupCompChart();
+}
+
+function renderGroupCompChart() {
+  const canvas = document.getElementById('groupCompChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.parentElement.clientWidth - 40;
+  const H = 200;
+  canvas.width = W * 2; canvas.height = H * 2;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.scale(2, 2);
+
+  const metrics = ['Avg XP', 'Avg Drop %', 'Attendance %', 'Avg Streak'];
+  const pad = { top: 30, right: 20, bottom: 30, left: 70 };
+  const cw = W - pad.left - pad.right;
+  const ch = H - pad.top - pad.bottom;
+  const barH = ch / metrics.length * 0.6;
+  const rowH = ch / metrics.length;
+
+  metrics.forEach((metric, mi) => {
+    const y = pad.top + rowH * mi;
+    ctx.fillStyle = '#64748B'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(metric, pad.left - 8, y + barH/2 + 4);
+
+    GROUPS.forEach((g, gi) => {
+      const members = ATHLETES.filter(a => a.group === g.code);
+      let val;
+      if (metric === 'Avg XP') val = members.reduce((s,a)=>s+a.xp,0)/members.length / 12;
+      else if (metric === 'Avg Drop %') { const d = TIME_DROPS.filter(d=>d.group===g.code); val = d.length ? d.reduce((s,d)=>s+d.pct,0)/d.length * 20 : 0; }
+      else if (metric === 'Attendance %') { val = members.reduce((s,a) => s + ATTENDANCE[a.name].filter(v=>v).length/ATTENDANCE[a.name].length, 0)/members.length * 100; }
+      else { val = members.reduce((s,a)=>s+a.streak,0)/members.length * 5; }
+
+      const bw = Math.min(val / 100 * cw, cw);
+      const by = y + (barH / GROUPS.length) * gi;
+      const bh = barH / GROUPS.length - 2;
+
+      ctx.fillStyle = g.color + 'CC';
+      ctx.beginPath(); ctx.roundRect(pad.left, by, bw, bh, [0,4,4,0]); ctx.fill();
+    });
+  });
+
+  // Legend
+  GROUPS.forEach((g, i) => {
+    const lx = pad.left + i * 120;
+    ctx.fillStyle = g.color; ctx.fillRect(lx, pad.top - 18, 10, 10);
+    ctx.fillStyle = '#1E293B'; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(g.name, lx + 14, pad.top - 9);
+  });
+}
+
+// Season Report
+function renderReport() {
+  const totalXP = ATHLETES.reduce((s,a) => s + a.xp, 0);
+  const avgDrop = (TIME_DROPS.reduce((s,d) => s + d.pct, 0) / TIME_DROPS.length).toFixed(1);
+  const totalPBs = TIME_DROPS.filter(d => d.pct > 2).length;
+  const avgAtt = WEEKLY_RATES[WEEKLY_RATES.length-1];
+  const champPlus = ATHLETES.filter(a => ['Champion','Legend'].includes(a.level)).length;
+
+  const stats = [
+    { val: ATHLETES.length, lbl: 'Active Athletes' },
+    { val: totalXP.toLocaleString(), lbl: 'Total XP Earned' },
+    { val: avgDrop + '%', lbl: 'Avg Time Drop' },
+    { val: totalPBs, lbl: 'Season PBs' },
+    { val: avgAtt + '%', lbl: 'Current Attendance' },
+    { val: champPlus, lbl: 'Champion+ Athletes' }
+  ];
+
+  document.getElementById('seasonGrid').innerHTML = stats.map(s => `
+    <div class="season-stat">
+      <div class="season-stat-val" style="color:var(--purple)">${s.val}</div>
+      <div class="season-stat-lbl">${s.lbl}</div>
+    </div>
+  `).join('');
+
+  // Report narrative
+  const topImprover = [...ATHLETES].sort((a,b) => b.xp - a.xp)[0];
+  const bestGroup = GROUPS.reduce((best, g) => {
+    const m = ATHLETES.filter(a => a.group === g.code);
+    const avg = m.reduce((s,a) => s + a.xp, 0) / m.length;
+    return avg > best.avg ? { ...g, avg } : best;
+  }, { avg: 0 });
+
+  document.getElementById('reportContent').innerHTML = `
+    <h3 style="margin-bottom:12px;">Team Performance Narrative</h3>
+    <p style="line-height:1.7;font-size:14px;color:#334155;">
+      <strong>Saint Andrew's Aquatics</strong> has shown consistent improvement across the 2025-26 season.
+      With <strong>${ATHLETES.length} active athletes</strong> across 3 training groups, the team has accumulated
+      <strong>${totalXP.toLocaleString()} total XP</strong> through the METTLE gamification system.
+    </p>
+    <br>
+    <p style="line-height:1.7;font-size:14px;color:#334155;">
+      <strong>Time Performance:</strong> The team averaged a <strong>${avgDrop}% time drop</strong> per event across 6 meets
+      this season, with ${totalPBs} personal bests recorded. The trend shows acceleration — early-season drops
+      averaged 0.8% while recent meets have produced 2.1% average drops, suggesting the gamification system
+      is driving increasing engagement and effort.
+    </p>
+    <br>
+    <p style="line-height:1.7;font-size:14px;color:#334155;">
+      <strong>Attendance:</strong> Team attendance has climbed from 78% to ${avgAtt}% over 8 weeks,
+      a 15-point improvement that correlates directly with the introduction of streak bonuses and the
+      XP attendance multiplier.
+    </p>
+    <br>
+    <p style="line-height:1.7;font-size:14px;color:#334155;">
+      <strong>Standout Performance:</strong> <strong>${topImprover.name}</strong> leads the team with
+      ${topImprover.xp.toLocaleString()} XP at the ${topImprover.level} level, maintaining a ${topImprover.streak}-day
+      attendance streak. The <strong>${bestGroup.name}</strong> group leads in average XP (${Math.round(bestGroup.avg)}),
+      setting the pace for the program.
+    </p>
+    <br>
+    <p style="line-height:1.7;font-size:14px;color:#334155;">
+      <strong>Level Progress:</strong> ${champPlus} athletes have reached Champion or Legend status,
+      with ${ATHLETES.filter(a => a.level === 'Warrior').length} Warriors positioned for promotion.
+      The level distribution shows healthy progression — the system is challenging enough to be meaningful
+      but achievable enough to maintain engagement across all age groups.
+    </p>
+    <br>
+    <p style="font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:12px;">
+      Report generated by METTLE Team Analytics · Saint Andrew's Aquatics · Season 2025-26
+    </p>
+  `;
+}
+
+function exportReport() {
+  const totalXP = ATHLETES.reduce((s,a) => s + a.xp, 0);
+  const avgDrop = (TIME_DROPS.reduce((s,d) => s + d.pct, 0) / TIME_DROPS.length).toFixed(1);
+
+  let text = `METTLE TEAM REPORT — Saint Andrew's Aquatics\n`;
+  text += `Season 2025-26 | Generated ${new Date().toLocaleDateString()}\n`;
+  text += `${'='.repeat(50)}\n\n`;
+  text += `ATHLETES: ${ATHLETES.length}\n`;
+  text += `TOTAL XP: ${totalXP.toLocaleString()}\n`;
+  text += `AVG TIME DROP: ${avgDrop}%\n`;
+  text += `ATTENDANCE: ${WEEKLY_RATES[WEEKLY_RATES.length-1]}%\n\n`;
+
+  text += `TOP IMPROVERS:\n`;
+  const byAthlete = {};
+  TIME_DROPS.forEach(d => { if(!byAthlete[d.athlete]) byAthlete[d.athlete]=[]; byAthlete[d.athlete].push(d); });
+  Object.entries(byAthlete)
+    .map(([n,d]) => ({n, avg: d.reduce((s,x)=>s+x.pct,0)/d.length}))
+    .sort((a,b) => b.avg - a.avg).slice(0,5)
+    .forEach((imp,i) => { text += `  ${i+1}. ${imp.n} — ${imp.avg.toFixed(1)}% avg drop\n`; });
+
+  text += `\nGROUPS:\n`;
+  GROUPS.forEach(g => {
+    const m = ATHLETES.filter(a => a.group === g.code);
+    const avgXP = Math.round(m.reduce((s,a)=>s+a.xp,0)/m.length);
+    text += `  ${g.name}: ${m.length} athletes, ${avgXP} avg XP\n`;
+  });
+
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'mettle-team-report.txt';
+  a.click();
+}
+
+// =====================================================
+// INIT
+// =====================================================
+function init() {
+  renderKPIs();
+  initTabs();
+  renderTopImprovers();
+  renderDropTrendChart();
+  renderLevelDist();
+  renderDropsPanel();
+  renderAttendance();
+  renderXP();
+  renderGroups();
+  renderReport();
+}
+
+window.addEventListener('load', init);
+window.addEventListener('resize', () => {
+  renderDropTrendChart();
+  renderEventDropChart();
+  renderGroupCompChart();
+});
+</script>
+</body>
+</html>

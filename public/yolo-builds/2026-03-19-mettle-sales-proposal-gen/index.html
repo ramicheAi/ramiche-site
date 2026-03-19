@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE — Sales Proposal Generator</title>
+<style>
+:root {
+  --purple: #6B21A8;
+  --purple-light: #7C3AED;
+  --scarlet: #DC2626;
+  --gold: #F59E0B;
+  --blue: #2563EB;
+  --bg: #0F0F1A;
+  --surface: #1A1A2E;
+  --surface2: #232340;
+  --text: #E2E8F0;
+  --muted: #94A3B8;
+  --border: #334155;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height:100vh; }
+.header { background: linear-gradient(135deg, var(--purple), var(--purple-light)); padding: 24px 32px; display:flex; align-items:center; gap:16px; }
+.header h1 { font-size:24px; font-weight:700; letter-spacing:1px; }
+.header .badge { background: var(--gold); color:#000; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; text-transform:uppercase; }
+.container { max-width:1200px; margin:0 auto; padding:32px 24px; }
+.split { display:grid; grid-template-columns:1fr 1fr; gap:32px; }
+@media(max-width:800px){ .split{grid-template-columns:1fr;} }
+.panel { background:var(--surface); border:2px solid var(--border); border-radius:12px; padding:24px; }
+.panel h2 { font-size:16px; font-weight:600; color:var(--gold); margin-bottom:16px; text-transform:uppercase; letter-spacing:1px; }
+label { display:block; font-size:13px; color:var(--muted); margin-bottom:4px; margin-top:12px; }
+input, select, textarea { width:100%; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:14px; outline:none; }
+input:focus, select:focus, textarea:focus { border-color:var(--purple-light); }
+textarea { resize:vertical; min-height:60px; }
+.row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.btn { display:inline-block; padding:12px 28px; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; transition:all 0.2s; }
+.btn-primary { background:var(--purple); color:#fff; }
+.btn-primary:hover { background:var(--purple-light); transform:translateY(-1px); }
+.btn-gold { background:var(--gold); color:#000; }
+.btn-gold:hover { background:#D97706; }
+.btn-outline { background:transparent; border:2px solid var(--purple); color:var(--purple-light); }
+.btn-outline:hover { background:var(--purple); color:#fff; }
+.actions { display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; }
+.proposal-preview { display:none; }
+.proposal-preview.active { display:block; }
+.proposal-page { background:#fff; color:#111; border-radius:8px; overflow:hidden; margin-bottom:24px; }
+.proposal-hero { background: linear-gradient(135deg, #6B21A8, #2563EB); padding:48px 40px; color:#fff; position:relative; }
+.proposal-hero h1 { font-size:28px; margin-bottom:8px; }
+.proposal-hero .subtitle { font-size:16px; opacity:0.9; }
+.proposal-hero .prepared { margin-top:20px; font-size:13px; opacity:0.7; }
+.proposal-section { padding:32px 40px; border-bottom:1px solid #E5E7EB; }
+.proposal-section h2 { font-size:18px; color:#6B21A8; margin-bottom:16px; }
+.proposal-section p { font-size:14px; line-height:1.7; color:#374151; }
+.stat-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:16px 0; }
+.stat-card { background:#F3F4F6; border-radius:8px; padding:16px; text-align:center; }
+.stat-card .num { font-size:28px; font-weight:700; color:#6B21A8; }
+.stat-card .label { font-size:12px; color:#6B7280; margin-top:4px; }
+.tier-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin:16px 0; }
+.tier-card { border:2px solid #E5E7EB; border-radius:12px; padding:20px; text-align:center; transition:all 0.2s; }
+.tier-card.recommended { border-color:#6B21A8; background:#F5F3FF; position:relative; }
+.tier-card.recommended::before { content:'RECOMMENDED'; position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:#6B21A8; color:#fff; font-size:10px; font-weight:700; padding:2px 12px; border-radius:10px; }
+.tier-card .tier-name { font-size:14px; font-weight:600; color:#374151; }
+.tier-card .tier-price { font-size:32px; font-weight:700; color:#6B21A8; margin:8px 0; }
+.tier-card .tier-price span { font-size:14px; color:#6B7280; }
+.tier-card .tier-features { list-style:none; text-align:left; margin-top:12px; }
+.tier-card .tier-features li { font-size:13px; color:#374151; padding:4px 0; }
+.tier-card .tier-features li::before { content:'✓ '; color:#059669; font-weight:700; }
+.roi-bar { background:#E5E7EB; border-radius:8px; height:32px; margin:8px 0; position:relative; overflow:hidden; }
+.roi-bar .fill { height:100%; border-radius:8px; display:flex; align-items:center; padding-left:12px; font-size:13px; font-weight:600; color:#fff; transition:width 0.6s; }
+.roi-bar .fill.cost { background:#DC2626; }
+.roi-bar .fill.value { background:#059669; }
+.cta-section { background:linear-gradient(135deg,#6B21A8,#7C3AED); padding:40px; text-align:center; color:#fff; }
+.cta-section h2 { font-size:22px; margin-bottom:8px; }
+.cta-section p { font-size:14px; opacity:0.9; margin-bottom:20px; }
+.cta-btn { display:inline-block; background:#F59E0B; color:#000; padding:14px 36px; border-radius:8px; font-weight:700; font-size:16px; text-decoration:none; }
+.lead-capture { background:var(--surface); border:2px solid var(--gold); border-radius:12px; padding:20px; margin-top:16px; }
+.lead-capture h3 { color:var(--gold); font-size:14px; margin-bottom:8px; }
+.lead-data { background:var(--surface2); border-radius:8px; padding:12px; font-family:monospace; font-size:12px; color:var(--muted); white-space:pre-wrap; max-height:200px; overflow-y:auto; }
+.forged-m { display:inline-block; width:40px; height:40px; background:var(--gold); border-radius:50%; text-align:center; line-height:40px; font-weight:900; font-size:18px; color:#000; margin-right:12px; }
+.proposal-hero .forged-m { background:rgba(255,255,255,0.2); color:#fff; }
+.watermark { text-align:center; padding:16px; font-size:11px; color:#9CA3AF; }
+@media print {
+  body { background:#fff; }
+  .header, .panel, .actions, .lead-capture { display:none !important; }
+  .proposal-preview { display:block !important; }
+  .container { padding:0; max-width:100%; }
+  .split { display:block; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="forged-m">M</span>
+  <h1>METTLE — Sales Proposal Generator</h1>
+  <span class="badge">Mercury Sales Tool</span>
+</div>
+
+<div class="container">
+<div class="split">
+
+<!-- INPUT PANEL -->
+<div>
+<div class="panel">
+  <h2>Team Information</h2>
+  <label>Team / Club Name</label>
+  <input type="text" id="teamName" placeholder="Saint Andrew's Aquatics" value="">
+  <label>Contact Name</label>
+  <input type="text" id="contactName" placeholder="Coach Sarah Williams">
+  <label>Contact Email</label>
+  <input type="email" id="contactEmail" placeholder="coach@swimteam.com">
+  <label>Contact Title</label>
+  <input type="text" id="contactTitle" placeholder="Head Coach" value="Head Coach">
+  <div class="row">
+    <div>
+      <label>Number of Athletes</label>
+      <input type="number" id="athleteCount" placeholder="120" value="120">
+    </div>
+    <div>
+      <label>Team Type</label>
+      <select id="teamType">
+        <option value="club">Club / USS Team</option>
+        <option value="high-school">High School</option>
+        <option value="college">College / University</option>
+        <option value="masters">Masters</option>
+        <option value="rec">Recreation / YMCA</option>
+      </select>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>Current Monthly Software Spend</label>
+      <input type="number" id="currentSpend" placeholder="200" value="200">
+    </div>
+    <div>
+      <label>Annual Athlete Churn (%)</label>
+      <input type="number" id="churnRate" placeholder="25" value="25" min="0" max="100">
+    </div>
+  </div>
+  <label>Key Pain Points</label>
+  <textarea id="painPoints" placeholder="Manual attendance tracking, no gamification, parents complain about lack of updates..."></textarea>
+</div>
+
+<div class="panel" style="margin-top:16px;">
+  <h2>Proposal Settings</h2>
+  <div class="row">
+    <div>
+      <label>Recommended Tier</label>
+      <select id="recTier">
+        <option value="team">Team — $149/mo</option>
+        <option value="program" selected>Program — $349/mo</option>
+        <option value="elite">Elite — $549/mo</option>
+      </select>
+    </div>
+    <div>
+      <label>Discount (%)</label>
+      <input type="number" id="discount" value="0" min="0" max="30">
+    </div>
+  </div>
+  <label>Custom Note (appears in proposal)</label>
+  <textarea id="customNote" placeholder="We'd love to help your athletes reach the next level..."></textarea>
+  <div class="actions">
+    <button class="btn btn-primary" onclick="generateProposal()">Generate Proposal</button>
+    <button class="btn btn-outline" onclick="window.print()">Print / PDF</button>
+    <button class="btn btn-gold" onclick="copyLeadData()">Copy Lead JSON</button>
+  </div>
+</div>
+
+<!-- Lead Capture JSON -->
+<div class="lead-capture">
+  <h3>Lead Capture Data (CRM-Ready)</h3>
+  <div class="lead-data" id="leadJson">Fill in team info and generate a proposal to see lead data here.</div>
+</div>
+</div>
+
+<!-- PROPOSAL PREVIEW -->
+<div>
+<div class="panel" style="padding:0; overflow:hidden;">
+  <div id="proposalOutput">
+    <div style="padding:60px 40px; text-align:center; color:var(--muted);">
+      <p style="font-size:48px; margin-bottom:16px;">📄</p>
+      <p>Fill in team details and click <strong>Generate Proposal</strong></p>
+      <p style="font-size:13px; margin-top:8px;">The proposal will appear here — ready to print or send as PDF</p>
+    </div>
+  </div>
+</div>
+</div>
+
+</div>
+</div>
+
+<script>
+const TIERS = {
+  team: {
+    name: 'Team', price: 149, athletes: 50,
+    features: ['Gamified level system (15 levels)', 'Attendance & check-in', 'Basic parent portal', 'Meet results tracking', 'Team leaderboard']
+  },
+  program: {
+    name: 'Program', price: 349, athletes: 200,
+    features: ['Everything in Team', 'Advanced analytics & splits', 'Seed time optimizer', 'Heat/lane assignments', 'Custom challenges & badges', 'Parent messaging portal', 'Hy-Tek / Meet Manager integration']
+  },
+  elite: {
+    name: 'Elite', price: 549, athletes: 500,
+    features: ['Everything in Program', 'Relay lineup optimizer', 'Multi-site management', 'Custom branding & white-label', 'API access & data export', 'Priority support (< 2hr)', 'Dedicated onboarding specialist', 'Recruitment portal']
+  }
+};
+
+function getTeamTypeLabel(t) {
+  return { club:'Club/USS', 'high-school':'High School', college:'College/University', masters:'Masters', rec:'Recreation/YMCA' }[t] || t;
+}
+
+function calculateROI(athleteCount, currentSpend, churnRate, tier) {
+  const monthlyPrice = tier.price;
+  const retentionImprovement = 0.20;
+  const savedAthletes = Math.round(athleteCount * (churnRate/100) * retentionImprovement);
+  const avgAthleteRevenue = 150; // monthly dues
+  const retentionRevenue = savedAthletes * avgAthleteRevenue * 12;
+  const timeSavedHours = Math.round(athleteCount * 0.15); // 0.15 hrs/athlete/month saved
+  const coachHourlyRate = 35;
+  const timeSavings = timeSavedHours * coachHourlyRate * 12;
+  const annualCost = monthlyPrice * 12;
+  const totalValue = retentionRevenue + timeSavings;
+  const roi = Math.round(((totalValue - annualCost) / annualCost) * 100);
+  return { monthlyPrice, annualCost, savedAthletes, retentionRevenue, timeSavedHours, timeSavings, totalValue, roi };
+}
+
+function generateProposal() {
+  const teamName = document.getElementById('teamName').value || 'Your Swim Team';
+  const contactName = document.getElementById('contactName').value || 'Coach';
+  const contactEmail = document.getElementById('contactEmail').value || '';
+  const contactTitle = document.getElementById('contactTitle').value || 'Head Coach';
+  const athleteCount = parseInt(document.getElementById('athleteCount').value) || 120;
+  const teamType = document.getElementById('teamType').value;
+  const currentSpend = parseInt(document.getElementById('currentSpend').value) || 200;
+  const churnRate = parseInt(document.getElementById('churnRate').value) || 25;
+  const painPoints = document.getElementById('painPoints').value;
+  const recTierKey = document.getElementById('recTier').value;
+  const discount = parseInt(document.getElementById('discount').value) || 0;
+  const customNote = document.getElementById('customNote').value;
+
+  const recTier = TIERS[recTierKey];
+  const discountedPrice = Math.round(recTier.price * (1 - discount/100));
+  const roi = calculateROI(athleteCount, currentSpend, churnRate, {...recTier, price: discountedPrice});
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  const validUntil = new Date(today.getTime() + 30*24*60*60*1000).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+  const costBarWidth = Math.min(100, Math.round((roi.annualCost / roi.totalValue) * 100));
+  const valueBarWidth = 100;
+
+  let painPointsHTML = '';
+  if (painPoints.trim()) {
+    const points = painPoints.split(/[,\n]/).filter(p => p.trim());
+    painPointsHTML = `
+      <div class="proposal-section">
+        <h2>We Heard You</h2>
+        <p>Based on our conversation, here's what we understand about ${teamName}'s challenges:</p>
+        <ul style="margin:12px 0; padding-left:20px;">
+          ${points.map(p => `<li style="font-size:14px; color:#374151; padding:4px 0;">${p.trim()}</li>`).join('')}
+        </ul>
+        <p>METTLE was built specifically to solve these problems for ${getTeamTypeLabel(teamType).toLowerCase()} teams like yours.</p>
+      </div>`;
+  }
+
+  let customNoteHTML = '';
+  if (customNote.trim()) {
+    customNoteHTML = `
+      <div class="proposal-section" style="background:#F5F3FF;">
+        <h2>A Note from Us</h2>
+        <p>${customNote}</p>
+      </div>`;
+  }
+
+  const html = `
+    <div class="proposal-page">
+      <div class="proposal-hero">
+        <span class="forged-m">M</span>
+        <h1>METTLE for ${teamName}</h1>
+        <div class="subtitle">The Gamified Athlete Development Platform</div>
+        <div class="prepared">Prepared for ${contactName}, ${contactTitle} · ${dateStr}</div>
+      </div>
+
+      ${painPointsHTML}
+
+      <div class="proposal-section">
+        <h2>Your Team at a Glance</h2>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="num">${athleteCount}</div>
+            <div class="label">Athletes</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">${churnRate}%</div>
+            <div class="label">Annual Churn</div>
+          </div>
+          <div class="stat-card">
+            <div class="num">$${currentSpend}</div>
+            <div class="label">Current Monthly Spend</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proposal-section">
+        <h2>Why METTLE?</h2>
+        <p><strong>METTLE transforms swim coaching</strong> from spreadsheet chaos into a gamified system athletes actually love. 15 progression levels, real-time meet analytics, automated parent updates, and coaching intelligence that turns data into faster swimmers.</p>
+        <p style="margin-top:12px;">Teams on METTLE see an average <strong>20% improvement in athlete retention</strong> and coaches save <strong>${roi.timeSavedHours} hours per month</strong> on administrative tasks.</p>
+      </div>
+
+      <div class="proposal-section">
+        <h2>Investment & Pricing</h2>
+        <div class="tier-grid">
+          ${Object.entries(TIERS).map(([key, tier]) => {
+            const isRec = key === recTierKey;
+            const price = isRec ? discountedPrice : tier.price;
+            return `
+              <div class="tier-card ${isRec ? 'recommended' : ''}">
+                <div class="tier-name">${tier.name}</div>
+                <div class="tier-price">$${price}<span>/mo</span></div>
+                ${isRec && discount > 0 ? `<div style="font-size:12px;color:#059669;font-weight:600;">${discount}% launch discount</div>` : ''}
+                <div style="font-size:12px;color:#6B7280;">Up to ${tier.athletes} athletes</div>
+                <ul class="tier-features">
+                  ${tier.features.map(f => `<li>${f}</li>`).join('')}
+                </ul>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="proposal-section">
+        <h2>Your ROI Projection</h2>
+        <p style="margin-bottom:16px;">Based on ${athleteCount} athletes, ${churnRate}% churn, and ${recTier.name} tier at $${discountedPrice}/mo:</p>
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#6B7280;margin-bottom:4px;">
+            <span>Annual METTLE Investment</span>
+            <span>$${roi.annualCost.toLocaleString()}</span>
+          </div>
+          <div class="roi-bar"><div class="fill cost" style="width:${costBarWidth}%">$${roi.annualCost.toLocaleString()}</div></div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;color:#6B7280;margin-bottom:4px;">
+            <span>Projected Value Generated</span>
+            <span>$${roi.totalValue.toLocaleString()}</span>
+          </div>
+          <div class="roi-bar"><div class="fill value" style="width:${valueBarWidth}%">$${roi.totalValue.toLocaleString()}</div></div>
+        </div>
+        <div class="stat-grid" style="margin-top:16px;">
+          <div class="stat-card">
+            <div class="num" style="color:#059669;">${roi.roi}%</div>
+            <div class="label">Projected ROI</div>
+          </div>
+          <div class="stat-card">
+            <div class="num" style="color:#059669;">${roi.savedAthletes}</div>
+            <div class="label">Athletes Retained</div>
+          </div>
+          <div class="stat-card">
+            <div class="num" style="color:#059669;">${roi.timeSavedHours}h</div>
+            <div class="label">Monthly Time Saved</div>
+          </div>
+        </div>
+        <p style="font-size:12px;color:#9CA3AF;margin-top:8px;">*Projections based on industry benchmarks for gamified coaching platforms. Actual results may vary.</p>
+      </div>
+
+      ${customNoteHTML}
+
+      <div class="proposal-section">
+        <h2>What Happens Next</h2>
+        <p><strong>1. Schedule a Demo</strong> — 15-minute walkthrough tailored to ${teamName}'s needs.<br>
+        <strong>2. Pilot Program</strong> — 30-day trial with your top training group. No commitment.<br>
+        <strong>3. Full Rollout</strong> — Onboarding, data migration, and team training in under a week.</p>
+        <p style="margin-top:12px; font-size:13px; color:#6B7280;">This proposal is valid until <strong>${validUntil}</strong>.</p>
+      </div>
+
+      <div class="cta-section">
+        <h2>Ready to Transform ${teamName}?</h2>
+        <p>Join 240+ athletes already using METTLE to level up their performance.</p>
+        <a class="cta-btn" href="mailto:ramichehq@gmail.com?subject=METTLE Demo Request — ${encodeURIComponent(teamName)}">Schedule Your Demo →</a>
+      </div>
+
+      <div class="watermark">METTLE by Parallax · Confidential · Generated ${dateStr}</div>
+    </div>`;
+
+  document.getElementById('proposalOutput').innerHTML = html;
+
+  // Generate lead JSON
+  const leadData = {
+    captured: new Date().toISOString(),
+    team: teamName,
+    contact: { name: contactName, email: contactEmail, title: contactTitle },
+    teamType: getTeamTypeLabel(teamType),
+    athleteCount,
+    currentSpend,
+    churnRate,
+    painPoints: painPoints.split(/[,\n]/).filter(p => p.trim()),
+    recommendedTier: recTier.name,
+    monthlyPrice: discountedPrice,
+    discount: discount + '%',
+    projectedROI: roi.roi + '%',
+    projectedRetainedAthletes: roi.savedAthletes,
+    annualValue: roi.totalValue,
+    proposalValidUntil: validUntil,
+    source: 'METTLE Sales Proposal Generator',
+    status: 'proposal_sent'
+  };
+  document.getElementById('leadJson').textContent = JSON.stringify(leadData, null, 2);
+}
+
+function copyLeadData() {
+  const data = document.getElementById('leadJson').textContent;
+  navigator.clipboard.writeText(data).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy Lead JSON', 2000);
+  });
+}
+
+// Auto-generate on load if fields have defaults
+window.addEventListener('load', () => {
+  if (document.getElementById('teamName').value) generateProposal();
+});
+</script>
+
+</body>
+</html>

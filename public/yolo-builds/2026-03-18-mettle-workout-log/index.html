@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>METTLE — Workout Log</title>
+<style>
+  :root {
+    --purple: #6C2BD9;
+    --scarlet: #E63946;
+    --gold: #F5A623;
+    --blue: #1E90FF;
+    --bg: #0D0D1A;
+    --card: #161625;
+    --surface: #1E1E30;
+    --text: #E8E8F0;
+    --muted: #8888AA;
+    --border: #2A2A45;
+    --green: #22C55E;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--purple), #4A1FA0);
+    padding: 20px 16px 16px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .header h1 {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: 1px;
+  }
+  .header h1 span { color: var(--gold); }
+  .athlete-badge {
+    background: rgba(255,255,255,0.15);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .streak-bar {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .streak-bar .flame { font-size: 18px; }
+  .streak-bar .count {
+    color: var(--gold);
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .xp-pill {
+    background: rgba(245,166,35,0.2);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    padding: 2px 10px;
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: 600;
+    margin-left: auto;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 76px;
+    z-index: 99;
+  }
+  .tab {
+    flex: 1;
+    padding: 12px 8px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+  }
+
+  /* Content */
+  .content { padding: 16px; }
+  .hidden { display: none !important; }
+
+  /* Log Entry Form */
+  .log-form {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .form-section {
+    margin-bottom: 20px;
+  }
+  .form-section:last-child { margin-bottom: 0; }
+  .form-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: block;
+  }
+  .date-display {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    padding: 10px 14px;
+    background: var(--surface);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+
+  /* Set Type Chips */
+  .set-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .set-chip {
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .set-chip.selected {
+    border-color: var(--purple);
+    background: rgba(108,43,217,0.2);
+    color: var(--text);
+  }
+
+  /* Number Inputs */
+  .num-row {
+    display: flex;
+    gap: 12px;
+  }
+  .num-group {
+    flex: 1;
+  }
+  .num-input {
+    width: 100%;
+    padding: 12px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .num-input:focus { border-color: var(--purple); }
+  .num-input::placeholder { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .unit-hint {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 4px;
+  }
+
+  /* RPE Slider */
+  .rpe-container { text-align: center; }
+  .rpe-value {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+    margin: 8px 0;
+    transition: color 0.3s;
+  }
+  .rpe-label {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+  .rpe-slider {
+    width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 8px;
+    border-radius: 4px;
+    background: var(--surface);
+    outline: none;
+  }
+  .rpe-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--purple);
+    cursor: pointer;
+    border: 3px solid var(--text);
+  }
+
+  /* Focus Tags */
+  .focus-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .focus-tag {
+    padding: 6px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .focus-tag.selected {
+    border-color: var(--blue);
+    background: rgba(30,144,255,0.15);
+    color: var(--blue);
+  }
+
+  /* Notes */
+  .notes-input {
+    width: 100%;
+    padding: 12px;
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+  }
+  .notes-input:focus { border-color: var(--purple); }
+  .notes-input::placeholder { color: var(--muted); }
+
+  /* Submit Button */
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--purple), var(--scarlet));
+    border: none;
+    border-radius: 12px;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 16px;
+  }
+  .submit-btn:active {
+    transform: scale(0.97);
+  }
+  .submit-btn:hover {
+    box-shadow: 0 4px 20px rgba(108,43,217,0.4);
+  }
+
+  /* XP Toast */
+  .xp-toast {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background: var(--card);
+    border: 3px solid var(--gold);
+    border-radius: 20px;
+    padding: 30px 50px;
+    text-align: center;
+    z-index: 200;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  .xp-toast.show { transform: translate(-50%, -50%) scale(1); }
+  .xp-toast .xp-amount {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--gold);
+  }
+  .xp-toast .xp-label {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+  .xp-toast .xp-bonus {
+    font-size: 13px;
+    color: var(--green);
+    margin-top: 8px;
+    font-weight: 600;
+  }
+
+  /* History Tab */
+  .history-entry {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .history-entry:hover { border-color: var(--purple); }
+  .history-date {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .history-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .history-volume {
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .history-volume span {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 400;
+  }
+  .history-rpe {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+  }
+  .history-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .history-tags span {
+    background: var(--surface);
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .history-types {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .history-types span {
+    background: rgba(108,43,217,0.2);
+    color: var(--purple);
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .history-notes {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-style: italic;
+    line-height: 1.4;
+  }
+  .history-xp {
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: 700;
+    margin-top: 6px;
+  }
+
+  /* Stats Tab */
+  .stat-card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .stat-card h3 {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+  .stat-big {
+    font-size: 36px;
+    font-weight: 800;
+  }
+  .stat-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .mini-stat {
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+  .mini-stat .val {
+    font-size: 24px;
+    font-weight: 800;
+  }
+  .mini-stat .lbl {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Weekly Chart */
+  .chart-container {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .chart-container h3 {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 12px;
+  }
+  .bar-chart {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 140px;
+    gap: 6px;
+    padding-top: 10px;
+  }
+  .bar-day {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .bar-fill {
+    width: 100%;
+    max-width: 36px;
+    border-radius: 6px 6px 0 0;
+    background: linear-gradient(180deg, var(--purple), var(--blue));
+    transition: height 0.5s ease;
+    min-height: 2px;
+  }
+  .bar-day.today .bar-fill {
+    background: linear-gradient(180deg, var(--gold), var(--scarlet));
+  }
+  .bar-label {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    font-weight: 600;
+  }
+  .bar-day.today .bar-label {
+    color: var(--gold);
+  }
+  .bar-value {
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  /* Goals Tab */
+  .goal-card {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+  .goal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .goal-title {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .goal-badge {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .goal-badge.active {
+    background: rgba(34,197,94,0.15);
+    color: var(--green);
+    border: 1px solid var(--green);
+  }
+  .goal-badge.complete {
+    background: rgba(245,166,35,0.15);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+  }
+  .goal-progress {
+    height: 8px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .goal-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .goal-detail {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .goal-xp-reward {
+    font-size: 12px;
+    color: var(--gold);
+    font-weight: 600;
+    margin-top: 4px;
+  }
+
+  /* Empty State */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; line-height: 1.5; }
+
+  /* Overlay */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 150;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+
+  /* Delete Confirmation */
+  .delete-confirm {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--card);
+    border-top: 2px solid var(--scarlet);
+    border-radius: 20px 20px 0 0;
+    padding: 24px;
+    z-index: 160;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+  .delete-confirm.show { transform: translateY(0); }
+  .delete-confirm h3 { font-size: 16px; margin-bottom: 8px; }
+  .delete-confirm p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .delete-actions {
+    display: flex;
+    gap: 12px;
+  }
+  .delete-actions button {
+    flex: 1;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-cancel {
+    background: var(--surface);
+    color: var(--text);
+  }
+  .btn-delete {
+    background: var(--scarlet);
+    color: white;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <h1>METTLE <span>WORKOUT LOG</span></h1>
+    <div class="athlete-badge" id="levelBadge">Warrior</div>
+  </div>
+  <div class="streak-bar">
+    <span class="flame">🔥</span>
+    <span class="count" id="streakCount">0</span>
+    <span>day streak</span>
+    <span class="xp-pill" id="totalXP">0 XP</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="log">Log</div>
+  <div class="tab" data-tab="history">History</div>
+  <div class="tab" data-tab="stats">Stats</div>
+  <div class="tab" data-tab="goals">Goals</div>
+</div>
+
+<div class="content" id="tabLog">
+  <div class="log-form">
+    <div class="form-section">
+      <label class="form-label">Date</label>
+      <div class="date-display" id="logDate"></div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Set Types</label>
+      <div class="set-types" id="setTypes">
+        <div class="set-chip" data-type="warmup">Warmup</div>
+        <div class="set-chip" data-type="main">Main Set</div>
+        <div class="set-chip" data-type="kick">Kick</div>
+        <div class="set-chip" data-type="drill">Drill</div>
+        <div class="set-chip" data-type="sprint">Sprint</div>
+        <div class="set-chip" data-type="pull">Pull</div>
+        <div class="set-chip" data-type="im">IM</div>
+        <div class="set-chip" data-type="cooldown">Cooldown</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Volume</label>
+      <div class="num-row">
+        <div class="num-group">
+          <input type="number" class="num-input" id="yardage" placeholder="0" min="0" step="50">
+          <div class="unit-hint">yards</div>
+        </div>
+        <div class="num-group">
+          <input type="number" class="num-input" id="duration" placeholder="0" min="0" step="5">
+          <div class="unit-hint">minutes</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Effort (RPE)</label>
+      <div class="rpe-container">
+        <div class="rpe-value" id="rpeValue">5</div>
+        <div class="rpe-label" id="rpeLabel">Moderate</div>
+        <input type="range" class="rpe-slider" id="rpeSlider" min="1" max="10" value="5">
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Focus Areas</label>
+      <div class="focus-tags" id="focusTags">
+        <div class="focus-tag" data-tag="freestyle">Freestyle</div>
+        <div class="focus-tag" data-tag="backstroke">Backstroke</div>
+        <div class="focus-tag" data-tag="breaststroke">Breast</div>
+        <div class="focus-tag" data-tag="butterfly">Fly</div>
+        <div class="focus-tag" data-tag="turns">Turns</div>
+        <div class="focus-tag" data-tag="starts">Starts</div>
+        <div class="focus-tag" data-tag="underwaters">Underwaters</div>
+        <div class="focus-tag" data-tag="endurance">Endurance</div>
+        <div class="focus-tag" data-tag="speed">Speed</div>
+        <div class="focus-tag" data-tag="technique">Technique</div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <label class="form-label">Notes</label>
+      <textarea class="notes-input" id="notes" placeholder="How did it feel? Anything to remember for next time?"></textarea>
+    </div>
+
+    <button class="submit-btn" id="submitBtn">LOG WORKOUT → +25 XP</button>
+  </div>
+</div>
+
+<div class="content hidden" id="tabHistory">
+  <div id="historyList"></div>
+</div>
+
+<div class="content hidden" id="tabStats">
+  <div class="chart-container">
+    <h3>This Week</h3>
+    <div class="bar-chart" id="weekChart"></div>
+  </div>
+  <div class="stat-grid">
+    <div class="mini-stat">
+      <div class="val" id="statWeekYards">0</div>
+      <div class="lbl">This Week (yds)</div>
+    </div>
+    <div class="mini-stat">
+      <div class="val" id="statAvgRPE">0</div>
+      <div class="lbl">Avg RPE</div>
+    </div>
+    <div class="mini-stat">
+      <div class="val" id="statTotalLogs">0</div>
+      <div class="lbl">Total Logs</div>
+    </div>
+    <div class="mini-stat">
+      <div class="val" id="statBestStreak">0</div>
+      <div class="lbl">Best Streak</div>
+    </div>
+  </div>
+  <div class="stat-card">
+    <h3>Top Focus Areas</h3>
+    <div id="topFocus"></div>
+  </div>
+</div>
+
+<div class="content hidden" id="tabGoals">
+  <div id="goalsList"></div>
+</div>
+
+<div class="xp-toast" id="xpToast">
+  <div class="xp-amount" id="toastAmount">+25 XP</div>
+  <div class="xp-label">Workout Logged!</div>
+  <div class="xp-bonus" id="toastBonus"></div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="delete-confirm" id="deleteConfirm">
+  <h3>Delete this workout?</h3>
+  <p>This action cannot be undone. XP will be removed.</p>
+  <div class="delete-actions">
+    <button class="btn-cancel" id="cancelDelete">Cancel</button>
+    <button class="btn-delete" id="confirmDelete">Delete</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ── State ──
+  const STORAGE_KEY = 'mettle_workout_log';
+  const XP_KEY = 'mettle_workout_xp';
+  let state = loadState();
+  let deleteTarget = null;
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch(e) {}
+    return { logs: [], streak: 0, bestStreak: 0, totalXP: 0 };
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  // ── Demo Data ──
+  function seedDemoData() {
+    if (state.logs.length > 0) return;
+    const today = new Date();
+    const demos = [
+      { daysAgo: 0, yards: 0, duration: 0, rpe: 0, types: [], focus: [], notes: '' }, // placeholder for today
+      { daysAgo: 1, yards: 4200, duration: 105, rpe: 7, types: ['warmup','main','kick','cooldown'], focus: ['freestyle','endurance'], notes: 'Felt strong on the 200s. Negative split the last 3.' },
+      { daysAgo: 2, yards: 3800, duration: 90, rpe: 8, types: ['warmup','sprint','drill','cooldown'], focus: ['butterfly','speed','underwaters'], notes: 'Coach had us doing 25s fly all out. Arms were dead by set 8.' },
+      { daysAgo: 3, yards: 5000, duration: 120, rpe: 6, types: ['warmup','main','pull','kick','cooldown'], focus: ['freestyle','backstroke','endurance'], notes: 'Long aerobic day. 10x200 free on 2:45 — held 2:28-2:32 the whole way.' },
+      { daysAgo: 5, yards: 3500, duration: 85, rpe: 9, types: ['warmup','sprint','main','cooldown'], focus: ['freestyle','speed','starts','turns'], notes: 'Race pace day. 8x50 from the blocks. Best was 26.1 — PR pace!' },
+      { daysAgo: 6, yards: 4500, duration: 110, rpe: 5, types: ['warmup','drill','kick','im','cooldown'], focus: ['breaststroke','technique','turns'], notes: 'Technique focus. Worked on breaststroke timing. Coach said pullout looked better.' },
+      { daysAgo: 7, yards: 4000, duration: 95, rpe: 7, types: ['warmup','main','pull','cooldown'], focus: ['freestyle','endurance'], notes: 'Threshold set: 5x400 free descend. Last one was 4:48 — best of the season.' },
+    ];
+
+    demos.shift(); // remove placeholder
+    demos.forEach(d => {
+      const date = new Date(today);
+      date.setDate(date.getDate() - d.daysAgo);
+      state.logs.push({
+        id: Date.now() - d.daysAgo * 86400000,
+        date: dateKey(date),
+        yards: d.yards,
+        duration: d.duration,
+        rpe: d.rpe,
+        types: d.types,
+        focus: d.focus,
+        notes: d.notes,
+        xpEarned: 25 + (d.rpe >= 8 ? 10 : 0)
+      });
+    });
+    state.streak = 3; // 3-day active streak
+    state.bestStreak = 5;
+    state.totalXP = state.logs.reduce((s,l) => s + l.xpEarned, 0);
+    saveState();
+  }
+
+  function dateKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  }
+
+  function formatDate(key) {
+    const [y,m,d] = key.split('-').map(Number);
+    const dt = new Date(y, m-1, d);
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const today = dateKey(new Date());
+    const yesterday = dateKey(new Date(Date.now() - 86400000));
+    if (key === today) return 'Today';
+    if (key === yesterday) return 'Yesterday';
+    return days[dt.getDay()] + ', ' + months[dt.getMonth()] + ' ' + d;
+  }
+
+  // ── RPE ──
+  const RPE_LABELS = {
+    1: 'Very Light', 2: 'Light', 3: 'Light-Moderate', 4: 'Moderate-Light',
+    5: 'Moderate', 6: 'Moderate-Hard', 7: 'Hard', 8: 'Very Hard',
+    9: 'Near Max', 10: 'All Out'
+  };
+  const RPE_COLORS = {
+    1: '#22C55E', 2: '#4ADE80', 3: '#86EFAC', 4: '#FDE68A',
+    5: '#F5A623', 6: '#FB923C', 7: '#F97316', 8: '#EF4444',
+    9: '#DC2626', 10: '#B91C1C'
+  };
+
+  // ── XP Calculation ──
+  function calcXP(log) {
+    let xp = 25; // base
+    if (log.rpe >= 8) xp += 10; // hard effort bonus
+    if (log.yards >= 5000) xp += 15; // big volume bonus
+    if (log.types.length >= 4) xp += 5; // variety bonus
+    // streak bonus
+    if (state.streak >= 7) xp += 50;
+    else if (state.streak >= 5) xp += 25;
+    else if (state.streak >= 3) xp += 10;
+    return xp;
+  }
+
+  // ── Level ──
+  function getLevel(xp) {
+    if (xp >= 5000) return { name: 'Legend', color: '#F5A623' };
+    if (xp >= 2500) return { name: 'Champion', color: '#E63946' };
+    if (xp >= 1000) return { name: 'Warrior', color: '#6C2BD9' };
+    if (xp >= 400) return { name: 'Contender', color: '#1E90FF' };
+    if (xp >= 100) return { name: 'Rising', color: '#22C55E' };
+    return { name: 'Rookie', color: '#8888AA' };
+  }
+
+  // ── Streak Calc ──
+  function calcStreak() {
+    const dates = [...new Set(state.logs.map(l => l.date))].sort().reverse();
+    if (dates.length === 0) { state.streak = 0; return; }
+    let streak = 0;
+    let check = new Date();
+    // If no log today, start from yesterday
+    if (dates[0] !== dateKey(check)) {
+      check.setDate(check.getDate() - 1);
+      if (dates[0] !== dateKey(check)) { state.streak = 0; return; }
+    }
+    for (let i = 0; i < 365; i++) {
+      const key = dateKey(check);
+      if (dates.includes(key)) {
+        streak++;
+        check.setDate(check.getDate() - 1);
+      } else break;
+    }
+    state.streak = streak;
+    if (streak > state.bestStreak) state.bestStreak = streak;
+  }
+
+  // ── UI Updates ──
+  function updateHeader() {
+    const level = getLevel(state.totalXP);
+    document.getElementById('levelBadge').textContent = level.name;
+    document.getElementById('levelBadge').style.borderColor = level.color;
+    document.getElementById('streakCount').textContent = state.streak;
+    document.getElementById('totalXP').textContent = state.totalXP.toLocaleString() + ' XP';
+  }
+
+  // ── Tabs ──
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const name = tab.dataset.tab;
+      ['tabLog','tabHistory','tabStats','tabGoals'].forEach(id => {
+        document.getElementById(id).classList.toggle('hidden', id !== 'tab' + name.charAt(0).toUpperCase() + name.slice(1));
+      });
+      if (name === 'history') renderHistory();
+      if (name === 'stats') renderStats();
+      if (name === 'goals') renderGoals();
+    });
+  });
+
+  // ── Set Type Chips ──
+  document.querySelectorAll('.set-chip').forEach(chip => {
+    chip.addEventListener('click', () => chip.classList.toggle('selected'));
+  });
+
+  // ── Focus Tags ──
+  document.querySelectorAll('.focus-tag').forEach(tag => {
+    tag.addEventListener('click', () => tag.classList.toggle('selected'));
+  });
+
+  // ── RPE Slider ──
+  const rpeSlider = document.getElementById('rpeSlider');
+  const rpeValue = document.getElementById('rpeValue');
+  const rpeLabel = document.getElementById('rpeLabel');
+  rpeSlider.addEventListener('input', () => {
+    const v = parseInt(rpeSlider.value);
+    rpeValue.textContent = v;
+    rpeValue.style.color = RPE_COLORS[v];
+    rpeLabel.textContent = RPE_LABELS[v];
+  });
+
+  // ── Date ──
+  const today = new Date();
+  document.getElementById('logDate').textContent = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+  // ── Submit ──
+  document.getElementById('submitBtn').addEventListener('click', () => {
+    const yards = parseInt(document.getElementById('yardage').value) || 0;
+    const duration = parseInt(document.getElementById('duration').value) || 0;
+    const rpe = parseInt(rpeSlider.value);
+    const types = [...document.querySelectorAll('.set-chip.selected')].map(c => c.dataset.type);
+    const focus = [...document.querySelectorAll('.focus-tag.selected')].map(t => t.dataset.tag);
+    const notes = document.getElementById('notes').value.trim();
+
+    if (yards === 0 && duration === 0) {
+      // Shake the volume inputs
+      document.getElementById('yardage').style.borderColor = 'var(--scarlet)';
+      document.getElementById('duration').style.borderColor = 'var(--scarlet)';
+      setTimeout(() => {
+        document.getElementById('yardage').style.borderColor = '';
+        document.getElementById('duration').style.borderColor = '';
+      }, 1500);
+      return;
+    }
+
+    const log = {
+      id: Date.now(),
+      date: dateKey(today),
+      yards, duration, rpe, types, focus, notes,
+      xpEarned: 0
+    };
+    log.xpEarned = calcXP(log);
+    state.logs.push(log);
+    state.totalXP += log.xpEarned;
+    calcStreak();
+    saveState();
+    updateHeader();
+    showXPToast(log);
+    resetForm();
+  });
+
+  function showXPToast(log) {
+    const toast = document.getElementById('xpToast');
+    document.getElementById('toastAmount').textContent = '+' + log.xpEarned + ' XP';
+    let bonuses = [];
+    if (log.rpe >= 8) bonuses.push('+10 Hard Effort');
+    if (log.yards >= 5000) bonuses.push('+15 Big Volume');
+    if (log.types.length >= 4) bonuses.push('+5 Variety');
+    if (state.streak >= 3) bonuses.push('+' + (state.streak >= 7 ? 50 : state.streak >= 5 ? 25 : 10) + ' Streak Bonus');
+    document.getElementById('toastBonus').textContent = bonuses.join(' · ') || 'Base XP';
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
+
+  function resetForm() {
+    document.getElementById('yardage').value = '';
+    document.getElementById('duration').value = '';
+    rpeSlider.value = 5;
+    rpeValue.textContent = '5';
+    rpeValue.style.color = RPE_COLORS[5];
+    rpeLabel.textContent = RPE_LABELS[5];
+    document.getElementById('notes').value = '';
+    document.querySelectorAll('.set-chip.selected').forEach(c => c.classList.remove('selected'));
+    document.querySelectorAll('.focus-tag.selected').forEach(t => t.classList.remove('selected'));
+  }
+
+  // ── History ──
+  function renderHistory() {
+    const list = document.getElementById('historyList');
+    const sorted = [...state.logs].sort((a,b) => b.id - a.id);
+    if (sorted.length === 0) {
+      list.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>No workouts yet.<br>Log your first one!</p></div>';
+      return;
+    }
+    list.innerHTML = sorted.map(l => `
+      <div class="history-entry" data-id="${l.id}">
+        <div class="history-date">${formatDate(l.date)}</div>
+        <div class="history-main">
+          <div class="history-volume">${l.yards.toLocaleString()} <span>yds</span> · ${l.duration} <span>min</span></div>
+          <div class="history-rpe" style="background:${RPE_COLORS[l.rpe]}20;color:${RPE_COLORS[l.rpe]}">${l.rpe}</div>
+        </div>
+        ${l.types.length ? '<div class="history-types">' + l.types.map(t => '<span>' + t + '</span>').join('') + '</div>' : ''}
+        ${l.focus.length ? '<div class="history-tags">' + l.focus.map(f => '<span>' + f + '</span>').join('') + '</div>' : ''}
+        ${l.notes ? '<div class="history-notes">"' + escapeHTML(l.notes) + '"</div>' : ''}
+        <div class="history-xp">+${l.xpEarned} XP</div>
+      </div>
+    `).join('');
+
+    // Long-press to delete
+    list.querySelectorAll('.history-entry').forEach(el => {
+      let timer;
+      const start = () => { timer = setTimeout(() => showDeleteConfirm(el.dataset.id), 600); };
+      const cancel = () => clearTimeout(timer);
+      el.addEventListener('touchstart', start);
+      el.addEventListener('touchend', cancel);
+      el.addEventListener('touchmove', cancel);
+      el.addEventListener('mousedown', start);
+      el.addEventListener('mouseup', cancel);
+      el.addEventListener('mouseleave', cancel);
+    });
+  }
+
+  function escapeHTML(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Delete ──
+  function showDeleteConfirm(id) {
+    deleteTarget = id;
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('deleteConfirm').classList.add('show');
+  }
+  function hideDeleteConfirm() {
+    deleteTarget = null;
+    document.getElementById('overlay').classList.remove('show');
+    document.getElementById('deleteConfirm').classList.remove('show');
+  }
+  document.getElementById('cancelDelete').addEventListener('click', hideDeleteConfirm);
+  document.getElementById('overlay').addEventListener('click', hideDeleteConfirm);
+  document.getElementById('confirmDelete').addEventListener('click', () => {
+    if (!deleteTarget) return;
+    const idx = state.logs.findIndex(l => l.id === parseInt(deleteTarget));
+    if (idx >= 0) {
+      state.totalXP = Math.max(0, state.totalXP - state.logs[idx].xpEarned);
+      state.logs.splice(idx, 1);
+      calcStreak();
+      saveState();
+      updateHeader();
+      renderHistory();
+    }
+    hideDeleteConfirm();
+  });
+
+  // ── Stats ──
+  function renderStats() {
+    // Week chart
+    const chartEl = document.getElementById('weekChart');
+    const dayLabels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const now = new Date();
+    const dayOfWeek = (now.getDay() + 6) % 7; // Monday = 0
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - dayOfWeek);
+
+    let weekData = [];
+    let weekTotal = 0;
+    let maxYards = 1;
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(d.getDate() + i);
+      const key = dateKey(d);
+      const dayLogs = state.logs.filter(l => l.date === key);
+      const dayYards = dayLogs.reduce((s,l) => s + l.yards, 0);
+      weekData.push({ label: dayLabels[i], yards: dayYards, isToday: i === dayOfWeek });
+      weekTotal += dayYards;
+      if (dayYards > maxYards) maxYards = dayYards;
+    }
+
+    chartEl.innerHTML = weekData.map(d => {
+      const pct = Math.max(3, (d.yards / maxYards) * 100);
+      return `<div class="bar-day${d.isToday ? ' today' : ''}">
+        <div class="bar-value">${d.yards > 0 ? (d.yards/1000).toFixed(1)+'k' : ''}</div>
+        <div class="bar-fill" style="height:${d.yards > 0 ? pct : 3}%"></div>
+        <div class="bar-label">${d.label}</div>
+      </div>`;
+    }).join('');
+
+    // Mini stats
+    document.getElementById('statWeekYards').textContent = weekTotal > 0 ? (weekTotal/1000).toFixed(1) + 'k' : '0';
+    const allRPE = state.logs.filter(l => l.rpe > 0);
+    document.getElementById('statAvgRPE').textContent = allRPE.length > 0 ? (allRPE.reduce((s,l) => s+l.rpe, 0) / allRPE.length).toFixed(1) : '—';
+    document.getElementById('statTotalLogs').textContent = state.logs.length;
+    document.getElementById('statBestStreak').textContent = state.bestStreak;
+
+    // Top focus
+    const focusCounts = {};
+    state.logs.forEach(l => l.focus.forEach(f => { focusCounts[f] = (focusCounts[f] || 0) + 1; }));
+    const sorted = Object.entries(focusCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+    const maxCount = sorted.length > 0 ? sorted[0][1] : 1;
+    document.getElementById('topFocus').innerHTML = sorted.length > 0 ? sorted.map(([name, count]) => {
+      const pct = (count / maxCount) * 100;
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="width:80px;font-size:13px;font-weight:600">${name}</div>
+        <div style="flex:1;height:6px;background:var(--surface);border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:var(--blue);border-radius:3px"></div>
+        </div>
+        <div style="font-size:12px;color:var(--muted)">${count}</div>
+      </div>`;
+    }).join('') : '<div class="empty-state"><p>Log workouts to see your focus breakdown</p></div>';
+  }
+
+  // ── Goals ──
+  function renderGoals() {
+    const goals = [
+      {
+        title: 'Weekly Volume: 20,000 yds',
+        target: 20000,
+        current: getWeekYards(),
+        unit: 'yds',
+        color: 'var(--purple)',
+        xp: 100,
+        type: 'weekly'
+      },
+      {
+        title: '5-Day Streak',
+        target: 5,
+        current: state.streak,
+        unit: 'days',
+        color: 'var(--scarlet)',
+        xp: 75,
+        type: 'streak'
+      },
+      {
+        title: 'Log 20 Workouts',
+        target: 20,
+        current: state.logs.length,
+        unit: 'logs',
+        color: 'var(--blue)',
+        xp: 200,
+        type: 'cumulative'
+      },
+      {
+        title: 'RPE 8+ Workout',
+        target: 1,
+        current: state.logs.filter(l => l.rpe >= 8).length > 0 ? 1 : 0,
+        unit: '',
+        color: 'var(--gold)',
+        xp: 30,
+        type: 'single'
+      },
+      {
+        title: 'Hit 500 Total XP',
+        target: 500,
+        current: state.totalXP,
+        unit: 'XP',
+        color: 'var(--green)',
+        xp: 50,
+        type: 'cumulative'
+      }
+    ];
+
+    document.getElementById('goalsList').innerHTML = goals.map(g => {
+      const pct = Math.min(100, (g.current / g.target) * 100);
+      const done = pct >= 100;
+      return `<div class="goal-card">
+        <div class="goal-header">
+          <div class="goal-title">${g.title}</div>
+          <span class="goal-badge ${done ? 'complete' : 'active'}">${done ? 'Complete!' : Math.round(pct) + '%'}</span>
+        </div>
+        <div class="goal-progress">
+          <div class="goal-progress-fill" style="width:${pct}%;background:${g.color}"></div>
+        </div>
+        <div class="goal-detail">${g.current.toLocaleString()} / ${g.target.toLocaleString()} ${g.unit}</div>
+        <div class="goal-xp-reward">Reward: +${g.xp} XP</div>
+      </div>`;
+    }).join('');
+  }
+
+  function getWeekYards() {
+    const now = new Date();
+    const dayOfWeek = (now.getDay() + 6) % 7;
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - dayOfWeek);
+    weekStart.setHours(0,0,0,0);
+    return state.logs.filter(l => {
+      const [y,m,d] = l.date.split('-').map(Number);
+      return new Date(y, m-1, d) >= weekStart;
+    }).reduce((s,l) => s + l.yards, 0);
+  }
+
+  // ── Init ──
+  seedDemoData();
+  calcStreak();
+  updateHeader();
+
+  // Update submit button XP preview
+  function updateSubmitPreview() {
+    const yards = parseInt(document.getElementById('yardage').value) || 0;
+    const rpe = parseInt(rpeSlider.value);
+    const types = [...document.querySelectorAll('.set-chip.selected')];
+    let xp = 25;
+    if (rpe >= 8) xp += 10;
+    if (yards >= 5000) xp += 15;
+    if (types.length >= 4) xp += 5;
+    if (state.streak >= 7) xp += 50;
+    else if (state.streak >= 5) xp += 25;
+    else if (state.streak >= 3) xp += 10;
+    document.getElementById('submitBtn').textContent = 'LOG WORKOUT → +' + xp + ' XP';
+  }
+
+  document.getElementById('yardage').addEventListener('input', updateSubmitPreview);
+  rpeSlider.addEventListener('input', updateSubmitPreview);
+  document.querySelectorAll('.set-chip').forEach(c => c.addEventListener('click', updateSubmitPreview));
+  updateSubmitPreview();
+})();
+</script>
+</body>
+</html>

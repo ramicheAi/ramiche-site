@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>NERVE CENTER — Agent War Room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+    /* ULTRA-LINEAR: single-column centered layout */
+    body { max-width: 720px; margin: 0 auto; padding: 0 20px; }
+
+*{margin:0;padding:0;box-sizing:border-box}
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseRing{0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.4)}70%{box-shadow:0 0 0 8px rgba(34,197,94,0)}}
+@keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes breathe{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes slideRight{from{width:0}to{width:var(--target-width)}}
+
+:root{
+  --bg:#FAFAF9;--surface:#FFFFFF;--card:#FFFFFF;
+  --text:#1C1917;--sub:#57534E;--muted:#A8A29E;--faint:#E7E5E4;--ghost:#F5F5F4;
+  --purple:#7C3AED;--purple-soft:#EDE9FE;--purple-mid:#A78BFA;
+  --scarlet:#EF4444;--scarlet-soft:#FEE2E2;
+  --gold:#F59E0B;--gold-soft:#FEF3C7;
+  --green:#22C55E;--green-soft:#DCFCE7;
+  --blue:#3B82F6;--blue-soft:#DBEAFE;
+  --cyan:#06B6D4;--cyan-soft:#CFFAFE;
+  --orange:#F97316;--orange-soft:#FED7AA;
+  --pink:#EC4899;--pink-soft:#FCE7F3;
+  --radius:16px;--radius-sm:10px;--radius-xs:6px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.08),0 2px 4px rgba(0,0,0,.04);
+  --shadow-xl:0 8px 24px rgba(0,0,0,.1);
+}
+
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+/* === HERO HEADER === */
+.hero{background:linear-gradient(135deg,#7C3AED 0%,#6D28D9 40%,#4F46E5 100%);color:#fff;padding:40px 24px 32px;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;right:-20%;width:400px;height:400px;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 70%);pointer-events:none}
+.hero::after{content:'';position:absolute;bottom:-30%;left:-10%;width:300px;height:300px;background:radial-gradient(circle,rgba(255,255,255,.05) 0%,transparent 70%);pointer-events:none}
+.hero-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;position:relative;z-index:1}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);backdrop-filter:blur(8px);padding:6px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:.5px}
+.hero-badge .dot{width:8px;height:8px;border-radius:50%;background:#22C55E;animation:pulseRing 2s infinite}
+.hero-clock{font-size:15px;font-weight:600;opacity:.9;font-variant-numeric:tabular-nums}
+.hero-title{font-size:28px;font-weight:900;letter-spacing:-.5px;line-height:1.1;position:relative;z-index:1}
+.hero-sub{font-size:14px;font-weight:500;opacity:.7;margin-top:6px;position:relative;z-index:1}
+
+/* === METRICS STRIP === */
+.metrics{display:grid;grid-template-columns: 1fr;gap:2px;margin:-20px 16px 0;position:relative;z-index:10}
+.metric-card{background:var(--surface);padding:16px 12px;text-align:center;box-shadow:var(--shadow-lg);animation:fadeUp .5s ease both}
+.metric-card:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.metric-card:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.metric-val{font-size:24px;font-weight:800;letter-spacing:-.5px;animation:countUp .6s ease both}
+.metric-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:2px}
+.metric-delta{font-size:11px;font-weight:700;margin-top:4px;display:inline-flex;align-items:center;gap:2px;padding:2px 8px;border-radius:100px}
+.metric-delta.up{color:#16A34A;background:#DCFCE7}
+.metric-delta.down{color:#EF4444;background:#FEE2E2}
+
+/* === SECTION HEADERS === */
+.section-header{padding:28px 20px 12px;display:flex;align-items:center;justify-content:space-between}
+.section-title{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:var(--sub)}
+.section-count{font-size:11px;font-weight:600;color:var(--muted);background:var(--ghost);padding:4px 10px;border-radius:100px}
+
+/* === TAB BAR === */
+.tab-bar{display:flex;gap:8px;padding:0 20px 16px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.tab-bar::-webkit-scrollbar{display:none}
+.tab-pill{padding:8px 18px;border-radius:100px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;border:2px solid var(--faint);background:var(--surface);color:var(--sub);transition:all .2s}
+.tab-pill.active{background:var(--purple);color:#fff;border-color:var(--purple);box-shadow:0 2px 8px rgba(124,58,237,.3)}
+.tab-pill:hover:not(.active){border-color:var(--purple-mid);color:var(--purple)}
+
+/* === LEADERBOARD === */
+.leaderboard{padding:0 16px 8px}
+.lb-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;margin-bottom:8px;animation:fadeUp .4s ease both}
+.lb-card.crown{border:2px solid var(--gold);box-shadow:var(--shadow-lg),0 0 0 1px rgba(245,158,11,.1)}
+.lb-row{display:flex;align-items:center;padding:14px 16px;gap:14px}
+.lb-rank{width:32px;height:32px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0}
+.lb-rank.r1{background:linear-gradient(135deg,#F59E0B,#EAB308);color:#fff;font-size:16px;box-shadow:0 2px 8px rgba(245,158,11,.3)}
+.lb-rank.r2{background:var(--purple-soft);color:var(--purple)}
+.lb-rank.r3{background:var(--orange-soft);color:var(--orange)}
+.lb-rank.rn{background:var(--ghost);color:var(--muted)}
+.lb-info{flex:1;min-width:0}
+.lb-name{font-size:15px;font-weight:700;letter-spacing:.3px}
+.lb-meta{font-size:11px;color:var(--muted);margin-top:1px;display:flex;gap:8px;align-items:center}
+.lb-meta .model-tag{background:var(--ghost);padding:1px 6px;border-radius:4px;font-weight:600}
+.lb-builds{text-align:right;flex-shrink:0}
+.lb-builds-num{font-size:22px;font-weight:800;color:var(--purple)}
+.lb-builds-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.lb-bar{height:6px;background:var(--ghost);border-radius:3px;margin:0 16px 12px;overflow:hidden}
+.lb-bar-fill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+
+/* === AGENT GRID === */
+.agent-grid{padding:0 16px;display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:640px){.agent-grid{grid-template-columns: 1fr}}
+@media(min-width:1024px){.agent-grid{grid-template-columns: 1fr}}
+@media(min-width:1400px){.agent-grid{grid-template-columns: 1fr}}
+
+.agent-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;transition:all .2s;cursor:pointer;animation:fadeUp .4s ease both;border:2px solid transparent;position:relative;overflow:hidden}
+.agent-card:hover{box-shadow:var(--shadow-lg);transform:translateY(-2px)}
+.agent-card:active{transform:translateY(0)}
+.agent-card.live{border-color:var(--green)}
+.agent-card.live::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--green),var(--cyan))}
+.agent-card.error{border-color:var(--scarlet)}
+.agent-card.error::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--scarlet);animation:breathe 2s infinite}
+
+.card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px}
+.agent-avatar{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;flex-shrink:0}
+.card-info{flex:1;margin-left:12px;min-width:0}
+.card-name{font-size:15px;font-weight:800;letter-spacing:.3px}
+.card-domain{font-size:11px;color:var(--muted);font-weight:500;margin-top:1px}
+.status-chip{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;padding:4px 10px;border-radius:100px;flex-shrink:0}
+.status-chip.live{background:var(--green-soft);color:#16A34A}
+.status-chip.live .chip-dot{width:6px;height:6px;border-radius:50%;background:#22C55E;animation:pulseRing 2s infinite}
+.status-chip.idle{background:var(--ghost);color:var(--muted)}
+.status-chip.error{background:var(--scarlet-soft);color:var(--scarlet)}
+
+.card-stats{display:grid;grid-template-columns: 1fr;gap:6px;margin-bottom:12px}
+.card-stat{text-align:center;padding:8px 4px;background:var(--ghost);border-radius:var(--radius-xs)}
+.card-stat-num{font-size:18px;font-weight:800}
+.card-stat-label{font-size:9px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:1px}
+
+.success-bar{height:6px;background:var(--ghost);border-radius:3px;overflow:hidden;margin-bottom:10px}
+.success-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--purple),var(--cyan));transition:width .6s ease}
+
+.card-action{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px}
+.card-action .action-dot{width:4px;height:4px;border-radius:50%;background:var(--purple-mid);flex-shrink:0}
+
+/* === LIVE FEED === */
+.feed-section{padding:0 16px 32px}
+.feed-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.feed-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid var(--ghost);animation:fadeUp .3s ease both;transition:background .15s}
+.feed-item:hover{background:var(--ghost)}
+.feed-item:last-child{border-bottom:none}
+.feed-time{font-size:11px;font-weight:600;color:var(--muted);font-variant-numeric:tabular-nums;min-width:44px;flex-shrink:0;margin-top:2px}
+.feed-avatar{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:10px;color:#fff;flex-shrink:0}
+.feed-content{flex:1;min-width:0}
+.feed-agent-name{font-size:12px;font-weight:700;letter-spacing:.3px}
+.feed-msg{font-size:12px;color:var(--sub);margin-top:1px;line-height:1.4}
+.feed-msg .ok{color:#16A34A;font-weight:600}
+.feed-msg .warn{color:var(--scarlet);font-weight:600}
+.feed-msg .info{color:var(--blue);font-weight:600}
+
+/* === BOTTOM SAFE AREA === */
+.bottom-safe{height:env(safe-area-inset-bottom,20px)}
+
+/* === COMPACT METRICS ROW === */
+.metrics-row{display:grid;grid-template-columns: 1fr;gap:10px;padding:0 16px 8px}
+@media(min-width:640px){.metrics-row{grid-template-columns: 1fr}}
+@media(min-width:1024px){.metrics-row{grid-template-columns: 1fr}}
+.metric-tile{background:var(--surface);border-radius:var(--radius-sm);padding:14px;box-shadow:var(--shadow);animation:fadeUp .4s ease both}
+.metric-tile-val{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.metric-tile-label{font-size:10px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-top:2px}
+.metric-tile-bar{height:4px;background:var(--ghost);border-radius:2px;margin-top:8px;overflow:hidden}
+.metric-tile-bar-fill{height:100%;border-radius:2px}
+
+/* === SCROLL SNAP for mobile === */
+@media(max-width:639px){
+  .metrics{grid-template-columns: 1fr;margin:-16px 12px 0}
+  .metric-card{padding:12px 8px}
+  .metric-val{font-size:20px}
+  .hero{padding:32px 20px 28px}
+  .hero-title{font-size:24px}
+}
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-top">
+    <div class="hero-badge"><span class="dot"></span> SYSTEMS ONLINE</div>
+    <div class="hero-clock" id="clock">03:57</div>
+  </div>
+  <div class="hero-title">Nerve Center</div>
+  <div class="hero-sub">Parallax Agent War Room — 19 Units</div>
+</div>
+
+<!-- QUICK METRICS -->
+<div class="metrics" id="metricsStrip"></div>
+
+<!-- TAB BAR -->
+<div style="padding-top:20px">
+  <div class="tab-bar" id="tabBar">
+    <div class="tab-pill active" data-tab="leaderboard">Leaderboard</div>
+    <div class="tab-pill" data-tab="grid">All Agents</div>
+    <div class="tab-pill" data-tab="feed">Live Feed</div>
+    <div class="tab-pill" data-tab="stats">Deep Stats</div>
+  </div>
+</div>
+
+<!-- LEADERBOARD TAB -->
+<div class="tab-content" id="tab-leaderboard">
+  <div class="section-header">
+    <div class="section-title">YOLO Build Champions</div>
+    <div class="section-count" id="totalBuilds">20 builds</div>
+  </div>
+  <div class="leaderboard" id="leaderboard"></div>
+</div>
+
+<!-- ALL AGENTS TAB -->
+<div class="tab-content" id="tab-grid" style="display:none">
+  <div class="section-header">
+    <div class="section-title">Agent Fleet</div>
+    <div class="section-count" id="activeCount">5 active</div>
+  </div>
+  <div class="agent-grid" id="agentGrid"></div>
+</div>
+
+<!-- LIVE FEED TAB -->
+<div class="tab-content" id="tab-feed" style="display:none">
+  <div class="section-header">
+    <div class="section-title">Operations Feed</div>
+    <div class="section-count">Live</div>
+  </div>
+  <div class="feed-section">
+    <div class="feed-card" id="feed"></div>
+  </div>
+</div>
+
+<!-- DEEP STATS TAB -->
+<div class="tab-content" id="tab-stats" style="display:none">
+  <div class="section-header">
+    <div class="section-title">System Metrics</div>
+  </div>
+  <div class="metrics-row" id="deepMetrics"></div>
+</div>
+
+<div class="bottom-safe"></div>
+
+<script>
+const AGENTS = [
+  { name:'ATLAS', model:'Opus 4.6', domain:'Operations Lead', status:'active', tasks:312, success:298, fails:14, streak:7, yolo:2, lastAction:'Nerve Center v2 shipped', color:'#7C3AED', emoji:'🧭' },
+  { name:'NOVA', model:'Sonnet 4.5', domain:'3D Fabrication', status:'active', tasks:189, success:176, fails:13, streak:13, yolo:13, lastAction:'Spool Tracker deployed', color:'#06B6D4', emoji:'🚀' },
+  { name:'TRIAGE', model:'Sonnet 4.5', domain:'Debugging', status:'idle', tasks:145, success:139, fails:6, streak:4, yolo:0, lastAction:'SwimCloud scraper verified', color:'#22C55E', emoji:'🔍' },
+  { name:'SHURI', model:'DeepSeek V3.2', domain:'Frontend / UI', status:'active', tasks:267, success:241, fails:26, streak:5, yolo:0, lastAction:'Coach portal refactor', color:'#EF4444', emoji:'⚡' },
+  { name:'PROXIMON', model:'Gemini 3 Pro', domain:'Architecture', status:'idle', tasks:98, success:91, fails:7, streak:3, yolo:0, lastAction:'Firebase schema review', color:'#3B82F6', emoji:'🏗️' },
+  { name:'AETHERION', model:'Gemini 3 Pro', domain:'Visuals / Brand', status:'idle', tasks:134, success:127, fails:7, streak:6, yolo:0, lastAction:'Brand kit v5 finalized', color:'#F59E0B', emoji:'🎨' },
+  { name:'SIMONS', model:'DeepSeek V3.2', domain:'Data / Quant', status:'active', tasks:112, success:105, fails:7, streak:4, yolo:2, lastAction:'Pricing recalculation', color:'#8B5CF6', emoji:'📊' },
+  { name:'MERCURY', model:'DeepSeek V3.2', domain:'Sales / Revenue', status:'idle', tasks:87, success:80, fails:7, streak:2, yolo:3, lastAction:'Velocity engine shipped', color:'#F97316', emoji:'💰' },
+  { name:'VEE', model:'Kimi K2.5', domain:'Brand Strategy', status:'idle', tasks:76, success:71, fails:5, streak:3, yolo:0, lastAction:'Social calendar Q2', color:'#EC4899', emoji:'💎' },
+  { name:'INK', model:'DeepSeek V3.2', domain:'Copywriting', status:'idle', tasks:94, success:89, fails:5, streak:4, yolo:0, lastAction:'ClawGuard copy v3', color:'#14B8A6', emoji:'✍️' },
+  { name:'ECHO', model:'Kimi K2.5', domain:'Community', status:'idle', tasks:63, success:59, fails:4, streak:2, yolo:0, lastAction:'Discord report filed', color:'#A78BFA', emoji:'📢' },
+  { name:'HAVEN', model:'DeepSeek V3.2', domain:'Support', status:'idle', tasks:52, success:49, fails:3, streak:5, yolo:0, lastAction:'Onboarding flow audit', color:'#34D399', emoji:'🏠' },
+  { name:'DR STRANGE', model:'DeepSeek V3.2', domain:'Forecasting', status:'idle', tasks:45, success:40, fails:5, streak:1, yolo:1, lastAction:'Q2 scenario model', color:'#818CF8', emoji:'🔮' },
+  { name:'KIYOSAKI', model:'DeepSeek V3.2', domain:'Finance', status:'idle', tasks:38, success:35, fails:3, streak:3, yolo:0, lastAction:'Cash flow projection', color:'#FBBF24', emoji:'💵' },
+  { name:'MICHAEL', model:'GLM 4.6', domain:'Swim Coaching', status:'idle', tasks:41, success:39, fails:2, streak:6, yolo:0, lastAction:'Practice sets loaded', color:'#06B6D4', emoji:'🏊' },
+  { name:'SELAH', model:'DeepSeek V3.2', domain:'Wellness', status:'idle', tasks:29, success:28, fails:1, streak:8, yolo:0, lastAction:'Mindset framework v2', color:'#F472B6', emoji:'🧘' },
+  { name:'PROPHETS', model:'Kimi K2.5', domain:'Spiritual', status:'idle', tasks:34, success:33, fails:1, streak:9, yolo:0, lastAction:'Morning scripture sent', color:'#FCD34D', emoji:'✨' },
+  { name:'THEMAESTRO', model:'DeepSeek V3.2', domain:'Music', status:'idle', tasks:56, success:51, fails:5, streak:2, yolo:0, lastAction:'Beat pipeline tested', color:'#FB923C', emoji:'🎵' },
+  { name:'WIDOW', model:'Haiku 3.5', domain:'Security', status:'active', tasks:88, success:85, fails:3, streak:11, yolo:0, lastAction:'Scan cycle complete', color:'#EF4444', emoji:'🕷️' },
+  { name:'THEMIS', model:'Opus 4.6', domain:'Legal', status:'idle', tasks:22, success:21, fails:1, streak:4, yolo:0, lastAction:'Patent filing review', color:'#78716C', emoji:'⚖️' }
+];
+
+const FEED_EVENTS = [
+  { time:'03:57', agent:'ATLAS', msg:'Nerve Center v2 <span class="ok">rebuilt</span> — ultra-linear UI', color:'#7C3AED' },
+  { time:'03:18', agent:'ATLAS', msg:'Nerve Center v1 <span class="ok">deployed</span> — YOLO #21', color:'#7C3AED' },
+  { time:'03:15', agent:'NOVA', msg:'Spool Tracker → <span class="ok">verified working</span>', color:'#06B6D4' },
+  { time:'03:12', agent:'MERCURY', msg:'Velocity engine <span class="ok">shipped</span> (847 lines)', color:'#F97316' },
+  { time:'03:08', agent:'SIMONS', msg:'Margin calculator: all 4 tiers <span class="ok">validated</span>', color:'#8B5CF6' },
+  { time:'03:01', agent:'WIDOW', msg:'ClawGuard scan: <span class="ok">0 critical</span>, 2 info', color:'#EF4444' },
+  { time:'02:55', agent:'SHURI', msg:'Coach portal: 4 hooks extracted, <span class="ok">cognitive load -22%</span>', color:'#EF4444' },
+  { time:'02:48', agent:'ATLAS', msg:'Spawn gate: blocked <span class="warn">duplicate</span> (cosine 0.91)', color:'#7C3AED' },
+  { time:'02:41', agent:'TRIAGE', msg:'SwimCloud fallback: <span class="ok">all 3 patterns passing</span>', color:'#22C55E' },
+  { time:'02:30', agent:'PROXIMON', msg:'Firebase rules: <span class="ok">no public read</span> confirmed', color:'#3B82F6' },
+  { time:'02:22', agent:'NOVA', msg:'YOLO #13: mettle-time-standards <span class="ok">shipped</span>', color:'#06B6D4' },
+  { time:'02:15', agent:'AETHERION', msg:'Brand kit v5: <span class="info">12 SVGs, 4 palettes</span> exported', color:'#F59E0B' },
+  { time:'02:01', agent:'INK', msg:'ClawGuard copy v3: <span class="info">3 A/B variants</span> ready', color:'#14B8A6' },
+  { time:'01:45', agent:'ATLAS', msg:'Q-learning: <span class="ok">Sonnet wins code gen</span>', color:'#7C3AED' },
+  { time:'01:00', agent:'SYSTEM', msg:'YOLO overnight window <span class="ok">OPEN</span>', color:'#78716C' }
+];
+
+// TABS
+document.querySelectorAll('.tab-pill').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab-pill').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).style.display = 'block';
+  });
+});
+
+// METRICS STRIP
+function renderMetricsStrip() {
+  const active = AGENTS.filter(a => a.status === 'active').length;
+  const totalTasks = AGENTS.reduce((s, a) => s + a.tasks, 0);
+  const successRate = ((AGENTS.reduce((s, a) => s + a.success, 0) / totalTasks) * 100).toFixed(1);
+  document.getElementById('metricsStrip').innerHTML = [
+    { val: active, label: 'Active', color: 'var(--green)', delta: '+2', dir: 'up' },
+    { val: successRate + '%', label: 'Success', color: 'var(--purple)', delta: '+1.3%', dir: 'up' },
+    { val: AGENTS.reduce((s, a) => s + a.yolo, 0), label: 'YOLO Builds', color: 'var(--gold)', delta: '+6', dir: 'up' }
+  ].map((m, i) => `
+    <div class="metric-card" style="animation-delay:${i * 100}ms">
+      <div class="metric-val" style="color:${m.color}">${m.val}</div>
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-delta ${m.dir}">↑ ${m.delta}</div>
+    </div>
+  `).join('');
+}
+
+// LEADERBOARD
+function renderLeaderboard() {
+  const sorted = [...AGENTS].sort((a, b) => b.yolo - a.yolo || b.success - a.success);
+  const top = sorted.filter(a => a.yolo > 0 || a.success > 70);
+  const maxYolo = Math.max(...top.map(a => a.yolo), 1);
+  const totalBuilds = AGENTS.reduce((s, a) => s + a.yolo, 0);
+  document.getElementById('totalBuilds').textContent = totalBuilds + ' builds';
+
+  document.getElementById('leaderboard').innerHTML = top.map((a, i) => {
+    const pct = Math.max((a.yolo / maxYolo) * 100, 3);
+    const rankClass = i === 0 ? 'r1' : i === 1 ? 'r2' : i === 2 ? 'r3' : 'rn';
+    const rankLabel = i === 0 ? '👑' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+    const barColor = i === 0 ? 'linear-gradient(90deg,#F59E0B,#F97316)' : i === 1 ? 'linear-gradient(90deg,#7C3AED,#06B6D4)' : i === 2 ? 'linear-gradient(90deg,#F97316,#FB923C)' : 'var(--faint)';
+    const isCrown = i === 0;
+    const rate = a.tasks > 0 ? Math.round((a.success / a.tasks) * 100) : 0;
+    return `
+    <div class="lb-card ${isCrown ? 'crown' : ''}" style="animation-delay:${i * 80}ms">
+      <div class="lb-row">
+        <div class="lb-rank ${rankClass}">${rankLabel}</div>
+        <div class="lb-info">
+          <div class="lb-name" style="color:${a.color}">${a.name}</div>
+          <div class="lb-meta"><span class="model-tag">${a.model}</span> ${a.domain} · ${rate}% success</div>
+        </div>
+        <div class="lb-builds">
+          <div class="lb-builds-num">${a.yolo}</div>
+          <div class="lb-builds-label">Builds</div>
+        </div>
+      </div>
+      <div class="lb-bar"><div class="lb-bar-fill" style="width:${pct}%;background:${barColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// AGENT GRID
+function renderGrid() {
+  const active = AGENTS.filter(a => a.status === 'active').length;
+  document.getElementById('activeCount').textContent = active + ' active';
+  document.getElementById('agentGrid').innerHTML = AGENTS.map((a, i) => {
+    const rate = a.tasks > 0 ? Math.round((a.success / a.tasks) * 100) : 0;
+    const statusClass = a.status === 'active' ? 'live' : a.status === 'error' ? 'error' : '';
+    const chipClass = a.status === 'active' ? 'live' : a.status === 'error' ? 'error' : 'idle';
+    const chipText = a.status === 'active' ? '<span class="chip-dot"></span>LIVE' : a.status === 'error' ? 'ERROR' : 'IDLE';
+    return `
+    <div class="agent-card ${statusClass}" style="animation-delay:${i * 50}ms">
+      <div class="card-header">
+        <div class="agent-avatar" style="background:${a.color}">${a.emoji || a.name[0]}</div>
+        <div class="card-info">
+          <div class="card-name">${a.name}</div>
+          <div class="card-domain">${a.model} · ${a.domain}</div>
+        </div>
+        <div class="status-chip ${chipClass}">${chipText}</div>
+      </div>
+      <div class="card-stats">
+        <div class="card-stat"><div class="card-stat-num" style="color:var(--green)">${a.success}</div><div class="card-stat-label">Wins</div></div>
+        <div class="card-stat"><div class="card-stat-num" style="color:var(--scarlet)">${a.fails}</div><div class="card-stat-label">Fails</div></div>
+        <div class="card-stat"><div class="card-stat-num" style="color:var(--gold)">${a.streak}</div><div class="card-stat-label">Streak</div></div>
+      </div>
+      <div class="success-bar"><div class="success-bar-fill" style="width:${rate}%"></div></div>
+      <div class="card-action"><span class="action-dot"></span>${a.lastAction}</div>
+    </div>`;
+  }).join('');
+}
+
+// FEED
+function renderFeed() {
+  document.getElementById('feed').innerHTML = FEED_EVENTS.map((e, i) => {
+    const agent = AGENTS.find(a => a.name === e.agent) || { color: '#78716C', emoji: '⚙️', name: e.agent };
+    return `
+    <div class="feed-item" style="animation-delay:${i * 40}ms">
+      <div class="feed-time">${e.time}</div>
+      <div class="feed-avatar" style="background:${e.color || agent.color}">${agent.emoji || '⚙️'}</div>
+      <div class="feed-content">
+        <div class="feed-agent-name">${e.agent}</div>
+        <div class="feed-msg">${e.msg}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// DEEP STATS
+function renderDeepStats() {
+  const totalTasks = AGENTS.reduce((s, a) => s + a.tasks, 0);
+  const totalSuccess = AGENTS.reduce((s, a) => s + a.success, 0);
+  const totalFails = AGENTS.reduce((s, a) => s + a.fails, 0);
+  const totalYolo = AGENTS.reduce((s, a) => s + a.yolo, 0);
+  const avgStreak = (AGENTS.reduce((s, a) => s + a.streak, 0) / AGENTS.length).toFixed(1);
+  const topStreak = Math.max(...AGENTS.map(a => a.streak));
+  const stats = [
+    { val: totalTasks, label: 'Total Tasks', color: 'var(--purple)', pct: 100 },
+    { val: totalSuccess, label: 'Successes', color: 'var(--green)', pct: (totalSuccess / totalTasks * 100) },
+    { val: totalFails, label: 'Failures', color: 'var(--scarlet)', pct: (totalFails / totalTasks * 100) * 5 },
+    { val: totalYolo, label: 'YOLO Builds', color: 'var(--gold)', pct: (totalYolo / 30 * 100) },
+    { val: avgStreak, label: 'Avg Streak', color: 'var(--cyan)', pct: (avgStreak / topStreak * 100) },
+    { val: topStreak, label: 'Best Streak', color: 'var(--orange)', pct: 100 }
+  ];
+  document.getElementById('deepMetrics').innerHTML = stats.map((s, i) => `
+    <div class="metric-tile" style="animation-delay:${i * 60}ms">
+      <div class="metric-tile-val" style="color:${s.color}">${s.val}</div>
+      <div class="metric-tile-label">${s.label}</div>
+      <div class="metric-tile-bar"><div class="metric-tile-bar-fill" style="width:${Math.min(s.pct, 100)}%;background:${s.color}"></div></div>
+    </div>
+  `).join('');
+}
+
+// CLOCK
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+}
+
+// LIVE SIMULATION
+function simulateLive() {
+  const idx = Math.floor(Math.random() * AGENTS.length);
+  const a = AGENTS[idx];
+  if (Math.random() > 0.65) {
+    a.status = a.status === 'active' ? 'idle' : 'active';
+    if (a.status === 'active') {
+      a.tasks++;
+      if (Math.random() > 0.12) { a.success++; a.streak++; }
+      else { a.fails++; a.streak = 0; }
+    }
+  }
+  renderMetricsStrip();
+  renderGrid();
+  renderLeaderboard();
+
+  if (Math.random() > 0.55) {
+    const actions = [
+      'Task completed — <span class="ok">output verified</span>',
+      'Build deployed → <span class="ok">200 OK</span>',
+      'Analysis done — <span class="ok">3 insights</span>',
+      'Spawn gate: <span class="warn">dedup blocked</span> (0.84)',
+      'Heartbeat: <span class="ok">nominal</span>',
+      'Review: <span class="ok">approved</span>',
+      'YOLO seed: <span class="info">candidate selected</span>',
+      'Tokens: <span class="ok">under budget</span>'
+    ];
+    FEED_EVENTS.unshift({
+      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
+      agent: a.name,
+      msg: actions[Math.floor(Math.random() * actions.length)],
+      color: a.color
+    });
+    if (FEED_EVENTS.length > 25) FEED_EVENTS.pop();
+    renderFeed();
+  }
+}
+
+// INIT
+renderMetricsStrip();
+renderLeaderboard();
+renderGrid();
+renderFeed();
+renderDeepStats();
+updateClock();
+setInterval(updateClock, 1000);
+setInterval(simulateLive, 4000);
+</script>
+</body>
+</html>

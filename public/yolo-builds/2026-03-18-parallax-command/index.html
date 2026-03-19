@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>PARALLAX COMMAND</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* 
+   ULTRA-LINEAR DESIGN SYSTEM
+   - Mobile-first, single column
+   - Max-width 480px (Phone-like viewport)
+   - Vertical rhythm > Horizontal space
+   - NO DARK MODE (Constraint Compliance)
+*/
+
+:root {
+  --bg: #F5F5F4;
+  --surface: #FFFFFF;
+  --surface-trans: rgba(255, 255, 255, 0.85);
+  --text-main: #1C1917;
+  --text-sub: #57534E;
+  --text-faint: #A8A29E;
+  
+  --accent: #000000; /* Brutalist black accent */
+  --highlight: #7C3AED; /* Parallax Purple */
+  
+  --space-xs: 4px;
+  --space-s: 8px;
+  --space-m: 16px;
+  --space-l: 24px;
+  --space-xl: 32px;
+  
+  --radius: 20px;
+  --shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.08);
+  --shadow-hover: 0 12px 32px -4px rgba(0, 0, 0, 0.12);
+  
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text-main);
+  line-height: 1.4;
+  overflow-x: hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* === LAYOUT CONTAINER === */
+.app-container {
+  max-width: 540px; /* Strict linear width */
+  margin: 0 auto;
+  min-height: 100vh;
+  background: #F0F0F0; /* Slight contrast for container */
+  position: relative;
+  box-shadow: 0 0 60px rgba(0,0,0,0.05);
+}
+
+/* === HEADER === */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--surface-trans);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  padding: var(--space-l) var(--space-m) var(--space-m);
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-xs);
+}
+
+.brand {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: #22C55E;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: pulse-green 2s infinite;
+}
+
+.clock {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+h1 {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  line-height: 1.0;
+  margin-top: 4px;
+}
+
+/* === FEED === */
+.feed {
+  padding: var(--space-m);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-m);
+}
+
+/* === CARDS === */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: var(--space-l);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.4);
+}
+
+.card:active {
+  transform: scale(0.98);
+}
+
+.card-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-faint);
+  margin-bottom: var(--space-s);
+  display: flex;
+  justify-content: space-between;
+}
+
+.card-value-big {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -2px;
+  line-height: 1;
+  margin-bottom: var(--space-xs);
+  background: linear-gradient(180deg, #1C1917 0%, #44403C 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.card-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-sub);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delta {
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.delta.pos { background: #DCFCE7; color: #15803D; }
+.delta.neg { background: #FEE2E2; color: #B91C1C; }
+
+/* === VENTURE STACK === */
+.venture-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px; /* Tight stack */
+}
+
+.venture-item {
+  background: var(--surface);
+  padding: var(--space-m);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+.venture-item:first-child { border-top-left-radius: var(--radius); border-top-right-radius: var(--radius); }
+.venture-item:last-child { border-bottom-left-radius: var(--radius); border-bottom-right-radius: var(--radius); }
+
+.venture-info { display: flex; flex-direction: column; gap: 2px; }
+.venture-name { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
+.venture-stage { font-size: 11px; color: var(--text-sub); font-weight: 500; }
+.venture-meta { text-align: right; }
+.venture-amount { font-weight: 700; font-family: var(--font-mono); font-size: 13px; }
+.venture-status { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; }
+
+/* === AGENT LEADERBOARD (Linear List) === */
+.agent-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-row {
+  display: flex;
+  align-items: center;
+  padding: var(--space-s) 0;
+  border-bottom: 1px solid #F5F5F4;
+}
+.agent-row:last-child { border-bottom: none; }
+
+.agent-rank {
+  width: 24px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-faint);
+}
+.agent-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #F5F5F4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  margin-right: var(--space-m);
+  position: relative;
+}
+.agent-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+}
+.agent-details { flex: 1; }
+.agent-name { font-weight: 700; font-size: 14px; }
+.agent-role { font-size: 11px; color: var(--text-sub); }
+.agent-score { 
+  font-family: var(--font-mono); 
+  font-weight: 700; 
+  font-size: 14px; 
+  background: #F5F5F4;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+/* === HEALTH RINGS (Linear Grid) === */
+.health-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-s);
+}
+.health-item {
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+}
+.ring-container {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 8px;
+  position: relative;
+}
+.health-label { font-size: 10px; font-weight: 600; text-transform: uppercase; color: var(--text-faint); }
+.health-val { font-size: 12px; font-weight: 800; }
+
+/* === ANIMATIONS === */
+@keyframes pulse-green {
+  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.4); }
+  70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.stagger-1 { animation: slide-up 0.4s ease-out both; }
+.stagger-2 { animation: slide-up 0.4s ease-out 0.1s both; }
+.stagger-3 { animation: slide-up 0.4s ease-out 0.2s both; }
+.stagger-4 { animation: slide-up 0.4s ease-out 0.3s both; }
+
+svg circle { transition: stroke-dashoffset 1s ease-out; }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+  
+  <header>
+    <div class="header-top">
+      <div class="brand">
+        <div class="live-dot"></div>
+        Sys_Online
+      </div>
+      <div class="clock" id="clock">00:00</div>
+    </div>
+    <h1>Parallax<br>Command</h1>
+  </header>
+
+  <div class="feed">
+
+    <!-- HERO METRIC -->
+    <div class="card stagger-1">
+      <div class="card-label">
+        <span>Total Pipeline</span>
+        <span>USD</span>
+      </div>
+      <div class="card-value-big" id="totalPipeline">$217.5K</div>
+      <div class="card-sub">
+        <span class="delta pos">▲ 12%</span>
+        <span style="margin-left:8px">vs last week</span>
+      </div>
+    </div>
+
+    <!-- VENTURE STACK -->
+    <div class="stagger-2">
+      <div class="card-label" style="padding: 0 4px;">ACTIVE VENTURES</div>
+      <div class="venture-stack" id="ventureStack">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- AGENT LEADERBOARD -->
+    <div class="card stagger-3">
+      <div class="card-label">
+        <span>YOLO Leaderboard</span>
+        <span>Builds</span>
+      </div>
+      <div class="agent-list" id="agentList">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- SYSTEM HEALTH -->
+    <div class="card stagger-4">
+      <div class="card-label">SYSTEM VITALS</div>
+      <div class="health-strip" id="healthStrip">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+    
+    <!-- FOOTER -->
+    <div style="text-align: center; padding: 20px; opacity: 0.3; font-size: 10px; font-weight: 600;">
+      PARALLAX OS v1.2 • ATLAS
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+/* DATA SOURCE */
+const VENTURES = [
+  { name: 'METTLE', stage: 'Beta Live (240 users)', pipe: 24800, status: 'P0', color: '#7C3AED' },
+  { name: 'Verified Agents', stage: 'Dev / Fundraising', pipe: 150000, status: 'P0', color: '#3B82F6' },
+  { name: 'Parallax Platform', stage: 'Marketplace Live', pipe: 35000, status: 'P1', color: '#EC4899' },
+  { name: 'Ramiche Studio', stage: 'Service / Active', pipe: 12000, status: 'P1', color: '#F59E0B' },
+  { name: 'ClawGuard', stage: 'SaaS Live', pipe: 8500, status: 'P2', color: '#EF4444' }
+];
+
+const AGENTS = [
+  { name: 'Nova', role: '3D & Builds', yolo: 15, status: 'online', color: '#3B82F6', emoji: '🌟' },
+  { name: 'Atlas', role: 'Ops Lead', yolo: 3, status: 'online', color: '#7C3AED', emoji: '🧭' },
+  { name: 'Simons', role: 'Analytics', yolo: 3, status: 'idle', color: '#22C55E', emoji: '📊' },
+  { name: 'Mercury', role: 'Sales', yolo: 3, status: 'online', color: '#F97316', emoji: '💰' },
+  { name: 'Triage', role: 'Health', yolo: 1, status: 'offline', color: '#EF4444', emoji: '🔍' },
+  { name: 'Dr Strange', role: 'Forecasting', yolo: 1, status: 'idle', color: '#8B5CF6', emoji: '🔮' }
+];
+
+const HEALTH = [
+  { label: 'Burn', val: '$250/w', pct: 60, color: '#22C55E' },
+  { label: 'Tokens', val: '294M', pct: 58, color: '#3B82F6' },
+  { label: 'Disk', val: '95%', pct: 95, color: '#EF4444' } // 95% is high/red
+];
+
+/* RENDERERS */
+function renderVentures() {
+  const container = document.getElementById('ventureStack');
+  let html = '';
+  VENTURES.forEach(v => {
+    html += `
+      <div class="venture-item">
+        <div class="venture-info">
+          <div class="venture-name">${v.name}</div>
+          <div class="venture-stage">${v.stage}</div>
+        </div>
+        <div class="venture-meta">
+          <div class="venture-amount" style="color: ${v.color}">$${(v.pipe/1000).toFixed(1)}k</div>
+          <div class="venture-status" style="color: ${v.color}">${v.status}</div>
+        </div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+  
+  // Calc Total
+  const total = VENTURES.reduce((acc, curr) => acc + curr.pipe, 0);
+  document.getElementById('totalPipeline').innerText = '$' + (total/1000).toFixed(1) + 'K';
+}
+
+function renderAgents() {
+  const container = document.getElementById('agentList');
+  let html = '';
+  AGENTS.forEach((a, index) => {
+    const statusColor = a.status === 'online' ? '#22C55E' : (a.status === 'idle' ? '#EAB308' : '#D1D5DB');
+    html += `
+      <div class="agent-row">
+        <div class="agent-rank">#${index+1}</div>
+        <div class="agent-avatar" style="color: ${a.color}; background: ${a.color}15;">
+          ${a.emoji}
+          <div class="agent-status-dot" style="background: ${statusColor}"></div>
+        </div>
+        <div class="agent-details">
+          <div class="agent-name">${a.name}</div>
+          <div class="agent-role">${a.role}</div>
+        </div>
+        <div class="agent-score">${a.yolo}</div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function renderHealth() {
+  const container = document.getElementById('healthStrip');
+  let html = '';
+  HEALTH.forEach(h => {
+    const radius = 14;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference - (h.pct / 100) * circumference;
+    
+    html += `
+      <div class="health-item">
+        <div class="ring-container">
+          <svg width="40" height="40" style="transform: rotate(-90deg);">
+            <circle cx="20" cy="20" r="${radius}" fill="none" stroke="#E5E7EB" stroke-width="3" />
+            <circle cx="20" cy="20" r="${radius}" fill="none" stroke="${h.color}" stroke-width="3" 
+              stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round" />
+          </svg>
+        </div>
+        <div class="health-label">${h.label}</div>
+        <div class="health-val">${h.val}</div>
+      </div>
+    `;
+  });
+  container.innerHTML = html;
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').innerText = now.toLocaleTimeString('en-US', { hour: '2-digit', minute:'2-digit' });
+}
+
+/* INIT */
+renderVentures();
+renderAgents();
+renderHealth();
+updateClock();
+setInterval(updateClock, 1000);
+
+</script>
+</body>
+</html>

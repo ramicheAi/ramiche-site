@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Verified Agent Value-Based Pricing Modeler</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --accent: #38bdf8;
+      --success: #10b981;
+      --border: #334155;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 900px;
+      width: 100%;
+    }
+    header {
+      margin-bottom: 30px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+    h1 {
+      margin: 0 0 10px 0;
+      color: var(--accent);
+      font-size: 28px;
+    }
+    p { margin: 0; color: #94a3b8; }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+    
+    .card {
+      background: var(--card-bg);
+      padding: 25px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    
+    h2 {
+      margin-top: 0;
+      font-size: 18px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+      color: #e2e8f0;
+    }
+    
+    .control-group {
+      margin-bottom: 20px;
+    }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-weight: 500;
+      font-size: 14px;
+    }
+    .control-group input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+    }
+    
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .metric:last-child {
+      border-bottom: none;
+    }
+    .metric-label {
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+    .metric-value {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .metric-value.highlight {
+      color: var(--success);
+      font-size: 28px;
+    }
+    .metric-value.accent {
+      color: var(--accent);
+      font-size: 24px;
+    }
+    
+    .bar-chart {
+      margin-top: 30px;
+      background: #0f172a;
+      border-radius: 8px;
+      padding: 15px;
+      height: 120px;
+      display: flex;
+      align-items: flex-end;
+      gap: 20px;
+    }
+    .bar-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      align-items: center;
+      height: 100%;
+    }
+    .bar {
+      width: 100%;
+      background: var(--border);
+      border-radius: 4px 4px 0 0;
+      transition: height 0.3s ease;
+      position: relative;
+    }
+    .bar.optimized { background: var(--success); }
+    .bar.current { background: #64748b; }
+    .bar-label {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+    .bar-val {
+      position: absolute;
+      top: -20px;
+      width: 100%;
+      text-align: center;
+      font-size: 12px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>Verified Agent Pricing Modeler</h1>
+      <p>Calculate value-based pricing based on projected agent impact on client margins.</p>
+    </header>
+    
+    <div class="grid">
+      <!-- Input Controls -->
+      <div class="card">
+        <h2>Client Baselines</h2>
+        <div class="control-group">
+          <label>
+            Annual Revenue
+            <span id="rev-val">$1,000,000</span>
+          </label>
+          <input type="range" id="rev-slider" min="100000" max="10000000" step="100000" value="1000000">
+        </div>
+        <div class="control-group">
+          <label>
+            Current Gross Margin
+            <span id="margin-val">20%</span>
+          </label>
+          <input type="range" id="margin-slider" min="5" max="80" step="1" value="20">
+        </div>
+
+        <h2 style="margin-top: 30px;">Agent Impact</h2>
+        <div class="control-group">
+          <label>
+            Projected Margin Increase (Points)
+            <span id="impact-val">+5%</span>
+          </label>
+          <input type="range" id="impact-slider" min="1" max="30" step="1" value="5">
+        </div>
+        <div class="control-group">
+          <label>
+            Revenue Growth Multiplier
+            <span id="growth-val">1.05x</span>
+          </label>
+          <input type="range" id="growth-slider" min="1.0" max="2.0" step="0.05" value="1.05">
+        </div>
+        <div class="control-group">
+          <label>
+            Target Client ROI
+            <span id="roi-val">10x</span>
+          </label>
+          <input type="range" id="roi-slider" min="2" max="20" step="1" value="10">
+        </div>
+      </div>
+
+      <!-- Outputs -->
+      <div class="card">
+        <h2>Financial Impact & Pricing</h2>
+        
+        <div class="metric">
+          <span class="metric-label">Current Gross Profit</span>
+          <span class="metric-value" id="current-profit">$200,000</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Optimized Gross Profit</span>
+          <span class="metric-value" id="new-profit">$262,500</span>
+        </div>
+        <div class="metric" style="background: rgba(16, 185, 129, 0.1); padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <span class="metric-label" style="color: var(--success); font-weight: bold;">Total Value Created (Annual)</span>
+          <span class="metric-value highlight" id="value-created">+$62,500</span>
+        </div>
+        
+        <div class="metric">
+          <span class="metric-label">Suggested Annual Retainer</span>
+          <span class="metric-value accent" id="annual-retainer">$6,250</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Suggested Monthly Fee</span>
+          <span class="metric-value" id="monthly-fee" style="color: #cbd5e1;">$520/mo</span>
+        </div>
+
+        <!-- Visualization -->
+        <div class="bar-chart">
+          <div class="bar-container">
+            <div class="bar current" id="bar-current" style="height: 50%;">
+              <div class="bar-val" id="bar-val-current">$200k</div>
+            </div>
+            <div class="bar-label">Current Profit</div>
+          </div>
+          <div class="bar-container">
+            <div class="bar optimized" id="bar-optimized" style="height: 80%;">
+              <div class="bar-val" id="bar-val-optimized">$262k</div>
+            </div>
+            <div class="bar-label">Optimized Profit</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const fmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+    
+    const els = {
+      rev: document.getElementById('rev-slider'),
+      margin: document.getElementById('margin-slider'),
+      impact: document.getElementById('impact-slider'),
+      growth: document.getElementById('growth-slider'),
+      roi: document.getElementById('roi-slider'),
+      
+      revVal: document.getElementById('rev-val'),
+      marginVal: document.getElementById('margin-val'),
+      impactVal: document.getElementById('impact-val'),
+      growthVal: document.getElementById('growth-val'),
+      roiVal: document.getElementById('roi-val'),
+      
+      currentProfit: document.getElementById('current-profit'),
+      newProfit: document.getElementById('new-profit'),
+      valueCreated: document.getElementById('value-created'),
+      annualRetainer: document.getElementById('annual-retainer'),
+      monthlyFee: document.getElementById('monthly-fee'),
+      
+      barCurrent: document.getElementById('bar-current'),
+      barOptimized: document.getElementById('bar-optimized'),
+      barValCurrent: document.getElementById('bar-val-current'),
+      barValOptimized: document.getElementById('bar-val-optimized')
+    };
+
+    function calculate() {
+      const rev = parseFloat(els.rev.value);
+      const margin = parseFloat(els.margin.value) / 100;
+      const impact = parseFloat(els.impact.value) / 100;
+      const growth = parseFloat(els.growth.value);
+      const roi = parseFloat(els.roi.value);
+
+      // Update Labels
+      els.revVal.textContent = fmt.format(rev);
+      els.marginVal.textContent = els.margin.value + '%';
+      els.impactVal.textContent = '+' + els.impact.value + '%';
+      els.growthVal.textContent = els.growth.value + 'x';
+      els.roiVal.textContent = roi + 'x';
+
+      // Math
+      const currentProfit = rev * margin;
+      const newRev = rev * growth;
+      const newMargin = margin + impact;
+      const newProfit = newRev * newMargin;
+      
+      const valueCreated = newProfit - currentProfit;
+      const annualRetainer = valueCreated > 0 ? valueCreated / roi : 0;
+      const monthlyFee = annualRetainer / 12;
+
+      // Update Outputs
+      els.currentProfit.textContent = fmt.format(currentProfit);
+      els.newProfit.textContent = fmt.format(newProfit);
+      els.valueCreated.textContent = '+' + fmt.format(valueCreated);
+      els.annualRetainer.textContent = fmt.format(annualRetainer);
+      els.monthlyFee.textContent = fmt.format(monthlyFee) + '/mo';
+
+      // Chart Update
+      const maxProfit = Math.max(currentProfit, newProfit) * 1.2; 
+      const currentPct = maxProfit > 0 ? (currentProfit / maxProfit) * 100 : 0;
+      const optimizedPct = maxProfit > 0 ? (newProfit / maxProfit) * 100 : 0;
+
+      els.barCurrent.style.height = currentPct + '%';
+      els.barOptimized.style.height = optimizedPct + '%';
+      
+      els.barValCurrent.textContent = '$' + (currentProfit/1000).toFixed(0) + 'k';
+      els.barValOptimized.textContent = '$' + (newProfit/1000).toFixed(0) + 'k';
+    }
+
+    // Event Listeners
+    [els.rev, els.margin, els.impact, els.growth, els.roi].forEach(el => {
+      el.addEventListener('input', calculate);
+    });
+
+    // Init
+    calculate();
+  </script>
+</body>
+</html>
