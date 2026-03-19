@@ -8,6 +8,7 @@ import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
 import PBOverlay from "../components/PBOverlay";
 import AthleteCard from "../components/AthleteCard";
+import WorkoutLog from "../components/WorkoutLog";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -603,7 +604,7 @@ function fmtTime(secs: number): string {
 }
 
 // ── Main component ──────────────────────────────────────────
-type TabKey = "dashboard" | "times" | "goals" | "standards" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness" | "meets";
+type TabKey = "dashboard" | "times" | "goals" | "standards" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness" | "meets" | "workout";
 
 export default function AthletePortal() {
   const [mounted, setMounted] = useState(false);
@@ -1366,6 +1367,7 @@ export default function AthletePortal() {
     { key: "feedback", label: "Coach", icon: (a) => <MessageIcon active={a} />, badge: unreadCount },
     { key: "leaderboard", label: "Board", icon: (a) => <BoardIcon active={a} /> },
     { key: "wellness", label: "Mind", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#a855f7":"currentColor"} strokeWidth="2"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg> },
+    { key: "workout", label: "Train", icon: (a) => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a?"#F5A623":"currentColor"} strokeWidth="2"><path d="M6.5 6.5h11M6.5 17.5h11M4 10h16M4 14h16M2 12h2M20 12h2"/></svg> },
   ];
 
   // ── Main dashboard ────────────────────────────────────────
@@ -2794,6 +2796,12 @@ export default function AthletePortal() {
             </div>
           );
         })()}
+
+        {tab === "workout" && (
+          <div key="tab-workout" className="aa-tab-content w-full">
+            <WorkoutLog athleteName={athlete?.name} />
+          </div>
+        )}
 
         {/* Footer */}
         <div className="text-center mt-10 text-white/[0.06] text-sm space-y-1">
