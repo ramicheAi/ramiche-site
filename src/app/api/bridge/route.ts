@@ -7,8 +7,14 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
+const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
+
+function fsUrl(path: string) {
+  const base = `${FIRESTORE_BASE}/${path}`;
+  return API_KEY ? `${base}?key=${API_KEY}` : base;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +91,7 @@ export async function GET(req: NextRequest) {
     if (type === "all") {
       const results = await Promise.all(
         validTypes.map(async (t) => {
-          const res = await fetch(`${FIRESTORE_BASE}/command-center/${t}`, {
+          const res = await fetch(fsUrl(`command-center/${t}`), {
             headers: { "Content-Type": "application/json" },
             cache: "no-store",
           });
@@ -102,7 +108,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: `invalid type. use: ${validTypes.join(", ")}` }, { status: 400 });
     }
 
-    const res = await fetch(`${FIRESTORE_BASE}/command-center/${type}`, {
+    const res = await fetch(fsUrl(`command-center/${type}`), {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
     });
@@ -121,7 +127,7 @@ export async function PATCH(req: NextRequest) {
     const { action, taskId, fromCol, toCol, task } = body;
 
     // Read current tasks from Firestore
-    const tasksRes = await fetch(`${FIRESTORE_BASE}/command-center/tasks`, {
+    const tasksRes = await fetch(fsUrl("command-center/tasks"), {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
     });
@@ -192,7 +198,7 @@ export async function PATCH(req: NextRequest) {
         triggeredAt: new Date().toISOString(),
         status: "pending",
       };
-      await fetch(`${FIRESTORE_BASE}/command-center/trigger-queue`, {
+      await fetch(fsUrl("command-center/trigger-queue"), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -214,7 +220,7 @@ export async function PATCH(req: NextRequest) {
       _source: "command-center-ui",
     });
 
-    const writeRes = await fetch(`${FIRESTORE_BASE}/command-center/tasks`, {
+    const writeRes = await fetch(fsUrl("command-center/tasks"), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields }),
@@ -258,7 +264,7 @@ export async function POST(req: NextRequest) {
 
     const fields = toFirestoreFields(enrichedData);
 
-    const res = await fetch(`${FIRESTORE_BASE}/command-center/${type}`, {
+    const res = await fetch(fsUrl(`command-center/${type}`), {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ fields }),

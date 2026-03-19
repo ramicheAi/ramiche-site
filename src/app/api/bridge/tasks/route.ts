@@ -4,9 +4,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
+const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
 const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
-const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
-if (!BRIDGE_SECRET) console.warn("[bridge/tasks] BRIDGE_API_SECRET not set — all requests will be rejected");
+const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
+function fsUrl(path: string) { const b = `${FIRESTORE_BASE}/${path}`; return API_KEY ? `${b}?key=${API_KEY}` : b; }
 
 export const dynamic = "force-dynamic";
 
