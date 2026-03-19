@@ -1555,7 +1555,7 @@ export default function CommandCenter() {
               <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(34,211,238,0.2), transparent)' }} />
             </div>
             <div style={{ maxHeight: 400, overflowY: 'auto', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', padding: 16 }}>
-              {liveAgentActivity.filter((e: any) => e.source === 'daily-log' || e.source === 'scratch').slice(0, 40).map((entry: any, i: number) => {
+              {liveAgentActivity.slice(0, 40).map((entry: any, i: number) => {
                 const agentMatch = agents.find((a: any) => a.name?.toLowerCase().replace(/[\s.]/g, '') === entry.agent?.toLowerCase().replace(/[\s.]/g, '') || a.key === entry.agent);
                 const agentColor = agentMatch?.color || '#888888';
                 const agentIcon = agentMatch?.icon || '🤖';
@@ -1570,6 +1570,9 @@ export default function CommandCenter() {
                         <span style={{ fontSize: 11, fontWeight: 700, color: agentColor }}>{agentLabel}</span>
                         {entry.date && <span style={{ fontSize: 9, fontFamily: 'monospace', color: '#555' }}>{entry.date}{entry.time ? ` ${entry.time}` : ''}</span>}
                         {entry.source === 'scratch' && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 4, background: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 600 }}>THINKING</span>}
+                        {entry.source === 'intel' && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 4, background: 'rgba(56,189,248,0.1)', color: '#38bdf8', fontWeight: 600 }}>INTEL</span>}
+                        {entry.source === 'heartbeat' && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 4, background: 'rgba(239,68,68,0.1)', color: '#ef4444', fontWeight: 600 }}>HEARTBEAT</span>}
+                        {entry.source === 'identity' && <span style={{ fontSize: 8, padding: '1px 6px', borderRadius: 4, background: 'rgba(168,85,247,0.1)', color: '#a855f7', fontWeight: 600 }}>IDENTITY</span>}
                       </div>
                       <div style={{ fontSize: 12, color: '#ccc', fontWeight: 500, lineHeight: 1.4 }}>{entry.title}</div>
                       {entry.body && <div style={{ fontSize: 10, color: '#666', marginTop: 4, lineHeight: 1.4, fontFamily: 'monospace', whiteSpace: 'pre-wrap', maxHeight: 60, overflow: 'hidden' }}>{entry.body.slice(0, 200)}</div>}
