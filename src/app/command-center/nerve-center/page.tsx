@@ -6,7 +6,7 @@ export default function NerveCenterPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("/yolo-builds/2026-03-17-nerve-center/index.html")
+    fetch("/yolo-builds/2026-03-17-proximon-nerve-centre/index.html")
       .then((r) => r.text())
       .then((html) => {
         if (!containerRef.current) return;
@@ -28,7 +28,7 @@ export default function NerveCenterPage() {
         width: "100%",
         height: "100vh",
         overflow: "auto",
-        background: "#FAFAF9",
+        background: "#0a0a0f",
       }}
     />
   );
