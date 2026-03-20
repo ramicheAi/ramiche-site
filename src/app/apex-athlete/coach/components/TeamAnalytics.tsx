@@ -48,174 +48,8 @@ interface AthleteData {
   events: Record<string, RaceResult[]>;
 }
 
-const athletes: AthleteData[] = [
-  {
-    name: "Marcus Williams", level: "Warrior", xp: 680, age: 14, group: "13-14",
-    events: {
-      "50 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "25.43", splits: ["12.21", "13.22"] },
-        { date: "2025-10-19", meet: "October Classic", time: "25.11", splits: ["12.05", "13.06"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "24.78", splits: ["11.92", "12.86"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "24.52", splits: ["11.80", "12.72"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "24.31", splits: ["11.71", "12.60"] },
-        { date: "2026-02-15", meet: "February Fast", time: "24.15", splits: ["11.65", "12.50"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "23.98", splits: ["11.55", "12.43"] },
-      ],
-      "100 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "56.87", splits: ["26.91", "29.96"] },
-        { date: "2025-10-19", meet: "October Classic", time: "55.94", splits: ["26.40", "29.54"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "55.21", splits: ["26.12", "29.09"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "54.63", splits: ["25.82", "28.81"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "54.10", splits: ["25.55", "28.55"] },
-        { date: "2026-02-15", meet: "February Fast", time: "53.72", splits: ["25.31", "28.41"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "53.28", splits: ["25.10", "28.18"] },
-      ],
-      "200 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "2:05.60", splits: ["29.10", "31.45", "32.80", "32.25"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "2:03.12", splits: ["28.70", "31.00", "32.20", "31.22"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "2:01.44", splits: ["28.40", "30.60", "31.50", "30.94"] },
-        { date: "2026-02-15", meet: "February Fast", time: "1:59.87", splits: ["28.10", "30.20", "31.10", "30.47"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:58.52", splits: ["27.80", "29.90", "30.70", "30.12"] },
-      ],
-      "100 Fly": [
-        { date: "2025-10-19", meet: "October Classic", time: "1:05.33", splits: ["30.10", "35.23"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "1:03.87", splits: ["29.60", "34.27"] },
-        { date: "2026-02-15", meet: "February Fast", time: "1:02.40", splits: ["29.12", "33.28"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:01.15", splits: ["28.75", "32.40"] },
-      ],
-    },
-  },
-  {
-    name: "Sofia Chen", level: "Elite", xp: 1250, age: 15, group: "15-16",
-    events: {
-      "100 Back": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "1:05.92", splits: ["32.10", "33.82"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "1:04.65", splits: ["31.50", "33.15"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "1:03.40", splits: ["31.00", "32.40"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:02.18", splits: ["30.45", "31.73"] },
-      ],
-      "200 Back": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "2:18.50", splits: ["32.40", "34.80", "35.60", "35.70"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "2:15.22", splits: ["31.80", "34.10", "34.80", "34.52"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "2:12.05", splits: ["31.20", "33.40", "33.90", "33.55"] },
-      ],
-      "200 IM": [
-        { date: "2025-10-19", meet: "October Classic", time: "2:22.10", splits: ["30.50", "36.40", "39.80", "35.40"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "2:19.45", splits: ["29.90", "35.80", "38.90", "34.85"] },
-        { date: "2026-02-15", meet: "February Fast", time: "2:17.20", splits: ["29.40", "35.20", "38.20", "34.40"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "2:15.33", splits: ["29.10", "34.80", "37.50", "33.93"] },
-      ],
-      "50 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "27.10", splits: ["13.10", "14.00"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "26.42", splits: ["12.80", "13.62"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "25.95", splits: ["12.55", "13.40"] },
-      ],
-    },
-  },
-  {
-    name: "Jayden Brooks", level: "Captain", xp: 1920, age: 16, group: "15-16",
-    events: {
-      "100 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "51.20", splits: ["24.50", "26.70"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "50.75", splits: ["24.30", "26.45"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "50.22", splits: ["24.10", "26.12"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "49.88", splits: ["23.90", "25.98"] },
-      ],
-      "200 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "1:52.40", splits: ["26.50", "28.30", "29.10", "28.50"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "1:50.80", splits: ["26.10", "27.90", "28.70", "28.10"] },
-        { date: "2026-02-15", meet: "February Fast", time: "1:49.55", splits: ["25.80", "27.60", "28.40", "27.75"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:48.20", splits: ["25.50", "27.30", "28.10", "27.30"] },
-      ],
-      "500 Free": [
-        { date: "2025-10-19", meet: "October Classic", time: "5:05.10", splits: ["27.50", "29.80", "30.50", "31.00", "31.20", "31.40", "31.20", "30.80", "30.60", "31.10"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "4:59.80", splits: ["27.20", "29.40", "30.10", "30.50", "30.70", "30.90", "30.60", "30.20", "29.80", "30.40"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "4:55.15", splits: ["26.90", "29.00", "29.70", "30.10", "30.30", "30.40", "30.10", "29.70", "29.30", "29.65"] },
-      ],
-      "50 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "23.80", splits: ["11.40", "12.40"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "23.42", splits: ["11.25", "12.17"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "23.10", splits: ["11.10", "12.00"] },
-      ],
-    },
-  },
-  {
-    name: "Ava Rodriguez", level: "Contender", xp: 320, age: 12, group: "11-12",
-    events: {
-      "50 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "30.55", splits: ["14.80", "15.75"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "30.10", splits: ["14.60", "15.50"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "29.72", splits: ["14.40", "15.32"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "29.35", splits: ["14.20", "15.15"] },
-      ],
-      "100 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "1:06.80", splits: ["31.90", "34.90"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "1:05.20", splits: ["31.20", "34.00"] },
-        { date: "2026-02-15", meet: "February Fast", time: "1:04.10", splits: ["30.70", "33.40"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:03.25", splits: ["30.30", "32.95"] },
-      ],
-      "50 Back": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "35.40", splits: ["17.20", "18.20"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "34.85", splits: ["16.90", "17.95"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "34.30", splits: ["16.60", "17.70"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "33.82", splits: ["16.35", "17.47"] },
-      ],
-      "100 Breast": [
-        { date: "2025-10-19", meet: "October Classic", time: "1:22.40", splits: ["39.10", "43.30"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "1:20.55", splits: ["38.40", "42.15"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:19.10", splits: ["37.80", "41.30"] },
-      ],
-    },
-  },
-  {
-    name: "Ethan Park", level: "Rookie", xp: 85, age: 10, group: "10&U",
-    events: {
-      "50 Free": [
-        { date: "2025-10-19", meet: "October Classic", time: "34.20", splits: ["16.50", "17.70"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "33.55", splits: ["16.20", "17.35"] },
-        { date: "2026-02-15", meet: "February Fast", time: "33.10", splits: ["16.00", "17.10"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "32.72", splits: ["15.82", "16.90"] },
-      ],
-      "100 Free": [
-        { date: "2025-10-19", meet: "October Classic", time: "1:15.80", splits: ["35.90", "39.90"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "1:14.10", splits: ["35.10", "39.00"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:12.55", splits: ["34.40", "38.15"] },
-      ],
-      "50 Back": [
-        { date: "2025-11-16", meet: "Turkey Splash", time: "40.10", splits: ["19.50", "20.60"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "39.20", splits: ["19.00", "20.20"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "38.45", splits: ["18.60", "19.85"] },
-      ],
-    },
-  },
-  {
-    name: "Lily Nguyen", level: "Warrior", xp: 720, age: 13, group: "13-14",
-    events: {
-      "100 Breast": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "1:18.90", splits: ["37.20", "41.70"] },
-        { date: "2025-11-16", meet: "Turkey Splash", time: "1:17.45", splits: ["36.60", "40.85"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "1:16.22", splits: ["36.10", "40.12"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "1:15.10", splits: ["35.60", "39.50"] },
-      ],
-      "200 Breast": [
-        { date: "2025-10-19", meet: "October Classic", time: "2:48.30", splits: ["37.80", "42.50", "44.20", "43.80"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "2:45.10", splits: ["37.20", "41.80", "43.40", "42.70"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "2:41.55", splits: ["36.60", "41.10", "42.50", "41.35"] },
-      ],
-      "200 IM": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "2:28.70", splits: ["31.20", "38.40", "41.50", "37.60"] },
-        { date: "2025-12-14", meet: "Winter Champs", time: "2:25.80", splits: ["30.60", "37.80", "40.50", "36.90"] },
-        { date: "2026-02-15", meet: "February Fast", time: "2:23.40", splits: ["30.10", "37.20", "39.80", "36.30"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "2:21.55", splits: ["29.70", "36.70", "39.10", "36.05"] },
-      ],
-      "50 Free": [
-        { date: "2025-09-14", meet: "Fall Invite", time: "28.90", splits: ["13.90", "15.00"] },
-        { date: "2026-01-18", meet: "New Year Invite", time: "28.20", splits: ["13.60", "14.60"] },
-        { date: "2026-03-08", meet: "Spring Qualifier", time: "27.65", splits: ["13.30", "14.35"] },
-      ],
-    },
-  },
-];
+// Athlete data is populated from real meet results — no hardcoded demo data
+const athletes: AthleteData[] = [];
 
 type ViewType = "overview" | "drops" | "pace" | "team" | "insights";
 
@@ -768,13 +602,33 @@ export default function TeamAnalytics({ GameHUDHeader }: TeamAnalyticsProps) {
   const [currentAthlete, setCurrentAthlete] = useState(0);
   const [eventFilter, setEventFilter] = useState("all");
 
-  const a = athletes[currentAthlete];
-  const eventOptions = useMemo(() => Object.keys(a.events), [a]);
+  const a = athletes.length > 0 ? athletes[currentAthlete] : null;
+  const eventOptions = useMemo(() => a ? Object.keys(a.events) : [], [a]);
 
   const handleAthleteChange = useCallback((idx: number) => {
     setCurrentAthlete(idx);
     setEventFilter("all");
   }, []);
+
+  // Empty state — no meet data yet
+  if (!a) {
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs />
+        <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10 pb-12">
+          <GameHUDHeader />
+          <h2 className="text-2xl font-black tracking-tight mb-6" style={{ color: PURPLE }}>Swim Analytics</h2>
+          <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-xl border-2 border-[#7C3AED]/15 rounded-2xl p-10 text-center">
+            <div className="text-4xl mb-4">📊</div>
+            <h3 className="text-xl font-bold text-white/80 mb-2">No Meet Data Yet</h3>
+            <p className="text-white/40 text-sm max-w-md mx-auto leading-relaxed">
+              Swim analytics will populate automatically once meet results are entered in the Meets tab. Upload Hy-Tek results or enter times manually to see progression charts, time drops, pace analysis, and AI insights for each athlete.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">

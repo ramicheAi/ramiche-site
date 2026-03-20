@@ -2508,45 +2508,32 @@ export default function ApexAthletePage() {
           {/* Logout */}
           <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-[#f8fafc]/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
 
-          {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
-          <div className="md:hidden space-y-2 mb-4">
-            <div className="grid grid-cols-4 gap-2">
-              {secondaryTabs.slice(0, 4).map(t => {
-                const active = view === t.id;
-                return (
-                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
-                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
-                      active
-                        ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
-                    }`}>
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {secondaryTabs.slice(4).map(t => {
-                const active = view === t.id;
-                return (
-                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
-                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
-                      active
-                        ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
-                    }`}>
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
+          {/* Section nav tabs — 3 rows on mobile, 2 rows on tablet+ */}
+          <div className="md:hidden space-y-2.5 mb-6">
+            {[secondaryTabs.slice(0, 4), secondaryTabs.slice(4, 8), secondaryTabs.slice(8)].map((row, ri) => (
+              <div key={ri} className={`grid gap-2.5 ${row.length <= 3 ? "grid-cols-3" : "grid-cols-4"}`}>
+                {row.map(t => {
+                  const active = view === t.id;
+                  return (
+                    <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
+                      className={`py-3.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[50px] text-center ${
+                        active
+                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                          : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
+                      }`}>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-          <div className="hidden md:grid grid-cols-8 gap-2 mb-4">
+          <div className="hidden md:flex flex-wrap gap-2.5 mb-6">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); }}
-                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                  className={`py-3.5 px-5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[50px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
                       : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
@@ -3497,7 +3484,7 @@ export default function ApexAthletePage() {
 
   // ── SCHEDULE VIEW ──────────────────────────────────────
   if (view === "schedule") {
-    return <ScheduleView GameHUDHeader={GameHUDHeader} />;
+    return <ScheduleView GameHUDHeader={GameHUDHeader} schedules={schedules} saveSchedules={saveSchedules} selectedGroup={selectedGroup} templates={SCHEDULE_TEMPLATES} />;
   }
 
   /* ════════════════════════════════════════════════════════════
@@ -3583,29 +3570,22 @@ export default function ApexAthletePage() {
               <div className="relative mb-10">
                 {/* Podium glow backdrop */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
-                <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] lg:max-w-[1000px] mx-auto items-end">
+                <div className="grid grid-cols-3 gap-6 sm:gap-8 items-stretch">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp, getSportForAthlete(a));
-                    const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
                     const medals = ["🥇", "🥈", "🥉"];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
-                    const glowColors = [
-                      "shadow-[0_0_50px_rgba(245,158,11,0.3),0_0_100px_rgba(245,158,11,0.1)]",
-                      "shadow-[0_0_30px_rgba(192,192,210,0.15)]",
-                      "shadow-[0_0_30px_rgba(205,127,50,0.15)]",
-                    ];
                     const cardBgs = [
                       "bg-gradient-to-b from-[#f59e0b]/10 via-[#06020f]/80 to-[#06020f] neon-pulse-gold",
                       "bg-gradient-to-b from-[#00f0ff]/5 via-[#06020f]/80 to-[#06020f] neon-pulse",
                       "bg-gradient-to-b from-[#cd7f32]/8 via-[#06020f]/80 to-[#06020f]",
                     ];
-                    const heights = ["min-h-[280px] sm:min-h-[320px]", "min-h-[240px] sm:min-h-[270px]", "min-h-[240px] sm:min-h-[270px]"];
                     return (
-                      <div key={a.id} className={`game-panel game-panel-border relative p-4 sm:p-6 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} ${heights[rank]} flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] group`}>
+                      <div key={a.id} className={`game-panel game-panel-border relative p-5 sm:p-7 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} min-h-[280px] sm:min-h-[310px] flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] group`}>
                         {rank === 0 && <div className="absolute inset-0 gold-shimmer pointer-events-none" />}
                         <div className={`text-3xl sm:text-4xl mb-3 ${rank === 0 ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
-                        <div className={`${avatarSizes[rank]} mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
+                        <div className={`w-18 h-18 sm:w-22 sm:h-22 text-lg sm:text-xl mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
                           style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": rank === 0 ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
