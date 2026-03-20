@@ -2945,7 +2945,7 @@ export default function ApexAthletePage() {
       <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] relative overflow-x-hidden">
         <BgOrbs />
         <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10">
-          <div className="w-full max-w-3xl mx-auto py-6 sm:py-8">
+          <div className="w-full py-6 sm:py-8">
 
             {/* Back button */}
             <button onClick={onBack}
