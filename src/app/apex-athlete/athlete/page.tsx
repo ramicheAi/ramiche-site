@@ -9,6 +9,7 @@ import StreakFlame from "../components/StreakFlame";
 import PBOverlay from "../components/PBOverlay";
 import AthleteCard from "../components/AthleteCard";
 import WorkoutLog from "../components/WorkoutLog";
+import { storageSaveRoster } from "../lib/storage";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -123,7 +124,14 @@ function load<T>(key: string, fallback: T): T {
     try { return JSON.parse(v); } catch { return v as unknown as T; }
   } catch { return fallback; }
 }
-function save(key: string, val: unknown) { localStorage.setItem(key, JSON.stringify(val)); }
+function save(key: string, val: unknown) {
+  if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
+    const saved = storageSaveRoster(val as { xp?: number }[]);
+    if (!saved) { console.error("[Athlete] Blocked zero-XP roster overwrite"); return; }
+    return;
+  }
+  if (typeof window !== "undefined") { try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* quota */ } }
+}
 
 const QUEST_DEFS = [
   { id: "technique-lab", name: "Technique Lab", desc: "Film one stroke, review with coach", xp: 30, cat: "SKILL" },
