@@ -5,7 +5,7 @@ import { MASTER_PIN } from "../auth";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 
 /* ══════════════════════════════════════════════════════════════
-   APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
+   METTLE — Saint Andrew's Aquatics — Platinum Group
    Clean UI · React + Tailwind · localStorage
    ══════════════════════════════════════════════════════════════ */
 
@@ -21,18 +21,24 @@ const LEVELS = [
 ] as const;
 
 function getLevel(xp: number) {
-  for (let i = LEVELS.length - 1; i >= 0; i--) if (xp >= LEVELS[i].xp) return LEVELS[i];
-  return LEVELS[0];
+  try {
+    for (let i = LEVELS.length - 1; i >= 0; i--) if (xp >= LEVELS[i].xp) return LEVELS[i];
+    return LEVELS[0];
+  } catch { return LEVELS[0]; }
 }
 function getNextLevel(xp: number) {
-  for (const lv of LEVELS) if (xp < lv.xp) return lv;
-  return null;
+  try {
+    for (const lv of LEVELS) if (xp < lv.xp) return lv;
+    return null;
+  } catch { return null; }
 }
 function getLevelProgress(xp: number) {
-  const cur = getLevel(xp), nxt = getNextLevel(xp);
-  if (!nxt) return { percent: 100, remaining: 0 };
-  const range = nxt.xp - cur.xp, prog = xp - cur.xp;
-  return { percent: Math.min(100, Math.round((prog / range) * 100)), remaining: nxt.xp - xp };
+  try {
+    const cur = getLevel(xp), nxt = getNextLevel(xp);
+    if (!nxt) return { percent: 100, remaining: 0 };
+    const range = nxt.xp - cur.xp, prog = xp - cur.xp;
+    return { percent: Math.min(100, Math.round((prog / range) * 100)), remaining: nxt.xp - xp };
+  } catch { return { percent: 0, remaining: 0 }; }
 }
 function getStreakMult(s: number) {
   if (s >= 60) return 2.5; if (s >= 30) return 2.0; if (s >= 14) return 1.75;
@@ -1868,52 +1874,56 @@ export default function ApexAthletePage() {
 
   // Attrition Risk Score (0-100, higher = more at risk)
   const getAttritionRisk = useCallback((athlete: Athlete) => {
-    let risk = 0;
-    // Low attendance = high risk
-    const recentSnaps = snapshots.slice(-14);
-    const daysPresent = recentSnaps.filter(s => s.athleteXPs?.[athlete.id] && s.athleteXPs[athlete.id] > (snapshots.find(x => x.date === recentSnaps[0]?.date)?.athleteXPs?.[athlete.id] || 0)).length;
-    const attendanceRate = recentSnaps.length > 0 ? daysPresent / Math.max(recentSnaps.length, 1) : 0;
-    if (attendanceRate < 0.3) risk += 40;
-    else if (attendanceRate < 0.5) risk += 25;
-    else if (attendanceRate < 0.7) risk += 10;
-    // Broken streak = risk
-    if (athlete.streak === 0 && athlete.totalPractices > 3) risk += 20;
-    // Low XP growth = risk
-    const ago14 = snapshots.slice(-14)[0];
-    const xpGrowth = ago14 ? athlete.xp - (ago14.athleteXPs?.[athlete.id] || 0) : athlete.xp;
-    if (xpGrowth <= 0) risk += 20;
-    else if (xpGrowth < 50) risk += 10;
-    // No quests engaged = disengagement
-    const activeQuests = Object.values(athlete.quests).filter(q => q === "active" || q === "done").length;
-    if (activeQuests === 0 && athlete.totalPractices > 5) risk += 15;
-    // Low teammate interaction
-    const helpCount = auditLog.filter(e => e.athleteId === athlete.id && e.action.includes("Helped")).length;
-    if (helpCount === 0 && athlete.totalPractices > 3) risk += 5;
-    return Math.min(100, risk);
+    try {
+      let risk = 0;
+      // Low attendance = high risk
+      const recentSnaps = snapshots.slice(-14);
+      const daysPresent = recentSnaps.filter(s => s.athleteXPs?.[athlete.id] && s.athleteXPs[athlete.id] > (snapshots.find(x => x.date === recentSnaps[0]?.date)?.athleteXPs?.[athlete.id] || 0)).length;
+      const attendanceRate = recentSnaps.length > 0 ? daysPresent / Math.max(recentSnaps.length, 1) : 0;
+      if (attendanceRate < 0.3) risk += 40;
+      else if (attendanceRate < 0.5) risk += 25;
+      else if (attendanceRate < 0.7) risk += 10;
+      // Broken streak = risk
+      if (athlete.streak === 0 && athlete.totalPractices > 3) risk += 20;
+      // Low XP growth = risk
+      const ago14 = snapshots.slice(-14)[0];
+      const xpGrowth = ago14 ? athlete.xp - (ago14.athleteXPs?.[athlete.id] || 0) : athlete.xp;
+      if (xpGrowth <= 0) risk += 20;
+      else if (xpGrowth < 50) risk += 10;
+      // No quests engaged = disengagement
+      const activeQuests = Object.values(athlete.quests).filter(q => q === "active" || q === "done").length;
+      if (activeQuests === 0 && athlete.totalPractices > 5) risk += 15;
+      // Low teammate interaction
+      const helpCount = auditLog.filter(e => e.athleteId === athlete.id && e.action.includes("Helped")).length;
+      if (helpCount === 0 && athlete.totalPractices > 3) risk += 5;
+      return Math.min(100, risk);
+    } catch { return 0; }
   }, [snapshots, auditLog]);
 
   // Culture Score (0-100) — team-wide health metric
   const cultureScore = useMemo(() => {
-    if (!roster.length) return 0;
-    const today7 = snapshots.slice(-7);
-    // Attendance component (0-30)
-    const avgAttendance = today7.length > 0
-      ? today7.reduce((s, x) => s + (x.totalAthletes ? (x.attendance / x.totalAthletes) : 0), 0) / today7.length
-      : 0;
-    const attScore = Math.round(avgAttendance * 30);
-    // Teammate help frequency (0-25)
-    const helpActions = auditLog.filter(e => e.action.includes("Helped") || e.action.includes("Buddy")).length;
-    const helpScore = Math.min(25, Math.round((helpActions / Math.max(roster.length, 1)) * 25));
-    // Positive attitude nominations (0-20)
-    const positiveActions = auditLog.filter(e => e.action.includes("Positive")).length;
-    const positiveScore = Math.min(20, Math.round((positiveActions / Math.max(roster.length, 1)) * 20));
-    // Quest engagement (0-15)
-    const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests).filter(q => q !== "pending").length, 0);
-    const questScore = Math.min(15, Math.round((questEngagement / (roster.length * QUEST_DEFS.length)) * 15));
-    // Streak health (0-10)
-    const avgStreak = roster.reduce((s, a) => s + a.streak, 0) / roster.length;
-    const streakScore = Math.min(10, Math.round(avgStreak / 3));
-    return Math.min(100, attScore + helpScore + positiveScore + questScore + streakScore);
+    try {
+      if (!roster.length) return 0;
+      const today7 = snapshots.slice(-7);
+      // Attendance component (0-30)
+      const avgAttendance = today7.length > 0
+        ? today7.reduce((s, x) => s + (x.totalAthletes ? (x.attendance / x.totalAthletes) : 0), 0) / today7.length
+        : 0;
+      const attScore = Math.round(avgAttendance * 30);
+      // Teammate help frequency (0-25)
+      const helpActions = auditLog.filter(e => e.action.includes("Helped") || e.action.includes("Buddy")).length;
+      const helpScore = Math.min(25, Math.round((helpActions / Math.max(roster.length, 1)) * 25));
+      // Positive attitude nominations (0-20)
+      const positiveActions = auditLog.filter(e => e.action.includes("Positive")).length;
+      const positiveScore = Math.min(20, Math.round((positiveActions / Math.max(roster.length, 1)) * 20));
+      // Quest engagement (0-15)
+      const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests).filter(q => q !== "pending").length, 0);
+      const questScore = Math.min(15, Math.round((questEngagement / (roster.length * QUEST_DEFS.length)) * 15));
+      // Streak health (0-10)
+      const avgStreak = roster.reduce((s, a) => s + a.streak, 0) / roster.length;
+      const streakScore = Math.min(10, Math.round(avgStreak / 3));
+      return Math.min(100, attScore + helpScore + positiveScore + questScore + streakScore);
+    } catch { return 0; }
   }, [roster, snapshots, auditLog]);
 
   // Peak Performance Windows — which days earn the most XP per athlete
@@ -1934,10 +1944,12 @@ export default function ApexAthletePage() {
 
   // Athletes at risk (sorted by risk descending)
   const atRiskAthletes = useMemo(() => {
-    return roster
-      .map(a => ({ ...a, risk: getAttritionRisk(a) }))
-      .filter(a => a.risk > 20)
-      .sort((a, b) => b.risk - a.risk);
+    try {
+      return roster
+        .map(a => ({ ...a, risk: getAttritionRisk(a) }))
+        .filter(a => a.risk > 20)
+        .sort((a, b) => b.risk - a.risk);
+    } catch { return []; }
   }, [roster, getAttritionRisk]);
 
   // Engagement trend — is the team trending up or down?
@@ -2038,7 +2050,7 @@ export default function ApexAthletePage() {
           {/* HUD access terminal */}
           <div className="game-panel game-panel-border relative bg-[#06020f]/90 p-10 mb-6">
             <div className="neon-text-cyan text-xs tracking-[0.5em] uppercase mb-2 font-bold opacity-60">Athlete Performance System</div>
-            <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>Apex Athlete</h1>
+            <h1 className="text-4xl font-black mb-2 tracking-tighter neon-text-cyan animated-gradient-text" style={{color: '#00f0ff', textShadow: '0 0 30px rgba(0,240,255,0.5), 0 0 60px rgba(168,85,247,0.3)'}}>METTLE</h1>
             <div className="text-[#a855f7]/30 text-xs tracking-[0.3em] uppercase font-mono mb-8">// COACH ACCESS TERMINAL</div>
           </div>
           <div className="flex flex-col gap-4">
@@ -4347,7 +4359,7 @@ export default function ApexAthletePage() {
 
         {/* Privacy footer */}
         <div className="text-center text-white/[0.05] text-xs py-10 space-y-1">
-          <p>Apex Athlete — Saint Andrew&apos;s Aquatics</p>
+          <p>METTLE — Saint Andrew&apos;s Aquatics</p>
           <p>Coach manages all data. Parental consent required.</p>
         </div>
       </div>

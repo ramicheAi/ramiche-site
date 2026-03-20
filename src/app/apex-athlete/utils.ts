@@ -11,29 +11,35 @@ export const today = () => {
 // ── Game Engine ─────────────────────────────────────────────────────
 
 export function getLevel(xp: number) {
-  for (let i = LEVELS.length - 1; i >= 0; i--) {
-    if (xp >= LEVELS[i].xp) return LEVELS[i];
-  }
+  try {
+    for (let i = LEVELS.length - 1; i >= 0; i--) {
+      if (xp >= LEVELS[i].xp) return LEVELS[i];
+    }
+  } catch { return LEVELS[0]; }
   return LEVELS[0];
 }
 
 export function getNextLevel(xp: number) {
-  for (const lv of LEVELS) {
-    if (xp < lv.xp) return lv;
-  }
+  try {
+    for (const lv of LEVELS) {
+      if (xp < lv.xp) return lv;
+    }
+  } catch { return null; }
   return null;
 }
 
 export function getLevelProgress(xp: number) {
-  const cur = getLevel(xp);
-  const nxt = getNextLevel(xp);
-  if (!nxt) return { percent: 100, remaining: 0 };
-  const range = nxt.xp - cur.xp;
-  const prog = xp - cur.xp;
-  return {
-    percent: Math.min(100, Math.round((prog / range) * 100)),
-    remaining: nxt.xp - xp,
-  };
+  try {
+    const cur = getLevel(xp);
+    const nxt = getNextLevel(xp);
+    if (!nxt) return { percent: 100, remaining: 0 };
+    const range = nxt.xp - cur.xp;
+    const prog = xp - cur.xp;
+    return {
+      percent: Math.min(100, Math.round((prog / range) * 100)),
+      remaining: nxt.xp - xp,
+    };
+  } catch { return { percent: 0, remaining: 0 }; }
 }
 
 export function getStreakMult(s: number) {
@@ -69,9 +75,11 @@ export function fmtWStreak(s: number) {
 // ── Checkpoint Helpers ──────────────────────────────────────────────
 
 export function getCPsForSport(sport: string) {
-  if (sport === "diving") return DIVING_CPS;
-  if (sport === "waterpolo") return WATERPOLO_CPS;
-  return POOL_CPS;
+  try {
+    if (sport === "diving") return DIVING_CPS;
+    if (sport === "waterpolo") return WATERPOLO_CPS;
+    return POOL_CPS;
+  } catch { return POOL_CPS; }
 }
 
 // ── Schedule Helpers ───────────────────────────────────────────────
