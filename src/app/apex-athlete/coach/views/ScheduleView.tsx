@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import BgOrbs from "../components/BgOrbs";
 
 type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
@@ -27,6 +27,8 @@ interface DaySchedule {
 interface GroupSchedule {
   groupId: string;
   weekSchedule: Record<DayOfWeek, DaySchedule>;
+  weekOverrides?: Record<string, Record<DayOfWeek, DaySchedule>>;
+  blackoutDates?: string[];
 }
 
 interface ScheduleTemplate {
@@ -81,37 +83,60 @@ export default function ScheduleView({ GameHUDHeader, schedules, saveSchedules, 
   const [editingSession, setEditingSession] = useState<{ day: DayOfWeek; sessionId: string } | null>(null);
   const [editForm, setEditForm] = useState<Partial<ScheduleSession>>({});
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showBlackoutPanel, setShowBlackoutPanel] = useState(false);
+  const [blackoutInput, setBlackoutInput] = useState("");
+  const [copiedWeek, setCopiedWeek] = useState<{ data: Record<DayOfWeek, DaySchedule>; label: string } | null>(null);
 
   const groupSchedule = schedules.find(s => s.groupId === selectedGroup);
   const today = new Date();
   const todayIdx = today.getDay();
   const todayKey = DAYS_OF_WEEK[todayIdx === 0 ? 6 : todayIdx - 1];
 
-  const currentMonday = getMonday(today);
-  const viewMonday = new Date(currentMonday);
-  viewMonday.setDate(viewMonday.getDate() + weekOffset * 7);
+  const viewMonday = useMemo(() => {
+    const currentMonday = getMonday(today);
+    const vm = new Date(currentMonday);
+    vm.setDate(vm.getDate() + weekOffset * 7);
+    return vm;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekOffset]);
 
-  const weekDates: Record<DayOfWeek, Date> = {} as Record<DayOfWeek, Date>;
-  DAYS_OF_WEEK.forEach((day, i) => {
-    const d = new Date(viewMonday);
-    d.setDate(d.getDate() + i);
-    weekDates[day] = d;
-  });
+  const mondayKey = useMemo(() => viewMonday.toISOString().slice(0, 10), [viewMonday]);
+  const isTemplateWeek = weekOffset === 0;
+  const hasOverride = !!(groupSchedule?.weekOverrides?.[mondayKey]);
+  const activeWeekSchedule = hasOverride
+    ? groupSchedule!.weekOverrides![mondayKey]
+    : groupSchedule?.weekSchedule;
+
+  const weekDates = useMemo(() => {
+    const dates: Record<DayOfWeek, Date> = {} as Record<DayOfWeek, Date>;
+    DAYS_OF_WEEK.forEach((day, i) => {
+      const d = new Date(viewMonday);
+      d.setDate(d.getDate() + i);
+      dates[day] = d;
+    });
+    return dates;
+  }, [viewMonday]);
 
   const updateSession = useCallback((day: DayOfWeek, sessionId: string, updates: Partial<ScheduleSession>) => {
-    if (!groupSchedule) return;
+    if (!groupSchedule || !activeWeekSchedule) return;
     const newSchedules = schedules.map(gs => {
       if (gs.groupId !== selectedGroup) return gs;
-      const newWeek = { ...gs.weekSchedule };
-      const dayData = newWeek[day];
-      newWeek[day] = {
-        ...dayData,
-        sessions: dayData.sessions.map(s => s.id === sessionId ? { ...s, ...updates } : s),
-      };
-      return { ...gs, weekSchedule: newWeek };
+      if (isTemplateWeek) {
+        const newWeek = { ...gs.weekSchedule };
+        const dayData = newWeek[day];
+        newWeek[day] = { ...dayData, sessions: dayData.sessions.map(s => s.id === sessionId ? { ...s, ...updates } : s) };
+        return { ...gs, weekSchedule: newWeek };
+      } else {
+        const overrides = { ...(gs.weekOverrides || {}) };
+        const weekData = overrides[mondayKey] ? { ...overrides[mondayKey] } : { ...gs.weekSchedule };
+        const dayData = weekData[day];
+        weekData[day] = { ...dayData, sessions: dayData.sessions.map(s => s.id === sessionId ? { ...s, ...updates } : s) };
+        overrides[mondayKey] = weekData as Record<DayOfWeek, DaySchedule>;
+        return { ...gs, weekOverrides: overrides };
+      }
     });
     saveSchedules(newSchedules);
-  }, [groupSchedule, schedules, selectedGroup, saveSchedules]);
+  }, [groupSchedule, activeWeekSchedule, schedules, selectedGroup, saveSchedules, isTemplateWeek, mondayKey]);
 
   const addSession = useCallback((day: DayOfWeek) => {
     if (!groupSchedule) return;
@@ -126,28 +151,112 @@ export default function ScheduleView({ GameHUDHeader, schedules, saveSchedules, 
     };
     const newSchedules = schedules.map(gs => {
       if (gs.groupId !== selectedGroup) return gs;
-      const newWeek = { ...gs.weekSchedule };
-      const dayData = newWeek[day];
-      newWeek[day] = { ...dayData, sessions: [...dayData.sessions, newSession] };
-      return { ...gs, weekSchedule: newWeek };
+      if (isTemplateWeek) {
+        const newWeek = { ...gs.weekSchedule };
+        const dayData = newWeek[day];
+        newWeek[day] = { ...dayData, sessions: [...dayData.sessions, newSession] };
+        return { ...gs, weekSchedule: newWeek };
+      } else {
+        const overrides = { ...(gs.weekOverrides || {}) };
+        const weekData = overrides[mondayKey] ? { ...overrides[mondayKey] } : { ...gs.weekSchedule };
+        const dayData = weekData[day];
+        weekData[day] = { ...dayData, sessions: [...dayData.sessions, newSession] };
+        overrides[mondayKey] = weekData as Record<DayOfWeek, DaySchedule>;
+        return { ...gs, weekOverrides: overrides };
+      }
     });
     saveSchedules(newSchedules);
     setEditingSession({ day, sessionId: newSession.id });
     setEditForm(newSession);
-  }, [groupSchedule, schedules, selectedGroup, saveSchedules]);
+  }, [groupSchedule, schedules, selectedGroup, saveSchedules, isTemplateWeek, mondayKey]);
 
   const removeSession = useCallback((day: DayOfWeek, sessionId: string) => {
     if (!groupSchedule) return;
     const newSchedules = schedules.map(gs => {
       if (gs.groupId !== selectedGroup) return gs;
-      const newWeek = { ...gs.weekSchedule };
-      const dayData = newWeek[day];
-      newWeek[day] = { ...dayData, sessions: dayData.sessions.filter(s => s.id !== sessionId) };
-      return { ...gs, weekSchedule: newWeek };
+      if (isTemplateWeek) {
+        const newWeek = { ...gs.weekSchedule };
+        const dayData = newWeek[day];
+        newWeek[day] = { ...dayData, sessions: dayData.sessions.filter(s => s.id !== sessionId) };
+        return { ...gs, weekSchedule: newWeek };
+      } else {
+        const overrides = { ...(gs.weekOverrides || {}) };
+        const weekData = overrides[mondayKey] ? { ...overrides[mondayKey] } : { ...gs.weekSchedule };
+        const dayData = weekData[day];
+        weekData[day] = { ...dayData, sessions: dayData.sessions.filter(s => s.id !== sessionId) };
+        overrides[mondayKey] = weekData as Record<DayOfWeek, DaySchedule>;
+        return { ...gs, weekOverrides: overrides };
+      }
     });
     saveSchedules(newSchedules);
     if (editingSession?.sessionId === sessionId) setEditingSession(null);
-  }, [groupSchedule, schedules, selectedGroup, saveSchedules, editingSession]);
+  }, [groupSchedule, schedules, selectedGroup, saveSchedules, editingSession, isTemplateWeek, mondayKey]);
+
+  const resetToTemplate = useCallback(() => {
+    if (!groupSchedule || !hasOverride) return;
+    const newSchedules = schedules.map(gs => {
+      if (gs.groupId !== selectedGroup) return gs;
+      const overrides = { ...(gs.weekOverrides || {}) };
+      delete overrides[mondayKey];
+      return { ...gs, weekOverrides: overrides };
+    });
+    saveSchedules(newSchedules);
+  }, [groupSchedule, hasOverride, schedules, selectedGroup, saveSchedules, mondayKey]);
+
+  const blackoutDates = groupSchedule?.blackoutDates || [];
+
+  const addBlackoutDate = useCallback((dateStr: string) => {
+    if (!groupSchedule || !dateStr) return;
+    if (blackoutDates.includes(dateStr)) return;
+    const newSchedules = schedules.map(gs => {
+      if (gs.groupId !== selectedGroup) return gs;
+      return { ...gs, blackoutDates: [...(gs.blackoutDates || []), dateStr].sort() };
+    });
+    saveSchedules(newSchedules);
+    setBlackoutInput("");
+  }, [groupSchedule, blackoutDates, schedules, selectedGroup, saveSchedules]);
+
+  const removeBlackoutDate = useCallback((dateStr: string) => {
+    if (!groupSchedule) return;
+    const newSchedules = schedules.map(gs => {
+      if (gs.groupId !== selectedGroup) return gs;
+      return { ...gs, blackoutDates: (gs.blackoutDates || []).filter(d => d !== dateStr) };
+    });
+    saveSchedules(newSchedules);
+  }, [groupSchedule, schedules, selectedGroup, saveSchedules]);
+
+  const copyWeek = useCallback(() => {
+    if (!activeWeekSchedule) return;
+    const snapshot = JSON.parse(JSON.stringify(activeWeekSchedule)) as Record<DayOfWeek, DaySchedule>;
+    // Give new IDs so pasted sessions don't collide
+    DAYS_OF_WEEK.forEach(day => {
+      snapshot[day].sessions = snapshot[day].sessions.map(s => ({
+        ...s,
+        id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      }));
+    });
+    setCopiedWeek({ data: snapshot, label: `Week of ${formatDateFull(viewMonday)}` });
+  }, [activeWeekSchedule, viewMonday]);
+
+  const pasteWeek = useCallback(() => {
+    if (!copiedWeek || !groupSchedule) return;
+    const newSchedules = schedules.map(gs => {
+      if (gs.groupId !== selectedGroup) return gs;
+      if (isTemplateWeek) {
+        return { ...gs, weekSchedule: JSON.parse(JSON.stringify(copiedWeek.data)) };
+      } else {
+        const overrides = { ...(gs.weekOverrides || {}) };
+        overrides[mondayKey] = JSON.parse(JSON.stringify(copiedWeek.data));
+        return { ...gs, weekOverrides: overrides };
+      }
+    });
+    saveSchedules(newSchedules);
+  }, [copiedWeek, groupSchedule, schedules, selectedGroup, saveSchedules, isTemplateWeek, mondayKey]);
+
+  const isBlackoutDay = (d: Date): boolean => {
+    const iso = d.toISOString().slice(0, 10);
+    return blackoutDates.includes(iso);
+  };
 
   const startEdit = (day: DayOfWeek, session: ScheduleSession) => {
     setEditingSession({ day, sessionId: session.id });
@@ -198,13 +307,46 @@ export default function ScheduleView({ GameHUDHeader, schedules, saveSchedules, 
             <div className="text-white/90 text-sm font-bold tracking-wide">
               Week of {formatDateFull(viewMonday)}
             </div>
-            {weekOffset !== 0 && (
-              <div className="text-white/30 text-[10px] mt-0.5">
-                {weekOffset > 0 ? `+${weekOffset}` : weekOffset} week{Math.abs(weekOffset) !== 1 ? "s" : ""} from now
-              </div>
-            )}
+            <div className="flex items-center gap-2 mt-0.5">
+              {weekOffset !== 0 && (
+                <span className="text-white/30 text-[10px]">
+                  {weekOffset > 0 ? `+${weekOffset}` : weekOffset} week{Math.abs(weekOffset) !== 1 ? "s" : ""} from now
+                </span>
+              )}
+              <span className={`text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border ${hasOverride ? "text-[#f59e0b] border-[#f59e0b]/30 bg-[#f59e0b]/10" : "text-[#00f0ff]/50 border-[#00f0ff]/20 bg-[#00f0ff]/5"}`}>
+                {hasOverride ? "CUSTOM" : "TEMPLATE"}
+              </span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={copyWeek}
+              className="px-4 py-2 text-xs font-bold font-mono uppercase text-emerald-400/70 border-2 border-emerald-400/20 rounded-xl hover:shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:bg-emerald-400/10 transition-all"
+            >
+              📋 COPY
+            </button>
+            {copiedWeek && (
+              <button
+                onClick={pasteWeek}
+                className="px-4 py-2 text-xs font-bold font-mono uppercase text-emerald-400 border-2 border-emerald-400/40 rounded-xl hover:shadow-[0_0_15px_rgba(52,211,153,0.25)] hover:bg-emerald-400/15 transition-all animate-pulse"
+              >
+                📌 PASTE
+              </button>
+            )}
+            <button
+              onClick={() => setShowBlackoutPanel(p => !p)}
+              className={`px-4 py-2 text-xs font-bold font-mono uppercase rounded-xl border-2 transition-all ${showBlackoutPanel ? "text-red-400 border-red-400/50 bg-red-400/15 shadow-[0_0_15px_rgba(248,113,113,0.25)]" : "text-red-400/60 border-red-400/20 hover:shadow-[0_0_15px_rgba(248,113,113,0.15)] hover:bg-red-400/10"}`}
+            >
+              {showBlackoutPanel ? "✕ BLACKOUT" : "⛔ BLACKOUT"}
+            </button>
+            {hasOverride && (
+              <button
+                onClick={resetToTemplate}
+                className="px-4 py-2 text-xs font-bold font-mono uppercase text-red-400 border-2 border-red-400/30 rounded-xl hover:shadow-[0_0_15px_rgba(248,113,113,0.2)] hover:bg-red-400/10 transition-all"
+              >
+                Reset to Template
+              </button>
+            )}
             {weekOffset !== 0 && (
               <button
                 onClick={() => setWeekOffset(0)}
@@ -222,13 +364,95 @@ export default function ScheduleView({ GameHUDHeader, schedules, saveSchedules, 
           </div>
         </div>
 
+        {copiedWeek && (
+          <div className="mb-4 px-4 py-2.5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 flex items-center justify-between">
+            <span className="text-emerald-400/80 text-xs font-mono">📋 Clipboard: <span className="text-emerald-400 font-bold">{copiedWeek.label}</span></span>
+            <button onClick={() => setCopiedWeek(null)} className="text-emerald-400/40 hover:text-emerald-400 text-xs font-mono transition-colors">CLEAR</button>
+          </div>
+        )}
+
+        {showBlackoutPanel && (
+          <div className="mb-6 p-5 rounded-2xl border-2 border-red-400/30 bg-[#06020f]/90 backdrop-blur-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-red-400 text-lg">⛔</span>
+              <h3 className="text-red-400 font-bold text-sm font-mono uppercase tracking-wider">Blackout / Holiday Dates</h3>
+              <span className="text-red-400/40 text-xs font-mono">— No practice on these dates</span>
+            </div>
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="date"
+                value={blackoutInput}
+                onChange={e => setBlackoutInput(e.target.value)}
+                className="px-3 py-2 bg-[#06020f] border border-red-400/20 rounded-lg text-white text-sm font-mono focus:outline-none focus:border-red-400/50 [color-scheme:dark]"
+              />
+              <button
+                onClick={() => addBlackoutDate(blackoutInput)}
+                disabled={!blackoutInput || blackoutDates.includes(blackoutInput)}
+                className="px-4 py-2 text-xs font-bold font-mono uppercase text-red-400 border border-red-400/30 rounded-lg hover:bg-red-400/10 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                + Add Date
+              </button>
+            </div>
+            {blackoutDates.length === 0 ? (
+              <p className="text-white/30 text-xs font-mono">No blackout dates set.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {blackoutDates.map(d => (
+                  <span key={d} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-400/10 border border-red-400/20 text-red-400 text-xs font-mono font-bold">
+                    {d}
+                    <button onClick={() => removeBlackoutDate(d)} className="text-red-400/60 hover:text-red-400 transition-colors text-sm leading-none">✕</button>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="space-y-3">
           {DAYS_OF_WEEK.map(day => {
-            const dayData = groupSchedule.weekSchedule[day];
+            const dayData = activeWeekSchedule![day];
             const isToday = weekOffset === 0 && day === todayKey;
             const template = templates.find(t => t.id === dayData.template);
             const isRestDay = dayData.sessions.length === 0;
             const dayDate = weekDates[day];
+            const blackedOut = isBlackoutDay(dayDate);
+
+            if (blackedOut) {
+              return (
+                <div key={day} className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border-2 border-red-400/30 p-5 relative overflow-hidden">
+                  <div className="absolute inset-0 bg-red-400/[0.03]" />
+                  <div className="relative flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xs font-black uppercase tracking-wider bg-red-400/15 text-red-400 border-2 border-red-400/30">
+                        {day}
+                      </div>
+                      <div>
+                        <div className="text-white font-bold text-sm">
+                          {DAY_LABELS[day]} <span className="text-white/40 font-mono text-xs">{formatDateShort(dayDate)}</span>
+                          {isToday && <span className="text-red-400 text-xs ml-2 font-mono">TODAY</span>}
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-red-400 font-black text-sm font-mono tracking-wider">CANCELLED</span>
+                          <span className="text-red-400/40 text-xs font-mono">— Blackout / Holiday</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-red-400/30 text-2xl">⛔</span>
+                  </div>
+                  {dayData.sessions.length > 0 && (
+                    <div className="mt-3 ml-[4.5rem] space-y-1">
+                      {dayData.sessions.map(session => (
+                        <div key={session.id} className="flex items-center gap-3 p-2 rounded-lg opacity-30">
+                          <div className="w-1.5 h-6 rounded-full bg-red-400/40" />
+                          <span className="text-white/50 text-sm line-through">{session.label}</span>
+                          <span className="text-white/30 text-xs font-mono line-through">{formatTime12(session.startTime)} – {formatTime12(session.endTime)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
 
             if (isRestDay) {
               return (

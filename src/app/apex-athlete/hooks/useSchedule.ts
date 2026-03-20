@@ -23,6 +23,7 @@ interface DaySchedule {
 export interface GroupSchedule {
   groupId: string;
   weekSchedule: Record<DayOfWeek, DaySchedule>;
+  weekOverrides?: Record<string, Record<DayOfWeek, DaySchedule>>;
 }
 
 export type GroupId =
