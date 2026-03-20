@@ -136,9 +136,9 @@ export async function syncLoad<T>(key: string, fbPath?: string): Promise<T | nul
 // ── Roster-specific sync ───────────────────────────────────────────
 
 export function syncSaveRoster(key: string, groupId: string, athletes: unknown[]): void {
-  // GUARD: Never write zero-XP roster to localStorage or Firestore
-  const totalXP = (athletes as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
-  if (totalXP === 0) {
+  // GUARD: Never write roster unless at least one athlete has real XP
+  const hasRealData = (athletes as { xp?: number }[]).some(a => (a.xp ?? 0) > 0);
+  if (!hasRealData) {
     console.warn("[Sync] BLOCKED zero-XP roster write to", key, groupId);
     return;
   }
