@@ -3891,13 +3891,14 @@ export default function ApexAthletePage() {
                       hasCk ? "border-[#00f0ff]/15 shadow-[0_0_15px_rgba(0,240,255,0.05)]" : "border-[#00f0ff]/8"
                     } hover:border-[#00f0ff]/25`}>
                       <div
-                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-150 rounded-2xl group tap-feedback"
+                        className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-150 rounded-2xl group touch-manipulation"
                         onClick={() => setSelectedAthlete(a.id)}
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
                         <button
-                          onClick={(e) => { e.stopPropagation(); togglePresent(a.id); }}
-                          className={`w-10 h-10 rounded-full shrink-0 flex items-center justify-center transition-all duration-200 active:scale-90 ${
+                          onClick={(e) => { e.stopPropagation(); e.preventDefault(); togglePresent(a.id); }}
+                          onTouchEnd={(e) => { e.stopPropagation(); }}
+                          className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center transition-all duration-200 active:scale-90 touch-manipulation ${
                             a.present
                               ? "bg-emerald-500/20 border-2 border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
                               : "bg-white/[0.03] border-2 border-white/10 hover:border-white/20"
