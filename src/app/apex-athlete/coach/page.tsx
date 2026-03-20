@@ -25,6 +25,7 @@ import ScheduleView from "./views/ScheduleView";
 import CommsView from "./views/CommsView";
 import MeetsView from "./views/MeetsView";
 import AnalyticsDashboard from "./views/AnalyticsDashboard";
+import AnalyticsTabContainer from "./views/AnalyticsTabContainer";
 import type { Athlete, DailyXP, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, RosterGroup, SwimMeet, MentalReadiness, BreathworkSession, JournalEntry, RecoveryLog, WellnessData } from "./types";
 import type { ScoringResult } from "../lib/meet-scoring";
 import ParentPreviewModal from "./components/ParentPreviewModal";
@@ -3406,7 +3407,7 @@ export default function ApexAthletePage() {
   // ── ANALYTICS VIEW ───────────────────────────────────────
   if (view === "analytics") {
     return (
-      <AnalyticsDashboard
+      <AnalyticsTabContainer
         roster={roster}
         selectedGroup={selectedGroup}
         calendarData={calendarData}
