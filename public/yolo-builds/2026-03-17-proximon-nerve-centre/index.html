@@ -586,50 +586,53 @@ setInterval(updateClock,1000);updateClock();
   },100);
 })();
 
-/* ── AGENT GRID ── */
-const AGENTS=[
-  {name:'ATLAS',model:'Opus 4.6',role:'Team Lead',status:'active',strength:5},
-  {name:'PROXIMON',model:'Sonnet 4.5',role:'R&D Architect',status:'active',strength:5},
-  {name:'SHURI',model:'DeepSeek V3.2',role:'Frontend',status:'active',strength:4},
-  {name:'AETHERION',model:'DeepSeek V3.2',role:'Design',status:'idle',strength:3},
-  {name:'MAESTRO',model:'DeepSeek V3.2',role:'Music',status:'idle',strength:3},
-  {name:'SIMONS',model:'DeepSeek V3.2',role:'Analytics',status:'active',strength:4},
-  {name:'VEE',model:'DeepSeek V3.2',role:'Marketing',status:'idle',strength:3},
-  {name:'WIDOW',model:'DeepSeek V3.2',role:'Security',status:'idle',strength:2},
-  {name:'MERCURY',model:'DeepSeek V3.2',role:'Sales',status:'active',strength:4},
-  {name:'STRANGE',model:'Sonnet 4.5',role:'Scenario',status:'idle',strength:3},
-  {name:'TRIAGE',model:'Sonnet 4.5',role:'Debug',status:'idle',strength:2},
-  {name:'HAVEN',model:'DeepSeek V3.2',role:'Wellness',status:'offline',strength:1},
-  {name:'INK',model:'DeepSeek V3.2',role:'Content',status:'idle',strength:2},
-  {name:'NOVA',model:'DeepSeek V3.2',role:'Fabrication',status:'active',strength:4},
-  {name:'KIYOSAKI',model:'DeepSeek V3.2',role:'Finance',status:'idle',strength:2},
-  {name:'THEMIS',model:'Sonnet 4.5',role:'Legal',status:'offline',strength:1},
-  {name:'ECHO',model:'Gemini 3.1',role:'Intel',status:'idle',strength:3},
-  {name:'SELAH',model:'Gemini 3.1',role:'Spiritual',status:'idle',strength:2},
-  {name:'PROPHETS',model:'Gemini 3.1',role:'Scripture',status:'idle',strength:2},
-  {name:'SWIMELITE',model:'Gemini 3.1',role:'Swim Intel',status:'offline',strength:1},
-  {name:'CHATBOT',model:'Flash Lite',role:'Chat',status:'idle',strength:3},
-];
-
-const grid=document.getElementById('agentGrid');
-AGENTS.forEach(a=>{
-  const card=document.createElement('div');
-  card.className='agent-card';
-  const statusColor=a.status==='active'?'var(--green)':a.status==='idle'?'var(--amber)':'var(--dim)';
-  let bars='';
-  for(let i=0;i<5;i++){
-    const h=4+(i+1)*3;
-    const active=i<a.strength;
-    bars+=`<div class="signal-bar" style="height:${h}px;background:${active?statusColor:'var(--border)'}"></div>`;
-  }
-  card.innerHTML=`
-    <div class="status-dot ${a.status}"></div>
-    <div class="name" style="color:${statusColor}">${a.name}</div>
-    <div class="model">${a.model} — ${a.role}</div>
-    <div class="signal">${bars}</div>
-  `;
-  grid.appendChild(card);
-});
+/* ── AGENT GRID — Live from Bridge API ── */
+function renderAgents(agents){
+  const grid=document.getElementById('agentGrid');
+  grid.innerHTML='';
+  const countEl=document.querySelector('.section-title .count');
+  if(countEl)countEl.textContent=agents.length+' agents';
+  agents.forEach(a=>{
+    const card=document.createElement('div');
+    card.className='agent-card';
+    const st=a.status||'idle';
+    const statusColor=st==='active'?'var(--green)':st==='idle'?'var(--amber)':'var(--dim)';
+    const strength=st==='active'?5:st==='idle'?3:1;
+    let bars='';
+    for(let i=0;i<5;i++){
+      const h=4+(i+1)*3;
+      bars+=`<div class="signal-bar" style="height:${h}px;background:${i<strength?statusColor:'var(--border)'}"></div>`;
+    }
+    const name=(a.name||a.id||'?').toUpperCase();
+    const model=a.model||'';
+    const role=a.role||'';
+    card.innerHTML=`
+      <div class="status-dot ${st}"></div>
+      <div class="name" style="color:${statusColor}">${name}</div>
+      <div class="model">${model} — ${role}</div>
+      <div class="signal">${bars}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+async function fetchAgents(){
+  try{
+    const res=await fetch('/api/bridge?type=agents');
+    if(!res.ok)throw new Error('bridge '+res.status);
+    const data=await res.json();
+    const items=data.items||data.agents||[];
+    if(Array.isArray(items)&&items.length>0){
+      renderAgents(items);
+      return;
+    }
+  }catch(e){console.warn('Bridge fetch failed, trying fallback:',e)}
+  try{
+    const res=await fetch('/api/command-center/agents');
+    if(res.ok){const d=await res.json();renderAgents(d.agents||[]);}
+  }catch(e2){console.warn('Fallback also failed:',e2)}
+}
+fetchAgents();
+setInterval(fetchAgents,30000);
 </script>
 </body>
 </html>
