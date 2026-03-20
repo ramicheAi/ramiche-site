@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import BgOrbs from "../components/BgOrbs";
 import type { Athlete, RosterGroup, SwimMeet, MeetEvent, MeetEventEntry, MeetBroadcast } from "../types";
-import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult } from "../../lib/meet-scoring";
+import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult, type MeetDayBonus } from "../../lib/meet-scoring";
 import MeetDayStatsBar from "../components/MeetDayStatsBar";
 import HeatLaneGrid from "../components/HeatLaneGrid";
 import RelayLineupBuilder from "../components/RelayLineupBuilder";
@@ -125,6 +125,7 @@ export default function MeetsView({
   onMeetScore,
 }: MeetsViewProps) {
   const saveMeets = (m: SwimMeet[]) => { setMeets(m); saveMeetsToStorage(m); };
+  const [meetBonuses, setMeetBonuses] = useState<Record<string, { athleteId: string; bonuses: MeetDayBonus[]; totalXP: number }[]>>({});
 
   const exportMeetResults = (meet: SwimMeet) => {
     const rows: string[] = ["Event,Athlete,Seed Time,Final Time,Place,Improvement,Splits,DQ,DQ Reason"];
@@ -229,6 +230,13 @@ export default function MeetsView({
           const result = scoreEvent(meetResult, bestTimes, meet.name, meet.date);
           if (result.totalXP > 0 || result.newBestTimes.length > 0) {
             onMeetScore(result, meet);
+          }
+          if (result.bonuses.length > 0) {
+            setMeetBonuses(prev => {
+              const existing = prev[meetId] || [];
+              const filtered = existing.filter(b => b.athleteId !== athleteId);
+              return { ...prev, [meetId]: [...filtered, { athleteId, bonuses: result.bonuses, totalXP: result.totalXP }] };
+            });
           }
         }
       }
@@ -687,6 +695,45 @@ export default function MeetsView({
                         </div>
                       </div>
                     )}
+                    {/* XP Bonuses Section */}
+                    {(() => {
+                      const bonusData = meetBonuses[editMeet.id] || [];
+                      if (bonusData.length === 0) return null;
+                      const totalXP = bonusData.reduce((sum, b) => sum + b.totalXP, 0);
+                      const allBonuses = bonusData.flatMap(b => b.bonuses.map(bonus => ({ ...bonus, athleteId: b.athleteId })));
+                      const bonusByType = allBonuses.reduce((acc, b) => { acc[b.type] = (acc[b.type] || 0) + 1; return acc; }, {} as Record<string, number>);
+                      return (
+                        <div className="bg-white/[0.02] border border-[#a855f7]/20 rounded-xl p-4 mt-3">
+                          <div className="flex items-center justify-between mb-3">
+                            <h5 className="text-[10px] font-bold text-[#a855f7]/70 uppercase tracking-wider">Meet Day Bonuses</h5>
+                            <span className="text-xs font-mono font-bold text-[#a855f7]">+{totalXP} XP</span>
+                          </div>
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {Object.entries(bonusByType).map(([type, count]) => (
+                              <span key={type} className="px-2 py-1 rounded-full text-[10px] font-bold bg-[#a855f7]/10 text-[#a855f7] border border-[#a855f7]/20">
+                                {type === "pb" ? "🏅 PB" : type === "improvement" ? "📈 Improved" : type === "placement" ? "🏆 Placed" : type === "relay" ? "🤝 Relay" : type} × {count}
+                              </span>
+                            ))}
+                          </div>
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {bonusData.sort((a, b) => b.totalXP - a.totalXP).slice(0, 10).map((bd, i) => {
+                              const ath = roster.find(a => a.id === bd.athleteId);
+                              return (
+                                <div key={i} className="flex items-center justify-between">
+                                  <span className="text-xs text-white/70">{ath?.name || "Unknown"}</span>
+                                  <div className="flex items-center gap-2">
+                                    {bd.bonuses.map((b, j) => (
+                                      <span key={j} className="text-[10px] text-[#a855f7]/60">{b.label}</span>
+                                    ))}
+                                    <span className="text-xs font-mono font-bold text-[#a855f7]">+{bd.totalXP}</span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
