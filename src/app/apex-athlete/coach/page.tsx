@@ -2264,6 +2264,7 @@ export default function ApexAthletePage() {
 
   // Attrition Risk Score (0-100, higher = more at risk)
   const getAttritionRisk = useCallback((athlete: Athlete) => {
+    try {
     let risk = 0;
     // Low attendance = high risk
     const recentSnaps = snapshots.slice(-14);
@@ -2286,10 +2287,12 @@ export default function ApexAthletePage() {
     const helpCount = auditLog.filter(e => e.athleteId === athlete.id && e.action.includes("Helped")).length;
     if (helpCount === 0 && (athlete.totalPractices || 0) > 3) risk += 5;
     return Math.min(100, risk);
+    } catch { return 0; }
   }, [snapshots, auditLog]);
 
   // Culture Score (0-100) — team-wide health metric
   const cultureScore = useMemo(() => {
+    try {
     if (!roster.length) return 0;
     const today7 = snapshots.slice(-7);
     // Attendance component (0-30)
@@ -2310,10 +2313,12 @@ export default function ApexAthletePage() {
     const avgStreak = roster.reduce((s, a) => s + (a.streak || 0), 0) / roster.length;
     const streakScore = Math.min(10, Math.round(avgStreak / 3));
     return Math.min(100, attScore + helpScore + positiveScore + questScore + streakScore);
+    } catch { return 0; }
   }, [roster, snapshots, auditLog]);
 
   // Peak Performance Windows — which days earn the most XP per athlete
   const peakWindows = useMemo(() => {
+    try {
     const dayMap: Record<string, number[]> = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     for (const snap of snapshots) {
@@ -2326,18 +2331,22 @@ export default function ApexAthletePage() {
       avgXP: xps.length ? Math.round(xps.reduce((a, b) => a + b, 0) / xps.length) : 0,
       sessions: xps.length,
     })).sort((a, b) => b.avgXP - a.avgXP);
+    } catch { return []; }
   }, [snapshots]);
 
   // Athletes at risk (sorted by risk descending)
   const atRiskAthletes = useMemo(() => {
+    try {
     return roster
       .map(a => ({ ...a, risk: getAttritionRisk(a) }))
       .filter(a => a.risk > 20)
       .sort((a, b) => b.risk - a.risk);
+    } catch { return []; }
   }, [roster, getAttritionRisk]);
 
   // Engagement trend — is the team trending up or down?
   const engagementTrend = useMemo(() => {
+    try {
     const recent7 = snapshots.slice(-7);
     const prev7 = snapshots.slice(-14, -7);
     if (!recent7.length || !prev7.length) return { direction: "flat" as const, delta: 0 };
@@ -2345,6 +2354,7 @@ export default function ApexAthletePage() {
     const prevAvg = prev7.reduce((s, x) => s + x.totalXPAwarded, 0) / prev7.length;
     const delta = Math.round(((recentAvg - prevAvg) / Math.max(prevAvg, 1)) * 100);
     return { direction: delta > 5 ? "up" as const : delta < -5 ? "down" as const : "flat" as const, delta };
+    } catch { return { direction: "flat" as const, delta: 0 }; }
   }, [snapshots]);
 
   // Coach efficiency — which checkpoints are most/least awarded
@@ -2585,13 +2595,13 @@ export default function ApexAthletePage() {
                   const testAthlete = roster[0];
                   if (!testAthlete) return;
                   handleMeetScore({
-                    athleteId: testAthlete.id, 
-                    totalXP: 100, 
+                    athleteId: testAthlete.id,
+                    totalXP: 100,
                     bonuses: [{type: 'pb', label: 'TEST PB', xp: 50, detail: 'Test Detail'}, {type: 'placement', label: '1st Place', xp: 40, detail: 'Test'}, {type: 'improvement', label: 'Time Drop', xp: 10, detail: '-1.0s'}],
                     newBestTimes: [{event: '50', stroke: 'Free', time: '19.99', seconds: 19.99, course: 'SCY', meetName: 'Test Meet', date: new Date().toISOString(), source: 'manual'}],
                     isPB: true,
                     improvementSeconds: 1.0
-                  });
+                  }, { id: 'test', name: 'Test Meet', date: new Date().toISOString(), location: 'Test', course: 'SCY' as const, rsvpDeadline: '', events: [], rsvps: {}, broadcasts: [], status: 'completed' as const, results: [] } as SwimMeet);
                   alert(`Simulated 100 XP award for ${testAthlete.name}`);
                 }}
                 className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded hover:bg-red-500/30 ml-2"
