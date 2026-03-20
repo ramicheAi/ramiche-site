@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import Card from "../components/Card";
 import BgOrbs from "../components/BgOrbs";
 import { getLevel } from "../../utils";
@@ -396,7 +396,7 @@ export default function AnalyticsDashboard({
         <AttendanceHeatmap roster={roster} snapshots={snapshots} selectedGroup={selectedGroup} />
 
         {/* ── GROUP PERFORMANCE ── */}
-        <GroupPerformance roster={roster} snapshots={snapshots} auditLog={auditLog} avgAtt={avgAtt} />
+        <GroupPerformance roster={roster} />
 
         {/* ── SEASON REPORT ── */}
         <SeasonReport roster={roster} snapshots={snapshots} avgAtt={avgAtt} avgXP={avgXP} mostImproved={mostImproved} />
@@ -507,7 +507,7 @@ function AttendanceHeatmap({ roster, snapshots, selectedGroup }: { roster: Athle
 }
 
 /* ── GROUP PERFORMANCE ── */
-function GroupPerformance({ roster, snapshots, auditLog, avgAtt }: { roster: Athlete[]; snapshots: DailySnapshot[]; auditLog: AuditEntry[]; avgAtt: (s: DailySnapshot[]) => number }) {
+function GroupPerformance({ roster }: { roster: Athlete[] }) {
   const groups = useMemo(() => {
     return ROSTER_GROUPS.map(g => {
       const members = roster.filter(a => a.group === g.id);
