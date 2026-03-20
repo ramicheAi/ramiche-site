@@ -1031,6 +1031,18 @@ export default function ParentPortal() {
         setUnlocked(true);
         setIsCoach(true);
       }
+    } else {
+      // Cross-portal: coach PIN verified elsewhere grants access here
+      try {
+        const raw = localStorage.getItem("mettle_coach_session");
+        if (raw) {
+          const cs = JSON.parse(raw);
+          if (cs && cs.role === "coach" && Date.now() - cs.ts < 24 * 60 * 60 * 1000) {
+            setUnlocked(true);
+            setIsCoach(true);
+          }
+        }
+      } catch {}
     }
   }, []);
 

@@ -2385,7 +2385,7 @@ export default function ApexAthletePage() {
       <PinAuthScreen
         coaches={coaches}
         coachPin={coachPin}
-        onUnlock={(pin) => { setPinInput(pin); setUnlocked(true); }}
+        onUnlock={(pin) => { setPinInput(pin); setUnlocked(true); try { localStorage.setItem("mettle_coach_session", JSON.stringify({ role: "coach", ts: Date.now() })); } catch {} }}
       />
     );
   }
