@@ -19,6 +19,7 @@ import PracticeRecapModal, { type RecapData } from "./components/PracticeRecapMo
 import { useXPEngine } from "./hooks/useXPEngine";
 import GroupSelector from "./components/GroupSelector";
 import StaffView from "./components/StaffView";
+import KioskCheckin from "./components/KioskCheckin";
 import BgOrbs from "./components/BgOrbs";
 import XpFloats from "./components/XpFloats";
 import ScheduleView from "./views/ScheduleView";
@@ -31,6 +32,7 @@ import type { ScoringResult } from "../lib/meet-scoring";
 import ParentPreviewModal from "./components/ParentPreviewModal";
 import SplitAnalyzer from "./components/SplitAnalyzer";
 import TeamAnalytics from "./components/TeamAnalytics";
+import TimeStandards from "./components/TimeStandards";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -842,7 +844,7 @@ export default function ApexAthletePage() {
   const [pendingAmPm, setPendingAmPm] = useState(false);
   const pendingAmPmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics" | "kiosk" | "timestandards">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -2406,6 +2408,8 @@ export default function ApexAthletePage() {
       { id: "analytics" as const, label: "Analytics" },
       { id: "splits" as const, label: "Splits" },
       { id: "swimanalytics" as const, label: "Swim" },
+      { id: "kiosk" as const, label: "Kiosk" },
+      { id: "timestandards" as const, label: "Standards" },
       { id: "audit" as const, label: "Audit" },
     ];
     return (
@@ -3447,6 +3451,35 @@ export default function ApexAthletePage() {
   // ── SWIM ANALYTICS VIEW ──────────────────────────────────
   if (view === "swimanalytics") {
     return <TeamAnalytics GameHUDHeader={GameHUDHeader} />;
+  }
+
+  // ── KIOSK CHECK-IN VIEW ──────────────────────────────────
+  if (view === "kiosk") {
+    const kioskRoster = roster.map(a => ({
+      id: a.id,
+      name: a.name,
+      pin: a.pin || "",
+      group: a.group || "—",
+      events: [],
+      xp: a.xp || 0,
+      streak: a.streak || 0,
+      totalCheckins: 0,
+    }));
+    return (
+      <div className="w-full px-4 py-6">
+        <GameHUDHeader />
+        <KioskCheckin roster={kioskRoster} />
+      </div>
+    );
+  }
+
+  // ── TIME STANDARDS VIEW ──────────────────────────────────
+  if (view === "timestandards") {
+    return (
+      <div className="w-full px-4 py-6">
+        <TimeStandards GameHUDHeader={GameHUDHeader} />
+      </div>
+    );
   }
 
   // ── SCHEDULE VIEW ──────────────────────────────────────
