@@ -37,12 +37,34 @@ interface AnalyticsDashboardProps {
 }
 
 export default function AnalyticsDashboard({
-  roster, selectedGroup, calendarData, selectedDay, setSelectedDay,
+  roster: rawRoster, selectedGroup, calendarData, selectedDay, setSelectedDay,
   timelineAthleteId, setTimelineAthleteId, periodComparison, comparePeriod,
   setComparePeriod, engagementTrend, cultureScore, atRiskAthletes, snapshots,
   peakWindows, auditLog, mostImproved, avgAtt, avgXP, getAttritionRisk,
   exportCSV, GameHUDHeader,
 }: AnalyticsDashboardProps) {
+  // Guard: ensure every athlete has required numeric fields
+  const roster = (rawRoster || []).map(a => ({
+    ...a,
+    xp: a.xp || 0,
+    streak: a.streak || 0,
+    totalPractices: (a as any).totalPractices || 0,
+    history: (a as any).history || [],
+  })) as typeof rawRoster;
+
+  if (roster.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
+        <BgOrbs />
+        <div className="w-full relative z-10 px-4 sm:px-6 lg:px-8 xl:px-10 pb-12">
+          <GameHUDHeader />
+          <h2 className="text-2xl font-black tracking-tight neon-text-cyan mb-2">Coach Analytics</h2>
+          <div className="flex items-center justify-center h-64 text-white/40 text-lg">No athletes loaded yet. Add athletes to see analytics.</div>
+        </div>
+      </div>
+    );
+  }
+
   const selSnap = selectedDay ? calendarData[selectedDay] : null;
   const tlAthlete = timelineAthleteId ? roster.find(a => a.id === timelineAthleteId) : null;
   const p = periodComparison;
