@@ -1064,7 +1064,7 @@ export default function AthletePortal() {
         </div>
         <div className="relative z-10 w-full px-4 lg:px-8 xl:px-10" style={{maxWidth:'100%'}}>
           {/* Portal switcher — full-width grid */}
-          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8 max-w-lg mx-auto">
+          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8 mx-auto">
             {[
               { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
