@@ -1099,6 +1099,15 @@ export default function ApexAthletePage() {
       if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
       if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
       if (!a.group) a = { ...a, group: "platinum" };
+      if (!a.quests) a = { ...a, quests: {} };
+      if (!a.checkpoints) a = { ...a, checkpoints: {} };
+      if (!a.weightCheckpoints) a = { ...a, weightCheckpoints: {} };
+      if (!a.meetCheckpoints) a = { ...a, meetCheckpoints: {} };
+      if (!a.weightChallenges) a = { ...a, weightChallenges: {} };
+      if (a.totalPractices == null) a = { ...a, totalPractices: 0 };
+      if (a.weekSessions == null) a = { ...a, weekSessions: 0 };
+      if (a.weekWeightSessions == null) a = { ...a, weekWeightSessions: 0 };
+      if (a.weekTarget == null) a = { ...a, weekTarget: 5 };
       // Reset daily XP + check-ins for new day (clean slate per practice)
       if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
       else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
@@ -2237,7 +2246,7 @@ export default function ApexAthletePage() {
   // ── seasonal goal auto-track ─────────────────────────────
   useEffect(() => {
     if (!mounted || !roster.length) return;
-    const pct = Math.round((roster.filter(a => Object.values(a.checkpoints).some(Boolean)).length / roster.length) * 100);
+    const pct = Math.round((roster.filter(a => Object.values(a.checkpoints || {}).some(Boolean)).length / roster.length) * 100);
     if (pct !== culture.goalCurrent) { const u = { ...culture, goalCurrent: pct }; setCulture(u); save(K.CULTURE, u); }
   }, [mounted, roster, culture]);
 
@@ -2270,18 +2279,18 @@ export default function ApexAthletePage() {
     else if (attendanceRate < 0.5) risk += 25;
     else if (attendanceRate < 0.7) risk += 10;
     // Broken streak = risk
-    if (athlete.streak === 0 && athlete.totalPractices > 3) risk += 20;
+    if (athlete.streak === 0 && (athlete.totalPractices || 0) > 3) risk += 20;
     // Low XP growth = risk
     const ago14 = snapshots.slice(-14)[0];
     const xpGrowth = ago14 ? athlete.xp - (ago14.athleteXPs?.[athlete.id] || 0) : athlete.xp;
     if (xpGrowth <= 0) risk += 20;
     else if (xpGrowth < 50) risk += 10;
     // No quests engaged = disengagement
-    const activeQuests = Object.values(athlete.quests).filter(q => q === "active" || q === "done").length;
-    if (activeQuests === 0 && athlete.totalPractices > 5) risk += 15;
+    const activeQuests = Object.values(athlete.quests || {}).filter(q => q === "active" || q === "done").length;
+    if (activeQuests === 0 && (athlete.totalPractices || 0) > 5) risk += 15;
     // Low teammate interaction
     const helpCount = auditLog.filter(e => e.athleteId === athlete.id && e.action.includes("Helped")).length;
-    if (helpCount === 0 && athlete.totalPractices > 3) risk += 5;
+    if (helpCount === 0 && (athlete.totalPractices || 0) > 3) risk += 5;
     return Math.min(100, risk);
   }, [snapshots, auditLog]);
 
@@ -2301,10 +2310,10 @@ export default function ApexAthletePage() {
     const positiveActions = auditLog.filter(e => e.action.includes("Positive")).length;
     const positiveScore = Math.min(20, Math.round((positiveActions / Math.max(roster.length, 1)) * 20));
     // Quest engagement (0-15)
-    const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests).filter(q => q !== "pending").length, 0);
+    const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests || {}).filter(q => q !== "pending").length, 0);
     const questScore = Math.min(15, Math.round((questEngagement / (roster.length * QUEST_DEFS.length)) * 15));
     // Streak health (0-10)
-    const avgStreak = roster.reduce((s, a) => s + a.streak, 0) / roster.length;
+    const avgStreak = roster.reduce((s, a) => s + (a.streak || 0), 0) / roster.length;
     const streakScore = Math.min(10, Math.round(avgStreak / 3));
     return Math.min(100, attScore + helpScore + positiveScore + questScore + streakScore);
   }, [roster, snapshots, auditLog]);
@@ -2349,7 +2358,7 @@ export default function ApexAthletePage() {
     const counts: Record<string, number> = {};
     const groupRoster = roster.filter(a => a.group === selectedGroup);
     for (const a of groupRoster) {
-      for (const [k, v] of Object.entries(a.checkpoints)) if (v) counts[k] = (counts[k] || 0) + 1;
+      for (const [k, v] of Object.entries(a.checkpoints || {})) if (v) counts[k] = (counts[k] || 0) + 1;
     }
     return [...currentCPs].map(cp => ({ ...cp, count: counts[cp.id] || 0, rate: groupRoster.length ? Math.round(((counts[cp.id] || 0) / groupRoster.length) * 100) : 0 }))
       .sort((a, b) => b.rate - a.rate);
