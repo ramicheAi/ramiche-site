@@ -114,6 +114,5 @@ const SPORT_CONFIGS: Record<string, SportConfig> = {
 
 export function getSportConfig(sport: string): SportConfig {
   const config = SPORT_CONFIGS[sport.toLowerCase()];
-  if (!config) throw new Error(`Unknown sport: "${sport}". Available: ${Object.keys(SPORT_CONFIGS).join(", ")}`);
-  return config;
+  return config || SPORT_CONFIGS.swimming;
 }
