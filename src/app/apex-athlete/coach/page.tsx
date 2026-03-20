@@ -9,6 +9,7 @@ import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
 import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
+import { storageSaveRoster } from "../lib/storage";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
 import PinAuthScreen from "./components/PinAuthScreen";
@@ -716,27 +717,20 @@ function load<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 function save(key: string, val: unknown) {
-  // BACKUP: Before overwriting roster, save a timestamped backup
+  // Roster saves go through guarded path — blocks zero-XP overwrites
   if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
-    const existing = localStorage.getItem(key);
-    if (existing) {
-      try {
-        const prev = JSON.parse(existing);
-        const prevXP = Array.isArray(prev) ? prev.reduce((s: number, a: { xp?: number }) => s + (a.xp || 0), 0) : 0;
-        const newXP = (val as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
-        // Only backup if we're about to lose XP
-        if (prevXP > 0 && newXP < prevXP) {
-          const backupKey = `apex-athlete-roster-backup-${new Date().toISOString().slice(0, 10)}`;
-          localStorage.setItem(backupKey, existing);
-          console.warn(`[Save] Backup created: ${backupKey} (prevXP: ${prevXP}, newXP: ${newXP})`);
-        }
-      } catch { /* ignore parse errors */ }
+    const saved = storageSaveRoster(val as { xp?: number }[]);
+    if (!saved) {
+      console.error("[Save] Blocked: roster has no real XP data — refusing overwrite");
+      return;
     }
-  }
-  localStorage.setItem(key, JSON.stringify(val));
-  if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
     fbSaveRoster("all", val).catch(() => {});
     fbSaveRoster("platinum", val).catch(() => {});
+    return;
+  }
+  // Non-roster keys: direct save
+  if (typeof window !== "undefined") {
+    try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* quota */ }
   }
 }
 
