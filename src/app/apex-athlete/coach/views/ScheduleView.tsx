@@ -253,6 +253,47 @@ export default function ScheduleView({ GameHUDHeader, schedules, saveSchedules, 
     saveSchedules(newSchedules);
   }, [copiedWeek, groupSchedule, schedules, selectedGroup, saveSchedules, isTemplateWeek, mondayKey]);
 
+  const generateIcal = useCallback(() => {
+    if (!activeWeekSchedule) return;
+    const lines: string[] = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//METTLE//Schedule//EN",
+      "CALSCALE:GREGORIAN",
+      "METHOD:PUBLISH",
+      `X-WR-CALNAME:${selectedGroup} Practice Schedule`,
+    ];
+    DAYS_OF_WEEK.forEach((day, i) => {
+      const dayDate = new Date(viewMonday);
+      dayDate.setDate(dayDate.getDate() + i);
+      const iso = dayDate.toISOString().slice(0, 10).replace(/-/g, "");
+      if (blackoutDates.includes(dayDate.toISOString().slice(0, 10))) return;
+      const dayData = activeWeekSchedule[day];
+      dayData.sessions.forEach(session => {
+        const dtStart = `${iso}T${session.startTime.replace(":", "")}00`;
+        const dtEnd = `${iso}T${session.endTime.replace(":", "")}00`;
+        lines.push(
+          "BEGIN:VEVENT",
+          `DTSTART:${dtStart}`,
+          `DTEND:${dtEnd}`,
+          `SUMMARY:${session.label} (${session.type})`,
+          `LOCATION:${session.location}`,
+          session.notes ? `DESCRIPTION:${session.notes}` : "",
+          `UID:${session.id}-${iso}@mettle`,
+          "END:VEVENT"
+        );
+      });
+    });
+    lines.push("END:VCALENDAR");
+    const blob = new Blob([lines.filter(Boolean).join("\r\n")], { type: "text/calendar" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selectedGroup}-week-${viewMonday.toISOString().slice(0, 10)}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [activeWeekSchedule, viewMonday, selectedGroup, blackoutDates]);
+
   const isBlackoutDay = (d: Date): boolean => {
     const iso = d.toISOString().slice(0, 10);
     return blackoutDates.includes(iso);
@@ -319,6 +360,12 @@ export default function ScheduleView({ GameHUDHeader, schedules, saveSchedules, 
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={generateIcal}
+              className="px-4 py-2 text-xs font-bold font-mono uppercase text-blue-400/70 border-2 border-blue-400/20 rounded-xl hover:shadow-[0_0_15px_rgba(96,165,250,0.15)] hover:bg-blue-400/10 transition-all"
+            >
+              📅 EXPORT
+            </button>
             <button
               onClick={copyWeek}
               className="px-4 py-2 text-xs font-bold font-mono uppercase text-emerald-400/70 border-2 border-emerald-400/20 rounded-xl hover:shadow-[0_0_15px_rgba(52,211,153,0.15)] hover:bg-emerald-400/10 transition-all"
