@@ -1190,11 +1190,11 @@ export default function CommandCenter() {
         {/* ═══════ TOP NAV — MATCHING PARALLAX SITE (WHITE/GLASS) ═══════ */}
         <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e1e1e' }}>
           <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: 'contain' }} />
-              <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#e5e5e5' }}>PARALLAX</span>
-              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 14 }}>|</span>
-              <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#888888' }}>COMMAND CENTER</span>
+            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }} className="cc-logo-link">
+              <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 32, height: 40, objectFit: 'contain' }} />
+              <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '0.1em', color: '#e5e5e5' }} className="cc-logo-text">PARALLAX</span>
+              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 14 }} className="cc-logo-divider">|</span>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: '#888888' }} className="cc-logo-sub">COMMAND CENTER</span>
             </Link>
             <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
               {NAV.map((n) => (

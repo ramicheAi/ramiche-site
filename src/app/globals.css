@@ -998,4 +998,11 @@ a {
 /* Mobile nav for Command Center */
 @media (max-width: 768px) {
   .nav-desktop { display: none !important; }
+  .cc-logo-link { gap: 6px !important; }
+  .cc-logo-text { font-size: 14px !important; }
+  .cc-logo-divider { display: none !important; }
+  .cc-logo-sub { display: none !important; }
+}
+@media (max-width: 400px) {
+  .cc-logo-text { font-size: 12px !important; }
 }
