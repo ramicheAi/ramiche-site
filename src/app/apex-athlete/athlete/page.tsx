@@ -684,22 +684,7 @@ export default function AthletePortal() {
   useEffect(() => {
     setMounted(true);
     const session = getSession();
-    // Cross-portal: coach PIN verified elsewhere grants access here
-    if (!session) {
-      try {
-        const raw = localStorage.getItem("mettle_coach_session");
-        if (raw) {
-          const cs = JSON.parse(raw);
-          if (cs && cs.role === "coach" && Date.now() - cs.ts < 24 * 60 * 60 * 1000) {
-            setUnlocked(true);
-            setIsCoach(true);
-            setCoachGroup(localStorage.getItem("apex-coach-group") || "");
-            return;
-          }
-        }
-      } catch {}
-      return; // no session — show PIN screen
-    }
+    if (!session) return; // no session — show PIN screen
     // Parents don't belong here — redirect them
     if (session.role === "parent") {
       window.location.href = "/apex-athlete/parent";
@@ -1079,7 +1064,7 @@ export default function AthletePortal() {
         </div>
         <div className="relative z-10 w-full px-4 lg:px-8 xl:px-10" style={{maxWidth:'100%'}}>
           {/* Portal switcher — full-width grid */}
-          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8 mx-auto">
+          <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8">
             {[
               { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
