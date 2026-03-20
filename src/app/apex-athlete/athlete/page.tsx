@@ -684,7 +684,22 @@ export default function AthletePortal() {
   useEffect(() => {
     setMounted(true);
     const session = getSession();
-    if (!session) return; // no session — show PIN screen
+    // Cross-portal: coach PIN verified elsewhere grants access here
+    if (!session) {
+      try {
+        const raw = localStorage.getItem("mettle_coach_session");
+        if (raw) {
+          const cs = JSON.parse(raw);
+          if (cs && cs.role === "coach" && Date.now() - cs.ts < 24 * 60 * 60 * 1000) {
+            setUnlocked(true);
+            setIsCoach(true);
+            setCoachGroup(localStorage.getItem("apex-coach-group") || "");
+            return;
+          }
+        }
+      } catch {}
+      return; // no session — show PIN screen
+    }
     // Parents don't belong here — redirect them
     if (session.role === "parent") {
       window.location.href = "/apex-athlete/parent";
