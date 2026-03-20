@@ -454,19 +454,6 @@ const NOTIFICATIONS = [
   { text: "167 skills installed (ClawHub + custom + Anthropic official)", accent: "#00f0ff", icon: "\u25C8" },
 ];
 
-/* ── NAV ───────────────────────────────────────────────────────────────────── */
-const NAV = [
-  { label: "COMMAND", href: "/command-center", icon: "\u25C7", active: true },
-  { label: "CONTENT", href: "/command-center/content", icon: "\u270E" },
-  { label: "AGENTS", href: "/command-center/agents", icon: "\u2726" },
-  { label: "TASKS", href: "/command-center/tasks", icon: "\u25A3" },
-  { label: "CALENDAR", href: "/command-center/calendar", icon: "\u25CB" },
-  { label: "PROJECTS", href: "/command-center/projects", icon: "\u25C9" },
-  { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE" },
-  { label: "DOCS", href: "/command-center/docs", icon: "\u2261" },
-  { label: "OFFICE", href: "/command-center/office", icon: "\u25A3" },
-  { label: "METTLE", href: "/apex-athlete", icon: "\u2726" },
-];
 
 /* ── TYPES ─────────────────────────────────────────────────────────────────── */
 interface Weather {
@@ -1187,28 +1174,10 @@ export default function CommandCenter() {
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="relative z-10 w-full">
 
-        {/* ═══════ TOP NAV — MATCHING PARALLAX SITE (WHITE/GLASS) ═══════ */}
-        <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid #1e1e1e' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8 }} className="cc-logo-link">
-              <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 32, height: 40, objectFit: 'contain' }} />
-              <span style={{ fontWeight: 700, fontSize: 16, letterSpacing: '0.1em', color: '#e5e5e5' }} className="cc-logo-text">PARALLAX</span>
-              <span style={{ color: 'rgba(255,255,255,0.15)', fontSize: 14 }} className="cc-logo-divider">|</span>
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: '#888888' }} className="cc-logo-sub">COMMAND CENTER</span>
-            </Link>
-            <div style={{ display: 'flex', gap: 20, alignItems: 'center' }} className="nav-desktop">
-              {NAV.map((n) => (
-                <Link key={n.href} href={n.href} style={{
-                  fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
-                  color: n.active ? '#e5e5e5' : '#888888', transition: 'color 150ms ease-in-out',
-                }}>{n.label}</Link>
-              ))}
-            </div>
-          </div>
-        </nav>
+        {/* Nav handled by Sidebar layout — no duplicate nav needed */}
 
         {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
-        <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 60px', position: 'relative' }}>
+        <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 24px 60px', position: 'relative' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: lastSynced ? '#22c55e' : '#ef4444', boxShadow: lastSynced ? '0 0 8px #22c55e' : '0 0 8px #ef4444', animation: 'pulse 2s ease-in-out infinite' }} />
             MISSION CONTROL &middot; LIVE{lastSynced ? ` · ${lastSynced}` : ''}
