@@ -114,18 +114,38 @@ export default function SignalWirePage() {
   const fetchData = useCallback(async () => {
     try {
       const [agentsRes, activityRes] = await Promise.allSettled([
-        fetch("/api/command-center/agents"),
-        fetch("/api/command-center/activity?limit=60"),
+        fetch("/api/bridge?type=agents"),
+        fetch("/api/bridge?type=agentActivity"),
       ]);
       let liveAgents: LiveAgent[] = [];
       if (agentsRes.status === "fulfilled" && agentsRes.value.ok) {
         const data = await agentsRes.value.json();
-        liveAgents = data.agents || [];
-        setAgents(liveAgents);
+        // Bridge returns {items: [...]} or {agents: [...]} depending on sync format
+        const rawItems = data.items || data.agents || [];
+        liveAgents = Array.isArray(rawItems) ? rawItems.map((a: Record<string, unknown>) => ({
+          id: String(a.id || a.name || "unknown").toLowerCase(),
+          name: String(a.name || a.id || "Unknown"),
+          model: String(a.model || ""),
+          role: String(a.role || ""),
+          capabilities: Array.isArray(a.capabilities) ? a.capabilities : [],
+          skills: Array.isArray(a.skills) ? a.skills : [],
+          escalation_level: String(a.escalation_level || a.escalationLevel || ""),
+          default_stance: String(a.default_stance || a.defaultStance || ""),
+          status: String(a.status || "idle"),
+        })) : [];
+        if (liveAgents.length > 0) setAgents(liveAgents);
       }
       if (activityRes.status === "fulfilled" && activityRes.value.ok) {
         const data = await activityRes.value.json();
-        const events: ActivityEvent[] = data.events || [];
+        // Bridge agentActivity stores items as parsed array or {items: [...]}
+        const rawEvents = data.items || [];
+        const events: ActivityEvent[] = Array.isArray(rawEvents) ? rawEvents.map((e: Record<string, unknown>) => ({
+          hash: String(e.hash || e.id || ""),
+          date: String(e.date || e.timestamp || ""),
+          author: String(e.author || e.agent || ""),
+          message: String(e.message || e.title || ""),
+          type: String(e.type || "agent"),
+        })) : [];
         const newSignals = activityToSignals(events, liveAgents.length ? liveAgents : agents);
         setSignals(newSignals);
         const s = { signals: newSignals.length, tasks: 0, handoffs: 0, errors: 0 };
