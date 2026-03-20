@@ -63,6 +63,27 @@ export default function ApexAthleteError({
           METTLE hit an unexpected error. This has been logged automatically.
         </p>
 
+        {error?.message && (
+          <pre
+            style={{
+              color: "#ef4444",
+              fontSize: "0.75rem",
+              background: "#1e1e2e",
+              padding: "1rem",
+              borderRadius: 8,
+              marginBottom: "1.5rem",
+              textAlign: "left",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              maxHeight: 200,
+              overflow: "auto",
+              border: "1px solid #ef4444/20",
+            }}
+          >
+            {error.message}
+          </pre>
+        )}
+
         <button
           onClick={reset}
           style={{
