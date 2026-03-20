@@ -2508,15 +2508,15 @@ export default function ApexAthletePage() {
           {/* Logout */}
           <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-[#f8fafc]/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
 
-          {/* Section nav tabs — 3 rows on mobile, 2 rows on tablet+ */}
-          <div className="md:hidden space-y-2.5 mb-6">
+          {/* Section nav tabs — 3 rows on mobile, evenly spaced on desktop */}
+          <div className="lg:hidden space-y-4 mb-10">
             {[secondaryTabs.slice(0, 4), secondaryTabs.slice(4, 8), secondaryTabs.slice(8)].map((row, ri) => (
-              <div key={ri} className={`grid gap-2.5 ${row.length <= 3 ? "grid-cols-3" : "grid-cols-4"}`}>
+              <div key={ri} className={`grid gap-3 ${row.length <= 3 ? "grid-cols-3" : "grid-cols-4"}`}>
                 {row.map(t => {
                   const active = view === t.id;
                   return (
                     <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
-                      className={`py-3.5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[50px] text-center ${
+                      className={`py-4 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[56px] text-center ${
                         active
                           ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
                           : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
@@ -2528,12 +2528,12 @@ export default function ApexAthletePage() {
               </div>
             ))}
           </div>
-          <div className="hidden md:flex flex-wrap gap-2.5 mb-6">
+          <div className="hidden lg:grid grid-cols-6 gap-4 mb-10">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); }}
-                  className={`py-3.5 px-5 text-[11px] font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[50px] text-center ${
+                  className={`py-5 px-4 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[58px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
                       : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
@@ -3526,15 +3526,15 @@ export default function ApexAthletePage() {
         {/* ══════════════════════════════════════════════════════
            LEADERBOARD — THE HERO SECTION
            ══════════════════════════════════════════════════════ */}
-        <div className="py-6">
+        <div className="py-8">
             {/* Section header with tabs */}
             <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-5">
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight neon-text-cyan">Leaderboard</h2>
-                <div className="flex gap-1 bg-[#0e0e18]/60 p-1 border border-[#00f0ff]/15 game-panel-sm">
+                <div className="flex gap-1.5 bg-[#0e0e18]/60 p-1.5 border border-[#00f0ff]/15 rounded-xl">
                   {(["all", "M", "F"] as const).map(t => (
                     <button key={t} onClick={() => setLeaderTab(t)}
-                      className={`game-btn px-4 py-2 text-xs font-bold transition-all min-h-[32px] font-mono tracking-wider ${
+                      className={`px-5 py-2.5 text-xs font-bold transition-all min-h-[36px] font-mono tracking-wider rounded-lg ${
                         leaderTab === t ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.3)]" : "text-[#f8fafc]/60 hover:text-[#00f0ff]/50 border border-transparent"
                       }`}>
                       {t === "all" ? "ALL" : t === "M" ? "MALE" : "FEMALE"}
@@ -3570,7 +3570,7 @@ export default function ApexAthletePage() {
               <div className="relative mb-10">
                 {/* Podium glow backdrop */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
-                <div className="grid grid-cols-3 gap-6 sm:gap-8 items-stretch">
+                <div className="grid grid-cols-3 gap-6 sm:gap-8 lg:gap-10 items-stretch">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp, getSportForAthlete(a));
@@ -3581,16 +3581,17 @@ export default function ApexAthletePage() {
                       "bg-gradient-to-b from-[#00f0ff]/5 via-[#06020f]/80 to-[#06020f] neon-pulse",
                       "bg-gradient-to-b from-[#cd7f32]/8 via-[#06020f]/80 to-[#06020f]",
                     ];
+                    const isGold = rank === 0;
                     return (
-                      <div key={a.id} className={`game-panel game-panel-border relative p-5 sm:p-7 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} min-h-[280px] sm:min-h-[310px] flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] group`}>
-                        {rank === 0 && <div className="absolute inset-0 gold-shimmer pointer-events-none" />}
-                        <div className={`text-3xl sm:text-4xl mb-3 ${rank === 0 ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
-                        <div className={`w-18 h-18 sm:w-22 sm:h-22 text-lg sm:text-xl mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
-                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": rank === 0 ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
+                      <div key={a.id} className={`game-panel game-panel-border relative p-6 sm:p-8 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} min-h-[300px] sm:min-h-[340px] flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] group rounded-2xl`}>
+                        {isGold && <div className="absolute inset-0 gold-shimmer pointer-events-none rounded-2xl" />}
+                        <div className={`text-3xl sm:text-4xl mb-4 ${isGold ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
+                        <div className={`w-16 h-16 sm:w-20 sm:h-20 text-lg sm:text-xl mx-auto ${isGold ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-4 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
+                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": isGold ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
-                        <div className={`text-base sm:text-lg font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-[#f8fafc]"}`}>{a.name.split(" ")[0]}</div>
-                        <div className="text-[#00f0ff]/20 text-[11px] truncate w-full font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
+                        <div className={`text-base sm:text-lg font-black truncate w-full px-2 ${isGold ? "neon-text-gold" : "text-[#f8fafc]"}`}>{a.name.split(" ")[0]}</div>
+                        <div className="text-[#00f0ff]/20 text-[11px] truncate w-full px-2 font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
                         <div className="rank-badge text-[11px] font-bold mt-3 px-4 py-1.5 inline-flex items-center gap-1.5 font-mono" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
                           {lv.icon} {lv.name}
                         </div>
