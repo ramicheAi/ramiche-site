@@ -2590,24 +2590,6 @@ export default function ApexAthletePage() {
               <span className="neon-text-gold text-xs font-bold font-mono tabular-nums">{xpToday}</span>
               <span className="text-[#f59e0b]/30 text-xs font-mono uppercase">XP</span>
             </div>
-              <button
-                onClick={() => {
-                  const testAthlete = roster[0];
-                  if (!testAthlete) return;
-                  handleMeetScore({
-                    athleteId: testAthlete.id,
-                    totalXP: 100,
-                    bonuses: [{type: 'pb', label: 'TEST PB', xp: 50, detail: 'Test Detail'}, {type: 'placement', label: '1st Place', xp: 40, detail: 'Test'}, {type: 'improvement', label: 'Time Drop', xp: 10, detail: '-1.0s'}],
-                    newBestTimes: [{event: '50', stroke: 'Free', time: '19.99', seconds: 19.99, course: 'SCY', meetName: 'Test Meet', date: new Date().toISOString(), source: 'manual'}],
-                    isPB: true,
-                    improvementSeconds: 1.0
-                  }, { id: 'test', name: 'Test Meet', date: new Date().toISOString(), location: 'Test', course: 'SCY' as const, rsvpDeadline: '', events: [], rsvps: {}, broadcasts: [], status: 'completed' as const, results: [] } as SwimMeet);
-                  alert(`Simulated 100 XP award for ${testAthlete.name}`);
-                }}
-                className="bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded hover:bg-red-500/30 ml-2"
-              >
-                TEST SCORING
-              </button>
             <div className="w-px h-3 bg-[#00f0ff]/10" />
             <span className="text-[#00f0ff]/40 text-xs font-mono">{sessionMode === "pool" ? (currentSport === "diving" ? "🤿 BOARD" : currentSport === "waterpolo" ? "🤽 POOL" : "🏊 POOL") : sessionMode === "weight" ? "🏋️ WEIGHT" : "🏁 MEET"}</span>
           </div>
