@@ -29,6 +29,8 @@ import AnalyticsTabContainer from "./views/AnalyticsTabContainer";
 import type { Athlete, DailyXP, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, RosterGroup, SwimMeet, MentalReadiness, BreathworkSession, JournalEntry, RecoveryLog, WellnessData } from "./types";
 import type { ScoringResult } from "../lib/meet-scoring";
 import ParentPreviewModal from "./components/ParentPreviewModal";
+import SplitAnalyzer from "./components/SplitAnalyzer";
+import TeamAnalytics from "./components/TeamAnalytics";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Saint Andrew's Aquatics — Platinum Group
@@ -840,7 +842,7 @@ export default function ApexAthletePage() {
   const [pendingAmPm, setPendingAmPm] = useState(false);
   const pendingAmPmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -2402,6 +2404,8 @@ export default function ApexAthletePage() {
       { id: "staff" as const, label: "Staff" },
       { id: "comms" as const, label: "Comms" },
       { id: "analytics" as const, label: "Analytics" },
+      { id: "splits" as const, label: "Splits" },
+      { id: "swimanalytics" as const, label: "Swim" },
       { id: "audit" as const, label: "Audit" },
     ];
     return (
@@ -3433,6 +3437,16 @@ export default function ApexAthletePage() {
         getSportForAthlete={getSportForAthlete}
       />
     );
+  }
+
+  // ── SPLIT ANALYZER VIEW ──────────────────────────────────
+  if (view === "splits") {
+    return <SplitAnalyzer GameHUDHeader={GameHUDHeader} />;
+  }
+
+  // ── SWIM ANALYTICS VIEW ──────────────────────────────────
+  if (view === "swimanalytics") {
+    return <TeamAnalytics GameHUDHeader={GameHUDHeader} />;
   }
 
   // ── SCHEDULE VIEW ──────────────────────────────────────
