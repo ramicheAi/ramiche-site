@@ -835,44 +835,13 @@ export default function ApexAthletePage() {
   const lastModeSwitch = useRef(0);
   const modeSwitchLocked = useRef(false);
   const handleModeClick = useCallback((m: "pool" | "weight" | "meet", e: React.MouseEvent) => {
-    // Block all non-user-initiated events
     if (!e.isTrusted) return;
-    // Block if scrolling or just finished scrolling
-    if (isScrollingRef.current) return;
-    // Block taps too soon after a touch end (ghost taps from scroll momentum)
-    const now = Date.now();
-    if (now - lastTouchEndRef.current < 600) return;
-    // Hard debounce: 3 seconds between mode switches (prevents double-taps and phantom switches)
-    if (now - lastModeSwitch.current < 3000) return;
-    // Prevent concurrent switches
-    if (modeSwitchLocked.current) return;
-    // Validate touch distance — if touch moved more than 15px, it was a scroll not a tap
-    if (touchStartRef.current) {
-      const touch = e.nativeEvent as unknown as { clientX?: number; clientY?: number };
-      if (touch.clientX !== undefined && touch.clientY !== undefined) {
-        const dx = Math.abs(touch.clientX - touchStartRef.current.x);
-        const dy = Math.abs(touch.clientY - touchStartRef.current.y);
-        if (dx > 15 || dy > 15) return;
-      }
-    }
-    // If already on this mode, ignore
-    if (sessionMode === m) { setPendingMode(null); return; }
-    // Two-tap confirmation: first tap shows "Tap again to confirm", second tap switches
-    if (pendingMode === m) {
-      // Confirmed — actually switch
-      if (pendingModeTimer.current) clearTimeout(pendingModeTimer.current);
-      setPendingMode(null);
-      modeSwitchLocked.current = true;
-      setTimeout(() => { modeSwitchLocked.current = false; }, 3000);
-      lastModeSwitch.current = now;
-      setSessionModeRaw(m);
-    } else {
-      // First tap — set pending, auto-cancel after 3 seconds
-      setPendingMode(m);
-      if (pendingModeTimer.current) clearTimeout(pendingModeTimer.current);
-      pendingModeTimer.current = setTimeout(() => setPendingMode(null), 3000);
-    }
-  }, [sessionMode, pendingMode]);
+    if (sessionMode === m) return;
+    setPendingMode(null);
+    setSessionModeRaw(m);
+  }, [sessionMode]);
+
+  // Auto-detect session mode moved below selectedGroup declaration
 
   // Always compute AM/PM from real clock time on page load. Manual toggle is session-only (sessionStorage).
   const [sessionTime, setSessionTime] = useState<"am" | "pm">(() => {
@@ -914,6 +883,28 @@ export default function ApexAthletePage() {
   const [newAthleteAge, setNewAthleteAge] = useState("");
   const [newAthleteGender, setNewAthleteGender] = useState<"M" | "F">("M");
   const [selectedGroup, setSelectedGroup] = useState<GroupId>("platinum");
+
+  // Auto-detect session mode from today's schedule for the selected group
+  useEffect(() => {
+    const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+    const now = new Date();
+    const dayKey = days[now.getDay()];
+    const sched = REAL_SCHEDULES[selectedGroup];
+    if (!sched) return;
+    const daySched = sched.weekSchedule[dayKey];
+    if (!daySched || daySched.sessions.length === 0) return;
+    const hasWeight = daySched.sessions.some(s => s.type === "weight");
+    const isMeet = daySched.template === "meet-day";
+    const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    if (isMeet) { setSessionModeRaw("meet"); return; }
+    if (hasWeight) {
+      const weightSession = daySched.sessions.find(s => s.type === "weight");
+      if (weightSession && hhmm >= weightSession.startTime) { setSessionModeRaw("weight"); return; }
+    }
+    setSessionModeRaw("pool");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroup]);
+
   const [mounted, setMounted] = useState(false);
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
@@ -1825,6 +1816,14 @@ export default function ApexAthletePage() {
         }
         newAthlete.bestTimes = bt;
       }
+      // Auto-check meet checkpoints based on results
+      const mc = { ...(newAthlete.meetCheckpoints || {}) };
+      const bonusLabels = result.bonuses.map(b => b.label.toLowerCase());
+      if (result.newBestTimes.length > 0 || bonusLabels.some(l => l.includes("pr") || l.includes("personal"))) mc["m-pr"] = true;
+      if (bonusLabels.some(l => l.includes("meet record"))) mc["m-meet-record"] = true;
+      if (bonusLabels.some(l => l.includes("team record"))) mc["m-team-record"] = true;
+      if (bonusLabels.some(l => l.includes("best time") || l.includes("season"))) mc["m-best-time"] = true;
+      newAthlete.meetCheckpoints = mc;
       const next = [...prev];
       next[idx] = newAthlete;
       return next;
@@ -1861,7 +1860,7 @@ export default function ApexAthletePage() {
       if (category === "pool" && cpId === "practice-complete" && final.lastStreakDate !== today()) {
         final = { ...final, streak: final.streak + 1, lastStreakDate: today(), totalPractices: final.totalPractices + 1, weekSessions: final.weekSessions + 1 };
       }
-      if (category === "weight" && cpId === "showed-up" && final.lastWeightStreakDate !== today()) {
+      if (category === "weight" && cpId === "w-showed-up" && final.lastWeightStreakDate !== today()) {
         final = { ...final, weightStreak: final.weightStreak + 1, lastWeightStreakDate: today(), weekWeightSessions: final.weekWeightSessions + 1 };
       }
       addAudit(final.id, final.name, `Checked: ${cpId}`, awarded);
