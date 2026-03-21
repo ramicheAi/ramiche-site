@@ -19,7 +19,7 @@ import PracticeRecapModal, { type RecapData } from "./components/PracticeRecapMo
 import { useXPEngine } from "./hooks/useXPEngine";
 import GroupSelector from "./components/GroupSelector";
 import StaffView from "./components/StaffView";
-import KioskCheckin from "./components/AthleteCheckinKiosk";
+
 import BgOrbs from "./components/BgOrbs";
 import XpFloats from "./components/XpFloats";
 import ScheduleView from "./views/ScheduleView";
@@ -897,7 +897,7 @@ export default function ApexAthletePage() {
   const pendingAmPmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [showAllLeaderboard, setShowAllLeaderboard] = useState(false);
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics" | "kiosk" | "timestandards">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics" | "timestandards">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -2453,7 +2453,6 @@ export default function ApexAthletePage() {
       { id: "analytics" as const, label: "Analytics" },
       { id: "splits" as const, label: "Splits" },
       { id: "swimanalytics" as const, label: "Swim" },
-      { id: "kiosk" as const, label: "Kiosk" },
       { id: "timestandards" as const, label: "Standards" },
       { id: "audit" as const, label: "Audit" },
     ];
@@ -3476,24 +3475,6 @@ export default function ApexAthletePage() {
     return <TeamAnalytics GameHUDHeader={GameHUDHeader} />;
   }
 
-  // ── KIOSK CHECK-IN VIEW ──────────────────────────────────
-  if (view === "kiosk") {
-    const kioskRoster = roster.map(a => ({
-      name: a.name,
-      group: a.group || "—",
-      present: a.present || false,
-      xp: a.xp || 0,
-      streak: a.streak || 0,
-      level: Math.min(5, Math.floor((a.xp || 0) / 200)),
-      pin: a.pin || "",
-    }));
-    return (
-      <div className="w-full px-4 py-6">
-        <GameHUDHeader />
-        <KioskCheckin roster={kioskRoster} onCheckin={(name) => { const athlete = roster.find(a => a.name === name); if (athlete) togglePresent(athlete.id); }} />
-      </div>
-    );
-  }
 
   // ── TIME STANDARDS VIEW ──────────────────────────────────
   if (view === "timestandards") {
