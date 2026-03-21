@@ -34,10 +34,6 @@ interface RosterGroup {
 
 interface CommsViewProps {
   GameHUDHeader: React.ComponentType;
-  commsMsg: string;
-  setCommsMsg: (v: string) => void;
-  commsGroup: string;
-  setCommsGroup: (v: string) => void;
   allBroadcasts: Broadcast[];
   setAllBroadcasts: (v: Broadcast[]) => void;
   absenceReports: AbsenceReport[];
@@ -45,9 +41,11 @@ interface CommsViewProps {
 }
 
 export default function CommsView({
-  GameHUDHeader, commsMsg, setCommsMsg, commsGroup, setCommsGroup,
+  GameHUDHeader,
   allBroadcasts, setAllBroadcasts, absenceReports, ROSTER_GROUPS,
 }: CommsViewProps) {
+  const [commsMsg, setCommsMsg] = useState("");
+  const [commsGroup, setCommsGroup] = useState<"all" | string>("all");
   const BROADCAST_KEY = "apex-broadcasts-v1";
 
   const sendBroadcast = () => {

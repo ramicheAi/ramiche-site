@@ -1006,8 +1006,6 @@ export default function ApexAthletePage() {
 
   // ── comms state (must be at top level — hooks cannot be inside conditionals) ──
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
-  const [commsMsg, setCommsMsg] = useState("");
-  const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
   const [absenceReports, setAbsenceReports] = useState<{ id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[]>([]);
 
   // ── push notification state ──────────────────────────────
@@ -3375,10 +3373,6 @@ export default function ApexAthletePage() {
     return (
       <CommsView
         GameHUDHeader={GameHUDHeader}
-        commsMsg={commsMsg}
-        setCommsMsg={setCommsMsg}
-        commsGroup={commsGroup}
-        setCommsGroup={(v: string) => setCommsGroup(v as "all" | GroupId)}
         allBroadcasts={allBroadcasts}
         setAllBroadcasts={setAllBroadcasts}
         absenceReports={absenceReports}
