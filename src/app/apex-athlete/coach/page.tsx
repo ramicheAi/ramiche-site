@@ -821,6 +821,7 @@ export default function ApexAthletePage() {
   const [roster, setRoster] = useState<Athlete[]>([]);
   const { coachPin, setCoachPin, pinInput, setPinInput, unlocked, setUnlocked } = useCoachAuth();
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
+  const [expandedCheckIn, setExpandedCheckIn] = useState<string | null>(null);
   const [parentPreviewAthlete, setParentPreviewAthlete] = useState<string | null>(null);
   // Always start on "pool" — coach explicitly taps to switch. Never auto-restore from localStorage.
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
@@ -3953,7 +3954,7 @@ export default function ApexAthletePage() {
                     } hover:border-[#00f0ff]/25`}>
                       <div
                         className="flex items-center gap-3 p-4 sm:p-5 cursor-pointer hover:bg-white/[0.02] transition-all duration-150 rounded-2xl group touch-manipulation"
-                        onClick={() => setSelectedAthlete(a.id)}
+                        onClick={() => setExpandedCheckIn(expandedCheckIn === a.id ? null : a.id)}
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
                         <button
@@ -3992,6 +3993,50 @@ export default function ApexAthletePage() {
                           {dailyUsed > 0 && <div className="text-xs text-[#f59e0b]/60 font-bold mt-1">+{dailyUsed}</div>}
                         </div>
                       </div>
+                      {/* Inline check-in expand */}
+                      {expandedCheckIn === a.id && (
+                        <div className="px-4 pb-4 pt-1 border-t border-white/[0.04] expand-in" onClick={e => e.stopPropagation()}>
+                          {!a.present ? (
+                            <button
+                              onClick={() => togglePresent(a.id)}
+                              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 text-sm font-bold hover:bg-emerald-500/25 active:scale-95 transition-all touch-manipulation mt-2"
+                            >
+                              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                              Mark Present
+                            </button>
+                          ) : (
+                            <div className="space-y-1 mt-2">
+                              {(sessionMode === "pool" ? AUTO_POOL_CPS : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS).map(cp => {
+                                const cpMap = sessionMode === "pool" ? a.checkpoints : sessionMode === "weight" ? a.weightCheckpoints : a.meetCheckpoints;
+                                const done = cpMap[cp.id];
+                                return (
+                                  <button key={cp.id} onClick={() => toggleCheckpoint(a.id, cp.id, cp.xp, sessionMode)}
+                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+                                      done ? "bg-emerald-500/8 border border-emerald-500/15" : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04]"
+                                    }`}
+                                  >
+                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                      done ? "bg-emerald-500/20 border border-emerald-400/40" : "bg-white/[0.04] border border-white/[0.08]"
+                                    }`}>
+                                      {done && <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <span className={`text-sm font-medium ${done ? "text-emerald-400/80" : "text-[#f8fafc]/70"}`}>{cp.name}</span>
+                                    </div>
+                                    <span className={`text-xs font-bold tabular-nums ${done ? "text-emerald-400/60" : "text-[#f8fafc]/20"}`}>+{cp.xp}</span>
+                                  </button>
+                                );
+                              })}
+                              <button
+                                onClick={() => setSelectedAthlete(a.id)}
+                                className="w-full text-center text-xs text-[#00f0ff]/40 hover:text-[#00f0ff]/70 font-mono mt-2 py-2 transition-colors"
+                              >
+                                View Full Profile →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
