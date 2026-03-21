@@ -895,6 +895,7 @@ export default function ApexAthletePage() {
   const [pendingAmPm, setPendingAmPm] = useState(false);
   const pendingAmPmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
+  const [showAllLeaderboard, setShowAllLeaderboard] = useState(false);
   const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics" | "kiosk" | "timestandards">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
@@ -3622,19 +3623,18 @@ export default function ApexAthletePage() {
               </div>
             )}
 
-            {/* Full ranked list — all athletes 1-N */}
+            {/* Ranked list — Top 10 with expand */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Full Rankings</h3>
+              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Rankings</h3>
               <span className="text-[#00f0ff]/20 text-xs font-mono">{sorted.length} athletes</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
-              {sorted.map((a, i) => {
+              {(showAllLeaderboard ? sorted : sorted.slice(0, 10)).map((a, i) => {
                 const lv = getLevel(a.xp, getSportForAthlete(a));
-                const sk = fmtStreak(a.streak);
                 const rank = i + 1;
                 const medalEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : null;
                 return (
-                  <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${rank <= 3 ? "bg-white/[0.02]" : ""} ${i < sorted.length - 1 ? "border-b border-white/[0.03]" : ""}`}>
+                  <div key={a.id} className={`flex items-center gap-4 py-4 px-6 transition-all duration-200 hover:bg-white/[0.04] hover:shadow-[inset_0_0_30px_rgba(107,33,168,0.05)] group ${rank <= 3 ? "bg-white/[0.02]" : ""} ${i < (showAllLeaderboard ? sorted.length : Math.min(sorted.length, 10)) - 1 ? "border-b border-white/[0.03]" : ""}`}>
                     <span className={`w-8 text-center text-sm font-black shrink-0 transition-colors ${rank <= 3 ? "text-[#f59e0b]" : "text-[#f8fafc]/40 group-hover:text-[#f8fafc]/60"}`}>
                       {medalEmoji || rank}
                     </span>
@@ -3649,6 +3649,14 @@ export default function ApexAthletePage() {
                   </div>
                 );
               })}
+              {sorted.length > 10 && (
+                <button
+                  onClick={() => setShowAllLeaderboard(!showAllLeaderboard)}
+                  className="w-full py-4 text-center text-sm font-bold font-mono tracking-wider text-[#00f0ff]/50 hover:text-[#00f0ff] hover:bg-white/[0.02] transition-all border-t border-white/[0.06]"
+                >
+                  {showAllLeaderboard ? "▲ Show Top 10" : `▼ Show All ${sorted.length} Athletes`}
+                </button>
+              )}
             </div>
           </div>
         </div>
