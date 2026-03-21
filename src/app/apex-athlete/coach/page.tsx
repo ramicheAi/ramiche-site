@@ -100,7 +100,7 @@ const MEET_CPS = [
   { id: "m-pr", name: "Personal Best", xp: 50, desc: "Set a new personal best in any event" },
   { id: "m-meet-record", name: "Meet Record", xp: 75, desc: "Broke the meet record" },
   { id: "m-team-record", name: "Team Record", xp: 100, desc: "Set a new team record" },
-  { id: "m-best-time", name: "Best Time", xp: 30, desc: "Season-best or meet-best time" },
+  { id: "m-best-time", name: "Season Best", xp: 15, desc: "Fastest time this season (not all-time PR)" },
   { id: "m-sportsmanship", name: "Sportsmanship", xp: 20, desc: "Cheered teammates, showed respect" },
 ];
 

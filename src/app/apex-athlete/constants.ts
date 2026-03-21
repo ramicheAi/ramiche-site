@@ -35,7 +35,7 @@ export const WEIGHT_CPS = [
 
 export const MEET_CPS = [
   { id: "m-pr", name: "Personal Record", xp: 50, desc: "Set a new PR in any event" },
-  { id: "m-best-time", name: "Best Time", xp: 30, desc: "Season-best or meet-best time" },
+  { id: "m-best-time", name: "Season Best", xp: 15, desc: "Fastest time this season (not all-time PR)" },
   { id: "m-sportsmanship", name: "Sportsmanship", xp: 20, desc: "Cheered teammates, showed respect" },
 ] as const;
 
