@@ -2,16 +2,23 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   MEMORY BROWSER — Live Agent Memory Logs from workspace/memory/*.md
+   JOURNAL LOG v3 — Ultra-Linear Layout
+   Collapsible days, per-agent grouping, clean vertical timeline
    ══════════════════════════════════════════════════════════════════════════════ */
 
-interface MemoryEntry {
+interface JournalEntry {
+  time: string;
+  title: string;
+  content: string;
+  agent?: string;
+}
+
+interface MemoryDay {
   date: string;
   day: string;
-  entries: { time: string; title: string; content: string; agent?: string }[];
+  entries: JournalEntry[];
 }
 
 const AGENT_COLORS: Record<string, string> = {
@@ -24,22 +31,43 @@ const AGENT_COLORS: Record<string, string> = {
   AETHERION: "#818cf8",
   PROPHETS: "#fbbf24",
   "DR STRANGE": "#f87171",
+  SIMONS: "#fb923c",
+  VEE: "#e879f9",
+  ECHO: "#2dd4bf",
+  HAVEN: "#94a3b8",
+  WIDOW: "#ef4444",
+  MICHAEL: "#4ade80",
+  SELAH: "#c084fc",
+  KIYOSAKI: "#fbbf24",
+  TheMAESTRO: "#f59e0b",
+  THEMIS: "#a3e635",
+  PROXIMON: "#38bdf8",
 };
+
+function agentColor(name?: string): string {
+  return AGENT_COLORS[name || ""] || "#6b7280";
+}
 
 export default function MemoryBrowserPage() {
   const [search, setSearch] = useState("");
   const [selectedAgent, setSelectedAgent] = useState<string>("all");
-  const [memoryLogs, setMemoryLogs] = useState<MemoryEntry[]>([]);
+  const [memoryLogs, setMemoryLogs] = useState<MemoryDay[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState<string>("");
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<"timeline" | "agent">("timeline");
 
   const fetchMemory = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/memory?days=14");
+      const res = await fetch("/api/command-center/memory?days=30");
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       if (data.days && data.days.length > 0) {
         setMemoryLogs(data.days);
+        if (expandedDays.size === 0 && data.days.length > 0) {
+          setExpandedDays(new Set([data.days[0].date]));
+        }
       }
       setLastSync(new Date().toLocaleTimeString());
     } catch {
@@ -47,7 +75,7 @@ export default function MemoryBrowserPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchMemory();
@@ -55,140 +83,391 @@ export default function MemoryBrowserPage() {
     return () => clearInterval(interval);
   }, [fetchMemory]);
 
+  /* ── Derived data ──────────────────────────────────────────────────────── */
+
   const agents = useMemo(() => {
     const set = new Set<string>();
-    memoryLogs.forEach((d) => d.entries.forEach((e) => { if (e.agent) set.add(e.agent); }));
+    memoryLogs.forEach((d) =>
+      d.entries.forEach((e) => {
+        if (e.agent) set.add(e.agent);
+      })
+    );
     return Array.from(set).sort();
   }, [memoryLogs]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return memoryLogs.map((day) => ({
-      ...day,
-      entries: day.entries.filter((e) => {
-        const matchSearch = !q || e.title.toLowerCase().includes(q) || e.content.toLowerCase().includes(q) || (e.agent || "").toLowerCase().includes(q);
-        const matchAgent = selectedAgent === "all" || e.agent === selectedAgent;
-        return matchSearch && matchAgent;
-      }),
-    })).filter((day) => day.entries.length > 0);
+    return memoryLogs
+      .map((day) => ({
+        ...day,
+        entries: day.entries.filter((e) => {
+          const matchSearch =
+            !q ||
+            e.title.toLowerCase().includes(q) ||
+            e.content.toLowerCase().includes(q) ||
+            (e.agent || "").toLowerCase().includes(q);
+          const matchAgent =
+            selectedAgent === "all" || e.agent === selectedAgent;
+          return matchSearch && matchAgent;
+        }),
+      }))
+      .filter((day) => day.entries.length > 0);
   }, [search, selectedAgent, memoryLogs]);
 
   const totalEntries = memoryLogs.reduce((s, d) => s + d.entries.length, 0);
 
+  /* ── Actions ───────────────────────────────────────────────────────────── */
+
+  const toggleDay = (date: string) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
+  };
+
+  const toggleEntry = (key: string) => {
+    setExpandedEntries((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const expandAll = () =>
+    setExpandedDays(new Set(filtered.map((d) => d.date)));
+  const collapseAll = () => setExpandedDays(new Set());
+
+  const groupByAgent = (entries: JournalEntry[]) => {
+    const groups: Record<string, JournalEntry[]> = {};
+    for (const e of entries) {
+      const key = e.agent || "Unknown";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(e);
+    }
+    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  /* ── Render ────────────────────────────────────────────────────────────── */
+
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
-      <ParticleField />
+    <div className="min-h-screen bg-[#08080c] text-white">
+      {/* ─── Top bar ─────────────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-30 bg-[#08080c]/95 backdrop-blur-sm border-b border-white/[0.06]">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Link
+                href="/command-center"
+                className="text-[10px] text-white/30 hover:text-white/60 tracking-[0.2em] transition-colors"
+              >
+                ← COMMAND CENTER
+              </Link>
+              <h1 className="text-lg font-semibold tracking-tight mt-0.5">
+                <span className="text-amber-400">JOURNAL</span>
+                <span className="text-white/25 ml-1.5 text-sm font-normal">
+                  {loading
+                    ? "..."
+                    : `${totalEntries} entries · ${memoryLogs.length} days`}
+                </span>
+              </h1>
+            </div>
 
-      {/* Header */}
-      <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href="/command-center" className="text-xs text-white/40 hover:text-white/70 tracking-[0.2em] transition-colors">
-              ← COMMAND CENTER
-            </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">MEMORY</span>
-              <span className="text-white/40 ml-2 text-lg font-light">BROWSER</span>
-            </h1>
-            <p className="text-white/30 text-xs tracking-[0.15em] mt-1">
-              {loading ? "LOADING..." : `${totalEntries} ENTRIES · ${memoryLogs.length} DAYS`}
-              {lastSync && <span className="ml-2 text-green-500/50">● LIVE · {lastSync}</span>}
-            </p>
+            <div className="flex items-center gap-1.5">
+              {lastSync && (
+                <span className="text-[9px] text-green-500/40 mr-2">
+                  ● {lastSync}
+                </span>
+              )}
+              <Pill
+                active={viewMode === "timeline"}
+                onClick={() => setViewMode("timeline")}
+              >
+                TIMELINE
+              </Pill>
+              <Pill
+                active={viewMode === "agent"}
+                onClick={() => setViewMode("agent")}
+              >
+                BY AGENT
+              </Pill>
+              <span className="w-px h-4 bg-white/10 mx-1" />
+              <Pill onClick={expandAll}>ALL</Pill>
+              <Pill onClick={collapseAll}>NONE</Pill>
+            </div>
           </div>
-        </div>
 
-        {/* Search + Filter */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-6">
-          <div className="relative flex-1">
+          {/* Search + agent filter */}
+          <div className="flex gap-2 mt-3">
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search memories..."
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-amber-500/50 transition-colors"
+              placeholder="Search..."
+              className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded px-3 py-1.5 text-xs text-white placeholder-white/20 focus:outline-none focus:border-amber-500/40 transition-colors"
             />
-            {search && (
-              <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 text-xs">
-                ✕
-              </button>
-            )}
+            <select
+              value={selectedAgent}
+              onChange={(e) => setSelectedAgent(e.target.value)}
+              className="bg-white/[0.04] border border-white/[0.08] rounded px-2 py-1.5 text-xs text-white/60 focus:outline-none focus:border-amber-500/40 transition-colors"
+            >
+              <option value="all">All Agents</option>
+              {agents.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           </div>
-          <select
-            value={selectedAgent}
-            onChange={(e) => setSelectedAgent(e.target.value)}
-            className="bg-white/5 border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white/70 focus:outline-none focus:border-amber-500/50 transition-colors"
-          >
-            <option value="all">All Agents</option>
-            {agents.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
         </div>
-      </div>
+      </header>
 
-      {/* Timeline */}
-      <div className="relative z-10 px-4 sm:px-8 pb-12">
+      {/* ─── Day list ────────────────────────────────────────────────────── */}
+      <main className="max-w-3xl mx-auto px-4 py-6">
         {filtered.length === 0 ? (
-          <div className="text-center py-20 text-white/30">
-            <p className="text-4xl mb-3">∅</p>
-            <p className="text-sm">No memories match your search</p>
+          <div className="text-center py-24 text-white/20 text-sm">
+            No entries found.
           </div>
         ) : (
-          <div className="space-y-8">
-            {filtered.map((day) => (
-              <div key={day.date} className="relative">
-                {/* Date header */}
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  <h2 className="text-sm font-semibold tracking-[0.15em] text-amber-400/80">
-                    {day.date}
-                  </h2>
-                  <span className="text-xs text-white/20">{day.day}</span>
-                  <div className="flex-1 h-px bg-white/5" />
-                  <span className="text-xs text-white/20">{day.entries.length} entries</span>
-                </div>
+          <div className="space-y-1">
+            {filtered.map((day) => {
+              const open = expandedDays.has(day.date);
+              const agentCounts: Record<string, number> = {};
+              day.entries.forEach((e) => {
+                const k = e.agent || "Unknown";
+                agentCounts[k] = (agentCounts[k] || 0) + 1;
+              });
 
-                {/* Entries */}
-                <div className="ml-1 border-l border-white/5 pl-5 space-y-3">
-                  {day.entries.map((entry, i) => {
-                    const agentColor = AGENT_COLORS[entry.agent || ""] || "#6b7280";
-                    return (
-                      <div
-                        key={i}
-                        className="relative group bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.06] hover:border-white/10 rounded-lg p-4 transition-all duration-200"
-                      >
-                        {/* Timeline dot */}
-                        <div
-                          className="absolute -left-[1.65rem] top-5 w-2.5 h-2.5 rounded-full border-2"
-                          style={{ borderColor: agentColor, backgroundColor: `${agentColor}33` }}
-                        />
+              return (
+                <section key={day.date}>
+                  {/* Day header */}
+                  <button
+                    onClick={() => toggleDay(day.date)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded hover:bg-white/[0.03] transition-colors text-left group"
+                  >
+                    <svg
+                      className={`w-3.5 h-3.5 text-white/20 transition-transform duration-150 ${open ? "rotate-90" : ""}`}
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
 
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <span className="text-xs text-white/30 font-mono">{entry.time}</span>
-                              <h3 className="text-sm font-medium text-white/90">{entry.title}</h3>
-                            </div>
-                            <p className="text-xs text-white/50 leading-relaxed">{entry.content}</p>
-                          </div>
-                          {entry.agent && (
+                    <span className="text-sm font-medium text-white/80">
+                      {day.date}
+                    </span>
+                    <span className="text-xs text-white/25">{day.day}</span>
+
+                    {/* Agent dots */}
+                    <div className="flex items-center gap-1 ml-auto">
+                      {Object.entries(agentCounts)
+                        .sort(([, a], [, b]) => b - a)
+                        .slice(0, 6)
+                        .map(([agent, count]) => (
+                          <span
+                            key={agent}
+                            className="flex items-center gap-0.5 text-[9px] tracking-wide opacity-50 group-hover:opacity-80 transition-opacity"
+                            style={{ color: agentColor(agent) }}
+                          >
                             <span
-                              className="shrink-0 text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full border"
-                              style={{ color: agentColor, borderColor: `${agentColor}40`, backgroundColor: `${agentColor}10` }}
-                            >
-                              {entry.agent}
-                            </span>
+                              className="w-1.5 h-1.5 rounded-full inline-block"
+                              style={{ backgroundColor: agentColor(agent) }}
+                            />
+                            {count}
+                          </span>
+                        ))}
+                      <span className="text-[10px] text-white/15 ml-1">
+                        {day.entries.length}
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* Entries (collapsible) */}
+                  {open && (
+                    <div className="ml-5 pl-4 border-l border-white/[0.06] pb-3 pt-1">
+                      {viewMode === "agent" ? (
+                        /* ── Agent-grouped view ─────────────────── */
+                        <div className="space-y-4">
+                          {groupByAgent(day.entries).map(
+                            ([agent, entries]) => (
+                              <div key={agent}>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <span
+                                    className="w-2 h-2 rounded-full"
+                                    style={{
+                                      backgroundColor: agentColor(agent),
+                                    }}
+                                  />
+                                  <span
+                                    className="text-[10px] font-semibold tracking-wider"
+                                    style={{ color: agentColor(agent) }}
+                                  >
+                                    {agent}
+                                  </span>
+                                  <span className="text-[10px] text-white/15">
+                                    {entries.length}
+                                  </span>
+                                  <div className="flex-1 h-px bg-white/[0.04]" />
+                                </div>
+                                <div className="space-y-0.5 ml-4">
+                                  {entries.map((entry, i) => {
+                                    const k = `${day.date}-${agent}-${i}`;
+                                    return (
+                                      <EntryRow
+                                        key={k}
+                                        entry={entry}
+                                        entryKey={k}
+                                        expanded={expandedEntries.has(k)}
+                                        onToggle={toggleEntry}
+                                        showAgent={false}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
+                      ) : (
+                        /* ── Timeline view ──────────────────────── */
+                        <div className="space-y-0.5">
+                          {day.entries.map((entry, i) => {
+                            const k = `${day.date}-${i}`;
+                            return (
+                              <EntryRow
+                                key={k}
+                                entry={entry}
+                                entryKey={k}
+                                expanded={expandedEntries.has(k)}
+                                onToggle={toggleEntry}
+                                showAgent
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+              );
+            })}
           </div>
         )}
+      </main>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   Sub-components
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+function Pill({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`text-[9px] tracking-[0.1em] px-2 py-0.5 rounded transition-colors ${
+        active
+          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+          : "text-white/25 hover:text-white/50 border border-transparent"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function EntryRow({
+  entry,
+  entryKey,
+  expanded,
+  onToggle,
+  showAgent,
+}: {
+  entry: JournalEntry;
+  entryKey: string;
+  expanded: boolean;
+  onToggle: (key: string) => void;
+  showAgent: boolean;
+}) {
+  const color = agentColor(entry.agent);
+  const hasContent = entry.content.length > 0;
+
+  return (
+    <div
+      className={`rounded px-2.5 py-1.5 transition-colors ${hasContent ? "cursor-pointer hover:bg-white/[0.03]" : ""}`}
+      onClick={() => hasContent && onToggle(entryKey)}
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        {/* Time */}
+        <span className="text-[10px] text-white/20 font-mono shrink-0 w-11 text-right">
+          {entry.time}
+        </span>
+
+        {/* Agent dot */}
+        <span
+          className="w-1.5 h-1.5 rounded-full shrink-0"
+          style={{ backgroundColor: color }}
+        />
+
+        {/* Title */}
+        <span className="text-xs text-white/70 truncate flex-1">
+          {entry.title}
+        </span>
+
+        {/* Agent badge (timeline mode) */}
+        {showAgent && entry.agent && (
+          <span
+            className="text-[8px] tracking-wider font-semibold shrink-0 px-1.5 py-px rounded"
+            style={{
+              color,
+              backgroundColor: `${color}10`,
+            }}
+          >
+            {entry.agent}
+          </span>
+        )}
+
+        {/* Expand indicator */}
+        {hasContent && (
+          <svg
+            className={`w-3 h-3 text-white/15 transition-transform duration-150 shrink-0 ${expanded ? "rotate-90" : ""}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9 5l7 7-7 7"
+            />
+          </svg>
+        )}
       </div>
+
+      {/* Expanded content */}
+      {expanded && hasContent && (
+        <div className="ml-[3.6rem] mt-1.5 mb-1 text-[11px] text-white/35 leading-relaxed whitespace-pre-wrap border-l-2 pl-3" style={{ borderColor: `${color}20` }}>
+          {entry.content}
+        </div>
+      )}
     </div>
   );
 }
