@@ -285,17 +285,17 @@ function _s(type: SessionType, label: string, start: string, end: string, locati
 }
 const _rest = (): DaySchedule => ({ template: "rest-day", sessions: [] });
 
-// Source: GoMotion screenshot (file_170) + PDF (file_172) from Feb 12, 2026
-// Weight room corrected to 5:30 PM start per Ramon's directive (PDF says 5:15)
+// Source: Ramon's direct input (Mar 21, 2026) — CANONICAL. Do NOT modify without Ramon's approval.
+// Weight room is 5:15 PM start (per Ramon's correction)
 const REAL_SCHEDULES: Record<string, GroupSchedule> = {
   platinum: { groupId: "platinum", weekSchedule: {
-    Sun: { template: "endurance-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:00"), _s("pool", "Platinum PM", "15:30", "17:00")] },
-    Mon: { template: "sprint-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:00"), _s("pool", "Platinum PM", "15:30", "17:00"), _s("weight", "Weight Room", "17:30", "18:30", "Weight Room")] },
-    Tue: { template: "200-pace-day", sessions: [_s("pool", "All Groups 200-Pace", "16:00", "18:00")] },
-    Wed: { template: "endurance-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:00"), _s("pool", "Platinum PM", "15:30", "17:00"), _s("weight", "Weight Room", "17:30", "18:30", "Weight Room")] },
-    Thu: { template: "technique-day", sessions: [_s("pool", "Platinum PM", "16:00", "18:00")] },
-    Fri: { template: "sprint-day", sessions: [_s("pool", "Platinum AM", "05:30", "07:00"), _s("weight", "Weight Room", "17:30", "18:30", "Weight Room")] },
-    Sat: { template: "meet-day", sessions: [_s("pool", "Saturday Practice", "07:00", "09:30")] },
+    Sun: _rest(),
+    Mon: { template: "endurance-day", sessions: [_s("pool", "Aerobic Endurance", "05:30", "07:00"), _s("pool", "Split: Sprint / Mid-Distance", "15:30", "17:00"), _s("weight", "Weight Room", "17:15", "18:30", "Weight Room")] },
+    Tue: { template: "200-pace-day", sessions: [_s("pool", "All Groups 200-Pace Day", "16:00", "18:00")] },
+    Wed: { template: "drill-day", sessions: [_s("pool", "Boys: Power/Speed · Girls: IM", "05:30", "07:00"), _s("pool", "Recovery (drills, starts, turns)", "15:30", "17:00"), _s("weight", "Weight Room", "17:15", "18:30", "Weight Room")] },
+    Thu: { template: "technique-day", sessions: [_s("pool", "Sprint: Speed Work · Mid-D: Aerobic", "16:00", "18:00")] },
+    Fri: { template: "sprint-day", sessions: [_s("pool", "Girls: Power/Speed · Boys: IM", "05:30", "07:00"), _s("weight", "Weight Room", "17:15", "18:30", "Weight Room")] },
+    Sat: { template: "meet-day", sessions: [_s("pool", "Lactic Acid Threshold — Race Pace", "07:00", "09:30")] },
   }},
   gold: { groupId: "gold", weekSchedule: {
     Sun: { template: "endurance-day", sessions: [_s("pool", "Gold", "17:30", "18:30")] },
