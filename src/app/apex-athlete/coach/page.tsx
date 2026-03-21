@@ -894,9 +894,10 @@ export default function ApexAthletePage() {
     const daySched = sched.weekSchedule[dayKey];
     if (!daySched || daySched.sessions.length === 0) return;
     const hasWeight = daySched.sessions.some(s => s.type === "weight");
-    const isMeet = daySched.template === "meet-day";
+    const isMeetTemplate = daySched.template === "meet-day";
+    const isMeetToday = meets.some(m => m.date === today());
     const hhmm = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-    if (isMeet) { setSessionModeRaw("meet"); return; }
+    if (isMeetTemplate || isMeetToday) { setSessionModeRaw("meet"); return; }
     if (hasWeight) {
       const weightSession = daySched.sessions.find(s => s.type === "weight");
       if (weightSession && hhmm >= weightSession.startTime) { setSessionModeRaw("weight"); return; }
