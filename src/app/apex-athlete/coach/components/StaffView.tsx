@@ -1,13 +1,13 @@
 "use client";
-import React from "react";
+import React, { useState, useCallback } from "react";
 
-interface Coach {
+interface CoachProfile {
   id: string;
   name: string;
   pin: string;
   role: "head" | "assistant";
   groups: string[];
-  email?: string;
+  email: string;
 }
 
 interface RosterGroup {
@@ -20,34 +20,58 @@ interface RosterGroup {
 
 interface StaffViewProps {
   isAdmin: boolean;
-  coaches: Coach[];
-  editingCoachId: string | null;
-  setEditingCoachId: (id: string | null) => void;
-  removeCoach: (id: string) => void;
-  updateCoach: (id: string, updates: Partial<Coach>) => void;
-  addCoach: () => void;
+  coaches: CoachProfile[];
+  saveCoaches: (c: CoachProfile[]) => void;
+  addAudit: (who: string, name: string, action: string, xp: number) => void;
   ROSTER_GROUPS: readonly RosterGroup[];
-  newCoachName: string;
-  setNewCoachName: (v: string) => void;
-  newCoachEmail: string;
-  setNewCoachEmail: (v: string) => void;
-  newCoachRole: "head" | "assistant";
-  setNewCoachRole: (v: "head" | "assistant") => void;
-  newCoachGroups: readonly string[] | string[];
-  setNewCoachGroups: React.Dispatch<React.SetStateAction<any>>;
-  addCoachOpen: boolean;
-  setAddCoachOpen: (v: boolean) => void;
-  toggleCoachGroup: (groupId: string) => void;
   GameHUDHeader: React.ComponentType;
   BgOrbs: React.ComponentType;
 }
 
 export default function StaffView({
-  isAdmin, coaches, editingCoachId, setEditingCoachId, removeCoach, updateCoach, addCoach,
-  ROSTER_GROUPS, newCoachName, setNewCoachName, newCoachEmail, setNewCoachEmail,
-  newCoachRole, setNewCoachRole, newCoachGroups, setNewCoachGroups,
-  addCoachOpen, setAddCoachOpen, toggleCoachGroup, GameHUDHeader, BgOrbs
+  isAdmin, coaches, saveCoaches, addAudit, ROSTER_GROUPS, GameHUDHeader, BgOrbs
 }: StaffViewProps) {
+  // ── form state (internalized from parent) ──
+  const [addCoachOpen, setAddCoachOpen] = useState(false);
+  const [newCoachName, setNewCoachName] = useState("");
+  const [newCoachEmail, setNewCoachEmail] = useState("");
+  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
+  const [newCoachGroups, setNewCoachGroups] = useState<string[]>([]);
+  const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
+
+  // ── callbacks ──
+  const addCoach = useCallback(() => {
+    if (!newCoachName.trim()) return;
+    const pin = String(1000 + Math.floor(Math.random() * 9000));
+    const coach: CoachProfile = {
+      id: `coach-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: newCoachName.trim(),
+      role: newCoachRole,
+      groups: newCoachRole === "head" ? ROSTER_GROUPS.map(g => g.id) : newCoachGroups,
+      email: newCoachEmail.trim(),
+      pin,
+    };
+    saveCoaches([...coaches, coach]);
+    setNewCoachName(""); setNewCoachRole("assistant"); setNewCoachGroups([]); setNewCoachEmail(""); setAddCoachOpen(false);
+    addAudit("system", "System", `Added coach: ${coach.name} (${coach.role})`, 0);
+  }, [newCoachName, newCoachRole, newCoachGroups, newCoachEmail, coaches, saveCoaches, addAudit, ROSTER_GROUPS]);
+
+  const removeCoach = useCallback((id: string) => {
+    const c = coaches.find(x => x.id === id);
+    if (!c) return;
+    saveCoaches(coaches.filter(x => x.id !== id));
+    addAudit("system", "System", `Removed coach: ${c.name}`, 0);
+  }, [coaches, saveCoaches, addAudit]);
+
+  const updateCoach = useCallback((id: string, updates: Partial<CoachProfile>) => {
+    saveCoaches(coaches.map(c => c.id === id ? { ...c, ...updates } : c));
+    setEditingCoachId(null);
+  }, [coaches, saveCoaches]);
+
+  const toggleCoachGroup = useCallback((gid: string) => {
+    setNewCoachGroups(prev => prev.includes(gid) ? prev.filter(g => g !== gid) : [...prev, gid]);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#06020f] text-white relative overflow-x-hidden">
       <BgOrbs />
@@ -158,7 +182,7 @@ export default function StaffView({
             ) : (
               <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#00f0ff]/20 p-6 space-y-4" style={{ isolation: 'isolate' }}>
                 <div className="relative z-[5] space-y-4">
-                <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Add New Coach</h3>
+                <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">{`// Add New Coach`}</h3>
 
                 <div>
                   <label className="text-white/60 text-xs font-mono uppercase tracking-wider block mb-1.5">Name</label>
@@ -234,7 +258,7 @@ export default function StaffView({
 
         {/* Access control info */}
         <div className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-2xl border border-[#a855f7]/10 p-5 mb-10">
-          <h3 className="text-[#a855f7]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">// Access Control</h3>
+          <h3 className="text-[#a855f7]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono mb-3">{`// Access Control`}</h3>
           <div className="space-y-2 text-[11px] text-white/60 font-mono">
             <p><span className="text-[#f59e0b]/60">Master PIN</span> — Full admin access to all groups</p>
             <p><span className="text-[#f59e0b]/60">Head Coach</span> — Access to all groups</p>

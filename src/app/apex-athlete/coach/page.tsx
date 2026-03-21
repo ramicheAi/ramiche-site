@@ -994,12 +994,6 @@ export default function ApexAthletePage() {
 
   // ── coach management state ──────────────────────────────
   const [coaches, setCoaches] = useState<CoachProfile[]>([]);
-  const [addCoachOpen, setAddCoachOpen] = useState(false);
-  const [newCoachName, setNewCoachName] = useState("");
-  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
-  const [newCoachGroups, setNewCoachGroups] = useState<GroupId[]>([]);
-  const [newCoachEmail, setNewCoachEmail] = useState("");
-  const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
 
   // ── meets & comms state ─────────────────────────────────
   const [meets, setMeets] = useState<SwimMeet[]>([]);
@@ -2087,38 +2081,6 @@ export default function ApexAthletePage() {
   // ── coach management ──────────────────────────────────
   const saveCoaches = useCallback((c: CoachProfile[]) => { setCoaches(c); save(K.COACHES, c); }, []);
 
-  const addCoach = useCallback(() => {
-    if (!newCoachName.trim()) return;
-    const pin = String(1000 + Math.floor(Math.random() * 9000));
-    const coach: CoachProfile = {
-      id: `coach-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      name: newCoachName.trim(),
-      role: newCoachRole,
-      groups: newCoachRole === "head" ? ROSTER_GROUPS.map(g => g.id) : newCoachGroups,
-      email: newCoachEmail.trim(),
-      pin,
-    };
-    saveCoaches([...coaches, coach]);
-    setNewCoachName(""); setNewCoachRole("assistant"); setNewCoachGroups([]); setNewCoachEmail(""); setAddCoachOpen(false);
-    addAudit("system", "System", `Added coach: ${coach.name} (${coach.role})`, 0);
-  }, [newCoachName, newCoachRole, newCoachGroups, newCoachEmail, coaches, saveCoaches, addAudit]);
-
-  const removeCoach = useCallback((id: string) => {
-    const c = coaches.find(x => x.id === id);
-    if (!c) return;
-    saveCoaches(coaches.filter(x => x.id !== id));
-    addAudit("system", "System", `Removed coach: ${c.name}`, 0);
-  }, [coaches, saveCoaches, addAudit]);
-
-  const updateCoach = useCallback((id: string, updates: Partial<CoachProfile>) => {
-    saveCoaches(coaches.map(c => c.id === id ? { ...c, ...updates } : c));
-    setEditingCoachId(null);
-  }, [coaches, saveCoaches]);
-
-  const toggleCoachGroup = useCallback((gid: GroupId) => {
-    setNewCoachGroups(prev => prev.includes(gid) ? prev.filter(g => g !== gid) : [...prev, gid]);
-  }, []);
-
   // Current coach's accessible groups (for access control)
   // Head coach / admin (master PIN) sees all groups; assistant coaches see only their assigned groups
   const currentCoach = useMemo(() => {
@@ -2680,9 +2642,15 @@ export default function ApexAthletePage() {
               <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
             </div>
             {!athlete.present && (
-              <Card className="px-5 py-4">
-                <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
-              </Card>
+              <button
+                onClick={() => togglePresent(athlete.id)}
+                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-emerald-500/10 border-2 border-emerald-400/30 hover:border-emerald-400/60 hover:bg-emerald-500/15 transition-all active:scale-[0.98] min-h-[56px]"
+              >
+                <div className="w-8 h-8 rounded-full border-2 border-emerald-400/40 flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400/40" />
+                </div>
+                <span className="text-emerald-400 font-bold text-sm">Mark Present</span>
+              </button>
             )}
             {athlete.present && (
               <Card className="divide-y divide-white/[0.04]">
@@ -3053,9 +3021,15 @@ export default function ApexAthletePage() {
                       <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
                     </div>
                     {!athlete.present ? (
-                      <Card className="px-5 py-4">
-                        <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
-                      </Card>
+                      <button
+                        onClick={() => togglePresent(athlete.id)}
+                        className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-emerald-500/10 border-2 border-emerald-400/30 hover:border-emerald-400/60 hover:bg-emerald-500/15 transition-all active:scale-[0.98] min-h-[56px]"
+                      >
+                        <div className="w-8 h-8 rounded-full border-2 border-emerald-400/40 flex items-center justify-center">
+                          <div className="w-2 h-2 rounded-full bg-emerald-400/40" />
+                        </div>
+                        <span className="text-emerald-400 font-bold text-sm">Mark Present</span>
+                      </button>
                     ) : (
                       <Card className="divide-y divide-white/[0.04]">
                         {(autoPool ? AUTO_POOL_CPS : cps).map(cp => {
@@ -3230,23 +3204,9 @@ export default function ApexAthletePage() {
       <StaffView
         isAdmin={!!isAdmin}
         coaches={coaches}
-        editingCoachId={editingCoachId}
-        setEditingCoachId={setEditingCoachId}
-        removeCoach={removeCoach}
-        updateCoach={updateCoach as (id: string, updates: Partial<{ id: string; name: string; role: "head" | "assistant"; groups: string[]; email: string; pin: string }>) => void}
-        addCoach={addCoach}
+        saveCoaches={saveCoaches as (c: { id: string; name: string; role: string; groups: string[]; email?: string }[]) => void}
+        addAudit={addAudit}
         ROSTER_GROUPS={ROSTER_GROUPS}
-        newCoachName={newCoachName}
-        setNewCoachName={setNewCoachName}
-        newCoachEmail={newCoachEmail}
-        setNewCoachEmail={setNewCoachEmail}
-        newCoachRole={newCoachRole}
-        setNewCoachRole={setNewCoachRole}
-        newCoachGroups={newCoachGroups}
-        setNewCoachGroups={setNewCoachGroups}
-        addCoachOpen={addCoachOpen}
-        setAddCoachOpen={setAddCoachOpen}
-        toggleCoachGroup={toggleCoachGroup as (groupId: string) => void}
         GameHUDHeader={GameHUDHeader}
         BgOrbs={BgOrbs}
       />
@@ -3579,7 +3539,7 @@ export default function ApexAthletePage() {
 
             {/* Full ranked list — all athletes 1-N */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Full Rankings</h3>
+              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">{`// Full Rankings`}</h3>
               <span className="text-[#00f0ff]/20 text-xs font-mono">{sorted.length} athletes</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
@@ -3861,7 +3821,7 @@ export default function ApexAthletePage() {
             )}
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">// Roster Check-In</h3>
+            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">{`// Roster Check-In`}</h3>
             <div className="space-y-3 mb-12" style={{ 
               contentVisibility: "auto",
               containIntrinsicSize: "0 4000px" /* Estimate: ~50 athletes * 80px each */
@@ -3892,8 +3852,8 @@ export default function ApexAthletePage() {
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
                         <button
+                          onPointerDown={(e) => { e.stopPropagation(); }}
                           onClick={(e) => { e.stopPropagation(); e.preventDefault(); togglePresent(a.id); }}
-                          onTouchEnd={(e) => { e.stopPropagation(); }}
                           className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center transition-all duration-200 active:scale-90 touch-manipulation ${
                             a.present
                               ? "bg-emerald-500/20 border-2 border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
@@ -3935,7 +3895,7 @@ export default function ApexAthletePage() {
 
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
-              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Team Challenges</h3>
+              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">{`// Team Challenges`}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
