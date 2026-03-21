@@ -23,6 +23,7 @@ import StaffView from "./components/StaffView";
 import KioskCheckin from "./components/KioskCheckin";
 import BgOrbs from "./components/BgOrbs";
 import XpFloats from "./components/XpFloats";
+import Card from "./components/Card";
 import ScheduleView from "./views/ScheduleView";
 import CommsView from "./views/CommsView";
 import MeetsView from "./views/MeetsView";
@@ -749,9 +750,7 @@ const DEFAULT_CULTURE: TeamCulture = {
 
 /* ── standalone presentational components (outside main component to prevent re-render bugs) ── */
 
-const Card = ({ children, className = "", glow = false, neon = false }: { children: React.ReactNode; className?: string; glow?: boolean; neon?: boolean }) => (
-  <div style={{animation: 'glowBreathe 4s ease-in-out infinite'}} className={`game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
-);
+// Card extracted to ./components/Card.tsx
 
 // BgOrbs extracted to ./components/BgOrbs.tsx
 
@@ -1004,14 +1003,6 @@ export default function ApexAthletePage() {
 
   // ── meets & comms state ─────────────────────────────────
   const [meets, setMeets] = useState<SwimMeet[]>([]);
-  const [broadcastMsg, setBroadcastMsg] = useState("");
-  const [newMeetName, setNewMeetName] = useState("");
-  const [newMeetDate, setNewMeetDate] = useState("");
-  const [newMeetLocation, setNewMeetLocation] = useState("");
-  const [newMeetCourse, setNewMeetCourse] = useState<"SCY" | "SCM" | "LCM">("SCY");
-  const [newMeetDeadline, setNewMeetDeadline] = useState("");
-  const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
-  const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
 
   // ── comms state (must be at top level — hooks cannot be inside conditionals) ──
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
@@ -3374,22 +3365,6 @@ export default function ApexAthletePage() {
         roster={roster}
         filteredRoster={filteredRoster}
         ROSTER_GROUPS={ROSTER_GROUPS}
-        newMeetName={newMeetName}
-        setNewMeetName={setNewMeetName}
-        newMeetDate={newMeetDate}
-        setNewMeetDate={setNewMeetDate}
-        newMeetLocation={newMeetLocation}
-        setNewMeetLocation={setNewMeetLocation}
-        newMeetCourse={newMeetCourse}
-        setNewMeetCourse={setNewMeetCourse}
-        newMeetDeadline={newMeetDeadline}
-        setNewMeetDeadline={setNewMeetDeadline}
-        editingMeetId={editingMeetId}
-        setEditingMeetId={setEditingMeetId}
-        meetEventPicker={meetEventPicker}
-        setMeetEventPicker={setMeetEventPicker}
-        broadcastMsg={broadcastMsg}
-        setBroadcastMsg={setBroadcastMsg}
         onMeetScore={handleMeetScore}
       />
     );

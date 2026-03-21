@@ -57,23 +57,6 @@ export interface MeetsViewProps {
   roster: Athlete[];
   filteredRoster: Athlete[];
   ROSTER_GROUPS: readonly RosterGroup[];
-  // form state
-  newMeetName: string;
-  setNewMeetName: (v: string) => void;
-  newMeetDate: string;
-  setNewMeetDate: (v: string) => void;
-  newMeetLocation: string;
-  setNewMeetLocation: (v: string) => void;
-  newMeetCourse: "SCY" | "SCM" | "LCM";
-  setNewMeetCourse: (v: "SCY" | "SCM" | "LCM") => void;
-  newMeetDeadline: string;
-  setNewMeetDeadline: (v: string) => void;
-  editingMeetId: string | null;
-  setEditingMeetId: (v: string | null) => void;
-  meetEventPicker: string | null;
-  setMeetEventPicker: (v: string | null) => void;
-  broadcastMsg: string;
-  setBroadcastMsg: (v: string) => void;
   onMeetScore?: (result: ScoringResult, meet: SwimMeet) => void;
 }
 
@@ -106,24 +89,17 @@ export default function MeetsView({
   roster,
   filteredRoster,
   ROSTER_GROUPS,
-  newMeetName,
-  setNewMeetName,
-  newMeetDate,
-  setNewMeetDate,
-  newMeetLocation,
-  setNewMeetLocation,
-  newMeetCourse,
-  setNewMeetCourse,
-  newMeetDeadline,
-  setNewMeetDeadline,
-  editingMeetId,
-  setEditingMeetId,
-  meetEventPicker,
-  setMeetEventPicker,
-  broadcastMsg,
-  setBroadcastMsg,
   onMeetScore,
 }: MeetsViewProps) {
+  // Form state (owned locally — removed from page.tsx)
+  const [newMeetName, setNewMeetName] = useState("");
+  const [newMeetDate, setNewMeetDate] = useState("");
+  const [newMeetLocation, setNewMeetLocation] = useState("");
+  const [newMeetCourse, setNewMeetCourse] = useState<"SCY" | "SCM" | "LCM">("SCY");
+  const [newMeetDeadline, setNewMeetDeadline] = useState("");
+  const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
+  const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
+  const [broadcastMsg, setBroadcastMsg] = useState("");
   const saveMeets = (m: SwimMeet[]) => { setMeets(m); saveMeetsToStorage(m); };
   const [meetBonuses, setMeetBonuses] = useState<Record<string, { athleteId: string; bonuses: MeetDayBonus[]; totalXP: number }[]>>({});
 
