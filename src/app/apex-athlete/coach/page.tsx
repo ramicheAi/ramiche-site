@@ -1817,13 +1817,17 @@ export default function ApexAthletePage() {
         }
         newAthlete.bestTimes = bt;
       }
-      // Auto-check meet checkpoints based on results
+      // Auto-check meet checkpoints — per-event stacking (counts, not binary)
       const mc = { ...(newAthlete.meetCheckpoints || {}) };
       const bonusLabels = result.bonuses.map(b => b.label.toLowerCase());
-      if (result.newBestTimes.length > 0 || bonusLabels.some(l => l.includes("pr") || l.includes("personal"))) mc["m-pr"] = true;
-      if (bonusLabels.some(l => l.includes("meet record"))) mc["m-meet-record"] = true;
-      if (bonusLabels.some(l => l.includes("team record"))) mc["m-team-record"] = true;
-      if (bonusLabels.some(l => l.includes("best time") || l.includes("season"))) mc["m-best-time"] = true;
+      const prCount = result.newBestTimes.length || (bonusLabels.filter(l => l.includes("pr") || l.includes("personal")).length) || 0;
+      const meetRecordCount = bonusLabels.filter(l => l.includes("meet record")).length;
+      const teamRecordCount = bonusLabels.filter(l => l.includes("team record")).length;
+      const seasonBestCount = bonusLabels.filter(l => l.includes("season best") || l.includes("best time") || l.includes("season")).length;
+      if (prCount > 0) mc["m-pr"] = (typeof mc["m-pr"] === "number" ? mc["m-pr"] : mc["m-pr"] ? 1 : 0) + prCount;
+      if (meetRecordCount > 0) mc["m-meet-record"] = (typeof mc["m-meet-record"] === "number" ? mc["m-meet-record"] : mc["m-meet-record"] ? 1 : 0) + meetRecordCount;
+      if (teamRecordCount > 0) mc["m-team-record"] = (typeof mc["m-team-record"] === "number" ? mc["m-team-record"] : mc["m-team-record"] ? 1 : 0) + teamRecordCount;
+      if (seasonBestCount > 0) mc["m-best-time"] = (typeof mc["m-best-time"] === "number" ? mc["m-best-time"] : mc["m-best-time"] ? 1 : 0) + seasonBestCount;
       newAthlete.meetCheckpoints = mc;
       const next = [...prev];
       next[idx] = newAthlete;
@@ -1838,9 +1842,9 @@ export default function ApexAthletePage() {
       if (idx < 0) return prev;
       const a = { ...prev[idx] };
       const cpMap = category === "pool" ? "checkpoints" : category === "weight" ? "weightCheckpoints" : "meetCheckpoints";
-      const cps = { ...a[cpMap] };
+      const cps = { ...(a[cpMap] as Record<string, boolean | number>) };
       if (cps[cpId]) {
-        cps[cpId] = false; a[cpMap] = cps;
+        cps[cpId] = false; (a as Record<string, unknown>)[cpMap] = cps;
         SFX.untick();
         // Revert XP when unchecking
         const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
@@ -1852,7 +1856,7 @@ export default function ApexAthletePage() {
         addAudit(a.id, a.name, `Unchecked: ${cpId}`, -awarded);
         const r = [...prev]; r[idx] = a; save(K.ROSTER, r); return r;
       }
-      cps[cpId] = true; a[cpMap] = cps;
+      cps[cpId] = true; (a as Record<string, unknown>)[cpMap] = cps;
       SFX.tick();
       incrementCombo();
       const { newAthlete, awarded } = awardXP(a, cpXP, category);
@@ -1969,7 +1973,7 @@ export default function ApexAthletePage() {
         // MARKING PRESENT → auto-check Tier 1 checkpoints + award XP
         a.present = true;
         incrementCombo();
-        const newCPs: Record<string, boolean> = { ...a[cpMapKey] };
+        const newCPs: Record<string, boolean | number> = { ...a[cpMapKey] };
         let totalAwarded = 0;
         // Award base "showed up" XP
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(a, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
@@ -1994,7 +1998,7 @@ export default function ApexAthletePage() {
       } else {
         // MARKING ABSENT → uncheck ALL checkpoints (Tier 1 + any manual Tier 2) + revert XP
         a.present = false;
-        const oldCPs: Record<string, boolean> = { ...a[cpMapKey] };
+        const oldCPs: Record<string, boolean | number> = { ...a[cpMapKey] };
         const mult = sessionMode === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
         let totalReverted = 0;
         for (const cp of sportCPs) {
@@ -2056,7 +2060,7 @@ export default function ApexAthletePage() {
         if (a.group !== selectedGroup) return a;
         let athlete = { ...a };
         athlete.present = true;
-        const newCPs: Record<string, boolean> = { ...athlete[cpMapKey] };
+        const newCPs: Record<string, boolean | number> = { ...athlete[cpMapKey] };
         let totalAwarded = 0;
         // Base present XP
         const { newAthlete: a1, awarded: baseAwarded } = awardXP(athlete, PRESENT_XP, sessionMode === "meet" ? "meet" : sessionMode);
@@ -3999,23 +4003,52 @@ export default function ApexAthletePage() {
                               </div>
                               {(sessionMode === "pool" ? AUTO_POOL_CPS : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS).map(cp => {
                                 const cpMap = sessionMode === "pool" ? a.checkpoints : sessionMode === "weight" ? a.weightCheckpoints : a.meetCheckpoints;
-                                const done = cpMap[cp.id];
+                                const val = cpMap[cp.id];
+                                const done = typeof val === "number" ? val > 0 : !!val;
+                                const count = typeof val === "number" ? val : val ? 1 : 0;
+                                const isMeetStackable = sessionMode === "meet" && cp.id !== "m-sportsmanship";
                                 return (
-                                  <button key={cp.id} onClick={() => toggleCheckpoint(a.id, cp.id, cp.xp, sessionMode)}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
-                                      done ? "bg-emerald-500/8 border border-emerald-500/15" : "bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04]"
-                                    }`}
-                                  >
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
-                                      done ? "bg-emerald-500/20 border border-emerald-400/40" : "bg-white/[0.04] border border-white/[0.08]"
-                                    }`}>
+                                  <div key={cp.id} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all ${
+                                    done ? "bg-emerald-500/8 border border-emerald-500/15" : "bg-white/[0.02] border border-white/[0.04]"
+                                  }`}>
+                                    <button onClick={() => toggleCheckpoint(a.id, cp.id, cp.xp, sessionMode)}
+                                      className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 transition-all ${
+                                        done ? "bg-emerald-500/20 border border-emerald-400/40" : "bg-white/[0.04] border border-white/[0.08]"
+                                      }`}>
                                       {done && <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-                                    </div>
+                                    </button>
                                     <div className="flex-1 min-w-0">
                                       <span className={`text-sm font-medium ${done ? "text-emerald-400/80" : "text-[#f8fafc]/70"}`}>{cp.name}</span>
+                                      {isMeetStackable && count > 0 && (
+                                        <span className="ml-2 text-xs font-bold text-amber-400/80 bg-amber-400/10 px-1.5 py-0.5 rounded-md">×{count}</span>
+                                      )}
                                     </div>
-                                    <span className={`text-xs font-bold tabular-nums ${done ? "text-emerald-400/60" : "text-[#f8fafc]/20"}`}>+{cp.xp}</span>
-                                  </button>
+                                    <div className="flex items-center gap-1.5">
+                                      {isMeetStackable && count > 0 && (
+                                        <button onClick={() => toggleCheckpoint(a.id, cp.id, cp.xp, sessionMode)}
+                                          className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-red-400/60 bg-red-400/10 hover:bg-red-400/20">−</button>
+                                      )}
+                                      {isMeetStackable && (
+                                        <button onClick={() => {
+                                          // Increment: add another instance
+                                          setRoster(prev => {
+                                            const idx2 = prev.findIndex(r => r.id === a.id);
+                                            if (idx2 < 0) return prev;
+                                            const ath = { ...prev[idx2] };
+                                            const mc2 = { ...(ath.meetCheckpoints || {}) };
+                                            const cur = typeof mc2[cp.id] === "number" ? mc2[cp.id] as number : mc2[cp.id] ? 1 : 0;
+                                            mc2[cp.id] = cur + 1;
+                                            ath.meetCheckpoints = mc2;
+                                            const { newAthlete, awarded } = awardXP(ath, cp.xp, "meet");
+                                            if (awarded > 0) { spawnXpFloat(awarded); addAudit(newAthlete.id, newAthlete.name, `Meet: +1 ${cp.name}`, awarded); }
+                                            const next2 = [...prev]; next2[idx2] = newAthlete; return next2;
+                                          });
+                                        }}
+                                          className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-emerald-400/60 bg-emerald-400/10 hover:bg-emerald-400/20">+</button>
+                                      )}
+                                      <span className={`text-xs font-bold tabular-nums ${done ? "text-emerald-400/60" : "text-[#f8fafc]/20"}`}>+{isMeetStackable && count > 1 ? cp.xp * count : cp.xp}</span>
+                                    </div>
+                                  </div>
                                 );
                               })}
                               <button

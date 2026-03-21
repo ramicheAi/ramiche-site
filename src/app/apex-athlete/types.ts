@@ -25,7 +25,7 @@ export interface Athlete {
   weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
-  meetCheckpoints: Record<string, boolean>;
+  meetCheckpoints: Record<string, boolean | number>;
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "submitted" | "done" | "pending">;
   questNotes?: Record<string, string>;

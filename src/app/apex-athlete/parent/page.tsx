@@ -364,7 +364,7 @@ interface Athlete {
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
-  meetCheckpoints: Record<string, boolean>;
+  meetCheckpoints: Record<string, boolean | number>;
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "done" | "pending">;
   dailyXP: { date: string; pool: number; weight: number; meet: number };
