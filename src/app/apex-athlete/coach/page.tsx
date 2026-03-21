@@ -1354,21 +1354,12 @@ export default function ApexAthletePage() {
           if (remotePin && typeof remotePin === "string") { save(K.PIN, remotePin); setCoachPin(remotePin); }
         } catch { /* keep local */ }
 
-        // Load schedules (with ensure-all-groups logic)
-        let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
-        try {
-          const remoteScheds = await syncLoad<GroupSchedule[]>(K.SCHEDULES, "config/schedules");
-          if (remoteScheds && Array.isArray(remoteScheds) && remoteScheds.length > 0) scheds = remoteScheds;
-        } catch { /* keep local */ }
-        if (scheds.length === 0) {
-          scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
-        } else {
-          const existingIds = new Set(scheds.map(s => s.groupId));
-          const missing = ROSTER_GROUPS.filter(g => !existingIds.has(g.id)).map(g => makeDefaultGroupSchedule(g.id));
-          if (missing.length > 0) scheds = [...scheds, ...missing];
-        }
+        // Load schedules — REAL_SCHEDULES is always the source of truth
+        const scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
         save(K.SCHEDULES, scheds);
         setSchedules(scheds);
+        // Push real schedules to Firestore so remote is always current
+        try { await syncSave(K.SCHEDULES, scheds, "config/schedules"); } catch { /* ok */ }
 
         // Push authoritative roster to Firestore (ensures cloud is always current)
         syncSave(K.ROSTER, r, "rosters/all");
@@ -1393,8 +1384,8 @@ export default function ApexAthletePage() {
         setTeamChallenges(load<TeamChallenge[]>(K.CHALLENGES, DEFAULT_CHALLENGES));
         setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
         setCulture(load<TeamCulture>(K.CULTURE, DEFAULT_CULTURE));
-        let scheds = load<GroupSchedule[]>(K.SCHEDULES, []);
-        if (scheds.length === 0) scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+        const scheds = ROSTER_GROUPS.map(g => makeDefaultGroupSchedule(g.id));
+        save(K.SCHEDULES, scheds);
         setSchedules(scheds);
         setCoaches(load<CoachProfile[]>(K.COACHES, []));
         setMeets(load<SwimMeet[]>(K.MEETS, []));
