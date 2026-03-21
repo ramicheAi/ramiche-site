@@ -3478,7 +3478,7 @@ export default function ApexAthletePage() {
 
   // ── SCHEDULE VIEW ──────────────────────────────────────
   if (view === "schedule") {
-    return <ScheduleView GameHUDHeader={GameHUDHeader} schedules={schedules} activeGroup={scheduleGroup} rosterGroups={ROSTER_GROUPS} />;
+    return <ScheduleView GameHUDHeader={GameHUDHeader} schedules={schedules} saveSchedules={saveSchedules} selectedGroup={scheduleGroup} templates={[]} />;
   }
 
   /* ════════════════════════════════════════════════════════════
