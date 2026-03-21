@@ -9,7 +9,6 @@ import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
 import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
-import { storageSaveRoster } from "../lib/storage";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
 import PinAuthScreen from "./components/PinAuthScreen";
@@ -20,10 +19,9 @@ import PracticeRecapModal, { type RecapData } from "./components/PracticeRecapMo
 import { useXPEngine } from "./hooks/useXPEngine";
 import GroupSelector from "./components/GroupSelector";
 import StaffView from "./components/StaffView";
-import KioskCheckin from "./components/KioskCheckin";
+import KioskCheckin from "./components/AthleteCheckinKiosk";
 import BgOrbs from "./components/BgOrbs";
 import XpFloats from "./components/XpFloats";
-import Card from "./components/Card";
 import ScheduleView from "./views/ScheduleView";
 import CommsView from "./views/CommsView";
 import MeetsView from "./views/MeetsView";
@@ -718,20 +716,27 @@ function load<T>(key: string, fallback: T): T {
   } catch { return fallback; }
 }
 function save(key: string, val: unknown) {
-  // Roster saves go through guarded path — blocks zero-XP overwrites
+  // BACKUP: Before overwriting roster, save a timestamped backup
   if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
-    const saved = storageSaveRoster(val as { xp?: number }[]);
-    if (!saved) {
-      console.error("[Save] Blocked: roster has no real XP data — refusing overwrite");
-      return;
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      try {
+        const prev = JSON.parse(existing);
+        const prevXP = Array.isArray(prev) ? prev.reduce((s: number, a: { xp?: number }) => s + (a.xp || 0), 0) : 0;
+        const newXP = (val as { xp?: number }[]).reduce((s, a) => s + (a.xp || 0), 0);
+        // Only backup if we're about to lose XP
+        if (prevXP > 0 && newXP < prevXP) {
+          const backupKey = `apex-athlete-roster-backup-${new Date().toISOString().slice(0, 10)}`;
+          localStorage.setItem(backupKey, existing);
+          console.warn(`[Save] Backup created: ${backupKey} (prevXP: ${prevXP}, newXP: ${newXP})`);
+        }
+      } catch { /* ignore parse errors */ }
     }
+  }
+  localStorage.setItem(key, JSON.stringify(val));
+  if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
     fbSaveRoster("all", val).catch(() => {});
     fbSaveRoster("platinum", val).catch(() => {});
-    return;
-  }
-  // Non-roster keys: direct save
-  if (typeof window !== "undefined") {
-    try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* quota */ }
   }
 }
 
@@ -750,7 +755,9 @@ const DEFAULT_CULTURE: TeamCulture = {
 
 /* ── standalone presentational components (outside main component to prevent re-render bugs) ── */
 
-// Card extracted to ./components/Card.tsx
+const Card = ({ children, className = "", glow = false, neon = false }: { children: React.ReactNode; className?: string; glow?: boolean; neon?: boolean }) => (
+  <div style={{animation: 'glowBreathe 4s ease-in-out infinite'}} className={`game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-xl border border-[#00f0ff]/15 transition-all duration-300 hover:border-[#00f0ff]/30 hover:-translate-y-[1px] ${glow ? "neon-pulse" : ""} ${neon ? "shadow-[0_0_30px_rgba(0,240,255,0.1)]" : "shadow-[0_4px_24px_rgba(0,0,0,0.4)]"} ${className}`}>{children}</div>
+);
 
 // BgOrbs extracted to ./components/BgOrbs.tsx
 
@@ -994,12 +1001,28 @@ export default function ApexAthletePage() {
 
   // ── coach management state ──────────────────────────────
   const [coaches, setCoaches] = useState<CoachProfile[]>([]);
+  const [addCoachOpen, setAddCoachOpen] = useState(false);
+  const [newCoachName, setNewCoachName] = useState("");
+  const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
+  const [newCoachGroups, setNewCoachGroups] = useState<GroupId[]>([]);
+  const [newCoachEmail, setNewCoachEmail] = useState("");
+  const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
 
   // ── meets & comms state ─────────────────────────────────
   const [meets, setMeets] = useState<SwimMeet[]>([]);
+  const [broadcastMsg, setBroadcastMsg] = useState("");
+  const [newMeetName, setNewMeetName] = useState("");
+  const [newMeetDate, setNewMeetDate] = useState("");
+  const [newMeetLocation, setNewMeetLocation] = useState("");
+  const [newMeetCourse, setNewMeetCourse] = useState<"SCY" | "SCM" | "LCM">("SCY");
+  const [newMeetDeadline, setNewMeetDeadline] = useState("");
+  const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
+  const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
 
   // ── comms state (must be at top level — hooks cannot be inside conditionals) ──
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
+  const [commsMsg, setCommsMsg] = useState("");
+  const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
   const [absenceReports, setAbsenceReports] = useState<{ id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[]>([]);
 
   // ── push notification state ──────────────────────────────
@@ -1052,20 +1075,20 @@ export default function ApexAthletePage() {
       fbSaveRoster("platinum", r).catch(() => {});
     }
     // Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
-    const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
+    const anyPastCheckins = r.some(a => a.dailyXP && (a.dailyXP||{}).date && (a.dailyXP||{}).date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
     if (anyPastCheckins) {
-      const prevDate = r.find(a => a.dailyXP?.date && a.dailyXP.date !== today())?.dailyXP?.date || today();
+      const prevDate = r.find(a => a.dailyXP?.date && (a.dailyXP||{}).date !== today())?.dailyXP?.date || today();
       const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
       if (!snaps.some(s => s.date === prevDate)) {
         const att = r.filter(a => a.present).length;
         snaps.push({
           date: prevDate, attendance: att, totalAthletes: r.length,
-          totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0), 0),
+          totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0)) : 0), 0),
           poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
           weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
           meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
           questsCompleted: 0, challengesCompleted: 0,
-          athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0])),
+          athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0)) : 0])),
           athleteStreaks: Object.fromEntries(r.map(a => [a.id, a.streak || 0])),
         });
         save(K.SNAPSHOTS, snaps);
@@ -1076,18 +1099,9 @@ export default function ApexAthletePage() {
       if (!a.lastStreakDate) a = { ...a, lastStreakDate: "" };
       if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
       if (!a.group) a = { ...a, group: "platinum" };
-      if (!a.quests) a = { ...a, quests: {} };
-      if (!a.checkpoints) a = { ...a, checkpoints: {} };
-      if (!a.weightCheckpoints) a = { ...a, weightCheckpoints: {} };
-      if (!a.meetCheckpoints) a = { ...a, meetCheckpoints: {} };
-      if (!a.weightChallenges) a = { ...a, weightChallenges: {} };
-      if (a.totalPractices == null) a = { ...a, totalPractices: 0 };
-      if (a.weekSessions == null) a = { ...a, weekSessions: 0 };
-      if (a.weekWeightSessions == null) a = { ...a, weekWeightSessions: 0 };
-      if (a.weekTarget == null) a = { ...a, weekTarget: 5 };
       // Reset daily XP + check-ins for new day (clean slate per practice)
       if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
-      else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+      else if ((a.dailyXP||{}).date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
       // Auto-break streaks if last check-in was more than 1 day ago
       if (a.lastStreakDate && a.streak > 0) {
         const last = new Date(a.lastStreakDate); const now = new Date(today());
@@ -1218,20 +1232,20 @@ export default function ApexAthletePage() {
         }
 
         // 5. Auto-snapshot previous session before clearing (if any check-ins exist from a past day)
-        const anyPastCheckins = r.some(a => a.dailyXP && a.dailyXP.date && a.dailyXP.date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
+        const anyPastCheckins = r.some(a => a.dailyXP && (a.dailyXP||{}).date && (a.dailyXP||{}).date !== today() && (a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean) || Object.values(a.meetCheckpoints || {}).some(Boolean)));
         if (anyPastCheckins) {
-          const prevDate = r.find(a => a.dailyXP?.date && a.dailyXP.date !== today())?.dailyXP?.date || today();
+          const prevDate = r.find(a => a.dailyXP?.date && (a.dailyXP||{}).date !== today())?.dailyXP?.date || today();
           const snaps = load<DailySnapshot[]>(K.SNAPSHOTS, []);
           if (!snaps.some(s => s.date === prevDate)) {
             const att = r.filter(a => a.present).length;
             snaps.push({
               date: prevDate, attendance: att, totalAthletes: r.length,
-              totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0), 0),
+              totalXPAwarded: r.reduce((s, a) => s + ((a.dailyXP?.date === prevDate) ? (((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0)) : 0), 0),
               poolCheckins: r.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
               weightCheckins: r.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
               meetCheckins: r.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
               questsCompleted: 0, challengesCompleted: 0,
-              athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet) : 0])),
+              athleteXPs: Object.fromEntries(r.map(a => [a.id, (a.dailyXP?.date === prevDate) ? (((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0)) : 0])),
               athleteStreaks: Object.fromEntries(r.map(a => [a.id, a.streak || 0])),
             });
             save(K.SNAPSHOTS, snaps);
@@ -1244,7 +1258,7 @@ export default function ApexAthletePage() {
           if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
           if (!a.group) a = { ...a, group: "platinum" };
           if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
-          else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          else if ((a.dailyXP||{}).date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
           if (a.lastStreakDate && a.streak > 0) {
             const last = new Date(a.lastStreakDate); const now = new Date(today());
             const diffDays = Math.floor((now.getTime() - last.getTime()) / 86400000);
@@ -1325,7 +1339,7 @@ export default function ApexAthletePage() {
           if (!a.lastWeightStreakDate) a = { ...a, lastWeightStreakDate: "" };
           if (!a.group) a = { ...a, group: "platinum" };
           if (!a.dailyXP) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
-          else if (a.dailyXP.date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
+          else if ((a.dailyXP||{}).date !== today()) a = { ...a, dailyXP: { date: today(), pool: 0, weight: 0, meet: 0 }, present: false, checkpoints: {}, weightCheckpoints: {}, meetCheckpoints: {} };
           return a;
         });
         save(K.ROSTER, r);
@@ -1436,12 +1450,12 @@ export default function ApexAthletePage() {
     const att = groupRoster.filter(a => a.present).length;
     snaps.push({
       date: today(), attendance: att, totalAthletes: groupRoster.length,
-      totalXPAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
+      totalXPAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0), 0),
       poolCheckins: groupRoster.reduce((s, a) => s + Object.values(a.checkpoints || {}).filter(Boolean).length, 0),
       weightCheckins: groupRoster.reduce((s, a) => s + Object.values(a.weightCheckpoints || {}).filter(Boolean).length, 0),
       meetCheckins: groupRoster.reduce((s, a) => s + Object.values(a.meetCheckpoints || {}).filter(Boolean).length, 0),
       questsCompleted: 0, challengesCompleted: 0,
-      athleteXPs: Object.fromEntries(groupRoster.map(a => [a.id, a.dailyXP ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0])),
+      athleteXPs: Object.fromEntries(groupRoster.map(a => [a.id, a.dailyXP ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0])),
       athleteStreaks: Object.fromEntries(groupRoster.map(a => [a.id, a.streak || 0])),
     });
     save(K.SNAPSHOTS, snaps);
@@ -1449,7 +1463,7 @@ export default function ApexAthletePage() {
     // Build recap data BEFORE clearing
     const dailyXPs = groupRoster.map(a => ({
       name: a.name,
-      xp: a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0,
+      xp: (a.dailyXP||{}).date === today() ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0,
       level: getLevel(a.xp, getSportForAthlete(a)).name,
       color: getLevel(a.xp, getSportForAthlete(a)).color,
     })).sort((a, b) => b.xp - a.xp);
@@ -1464,7 +1478,7 @@ export default function ApexAthletePage() {
       group: selectedGroup, date: today(),
       attendance: groupRoster.filter(a => a.present).length,
       total: groupRoster.length,
-      xpAwarded: groupRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
+      xpAwarded: groupRoster.reduce((s, a) => s + ((a.dailyXP||{}).date === today() ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0), 0),
       topEarners: dailyXPs.filter(a => a.xp > 0).slice(0, 3),
       streaksActive,
       longestStreak: longestStreak.streak > 0 ? longestStreak : { name: "-", streak: 0 },
@@ -1561,14 +1575,14 @@ export default function ApexAthletePage() {
     if (!mounted || roster.length === 0) return;
     const snap = () => {
       const d = today();
-      const att = roster.filter(a => Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean) || Object.values(a.meetCheckpoints).some(Boolean)).length;
+      const att = roster.filter(a => Object.values(a.checkpoints||{}).some(Boolean) || Object.values(a.weightCheckpoints||{}).some(Boolean) || Object.values(a.meetCheckpoints||{}).some(Boolean)).length;
       const s: DailySnapshot = {
         date: d, attendance: att, totalAthletes: roster.length,
-        totalXPAwarded: roster.reduce((s, a) => s + (a.dailyXP.date === d ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0),
-        poolCheckins: roster.reduce((s, a) => s + Object.values(a.checkpoints).filter(Boolean).length, 0),
-        weightCheckins: roster.reduce((s, a) => s + Object.values(a.weightCheckpoints).filter(Boolean).length, 0),
-        meetCheckins: roster.reduce((s, a) => s + Object.values(a.meetCheckpoints).filter(Boolean).length, 0),
-        questsCompleted: roster.reduce((s, a) => s + Object.values(a.quests).filter(q => q === "done").length, 0),
+        totalXPAwarded: roster.reduce((s, a) => s + ((a.dailyXP||{}).date === d ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0), 0),
+        poolCheckins: roster.reduce((s, a) => s + Object.values(a.checkpoints||{}).filter(Boolean).length, 0),
+        weightCheckins: roster.reduce((s, a) => s + Object.values(a.weightCheckpoints||{}).filter(Boolean).length, 0),
+        meetCheckins: roster.reduce((s, a) => s + Object.values(a.meetCheckpoints||{}).filter(Boolean).length, 0),
+        questsCompleted: roster.reduce((s, a) => s + Object.values(a.quests||{}).filter(q => q === "done").length, 0),
         challengesCompleted: teamChallenges.filter(c => c.current >= c.target).length,
         athleteXPs: Object.fromEntries(roster.map(a => [a.id, a.xp])),
         athleteStreaks: Object.fromEntries(roster.map(a => [a.id, a.streak])),
@@ -1737,8 +1751,8 @@ export default function ApexAthletePage() {
   // ── XP award (cap-aware) ─────────────────────────────────
   const awardXP = useCallback((athlete: Athlete, xpBase: number, category: "pool" | "weight" | "meet"): { newAthlete: Athlete; awarded: number } => {
     let a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
-    if (a.dailyXP.date !== today()) a.dailyXP = { date: today(), pool: 0, weight: 0, meet: 0 };
-    const used = a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet;
+    if ((a.dailyXP||{}).date !== today()) a.dailyXP = { date: today(), pool: 0, weight: 0, meet: 0 };
+    const used = ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0);
     const room = Math.max(0, DAILY_XP_CAP - used);
     const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
     const raw = Math.round(xpBase * mult);
@@ -1793,7 +1807,7 @@ export default function ApexAthletePage() {
         const mult = category === "weight" ? getWeightStreakMult(a.weightStreak) : getStreakMult(a.streak);
         const awarded = Math.round(cpXP * mult);
         a.xp = Math.max(0, a.xp - awarded); a.seasonXP = Math.max(0, (a.seasonXP || 0) - awarded);
-        if (a.dailyXP.date === today()) {
+        if ((a.dailyXP||{}).date === today()) {
           a.dailyXP = { ...a.dailyXP, [category]: Math.max(0, a.dailyXP[category] - awarded) };
         }
         addAudit(a.id, a.name, `Unchecked: ${cpId}`, -awarded);
@@ -1831,8 +1845,8 @@ export default function ApexAthletePage() {
         const mult = getWeightStreakMult(a.weightStreak);
         const reverted = Math.round(chXP * mult);
         a.xp = Math.max(0, a.xp - reverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - reverted);
-        if (a.dailyXP.date === today()) {
-          a.dailyXP = { ...a.dailyXP, weight: Math.max(0, a.dailyXP.weight - reverted) };
+        if ((a.dailyXP||{}).date === today()) {
+          a.dailyXP = { ...a.dailyXP, weight: Math.max(0, ((a.dailyXP||{}).weight||0) - reverted) };
         }
         addAudit(a.id, a.name, `Unchallenged: ${chId}`, -reverted);
       } else {
@@ -1949,7 +1963,7 @@ export default function ApexAthletePage() {
             oldCPs[cp.id] = false;
             const reverted = Math.round(cp.xp * mult);
             a.xp = Math.max(0, a.xp - reverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - reverted);
-            if (a.dailyXP.date === today()) {
+            if ((a.dailyXP||{}).date === today()) {
               const cat = sessionMode === "meet" ? "meet" : sessionMode;
               a.dailyXP = { ...a.dailyXP, [cat]: Math.max(0, a.dailyXP[cat] - reverted) };
             }
@@ -1959,7 +1973,7 @@ export default function ApexAthletePage() {
         // Revert base present XP
         const baseReverted = Math.round(PRESENT_XP * mult);
         a.xp = Math.max(0, a.xp - baseReverted); a.seasonXP = Math.max(0, (a.seasonXP || 0) - baseReverted);
-        if (a.dailyXP.date === today()) {
+        if ((a.dailyXP||{}).date === today()) {
           const cat = sessionMode === "meet" ? "meet" : sessionMode;
           a.dailyXP = { ...a.dailyXP, [cat]: Math.max(0, a.dailyXP[cat] - baseReverted) };
         }
@@ -2052,8 +2066,8 @@ export default function ApexAthletePage() {
           const a = { ...rPrev[idx] };
           a.xp = Math.max(0, a.xp - last.xpDelta);
           // Revert daily XP tracking
-          if (a.dailyXP.date === today()) {
-            a.dailyXP = { ...a.dailyXP, pool: Math.max(0, a.dailyXP.pool - last.xpDelta) };
+          if ((a.dailyXP||{}).date === today()) {
+            a.dailyXP = { ...a.dailyXP, pool: Math.max(0, ((a.dailyXP||{}).pool||0) - last.xpDelta) };
           }
           const r = [...rPrev]; r[idx] = a; save(K.ROSTER, r); return r;
         });
@@ -2080,6 +2094,38 @@ export default function ApexAthletePage() {
 
   // ── coach management ──────────────────────────────────
   const saveCoaches = useCallback((c: CoachProfile[]) => { setCoaches(c); save(K.COACHES, c); }, []);
+
+  const addCoach = useCallback(() => {
+    if (!newCoachName.trim()) return;
+    const pin = String(1000 + Math.floor(Math.random() * 9000));
+    const coach: CoachProfile = {
+      id: `coach-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      name: newCoachName.trim(),
+      role: newCoachRole,
+      groups: newCoachRole === "head" ? ROSTER_GROUPS.map(g => g.id) : newCoachGroups,
+      email: newCoachEmail.trim(),
+      pin,
+    };
+    saveCoaches([...coaches, coach]);
+    setNewCoachName(""); setNewCoachRole("assistant"); setNewCoachGroups([]); setNewCoachEmail(""); setAddCoachOpen(false);
+    addAudit("system", "System", `Added coach: ${coach.name} (${coach.role})`, 0);
+  }, [newCoachName, newCoachRole, newCoachGroups, newCoachEmail, coaches, saveCoaches, addAudit]);
+
+  const removeCoach = useCallback((id: string) => {
+    const c = coaches.find(x => x.id === id);
+    if (!c) return;
+    saveCoaches(coaches.filter(x => x.id !== id));
+    addAudit("system", "System", `Removed coach: ${c.name}`, 0);
+  }, [coaches, saveCoaches, addAudit]);
+
+  const updateCoach = useCallback((id: string, updates: Partial<CoachProfile>) => {
+    saveCoaches(coaches.map(c => c.id === id ? { ...c, ...updates } : c));
+    setEditingCoachId(null);
+  }, [coaches, saveCoaches]);
+
+  const toggleCoachGroup = useCallback((gid: GroupId) => {
+    setNewCoachGroups(prev => prev.includes(gid) ? prev.filter(g => g !== gid) : [...prev, gid]);
+  }, []);
 
   // Current coach's accessible groups (for access control)
   // Head coach / admin (master PIN) sees all groups; assistant coaches see only their assigned groups
@@ -2191,7 +2237,7 @@ export default function ApexAthletePage() {
   // ── seasonal goal auto-track ─────────────────────────────
   useEffect(() => {
     if (!mounted || !roster.length) return;
-    const pct = Math.round((roster.filter(a => Object.values(a.checkpoints || {}).some(Boolean)).length / roster.length) * 100);
+    const pct = Math.round((roster.filter(a => Object.values(a.checkpoints||{}).some(Boolean)).length / roster.length) * 100);
     if (pct !== culture.goalCurrent) { const u = { ...culture, goalCurrent: pct }; setCulture(u); save(K.CULTURE, u); }
   }, [mounted, roster, culture]);
 
@@ -2215,7 +2261,6 @@ export default function ApexAthletePage() {
 
   // Attrition Risk Score (0-100, higher = more at risk)
   const getAttritionRisk = useCallback((athlete: Athlete) => {
-    try {
     let risk = 0;
     // Low attendance = high risk
     const recentSnaps = snapshots.slice(-14);
@@ -2225,25 +2270,23 @@ export default function ApexAthletePage() {
     else if (attendanceRate < 0.5) risk += 25;
     else if (attendanceRate < 0.7) risk += 10;
     // Broken streak = risk
-    if (athlete.streak === 0 && (athlete.totalPractices || 0) > 3) risk += 20;
+    if (athlete.streak === 0 && athlete.totalPractices > 3) risk += 20;
     // Low XP growth = risk
     const ago14 = snapshots.slice(-14)[0];
     const xpGrowth = ago14 ? athlete.xp - (ago14.athleteXPs?.[athlete.id] || 0) : athlete.xp;
     if (xpGrowth <= 0) risk += 20;
     else if (xpGrowth < 50) risk += 10;
     // No quests engaged = disengagement
-    const activeQuests = Object.values(athlete.quests || {}).filter(q => q === "active" || q === "done").length;
-    if (activeQuests === 0 && (athlete.totalPractices || 0) > 5) risk += 15;
+    const activeQuests = Object.values(athlete.quests).filter(q => q === "active" || q === "done").length;
+    if (activeQuests === 0 && athlete.totalPractices > 5) risk += 15;
     // Low teammate interaction
     const helpCount = auditLog.filter(e => e.athleteId === athlete.id && e.action.includes("Helped")).length;
-    if (helpCount === 0 && (athlete.totalPractices || 0) > 3) risk += 5;
+    if (helpCount === 0 && athlete.totalPractices > 3) risk += 5;
     return Math.min(100, risk);
-    } catch { return 0; }
   }, [snapshots, auditLog]);
 
   // Culture Score (0-100) — team-wide health metric
   const cultureScore = useMemo(() => {
-    try {
     if (!roster.length) return 0;
     const today7 = snapshots.slice(-7);
     // Attendance component (0-30)
@@ -2258,18 +2301,16 @@ export default function ApexAthletePage() {
     const positiveActions = auditLog.filter(e => e.action.includes("Positive")).length;
     const positiveScore = Math.min(20, Math.round((positiveActions / Math.max(roster.length, 1)) * 20));
     // Quest engagement (0-15)
-    const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests || {}).filter(q => q !== "pending").length, 0);
+    const questEngagement = roster.reduce((s, a) => s + Object.values(a.quests||{}).filter(q => q !== "pending").length, 0);
     const questScore = Math.min(15, Math.round((questEngagement / (roster.length * QUEST_DEFS.length)) * 15));
     // Streak health (0-10)
-    const avgStreak = roster.reduce((s, a) => s + (a.streak || 0), 0) / roster.length;
+    const avgStreak = roster.reduce((s, a) => s + a.streak, 0) / roster.length;
     const streakScore = Math.min(10, Math.round(avgStreak / 3));
     return Math.min(100, attScore + helpScore + positiveScore + questScore + streakScore);
-    } catch { return 0; }
   }, [roster, snapshots, auditLog]);
 
   // Peak Performance Windows — which days earn the most XP per athlete
   const peakWindows = useMemo(() => {
-    try {
     const dayMap: Record<string, number[]> = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     for (const snap of snapshots) {
@@ -2282,22 +2323,18 @@ export default function ApexAthletePage() {
       avgXP: xps.length ? Math.round(xps.reduce((a, b) => a + b, 0) / xps.length) : 0,
       sessions: xps.length,
     })).sort((a, b) => b.avgXP - a.avgXP);
-    } catch { return []; }
   }, [snapshots]);
 
   // Athletes at risk (sorted by risk descending)
   const atRiskAthletes = useMemo(() => {
-    try {
     return roster
       .map(a => ({ ...a, risk: getAttritionRisk(a) }))
       .filter(a => a.risk > 20)
       .sort((a, b) => b.risk - a.risk);
-    } catch { return []; }
   }, [roster, getAttritionRisk]);
 
   // Engagement trend — is the team trending up or down?
   const engagementTrend = useMemo(() => {
-    try {
     const recent7 = snapshots.slice(-7);
     const prev7 = snapshots.slice(-14, -7);
     if (!recent7.length || !prev7.length) return { direction: "flat" as const, delta: 0 };
@@ -2305,7 +2342,6 @@ export default function ApexAthletePage() {
     const prevAvg = prev7.reduce((s, x) => s + x.totalXPAwarded, 0) / prev7.length;
     const delta = Math.round(((recentAvg - prevAvg) / Math.max(prevAvg, 1)) * 100);
     return { direction: delta > 5 ? "up" as const : delta < -5 ? "down" as const : "flat" as const, delta };
-    } catch { return { direction: "flat" as const, delta: 0 }; }
   }, [snapshots]);
 
   // Coach efficiency — which checkpoints are most/least awarded
@@ -2313,7 +2349,7 @@ export default function ApexAthletePage() {
     const counts: Record<string, number> = {};
     const groupRoster = roster.filter(a => a.group === selectedGroup);
     for (const a of groupRoster) {
-      for (const [k, v] of Object.entries(a.checkpoints || {})) if (v) counts[k] = (counts[k] || 0) + 1;
+      for (const [k, v] of Object.entries(a.checkpoints||{})) if (v) counts[k] = (counts[k] || 0) + 1;
     }
     return [...currentCPs].map(cp => ({ ...cp, count: counts[cp.id] || 0, rate: groupRoster.length ? Math.round(((counts[cp.id] || 0) / groupRoster.length) * 100) : 0 }))
       .sort((a, b) => b.rate - a.rate);
@@ -2361,8 +2397,8 @@ export default function ApexAthletePage() {
 
   // ── shared game HUD header (used by ALL views) ─────────
   const GameHUDHeader = () => {
-    const presentCount = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
-    const xpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
+    const presentCount = filteredRoster.filter(a => a.present || Object.values(a.checkpoints||{}).some(Boolean) || Object.values(a.weightCheckpoints||{}).some(Boolean)).length;
+    const xpToday = filteredRoster.reduce((s, a) => s + ((a.dailyXP||{}).date === today() ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0), 0);
     const secondaryTabs = [
       { id: "coach" as const, label: "Check-In" },
       { id: "meets" as const, label: "Meets" },
@@ -2459,32 +2495,45 @@ export default function ApexAthletePage() {
           {/* Logout */}
           <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-[#f8fafc]/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
 
-          {/* Section nav tabs — 3 rows on mobile, evenly spaced on desktop */}
-          <div className="lg:hidden space-y-4 mb-10">
-            {[secondaryTabs.slice(0, 4), secondaryTabs.slice(4, 8), secondaryTabs.slice(8)].map((row, ri) => (
-              <div key={ri} className={`grid gap-3 ${row.length <= 3 ? "grid-cols-3" : "grid-cols-4"}`}>
-                {row.map(t => {
-                  const active = view === t.id;
-                  return (
-                    <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
-                      className={`py-4 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[56px] text-center ${
-                        active
-                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                          : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
-                      }`}>
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
+          {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
+          <div className="md:hidden space-y-2 mb-4">
+            <div className="grid grid-cols-4 gap-2">
+              {secondaryTabs.slice(0, 4).map(t => {
+                const active = view === t.id;
+                return (
+                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
+                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                      active
+                        ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
+                    }`}>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              {secondaryTabs.slice(4).map(t => {
+                const active = view === t.id;
+                return (
+                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
+                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                      active
+                        ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
+                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
+                    }`}>
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="hidden lg:grid grid-cols-6 gap-4 mb-10">
+          <div className="hidden md:grid grid-cols-8 gap-2 mb-4">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
                 <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); }}
-                  className={`py-5 px-4 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[58px] text-center ${
+                  className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
                     active
                       ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
                       : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
@@ -2642,15 +2691,9 @@ export default function ApexAthletePage() {
               <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
             </div>
             {!athlete.present && (
-              <button
-                onClick={() => togglePresent(athlete.id)}
-                className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-emerald-500/10 border-2 border-emerald-400/30 hover:border-emerald-400/60 hover:bg-emerald-500/15 transition-all active:scale-[0.98] min-h-[56px]"
-              >
-                <div className="w-8 h-8 rounded-full border-2 border-emerald-400/40 flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400/40" />
-                </div>
-                <span className="text-emerald-400 font-bold text-sm">Mark Present</span>
-              </button>
+              <Card className="px-5 py-4">
+                <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
+              </Card>
             )}
             {athlete.present && (
               <Card className="divide-y divide-white/[0.04]">
@@ -3021,15 +3064,9 @@ export default function ApexAthletePage() {
                       <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
                     </div>
                     {!athlete.present ? (
-                      <button
-                        onClick={() => togglePresent(athlete.id)}
-                        className="w-full flex items-center justify-center gap-3 px-5 py-4 rounded-2xl bg-emerald-500/10 border-2 border-emerald-400/30 hover:border-emerald-400/60 hover:bg-emerald-500/15 transition-all active:scale-[0.98] min-h-[56px]"
-                      >
-                        <div className="w-8 h-8 rounded-full border-2 border-emerald-400/40 flex items-center justify-center">
-                          <div className="w-2 h-2 rounded-full bg-emerald-400/40" />
-                        </div>
-                        <span className="text-emerald-400 font-bold text-sm">Mark Present</span>
-                      </button>
+                      <Card className="px-5 py-4">
+                        <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
+                      </Card>
                     ) : (
                       <Card className="divide-y divide-white/[0.04]">
                         {(autoPool ? AUTO_POOL_CPS : cps).map(cp => {
@@ -3204,9 +3241,23 @@ export default function ApexAthletePage() {
       <StaffView
         isAdmin={!!isAdmin}
         coaches={coaches}
-        saveCoaches={saveCoaches as (c: { id: string; name: string; role: string; groups: string[]; email?: string }[]) => void}
-        addAudit={addAudit}
+        editingCoachId={editingCoachId}
+        setEditingCoachId={setEditingCoachId}
+        removeCoach={removeCoach}
+        updateCoach={updateCoach as (id: string, updates: Partial<{ id: string; name: string; role: "head" | "assistant"; groups: string[]; email: string; pin: string }>) => void}
+        addCoach={addCoach}
         ROSTER_GROUPS={ROSTER_GROUPS}
+        newCoachName={newCoachName}
+        setNewCoachName={setNewCoachName}
+        newCoachEmail={newCoachEmail}
+        setNewCoachEmail={setNewCoachEmail}
+        newCoachRole={newCoachRole}
+        setNewCoachRole={setNewCoachRole}
+        newCoachGroups={newCoachGroups}
+        setNewCoachGroups={setNewCoachGroups}
+        addCoachOpen={addCoachOpen}
+        setAddCoachOpen={setAddCoachOpen}
+        toggleCoachGroup={toggleCoachGroup as (groupId: string) => void}
         GameHUDHeader={GameHUDHeader}
         BgOrbs={BgOrbs}
       />
@@ -3274,7 +3325,7 @@ export default function ApexAthletePage() {
                   <div className="mt-3 pt-3 border-t border-white/[0.04]">
                     <div className="grid grid-cols-3 gap-2 text-xs text-[#f8fafc]/60">
                       <div><span className="text-[#f8fafc]/40 font-bold">{a.totalPractices}</span> sessions</div>
-                      <div><span className="text-[#f8fafc]/40 font-bold">{Object.values(a.quests).filter(q => q === "done").length}</span> quests</div>
+                      <div><span className="text-[#f8fafc]/40 font-bold">{Object.values(a.quests||{}).filter(q => q === "done").length}</span> quests</div>
                       <div><span className="text-[#f8fafc]/40 font-bold">{getStreakMult(a.streak)}x</span> multiplier</div>
                     </div>
                   </div>
@@ -3323,6 +3374,22 @@ export default function ApexAthletePage() {
         roster={roster}
         filteredRoster={filteredRoster}
         ROSTER_GROUPS={ROSTER_GROUPS}
+        newMeetName={newMeetName}
+        setNewMeetName={setNewMeetName}
+        newMeetDate={newMeetDate}
+        setNewMeetDate={setNewMeetDate}
+        newMeetLocation={newMeetLocation}
+        setNewMeetLocation={setNewMeetLocation}
+        newMeetCourse={newMeetCourse}
+        setNewMeetCourse={setNewMeetCourse}
+        newMeetDeadline={newMeetDeadline}
+        setNewMeetDeadline={setNewMeetDeadline}
+        editingMeetId={editingMeetId}
+        setEditingMeetId={setEditingMeetId}
+        meetEventPicker={meetEventPicker}
+        setMeetEventPicker={setMeetEventPicker}
+        broadcastMsg={broadcastMsg}
+        setBroadcastMsg={setBroadcastMsg}
         onMeetScore={handleMeetScore}
       />
     );
@@ -3333,6 +3400,10 @@ export default function ApexAthletePage() {
     return (
       <CommsView
         GameHUDHeader={GameHUDHeader}
+        commsMsg={commsMsg}
+        setCommsMsg={setCommsMsg}
+        commsGroup={commsGroup}
+        setCommsGroup={(v: string) => setCommsGroup(v as "all" | GroupId)}
         allBroadcasts={allBroadcasts}
         setAllBroadcasts={setAllBroadcasts}
         absenceReports={absenceReports}
@@ -3385,19 +3456,18 @@ export default function ApexAthletePage() {
   // ── KIOSK CHECK-IN VIEW ──────────────────────────────────
   if (view === "kiosk") {
     const kioskRoster = roster.map(a => ({
-      id: a.id,
       name: a.name,
-      pin: a.pin || "",
       group: a.group || "—",
-      events: [],
+      present: a.present || false,
       xp: a.xp || 0,
       streak: a.streak || 0,
-      totalCheckins: 0,
+      level: Math.min(5, Math.floor((a.xp || 0) / 200)),
+      pin: a.pin || "",
     }));
     return (
       <div className="w-full px-4 py-6">
         <GameHUDHeader />
-        <KioskCheckin roster={kioskRoster} />
+        <KioskCheckin roster={kioskRoster} onCheckin={(name) => { const athlete = roster.find(a => a.name === name); if (athlete) togglePresent(athlete.id); }} />
       </div>
     );
   }
@@ -3406,22 +3476,22 @@ export default function ApexAthletePage() {
   if (view === "timestandards") {
     return (
       <div className="w-full px-4 py-6">
-        <TimeStandards GameHUDHeader={GameHUDHeader} />
+        <TimeStandards />
       </div>
     );
   }
 
   // ── SCHEDULE VIEW ──────────────────────────────────────
   if (view === "schedule") {
-    return <ScheduleView GameHUDHeader={GameHUDHeader} schedules={schedules} saveSchedules={saveSchedules} selectedGroup={selectedGroup} templates={SCHEDULE_TEMPLATES} />;
+    return <ScheduleView GameHUDHeader={GameHUDHeader} schedules={schedules} activeGroup={scheduleGroup} rosterGroups={ROSTER_GROUPS} />;
   }
 
   /* ════════════════════════════════════════════════════════════
      COACH MAIN VIEW — LEADERBOARD-FIRST LAYOUT
      ════════════════════════════════════════════════════════════ */
 
-  const present = filteredRoster.filter(a => a.present || Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean)).length;
-  const totalXpToday = filteredRoster.reduce((s, a) => s + (a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0), 0);
+  const present = filteredRoster.filter(a => a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean)).length;
+  const totalXpToday = filteredRoster.reduce((s, a) => s + ((a.dailyXP?.date === today()) ? ((a.dailyXP?.pool || 0) + (a.dailyXP?.weight || 0) + (a.dailyXP?.meet || 0)) : 0), 0);
 
   // ── Athlete detail drill-down ──────────────────────────
   if (selectedAthlete) {
@@ -3455,15 +3525,15 @@ export default function ApexAthletePage() {
         {/* ══════════════════════════════════════════════════════
            LEADERBOARD — THE HERO SECTION
            ══════════════════════════════════════════════════════ */}
-        <div className="py-8">
+        <div className="py-6">
             {/* Section header with tabs */}
             <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-4">
                 <h2 className="text-2xl sm:text-3xl font-black tracking-tight neon-text-cyan">Leaderboard</h2>
-                <div className="flex gap-1.5 bg-[#0e0e18]/60 p-1.5 border border-[#00f0ff]/15 rounded-xl">
+                <div className="flex gap-1 bg-[#0e0e18]/60 p-1 border border-[#00f0ff]/15 game-panel-sm">
                   {(["all", "M", "F"] as const).map(t => (
                     <button key={t} onClick={() => setLeaderTab(t)}
-                      className={`px-5 py-2.5 text-xs font-bold transition-all min-h-[36px] font-mono tracking-wider rounded-lg ${
+                      className={`game-btn px-4 py-2 text-xs font-bold transition-all min-h-[32px] font-mono tracking-wider ${
                         leaderTab === t ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30 shadow-[0_0_16px_rgba(0,240,255,0.3)]" : "text-[#f8fafc]/60 hover:text-[#00f0ff]/50 border border-transparent"
                       }`}>
                       {t === "all" ? "ALL" : t === "M" ? "MALE" : "FEMALE"}
@@ -3499,28 +3569,34 @@ export default function ApexAthletePage() {
               <div className="relative mb-10">
                 {/* Podium glow backdrop */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_60%,rgba(245,158,11,0.08),transparent)] pointer-events-none" />
-                <div className="grid grid-cols-3 gap-6 sm:gap-8 lg:gap-10 items-stretch">
+                <div className="grid grid-cols-3 gap-3 sm:gap-5 max-w-[800px] lg:max-w-[1000px] mx-auto items-end">
                   {[1, 0, 2].map(rank => {
                     const a = sorted[rank];
                     const lv = getLevel(a.xp, getSportForAthlete(a));
+                    const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
                     const medals = ["🥇", "🥈", "🥉"];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
+                    const glowColors = [
+                      "shadow-[0_0_50px_rgba(245,158,11,0.3),0_0_100px_rgba(245,158,11,0.1)]",
+                      "shadow-[0_0_30px_rgba(192,192,210,0.15)]",
+                      "shadow-[0_0_30px_rgba(205,127,50,0.15)]",
+                    ];
                     const cardBgs = [
                       "bg-gradient-to-b from-[#f59e0b]/10 via-[#06020f]/80 to-[#06020f] neon-pulse-gold",
                       "bg-gradient-to-b from-[#00f0ff]/5 via-[#06020f]/80 to-[#06020f] neon-pulse",
                       "bg-gradient-to-b from-[#cd7f32]/8 via-[#06020f]/80 to-[#06020f]",
                     ];
-                    const isGold = rank === 0;
+                    const heights = ["min-h-[280px] sm:min-h-[320px]", "min-h-[240px] sm:min-h-[270px]", "min-h-[240px] sm:min-h-[270px]"];
                     return (
-                      <div key={a.id} className={`game-panel game-panel-border relative p-6 sm:p-8 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} min-h-[300px] sm:min-h-[340px] flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.02] group rounded-2xl`}>
-                        {isGold && <div className="absolute inset-0 gold-shimmer pointer-events-none rounded-2xl" />}
-                        <div className={`text-3xl sm:text-4xl mb-4 ${isGold ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
-                        <div className={`w-16 h-16 sm:w-20 sm:h-20 text-lg sm:text-xl mx-auto ${isGold ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-4 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
-                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": isGold ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
+                      <div key={a.id} className={`game-panel game-panel-border relative p-4 sm:p-6 text-center border border-[#00f0ff]/15 backdrop-blur-2xl ${cardBgs[rank]} ${heights[rank]} flex flex-col items-center justify-center transition-all duration-300 hover:scale-[1.03] group`}>
+                        {rank === 0 && <div className="absolute inset-0 gold-shimmer pointer-events-none" />}
+                        <div className={`text-3xl sm:text-4xl mb-3 ${rank === 0 ? "podium-pulse" : ""} drop-shadow-[0_0_20px_rgba(245,158,11,0.5)]`}>{medals[rank]}</div>
+                        <div className={`${avatarSizes[rank]} mx-auto ${rank === 0 ? "hex-avatar" : "rounded-full"} flex items-center justify-center font-black text-[#f8fafc] mb-3 border-[3px] ${ringColors[rank]} ring-pulse transition-all duration-300 group-hover:scale-110`}
+                          style={{ background: `radial-gradient(circle at 30% 30%, ${lv.color}35, ${lv.color}10)`, "--ring-glow": rank === 0 ? "rgba(245,158,11,0.4)" : rank === 1 ? "rgba(0,240,255,0.3)" : "rgba(205,127,50,0.3)" } as React.CSSProperties}>
                           {a.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
-                        <div className={`text-base sm:text-lg font-black truncate w-full px-2 ${isGold ? "neon-text-gold" : "text-[#f8fafc]"}`}>{a.name.split(" ")[0]}</div>
-                        <div className="text-[#00f0ff]/20 text-[11px] truncate w-full px-2 font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
+                        <div className={`text-base sm:text-lg font-black truncate w-full ${rank === 0 ? "neon-text-gold" : "text-[#f8fafc]"}`}>{a.name.split(" ")[0]}</div>
+                        <div className="text-[#00f0ff]/20 text-[11px] truncate w-full font-mono">{a.name.split(" ").slice(1).join(" ")}</div>
                         <div className="rank-badge text-[11px] font-bold mt-3 px-4 py-1.5 inline-flex items-center gap-1.5 font-mono" style={{ color: lv.color, background: `${lv.color}18`, boxShadow: `0 0 15px ${lv.color}15` }}>
                           {lv.icon} {lv.name}
                         </div>
@@ -3539,7 +3615,7 @@ export default function ApexAthletePage() {
 
             {/* Full ranked list — all athletes 1-N */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">{`// Full Rankings`}</h3>
+              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Full Rankings</h3>
               <span className="text-[#00f0ff]/20 text-xs font-mono">{sorted.length} athletes</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
@@ -3821,7 +3897,7 @@ export default function ApexAthletePage() {
             )}
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">{`// Roster Check-In`}</h3>
+            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">// Roster Check-In</h3>
             <div className="space-y-3 mb-12" style={{ 
               contentVisibility: "auto",
               containIntrinsicSize: "0 4000px" /* Estimate: ~50 athletes * 80px each */
@@ -3830,8 +3906,8 @@ export default function ApexAthletePage() {
                 const lv = getLevel(a.xp, getSportForAthlete(a));
                 const prog = getLevelProgress(a.xp, getSportForAthlete(a));
                 const sk = fmtStreak(a.streak);
-                const hasCk = Object.values(a.checkpoints).some(Boolean) || Object.values(a.weightCheckpoints).some(Boolean);
-                const dailyUsed = a.dailyXP.date === today() ? a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet : 0;
+                const hasCk = Object.values(a.checkpoints||{}).some(Boolean) || Object.values(a.weightCheckpoints||{}).some(Boolean);
+                const dailyUsed = (a.dailyXP||{}).date === today() ? ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0) : 0;
 
                 return (
                   <div 
@@ -3852,8 +3928,8 @@ export default function ApexAthletePage() {
                       >
                         {/* Present toggle — tap to mark present/absent without expanding */}
                         <button
-                          onPointerDown={(e) => { e.stopPropagation(); }}
                           onClick={(e) => { e.stopPropagation(); e.preventDefault(); togglePresent(a.id); }}
+                          onTouchEnd={(e) => { e.stopPropagation(); }}
                           className={`w-12 h-12 rounded-full shrink-0 flex items-center justify-center transition-all duration-200 active:scale-90 touch-manipulation ${
                             a.present
                               ? "bg-emerald-500/20 border-2 border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.2)]"
@@ -3895,7 +3971,7 @@ export default function ApexAthletePage() {
 
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
-              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">{`// Team Challenges`}</h3>
+              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Team Challenges</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
