@@ -2736,7 +2736,13 @@ export default function ApexAthletePage() {
             </div>
             {!athlete.present && (
               <Card className="px-5 py-4">
-                <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
+                <button
+                  onClick={() => togglePresent(athlete.id)}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 text-sm font-bold hover:bg-emerald-500/25 active:scale-95 transition-all touch-manipulation"
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Mark Present
+                </button>
               </Card>
             )}
             {athlete.present && (
@@ -3109,7 +3115,13 @@ export default function ApexAthletePage() {
                     </div>
                     {!athlete.present ? (
                       <Card className="px-5 py-4">
-                        <div className="text-[#f8fafc]/40 text-sm text-center">Tap present on the roster to check in</div>
+                        <button
+                          onClick={() => togglePresent(athlete.id)}
+                          className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 text-sm font-bold hover:bg-emerald-500/25 active:scale-95 transition-all touch-manipulation"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                          Mark Present
+                        </button>
                       </Card>
                     ) : (
                       <Card className="divide-y divide-white/[0.04]">
