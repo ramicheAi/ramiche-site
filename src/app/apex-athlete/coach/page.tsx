@@ -3980,6 +3980,22 @@ export default function ApexAthletePage() {
                             </button>
                           ) : (
                             <div className="space-y-1 mt-2">
+                              {/* Mode switcher pills */}
+                              <div className="flex gap-1.5 mb-3">
+                                {(["pool", "weight", "meet"] as const).map(m => (
+                                  <button key={m} onClick={(e) => handleModeClick(m, e)}
+                                    className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all ${
+                                      sessionMode === m
+                                        ? m === "pool" ? "bg-[#00f0ff]/15 text-[#00f0ff] border border-[#00f0ff]/30"
+                                          : m === "weight" ? "bg-orange-500/15 text-orange-400 border border-orange-400/30"
+                                          : "bg-purple-500/15 text-purple-400 border border-purple-400/30"
+                                        : "bg-white/[0.03] text-[#f8fafc]/30 border border-white/[0.06] hover:bg-white/[0.06]"
+                                    }`}
+                                  >
+                                    {m === "pool" ? "🏊 Pool" : m === "weight" ? "🏋️ Weights" : "🏅 Meet"}
+                                  </button>
+                                ))}
+                              </div>
                               {(sessionMode === "pool" ? AUTO_POOL_CPS : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS).map(cp => {
                                 const cpMap = sessionMode === "pool" ? a.checkpoints : sessionMode === "weight" ? a.weightCheckpoints : a.meetCheckpoints;
                                 const done = cpMap[cp.id];
