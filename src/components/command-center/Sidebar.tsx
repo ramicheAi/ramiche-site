@@ -28,7 +28,11 @@ const sections = [
     label: 'BUSINESS',
     items: [
       { href: '/command-center/finance', label: 'Finance HQ', icon: '◈', accent: '#fcd34d' },
+      { href: '/command-center/finance/arbitrage', label: 'Arbitrage Calc', icon: '△', accent: '#fcd34d' },
       { href: '/command-center/sales', label: 'Sales', icon: '◉', accent: '#f59e0b' },
+      { href: '/command-center/sales/proposals', label: 'Proposals', icon: '▷', accent: '#f59e0b' },
+      { href: '/command-center/sales/pricing', label: 'Pricing', icon: '◎', accent: '#f59e0b' },
+      { href: '/command-center/sales/agent-pricing', label: 'Agent Pricing', icon: '◇', accent: '#f59e0b' },
       { href: '/command-center/legal', label: 'Legal', icon: '⚖', accent: '#8b5cf6' },
       { href: '/command-center/strategy', label: 'Strategy', icon: '◇', accent: '#a855f7' },
     ],
