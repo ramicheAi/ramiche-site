@@ -6,6 +6,7 @@
 
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
+import { fbSignUp } from "./lib/firebase-auth";
 
 const ORG_ID = "saint-andrews-aquatics";
 
@@ -144,6 +145,8 @@ export async function registerCoach(email: string, password: string, name: strin
   const hashed = await hashPassword(password);
   accounts.push({ email: email.toLowerCase(), password: hashed, name, role, groups, createdAt: Date.now() });
   saveCoachAccounts(accounts);
+  // Phase 2: Dual-write — create Firebase Auth account (non-blocking)
+  fbSignUp(email.toLowerCase(), password).catch(() => {});
   return { success: true };
 }
 
@@ -281,6 +284,8 @@ export async function loginCoach(email: string, password: string): Promise<{ suc
     expiry: Date.now() + SESSION_DURATION_MS,
   };
   setSession(session);
+  // Phase 2: Dual-write — mirror to Firebase Auth (non-blocking, no behavior change)
+  fbSignUp(account.email, password).catch(() => {});
   return { success: true, session };
 }
 
