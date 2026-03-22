@@ -49,7 +49,7 @@ if (hasConfig && typeof window !== "undefined") {
   db = getFirestore(app);
 }
 
-export { db, hasConfig };
+export { app, db, hasConfig };
 
 // ── Firestore Collections ──────────────────────────────────────────
 // organizations/{orgId}
