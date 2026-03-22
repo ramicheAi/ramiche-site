@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import BgOrbs from "../components/BgOrbs";
 import type { Athlete, RosterGroup, SwimMeet, MeetEvent, MeetEventEntry, MeetBroadcast } from "../types";
+import { parseMeetFile, CURRENT_PARSER_VERSION } from "../../lib/meet-parser";
 import { scoreEvent, parseTime as scoringParseTime, type ScoringResult, type BestTime, type MeetResult, type MeetDayBonus } from "../../lib/meet-scoring";
 import MeetDayStatsBar from "../components/MeetDayStatsBar";
 import HeatLaneGrid from "../components/HeatLaneGrid";
@@ -102,6 +103,86 @@ export default function MeetsView({
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const saveMeets = (m: SwimMeet[]) => { setMeets(m); saveMeetsToStorage(m); };
   const [meetBonuses, setMeetBonuses] = useState<Record<string, { athleteId: string; bonuses: MeetDayBonus[]; totalXP: number }[]>>({});
+  const [showPasteImport, setShowPasteImport] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [importStatus, setImportStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMeetFileImport = (files: FileList | null) => {
+    if (!files || files.length === 0) {
+      setImportStatus({ type: "error", message: "No file selected. Tap the button and choose a .hy3 or .ev3 file." });
+      return;
+    }
+    const file = files[0];
+    const shortName = file.name.length > 40 ? file.name.slice(0, 20) + "..." + file.name.slice(-15) : file.name;
+    setImportStatus({ type: "success", message: `Reading "${shortName}" (${(file.size / 1024).toFixed(1)} KB)...` });
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = reader.result as string || "";
+      if (!text || text.length < 10) {
+        setImportStatus({ type: "error", message: `File "${shortName}" appears empty (${file.size} bytes). Try: save the file to your device first, then upload from Files.` });
+        return;
+      }
+      processImportText(text, file.name);
+    };
+    reader.onerror = () => {
+      setImportStatus({ type: "error", message: `Failed to read "${shortName}" (${file.size} bytes). Save to Files app first, then upload.` });
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  const handlePasteImport = () => {
+    const text = pasteText.trim();
+    if (!text || text.length < 10) {
+      setImportStatus({ type: "error", message: "Paste the meet file content first — copy from email or Hy-Tek export." });
+      return;
+    }
+    processImportText(text, "pasted-meet.hy3");
+  };
+
+  const processImportText = (text: string, filename: string) => {
+    try {
+      const parsed = parseMeetFile(text, filename);
+      if (parsed && (parsed.name || (parsed.events && parsed.events.length > 0))) {
+        let dataUrl = "";
+        try { dataUrl = `data:text/plain;base64,${btoa(unescape(encodeURIComponent(text)))}`; } catch { dataUrl = ""; }
+        const existingIdx = meets.findIndex(m => m.name === parsed.name);
+        const newMeet: SwimMeet = {
+          id: existingIdx >= 0 ? meets[existingIdx].id : `meet-${Date.now()}`,
+          name: parsed.name || filename,
+          date: parsed.date || new Date().toISOString().slice(0, 10),
+          endDate: parsed.endDate,
+          location: parsed.location || "",
+          course: parsed.course || "SCY",
+          rsvpDeadline: parsed.date || new Date().toISOString().slice(0, 10),
+          description: `Imported from ${filename}`,
+          sessions: parsed.sessions || [],
+          events: parsed.events || [],
+          rsvps: {},
+          broadcasts: existingIdx >= 0 ? meets[existingIdx].broadcasts : [],
+          status: "upcoming",
+          files: dataUrl ? [{ id: `f-${Date.now()}`, name: filename, dataUrl, uploadedAt: Date.now() }] : [],
+          parserVersion: CURRENT_PARSER_VERSION,
+        };
+        const updated = existingIdx >= 0
+          ? meets.map((m, i) => i === existingIdx ? newMeet : m)
+          : [...meets, newMeet];
+        saveMeets(updated);
+        const evCount = parsed.events?.length || 0;
+        const sampleEvents = (parsed.events || []).slice(0, 4).map(e => e.name).join(", ");
+        const replacedText = existingIdx >= 0 ? " (REPLACED)" : "";
+        setImportStatus({ type: "success", message: `Imported "${parsed.name}"${replacedText} — ${evCount} events (${parsed.course || "SCY"})\n${sampleEvents}${evCount > 4 ? ` + ${evCount - 4} more` : ""}` });
+        setTimeout(() => setEditingMeetId(newMeet.id), 1200);
+        setPasteText("");
+        setShowPasteImport(false);
+      } else {
+        setImportStatus({ type: "error", message: `Could not parse "${filename}". Try a .hy3 or .ev3 file from Hy-Tek Meet Manager.` });
+      }
+    } catch (err) {
+      setImportStatus({ type: "error", message: `Error: ${err instanceof Error ? err.message : "unknown"}` });
+    }
+  };
 
   const exportMeetResults = (meet: SwimMeet) => {
     const rows: string[] = ["Event,Athlete,Seed Time,Final Time,Place,Improvement,Splits,DQ,DQ Reason"];
@@ -127,7 +208,7 @@ export default function MeetsView({
     const m: SwimMeet = {
       id: `meet-${Date.now()}`, name: newMeetName, date: newMeetDate, location: newMeetLocation,
       course: newMeetCourse, rsvpDeadline: newMeetDeadline || newMeetDate,
-      events: [], rsvps: {}, broadcasts: [], status: "upcoming",
+      events: [], rsvps: {}, broadcasts: [], status: "upcoming", sessions: [],
     };
     saveMeets([...meets, m]);
     // Auto-schedule result fetching for this meet
@@ -301,6 +382,38 @@ export default function MeetsView({
                   </button>
                 </div>
               </div>
+            </Card>
+
+            {/* File Import */}
+            <Card className="p-5 mb-6" neon>
+              <h3 className="text-sm font-bold text-white/60 mb-3 uppercase tracking-wider">Import Meet File</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center justify-center gap-2 cursor-pointer game-btn py-4 px-4 text-sm font-bold border-2 border-dashed border-[#00f0ff]/20 rounded-xl text-[#00f0ff]/70 hover:bg-[#00f0ff]/10 hover:border-[#00f0ff]/30 transition-all active:scale-[0.97] min-h-[60px]">
+                  <span>📂 Upload File</span>
+                  <input ref={fileInputRef} type="file" className="hidden" onChange={e => { handleMeetFileImport(e.target.files); e.target.value = ""; }} accept=".hy3,.ev3,.hyv,.cl2,.sd3,text/plain,*/*" />
+                </label>
+                <button onClick={() => setShowPasteImport(!showPasteImport)}
+                  className={`flex items-center justify-center gap-2 game-btn py-4 px-4 text-sm font-bold border-2 border-dashed rounded-xl transition-all active:scale-[0.97] min-h-[60px] ${showPasteImport ? "text-[#a855f7] border-[#a855f7]/30 bg-[#a855f7]/10" : "text-[#a855f7]/70 border-[#a855f7]/20 hover:bg-[#a855f7]/10 hover:border-[#a855f7]/30"}`}>
+                  📋 Paste Content
+                </button>
+              </div>
+              {showPasteImport && (
+                <div className="mt-3">
+                  <textarea value={pasteText} onChange={e => setPasteText(e.target.value)}
+                    placeholder="Paste Hy-Tek meet file content here..."
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2.5 text-xs font-mono text-white placeholder:text-white/60 h-28 resize-none focus:outline-none focus:border-[#a855f7]/40" />
+                  <button onClick={handlePasteImport} disabled={!pasteText.trim()}
+                    className={`w-full mt-2 py-3 rounded-xl text-sm font-bold transition-all active:scale-[0.97] ${pasteText.trim() ? "bg-[#a855f7] text-white" : "bg-white/[0.04] text-white/20 cursor-not-allowed"}`}>
+                    Import from Paste
+                  </button>
+                </div>
+              )}
+              {importStatus && (
+                <div className={`mt-3 p-3 rounded-lg text-xs whitespace-pre-wrap ${importStatus.type === "success" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"}`}>
+                  {importStatus.message}
+                </div>
+              )}
+              <p className="text-white/30 text-xs mt-2">Supports HY3, EV3, HYV, CL2, SD3 formats from Hy-Tek Meet Manager</p>
             </Card>
 
             {/* Meet list */}
