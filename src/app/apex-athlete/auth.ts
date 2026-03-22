@@ -167,6 +167,8 @@ export function registerParent(email: string, name: string, verificationCode: st
   }
   accounts.push({ email: email.toLowerCase(), verificationCode, name, linkedChildren, createdAt: Date.now() });
   saveParentAccounts(accounts);
+  // Phase 3: Dual-write — create parent Firebase Auth account (non-blocking)
+  fbSignUp(email.toLowerCase(), verificationCode).catch(() => {});
   return { success: true };
 }
 
@@ -301,6 +303,8 @@ export function loginParent(email: string, code: string): { success: boolean; se
     expiry: Date.now() + SESSION_DURATION_MS,
   };
   setSession(session);
+  // Phase 3: Dual-write — mirror parent to Firebase Auth (non-blocking)
+  fbSignUp(account.email, code).catch(() => {});
   return { success: true, session };
 }
 
