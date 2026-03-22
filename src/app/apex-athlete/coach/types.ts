@@ -8,7 +8,7 @@ export interface Athlete {
   totalPractices: number; weekSessions: number; weekWeightSessions: number; weekTarget: number;
   checkpoints: Record<string, boolean>;
   weightCheckpoints: Record<string, boolean>;
-  meetCheckpoints: Record<string, boolean>;
+  meetCheckpoints: Record<string, boolean | number>;
   weightChallenges: Record<string, boolean>;
   quests: Record<string, "active" | "submitted" | "done" | "pending">;
   questNotes?: Record<string, string>;
@@ -88,6 +88,12 @@ export interface MeetEvent {
   name: string;
   eventNum?: number;
   gender?: "M" | "F" | "Mixed";
+  distance?: number;
+  stroke?: string;
+  sessionType?: "P" | "F";
+  isRelay?: boolean;
+  cutTime?: string;
+  dayNumber?: number;
   qualifyingTime?: string;
   entries: MeetEventEntry[];
   lanesPerHeat?: number;
@@ -100,17 +106,28 @@ export interface MeetBroadcast {
   sentBy: string;
 }
 
+export interface MeetSession {
+  event: string;
+  session: string;
+  heats: { heat: number; lane: number; swimmer: string; seedTime: string }[];
+}
+
 export interface SwimMeet {
   id: string;
   name: string;
   date: string;
+  endDate?: string;
   location: string;
   course: "SCY" | "SCM" | "LCM";
   rsvpDeadline: string;
+  description?: string;
+  sessions?: MeetSession[];
   events: MeetEvent[];
   rsvps: Record<string, "committed" | "declined" | "pending">;
   broadcasts: MeetBroadcast[];
   status: "upcoming" | "active" | "completed";
+  files?: { id: string; name: string; dataUrl: string; uploadedAt: number }[];
+  parserVersion?: number;
 }
 
 // ── Wellness types ──────────────────────────────────────────
