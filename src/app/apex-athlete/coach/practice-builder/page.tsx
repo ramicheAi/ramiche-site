@@ -282,17 +282,18 @@ export default function PracticeBuilderPage() {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragIdx !== null && dragIdx !== i) moveSet(dragIdx, i); setDragIdx(null); }}
                   onDragEnd={() => setDragIdx(null)}
-                  onTouchStart={e => { setTouchIdx(i); touchY.current = e.touches[0].clientY; }}
+                  onTouchStart={e => { setTouchIdx(i); touchY.current = e.touches[0].clientY; e.currentTarget.style.opacity = '0.6'; }}
                   onTouchMove={e => {
                     if (touchIdx === null) return;
+                    e.preventDefault();
                     const dy = e.touches[0].clientY - touchY.current;
-                    if (Math.abs(dy) > 50) {
+                    if (Math.abs(dy) > 40) {
                       const dir = dy > 0 ? 1 : -1;
                       const to = touchIdx + dir;
                       if (to >= 0 && to < sets.length) { moveSet(touchIdx, to); setTouchIdx(to); touchY.current = e.touches[0].clientY; }
                     }
                   }}
-                  onTouchEnd={() => setTouchIdx(null)}
+                  onTouchEnd={e => { setTouchIdx(null); e.currentTarget.style.opacity = '1'; }}
                   className={`bg-slate-900 border-2 rounded-lg p-4 transition-all ${dragIdx === i ? 'opacity-50 border-amber-400' : 'border-slate-700 hover:border-purple-500'}`}
                 >
                   <div className="flex justify-between items-center mb-2">
