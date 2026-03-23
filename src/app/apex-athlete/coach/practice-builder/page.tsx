@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 
 // ============ TYPES ============
 interface PracticeSet {
@@ -96,6 +96,8 @@ export default function PracticeBuilderPage() {
   const [skillLevel, setSkillLevel] = useState('age-group');
   const [showExport, setShowExport] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [touchIdx, setTouchIdx] = useState<number | null>(null);
+  const touchY = React.useRef<number>(0);
 
   const addSet = useCallback((overrides?: Partial<Omit<PracticeSet, 'id' | 'totalYards' | 'estSeconds'>>) => {
     const s = {
@@ -280,6 +282,17 @@ export default function PracticeBuilderPage() {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragIdx !== null && dragIdx !== i) moveSet(dragIdx, i); setDragIdx(null); }}
                   onDragEnd={() => setDragIdx(null)}
+                  onTouchStart={e => { setTouchIdx(i); touchY.current = e.touches[0].clientY; }}
+                  onTouchMove={e => {
+                    if (touchIdx === null) return;
+                    const dy = e.touches[0].clientY - touchY.current;
+                    if (Math.abs(dy) > 50) {
+                      const dir = dy > 0 ? 1 : -1;
+                      const to = touchIdx + dir;
+                      if (to >= 0 && to < sets.length) { moveSet(touchIdx, to); setTouchIdx(to); touchY.current = e.touches[0].clientY; }
+                    }
+                  }}
+                  onTouchEnd={() => setTouchIdx(null)}
                   className={`bg-slate-900 border-2 rounded-lg p-4 transition-all ${dragIdx === i ? 'opacity-50 border-amber-400' : 'border-slate-700 hover:border-purple-500'}`}
                 >
                   <div className="flex justify-between items-center mb-2">
