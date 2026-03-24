@@ -63,6 +63,8 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
     { csvColumn: '', athleteField: 'quests', required: false },
     { csvColumn: '', athleteField: 'questNotes', required: false },
     { csvColumn: '', athleteField: 'dailyXP', required: false },
+    { csvColumn: '', athleteField: 'parentName', required: false },
+    { csvColumn: '', athleteField: 'parentEmail', required: false },
   ];
 
   const handleFileSelect = useCallback((file: File) => {
@@ -110,6 +112,47 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
           else if (lowerHeader.includes('streak')) autoMapping[header] = 'streak';
         });
         setMapping(autoMapping);
+
+        // GoMotion-specific header detection
+        const detectedGoMotion: {
+          firstName?: string;
+          lastName?: string;
+          dob?: string;
+          parentName?: string;
+          parentEmail?: string;
+        } = {};
+
+        headers.forEach(header => {
+          const lh = header.toLowerCase().trim();
+          if (['first name', 'first_name', 'firstname'].includes(lh)) {
+            detectedGoMotion.firstName = header;
+          } else if (['last name', 'last_name', 'lastname'].includes(lh)) {
+            detectedGoMotion.lastName = header;
+          } else if (['dob', 'date of birth', 'birth date', 'birthdate'].includes(lh)) {
+            detectedGoMotion.dob = header;
+          } else if (['parent email', 'parent_email', 'guardian email'].includes(lh)) {
+            detectedGoMotion.parentEmail = header;
+          } else if (['parent name', 'parent_name', 'guardian name'].includes(lh)) {
+            detectedGoMotion.parentName = header;
+          }
+        });
+
+        setGoMotionColumns(detectedGoMotion);
+        if (detectedGoMotion.firstName && detectedGoMotion.lastName) {
+          setIsGoMotionImport(true);
+          autoMapping[detectedGoMotion.firstName] = 'name';
+          if (detectedGoMotion.dob) {
+            autoMapping[detectedGoMotion.dob] = 'age';
+          }
+          if (detectedGoMotion.parentName) {
+            autoMapping[detectedGoMotion.parentName] = 'parentName';
+          }
+          if (detectedGoMotion.parentEmail) {
+            autoMapping[detectedGoMotion.parentEmail] = 'parentEmail';
+          }
+        } else {
+          setIsGoMotionImport(false);
+        }
       } catch (error) {
         setValidationErrors([`Error parsing CSV: ${error instanceof Error ? error.message : 'Unknown error'}`]);
       }
@@ -140,8 +183,12 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
   const validateMapping = useCallback((): string[] => {
     const errors: string[] = [];
     const requiredFields = athleteFields.filter(f => f.required).map(f => f.athleteField);
-    
+    const goMotionAutoFields: (keyof Athlete)[] = isGoMotionImport
+      ? ['name', ...(goMotionColumns.dob ? ['age' as keyof Athlete] : [])]
+      : [];
+
     requiredFields.forEach(field => {
+      if (goMotionAutoFields.includes(field)) return;
       if (!Object.values(mapping).includes(field)) {
         errors.push(`Missing required field: ${field}`);
       }
@@ -171,7 +218,7 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
     });
 
     return errors;
-  }, [mapping, csvData, athleteFields]);
+  }, [mapping, csvData, athleteFields, isGoMotionImport, goMotionColumns]);
 
   const handleImport = useCallback(() => {
     const errors = validateMapping();
@@ -195,16 +242,46 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
           dailyXP: { date: new Date().toISOString().split('T')[0], pool: 0, weight: 0, meet: 0 },
         };
 
+        // GoMotion: combine firstName + lastName, calc age from DOB, lowercase emails
+        if (isGoMotionImport && goMotionColumns.firstName && goMotionColumns.lastName) {
+          const first = (row[goMotionColumns.firstName] || '').trim();
+          const last = (row[goMotionColumns.lastName] || '').trim();
+          athlete.name = `${first} ${last}`.trim();
+
+          if (goMotionColumns.dob) {
+            const dobStr = row[goMotionColumns.dob];
+            if (dobStr) {
+              const dob = new Date(dobStr);
+              if (!isNaN(dob.getTime())) {
+                const today = new Date();
+                let age = today.getFullYear() - dob.getFullYear();
+                const monthDiff = today.getMonth() - dob.getMonth();
+                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+                  age--;
+                }
+                athlete.age = age;
+              }
+            }
+          }
+
+          if (goMotionColumns.parentName) {
+            athlete.parentName = (row[goMotionColumns.parentName] || '').trim();
+          }
+          if (goMotionColumns.parentEmail) {
+            athlete.parentEmail = (row[goMotionColumns.parentEmail] || '').trim().toLowerCase();
+          }
+        }
+
         // Map CSV columns to athlete fields
         Object.entries(mapping).forEach(([csvColumn, athleteField]) => {
           const value = row[csvColumn];
-          
+
           switch (athleteField) {
             case 'name':
-              athlete.name = value;
+              if (!isGoMotionImport) athlete.name = value;
               break;
             case 'age':
-              athlete.age = parseInt(value) || 0;
+              if (!isGoMotionImport) athlete.age = parseInt(value) || 0;
               break;
             case 'gender':
               athlete.gender = value.toUpperCase() as 'M' | 'F';
@@ -233,6 +310,12 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
             case 'weekTarget':
               athlete[athleteField] = parseInt(value) || 0;
               break;
+            case 'parentName':
+              if (!isGoMotionImport) athlete.parentName = value;
+              break;
+            case 'parentEmail':
+              if (!isGoMotionImport) athlete.parentEmail = value?.toLowerCase();
+              break;
           }
         });
 
@@ -259,6 +342,8 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
           quests: {},
           questNotes: {},
           dailyXP: { date: new Date().toISOString().split('T')[0], pool: 0, weight: 0, meet: 0 },
+          parentName: athlete.parentName || undefined,
+          parentEmail: athlete.parentEmail || undefined,
         } as Athlete;
       });
 
@@ -279,7 +364,7 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
       setImportStatus('error');
       setValidationErrors([`Import failed: ${error instanceof Error ? error.message : 'Unknown error'}`]);
     }
-  }, [csvData, mapping, validateMapping, onImportComplete]);
+  }, [csvData, mapping, validateMapping, onImportComplete, isGoMotionImport, goMotionColumns]);
 
   const handleDownloadTemplate = useCallback(() => {
     const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv' });
@@ -432,6 +517,28 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
               Test with Sample Athlete
             </button>
           </div>
+
+          {/* GoMotion Auto-Detect Banner */}
+          {isGoMotionImport && (
+            <div className="mb-6 p-4 rounded-lg border-2 bg-[#0a0a1a] border-[#00f0ff]/30">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-[#00f0ff]/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-[#00f0ff]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-sm font-semibold text-[#00f0ff]">GoMotion Format Detected</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Auto-mapping: {goMotionColumns.firstName} + {goMotionColumns.lastName} → name
+                    {goMotionColumns.dob && `, ${goMotionColumns.dob} → age`}
+                    {goMotionColumns.parentEmail && `, ${goMotionColumns.parentEmail} → parentEmail`}
+                    {goMotionColumns.parentName && `, ${goMotionColumns.parentName} → parentName`}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* CSV Preview */}
           <div className="mb-6">

@@ -30,6 +30,8 @@ export interface Athlete {
   quests: Record<string, "active" | "submitted" | "done" | "pending">;
   questNotes?: Record<string, string>;
   dailyXP: DailyXP;
+  parentName?: string;
+  parentEmail?: string;
 }
 
 export interface AuditEntry {

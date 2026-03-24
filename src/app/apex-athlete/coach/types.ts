@@ -17,6 +17,7 @@ export interface Athlete {
   birthday?: string;
   usaSwimmingId?: string;
   parentName?: string;
+  parentEmail?: string;
   parentPhone?: string;
   pin?: string;
   bestTimes?: Record<string, { time: string; seconds: number; meetId: string; meetName: string; date: string; course: "SCY" | "SCM" | "LCM"; source: "swimcloud" | "meetmobile" | "manual" | "hytek" }>;
