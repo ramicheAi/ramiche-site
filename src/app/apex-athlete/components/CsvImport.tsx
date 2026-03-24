@@ -32,6 +32,14 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [importStatus, setImportStatus] = useState<'idle' | 'mapping' | 'validating' | 'importing' | 'complete' | 'error'>('idle');
   const [importResult, setImportResult] = useState<{success: number, failed: number, errors: string[]} | null>(null);
+  const [isGoMotionImport, setIsGoMotionImport] = useState(false);
+  const [goMotionColumns, setGoMotionColumns] = useState<{
+    firstName?: string;
+    lastName?: string;
+    dob?: string;
+    parentName?: string;
+    parentEmail?: string;
+  }>({});
 
   const athleteFields: ColumnMapping[] = [
     { csvColumn: '', athleteField: 'id', required: false },
