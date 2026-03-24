@@ -157,19 +157,36 @@ function getCronExecutionLog() {
   }, []);
 }
 
-function getYoloBuilds(limit = 5) {
+function getYoloBuilds() {
   const dir = join(WS, "yolo-builds");
   return safe(() => {
     if (!existsSync(dir)) return [];
     return readdirSync(dir)
-      .filter(f => statSync(join(dir, f)).isDirectory())
-      .sort().reverse().slice(0, limit)
+      .filter(f => {
+        const p = join(dir, f);
+        return statSync(p).isDirectory();
+      })
+      .sort().reverse()
       .map(f => {
-        const readmePath = join(dir, f, "README.md");
-        const snippet = existsSync(readmePath)
-          ? readFileSync(readmePath, "utf-8").slice(0, 200)
-          : "";
-        return { name: f, snippet, date: statSync(join(dir, f)).mtime.toISOString() };
+        const p = join(dir, f);
+        const metaPath = join(p, "meta.json");
+        const readmePath = join(p, "README.md");
+        let meta: Record<string, string> = {};
+        if (existsSync(metaPath)) {
+          try { meta = JSON.parse(readFileSync(metaPath, "utf-8")); } catch {}
+        }
+        const snippet = meta.idea || (existsSync(readmePath) ? readFileSync(readmePath, "utf-8").slice(0, 200) : "");
+        const dateMatch = f.match(/^(\d{4}-\d{2}-\d{2})/);
+        const agentMatch = f.match(/^\d{4}-\d{2}-\d{2}-([a-z-]+?)-/);
+        return {
+          name: meta.name || f.replace(/^\d{4}-\d{2}-\d{2}-[a-z-]+?-/, "").split("-").map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+          folder: f,
+          snippet,
+          date: dateMatch ? dateMatch[1] : statSync(p).mtime.toISOString(),
+          agent: meta.agent || (agentMatch ? agentMatch[1].charAt(0).toUpperCase() + agentMatch[1].slice(1) : "Unknown"),
+          status: meta.status || "working",
+          files: readdirSync(p).filter((x: string) => !x.startsWith(".")),
+        };
       });
   }, []);
 }

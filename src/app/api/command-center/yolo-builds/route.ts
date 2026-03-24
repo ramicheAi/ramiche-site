@@ -4,7 +4,11 @@ import { join } from "path";
 
 export const dynamic = "force-dynamic";
 
-const BUILDS_DIR = join(process.cwd(), "public/yolo-builds");
+const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
+const BUILDS_DIR_WS = join(WS, "yolo-builds");
+const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
+// Prefer workspace (live source of truth), fallback to public (Vercel)
+const BUILDS_DIR = existsSync(BUILDS_DIR_WS) ? BUILDS_DIR_WS : BUILDS_DIR_PUBLIC;
 
 interface BuildMeta {
   date: string;
@@ -68,7 +72,6 @@ export async function GET() {
       const indexPath = join(dirPath, "index.html");
 
       const hasIndex = existsSync(indexPath);
-      if (!hasIndex) continue; // skip empty build dirs
 
       const files = readdirSync(dirPath).filter(f => !f.startsWith("."));
 
