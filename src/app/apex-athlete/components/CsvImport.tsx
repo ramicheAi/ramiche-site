@@ -18,6 +18,29 @@ interface ColumnMapping {
   required: boolean;
 }
 
+// GoMotion group name → internal group ID mapping
+const GROUP_ALIASES: Record<string, string> = {
+  'senior': 'platinum', 'seniors': 'platinum', 'varsity': 'platinum', 'national': 'platinum',
+  'junior varsity': 'gold', 'jv': 'gold', 'junior': 'gold', 'pre-senior': 'gold',
+  'age group 1': 'silver', 'age group': 'silver', 'ag1': 'silver', 'intermediate': 'silver',
+  'age group 2': 'bronze1', 'ag2': 'bronze1', 'developmental': 'bronze1', 'development': 'bronze1',
+  'novice': 'bronze2', 'beginner': 'bronze2', 'rookie': 'bronze2', 'learn to swim': 'bronze2',
+  'diving': 'diving', 'dive': 'diving', 'divers': 'diving',
+  'water polo': 'waterpolo', 'waterpolo': 'waterpolo', 'polo': 'waterpolo',
+};
+const VALID_GROUPS = ['platinum', 'gold', 'silver', 'bronze1', 'bronze2', 'diving', 'waterpolo'];
+
+function resolveGroup(raw: string): string {
+  const lower = raw.toLowerCase().trim();
+  if (VALID_GROUPS.includes(lower)) return lower;
+  if (GROUP_ALIASES[lower]) return GROUP_ALIASES[lower];
+  // Partial keyword match
+  for (const [alias, group] of Object.entries(GROUP_ALIASES)) {
+    if (lower.includes(alias) || alias.includes(lower)) return group;
+  }
+  return 'platinum'; // default
+}
+
 const CSV_TEMPLATE = `name,age,gender,group,xp,streak,weightStreak,totalPractices
 John Doe,14,M,platinum,250,7,3,45
 Jane Smith,15,F,gold,180,14,5,38
@@ -83,11 +106,38 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
           return;
         }
 
-        const headers = lines[0].split(',').map(h => h.trim());
+        // RFC-4180 CSV parser: handles quoted fields with commas and escaped quotes
+        function parseCsvLine(line: string): string[] {
+          const fields: string[] = [];
+          let i = 0;
+          while (i <= line.length) {
+            if (i === line.length) { fields.push(''); break; }
+            if (line[i] === '"') {
+              let val = '';
+              i++; // skip opening quote
+              while (i < line.length) {
+                if (line[i] === '"') {
+                  if (i + 1 < line.length && line[i + 1] === '"') { val += '"'; i += 2; }
+                  else { i++; break; } // closing quote
+                } else { val += line[i]; i++; }
+              }
+              fields.push(val.trim());
+              if (i < line.length && line[i] === ',') i++; // skip delimiter
+            } else {
+              const next = line.indexOf(',', i);
+              if (next === -1) { fields.push(line.substring(i).trim()); break; }
+              fields.push(line.substring(i, next).trim());
+              i = next + 1;
+            }
+          }
+          return fields;
+        }
+
+        const headers = parseCsvLine(lines[0]);
         const rows: CsvRow[] = [];
-        
+
         for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim());
+          const values = parseCsvLine(lines[i]);
           const row: CsvRow = {};
           headers.forEach((header, index) => {
             row[header] = values[index] || '';
@@ -205,14 +255,14 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
       }
     });
 
-    // Validate group values
+    // Validate group values (resolveGroup handles aliases, only warn if truly unrecognized)
     csvData.forEach((row, index) => {
       const groupField = Object.entries(mapping).find(([_, athleteField]) => athleteField === 'group');
       if (groupField) {
-        const groupValue = row[groupField[0]].toLowerCase();
-        const validGroups = ['platinum', 'gold', 'silver', 'bronze1', 'bronze2', 'diving', 'waterpolo'];
-        if (!validGroups.includes(groupValue)) {
-          errors.push(`Row ${index + 2}: Group must be one of: ${validGroups.join(', ')}, found '${groupValue}'`);
+        const groupValue = row[groupField[0]];
+        const resolved = resolveGroup(groupValue);
+        if (!VALID_GROUPS.includes(resolved)) {
+          errors.push(`Row ${index + 2}: Unrecognized group '${groupValue}', will default to 'platinum'`);
         }
       }
     });
@@ -249,10 +299,23 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
           athlete.name = `${first} ${last}`.trim();
 
           if (goMotionColumns.dob) {
-            const dobStr = row[goMotionColumns.dob];
+            const dobStr = (row[goMotionColumns.dob] || '').trim();
             if (dobStr) {
-              const dob = new Date(dobStr);
-              if (!isNaN(dob.getTime())) {
+              let dob: Date | null = null;
+              // Try MM/DD/YYYY or M/D/YYYY
+              const slashMatch = dobStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+              if (slashMatch) {
+                const m = parseInt(slashMatch[1]) - 1;
+                const d = parseInt(slashMatch[2]);
+                let y = parseInt(slashMatch[3]);
+                if (y < 100) y += y > 30 ? 1900 : 2000; // 2-digit year: 31-99→19xx, 00-30→20xx
+                dob = new Date(y, m, d);
+              } else {
+                // Fallback: ISO (YYYY-MM-DD) or other formats Date can parse
+                const parsed = new Date(dobStr);
+                if (!isNaN(parsed.getTime())) dob = parsed;
+              }
+              if (dob && !isNaN(dob.getTime())) {
                 const today = new Date();
                 let age = today.getFullYear() - dob.getFullYear();
                 const monthDiff = today.getMonth() - dob.getMonth();
@@ -287,7 +350,7 @@ export default function CsvImport({ onImportComplete, teamId }: CsvImportProps) 
               athlete.gender = value.toUpperCase() as 'M' | 'F';
               break;
             case 'group':
-              athlete.group = value.toLowerCase();
+              athlete.group = resolveGroup(value);
               break;
             case 'xp':
               athlete.xp = parseInt(value) || 0;
