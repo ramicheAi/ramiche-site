@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MASTER_PIN, getSession, clearSession } from "../auth";
 import ParticleField from "@/components/ParticleField";
 import PBOverlay from "../components/PBOverlay";
+import { fbGetRoster, fbListenRoster } from "@/lib/firebase";
 type PBNotification = { event: string; oldTime: string; newTime: string; timeDrop: string; xpEarned: number; meetName?: string };
 
 /* ══════════════════════════════════════════════════════════════
@@ -1059,14 +1060,31 @@ export default function ParentPortal() {
 
   useEffect(() => {
     if (!mounted) return;
-    const r = load<Athlete[]>(K.ROSTER, []);
-    setRoster(r);
+    const localRoster = load<Athlete[]>(K.ROSTER, []);
+    setRoster(localRoster);
     setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
     // Load communication data
     setMeets(load<MeetEntry[]>(K.MEETS, []));
     setRsvps(load<RsvpRecord[]>(K.RSVPS, []));
     setAbsences(load<AbsenceReport[]>(K.ABSENCES, []));
     setBroadcasts(load<Broadcast[]>(K.BROADCASTS, []));
+
+    // Firestore fallback: if localStorage roster is empty, fetch from Firestore
+    if (localRoster.length === 0) {
+      fbGetRoster("all").then((data) => {
+        if (data?.athletes && Array.isArray(data.athletes) && data.athletes.length > 0) {
+          setRoster(data.athletes as Athlete[]);
+        }
+      }).catch(() => { /* Firestore unavailable — stay with empty roster */ });
+    }
+
+    // Real-time sync: listen to Firestore roster changes (works cross-device)
+    const unsub = fbListenRoster("all", (athletes) => {
+      if (athletes && Array.isArray(athletes) && athletes.length > 0) {
+        setRoster(athletes as Athlete[]);
+      }
+    });
+
     // Check for saved parent-child links
     const saved = localStorage.getItem("apex-parent-links");
     if (saved) {
@@ -1075,7 +1093,7 @@ export default function ParentPortal() {
         setLinkedChildren(links);
         // Auto-load first linked child
         if (links.length > 0) {
-          const found = r.find(a => a.id === links[0]);
+          const found = localRoster.find(a => a.id === links[0]);
           if (found) {
             setAthlete(found);
             setShowWelcome(true);
@@ -1084,6 +1102,8 @@ export default function ParentPortal() {
         }
       } catch {}
     }
+
+    return () => { if (unsub) unsub(); };
   }, [mounted]);
 
   // PB detection for parent notification

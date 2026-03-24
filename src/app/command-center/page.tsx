@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -721,6 +722,94 @@ export default function CommandCenter() {
     } catch { /* silent */ }
   }, [steps, waterG, sleepH, workedOut, vitalsLoaded]);
 
+  /* ── REAL-TIME SSE STREAM ── */
+  const [sseConnected, setSseConnected] = useState(false);
+  const [liveVitals, setLiveVitals] = useState<any>(null);
+  const [liveCommits, setLiveCommits] = useState<any[]>([]);
+  const [liveForge, setLiveForge] = useState<any[]>([]);
+  const [liveMemoryLog, setLiveMemoryLog] = useState<any>(null);
+  const [liveSessionCount, setLiveSessionCount] = useState(0);
+  const [sseLastPing, setSseLastPing] = useState("");
+  const [liveYoloBuilds, setLiveYoloBuilds] = useState<any[]>([]);
+  const [liveCronHistory, setLiveCronHistory] = useState<any[]>([]);
+  const [liveAgentDir, setLiveAgentDir] = useState<any>(null);
+  const [liveCronList, setLiveCronList] = useState<any[]>([]);
+
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout>;
+
+    const connect = () => {
+      es = new EventSource("/api/command-center/sse");
+
+      es.addEventListener("snapshot", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveVitals(data.vitals);
+        setLiveCommits(data.commits ?? []);
+        setLiveForge(data.forge ?? []);
+        setLiveMemoryLog(data.memory);
+        setLiveSessionCount(data.activeSessions ?? 0);
+        setLiveYoloBuilds(data.yoloBuilds ?? []);
+        setLiveCronHistory(data.cronHistory ?? []);
+        if (data.agents) setLiveAgentDir(data.agents);
+        if (data.crons) setLiveCronList(Array.isArray(data.crons) ? data.crons : []);
+        setSseConnected(true);
+        setSseLastPing(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
+      });
+
+      es.addEventListener("vitals", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveVitals(data.vitals);
+        if (typeof data.activeSessions === "number") setLiveSessionCount(data.activeSessions);
+        setSseLastPing(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
+      });
+
+      es.addEventListener("commits", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveCommits(data.commits ?? []);
+      });
+
+      es.addEventListener("forge", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveForge(data.forge ?? []);
+      });
+
+      es.addEventListener("memory", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveMemoryLog(data.memory);
+      });
+
+      es.addEventListener("yolo", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveYoloBuilds(data.yoloBuilds ?? []);
+      });
+
+      es.addEventListener("cronHistory", (e) => {
+        const data = JSON.parse(e.data);
+        setLiveCronHistory(data.cronHistory ?? []);
+      });
+
+      es.addEventListener("agents", (e) => {
+        const data = JSON.parse(e.data);
+        if (data.agents) setLiveAgentDir(data.agents);
+        if (data.crons) setLiveCronList(Array.isArray(data.crons) ? data.crons : []);
+      });
+
+      es.addEventListener("heartbeat", () => {
+        setSseLastPing(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
+      });
+
+      es.onerror = () => {
+        setSseConnected(false);
+        es?.close();
+        retryTimer = setTimeout(connect, 3000);
+      };
+    };
+
+    connect();
+    return () => { es?.close(); clearTimeout(retryTimer); };
+  }, []);
+
   /* ── holographic particle canvas ── */
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1132,14 +1221,17 @@ export default function CommandCenter() {
 
   /* ── computed ── */
   const totalT = liveMissions
-    ? missions.reduce((s: number, p: any) => s + (p.totalTasks || 0), 0)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? missions.reduce((s: number, p: Record<string, any>) => s + (p.totalTasks || 0), 0)
     : MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
   const doneT = liveMissions
-    ? missions.reduce((s: number, p: any) => s + (p.completedTasks || 0), 0)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ? missions.reduce((s: number, p: Record<string, any>) => s + (p.completedTasks || 0), 0)
     : MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
   const pct = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
   const activeAgents = agents.filter((a) => a.status === "active").length;
-  const activeMissions = missions.filter((m: any) => m.status === "active").length;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const activeMissions = missions.filter((m: Record<string, any>) => m.status === "active").length;
 
   /* ══════════════════════════════════════════════════════════════════════════
      RENDER
@@ -1179,8 +1271,8 @@ export default function CommandCenter() {
         {/* ═══════ HERO SECTION — PARALLAX SITE STYLE ═══════ */}
         <section style={{ minHeight: '50vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '40px 24px 60px', position: 'relative' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: lastSynced ? '#22c55e' : '#ef4444', boxShadow: lastSynced ? '0 0 8px #22c55e' : '0 0 8px #ef4444', animation: 'pulse 2s ease-in-out infinite' }} />
-            MISSION CONTROL &middot; LIVE{lastSynced ? ` · ${lastSynced}` : ''}
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: sseConnected ? '#22c55e' : (lastSynced ? '#f59e0b' : '#ef4444'), boxShadow: sseConnected ? '0 0 8px #22c55e' : (lastSynced ? '0 0 8px #f59e0b' : '0 0 8px #ef4444'), animation: 'pulse 2s ease-in-out infinite' }} />
+            MISSION CONTROL &middot; {sseConnected ? 'LIVE STREAM' : 'POLLING'}{sseLastPing ? ` · ${sseLastPing}` : (lastSynced ? ` · ${lastSynced}` : '')}
           </div>
           <h1 style={{ fontSize: 'clamp(40px, 7vw, 72px)', fontWeight: 800, lineHeight: 1.05, marginBottom: 16 }}>
             <span style={{ color: '#e5e5e5' }}>Command</span>{' '}
@@ -1221,6 +1313,163 @@ export default function CommandCenter() {
             </div>
           </div>
         </div>
+
+        {/* ═══════ REAL-TIME TELEMETRY STRIP ═══════ */}
+        {liveVitals && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 12 }}>
+              {[
+                { label: 'CPU LOAD', value: liveVitals.cpu?.load || 'N/A', accent: '#7c3aed' },
+                { label: 'MEMORY', value: `${liveVitals.memory?.percent || '?'}`, accent: '#22d3ee' },
+                { label: 'DISK', value: `${liveVitals.disk?.percent || '?'}`, accent: '#f59e0b' },
+                { label: 'SESSIONS', value: `${liveSessionCount}`, accent: '#059669' },
+                { label: 'FORGE', value: `${liveForge.length}/20`, accent: '#a855f7' },
+                { label: 'COMMITS (24h)', value: `${liveCommits.length}`, accent: '#38bdf8' },
+              ].map((m) => (
+                <div key={m.label} style={{ padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', textAlign: 'center' }}>
+                  <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: '#666', marginBottom: 4 }}>{m.label}</div>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: m.accent, fontFamily: 'monospace' }}>{m.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═══════ LIVE GIT FEED ═══════ */}
+        {liveCommits.length > 0 && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#059669', animation: 'pulse 2s ease-in-out infinite' }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#888' }}>LIVE GIT FEED</span>
+                </div>
+                <span style={{ fontSize: 10, color: '#555', fontFamily: 'monospace' }}>{sseLastPing}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 180, overflowY: 'auto' }}>
+                {liveCommits.slice(0, 8).map((c, i) => (
+                  <div key={`${c.hash}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
+                    <span style={{ fontFamily: 'monospace', color: '#7c3aed', fontWeight: 600, flexShrink: 0 }}>{c.hash}</span>
+                    <span style={{ color: '#22d3ee', fontWeight: 600, flexShrink: 0, minWidth: 80 }}>{c.author}</span>
+                    <span style={{ color: '#aaa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.message}</span>
+                    <span style={{ marginLeft: 'auto', color: '#555', fontFamily: 'monospace', fontSize: 10, flexShrink: 0 }}>
+                      {c.date ? new Date(c.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════ FORGE REFLECTIONS (TODAY) ═══════ */}
+        {liveForge.length > 0 && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 14 }}>🔥</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#888' }}>FORGE REFLECTIONS — TODAY</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#a855f7', fontFamily: 'monospace' }}>{liveForge.length}/20</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 8 }}>
+                {liveForge.map((f) => (
+                  <div key={f.agent} style={{ padding: '10px 12px', borderRadius: 8, background: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.15)' }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#a855f7', marginBottom: 4, textTransform: 'uppercase' }}>{f.agent}</div>
+                    <div style={{ fontSize: 10, color: '#777', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const }}>{f.snippet?.slice(0, 120)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════ DAILY MEMORY LOG ═══════ */}
+        {liveMemoryLog && liveMemoryLog.entries?.length > 0 && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 14 }}>📝</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#888' }}>DAILY MEMORY LOG — {liveMemoryLog.date}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
+                {liveMemoryLog.entries.slice(0, 6).map((e: any, i: number) => (
+                  <div key={i} style={{ fontSize: 11, color: '#aaa', padding: '6px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.02)' }}>
+                    <span style={{ fontWeight: 600, color: '#e5e5e5' }}>{e.heading}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════ YOLO BUILDS (LIVE) ═══════ */}
+        {liveYoloBuilds.length > 0 && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 14 }}>🚀</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#888' }}>YOLO BUILDS</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#f59e0b', fontFamily: 'monospace' }}>{liveYoloBuilds.length} recent</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
+                {liveYoloBuilds.map((b: any) => (
+                  <div key={b.name} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.1)' }}>
+                    <span style={{ fontFamily: 'monospace', color: '#f59e0b', fontWeight: 600, flexShrink: 0, fontSize: 10 }}>YOLO</span>
+                    <span style={{ color: '#e5e5e5', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
+                    <span style={{ marginLeft: 'auto', color: '#555', fontFamily: 'monospace', fontSize: 10, flexShrink: 0 }}>
+                      {b.date ? new Date(b.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════ CRON HISTORY (LIVE) ═══════ */}
+        {liveCronHistory.length > 0 && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 14 }}>⏰</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#888' }}>CRON HISTORY</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto' }}>
+                {liveCronHistory.map((h: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: h.status === 'ok' || h.result === 'ok' ? '#22c55e' : '#ef4444', flexShrink: 0 }} />
+                    <span style={{ color: '#aaa', fontFamily: 'monospace', flexShrink: 0, minWidth: 60, fontSize: 10 }}>{h.time || h.timestamp || ''}</span>
+                    <span style={{ color: '#e5e5e5', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name || h.job || h.id || 'cron'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ═══════ LIVE AGENT DIRECTORY (FROM SSE) ═══════ */}
+        {liveAgentDir?.agents?.length > 0 && (
+          <div style={{ maxWidth: 1200, margin: '0 auto 16px', padding: '0 24px' }}>
+            <div style={{ padding: '16px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <span style={{ fontSize: 14 }}>🤖</span>
+                <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#888' }}>AGENT DIRECTORY (LIVE)</span>
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#7c3aed', fontFamily: 'monospace' }}>{liveAgentDir.agents.length} agents</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8 }}>
+                {liveAgentDir.agents.slice(0, 20).map((a: any) => (
+                  <div key={a.id} style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(124,58,237,0.04)', border: '1px solid rgba(124,58,237,0.12)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#e5e5e5', textTransform: 'uppercase' }}>{a.id}</div>
+                      <div style={{ fontSize: 9, color: '#777', fontFamily: 'monospace' }}>{a.model} · {a.role}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
 
