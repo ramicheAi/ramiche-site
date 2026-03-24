@@ -108,7 +108,7 @@ export default function BestTimesCard({ athleteId, athleteName, usaSwimmingId, a
               const eventKey = normalizeEvent(t.event, t.stroke);
               const standard = QUALIFYING_STANDARDS[t.course]?.[eventKey];
               const gender = athleteGender || "M";
-              const cutoff = standard?.[gender] ?? null;
+              const cutoff = typeof standard === "number" ? standard : (standard as Record<string, number> | undefined)?.[gender] ?? null;
               const athleteSecs = parseTimeToSeconds(t.time);
               const gap = cutoff !== null && athleteSecs !== null ? athleteSecs - cutoff : null;
               return (
