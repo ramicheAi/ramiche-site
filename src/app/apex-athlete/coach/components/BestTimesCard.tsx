@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "@/app/apex-athlete/components/Card";
 import { saveBestTimes, getBestTimes } from "@/lib/firestore-times";
+import { QUALIFYING_STANDARDS, parseTimeToSeconds, formatSeconds, normalizeEvent } from "@/lib/qualifying-standards";
 
 interface BestTimesData {
   times: Array<{ event: string; stroke: string; time: string; course: string; meet: string; date: string }>;
@@ -14,7 +15,7 @@ interface BestTimesData {
   error?: string;
 }
 
-export default function BestTimesCard({ athleteId, athleteName, usaSwimmingId }: { athleteId: string; athleteName: string; usaSwimmingId?: string }) {
+export default function BestTimesCard({ athleteId, athleteName, usaSwimmingId, athleteGender }: { athleteId: string; athleteName: string; usaSwimmingId?: string; athleteGender?: "M" | "F" }) {
   const [btState, setBtState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [btData, setBtData] = useState<BestTimesData | null>(null);
   const [fromCache, setFromCache] = useState(false);
@@ -103,18 +104,33 @@ export default function BestTimesCard({ athleteId, athleteName, usaSwimmingId }:
               {btData.message || "No times found"}
             </div>
           ) : (
-            btData.times.map((t, i) => (
-              <div key={i} className="px-5 py-3 flex items-center gap-3">
-                <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: courseColors[t.course] || "#fff", background: `${courseColors[t.course] || "#fff"}15` }}>
-                  {t.course}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[#f8fafc] text-sm font-medium">{t.event} {t.stroke}</div>
-                  {(t.meet || t.date) && <div className="text-[#f8fafc]/30 text-[10px] truncate">{t.meet}{t.date ? ` · ${t.date}` : ""}</div>}
+            btData.times.map((t, i) => {
+              const eventKey = normalizeEvent(t.event, t.stroke);
+              const standard = QUALIFYING_STANDARDS[t.course]?.[eventKey];
+              const gender = athleteGender || "M";
+              const cutoff = standard?.[gender] ?? null;
+              const athleteSecs = parseTimeToSeconds(t.time);
+              const gap = cutoff !== null && athleteSecs !== null ? athleteSecs - cutoff : null;
+              return (
+                <div key={i} className="px-5 py-3 flex items-center gap-3">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: courseColors[t.course] || "#fff", background: `${courseColors[t.course] || "#fff"}15` }}>
+                    {t.course}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[#f8fafc] text-sm font-medium">{t.event} {t.stroke}</div>
+                    {(t.meet || t.date) && <div className="text-[#f8fafc]/30 text-[10px] truncate">{t.meet}{t.date ? ` · ${t.date}` : ""}</div>}
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[#f8fafc] font-black text-lg tabular-nums">{t.time}</span>
+                    {gap !== null && (
+                      <div className={`text-[10px] font-bold tabular-nums ${gap <= 0 ? "text-emerald-400" : "text-[#f59e0b]"}`}>
+                        {gap <= 0 ? `✓ CUT (−${formatSeconds(Math.abs(gap))})` : `+${formatSeconds(gap)} to cut`}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <span className="text-[#f8fafc] font-black text-lg tabular-nums">{t.time}</span>
-              </div>
-            ))
+              );
+            })
           )}
         </Card>
       )}
