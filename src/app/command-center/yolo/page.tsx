@@ -120,52 +120,67 @@ export default function YoloBuildsPage() {
 
   useEffect(() => {
     async function loadBuilds() {
-      // Step 1: Try Firestore first (works without redeploy)
-      let fsBuilds: Build[] = [];
+      // Step 1: Fetch live builds from disk API (source of truth)
+      let diskBuilds: Build[] = [];
+      try {
+        const res = await fetch("/api/command-center/yolo-builds", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          diskBuilds = Array.isArray(data) ? data.map((b: Record<string, unknown>) => ({
+            date: (b.date as string) || "",
+            name: (b.name as string) || slugToName((b.folder as string) || ""),
+            idea: (b.idea as string) || "",
+            status: (b.status as Build["status"]) || "working",
+            takeaway: (b.takeaway as string) || "",
+            folder: (b.folder as string) || "",
+            agent: (b.agent as string) || "Unknown",
+            reviewStatus: "pending" as ReviewStatus,
+            tier: b.tier as 1 | 2 | 3 | undefined,
+            score: b.score as number | undefined,
+          })) : [];
+        }
+      } catch {}
+
+      // Step 2: Try Firestore for review status / tier / score metadata
+      const fsData = new Map<string, { reviewStatus?: string; tier?: number; score?: number }>();
       if (db && hasConfig) {
         try {
           const q = query(collection(db, "yolo_builds"), orderBy("date", "desc"));
           const snap = await getDocs(q);
-          fsBuilds = snap.docs.map(d => {
+          snap.docs.forEach(d => {
             const data = d.data();
-            return {
-              date: data.date || "",
-              name: data.name || slugToName(d.id),
-              idea: data.idea || "",
-              status: data.status || "working",
-              takeaway: data.takeaway || "",
-              folder: data.folder || d.id,
-              agent: data.agent || "Unknown",
-              reviewStatus: (data.reviewStatus || "pending") as ReviewStatus,
+            fsData.set(data.folder || d.id, {
+              reviewStatus: data.reviewStatus,
               tier: data.tier,
               score: data.score,
-            } as Build;
+            });
           });
         } catch {}
       }
 
-      // Step 2: Merge Firestore + SEED_BUILDS (SEED_BUILDS fills gaps)
-      const fsFolders = new Set(fsBuilds.map(b => b.folder));
-      const seedOnly = SEED_BUILDS
-        .filter(b => !fsFolders.has(b.folder))
-        .map(b => ({ ...b, reviewStatus: "pending" as ReviewStatus }));
-
-      // Enrich Firestore builds with SEED_BUILDS metadata where Firestore is sparse
+      // Step 3: Merge disk builds + Firestore metadata + SEED_BUILDS for gaps
+      const diskFolders = new Set(diskBuilds.map(b => b.folder));
       const seedMap = new Map(SEED_BUILDS.map(b => [b.folder, b]));
-      const enriched = fsBuilds.map(b => {
+
+      // Enrich disk builds with Firestore metadata and seed data
+      const enriched = diskBuilds.map(b => {
+        const fs = fsData.get(b.folder);
         const seed = seedMap.get(b.folder);
-        if (seed) {
-          return {
-            ...b,
-            name: b.name && b.name !== slugToName(b.folder) ? b.name : seed.name,
-            idea: b.idea || seed.idea,
-            takeaway: b.takeaway || seed.takeaway,
-            agent: b.agent || seed.agent,
-            status: b.status || seed.status,
-          };
-        }
-        return b;
+        return {
+          ...b,
+          name: b.name || seed?.name || slugToName(b.folder),
+          idea: b.idea || seed?.idea || "",
+          takeaway: b.takeaway || seed?.takeaway || "",
+          reviewStatus: (fs?.reviewStatus || "pending") as ReviewStatus,
+          tier: (fs?.tier ?? seed?.tier) as 1 | 2 | 3 | undefined,
+          score: (fs?.score ?? seed?.score) as number | undefined,
+        };
       });
+
+      // Add seed builds not found on disk
+      const seedOnly = SEED_BUILDS
+        .filter(b => !diskFolders.has(b.folder))
+        .map(b => ({ ...b, reviewStatus: (fsData.get(b.folder)?.reviewStatus || "pending") as ReviewStatus }));
 
       const merged = [...enriched, ...seedOnly];
       merged.sort((a, b) => b.date.localeCompare(a.date));
