@@ -116,11 +116,45 @@ function getDailyMemory() {
 function getActiveSessions() {
   return safe(() => {
     const raw = execSync(
-      "ps aux | grep -i 'openclaw\\|claude\\|node.*gateway' | grep -v grep | head -10",
+      "ps aux | grep -i 'openclaw\\|claude\\|node.*gateway' | grep -v grep | head -20",
       { encoding: "utf-8", timeout: 3000 }
     );
-    return raw.trim().split("\n").filter(Boolean).length;
-  }, 0);
+    const lines = raw.trim().split("\n").filter(Boolean);
+    return {
+      count: lines.length,
+      processes: lines.map(l => {
+        const parts = l.trim().split(/\s+/);
+        return { pid: parts[1], cpu: parts[2], mem: parts[3], cmd: parts.slice(10).join(" ").slice(0, 80) };
+      }),
+    };
+  }, { count: 0, processes: [] });
+}
+
+function getGitActivity(limit = 20) {
+  const logPath = join(WS, "memory", "git-activity.jsonl");
+  return safe(() => {
+    if (!existsSync(logPath)) return [];
+    const raw = readFileSync(logPath, "utf-8");
+    return raw.trim().split("\n").filter(Boolean).slice(-limit).reverse().map(l => {
+      try { return JSON.parse(l); } catch { return null; }
+    }).filter(Boolean);
+  }, []);
+}
+
+function getCronExecutionLog() {
+  const logDir = "/Users/admin/.openclaw/cron";
+  return safe(() => {
+    const historyPath = join(logDir, "history.json");
+    if (!existsSync(historyPath)) return [];
+    const raw = readFileSync(historyPath, "utf-8");
+    const history = JSON.parse(raw);
+    if (!Array.isArray(history)) return [];
+    return history.slice(-20).reverse().map((h: Record<string, unknown>) => ({
+      id: h.id, name: h.name ?? h.id, time: h.time ?? h.completedAt,
+      status: h.status ?? (h.error ? "failed" : "ok"),
+      duration: h.duration, error: h.error,
+    }));
+  }, []);
 }
 
 function getYoloBuilds(limit = 5) {
@@ -161,9 +195,11 @@ function buildSnapshot() {
     crons: getCronJobs(),
     vitals: getSystemVitals(),
     memory: getDailyMemory(),
-    activeSessions: getActiveSessions(),
+    sessions: getActiveSessions(),
     yoloBuilds: getYoloBuilds(),
     cronHistory: getCronLastRuns(),
+    gitActivity: getGitActivity(),
+    cronExecutionLog: getCronExecutionLog(),
   };
 }
 
@@ -190,11 +226,11 @@ export async function GET(req: NextRequest) {
         try {
           tickCount++;
 
-          // Heartbeat with vitals (every tick = 5s)
+          // Heartbeat with vitals + sessions (every tick = 5s)
           const vitals = getSystemVitals();
           const sessions = getActiveSessions();
           controller.enqueue(encoder.encode(
-            `event: vitals\ndata: ${JSON.stringify({ timestamp: new Date().toISOString(), vitals, activeSessions: sessions })}\n\n`
+            `event: vitals\ndata: ${JSON.stringify({ timestamp: new Date().toISOString(), vitals, sessions })}\n\n`
           ));
 
           // Check for new git commits
@@ -235,7 +271,7 @@ export async function GET(req: NextRequest) {
             }
           }
 
-          // Check cron history (every 6th tick = 30s)
+          // Check cron history + execution log (every 6th tick = 30s)
           if (tickCount % 6 === 0) {
             const history = getCronLastRuns();
             if (history.length !== lastCronHistoryLen) {
@@ -244,6 +280,14 @@ export async function GET(req: NextRequest) {
                 `event: cronHistory\ndata: ${JSON.stringify({ cronHistory: history })}\n\n`
               ));
             }
+            const cronLog = getCronExecutionLog();
+            controller.enqueue(encoder.encode(
+              `event: cronExecLog\ndata: ${JSON.stringify({ cronExecutionLog: cronLog })}\n\n`
+            ));
+            const gitAct = getGitActivity();
+            controller.enqueue(encoder.encode(
+              `event: gitActivity\ndata: ${JSON.stringify({ gitActivity: gitAct })}\n\n`
+            ));
           }
 
           // Full agent directory refresh (every 12th tick = 60s)
