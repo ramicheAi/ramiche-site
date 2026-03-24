@@ -1008,7 +1008,7 @@ export default function ParentPortal() {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [showAllBroadcasts, setShowAllBroadcasts] = useState(false);
   useEffect(() => {
-    setMounted(true);
+    setMounted(true); // eslint-disable-line react-hooks/purity
     // Load enrollment data from localStorage
     try {
       const enrollmentData = localStorage.getItem("apex-parent-enrollment");
@@ -1061,7 +1061,7 @@ export default function ParentPortal() {
   useEffect(() => {
     if (!mounted) return;
     const localRoster = load<Athlete[]>(K.ROSTER, []);
-    setRoster(localRoster);
+    setRoster(localRoster); // eslint-disable-line react-hooks/purity
     setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
     // Load communication data
     setMeets(load<MeetEntry[]>(K.MEETS, []));
@@ -1448,17 +1448,17 @@ export default function ParentPortal() {
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", color: "#a855f7" },
           { label: "Parent", href: "/apex-athlete/parent", active: true, color: "#f59e0b" },
-        ].map(p => (
+        ].map((p: { label: string; href: string; active?: boolean; color: string }) => (
           <a key={p.label} href={p.href}
             className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-xl transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
-              (p as any).active
+              p.active
                 ? "border-2 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
                 : "border hover:border-[#a855f7]/20 active:scale-[0.97]"
             }`}
             style={{
-              background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
-              borderColor: (p as any).active ? `${p.color}66` : 'rgba(168,85,247,0.35)',
-              color: (p as any).active ? p.color : 'rgba(168,85,247,0.4)',
+              background: p.active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+              borderColor: p.active ? `${p.color}66` : 'rgba(168,85,247,0.35)',
+              color: p.active ? p.color : 'rgba(168,85,247,0.4)',
             }}>
             {p.label}
           </a>
@@ -1660,9 +1660,10 @@ export default function ParentPortal() {
               {(showAllMeets ? upcomingMeets : upcomingMeets.slice(0, 5)).map(meet => {
                 const existingRsvp = getRsvpStatus(meet.id);
                 const athleteEntries = meet.entries?.filter(e => e.athleteId === athlete.id) || [];
-                const deadlinePassed = meet.rsvpDeadline ? new Date(meet.rsvpDeadline) < new Date() : false;
+                const now = new Date();
+                const deadlinePassed = meet.rsvpDeadline ? new Date(meet.rsvpDeadline) < now : false;
                 const meetDate = new Date(meet.date + "T12:00:00");
-                const daysUntil = Math.ceil((meetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                const daysUntil = Math.ceil((meetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
                 return (
                   <div key={meet.id} className="p-5 rounded-xl border transition-all"
