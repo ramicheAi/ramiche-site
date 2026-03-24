@@ -1,6 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "@/app/apex-athlete/components/Card";
+import { saveBestTimes, getBestTimes } from "@/lib/firestore-times";
 
 interface BestTimesData {
   times: Array<{ event: string; stroke: string; time: string; course: string; meet: string; date: string }>;
@@ -13,12 +14,25 @@ interface BestTimesData {
   error?: string;
 }
 
-export default function BestTimesCard({ athleteName, usaSwimmingId }: { athleteName: string; usaSwimmingId?: string }) {
+export default function BestTimesCard({ athleteId, athleteName, usaSwimmingId }: { athleteId: string; athleteName: string; usaSwimmingId?: string }) {
   const [btState, setBtState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [btData, setBtData] = useState<BestTimesData | null>(null);
+  const [fromCache, setFromCache] = useState(false);
+
+  useEffect(() => {
+    if (!athleteId) return;
+    getBestTimes(athleteId).then((stored) => {
+      if (stored && stored.times.length > 0) {
+        setBtData({ ...stored, cached: true });
+        setBtState("done");
+        setFromCache(true);
+      }
+    });
+  }, [athleteId]);
 
   const fetchBestTimes = async () => {
     setBtState("loading");
+    setFromCache(false);
     try {
       const res = await fetch("/api/swimcloud", {
         method: "POST",
@@ -28,6 +42,15 @@ export default function BestTimesCard({ athleteName, usaSwimmingId }: { athleteN
       const data = await res.json();
       setBtData(data);
       setBtState(data.error ? "error" : "done");
+      if (!data.error && data.times?.length > 0 && athleteId) {
+        saveBestTimes(athleteId, {
+          times: data.times,
+          swimmer: data.swimmer,
+          team: data.team,
+          swimmerUrl: data.swimmerUrl,
+          count: data.count,
+        });
+      }
     } catch {
       setBtState("error");
       setBtData({ times: [], error: "Network error" });
@@ -39,7 +62,12 @@ export default function BestTimesCard({ athleteName, usaSwimmingId }: { athleteN
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Best Times</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Best Times</h3>
+          {fromCache && btState === "done" && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/20 uppercase tracking-wider">Cached</span>
+          )}
+        </div>
         <button onClick={fetchBestTimes} disabled={btState === "loading"}
           className="text-xs font-bold px-3 py-1.5 rounded-full border border-[#00f0ff]/30 text-[#00f0ff] hover:bg-[#00f0ff]/10 transition-colors disabled:opacity-40 min-h-[32px]">
           {btState === "loading" ? "Fetching…" : btState === "done" ? "Refresh" : "Fetch from SwimCloud"}

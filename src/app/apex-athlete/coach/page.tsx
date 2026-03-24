@@ -8,6 +8,7 @@ import { useCoachAuth } from "../hooks/useCoachAuth";
 import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
+import BestTimesCard from "./components/BestTimesCard";
 import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
@@ -27,6 +28,7 @@ import CommsView from "./views/CommsView";
 import MeetsView from "./views/MeetsView";
 import AnalyticsDashboard from "./views/AnalyticsDashboard";
 import AnalyticsTabContainer from "./views/AnalyticsTabContainer";
+import BillingView from "./views/BillingView";
 import type { Athlete, DailyXP, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, RosterGroup, SwimMeet, MentalReadiness, BreathworkSession, JournalEntry, RecoveryLog, WellnessData } from "./types";
 import type { ScoringResult } from "../lib/meet-scoring";
 import ParentPreviewModal from "./components/ParentPreviewModal";
@@ -869,7 +871,7 @@ export default function ApexAthletePage() {
   const pendingAmPmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [leaderTab, setLeaderTab] = useState<"all" | "M" | "F">("all");
   const [showAllLeaderboard, setShowAllLeaderboard] = useState(false);
-  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics" | "timestandards">("coach");
+  const [view, setView] = useState<"coach" | "parent" | "audit" | "analytics" | "schedule" | "wellness" | "staff" | "meets" | "comms" | "splits" | "swimanalytics" | "timestandards" | "billing">("coach");
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [teamChallenges, setTeamChallenges] = useState<TeamChallenge[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
@@ -1578,7 +1580,7 @@ export default function ApexAthletePage() {
     // Also set up a periodic check
     const interval = setInterval(checkExpiry, 60000);
     return () => clearInterval(interval);
-  }, [mounted, roster.length, selectedGroup, endCurrentSession]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [mounted, roster.length, selectedGroup, endCurrentSession]);  
 
   // ── mark session as active when first check-in happens ──
   useEffect(() => {
@@ -1781,7 +1783,7 @@ export default function ApexAthletePage() {
 
   // ── XP award (cap-aware) ─────────────────────────────────
   const awardXP = useCallback((athlete: Athlete, xpBase: number, category: "pool" | "weight" | "meet"): { newAthlete: Athlete; awarded: number } => {
-    let a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
+    const a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
     if ((a.dailyXP||{}).date !== today()) a.dailyXP = { date: today(), pool: 0, weight: 0, meet: 0 };
     const used = ((a.dailyXP||{}).pool||0) + ((a.dailyXP||{}).weight||0) + ((a.dailyXP||{}).meet||0);
     const room = Math.max(0, DAILY_XP_CAP - used);
@@ -2453,6 +2455,7 @@ export default function ApexAthletePage() {
       { id: "swimanalytics" as const, label: "Swim" },
       { id: "timestandards" as const, label: "Standards" },
       { id: "audit" as const, label: "Audit" },
+      { id: "billing" as const, label: "Billing" },
     ];
     return (
       <div className="w-full relative mb-4">
@@ -2537,40 +2540,27 @@ export default function ApexAthletePage() {
           {/* Logout */}
           <button onClick={() => { clearSession(); window.location.href = "/apex-athlete/portal"; }} className="w-full py-2.5 text-xs font-mono tracking-wider uppercase text-[#f8fafc]/40 hover:text-red-400 transition-colors mb-4">Sign Out</button>
 
-          {/* Section nav tabs — 2 rows on mobile, single row on tablet+ */}
+          {/* Section nav tabs — 3 rows on mobile, single row on tablet+ */}
           <div className="md:hidden space-y-2 mb-4">
-            <div className="grid grid-cols-4 gap-2">
-              {secondaryTabs.slice(0, 4).map(t => {
-                const active = view === t.id;
-                return (
-                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
-                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
-                      active
-                        ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
-                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
-                    }`}>
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div className="grid grid-cols-4 gap-2">
-              {secondaryTabs.slice(4).map(t => {
-                const active = view === t.id;
-                return (
-                  <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
-                    className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
-                      active
-                        ? "bg-[#a855f7]/12 text-[#a855f7] border-2 border-[#a855f7]/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]"
-                        : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
-                    }`}>
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
+            {[secondaryTabs.slice(0, 4), secondaryTabs.slice(4, 8), secondaryTabs.slice(8)].map((row, ri) => (
+              <div key={ri} className="grid grid-cols-4 gap-2">
+                {row.map(t => {
+                  const active = view === t.id;
+                  return (
+                    <button key={t.id} onClick={() => { setView(t.id); setSelectedAthlete(null); window.scrollTo(0, 0); }}
+                      className={`py-3 text-xs font-bold font-mono tracking-wider uppercase transition-all duration-200 rounded-xl min-h-[46px] text-center ${
+                        active
+                          ? "bg-[#00f0ff]/12 text-[#00f0ff] border-2 border-[#00f0ff]/40 shadow-[0_0_20px_rgba(0,240,255,0.15)]"
+                          : "bg-[#0e0e18]/60 text-[#f8fafc]/50 border border-white/[0.06] hover:text-[#f8fafc]/70 hover:border-white/15 active:scale-[0.97]"
+                      }`}>
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
           </div>
-          <div className="hidden md:grid grid-cols-8 gap-2 mb-4">
+          <div className="hidden md:flex flex-wrap gap-2 mb-4">
             {secondaryTabs.map(t => {
               const active = view === t.id;
               return (
@@ -3200,86 +3190,7 @@ export default function ApexAthletePage() {
               </Card>
 
               {/* Best Times (SwimCloud) */}
-              {(() => {
-                const [btState, setBtState] = useState<"idle" | "loading" | "done" | "error">("idle");
-                const [btData, setBtData] = useState<{ times: Array<{ event: string; stroke: string; time: string; course: string; meet: string; date: string }>; swimmer?: string; team?: string; swimmerUrl?: string; count?: number; cached?: boolean; message?: string; error?: string } | null>(null);
-
-                const fetchBestTimes = async () => {
-                  setBtState("loading");
-                  try {
-                    const res = await fetch("/api/swimcloud", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ name: athlete.name, usaSwimmingId: athlete.usaSwimmingId }),
-                    });
-                    const data = await res.json();
-                    setBtData(data);
-                    setBtState(data.error ? "error" : "done");
-                  } catch {
-                    setBtState("error");
-                    setBtData({ times: [], error: "Network error" });
-                  }
-                };
-
-                const courseColors: Record<string, string> = { SCY: "#00f0ff", LCM: "#a855f7", SCM: "#f59e0b" };
-
-                return (
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Best Times</h3>
-                      <button onClick={fetchBestTimes} disabled={btState === "loading"}
-                        className="text-xs font-bold px-3 py-1.5 rounded-full border border-[#00f0ff]/30 text-[#00f0ff] hover:bg-[#00f0ff]/10 transition-colors disabled:opacity-40 min-h-[32px]">
-                        {btState === "loading" ? "Fetching…" : btState === "done" ? "Refresh" : "Fetch from SwimCloud"}
-                      </button>
-                    </div>
-                    {btState === "loading" && (
-                      <Card className="p-6 text-center">
-                        <div className="text-[#f8fafc]/40 text-sm animate-pulse">Searching SwimCloud for {athlete.name}…</div>
-                      </Card>
-                    )}
-                    {btState === "error" && (
-                      <Card className="p-5">
-                        <div className="text-red-400 text-sm">{btData?.error || "Failed to fetch times"}</div>
-                        {btData?.message && <div className="text-[#f8fafc]/40 text-xs mt-1">{btData.message}</div>}
-                      </Card>
-                    )}
-                    {btState === "done" && btData && (
-                      <Card className="divide-y divide-white/[0.04]">
-                        {btData.swimmer && (
-                          <div className="px-5 py-3 flex items-center justify-between">
-                            <div className="text-[#f8fafc]/50 text-xs">
-                              {btData.swimmer} · {btData.team || ""}
-                              {btData.cached && <span className="text-[#f8fafc]/30 ml-2">(cached)</span>}
-                            </div>
-                            {btData.swimmerUrl && (
-                              <a href={btData.swimmerUrl} target="_blank" rel="noopener noreferrer"
-                                className="text-[#00f0ff]/60 text-xs hover:text-[#00f0ff] transition-colors">View Profile →</a>
-                            )}
-                          </div>
-                        )}
-                        {btData.times.length === 0 ? (
-                          <div className="px-5 py-4 text-[#f8fafc]/40 text-sm text-center">
-                            {btData.message || "No times found"}
-                          </div>
-                        ) : (
-                          btData.times.map((t, i) => (
-                            <div key={i} className="px-5 py-3 flex items-center gap-3">
-                              <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: courseColors[t.course] || "#fff", background: `${courseColors[t.course] || "#fff"}15` }}>
-                                {t.course}
-                              </span>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-[#f8fafc] text-sm font-medium">{t.event} {t.stroke}</div>
-                                {(t.meet || t.date) && <div className="text-[#f8fafc]/30 text-[10px] truncate">{t.meet}{t.date ? ` · ${t.date}` : ""}</div>}
-                              </div>
-                              <span className="text-[#f8fafc] font-black text-lg tabular-nums">{t.time}</span>
-                            </div>
-                          ))
-                        )}
-                      </Card>
-                    )}
-                  </div>
-                );
-              })()}
+              <BestTimesCard athleteId={athlete.id} athleteName={athlete.name} usaSwimmingId={athlete.usaSwimmingId} />
 
             </div>
           </div>
@@ -3488,6 +3399,10 @@ export default function ApexAthletePage() {
     return <ScheduleView GameHUDHeader={GameHUDHeader} schedules={schedules} saveSchedules={saveSchedules} selectedGroup={scheduleGroup} templates={[]} />;
   }
 
+  if (view === "billing") {
+    return <BillingView roster={filteredRoster} groups={ROSTER_GROUPS} currentGroup={selectedGroup} />;
+  }
+
   /* ════════════════════════════════════════════════════════════
      COACH MAIN VIEW — LEADERBOARD-FIRST LAYOUT
      ════════════════════════════════════════════════════════════ */
@@ -3617,7 +3532,7 @@ export default function ApexAthletePage() {
 
             {/* Ranked list — Top 10 with expand */}
             <div className="flex items-center justify-between mb-4 mt-2">
-              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">// Rankings</h3>
+              <h3 className="text-[#00f0ff]/40 text-[11px] uppercase tracking-[0.2em] font-bold font-mono">{"// Rankings"}</h3>
               <span className="text-[#00f0ff]/20 text-xs font-mono">{sorted.length} athletes</span>
             </div>
             <div className="game-panel game-panel-border game-panel-scan relative bg-[#0e0e18]/80 backdrop-blur-2xl overflow-hidden shadow-[0_8px_60px_rgba(0,0,0,0.4)]">
@@ -3906,7 +3821,7 @@ export default function ApexAthletePage() {
             )}
 
             {/* ── ATHLETE ROSTER ─────────────────────────────── */}
-            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">// Roster Check-In</h3>
+            <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-5 font-mono">{"// Roster Check-In"}</h3>
             <div className="space-y-3 mb-12" style={{ 
               contentVisibility: "auto",
               containIntrinsicSize: "0 4000px" /* Estimate: ~50 athletes * 80px each */
@@ -4069,7 +3984,7 @@ export default function ApexAthletePage() {
 
             {/* ── TEAM CHALLENGES ──────────────────────────────── */}
             <div className="mb-10">
-              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">// Team Challenges</h3>
+              <h3 className="text-[#00f0ff]/30 text-[11px] uppercase tracking-[0.2em] font-bold mb-4 font-mono">{"// Team Challenges"}</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {teamChallenges.map(tc => {
                   const pct = Math.min(100, (tc.current / tc.target) * 100);
