@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 
 // ============ TYPES ============
 interface PracticeSet {
@@ -96,8 +96,39 @@ export default function PracticeBuilderPage() {
   const [skillLevel, setSkillLevel] = useState('age-group');
   const [showExport, setShowExport] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [touchIdx, setTouchIdx] = useState<number | null>(null);
-  const touchY = React.useRef<number>(0);
+  const touchIdxRef = useRef<number | null>(null);
+  const touchYRef = useRef<number>(0);
+  const setsRef = useRef(sets);
+  useEffect(() => { setsRef.current = sets; }, [sets]);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Safari requires non-passive touch listeners to call preventDefault
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (touchIdxRef.current === null) return;
+      e.preventDefault();
+      const dy = e.touches[0].clientY - touchYRef.current;
+      if (Math.abs(dy) > 40) {
+        const dir = dy > 0 ? 1 : -1;
+        const from = touchIdxRef.current;
+        const to = from + dir;
+        if (to >= 0 && to < setsRef.current.length) {
+          setSets(prev => {
+            const next = [...prev];
+            const [item] = next.splice(from, 1);
+            next.splice(to, 0, item);
+            return next;
+          });
+          touchIdxRef.current = to;
+          touchYRef.current = e.touches[0].clientY;
+        }
+      }
+    };
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    return () => el.removeEventListener('touchmove', onTouchMove);
+  }, []);
 
   const addSet = useCallback((overrides?: Partial<Omit<PracticeSet, 'id' | 'totalYards' | 'estSeconds'>>) => {
     const s = {
@@ -274,7 +305,7 @@ export default function PracticeBuilderPage() {
               <p className="text-slate-500 text-sm">Add sets from the sidebar or load a template to get started.</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div ref={listRef} className="flex flex-col gap-3">
               {sets.map((s, i) => (
                 <div key={s.id}
                   draggable
@@ -282,18 +313,8 @@ export default function PracticeBuilderPage() {
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragIdx !== null && dragIdx !== i) moveSet(dragIdx, i); setDragIdx(null); }}
                   onDragEnd={() => setDragIdx(null)}
-                  onTouchStart={e => { setTouchIdx(i); touchY.current = e.touches[0].clientY; e.currentTarget.style.opacity = '0.6'; }}
-                  onTouchMove={e => {
-                    if (touchIdx === null) return;
-                    e.preventDefault();
-                    const dy = e.touches[0].clientY - touchY.current;
-                    if (Math.abs(dy) > 40) {
-                      const dir = dy > 0 ? 1 : -1;
-                      const to = touchIdx + dir;
-                      if (to >= 0 && to < sets.length) { moveSet(touchIdx, to); setTouchIdx(to); touchY.current = e.touches[0].clientY; }
-                    }
-                  }}
-                  onTouchEnd={e => { setTouchIdx(null); e.currentTarget.style.opacity = '1'; }}
+                  onTouchStart={e => { touchIdxRef.current = i; touchYRef.current = e.touches[0].clientY; e.currentTarget.style.opacity = '0.6'; }}
+                  onTouchEnd={e => { touchIdxRef.current = null; e.currentTarget.style.opacity = '1'; }}
                   className={`bg-slate-900 border-2 rounded-lg p-4 transition-all ${dragIdx === i ? 'opacity-50 border-amber-400' : 'border-slate-700 hover:border-purple-500'}`}
                 >
                   <div className="flex justify-between items-center mb-2">

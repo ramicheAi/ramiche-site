@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { adminWriteSubscription } from "@/lib/firebase-admin";
 
 /* ══════════════════════════════════════════════════════════════
    STRIPE WEBHOOK — Handles subscription lifecycle events
    Verifies signature, processes checkout.session.completed,
    customer.subscription.updated/deleted
+   Writes subscription status to Firestore via Admin SDK
    ══════════════════════════════════════════════════════════════ */
 
 function getStripe(): Stripe {
@@ -38,26 +40,54 @@ export async function POST(req: Request) {
       const session = event.data.object as Stripe.Checkout.Session;
       const planId = session.metadata?.planId;
       const customerId = session.customer as string;
+      const email = session.customer_details?.email || "";
       console.log(`[Stripe] Checkout completed: plan=${planId}, customer=${customerId}`);
-      // Future: write subscription status to Firestore
+      await adminWriteSubscription(customerId, {
+        planId,
+        status: "active",
+        email,
+        subscriptionId: session.subscription as string,
+        createdAt: new Date().toISOString(),
+      });
       break;
     }
 
     case "customer.subscription.updated": {
       const sub = event.data.object as Stripe.Subscription;
+      const customerId = sub.customer as string;
       console.log(`[Stripe] Subscription updated: ${sub.id}, status=${sub.status}`);
+      await adminWriteSubscription(customerId, {
+        subscriptionId: sub.id,
+        status: sub.status,
+        currentPeriodEnd: new Date(((sub as unknown as Record<string, unknown>).current_period_end as number) * 1000).toISOString(),
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+      });
       break;
     }
 
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
+      const customerId = sub.customer as string;
       console.log(`[Stripe] Subscription canceled: ${sub.id}`);
+      await adminWriteSubscription(customerId, {
+        subscriptionId: sub.id,
+        status: "canceled",
+        canceledAt: new Date().toISOString(),
+      });
       break;
     }
 
     case "invoice.payment_failed": {
       const invoice = event.data.object as Stripe.Invoice;
+      const customerId = invoice.customer as string;
       console.log(`[Stripe] Payment failed: invoice=${invoice.id}`);
+      if (customerId) {
+        await adminWriteSubscription(customerId, {
+          lastPaymentFailed: true,
+          lastFailedInvoice: invoice.id,
+          lastFailedAt: new Date().toISOString(),
+        });
+      }
       break;
     }
 

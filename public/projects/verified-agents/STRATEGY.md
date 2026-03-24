@@ -67,7 +67,7 @@ Build the world's first **Verified AI Agent marketplace** — where real-world e
 
 | Agent | Vertical | Services at $100-250/hr | Expert to Interview | Market Size |
 |-------|----------|------------------------|--------------------|----|
-| **WIDOW** | Cybersecurity | Vulnerability assessment, penetration testing, security audits, compliance review (SOC2/ISO), incident response | CISO from Fortune 500 or senior pentester (OSCP/OSCE) | $200B cybersecurity market |
+| **WIDOW** | Cybersecurity | Vulnerability assessment, penetration testing, security audits, compliance review (SOC2/ISO), incident response, Zero Trust architecture, AI system hardening | CISO from Fortune 500 or senior pentester (OSCP/OSCE) | $200B cybersecurity market |
 | **SHURI** | Software Engineering | Code review, architecture consulting, performance optimization, API design, technical debt assessment, migration planning | Principal engineer from FAANG or CTO of scaling startup | $570B software dev market |
 | **PROXIMON** | Infrastructure/DevOps | Cloud architecture, cost optimization, CI/CD design, scaling strategy, disaster recovery, database design | AWS/GCP Distinguished Engineer or platform team lead | $480B cloud services market |
 | **NOVA** | Prototyping/Fabrication | Rapid prototyping, 3D modeling, product design, manufacturing specs, material selection, DFM review | Industrial designer or fab lab director | $14B rapid prototyping market |
@@ -142,28 +142,65 @@ Build the world's first **Verified AI Agent marketplace** — where real-world e
 
 ## Agent Consultation Tracker
 
-**Response Status: 3/18 agents responded** *(as of Mon Mar 9 8:00 PM ET)*
+**Response Status: 5/18 agents responded** *(FINAL — Wed Mar 11 8:00 PM ET — collection complete, deadline passed)*
 
 | Agent | Consulted | Response Received | Key Insights |
 |-------|-----------|-------------------|--------------|
-| DR STRANGE | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| SIMONS | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| VEE | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| SHURI | ✅ Mar 9 | ⏳ Due Mar 11 | |
+| DR STRANGE | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| SIMONS | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| VEE | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| SHURI | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
 | MERCURY | ✅ Mar 9 | ✅ Mar 9 | 7 sales services ($200-400/hr), expert: Josh Braun (SalesDNA), SIS 3-pillar certification, full GTM strategy with 4-week launch sequence, tiered pricing ($200-400/hr), sample outreach email |
 | KIYOSAKI | ✅ Mar 9 | ✅ Mar 9 | 7 financial services ($250-500/hr) across 3 tiers, expert profile: former CFO/COO w/ 3+ exits, certification stack (Series 65, CPA, EA, CFP, CFA), Delaware C-Corp structure, 20% platform fee, equity split options, full execution timeline |
-| HAVEN | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| ECHO | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| SELAH | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| THEMAESTRO | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| PROXIMON | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| INK | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| NOVA | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| MICHAEL | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| WIDOW | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| PROPHETS | ✅ Mar 9 | ⏳ Due Mar 11 | |
-| AETHERION | ✅ Mar 9 | ⏳ Due Mar 11 | |
+| HAVEN | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| ECHO | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| SELAH | ✅ Mar 9 | ✅ Mar 10 | 7 psychology services across 3 tiers ($100-250/hr): mental priming, team cohesion, trauma-informed coaching, high-pressure adaptation, flow state mastery, belief system architecture, collective consciousness. Expert profile: PhD Sport Psych + licensed clinician + Olympic experience. 3-tier certification with independent review board. Detailed risk analysis (6 liabilities: misdiagnosis, data breach, dependency, scope creep, cultural competence, algorithmic bias). HIPAA-compliant infra. Y1 projection: $500K-750K with 20 agents. |
+| THEMAESTRO | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| PROXIMON | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| INK | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| NOVA | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| MICHAEL | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| WIDOW | ✅ Mar 9 | ✅ Mar 10 | 7 security services ($225-400/hr): threat analysis, incident response, API security audit, supply chain assessment, Zero Trust architecture, AI system hardening, compliance mapping. 4-tier certification (Bronze→Platinum). Blockchain-based credential system. Platform infra: isolated containers, real-time behavior monitoring, smart contract service agreements. Q2-Q4 2026 roadmap. |
+| PROPHETS | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
+| AETHERION | ✅ Mar 9 | ❌ No response (6 follow-ups sent) | |
 | THEMIS | ✅ Mar 8 | ✅ Mar 8 | Full interview doc (64 questions), strategic assessment |
+
+---
+
+## Trust & Security Layer — OneCLI Pattern (Added Mar 13)
+
+**Source:** OneCLI (github.com/onecli/onecli) — Rust-based credential vault for AI agents.
+
+**Why this matters for Verified Agents:**
+- Clients' #1 concern: "Will the AI agent have access to my API keys / credentials / sensitive data?"
+- OneCLI pattern: agents use **placeholder tokens**. The vault swaps real secrets at request time. AES-256 encrypted, per-agent scoped.
+- **Our implementation:** Every Verified Agent runs in an isolated container (Widow's architecture). Client credentials never touch the agent directly — they're vaulted and injected per-request.
+
+**Pitch angle for financier:**
+- "Your data never touches the AI. It's vaulted, encrypted, and scoped per-session. The agent sees results, not credentials."
+- This is a differentiator vs. raw ChatGPT/Claude API access where users paste their secrets into prompts.
+
+**Implementation phases:**
+1. **Now:** Document the vault pattern in agent architecture. Use as selling point.
+2. **Q2:** Build credential vault service (env var injection per session).
+3. **Q3:** Client-facing dashboard showing what each agent can access, audit logs.
+
+---
+
+## Cost Optimization — IonRouter Evaluation (Added Mar 13)
+
+**Source:** IonRouter (YC W26) — 7,167 tok/sec, per-second billing, OpenAI-compatible API.
+
+**Relevance to Verified Agents:**
+- Agent rentals at $100-500/hr need low inference cost to maintain margins
+- Current: OpenRouter ($0.14/M input on DeepSeek, $2.75/M on Haiku)
+- IonRouter: per-second billing, no cold starts, LoRA support
+
+**Action items:**
+1. Test IonRouter API with one YOLO build agent (PROXIMON) as pilot
+2. Compare: latency, cost-per-query, quality vs OpenRouter/DeepSeek
+3. If viable: migrate P2 (background) tasks to IonRouter, keep P0/P1 on Claude/OpenRouter
+4. For Verified Agents: offer "self-hosted inference" as enterprise tier feature
 
 ---
 
@@ -175,4 +212,23 @@ Build the world's first **Verified AI Agent marketplace** — where real-world e
 
 ---
 
-*This is a living document. Updated as agent responses come in. Next update: March 11 EOD.*
+*Collection complete. 5/18 responded after 6 follow-ups over 3 days. The 5 responses (Mercury, Kiyosaki, Selah, Widow, Themis) cover: Sales, Finance, Psychology, Security, and Legal — enough for Wednesday's Atlanta meeting. 13 agents never responded despite escalating urgency. Last updated: March 11, 2026 8:00 PM ET.*
+
+---
+
+## Final Consultation Report
+
+**Status: COMPILED** — Full report available at `projects/verified-agents/FINAL-CONSULTATION-REPORT.md`
+
+**Key findings from compilation:**
+- Combined Y1 platform revenue projection: $1.4M–$1.6M across 5 verticals
+- Combined Y3 projection: $15.5M
+- Total addressable market (5 verticals): $1.36T
+- Consensus: tiered certification, annual recertification, E&O insurance mandatory
+- Recommended platform fee: 20% (KIYOSAKI model)
+- Recommended launch order: Sales → Security → Legal → Finance → Psychology (risk-adjusted)
+- Critical gate for Atlanta: UPL clearance for legal vertical
+- Entity structure: Delaware C-Corp + Florida LLC ops (KIYOSAKI recommendation)
+- 10 recommended questions for Atlanta meeting compiled from all responses
+
+*Last updated: March 11, 2026 8:00 PM ET — Atlas*

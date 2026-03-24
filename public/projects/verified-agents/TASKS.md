@@ -18,6 +18,6 @@
 ## Backlog
 - [ ] Finance vertical (KIYOSAKI) — identify expert to interview
 - [ ] Security vertical (WIDOW) — identify expert to interview
-- [ ] Build rental/booking platform on Parallax marketplace
+- [x] Build rental/booking platform on Parallax marketplace — DONE Mar 22 (`/agents/verified`, commit 0577828)
 - [ ] Partnership structure with Eric
-- [ ] Pricing model validation
+- [x] Pricing model validation — DONE Mar 22 (pricing modeler at `/pricing/modeler` + marketplace rates)

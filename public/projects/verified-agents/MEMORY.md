@@ -19,6 +19,13 @@
 - FL Bar Rule 4-5.5 and GA Rule 5.5 are the specific UPL provisions to discuss
 - Fee-splitting between lawyers and non-lawyers is prohibited in most states (ABA Rule 5.4)
 
+## Key Events (continued)
+- **Mar 22 07:30 PM:** Verified Agents Marketplace LIVE at `/agents/verified` on parallax-site. 18 agents, 6 tiers, hourly rates, session calculator, expert imprint pricing. Commit `0577828`. Verified 200 OK.
+- **Mar 22 03:20 PM:** Pricing Modeler integrated at `/pricing/modeler` on ramiche-site. Interactive rate/hours/margin calculator. Verified 200 OK.
+
 ## Documents
 - Interview prep: `workspace-themis/attorney-interview-questions.md` (64 questions)
 - Strategy doc: `projects/verified-agents/STRATEGY.md`
+- **Marketplace:** `parallax-site/src/app/agents/verified/page.tsx` (564 lines)
+- **Pricing Modeler:** `ramiche-site/src/app/pricing/modeler/page.tsx`
+- **Mar 22 07:55 PM:** Certification Framework page LIVE at `/agents/verified/certification`. 4 levels (Bronze→Platinum), 7-step process, 6 quality metrics, Expert Imprint program ($25-50K + 10-15% royalty). Commit `6f28576`. Verified 200 OK.

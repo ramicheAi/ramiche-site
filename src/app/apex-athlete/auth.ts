@@ -6,7 +6,7 @@
 
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
-import { fbSignUp } from "./lib/firebase-auth";
+import { fbSignUp, fbSignInAnonymous } from "./lib/firebase-auth";
 
 const ORG_ID = "saint-andrews-aquatics";
 
@@ -213,9 +213,12 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
       const snap = await getDocs(rostersRef);
       for (const docSnap of snap.docs) {
         const data = docSnap.data();
-        const athletes = data.athletes as any[];
+        const athletes = data.athletes as unknown[];
         if (!athletes) continue;
-        const athlete = athletes.find((a: any) => a.pin && a.pin === pin);
+        const athlete = athletes.find((a: unknown) => {
+          const ath = a as { pin?: string; name: string; id: string };
+          return ath.pin && ath.pin === pin;
+        });
         if (athlete) {
           const session: AuthSession = {
             role: "athlete",
@@ -225,6 +228,8 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
             expiry: Date.now() + SESSION_DURATION_MS,
           };
           setSession(session);
+          // Phase 4: Dual-write — anonymous Firebase session for athlete (non-blocking)
+          fbSignInAnonymous().catch(() => {});
           return { success: true, session };
         }
       }
@@ -238,7 +243,10 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
     const storedRosterRaw = localStorage.getItem("apex-athlete-roster-v5");
     if (storedRosterRaw) {
       const roster = JSON.parse(storedRosterRaw);
-      const athlete = roster.find((a: any) => a.pin && a.pin === pin);
+      const athlete = roster.find((a: unknown) => {
+        const ath = a as { pin?: string; name: string; id: string };
+        return ath.pin && ath.pin === pin;
+      });
       if (athlete) {
         const session: AuthSession = {
           role: "athlete",
@@ -248,6 +256,8 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
           expiry: Date.now() + SESSION_DURATION_MS,
         };
         setSession(session);
+        // Phase 4: Dual-write — anonymous Firebase session for athlete (non-blocking)
+        fbSignInAnonymous().catch(() => {});
         return { success: true, session };
       }
     }
@@ -321,12 +331,12 @@ export function getRedirectForRole(role: AuthRole): string {
 }
 
 // ── Roster loader (Firestore, works on any device) ──────────
-export async function loadRosterFromFirestore(): Promise<any[]> {
+export async function loadRosterFromFirestore(): Promise<unknown[]> {
   if (!db) return [];
   try {
     const rostersRef = collection(db, `organizations/${ORG_ID}/rosters`);
     const snap = await getDocs(rostersRef);
-    const seen = new Map<string, any>();
+    const seen = new Map<string, unknown>();
     for (const docSnap of snap.docs) {
       const data = docSnap.data();
       if (data.athletes && Array.isArray(data.athletes)) {

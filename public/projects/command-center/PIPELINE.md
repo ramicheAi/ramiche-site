@@ -1,26 +1,18 @@
-# Command Center HQ — Pipeline
+# PIPELINE.md - Command Center
 
-## Current Phase: Phase 1 — Real-Time Chat System
+## Build Queue
+- [x] Command Center: Modern Chat UI (Mar 18) - **DONE**
+- [x] YOLO Nerve Center (Mar 17) - **DONE**
+- [x] YOLO Build Index (Mar 18) - **DONE**
+- [ ] Command Center: Mobile View Optimization
+- [ ] Command Center: Voice Input Integration
 
-### Architecture (PROXIMON)
-- [ ] Supabase project setup
-- [ ] Database schema design
-- [ ] WebSocket architecture doc
+## Recent Deploys
+- **Mar 18 10:43**: Style refresh for EKG System Vitals (c37421d)
+- **Mar 18 10:38**: YOLO fixes (5d6e66d)
+- **Mar 18 10:34**: Modern Chat View (8427734)
+- **Mar 18 10:25**: YOLO Builds Injection (dd04506)
 
-### Frontend (SHURI)
-- [ ] Chat UI components
-- [ ] Channel system
-- [ ] Threading
-- [ ] Agent DM panels
-- [ ] Side navigation
-- [ ] File attachments
-
-### Integration (ATLAS)
-- [ ] OpenClaw → Supabase bridge
-- [ ] Agent response routing
-
-## Blocked On
-- Supabase project credentials (need to create account)
-
-## White-Label Readiness
-- Not started — Phase 2
+## Branch Strategy
+- `main`: Production capable
+- `feature/*`: Atomic feature branches
