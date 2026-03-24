@@ -681,7 +681,7 @@ export default function CommandCenterChatPage() {
       // For DMs: send the agent ID directly
       // For team/project channels: send channel members so the API picks the right responder
       const agentName = isDM ? activeAgent!.id : undefined;
-      const channelMembers = (!isDM && activeChannel && "members" in activeChannel) ? (activeChannel as any).members : undefined;
+      const channelMembers = (!isDM && activeChannel && "members" in activeChannel) ? (activeChannel as Record<string, unknown>).members as string[] | undefined : undefined;
       const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
       fetch("/api/command-center/chat", {
         method: "POST",
@@ -824,6 +824,7 @@ export default function CommandCenterChatPage() {
           overflowX: "auto",
           WebkitOverflowScrolling: "touch",
         }}
+        className="chat-top-nav"
       >
         <a
           href="/command-center"
@@ -957,6 +958,26 @@ export default function CommandCenterChatPage() {
               COMMAND CENTER
             </div>
           </div>
+          {/* Mobile close button */}
+          <button
+            className="chat-sidebar-close"
+            onClick={() => setSidebarOpen(false)}
+            style={{
+              display: "none",
+              marginLeft: "auto",
+              padding: 6,
+              borderRadius: 6,
+              border: `1px solid ${COLORS.border.default}`,
+              background: COLORS.bg.card,
+              cursor: "pointer",
+              color: COLORS.text.secondary,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
         </div>
 
         {/* ── Scrollable channel sections ── */}
@@ -1492,6 +1513,7 @@ export default function CommandCenterChatPage() {
       >
         {/* ── Chat Header ── */}
         <div
+          className="chat-header-bar"
           style={{
             padding: "12px 20px",
             borderBottom: `1px solid ${COLORS.border.default}`,
@@ -1641,6 +1663,7 @@ export default function CommandCenterChatPage() {
 
         {/* ── Messages Container ── */}
         <div
+          className="chat-messages-container"
           style={{
             flex: 1,
             overflowY: "auto",
@@ -1868,6 +1891,7 @@ export default function CommandCenterChatPage() {
 
         {/* ── Message Input ── */}
         <div
+          className="chat-input-area"
           style={{
             padding: "12px 20px 16px",
             borderTop: `1px solid ${COLORS.border.default}`,
@@ -1955,6 +1979,7 @@ export default function CommandCenterChatPage() {
             <div style={{ flex: 1, position: "relative" }}>
               <textarea
                 ref={inputRef}
+                className="chat-input-textarea"
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 placeholder={`Message ${viewMode === "dm" ? activeAgent?.name : activeChannel?.name}...`}
@@ -2366,6 +2391,9 @@ export default function CommandCenterChatPage() {
           .chat-mobile-menu {
             display: flex !important;
           }
+          .chat-sidebar-close {
+            display: flex !important;
+          }
           .chat-thread-panel {
             position: fixed !important;
             top: 0 !important;
@@ -2373,7 +2401,36 @@ export default function CommandCenterChatPage() {
             bottom: 0 !important;
             z-index: 45 !important;
             width: 100% !important;
-            max-width: 360px !important;
+            max-width: 100% !important;
+          }
+          .chat-top-nav {
+            gap: 2px !important;
+            padding: 0 8px !important;
+          }
+          .chat-top-nav a {
+            padding: 4px 6px !important;
+            font-size: 9px !important;
+          }
+          .chat-messages-container {
+            padding: 12px 10px !important;
+          }
+          .chat-input-area {
+            padding: 10px !important;
+          }
+          .chat-input-textarea {
+            padding-right: 60px !important;
+            font-size: 16px !important;
+          }
+          .chat-header-bar {
+            padding: 10px 12px !important;
+          }
+        }
+        @media (max-width: 480px) {
+          .chat-thread-panel {
+            max-width: 100% !important;
+          }
+          .chat-top-nav {
+            display: none !important;
           }
         }
         @media (min-width: 768px) {
