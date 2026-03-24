@@ -5,10 +5,13 @@ import { parseBody, isOneOf, sanitize, badRequest } from "@/lib/api-security";
 import { withAudit } from "@/lib/api-audit";
 
 /* ══════════════════════════════════════════════════════════════
-   STRIPE CHECKOUT SESSION — API Route
+   STRIPE CHECKOUT SESSION — API Route (Stripe Connect)
    Creates a Stripe Checkout session for a selected plan tier
-   Supports: Starter ($149), Club ($349), Program ($549)
+   Supports: Starter ($149), Professional ($349), Program ($549)
+   Platform fee: 10% via application_fee_percent on Connect
    ══════════════════════════════════════════════════════════════ */
+
+const PLATFORM_FEE_PERCENT = 10; // 90/10 split: team gets 90%, platform takes 10%
 
 // Price IDs — set via env vars, or create in Stripe Dashboard → Products
 const STARTER_PRICE_ID = process.env.STRIPE_STARTER_PRICE_ID || "price_starter_monthly";
@@ -40,6 +43,7 @@ export const POST = withAudit("/api/stripe/checkout", async function POST(req: R
 
     const priceId = sanitize(body.priceId, 100);
     const planId = body.planId ? sanitize(body.planId, 50) : undefined;
+    const connectedAccountId = body.connectedAccountId ? sanitize(body.connectedAccountId, 100) : undefined;
 
     if (!isOneOf(priceId, Object.keys(VALID_PRICES))) {
       return badRequest("Invalid price ID");
@@ -55,8 +59,8 @@ export const POST = withAudit("/api/stripe/checkout", async function POST(req: R
 
     const resolvedPlanId = planId || VALID_PRICES[priceId].planId;
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Build checkout params — add Connect fields when team has a connected account
+    const checkoutParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [
@@ -70,7 +74,20 @@ export const POST = withAudit("/api/stripe/checkout", async function POST(req: R
       metadata: {
         planId: resolvedPlanId,
       },
-    });
+    };
+
+    // Stripe Connect: route payment to team's connected account with platform fee
+    if (connectedAccountId) {
+      checkoutParams.subscription_data = {
+        application_fee_percent: PLATFORM_FEE_PERCENT,
+      };
+      // Use on_behalf_of to connect the subscription to the team's account
+      checkoutParams.subscription_data.transfer_data = {
+        destination: connectedAccountId,
+      };
+    }
+
+    const session = await stripe.checkout.sessions.create(checkoutParams);
 
     return NextResponse.json({ url: session.url });
   } catch (err) {

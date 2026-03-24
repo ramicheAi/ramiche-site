@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { adminWriteSubscription } from "@/lib/firebase-admin";
+import { adminWriteSubscription, adminWriteConnectedAccount } from "@/lib/firebase-admin";
 
 /* ══════════════════════════════════════════════════════════════
-   STRIPE WEBHOOK — Handles subscription lifecycle events
-   Verifies signature, processes checkout.session.completed,
-   customer.subscription.updated/deleted
-   Writes subscription status to Firestore via Admin SDK
+   STRIPE WEBHOOK — Handles subscription + Connect lifecycle events
+   Verifies signature, processes checkout, subscriptions, payments,
+   and Connect account status updates
+   Writes to Firestore via Admin SDK
    ══════════════════════════════════════════════════════════════ */
 
 function getStripe(): Stripe {
@@ -86,6 +86,23 @@ export async function POST(req: Request) {
           lastPaymentFailed: true,
           lastFailedInvoice: invoice.id,
           lastFailedAt: new Date().toISOString(),
+        });
+      }
+      break;
+    }
+
+    // ── Stripe Connect events ──────────────────────────────
+    case "account.updated": {
+      const account = event.data.object as Stripe.Account;
+      const uid = account.metadata?.firebaseUid;
+      if (uid) {
+        console.log(`[Stripe Connect] Account updated: ${account.id}, charges=${account.charges_enabled}`);
+        await adminWriteConnectedAccount(uid, {
+          stripeAccountId: account.id,
+          chargesEnabled: account.charges_enabled,
+          payoutsEnabled: account.payouts_enabled,
+          detailsSubmitted: account.details_submitted,
+          status: account.charges_enabled ? "active" : "onboarding",
         });
       }
       break;

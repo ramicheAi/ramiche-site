@@ -101,6 +101,25 @@ export async function adminWriteSubscription(
   }
 }
 
+// ── Write Connected Account ─────────────────────────────────
+export async function adminWriteConnectedAccount(
+  uid: string,
+  data: Record<string, unknown>
+): Promise<boolean> {
+  getAdminApp();
+  if (!adminDb) return false;
+  try {
+    await adminDb
+      .collection("connectedAccounts")
+      .doc(uid)
+      .set({ ...data, updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  } catch (e) {
+    console.warn("[Firebase Admin] connected account write failed:", e);
+    return false;
+  }
+}
+
 // ── Revoke Session ───────────────────────────────────────────
 export async function revokeSession(uid: string): Promise<boolean> {
   getAdminApp();
