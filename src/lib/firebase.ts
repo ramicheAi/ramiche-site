@@ -18,12 +18,9 @@ import {
   updateDoc,
   collection,
   getDocs,
-  query,
-  where,
   onSnapshot,
   writeBatch,
   serverTimestamp,
-  Timestamp,
   type Unsubscribe as FirestoreUnsubscribe,
 } from "firebase/firestore";
 
@@ -219,6 +216,17 @@ export async function fbBatchSaveRosters(
     console.warn("[Firebase] batch error:", e);
     return false;
   }
+}
+
+// ── Athlete Data (Phase 6: journal, times, feedback, race plans) ───
+
+export async function fbSaveAthleteData(athleteId: string, key: string, data: unknown): Promise<boolean> {
+  return fbSet(`athletes/${athleteId}/${key}`, { data, _key: key });
+}
+
+export async function fbGetAthleteData<T>(athleteId: string, key: string): Promise<T | null> {
+  const result = await fbGet<{ data: T }>(`athletes/${athleteId}/${key}`);
+  return result?.data ?? null;
 }
 
 // ── Real-time listeners ────────────────────────────────────────────

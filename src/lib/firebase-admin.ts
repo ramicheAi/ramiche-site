@@ -7,15 +7,18 @@
 
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getAuth, type Auth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
 
 let adminApp: App | null = null;
 let adminAuth: Auth | null = null;
+let adminDb: Firestore | null = null;
 
 function getAdminApp(): App | null {
   if (adminApp) return adminApp;
   if (getApps().length > 0) {
     adminApp = getApps()[0];
     adminAuth = getAuth(adminApp);
+    adminDb = getFirestore(adminApp);
     return adminApp;
   }
 
@@ -29,6 +32,7 @@ function getAdminApp(): App | null {
     const parsed = JSON.parse(sa);
     adminApp = initializeApp({ credential: cert(parsed) });
     adminAuth = getAuth(adminApp);
+    adminDb = getFirestore(adminApp);
     return adminApp;
   } catch (e) {
     console.warn("[Firebase Admin] init failed:", e);
@@ -75,6 +79,25 @@ export async function verifySessionCookie(
     return { uid: decoded.uid, email: decoded.email };
   } catch {
     return null;
+  }
+}
+
+// ── Firestore Admin Operations ───────────────────────────────
+export async function adminWriteSubscription(
+  customerId: string,
+  data: Record<string, unknown>
+): Promise<boolean> {
+  getAdminApp();
+  if (!adminDb) return false;
+  try {
+    await adminDb
+      .collection("subscriptions")
+      .doc(customerId)
+      .set({ ...data, updatedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  } catch (e) {
+    console.warn("[Firebase Admin] subscription write failed:", e);
+    return false;
   }
 }
 

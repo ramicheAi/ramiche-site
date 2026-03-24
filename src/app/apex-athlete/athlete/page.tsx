@@ -10,6 +10,7 @@ import PBOverlay from "../components/PBOverlay";
 import AthleteCard from "../components/AthleteCard";
 import WorkoutLog from "../components/WorkoutLog";
 import { storageSaveRoster } from "../lib/storage";
+import { fbSaveAthleteData, fbGetAthleteData } from "@/lib/firebase";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -124,13 +125,27 @@ function load<T>(key: string, fallback: T): T {
     try { return JSON.parse(v); } catch { return v as unknown as T; }
   } catch { return fallback; }
 }
-function save(key: string, val: unknown) {
+function save(key: string, val: unknown, athleteId?: string) {
   if (key === "apex-athlete-roster-v5" && Array.isArray(val)) {
     const saved = storageSaveRoster(val as { xp?: number }[]);
     if (!saved) { console.error("[Athlete] Blocked zero-XP roster overwrite"); return; }
     return;
   }
+  // Dual-write: localStorage + Firestore (Phase 6)
   if (typeof window !== "undefined") { try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* quota */ } }
+  if (athleteId) {
+    const fbKey = key.replace(`-${athleteId}`, "");
+    fbSaveAthleteData(athleteId, fbKey, val).catch(() => {});
+  }
+}
+
+// Phase 6: async Firestore loader (overwrites localStorage data when available)
+async function loadFromFirestore<T>(athleteId: string, lsKey: string, fbKey: string): Promise<T | null> {
+  const data = await fbGetAthleteData<T>(athleteId, fbKey);
+  if (data !== null && typeof window !== "undefined") {
+    try { localStorage.setItem(lsKey, JSON.stringify(data)); } catch {}
+  }
+  return data;
 }
 
 const QUEST_DEFS = [
@@ -1073,21 +1088,21 @@ export default function AthletePortal() {
         <div className="relative z-10 w-full px-4 lg:px-8 xl:px-10" style={{maxWidth:'100%'}}>
           {/* Portal switcher — full-width grid */}
           <div className="grid grid-cols-3 gap-2 lg:gap-4 mb-6 lg:mb-8">
-            {[
+            {([
               { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
               { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
               { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
-            ].map(p => (
+            ] as { label: string; href: string; color: string; active?: boolean }[]).map(p => (
               <Link key={p.label} href={p.href}
                 className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
-                  (p as any).active
+                  p.active
                     ? "border-2 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
                     : "border hover:border-white/20 active:scale-[0.97]"
                 }`}
                 style={{
-                  background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
-                  borderColor: (p as any).active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
-                  color: (p as any).active ? p.color : 'rgba(255,255,255,0.25)',
+                  background: p.active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+                  borderColor: p.active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
+                  color: p.active ? p.color : 'rgba(255,255,255,0.25)',
                 }}>
                 {p.label}
               </Link>
@@ -1384,21 +1399,21 @@ export default function AthletePortal() {
       <ParticleField variant="purple" count={40} speed={0.3} opacity={0.4} />
       {/* Portal switcher — full-width grid */}
       <div className="relative z-20 grid grid-cols-3 gap-2 lg:gap-4 px-4 lg:px-12 xl:px-16 pt-3 pb-2 w-full">
-        {[
+        {([
           { label: "Coach", href: "/apex-athlete", color: "#00f0ff" },
           { label: "Athlete", href: "/apex-athlete/athlete", active: true, color: "#a855f7" },
           { label: "Parent", href: "/apex-athlete/parent", color: "#f59e0b" },
-        ].map(p => (
+        ] as { label: string; href: string; color: string; active?: boolean }[]).map(p => (
           <a key={p.label} href={p.href}
             className={`py-3 text-sm font-bold font-mono tracking-wider uppercase rounded-lg transition-all duration-200 min-h-[48px] text-center flex items-center justify-center ${
-              (p as any).active
+              p.active
                 ? "border-2 shadow-[0_0_20px_rgba(168,85,247,0.2)]"
                 : "border hover:border-white/20 active:scale-[0.97]"
             }`}
             style={{
-              background: (p as any).active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
-              borderColor: (p as any).active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
-              color: (p as any).active ? p.color : 'rgba(255,255,255,0.25)',
+              background: p.active ? `${p.color}1a` : 'rgba(6,2,15,0.6)',
+              borderColor: p.active ? `${p.color}66` : 'rgba(255,255,255,0.06)',
+              color: p.active ? p.color : 'rgba(255,255,255,0.25)',
             }}>
             {p.label}
           </a>

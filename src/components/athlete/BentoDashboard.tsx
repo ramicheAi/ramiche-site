@@ -40,7 +40,7 @@ export function BentoCard({
     blue: "bg-gradient-to-br from-[#0e0e18] via-[#1a2e3a] to-[#1e3a8a] border-[#3b82f6]/20",
     orange: "bg-gradient-to-br from-[#0e0e18] via-[#2a1a0e] to-[#7c2d12] border-[#f97316]/20",
     green: "bg-gradient-to-br from-[#0e0e18] via-[#1a2e2a] to-[#065f46] border-[#10b981]/20",
-    cyan: "bg-gradient-to-br from-[#0e0e18] via-[#1a2e3a] to-[#0e7490] border-[#06b6d4]/20"
+    cyan: "bg-gradient-to-br from-[#0e0e18] via-[#0e1a2a] to-[#0a3344] border-[#00f0ff]/20"
   };
 
   return (
@@ -90,7 +90,7 @@ export function AthleteStatsCard({
           <div className="text-[#94a3b8] text-xs font-semibold uppercase tracking-wider">
             {title}
           </div>
-          <div className="text-[#c4b5fd] opacity-70 group-hover:opacity-100 transition-opacity">
+          <div className="text-[#00f0ff] opacity-70 group-hover:opacity-100 transition-opacity">
             {icon}
           </div>
         </div>

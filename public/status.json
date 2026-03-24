@@ -23,35 +23,35 @@
     },
     {
       "name": "shuri",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "engineering",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "proximon",
-      "model": "deepseek-v3.2",
+      "model": "sonnet4.5",
       "role": "architecture",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "aetherion",
-      "model": "gemini-3-pro",
+      "model": "claude-sonnet-4-5-20250929",
       "role": "creative-director",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "simons",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "data-analysis",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "mercury",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "sales",
       "status": "idle",
       "task": "Standing by"
@@ -65,7 +65,7 @@
     },
     {
       "name": "ink",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "copywriting",
       "status": "idle",
       "task": "Standing by"
@@ -79,7 +79,7 @@
     },
     {
       "name": "haven",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "support",
       "status": "idle",
       "task": "Standing by"
@@ -93,14 +93,14 @@
     },
     {
       "name": "dr-strange",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "forecasting",
       "status": "idle",
       "task": "Standing by"
     },
     {
       "name": "kiyosaki",
-      "model": "deepseek-v3.2",
+      "model": "claude-sonnet-4-5",
       "role": "finance",
       "status": "idle",
       "task": "Standing by"
@@ -148,5 +148,5 @@
       "task": "Standing by"
     }
   ],
-  "lastSync": "2026-03-10T08:52:07.793Z"
+  "lastSync": "2026-03-24T13:37:53.517Z"
 }

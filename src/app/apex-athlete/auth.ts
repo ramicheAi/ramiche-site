@@ -220,11 +220,12 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
           return ath.pin && ath.pin === pin;
         });
         if (athlete) {
+          const ath = athlete as { pin?: string; name: string; id: string };
           const session: AuthSession = {
             role: "athlete",
-            name: athlete.name,
-            email: `${athlete.id}@apexathlete.local`,
-            athleteId: athlete.id,
+            name: ath.name,
+            email: `${ath.id}@apexathlete.local`,
+            athleteId: ath.id,
             expiry: Date.now() + SESSION_DURATION_MS,
           };
           setSession(session);

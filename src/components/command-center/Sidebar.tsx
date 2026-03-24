@@ -35,6 +35,7 @@ const sections = [
       { href: '/command-center/sales/agent-pricing', label: 'Agent Pricing', icon: '◇', accent: '#f59e0b' },
       { href: '/command-center/legal', label: 'Legal', icon: '⚖', accent: '#8b5cf6' },
       { href: '/command-center/strategy', label: 'Strategy', icon: '◇', accent: '#a855f7' },
+      { href: '/command-center/observatory', label: 'Observatory', icon: '🔮', accent: '#9b5de5' },
     ],
   },
   {
