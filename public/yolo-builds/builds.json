@@ -880,5 +880,16 @@
     "hasDemo": false,
     "demoFile": null,
     "fileCount": 0
+  },
+  {
+    "id": "strange-multiverse-observatory",
+    "name": "Strange Multiverse Observatory",
+    "date": "2026-03-24",
+    "slug": "strange-multiverse-observatory",
+    "description": "Strategic observatory visualizing all RAMICHE ventures as orbiting planets with scenario planning, probability tracking, and interactive roadmap.",
+    "files": ["index.html", "README.md"],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
   }
 ]

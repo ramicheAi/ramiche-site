@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE MULTIVERSE — Command Center</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:rgba(255,255,255,0.03);--surface-hover:rgba(255,255,255,0.06);
+  --border:rgba(255,255,255,0.08);--border-active:rgba(255,255,255,0.2);
+  --text:#e8e8f0;--text-dim:rgba(255,255,255,0.4);--text-mid:rgba(255,255,255,0.6);
+  --apex:#00f5d4;--ga:#9b5de5;--ramiche:#f15bb5;--parallax:#fee440;
+  --success:#00e676;--warning:#ffab40;--danger:#ff5252;
+  --glow-apex:rgba(0,245,212,0.12);--glow-ga:rgba(155,93,229,0.12);
+  --glow-ramiche:rgba(241,91,181,0.12);--glow-parallax:rgba(254,228,64,0.12);
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif;overflow:hidden}
+button{font-family:inherit;cursor:pointer}
+input,textarea,select{font-family:inherit}
+
+/* ── LAYOUT ── */
+.app{display:grid;grid-template-columns:260px 1fr;grid-template-rows:52px 1fr;height:100vh;width:100vw}
+.topbar{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:rgba(10,10,15,0.95);border-bottom:1px solid var(--border);z-index:100}
+.sidebar{grid-row:2;border-right:1px solid var(--border);background:rgba(10,10,15,0.6);overflow-y:auto;padding:16px 0}
+.main{grid-row:2;overflow-y:auto;position:relative}
+
+/* ── TOPBAR ── */
+.topbar-left{display:flex;align-items:center;gap:12px}
+.logo{font-size:11px;font-weight:600;letter-spacing:4px;text-transform:uppercase;color:var(--text)}
+.topbar-divider{width:1px;height:20px;background:var(--border)}
+.topbar-sub{font-size:11px;color:var(--text-dim);letter-spacing:1px;font-family:'JetBrains Mono',monospace}
+.topbar-right{display:flex;align-items:center;gap:16px}
+.topbar-time{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-dim)}
+.topbar-pulse{width:8px;height:8px;border-radius:50%;background:var(--success);animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.4;transform:scale(1)}50%{opacity:1;transform:scale(1.3)}}
+
+/* ── NAV TABS ── */
+.nav-tabs{display:flex;gap:2px;background:var(--surface);border-radius:8px;padding:2px;margin:0 20px}
+.nav-tab{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:500;color:var(--text-dim);border:none;background:none;transition:all .2s}
+.nav-tab:hover{color:var(--text-mid)}
+.nav-tab.active{background:var(--surface-hover);color:var(--text)}
+
+/* ── SIDEBAR ── */
+.sidebar-section{padding:0 16px;margin-bottom:24px}
+.sidebar-title{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;padding:0 4px}
+.venture-pill{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:all .2s;margin-bottom:4px}
+.venture-pill:hover{background:var(--surface-hover)}
+.venture-pill.active{background:var(--surface-hover);border:1px solid var(--border-active)}
+.venture-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.venture-pill-name{font-size:13px;font-weight:500;flex:1}
+.venture-pill-pct{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim)}
+
+/* Filter pills */
+.filter-row{display:flex;gap:4px;padding:0 16px;margin-bottom:16px;flex-wrap:wrap}
+.filter-pill{padding:4px 10px;border-radius:12px;font-size:11px;border:1px solid var(--border);background:none;color:var(--text-dim);transition:all .2s}
+.filter-pill:hover{border-color:var(--border-active);color:var(--text-mid)}
+.filter-pill.active{border-color:var(--text-mid);color:var(--text);background:var(--surface-hover)}
+
+/* ── OBSERVATORY VIEW ── */
+.view{display:none;height:100%;position:relative}
+.view.active{display:block}
+
+#view-observatory{overflow:hidden}
+#starfield,#cosmic-map{position:absolute;top:0;left:0;width:100%;height:100%}
+#starfield{z-index:0}
+#cosmic-map{z-index:1}
+
+.venture-card{position:absolute;z-index:50;width:260px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;backdrop-filter:blur(20px);cursor:pointer;transition:all .4s cubic-bezier(.16,1,.3,1);opacity:0;transform:scale(.9) translateY(10px)}
+.venture-card.visible{opacity:1;transform:scale(1) translateY(0)}
+.venture-card:hover{background:var(--surface-hover);transform:scale(1.02) translateY(-3px)}
+.card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.card-icon{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.card-title{font-size:14px;font-weight:600}
+.card-tagline{font-size:10px;color:var(--text-dim);margin-top:2px}
+.card-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric{background:rgba(0,0,0,.3);border-radius:8px;padding:8px 10px}
+.metric-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
+.metric-value{font-size:16px;font-weight:600;font-family:'JetBrains Mono',monospace}
+
+/* ── ROADMAP VIEW ── */
+#view-roadmap{padding:0;overflow-y:auto}
+
+.roadmap-header{padding:24px 32px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--bg);z-index:10;border-bottom:1px solid var(--border)}
+.roadmap-title{font-size:18px;font-weight:600}
+.roadmap-actions{display:flex;gap:8px}
+.btn{padding:7px 14px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid var(--border);background:var(--surface);color:var(--text);transition:all .2s;display:flex;align-items:center;gap:6px}
+.btn:hover{background:var(--surface-hover);border-color:var(--border-active)}
+.btn-primary{background:rgba(0,245,212,0.1);border-color:rgba(0,245,212,0.3);color:var(--apex)}
+.btn-primary:hover{background:rgba(0,245,212,0.18)}
+
+/* Roadmap columns */
+.roadmap-body{padding:20px 32px 32px;display:flex;gap:20px;min-height:calc(100vh - 160px)}
+.roadmap-column{flex:1;min-width:240px;max-width:360px}
+.column-header{display:flex;align-items:center;gap:8px;margin-bottom:16px;padding:8px 12px;border-radius:10px}
+.column-title{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.column-count{font-size:11px;font-family:'JetBrains Mono',monospace;padding:2px 8px;border-radius:10px;background:rgba(0,0,0,.3)}
+
+/* Roadmap items */
+.roadmap-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:10px;cursor:grab;transition:all .2s;position:relative}
+.roadmap-item:hover{background:var(--surface-hover);border-color:var(--border-active)}
+.roadmap-item.dragging{opacity:.5;transform:scale(.98)}
+.roadmap-item.drag-over{border-color:var(--apex);box-shadow:0 0 12px rgba(0,245,212,0.15)}
+.item-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:8px}
+.item-title{font-size:13px;font-weight:500;line-height:1.4;flex:1}
+.item-venture-tag{font-size:9px;font-weight:600;padding:2px 6px;border-radius:6px;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;border:1px solid}
+.item-desc{font-size:11px;color:var(--text-dim);line-height:1.5;margin-bottom:8px}
+.item-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.item-date{font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+.item-priority{font-size:9px;font-weight:600;padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px}
+.priority-high{background:rgba(255,82,82,.12);color:var(--danger);border:1px solid rgba(255,82,82,.2)}
+.priority-med{background:rgba(255,171,64,.12);color:var(--warning);border:1px solid rgba(255,171,64,.2)}
+.priority-low{background:rgba(0,230,118,.12);color:var(--success);border:1px solid rgba(0,230,118,.2)}
+.item-actions{position:absolute;top:8px;right:8px;display:flex;gap:4px;opacity:0;transition:opacity .2s}
+.roadmap-item:hover .item-actions{opacity:1}
+.item-action-btn{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text-dim);display:flex;align-items:center;justify-content:center;font-size:11px;transition:all .15s}
+.item-action-btn:hover{background:var(--surface-hover);color:var(--text);border-color:var(--border-active)}
+
+/* ── SCENARIOS VIEW ── */
+#view-scenarios{padding:24px 32px;overflow-y:auto}
+.scenarios-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+.scenario-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;transition:all .2s;cursor:pointer}
+.scenario-card:hover{background:var(--surface-hover);border-color:var(--border-active)}
+.scenario-card-header{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.scenario-type{font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;text-transform:uppercase;letter-spacing:1px}
+.type-bull{background:rgba(0,230,118,.12);color:var(--success);border:1px solid rgba(0,230,118,.2)}
+.type-base{background:rgba(255,171,64,.12);color:var(--warning);border:1px solid rgba(255,171,64,.2)}
+.type-bear{background:rgba(255,82,82,.12);color:var(--danger);border:1px solid rgba(255,82,82,.2)}
+.scenario-prob{font-size:22px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.scenario-card-title{font-size:15px;font-weight:600;margin-bottom:8px}
+.scenario-trigger{font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:14px}
+.scenario-impacts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.s-impact{background:rgba(0,0,0,.3);border-radius:8px;padding:8px 10px}
+.s-impact-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+.s-impact-value{font-size:14px;font-weight:600;font-family:'JetBrains Mono',monospace;margin-top:2px}
+.scenario-actions-list{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.scenario-actions-title{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.scenario-action-item{font-size:12px;color:var(--text-mid);padding:4px 0 4px 14px;position:relative}
+.scenario-action-item::before{content:'→';position:absolute;left:0;color:var(--text-dim)}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg);border:1px solid var(--border);border-radius:16px;width:480px;max-height:80vh;overflow-y:auto;padding:28px}
+.modal-title{font-size:16px;font-weight:600;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:11px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.form-input{width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:var(--apex)}
+textarea.form-input{min-height:80px;resize:vertical}
+select.form-input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:24px}
+.btn-danger{background:rgba(255,82,82,.1);border-color:rgba(255,82,82,.3);color:var(--danger)}
+.btn-danger:hover{background:rgba(255,82,82,.2)}
+
+/* ── COMMAND BAR ── */
+.command-bar{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;background:var(--bg);border:1px solid var(--border);border-radius:16px;z-index:300;display:none;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+.command-bar.open{display:block}
+.command-input-wrap{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border)}
+.command-prefix{font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--apex);margin-right:10px}
+.command-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-size:15px;font-family:'Space Grotesk',sans-serif}
+.command-input::placeholder{color:var(--text-dim)}
+.command-results{max-height:300px;overflow-y:auto;padding:8px}
+.command-result{padding:10px 16px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .1s}
+.command-result:hover,.command-result.selected{background:var(--surface-hover)}
+.command-result-icon{font-size:14px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--surface)}
+.command-result-text{font-size:13px;flex:1}
+.command-result-hint{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:10px;font-size:13px;z-index:500;transform:translateY(100px);opacity:0;transition:all .3s cubic-bezier(.16,1,.3,1)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast-success{background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.3);color:var(--success)}
+.toast-info{background:rgba(0,245,212,.15);border:1px solid rgba(0,245,212,.3);color:var(--apex)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .roadmap-body{flex-direction:column}
+  .roadmap-column{max-width:none}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">THE MULTIVERSE</div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-sub">Command Center</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-view="observatory">Observatory</button>
+        <button class="nav-tab" data-view="roadmap">Roadmap</button>
+        <button class="nav-tab" data-view="scenarios">Scenarios</button>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-time" id="clock"></div>
+      <div class="topbar-pulse"></div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Ventures</div>
+      <div id="sidebar-ventures"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Quick Stats</div>
+      <div id="sidebar-stats" style="padding:0 4px"></div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-title">Filter by Status</div>
+      <div class="filter-row" id="status-filters"></div>
+    </div>
+  </div>
+
+  <!-- MAIN VIEWS -->
+  <div class="main">
+    <!-- Observatory -->
+    <div class="view active" id="view-observatory">
+      <canvas id="starfield"></canvas>
+      <canvas id="cosmic-map"></canvas>
+      <div id="venture-cards"></div>
+    </div>
+
+    <!-- Roadmap -->
+    <div class="view" id="view-roadmap">
+      <div class="roadmap-header">
+        <div class="roadmap-title">Roadmap</div>
+        <div class="roadmap-actions">
+          <button class="btn" onclick="exportRoadmap()">Export</button>
+          <button class="btn btn-primary" onclick="openAddModal()">+ Add Item</button>
+        </div>
+      </div>
+      <div class="roadmap-body" id="roadmap-body"></div>
+    </div>
+
+    <!-- Scenarios -->
+    <div class="view" id="view-scenarios">
+      <div style="margin-bottom:20px">
+        <div style="font-size:18px;font-weight:600;margin-bottom:4px">Scenario Planner</div>
+        <div style="font-size:12px;color:var(--text-dim)">Probability-weighted futures across all ventures</div>
+      </div>
+      <div class="scenarios-grid" id="scenarios-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">Add Roadmap Item</div>
+    <input type="hidden" id="edit-id">
+    <div class="form-group">
+      <label class="form-label">Title</label>
+      <input class="form-input" id="f-title" placeholder="What needs to be done?">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-input" id="f-desc" placeholder="Details, context, acceptance criteria..."></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Venture</label>
+        <select class="form-input" id="f-venture">
+          <option value="apex">Apex Athlete</option>
+          <option value="ga">Galactik Antics</option>
+          <option value="ramiche">RAMICHE</option>
+          <option value="parallax">Parallax</option>
+          <option value="all">Cross-Venture</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="form-input" id="f-priority">
+          <option value="high">High</option>
+          <option value="med">Medium</option>
+          <option value="low">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-input" id="f-status">
+          <option value="backlog">Backlog</option>
+          <option value="in-progress">In Progress</option>
+          <option value="review">Review</option>
+          <option value="done">Done</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Target Date</label>
+        <input class="form-input" id="f-date" type="date">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="btn-delete" style="display:none;margin-right:auto" onclick="deleteItem()">Delete</button>
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND BAR -->
+<div class="command-bar" id="command-bar">
+  <div class="command-input-wrap">
+    <span class="command-prefix">⌘K</span>
+    <input class="command-input" id="cmd-input" placeholder="Search roadmap, jump to venture, add item..." autocomplete="off">
+  </div>
+  <div class="command-results" id="cmd-results"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// THE MULTIVERSE v2 — Command Center Engine
+// ═══════════════════════════════════════════════════════════════
+
+// ── VENTURE DATA ──
+const VENTURES = {
+  apex: { name:'APEX ATHLETE', icon:'🏊', color:'#00f5d4', glow:'rgba(0,245,212,0.12)', tagline:'Gamified swim training SaaS',
+    orbit:{cx:.3,cy:.38,rx:.08,ry:.06,speed:.0003}, momentum:78, risk:'MED',
+    scenarios:{
+      bull:{label:'Club Adoption Cascade',prob:35,trigger:'First 3 swim clubs adopt within 60 days. Word-of-mouth triggers regional expansion.',
+        impact:[{l:'Revenue',v:'$180K ARR'},{l:'Users',v:'5,000+'},{l:'Expansion',v:'Multi-sport'},{l:'Timeline',v:'12mo'}],
+        actions:['Seed 3 clubs with free 90-day Pro','Build shareable achievement cards','Prepare enterprise pricing','Begin COPPA audit']},
+      base:{label:'Steady Organic Growth',prob:50,trigger:'Individual swimmers adopt organically. Revenue builds linearly.',
+        impact:[{l:'Revenue',v:'$45K ARR'},{l:'Users',v:'800'},{l:'Expansion',v:'Swim only'},{l:'Timeline',v:'18mo'}],
+        actions:['SEO + content for swimmers','Build referral program','Track retention weekly','Prepare club sales deck M6']},
+      bear:{label:'Adoption Friction',prob:15,trigger:'COPPA delays. Schools resist tech. Competitors enter.',
+        impact:[{l:'Revenue',v:'$8K ARR'},{l:'Users',v:'150'},{l:'Expansion',v:'Pivot needed'},{l:'Timeline',v:'24mo'}],
+        actions:['Fast-track COPPA compliance','Build adult swimmer track','Monitor competitors weekly','Keep burn <$3K/mo']}
+    }
+  },
+  ga: { name:'GALACTIK ANTICS', icon:'🌌', color:'#9b5de5', glow:'rgba(155,93,229,0.12)', tagline:'Cosmic collectibles + browser game',
+    orbit:{cx:.7,cy:.32,rx:.09,ry:.07,speed:.00025}, momentum:65, risk:'HIGH',
+    scenarios:{
+      bull:{label:'200%+ Funded',prob:25,trigger:'Kickstarter hits 200%. Community explodes. IP licensing interest.',
+        impact:[{l:'Revenue',v:'$120K'},{l:'Backers',v:'2,000+'},{l:'IP Value',v:'Licensing'},{l:'Timeline',v:'6mo'}],
+        actions:['Pre-build stretch goals NOW','Prepare press kit','Browser game demo at launch','Identify 3 licensing partners']},
+      base:{label:'Successfully Funded',prob:45,trigger:'Campaign reaches goal. Solid backer base. Shopify launches.',
+        impact:[{l:'Revenue',v:'$50K'},{l:'Backers',v:'800'},{l:'IP Value',v:'Growing'},{l:'Timeline',v:'9mo'}],
+        actions:['Lock manufacturer timelines','Shopify ready day 1','Email capture during campaign','Plan first post-KS drop']},
+      bear:{label:'Underfunded',prob:30,trigger:'Campaign falls short. Pivot to DTC needed.',
+        impact:[{l:'Revenue',v:'$15K'},{l:'Backers',v:'200'},{l:'IP Value',v:'Intact'},{l:'Timeline',v:'12mo'}],
+        actions:['Pre-validate with email list 500+','DTC pivot plan ready','Small-batch manufacturer backup','Discord as retention engine']}
+    }
+  },
+  ramiche: { name:'RAMICHE', icon:'🎵', color:'#f15bb5', glow:'rgba(241,91,181,0.12)', tagline:'Music + brand + merch ecosystem',
+    orbit:{cx:.32,cy:.65,rx:.07,ry:.055,speed:.00035}, momentum:82, risk:'LOW',
+    scenarios:{
+      bull:{label:'Breakout Moment',prob:30,trigger:'A track catches algorithmic fire. Streaming 10x. Brand deals follow.',
+        impact:[{l:'Streams',v:'10M+'},{l:'Revenue',v:'$200K'},{l:'Brand',v:'National'},{l:'Timeline',v:'6mo'}],
+        actions:['Maintain release cadence','Merch inventory ready to scale','Management infrastructure in place','Content pipeline active']},
+      base:{label:'Steady Growth',prob:55,trigger:'Consistent releases build audience. Revenue grows across streaming + merch.',
+        impact:[{l:'Streams',v:'1M+'},{l:'Revenue',v:'$45K'},{l:'Brand',v:'Regional'},{l:'Timeline',v:'12mo'}],
+        actions:['1 track/month minimum','Merch drop every 6-8 weeks','Build email list to 5K','Cross-promote with Parallax']},
+      bear:{label:'Plateau',prob:15,trigger:'Growth stalls. Algorithm changes hurt independent artists.',
+        impact:[{l:'Streams',v:'200K'},{l:'Revenue',v:'$12K'},{l:'Brand',v:'Local'},{l:'Timeline',v:'18mo'}],
+        actions:['Diversify revenue NOW','Build direct fan relationship','Merch margin optimization','Explore sync licensing']}
+    }
+  },
+  parallax: { name:'PARALLAX', icon:'🎸', color:'#fee440', glow:'rgba(254,228,64,0.12)', tagline:'3-artist label · Yauggy · Niko · Gabe',
+    orbit:{cx:.68,cy:.62,rx:.075,ry:.06,speed:.0002}, momentum:71, risk:'MED',
+    scenarios:{
+      bull:{label:'Multi-Artist Synergy',prob:25,trigger:'All 3 artists release same quarter. Cross-promotion compounds.',
+        impact:[{l:'Revenue',v:'$150K'},{l:'Artists',v:'3 active'},{l:'Reach',v:'500K+'},{l:'Timeline',v:'9mo'}],
+        actions:['Coordinate Q2 release calendar','Create shared visual identity','Joint playlist strategy','Approach 2 new artists']},
+      base:{label:'Independent Tracks',prob:50,trigger:'Artists release independently. Label provides infrastructure.',
+        impact:[{l:'Revenue',v:'$60K'},{l:'Artists',v:'3 active'},{l:'Reach',v:'150K'},{l:'Timeline',v:'12mo'}],
+        actions:['Streamline shared services','Monthly label check-in','Build Parallax playlist','Track per-artist ROI']},
+      bear:{label:'Artist Churn',prob:25,trigger:'One or more artists leave or become inactive.',
+        impact:[{l:'Revenue',v:'$20K'},{l:'Artists',v:'1-2'},{l:'Reach',v:'50K'},{l:'Timeline',v:'18mo'}],
+        actions:['Clean exit clauses in contracts','Monthly satisfaction check-ins','Keep overhead variable','Pipeline 3-5 warm artists']}
+    }
+  }
+};
+
+const VENTURE_COLORS = {apex:'#00f5d4',ga:'#9b5de5',ramiche:'#f15bb5',parallax:'#fee440',all:'#ffffff'};
+const STATUSES = ['backlog','in-progress','review','done'];
+const STATUS_LABELS = {backlog:'Backlog','in-progress':'In Progress',review:'Review',done:'Done'};
+const STATUS_COLORS = {backlog:'var(--text-dim)','in-progress':'var(--apex)',review:'var(--warning)',done:'var(--success)'};
+
+// ── STATE ──
+let currentView = 'observatory';
+let activeVenture = null; // null = all
+let activeStatusFilter = null;
+let roadmapItems = [];
+let dragItem = null;
+
+// ── PERSISTENCE (Server-backed with localStorage fallback) ──
+const API_BASE = window.location.origin;
+const STORAGE_KEY = 'multiverse_roadmap_v2';
+let syncing = false;
+
+const DEFAULT_ITEMS = [
+  {id:genId(),title:'COPPA compliance audit',desc:'Legal review for youth data handling. Required before club adoption push.',venture:'apex',priority:'high',status:'in-progress',date:'2026-04-15',created:Date.now()},
+  {id:genId(),title:'Gamification engine MVP',desc:'Points, badges, leaderboards, streaks. Core differentiator.',venture:'apex',priority:'high',status:'in-progress',date:'2026-04-01',created:Date.now()},
+  {id:genId(),title:'Swim club pilot program',desc:'Seed 3 clubs with free 90-day Pro tier. Measure engagement vs baseline.',venture:'apex',priority:'med',status:'backlog',date:'2026-06-01',created:Date.now()},
+  {id:genId(),title:'Kickstarter campaign page',desc:'Campaign copy, rewards tiers, stretch goals, media kit.',venture:'ga',priority:'high',status:'in-progress',date:'2026-05-01',created:Date.now()},
+  {id:genId(),title:'Browser game demo',desc:'Playable demo for Kickstarter launch. Core loop: explore, collect, trade.',venture:'ga',priority:'high',status:'backlog',date:'2026-05-15',created:Date.now()},
+  {id:genId(),title:'Relic capsule system design',desc:'Collector tier mechanics. Ascending rarity. Repeat buyer incentives.',venture:'ga',priority:'med',status:'backlog',date:'2026-06-01',created:Date.now()},
+  {id:genId(),title:'Shopify store buildout',desc:'Single store across GA + RAMICHE + Parallax. Cross-sell enabled.',venture:'all',priority:'high',status:'in-progress',date:'2026-04-15',created:Date.now()},
+  {id:genId(),title:'Q2 release calendar',desc:'Coordinate drops across RAMICHE + Parallax for maximum cross-promotion.',venture:'parallax',priority:'med',status:'backlog',date:'2026-04-01',created:Date.now()},
+  {id:genId(),title:'EP production + master',desc:'Complete EP. 5 tracks. Mix and master by April.',venture:'ramiche',priority:'high',status:'in-progress',date:'2026-04-30',created:Date.now()},
+  {id:genId(),title:'Merch drop #1 design',desc:'Tied to EP release. Limited run. Print-on-demand backup.',venture:'ramiche',priority:'med',status:'backlog',date:'2026-05-15',created:Date.now()},
+  {id:genId(),title:'Verified Agent marketplace MVP',desc:'Landing page + certification flow + booking system for AI agent consulting.',venture:'all',priority:'med',status:'backlog',date:'2026-09-01',created:Date.now()},
+  {id:genId(),title:'Security monitoring system',desc:'Daily security checks, weekly academic scans, threat scoring.',venture:'all',priority:'low',status:'done',date:'2026-03-04',created:Date.now()},
+];
+
+async function loadData() {
+  try {
+    const res = await fetch(`${API_BASE}/api/items`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.items && data.items.length > 0) {
+        roadmapItems = data.items;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(roadmapItems));
+        return;
+      }
+    }
+  } catch(e) { console.log('Server unavailable, using local storage'); }
+  // Fallback to localStorage
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) { roadmapItems = JSON.parse(saved); return; }
+  } catch(e) {}
+  // Seed defaults
+  roadmapItems = DEFAULT_ITEMS;
+  await saveData();
+}
+
+async function saveData() {
+  // Always save locally first (instant)
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(roadmapItems));
+  // Then sync to server (async, non-blocking)
+  if (syncing) return;
+  syncing = true;
+  try {
+    await fetch(`${API_BASE}/api/items/bulk`, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({items: roadmapItems})
+    });
+  } catch(e) { console.log('Server sync failed, data safe locally'); }
+  syncing = false;
+}
+
+// Auto-sync from server every 30s (picks up changes from other devices)
+setInterval(async () => {
+  try {
+    const res = await fetch(`${API_BASE}/api/items`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.items && data.items.length > 0) {
+        const serverJson = JSON.stringify(data.items.map(i=>i.id).sort());
+        const localJson = JSON.stringify(roadmapItems.map(i=>i.id).sort());
+        if (serverJson !== localJson || data.items.some((si,idx) => {
+          const li = roadmapItems.find(l=>l.id===si.id);
+          return li && si.updated && li.updated && si.updated > li.updated;
+        })) {
+          roadmapItems = data.items;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(roadmapItems));
+          renderRoadmap(); renderSidebar();
+          if (currentView === 'observatory') positionCards();
+        }
+      }
+    }
+  } catch(e) {}
+}, 30000);
+
+function genId() { return Math.random().toString(36).substr(2,9); }
+
+// ── TOAST ──
+function toast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast toast-${type} show`;
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ── NAVIGATION ──
+document.querySelectorAll('.nav-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentView = tab.dataset.view;
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(`view-${currentView}`).classList.add('active');
+    if (currentView === 'observatory') { initStars(); initMap(); positionCards(); }
+    if (currentView === 'roadmap') renderRoadmap();
+    if (currentView === 'scenarios') renderScenarios();
+  });
+});
+
+// ── SIDEBAR ──
+function renderSidebar() {
+  const el = document.getElementById('sidebar-ventures');
+  el.innerHTML = `
+    <div class="venture-pill ${!activeVenture?'active':''}" onclick="filterVenture(null)" style="border:1px solid transparent">
+      <div class="venture-dot" style="background:#fff"></div>
+      <div class="venture-pill-name">All Ventures</div>
+    </div>
+    ${Object.entries(VENTURES).map(([k,v]) => `
+      <div class="venture-pill ${activeVenture===k?'active':''}" onclick="filterVenture('${k}')" style="border:1px solid transparent">
+        <div class="venture-dot" style="background:${v.color}"></div>
+        <div class="venture-pill-name">${v.name}</div>
+        <div class="venture-pill-pct" style="color:${v.color}">${v.momentum}%</div>
+      </div>
+    `).join('')}
+  `;
+
+  // Stats
+  const total = roadmapItems.length;
+  const inProg = roadmapItems.filter(i=>i.status==='in-progress').length;
+  const done = roadmapItems.filter(i=>i.status==='done').length;
+  document.getElementById('sidebar-stats').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="metric"><div class="metric-label">Total</div><div class="metric-value">${total}</div></div>
+      <div class="metric"><div class="metric-label">Active</div><div class="metric-value" style="color:var(--apex)">${inProg}</div></div>
+      <div class="metric"><div class="metric-label">Done</div><div class="metric-value" style="color:var(--success)">${done}</div></div>
+      <div class="metric"><div class="metric-label">Completion</div><div class="metric-value">${total?Math.round(done/total*100):0}%</div></div>
+    </div>
+  `;
+
+  // Status filters
+  document.getElementById('status-filters').innerHTML = `
+    <button class="filter-pill ${!activeStatusFilter?'active':''}" onclick="filterStatus(null)">All</button>
+    ${STATUSES.map(s => `<button class="filter-pill ${activeStatusFilter===s?'active':''}" onclick="filterStatus('${s}')">${STATUS_LABELS[s]}</button>`).join('')}
+  `;
+}
+
+function filterVenture(v) { activeVenture = v; renderSidebar(); renderRoadmap(); renderScenarios(); }
+function filterStatus(s) { activeStatusFilter = s; renderSidebar(); renderRoadmap(); }
+
+// ── ROADMAP ──
+function getFilteredItems() {
+  return roadmapItems.filter(item => {
+    if (activeVenture && item.venture !== activeVenture && item.venture !== 'all') return false;
+    if (activeStatusFilter && item.status !== activeStatusFilter) return false;
+    return true;
+  });
+}
+
+function renderRoadmap() {
+  const body = document.getElementById('roadmap-body');
+  const filtered = getFilteredItems();
+
+  body.innerHTML = STATUSES.map(status => {
+    const items = filtered.filter(i => i.status === status)
+      .sort((a,b) => {
+        const prio = {high:0,med:1,low:2};
+        return (prio[a.priority]||1) - (prio[b.priority]||1) || (new Date(a.date||'2099-12-31')) - (new Date(b.date||'2099-12-31'));
+      });
+
+    return `
+      <div class="roadmap-column" data-status="${status}">
+        <div class="column-header" style="background:${STATUS_COLORS[status]}10">
+          <div class="column-title" style="color:${STATUS_COLORS[status]}">${STATUS_LABELS[status]}</div>
+          <div class="column-count" style="color:${STATUS_COLORS[status]}">${items.length}</div>
+        </div>
+        <div class="column-items" data-status="${status}">
+          ${items.map(item => renderItem(item)).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Setup drag and drop
+  setupDragDrop();
+}
+
+function renderItem(item) {
+  const vc = VENTURE_COLORS[item.venture] || '#fff';
+  const vName = item.venture === 'all' ? 'CROSS' : (VENTURES[item.venture]?.name?.split(' ')[0] || item.venture).toUpperCase();
+  const dateStr = item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('en-US', {month:'short',day:'numeric'}) : '';
+  return `
+    <div class="roadmap-item" draggable="true" data-id="${item.id}">
+      <div class="item-actions">
+        <button class="item-action-btn" onclick="openEditModal('${item.id}')" title="Edit">✎</button>
+        <button class="item-action-btn" onclick="moveItemForward('${item.id}')" title="Move forward">→</button>
+      </div>
+      <div class="item-top">
+        <div class="item-title">${item.title}</div>
+        <div class="item-venture-tag" style="color:${vc};border-color:${vc}30">${vName}</div>
+      </div>
+      ${item.desc ? `<div class="item-desc">${item.desc.length > 100 ? item.desc.slice(0,100)+'...' : item.desc}</div>` : ''}
+      <div class="item-meta">
+        ${dateStr ? `<div class="item-date">${dateStr}</div>` : ''}
+        <div class="item-priority priority-${item.priority}">${item.priority}</div>
+      </div>
+    </div>
+  `;
+}
+
+function moveItemForward(id) {
+  const item = roadmapItems.find(i => i.id === id);
+  if (!item) return;
+  const idx = STATUSES.indexOf(item.status);
+  if (idx < STATUSES.length - 1) {
+    item.status = STATUSES[idx + 1];
+    saveData();
+    renderRoadmap();
+    renderSidebar();
+    toast(`Moved to ${STATUS_LABELS[item.status]}`);
+  }
+}
+
+// ── DRAG & DROP ──
+function setupDragDrop() {
+  document.querySelectorAll('.roadmap-item[draggable]').forEach(el => {
+    el.addEventListener('dragstart', e => {
+      dragItem = el.dataset.id;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => {
+      el.classList.remove('dragging');
+      document.querySelectorAll('.drag-over').forEach(d => d.classList.remove('drag-over'));
+      dragItem = null;
+    });
+  });
+
+  document.querySelectorAll('.column-items').forEach(col => {
+    col.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      col.classList.add('drag-over');
+    });
+    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    col.addEventListener('drop', e => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (!dragItem) return;
+      const newStatus = col.dataset.status;
+      const item = roadmapItems.find(i => i.id === dragItem);
+      if (item && item.status !== newStatus) {
+        item.status = newStatus;
+        saveData();
+        renderRoadmap();
+        renderSidebar();
+        toast(`Moved to ${STATUS_LABELS[newStatus]}`);
+      }
+    });
+  });
+}
+
+// ── MODAL ──
+function openAddModal() {
+  document.getElementById('modal-title').textContent = 'Add Roadmap Item';
+  document.getElementById('edit-id').value = '';
+  document.getElementById('f-title').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-venture').value = activeVenture || 'apex';
+  document.getElementById('f-priority').value = 'med';
+  document.getElementById('f-status').value = 'backlog';
+  document.getElementById('f-date').value = '';
+  document.getElementById('btn-delete').style.display = 'none';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-title').focus(), 100);
+}
+
+function openEditModal(id) {
+  const item = roadmapItems.find(i => i.id === id);
+  if (!item) return;
+  document.getElementById('modal-title').textContent = 'Edit Roadmap Item';
+  document.getElementById('edit-id').value = id;
+  document.getElementById('f-title').value = item.title;
+  document.getElementById('f-desc').value = item.desc || '';
+  document.getElementById('f-venture').value = item.venture;
+  document.getElementById('f-priority').value = item.priority;
+  document.getElementById('f-status').value = item.status;
+  document.getElementById('f-date').value = item.date || '';
+  document.getElementById('btn-delete').style.display = 'block';
+  document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-title').focus(), 100);
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function saveItem() {
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { toast('Title required', 'info'); return; }
+  const editId = document.getElementById('edit-id').value;
+  const data = {
+    title,
+    desc: document.getElementById('f-desc').value.trim(),
+    venture: document.getElementById('f-venture').value,
+    priority: document.getElementById('f-priority').value,
+    status: document.getElementById('f-status').value,
+    date: document.getElementById('f-date').value || null,
+  };
+
+  if (editId) {
+    const item = roadmapItems.find(i => i.id === editId);
+    if (item) Object.assign(item, data);
+    toast('Item updated');
+  } else {
+    roadmapItems.push({ id: genId(), ...data, created: Date.now() });
+    toast('Item added');
+  }
+
+  saveData();
+  closeModal();
+  renderRoadmap();
+  renderSidebar();
+}
+
+function deleteItem() {
+  const editId = document.getElementById('edit-id').value;
+  if (!editId) return;
+  roadmapItems = roadmapItems.filter(i => i.id !== editId);
+  saveData();
+  closeModal();
+  renderRoadmap();
+  renderSidebar();
+  toast('Item deleted');
+}
+
+// ── EXPORT ──
+function exportRoadmap() {
+  const lines = ['# MULTIVERSE ROADMAP', `Exported: ${new Date().toISOString().split('T')[0]}`, ''];
+  for (const status of STATUSES) {
+    const items = roadmapItems.filter(i => i.status === status);
+    if (!items.length) continue;
+    lines.push(`## ${STATUS_LABELS[status]} (${items.length})`);
+    for (const item of items) {
+      const v = item.venture === 'all' ? 'Cross-Venture' : (VENTURES[item.venture]?.name || item.venture);
+      lines.push(`- **${item.title}** [${v}] [${item.priority}]${item.date ? ` — ${item.date}` : ''}`);
+      if (item.desc) lines.push(`  ${item.desc}`);
+    }
+    lines.push('');
+  }
+  const blob = new Blob([lines.join('\n')], {type:'text/markdown'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `multiverse-roadmap-${new Date().toISOString().split('T')[0]}.md`;
+  a.click();
+  toast('Roadmap exported');
+}
+
+// ── SCENARIOS VIEW ──
+function renderScenarios() {
+  const grid = document.getElementById('scenarios-grid');
+  const ventureKeys = activeVenture ? [activeVenture] : Object.keys(VENTURES);
+  grid.innerHTML = ventureKeys.flatMap(vk => {
+    const v = VENTURES[vk];
+    return ['bull','base','bear'].map(sk => {
+      const s = v.scenarios[sk];
+      const typeClass = sk === 'bull' ? 'type-bull' : sk === 'base' ? 'type-base' : 'type-bear';
+      return `
+        <div class="scenario-card">
+          <div class="scenario-card-header">
+            <span style="font-size:16px">${v.icon}</span>
+            <span style="font-size:12px;color:${v.color};font-weight:600">${v.name}</span>
+            <span class="scenario-type ${typeClass}">${sk}</span>
+            <span class="scenario-prob" style="color:${v.color};margin-left:auto">${s.prob}%</span>
+          </div>
+          <div class="scenario-card-title">${s.label}</div>
+          <div class="scenario-trigger">${s.trigger}</div>
+          <div class="scenario-impacts">
+            ${s.impact.map(i => `<div class="s-impact"><div class="s-impact-label">${i.l}</div><div class="s-impact-value" style="color:${v.color}">${i.v}</div></div>`).join('')}
+          </div>
+          <div class="scenario-actions-list">
+            <div class="scenario-actions-title">Action Plan</div>
+            ${s.actions.map(a => `<div class="scenario-action-item">${a}</div>`).join('')}
+          </div>
+        </div>
+      `;
+    });
+  }).join('');
+}
+
+// ── OBSERVATORY (STARFIELD + COSMIC MAP) ──
+const starCanvas = document.getElementById('starfield');
+const starCtx = starCanvas.getContext('2d');
+const mapCanvas = document.getElementById('cosmic-map');
+const mapCtx = mapCanvas.getContext('2d');
+let stars = [];
+
+function initStars() {
+  const parent = starCanvas.parentElement;
+  starCanvas.width = parent.offsetWidth;
+  starCanvas.height = parent.offsetHeight;
+  stars = [];
+  const count = Math.floor((starCanvas.width * starCanvas.height) / 3500);
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      x: Math.random() * starCanvas.width,
+      y: Math.random() * starCanvas.height,
+      size: Math.random() * 1.5 + 0.3,
+      opacity: Math.random() * 0.6 + 0.1,
+      twinkleSpeed: Math.random() * 0.02 + 0.005,
+      twinkleOffset: Math.random() * Math.PI * 2
+    });
+  }
+}
+
+function drawStars(t) {
+  starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
+  for (const s of stars) {
+    const opacity = s.opacity + Math.sin(t * s.twinkleSpeed + s.twinkleOffset) * 0.2;
+    starCtx.fillStyle = `rgba(255,255,255,${Math.max(0, opacity)})`;
+    starCtx.beginPath();
+    starCtx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+    starCtx.fill();
+  }
+}
+
+function initMap() {
+  const parent = mapCanvas.parentElement;
+  mapCanvas.width = parent.offsetWidth;
+  mapCanvas.height = parent.offsetHeight;
+}
+
+let planetPositions = {};
+function drawOrbits(t) {
+  mapCtx.clearRect(0, 0, mapCanvas.width, mapCanvas.height);
+  const W = mapCanvas.width, H = mapCanvas.height;
+
+  for (const [key, v] of Object.entries(VENTURES)) {
+    const cx = v.orbit.cx * W, cy = v.orbit.cy * H;
+    const rx = v.orbit.rx * W, ry = v.orbit.ry * H;
+    mapCtx.strokeStyle = `${v.color}15`;
+    mapCtx.lineWidth = 1;
+    mapCtx.beginPath();
+    mapCtx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+    mapCtx.stroke();
+
+    const angle = t * v.orbit.speed;
+    const px = cx + Math.cos(angle) * rx;
+    const py = cy + Math.sin(angle) * ry;
+    planetPositions[key] = { x: px, y: py };
+
+    const grad = mapCtx.createRadialGradient(px, py, 0, px, py, 35);
+    grad.addColorStop(0, v.glow);
+    grad.addColorStop(1, 'transparent');
+    mapCtx.fillStyle = grad;
+    mapCtx.beginPath();
+    mapCtx.arc(px, py, 35, 0, Math.PI * 2);
+    mapCtx.fill();
+
+    mapCtx.fillStyle = v.color;
+    mapCtx.beginPath();
+    mapCtx.arc(px, py, 5, 0, Math.PI * 2);
+    mapCtx.fill();
+  }
+
+  // Connections
+  const keys = Object.keys(VENTURES);
+  mapCtx.lineWidth = 0.5;
+  for (let i = 0; i < keys.length; i++) {
+    for (let j = i + 1; j < keys.length; j++) {
+      const a = planetPositions[keys[i]], b = planetPositions[keys[j]];
+      const grad = mapCtx.createLinearGradient(a.x, a.y, b.x, b.y);
+      grad.addColorStop(0, `${VENTURES[keys[i]].color}10`);
+      grad.addColorStop(1, `${VENTURES[keys[j]].color}10`);
+      mapCtx.strokeStyle = grad;
+      mapCtx.beginPath();
+      mapCtx.moveTo(a.x, a.y);
+      mapCtx.lineTo(b.x, b.y);
+      mapCtx.stroke();
+    }
+  }
+}
+
+function positionCards() {
+  const container = document.getElementById('venture-cards');
+  const W = container.offsetWidth, H = container.offsetHeight;
+  container.innerHTML = Object.entries(VENTURES).map(([k,v]) => {
+    const positions = {
+      apex: {left: W*.06, top: H*.12},
+      ga: {left: W*.58, top: H*.06},
+      ramiche: {left: W*.06, top: H*.52},
+      parallax: {left: W*.58, top: H*.48}
+    };
+    const p = positions[k];
+    return `
+      <div class="venture-card visible" style="left:${p.left}px;top:${p.top}px;--card-accent:${v.color}" onclick="filterVenture('${k}');document.querySelector('[data-view=roadmap]').click()">
+        <div class="card-header">
+          <div class="card-icon" style="background:${v.glow};color:${v.color}">${v.icon}</div>
+          <div>
+            <div class="card-title" style="color:${v.color}">${v.name}</div>
+            <div class="card-tagline">${v.tagline}</div>
+          </div>
+        </div>
+        <div class="card-metrics">
+          <div class="metric"><div class="metric-label">Momentum</div><div class="metric-value" style="color:${v.color}">${v.momentum}%</div></div>
+          <div class="metric"><div class="metric-label">Risk</div><div class="metric-value" style="color:${v.color}">${v.risk}</div></div>
+          <div class="metric"><div class="metric-label">Tasks</div><div class="metric-value">${roadmapItems.filter(i=>i.venture===k).length}</div></div>
+          <div class="metric"><div class="metric-label">Done</div><div class="metric-value" style="color:var(--success)">${roadmapItems.filter(i=>i.venture===k&&i.status==='done').length}</div></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ── COMMAND BAR ──
+let cmdOpen = false;
+let cmdSelectedIdx = 0;
+
+function getCommandResults(query) {
+  const q = query.toLowerCase();
+  const results = [];
+
+  // Static commands
+  if (!q || 'add'.includes(q) || 'new'.includes(q) || 'create'.includes(q)) {
+    results.push({icon:'+',text:'Add new roadmap item',hint:'create',action:()=>{closeCmdBar();openAddModal()}});
+  }
+  if (!q || 'export'.includes(q)) {
+    results.push({icon:'↓',text:'Export roadmap as markdown',hint:'export',action:()=>{closeCmdBar();exportRoadmap()}});
+  }
+
+  // Views
+  ['observatory','roadmap','scenarios'].forEach(v => {
+    if (!q || v.includes(q)) {
+      results.push({icon:'◉',text:`Go to ${v.charAt(0).toUpperCase()+v.slice(1)}`,hint:v,action:()=>{closeCmdBar();document.querySelector(`[data-view=${v}]`).click()}});
+    }
+  });
+
+  // Ventures
+  Object.entries(VENTURES).forEach(([k,v]) => {
+    if (!q || v.name.toLowerCase().includes(q) || k.includes(q)) {
+      results.push({icon:v.icon,text:`Filter: ${v.name}`,hint:k,action:()=>{closeCmdBar();filterVenture(k)}});
+    }
+  });
+
+  // Search roadmap items
+  if (q.length >= 2) {
+    roadmapItems.forEach(item => {
+      if (item.title.toLowerCase().includes(q) || (item.desc||'').toLowerCase().includes(q)) {
+        results.push({icon:'☰',text:item.title,hint:STATUS_LABELS[item.status],action:()=>{closeCmdBar();openEditModal(item.id)}});
+      }
+    });
+  }
+
+  return results.slice(0, 8);
+}
+
+function renderCmdResults(query) {
+  const results = getCommandResults(query);
+  cmdSelectedIdx = 0;
+  const el = document.getElementById('cmd-results');
+  el.innerHTML = results.map((r, i) => `
+    <div class="command-result ${i===0?'selected':''}" data-idx="${i}">
+      <div class="command-result-icon">${r.icon}</div>
+      <div class="command-result-text">${r.text}</div>
+      <div class="command-result-hint">${r.hint}</div>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.command-result').forEach((el, i) => {
+    el.addEventListener('click', () => results[i].action());
+    el.addEventListener('mouseenter', () => {
+      document.querySelectorAll('.command-result').forEach(c=>c.classList.remove('selected'));
+      el.classList.add('selected');
+      cmdSelectedIdx = i;
+    });
+  });
+
+  // Store results for enter key
+  el._results = results;
+}
+
+function openCmdBar() {
+  cmdOpen = true;
+  document.getElementById('command-bar').classList.add('open');
+  const input = document.getElementById('cmd-input');
+  input.value = '';
+  input.focus();
+  renderCmdResults('');
+}
+
+function closeCmdBar() {
+  cmdOpen = false;
+  document.getElementById('command-bar').classList.remove('open');
+}
+
+document.getElementById('cmd-input').addEventListener('input', e => renderCmdResults(e.target.value));
+document.getElementById('cmd-input').addEventListener('keydown', e => {
+  const el = document.getElementById('cmd-results');
+  const results = el._results || [];
+  if (e.key === 'ArrowDown') { e.preventDefault(); cmdSelectedIdx = Math.min(cmdSelectedIdx+1, results.length-1); }
+  if (e.key === 'ArrowUp') { e.preventDefault(); cmdSelectedIdx = Math.max(cmdSelectedIdx-1, 0); }
+  if (e.key === 'Enter' && results[cmdSelectedIdx]) { e.preventDefault(); results[cmdSelectedIdx].action(); }
+  if (e.key === 'Escape') { closeCmdBar(); }
+  document.querySelectorAll('.command-result').forEach((c,i) => c.classList.toggle('selected', i===cmdSelectedIdx));
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'k' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); cmdOpen ? closeCmdBar() : openCmdBar(); }
+  if (e.key === 'Escape' && cmdOpen) closeCmdBar();
+});
+
+// Close modal on overlay click
+document.getElementById('modal-overlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const opts = {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'America/New_York'};
+  document.getElementById('clock').textContent = now.toLocaleTimeString('en-US',opts) + ' EDT';
+}
+
+// ── ANIMATION ──
+let startTime = null;
+function animate(timestamp) {
+  if (!startTime) startTime = timestamp;
+  const t = timestamp - startTime;
+  if (currentView === 'observatory') {
+    drawStars(t);
+    drawOrbits(t);
+  }
+  requestAnimationFrame(animate);
+}
+
+// ── INIT ──
+async function init() {
+  await loadData();
+  renderSidebar();
+  initStars();
+  initMap();
+  positionCards();
+  updateClock();
+  setInterval(updateClock, 1000);
+  requestAnimationFrame(animate);
+}
+
+window.addEventListener('resize', () => {
+  if (currentView === 'observatory') { initStars(); initMap(); positionCards(); }
+});
+
+init();
+</script>
+</body>
+</html>
