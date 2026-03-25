@@ -581,6 +581,330 @@ function EnterpriseCard() {
   );
 }
 
+// ── Grit Balance Widget ──────────────────────────────────────
+
+function GritBalanceWidget() {
+  const gritBalance = 1240;
+  const gritValue = (gritBalance * 0.01).toFixed(2);
+  const monthlyEarned = 380;
+  const monthlyRedeemed = 150;
+
+  return (
+    <div className="mt-16">
+      <div className="text-center mb-8">
+        <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#f59e0b]/30 font-mono mb-2">
+          {"<"} grit.balance {"/>"}
+        </div>
+        <h2
+          className="text-2xl sm:text-3xl font-black tracking-tight"
+          style={{
+            background: "linear-gradient(135deg, #f59e0b, #fbbf24)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          Grit Points
+        </h2>
+      </div>
+
+      <div className="game-panel game-panel-border bg-[#06020f]/90 backdrop-blur-xl p-6 sm:p-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {/* Balance */}
+          <div className="text-center">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-white/30 mb-2">
+              Available Balance
+            </div>
+            <div className="text-4xl font-black text-[#f59e0b] mb-1">{gritBalance.toLocaleString()}</div>
+            <div className="text-white/25 text-xs font-mono">≈ ${gritValue} credit value</div>
+          </div>
+
+          {/* Earned This Month */}
+          <div className="text-center">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-white/30 mb-2">
+              Earned This Month
+            </div>
+            <div className="text-3xl font-black text-[#22d3ee] mb-1">+{monthlyEarned}</div>
+            <div className="text-white/25 text-xs font-mono">from 18 practices</div>
+          </div>
+
+          {/* Redeemed */}
+          <div className="text-center">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-white/30 mb-2">
+              Redeemed This Month
+            </div>
+            <div className="text-3xl font-black text-[#a855f7] mb-1">-{monthlyRedeemed}</div>
+            <div className="text-white/25 text-xs font-mono">$1.50 bill credit applied</div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-6 pt-6 border-t border-white/[0.06]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-mono text-white/30 uppercase tracking-wider">Next Reward: Team Hoodie Unlock</span>
+            <span className="text-[10px] font-mono text-[#f59e0b]">1,240 / 2,000</span>
+          </div>
+          <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-1000"
+              style={{
+                width: "62%",
+                background: "linear-gradient(90deg, #f59e0b, #fbbf24)",
+                boxShadow: "0 0 12px rgba(245,158,11,0.4)",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Season Recap Invoice ─────────────────────────────────────
+
+function SeasonRecapInvoice() {
+  const season = {
+    month: "March 2026",
+    athleteName: "Emma Walton",
+    bestTime: "1:02.34",
+    bestEvent: "100 Free",
+    improvement: "+3.2%",
+    practicesAttended: 18,
+    practicesTotal: 22,
+    xpEarned: 2450,
+    gritEarned: 380,
+    gritCredit: 1.50,
+    fee: 149,
+    finalAmount: 147.50,
+    autoPay: true,
+    cardLast4: "4242",
+  };
+
+  return (
+    <div className="mt-12">
+      <div className="text-center mb-8">
+        <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#a855f7]/30 font-mono mb-2">
+          {"<"} season.recap {"/>"}
+        </div>
+        <h2
+          className="text-2xl sm:text-3xl font-black tracking-tight"
+          style={{
+            background: "linear-gradient(135deg, #a855f7, #e879f9)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          {season.month} Season
+        </h2>
+      </div>
+
+      <div className="game-panel game-panel-border bg-[#06020f]/90 backdrop-blur-xl overflow-hidden">
+        {/* Top accent */}
+        <div className="h-[2px]" style={{ background: "linear-gradient(90deg, transparent, #a855f7, transparent)" }} />
+
+        <div className="p-6 sm:p-8">
+          {/* Athlete header */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ background: "linear-gradient(135deg, #a855f7, #e879f9)" }}>
+              <span className="text-white font-black text-lg">E</span>
+            </div>
+            <div>
+              <div className="text-white font-bold text-lg">{season.athleteName}</div>
+              <div className="text-white/30 text-xs font-mono">{season.month} Season Recap</div>
+            </div>
+            {season.autoPay && (
+              <div className="ml-auto flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded">
+                <div className="w-2 h-2 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.6)]" />
+                <span className="text-green-400 text-[10px] font-mono uppercase tracking-wider">Auto-Pay Active</span>
+              </div>
+            )}
+          </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div className="text-center p-4 bg-white/[0.02] border border-white/[0.06] rounded">
+              <div className="text-2xl font-black text-[#00f0ff]">{season.bestTime}</div>
+              <div className="text-white/30 text-[10px] font-mono mt-1">{season.bestEvent} PR</div>
+            </div>
+            <div className="text-center p-4 bg-white/[0.02] border border-white/[0.06] rounded">
+              <div className="text-2xl font-black text-[#22d3ee]">{season.improvement}</div>
+              <div className="text-white/30 text-[10px] font-mono mt-1">Improvement</div>
+            </div>
+            <div className="text-center p-4 bg-white/[0.02] border border-white/[0.06] rounded">
+              <div className="text-2xl font-black text-[#a855f7]">{season.practicesAttended}/{season.practicesTotal}</div>
+              <div className="text-white/30 text-[10px] font-mono mt-1">Practices</div>
+            </div>
+            <div className="text-center p-4 bg-white/[0.02] border border-white/[0.06] rounded">
+              <div className="text-2xl font-black text-[#f59e0b]">{season.xpEarned.toLocaleString()}</div>
+              <div className="text-white/30 text-[10px] font-mono mt-1">XP Earned</div>
+            </div>
+          </div>
+
+          {/* Billing line */}
+          <div className="border-t border-white/[0.06] pt-6 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-white/40 text-sm font-mono">Monthly fee (Starter)</span>
+              <span className="text-white/60 text-sm font-mono">${season.fee}.00</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-[#f59e0b]/80 text-sm font-mono">Grit credit ({season.gritEarned} pts applied)</span>
+              <span className="text-[#f59e0b] text-sm font-mono">-${season.gritCredit.toFixed(2)}</span>
+            </div>
+            <div className="h-px bg-white/[0.06]" />
+            <div className="flex justify-between items-center">
+              <span className="text-white font-bold text-lg font-mono">Total</span>
+              <span className="text-[#00f0ff] font-black text-2xl font-mono">${season.finalAmount.toFixed(2)}</span>
+            </div>
+            <div className="text-right text-white/20 text-[10px] font-mono">
+              Paid via •••• {season.cardLast4} on Apr 1
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Payment History Timeline ─────────────────────────────────
+
+function PaymentHistoryTimeline() {
+  const payments = [
+    { month: "Mar 2026", amount: 147.50, credit: 1.50, status: "paid", date: "Apr 1" },
+    { month: "Feb 2026", amount: 148.00, credit: 1.00, status: "paid", date: "Mar 1" },
+    { month: "Jan 2026", amount: 149.00, credit: 0, status: "paid", date: "Feb 1" },
+    { month: "Dec 2025", amount: 149.00, credit: 0, status: "paid", date: "Jan 1" },
+    { month: "Nov 2025", amount: 149.00, credit: 0, status: "paid", date: "Dec 1" },
+  ];
+
+  return (
+    <div className="mt-12">
+      <div className="text-center mb-8">
+        <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#22d3ee]/30 font-mono mb-2">
+          {"<"} payment.log {"/>"}
+        </div>
+        <h2
+          className="text-2xl sm:text-3xl font-black tracking-tight"
+          style={{
+            background: "linear-gradient(135deg, #22d3ee, #00f0ff)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          Payment History
+        </h2>
+      </div>
+
+      <div className="space-y-3">
+        {payments.map((p, i) => (
+          <div
+            key={i}
+            className="game-panel game-panel-border bg-[#06020f]/80 backdrop-blur-xl p-4 sm:p-5 flex items-center gap-4"
+          >
+            {/* Timeline dot */}
+            <div className="flex flex-col items-center">
+              <div className="w-3 h-3 rounded-full bg-[#22d3ee] shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
+              {i < payments.length - 1 && <div className="w-px h-8 bg-white/[0.06] mt-1" />}
+            </div>
+
+            {/* Month */}
+            <div className="min-w-[100px]">
+              <div className="text-white/60 text-sm font-mono font-bold">{p.month}</div>
+              <div className="text-white/20 text-[10px] font-mono">Charged {p.date}</div>
+            </div>
+
+            {/* Credit */}
+            {p.credit > 0 && (
+              <div className="hidden sm:block px-2 py-0.5 bg-[#f59e0b]/10 border border-[#f59e0b]/20 rounded">
+                <span className="text-[#f59e0b] text-[10px] font-mono">-${p.credit.toFixed(2)} grit</span>
+              </div>
+            )}
+
+            {/* Amount */}
+            <div className="ml-auto text-right">
+              <div className="text-white/80 text-lg font-black font-mono">${p.amount.toFixed(2)}</div>
+              <div className="flex items-center gap-1 justify-end">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                <span className="text-green-400/60 text-[10px] font-mono uppercase">{p.status}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Coach Treasury View ──────────────────────────────────────
+
+function CoachTreasuryView() {
+  const collected = 4470;
+  const outstanding = 298;
+  const monthlyData = [
+    { month: "Oct", amount: 3200 },
+    { month: "Nov", amount: 3800 },
+    { month: "Dec", amount: 4100 },
+    { month: "Jan", amount: 4350 },
+    { month: "Feb", amount: 4470 },
+    { month: "Mar", amount: 4470 },
+  ];
+  const maxAmount = Math.max(...monthlyData.map(d => d.amount));
+
+  return (
+    <div className="mt-12">
+      <div className="text-center mb-8">
+        <div className="text-[9px] tracking-[0.6em] uppercase font-bold text-[#00f0ff]/30 font-mono mb-2">
+          {"<"} coach.treasury {"/>"}
+        </div>
+        <h2
+          className="text-2xl sm:text-3xl font-black tracking-tight"
+          style={{
+            background: "linear-gradient(135deg, #00f0ff, #22d3ee)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          Team Treasury
+        </h2>
+      </div>
+
+      <div className="game-panel game-panel-border bg-[#06020f]/90 backdrop-blur-xl p-6 sm:p-8">
+        {/* Two big numbers */}
+        <div className="grid grid-cols-2 gap-6 mb-8">
+          <div className="text-center p-6 bg-white/[0.02] border border-green-500/20 rounded">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-green-400/50 mb-2">Collected</div>
+            <div className="text-4xl font-black text-green-400">${collected.toLocaleString()}</div>
+          </div>
+          <div className="text-center p-6 bg-white/[0.02] border border-[#f59e0b]/20 rounded">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-[#f59e0b]/50 mb-2">Outstanding</div>
+            <div className="text-4xl font-black text-[#f59e0b]">${outstanding.toLocaleString()}</div>
+          </div>
+        </div>
+
+        {/* Bar chart */}
+        <div className="border-t border-white/[0.06] pt-6">
+          <div className="text-[10px] font-mono uppercase tracking-wider text-white/30 mb-4">Monthly Revenue</div>
+          <div className="flex items-end gap-3 h-32">
+            {monthlyData.map((d, i) => (
+              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                <div className="text-[10px] font-mono text-white/30">${(d.amount / 1000).toFixed(1)}k</div>
+                <div
+                  className="w-full rounded-t transition-all duration-500"
+                  style={{
+                    height: `${(d.amount / maxAmount) * 100}%`,
+                    background: `linear-gradient(180deg, #00f0ff, #00f0ff40)`,
+                    boxShadow: "0 0 8px rgba(0,240,255,0.2)",
+                    minHeight: "8px",
+                  }}
+                />
+                <div className="text-[9px] font-mono text-white/20">{d.month}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Value Stats Section ──────────────────────────────────────
 
 function ValueStats() {
@@ -628,6 +952,8 @@ function ValueStats() {
 
 // ── Main Billing Page ───────────────────────────────────────
 
+
+/* eslint-disable react-hooks/set-state-in-effect */
 export default function BillingPage() {
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
   const [loading, setLoading] = useState<string | null>(null);
@@ -638,10 +964,16 @@ export default function BillingPage() {
     try {
       const stored = localStorage.getItem("apex-billing-plan");
       if (stored) setCurrentPlan(stored);
-    } catch {
-      // localStorage not available
+    } catch {}
+    const params = new URLSearchParams(window.location.search);
+    const plan = params.get("plan");
+    if (params.get("success") === "true" && plan) {
+      try { localStorage.setItem("apex-billing-plan", plan); } catch {}
+      setCurrentPlan(plan);
+      window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubscribe = useCallback(
     async (tier: PlanTier) => {
@@ -669,21 +1001,6 @@ export default function BillingPage() {
     },
     []
   );
-
-  useEffect(() => {
-    if (!mounted) return;
-    const params = new URLSearchParams(window.location.search);
-    const plan = params.get("plan");
-    if (params.get("success") === "true" && plan) {
-      try {
-        localStorage.setItem("apex-billing-plan", plan);
-        setCurrentPlan(plan);
-      } catch {
-        // ignore
-      }
-      window.history.replaceState({}, "", window.location.pathname);
-    }
-  }, [mounted]);
 
   if (!mounted) return null;
 
@@ -806,6 +1123,18 @@ export default function BillingPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Grit Balance ────────────────────────────────────── */}
+        <GritBalanceWidget />
+
+        {/* ── Season Recap Invoice ──────────────────────────────── */}
+        <SeasonRecapInvoice />
+
+        {/* ── Payment History ────────────────────────────────────── */}
+        <PaymentHistoryTimeline />
+
+        {/* ── Coach Treasury ─────────────────────────────────────── */}
+        <CoachTreasuryView />
 
         {/* ── Value Stats ──────────────────────────────────────── */}
         <ValueStats />
