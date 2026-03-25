@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Athlete Progress Tracker</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a12;--surface:#12121f;--card:#1a1a2e;--border:#2a2a4a;--accent:#7c3aed;--accent2:#ef4444;--gold:#f59e0b;--blue:#3b82f6;--green:#22c55e;--text:#e2e8f0;--dim:#64748b;--success:#10b981;--warning:#f59e0b;--danger:#ef4444}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}
+h1{font-size:1.1rem;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:4px}
+h2{font-size:0.85rem;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin-bottom:12px}
+h3{font-size:0.8rem;letter-spacing:1px;color:var(--gold);text-transform:uppercase;margin:12px 0 8px}
+.header{text-align:center;padding:20px 0 12px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.header p{color:var(--dim);font-size:0.7rem;margin-top:4px}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:16px;max-width:1400px;margin:0 auto}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+label{display:block;font-size:0.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+input,select,textarea{width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-family:inherit;font-size:0.8rem;margin-bottom:10px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:120px;font-size:0.75rem}
+button{background:var(--accent);color:#fff;border:none;border-radius:4px;padding:8px 16px;font-family:inherit;font-size:0.75rem;cursor:pointer;text-transform:uppercase;letter-spacing:1px;transition:all 0.2s}
+button:hover{filter:brightness(1.2)}
+button.secondary{background:var(--card);border:1px solid var(--border)}
+button.gold{background:var(--gold);color:#000}
+.btn-row{display:flex;gap:8px;margin:8px 0}
+.event-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.chip{padding:4px 10px;border-radius:12px;font-size:0.65rem;cursor:pointer;border:1px solid var(--border);background:var(--card);color:var(--dim);transition:all 0.2s;text-transform:uppercase;letter-spacing:0.5px}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.chip:hover{border-color:var(--accent)}
+.time-entry{display:grid;grid-template-columns:100px 80px 1fr;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.75rem}
+.time-entry .date{color:var(--dim)}
+.time-entry .time{color:var(--text);font-weight:bold}
+.time-entry .tag{font-size:0.6rem;padding:2px 6px;border-radius:8px;display:inline-block}
+.tag.pb{background:rgba(245,158,11,0.2);color:var(--gold)}
+.tag.plateau{background:rgba(239,68,68,0.2);color:var(--danger)}
+.tag.improved{background:rgba(34,197,94,0.2);color:var(--green)}
+.tag.regression{background:rgba(239,68,68,0.2);color:var(--danger)}
+.chart-container{position:relative;width:100%;height:320px;margin:12px 0}
+canvas{width:100%;height:100%;border-radius:4px}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:12px 0}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center}
+.stat-card .value{font-size:1.3rem;font-weight:bold;color:var(--accent)}
+.stat-card .label{font-size:0.6rem;color:var(--dim);text-transform:uppercase;margin-top:2px}
+.stat-card.gold .value{color:var(--gold)}
+.stat-card.green .value{color:var(--green)}
+.stat-card.red .value{color:var(--danger)}
+.stat-card.blue .value{color:var(--blue)}
+.insight-box{background:var(--card);border-left:3px solid var(--gold);padding:12px;margin:8px 0;border-radius:0 4px 4px 0;font-size:0.75rem;line-height:1.5}
+.insight-box strong{color:var(--gold)}
+.trend-indicator{display:inline-block;margin-left:4px;font-size:0.7rem}
+.trend-up{color:var(--green)}
+.trend-down{color:var(--danger)}
+.trend-flat{color:var(--dim)}
+.progression-list{max-height:400px;overflow-y:auto}
+.section-divider{border-top:1px solid var(--border);margin:16px 0;padding-top:16px}
+.training-rec{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px;margin:8px 0}
+.training-rec .priority{font-size:0.6rem;padding:2px 8px;border-radius:8px;display:inline-block;margin-bottom:6px}
+.training-rec .priority.high{background:rgba(239,68,68,0.2);color:var(--danger)}
+.training-rec .priority.medium{background:rgba(245,158,11,0.2);color:var(--gold)}
+.training-rec .priority.low{background:rgba(59,130,246,0.2);color:var(--blue)}
+.training-rec p{font-size:0.75rem;color:var(--text);line-height:1.4}
+.sample-btn{margin-top:8px;font-size:0.65rem}
+.export-area{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:12px;font-size:0.7rem;white-space:pre-wrap;max-height:300px;overflow-y:auto;display:none;margin-top:8px}
+.tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:1px solid var(--border)}
+.tab{padding:8px 16px;font-size:0.7rem;cursor:pointer;text-transform:uppercase;letter-spacing:1px;color:var(--dim);border-bottom:2px solid transparent;transition:all 0.2s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--text)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.plateau-alert{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;padding:12px;margin:8px 0;font-size:0.75rem}
+.plateau-alert strong{color:var(--danger)}
+.improvement-alert{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;padding:12px;margin:8px 0;font-size:0.75rem}
+.improvement-alert strong{color:var(--green)}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>METTLE // Athlete Progress Tracker</h1>
+<p>Individual swimmer time progression, plateau detection, and training focus recommendations</p>
+</div>
+
+<div class="grid">
+<!-- LEFT PANEL: Input -->
+<div>
+<div class="panel">
+<h3>Athlete Info</h3>
+<label>Name</label>
+<input type="text" id="athleteName" placeholder="Enter swimmer name">
+<label>Age Group</label>
+<select id="ageGroup">
+<option value="10U">10 & Under</option>
+<option value="11-12">11-12</option>
+<option value="13-14" selected>13-14</option>
+<option value="15-16">15-16</option>
+<option value="17-18">17-18</option>
+<option value="senior">Senior</option>
+</select>
+<label>Primary Course</label>
+<select id="courseType">
+<option value="SCY" selected>SCY (25 yards)</option>
+<option value="SCM">SCM (25 meters)</option>
+<option value="LCM">LCM (50 meters)</option>
+</select>
+</div>
+
+<div class="panel" style="margin-top:12px">
+<h3>Select Event</h3>
+<div class="event-chips" id="eventChips"></div>
+</div>
+
+<div class="panel" style="margin-top:12px">
+<h3>Time Entries</h3>
+<p style="font-size:0.65rem;color:var(--dim);margin-bottom:8px">One per line: YYYY-MM-DD time [optional: meet name]<br>Example: 2025-09-15 28.45 Fall Invite</p>
+<textarea id="timeInput" placeholder="2025-09-15 28.45 Fall Invite
+2025-10-20 27.89 Dual Meet
+2025-12-01 27.55 Winter Champs
+2026-01-18 27.61 January Open
+2026-02-15 27.12 Regionals
+2026-03-10 26.88 State Prelims"></textarea>
+<div class="btn-row">
+<button onclick="analyze()">Analyze</button>
+<button class="secondary sample-btn" onclick="loadSample()">Load Sample Data</button>
+</div>
+</div>
+
+<div class="panel" style="margin-top:12px">
+<h3>Quick Add</h3>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<div>
+<label>Date</label>
+<input type="date" id="quickDate">
+</div>
+<div>
+<label>Time (sec)</label>
+<input type="text" id="quickTime" placeholder="27.45">
+</div>
+</div>
+<label>Meet Name (optional)</label>
+<input type="text" id="quickMeet" placeholder="Dual Meet">
+<button class="secondary" onclick="quickAdd()" style="width:100%">Add Entry</button>
+</div>
+</div>
+
+<!-- RIGHT PANEL: Results -->
+<div>
+<div class="panel" id="resultsPanel" style="display:none">
+<div class="tabs">
+<div class="tab active" onclick="switchTab('overview')">Overview</div>
+<div class="tab" onclick="switchTab('chart')">Progression Chart</div>
+<div class="tab" onclick="switchTab('analysis')">Deep Analysis</div>
+<div class="tab" onclick="switchTab('training')">Training Recs</div>
+<div class="tab" onclick="switchTab('export')">Export</div>
+</div>
+
+<!-- OVERVIEW TAB -->
+<div class="tab-content active" id="tab-overview">
+<h3 id="athleteTitle"></h3>
+<div class="stats-grid" id="statsGrid"></div>
+<div id="trendSummary"></div>
+<div id="alertsSection"></div>
+</div>
+
+<!-- CHART TAB -->
+<div class="tab-content" id="tab-chart">
+<h3>Time Progression</h3>
+<div class="chart-container">
+<canvas id="progressChart"></canvas>
+</div>
+<p style="font-size:0.6rem;color:var(--dim);text-align:center;margin-top:4px">Gold dots = personal bests · Dashed line = trend · Shaded area = improvement zone</p>
+</div>
+
+<!-- ANALYSIS TAB -->
+<div class="tab-content" id="tab-analysis">
+<h3>Detailed Progression</h3>
+<div class="progression-list" id="progressionList"></div>
+<div class="section-divider"></div>
+<h3>Pattern Detection</h3>
+<div id="patternSection"></div>
+</div>
+
+<!-- TRAINING TAB -->
+<div class="tab-content" id="tab-training">
+<h3>Training Recommendations</h3>
+<div id="trainingRecs"></div>
+</div>
+
+<!-- EXPORT TAB -->
+<div class="tab-content" id="tab-export">
+<h3>Export</h3>
+<div class="btn-row">
+<button onclick="exportText()">Text Report</button>
+<button class="secondary" onclick="exportCSV()">CSV Data</button>
+<button class="secondary" onclick="exportJSON()">JSON</button>
+</div>
+<div class="export-area" id="exportArea"></div>
+</div>
+</div>
+
+<!-- Empty state -->
+<div class="panel" id="emptyState">
+<div style="text-align:center;padding:60px 20px;color:var(--dim)">
+<div style="font-size:2rem;margin-bottom:12px">📊</div>
+<p style="font-size:0.8rem">Enter time data and click Analyze to see progression</p>
+<p style="font-size:0.65rem;margin-top:8px">Or click "Load Sample Data" to see it in action</p>
+</div>
+</div>
+</div>
+</div>
+
+<script>
+const EVENTS = [
+{id:'50fr',name:'50 Free',stroke:'freestyle',dist:50},
+{id:'100fr',name:'100 Free',stroke:'freestyle',dist:100},
+{id:'200fr',name:'200 Free',stroke:'freestyle',dist:200},
+{id:'500fr',name:'500 Free',stroke:'freestyle',dist:500},
+{id:'50bk',name:'50 Back',stroke:'backstroke',dist:50},
+{id:'100bk',name:'100 Back',stroke:'backstroke',dist:100},
+{id:'200bk',name:'200 Back',stroke:'backstroke',dist:200},
+{id:'50br',name:'50 Breast',stroke:'breaststroke',dist:50},
+{id:'100br',name:'100 Breast',stroke:'breaststroke',dist:100},
+{id:'200br',name:'200 Breast',stroke:'breaststroke',dist:200},
+{id:'50fl',name:'50 Fly',stroke:'butterfly',dist:50},
+{id:'100fl',name:'100 Fly',stroke:'butterfly',dist:100},
+{id:'200fl',name:'200 Fly',stroke:'butterfly',dist:200},
+{id:'200im',name:'200 IM',stroke:'im',dist:200},
+{id:'400im',name:'400 IM',stroke:'im',dist:400}
+];
+
+let selectedEvent = '100fr';
+let analysisData = null;
+
+// Render event chips
+function renderChips() {
+const container = document.getElementById('eventChips');
+container.innerHTML = EVENTS.map(e =>
+`<div class="chip ${e.id===selectedEvent?'active':''}" onclick="selectEvent('${e.id}')">${e.name}</div>`
+).join('');
+}
+
+function selectEvent(id) {
+selectedEvent = id;
+renderChips();
+}
+
+function parseTime(str) {
+str = str.trim();
+// Handle MM:SS.ss format
+if (str.includes(':')) {
+const parts = str.split(':');
+return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+}
+return parseFloat(str);
+}
+
+function formatTime(seconds) {
+if (seconds >= 60) {
+const m = Math.floor(seconds / 60);
+const s = (seconds % 60).toFixed(2);
+return `${m}:${s.padStart(5,'0')}`;
+}
+return seconds.toFixed(2);
+}
+
+function parseTimes(text) {
+const lines = text.trim().split('\n').filter(l => l.trim());
+const entries = [];
+for (const line of lines) {
+const match = line.match(/(\d{4}-\d{2}-\d{2})\s+([\d:.]+)\s*(.*)/);
+if (match) {
+entries.push({
+date: match[1],
+time: parseTime(match[2]),
+meet: match[3].trim() || 'Practice',
+raw: match[2]
+});
+}
+}
+entries.sort((a, b) => a.date.localeCompare(b.date));
+return entries;
+}
+
+function analyze() {
+const text = document.getElementById('timeInput').value.trim();
+if (!text) return;
+
+const entries = parseTimes(text);
+if (entries.length < 2) return;
+
+const event = EVENTS.find(e => e.id === selectedEvent);
+const name = document.getElementById('athleteName').value || 'Athlete';
+const ageGroup = document.getElementById('ageGroup').value;
+const course = document.getElementById('courseType').value;
+
+// Calculate stats
+let bestTime = Infinity, bestDate = '';
+let worstTime = 0;
+const pbs = [];
+let runningBest = Infinity;
+
+for (const entry of entries) {
+if (entry.time < runningBest) {
+runningBest = entry.time;
+entry.isPB = true;
+pbs.push(entry);
+}
+if (entry.time < bestTime) { bestTime = entry.time; bestDate = entry.date; }
+if (entry.time > worstTime) worstTime = entry.time;
+}
+
+const totalImprovement = entries[0].time - entries[entries.length - 1].time;
+const avgTime = entries.reduce((s, e) => s + e.time, 0) / entries.length;
+const lastThree = entries.slice(-3);
+const lastThreeAvg = lastThree.reduce((s, e) => s + e.time, 0) / lastThree.length;
+
+// Trend calculation (linear regression)
+const n = entries.length;
+const xVals = entries.map((_, i) => i);
+const yVals = entries.map(e => e.time);
+const xMean = xVals.reduce((a, b) => a + b, 0) / n;
+const yMean = yVals.reduce((a, b) => a + b, 0) / n;
+let num = 0, den = 0;
+for (let i = 0; i < n; i++) {
+num += (xVals[i] - xMean) * (yVals[i] - yMean);
+den += (xVals[i] - xMean) ** 2;
+}
+const slope = den ? num / den : 0;
+const intercept = yMean - slope * xMean;
+
+// Trend per month (approximate)
+const daySpan = (new Date(entries[entries.length-1].date) - new Date(entries[0].date)) / (1000*60*60*24);
+const monthSpan = daySpan / 30.44;
+const trendPerMonth = monthSpan > 0 ? totalImprovement / monthSpan : 0;
+
+// Plateau detection — look at last 4+ entries
+let plateauDetected = false;
+let plateauWindow = [];
+if (entries.length >= 4) {
+const recent = entries.slice(-4);
+const recentRange = Math.max(...recent.map(e=>e.time)) - Math.min(...recent.map(e=>e.time));
+const recentAvg = recent.reduce((s,e)=>s+e.time,0)/recent.length;
+// If range is < 0.5% of avg time, it's a plateau
+if ((recentRange / recentAvg) < 0.005) {
+plateauDetected = true;
+plateauWindow = recent;
+}
+}
+
+// Consistency score (lower variance = more consistent)
+const variance = yVals.reduce((s, y) => s + (y - avgTime)**2, 0) / n;
+const stdDev = Math.sqrt(variance);
+const consistencyPct = Math.max(0, Math.min(100, 100 - (stdDev / avgTime * 100) * 10));
+
+// Improvement rate categorization
+let improvementRate;
+if (trendPerMonth > 0.5) improvementRate = 'rapid';
+else if (trendPerMonth > 0.2) improvementRate = 'steady';
+else if (trendPerMonth > 0.05) improvementRate = 'gradual';
+else if (trendPerMonth > -0.05) improvementRate = 'plateau';
+else improvementRate = 'regression';
+
+// Tag each entry
+for (let i = 1; i < entries.length; i++) {
+const diff = entries[i].time - entries[i-1].time;
+if (entries[i].isPB) entries[i].tag = 'pb';
+else if (diff > 0.3) entries[i].tag = 'regression';
+else if (Math.abs(diff) < 0.15) entries[i].tag = 'plateau';
+else entries[i].tag = 'improved';
+}
+
+analysisData = {
+entries, event, name, ageGroup, course,
+bestTime, bestDate, worstTime, totalImprovement,
+avgTime, lastThreeAvg, slope, intercept, trendPerMonth,
+plateauDetected, plateauWindow, consistencyPct,
+improvementRate, pbs, stdDev, daySpan, monthSpan
+};
+
+renderResults();
+}
+
+function renderResults() {
+const d = analysisData;
+document.getElementById('resultsPanel').style.display = 'block';
+document.getElementById('emptyState').style.display = 'none';
+
+// Title
+document.getElementById('athleteTitle').textContent =
+`${d.name} — ${d.event.name} (${d.course})`;
+
+// Stats grid
+const trendArrow = d.trendPerMonth > 0.05 ? '<span class="trend-indicator trend-up">▼ improving</span>' :
+d.trendPerMonth < -0.05 ? '<span class="trend-indicator trend-down">▲ slower</span>' :
+'<span class="trend-indicator trend-flat">— steady</span>';
+
+document.getElementById('statsGrid').innerHTML = `
+<div class="stat-card gold"><div class="value">${formatTime(d.bestTime)}</div><div class="label">Personal Best</div></div>
+<div class="stat-card green"><div class="value">${d.totalImprovement > 0 ? '-' : '+'}${Math.abs(d.totalImprovement).toFixed(2)}s</div><div class="label">Total Change</div></div>
+<div class="stat-card blue"><div class="value">${d.entries.length}</div><div class="label">Swims Tracked</div></div>
+<div class="stat-card"><div class="value">${d.pbs.length}</div><div class="label">Personal Bests</div></div>
+<div class="stat-card"><div class="value">${d.consistencyPct.toFixed(0)}%</div><div class="label">Consistency</div></div>
+<div class="stat-card ${d.trendPerMonth>0?'green':'red'}"><div class="value">${d.trendPerMonth>0?'-':''}${Math.abs(d.trendPerMonth).toFixed(2)}s</div><div class="label">Trend/Month ${trendArrow}</div></div>
+`;
+
+// Trend summary
+let summaryHTML = '';
+if (d.improvementRate === 'rapid') {
+summaryHTML = `<div class="improvement-alert"><strong>Rapid Improvement Detected</strong> — dropping ${d.trendPerMonth.toFixed(2)}s/month. This rate is exceptional. ${d.name} is in a breakthrough phase — prioritize race-pace sets to lock in these gains.</div>`;
+} else if (d.improvementRate === 'steady') {
+summaryHTML = `<div class="insight-box"><strong>Steady Progress</strong> — ${d.name} is improving at ${d.trendPerMonth.toFixed(2)}s/month. Consistent improvement trajectory. Stay the course with current training volume.</div>`;
+} else if (d.improvementRate === 'gradual') {
+summaryHTML = `<div class="insight-box"><strong>Gradual Progress</strong> — ${d.trendPerMonth.toFixed(2)}s/month improvement. Consider adding targeted technique work or increased race-pace training to accelerate.</div>`;
+} else if (d.improvementRate === 'plateau') {
+summaryHTML = `<div class="plateau-alert"><strong>Plateau Detected</strong> — times have stabilized around ${formatTime(d.lastThreeAvg)}. This is a training stimulus issue. See Training Recs for breakout strategies.</div>`;
+} else {
+summaryHTML = `<div class="plateau-alert"><strong>Regression Warning</strong> — recent times are getting slower. Check: fatigue accumulation, technique breakdown, motivation, or illness.</div>`;
+}
+document.getElementById('trendSummary').innerHTML = summaryHTML;
+
+// Alerts
+let alertsHTML = '';
+if (d.plateauDetected) {
+alertsHTML += `<div class="plateau-alert"><strong>4-Swim Plateau:</strong> Last 4 swims within ${((Math.max(...d.plateauWindow.map(e=>e.time)) - Math.min(...d.plateauWindow.map(e=>e.time)))*100/d.lastThreeAvg).toFixed(2)}% range. Training adaptation has stalled.</div>`;
+}
+const lastEntry = d.entries[d.entries.length-1];
+const secondLast = d.entries[d.entries.length-2];
+if (lastEntry && secondLast && lastEntry.time < secondLast.time && lastEntry.isPB) {
+alertsHTML += `<div class="improvement-alert"><strong>Fresh PB!</strong> ${formatTime(lastEntry.time)} at ${lastEntry.meet} (${lastEntry.date}) — dropped ${(secondLast.time - lastEntry.time).toFixed(2)}s from previous.</div>`;
+}
+document.getElementById('alertsSection').innerHTML = alertsHTML;
+
+// Render chart
+renderChart();
+
+// Progression list
+let listHTML = '';
+for (let i = d.entries.length - 1; i >= 0; i--) {
+const e = d.entries[i];
+const diff = i > 0 ? e.time - d.entries[i-1].time : 0;
+const diffStr = i > 0 ? (diff > 0 ? `+${diff.toFixed(2)}` : diff.toFixed(2)) : '—';
+const tagClass = e.tag || (i === 0 ? '' : '');
+const tagLabel = e.isPB ? 'PB' : (e.tag === 'plateau' ? 'FLAT' : e.tag === 'regression' ? 'SLOWER' : e.tag === 'improved' ? 'DROP' : '');
+listHTML += `<div class="time-entry">
+<span class="date">${e.date}</span>
+<span class="time">${formatTime(e.time)}</span>
+<span>${e.meet} <span class="tag ${tagClass}">${tagLabel}</span> <span style="color:${diff>0?'var(--danger)':diff<0?'var(--green)':'var(--dim)'};font-size:0.65rem">${diffStr}s</span></span>
+</div>`;
+}
+document.getElementById('progressionList').innerHTML = listHTML;
+
+// Pattern detection
+let patternHTML = '';
+// Check for seasonal patterns
+const monthGroups = {};
+for (const e of d.entries) {
+const m = parseInt(e.date.split('-')[1]);
+if (!monthGroups[m]) monthGroups[m] = [];
+monthGroups[m].push(e.time);
+}
+const monthAvgs = {};
+for (const [m, times] of Object.entries(monthGroups)) {
+monthAvgs[m] = times.reduce((a,b)=>a+b,0)/times.length;
+}
+if (Object.keys(monthAvgs).length >= 3) {
+const monthNames = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let bestMonth = null, bestAvg = Infinity;
+for (const [m, avg] of Object.entries(monthAvgs)) {
+if (avg < bestAvg) { bestAvg = avg; bestMonth = m; }
+}
+patternHTML += `<div class="insight-box"><strong>Best Performance Month:</strong> ${monthNames[bestMonth]} (avg ${formatTime(bestAvg)}). Consider tapering for championship meets in this window.</div>`;
+}
+
+// Check for meet-type patterns
+const meetTimes = {};
+for (const e of d.entries) {
+const meetType = e.meet.toLowerCase().includes('champ') ? 'championship' :
+e.meet.toLowerCase().includes('invit') ? 'invitational' :
+e.meet.toLowerCase().includes('dual') ? 'dual meet' : 'other';
+if (!meetTimes[meetType]) meetTimes[meetType] = [];
+meetTimes[meetType].push(e.time);
+}
+let meetPatternHTML = '<div class="insight-box"><strong>Performance by Meet Type:</strong><br>';
+for (const [type, times] of Object.entries(meetTimes)) {
+const avg = times.reduce((a,b)=>a+b,0)/times.length;
+meetPatternHTML += `• ${type}: avg ${formatTime(avg)} (${times.length} swims)<br>`;
+}
+meetPatternHTML += '</div>';
+patternHTML += meetPatternHTML;
+
+// Improvement rate by period
+if (d.entries.length >= 6) {
+const mid = Math.floor(d.entries.length / 2);
+const firstHalf = d.entries.slice(0, mid);
+const secondHalf = d.entries.slice(mid);
+const firstDrop = firstHalf[0].time - firstHalf[firstHalf.length-1].time;
+const secondDrop = secondHalf[0].time - secondHalf[secondHalf.length-1].time;
+const accel = secondDrop > firstDrop ? 'accelerating' : secondDrop < firstDrop * 0.5 ? 'decelerating' : 'consistent';
+patternHTML += `<div class="insight-box"><strong>Improvement Velocity:</strong> Early: -${firstDrop.toFixed(2)}s, Recent: -${secondDrop.toFixed(2)}s. Rate is <strong>${accel}</strong>.</div>`;
+}
+
+document.getElementById('patternSection').innerHTML = patternHTML;
+
+// Training recommendations
+renderTrainingRecs();
+}
+
+function renderTrainingRecs() {
+const d = analysisData;
+const recs = [];
+
+// Based on improvement rate
+if (d.improvementRate === 'plateau' || d.plateauDetected) {
+recs.push({
+priority: 'high',
+title: 'Break the Plateau',
+text: `Times have stalled around ${formatTime(d.lastThreeAvg)}. Introduce shock training: race-pace 25s with 10sec rest, broken swims at goal pace (${formatTime(d.bestTime * 0.98)}), or add IM training to build different muscle patterns. Plateau usually means the body has adapted — change the stimulus.`
+});
+recs.push({
+priority: 'medium',
+title: 'Technique Video Review',
+text: `Record underwater video at current race pace. Compare to technique from PB swim (${d.bestDate}). Common plateau causes: dropped elbow on catch, insufficient kick tempo, poor breakout timing.`
+});
+}
+
+if (d.improvementRate === 'regression') {
+recs.push({
+priority: 'high',
+title: 'Check Recovery Load',
+text: `Times are trending slower. Rule out: overtraining (check morning heart rate), sleep quality, nutrition timing. Consider a 5-day taper to test if fatigue is the cause.`
+});
+}
+
+if (d.improvementRate === 'rapid') {
+recs.push({
+priority: 'medium',
+title: 'Lock In Gains',
+text: `Rapid improvement phase — this is the time to race frequently. Enter more meets to build confidence at this pace. Add 2-3 race-pace sets per week to make ${formatTime(d.bestTime)} feel normal.`
+});
+}
+
+// Event-specific recs
+const event = d.event;
+if (event.dist >= 200) {
+recs.push({
+priority: 'medium',
+title: `${event.name} Pacing Strategy`,
+text: `For ${event.dist}+ events, negative splitting is key. Target first half at ${formatTime(d.bestTime * 0.51)}, second half at ${formatTime(d.bestTime * 0.49)}. Train descend sets: 4×${event.dist/4} on tight interval, each faster.`
+});
+}
+
+if (event.dist <= 100) {
+recs.push({
+priority: 'medium',
+title: 'Sprint Power Development',
+text: `For sprint events, underwater velocity is 15-20% of race time. Train: 8×25 max effort underwaters, 12×15m breakouts with stroke count targets. Goal: reduce stroke count by 1 per length at current pace.`
+});
+}
+
+// Consistency rec
+if (d.consistencyPct < 70) {
+recs.push({
+priority: 'medium',
+title: 'Improve Race Consistency',
+text: `Consistency at ${d.consistencyPct.toFixed(0)}% is below target (80%+). Wide variance (±${d.stdDev.toFixed(2)}s) suggests pacing or mental prep issues. Add pre-race routine: 3-min visualization, specific split targets, breathing pattern.`
+});
+}
+
+// Goal setting
+const goalTime = d.bestTime * 0.98;
+recs.push({
+priority: 'low',
+title: 'Next Target Time',
+text: `Based on current trajectory, realistic next PB target: ${formatTime(goalTime)} (2% drop from ${formatTime(d.bestTime)}). At current rate of ${d.trendPerMonth.toFixed(2)}s/month, achievable in ~${Math.max(1, Math.ceil((d.bestTime - goalTime) / Math.max(0.01, d.trendPerMonth)))} months.`
+});
+
+let recsHTML = '';
+for (const rec of recs) {
+recsHTML += `<div class="training-rec">
+<span class="priority ${rec.priority}">${rec.priority} priority</span>
+<h3 style="margin-top:4px">${rec.title}</h3>
+<p>${rec.text}</p>
+</div>`;
+}
+document.getElementById('trainingRecs').innerHTML = recsHTML;
+}
+
+function renderChart() {
+const canvas = document.getElementById('progressChart');
+const ctx = canvas.getContext('2d');
+const d = analysisData;
+const rect = canvas.parentElement.getBoundingClientRect();
+canvas.width = rect.width * 2;
+canvas.height = 320 * 2;
+ctx.scale(2, 2);
+const W = rect.width, H = 320;
+
+ctx.fillStyle = '#12121f';
+ctx.fillRect(0, 0, W, H);
+
+const pad = { top: 30, right: 30, bottom: 50, left: 55 };
+const chartW = W - pad.left - pad.right;
+const chartH = H - pad.top - pad.bottom;
+
+const times = d.entries.map(e => e.time);
+const minT = Math.min(...times) - 0.5;
+const maxT = Math.max(...times) + 0.5;
+const tRange = maxT - minT;
+
+function xPos(i) { return pad.left + (i / (d.entries.length - 1)) * chartW; }
+function yPos(t) { return pad.top + ((t - minT) / tRange) * chartH; }
+
+// Grid lines
+ctx.strokeStyle = '#1a1a2e';
+ctx.lineWidth = 0.5;
+const gridSteps = 5;
+for (let i = 0; i <= gridSteps; i++) {
+const t = minT + (i / gridSteps) * tRange;
+const y = yPos(t);
+ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W - pad.right, y); ctx.stroke();
+ctx.fillStyle = '#64748b'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+ctx.fillText(formatTime(t), pad.left - 8, y + 3);
+}
+
+// Date labels
+ctx.fillStyle = '#64748b'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+const labelInterval = Math.max(1, Math.floor(d.entries.length / 6));
+for (let i = 0; i < d.entries.length; i += labelInterval) {
+ctx.save(); ctx.translate(xPos(i), H - pad.bottom + 15);
+ctx.rotate(-0.5);
+ctx.fillText(d.entries[i].date, 0, 0);
+ctx.restore();
+}
+
+// Improvement zone (shaded area between first time and trend line)
+ctx.fillStyle = 'rgba(34,197,94,0.06)';
+ctx.beginPath();
+ctx.moveTo(xPos(0), yPos(d.entries[0].time));
+for (let i = 0; i < d.entries.length; i++) {
+ctx.lineTo(xPos(i), yPos(d.intercept + d.slope * i));
+}
+ctx.lineTo(xPos(d.entries.length - 1), yPos(d.entries[0].time));
+ctx.closePath(); ctx.fill();
+
+// Trend line (dashed)
+ctx.strokeStyle = 'rgba(124,58,237,0.5)';
+ctx.lineWidth = 1.5;
+ctx.setLineDash([6, 4]);
+ctx.beginPath();
+ctx.moveTo(xPos(0), yPos(d.intercept));
+ctx.lineTo(xPos(d.entries.length - 1), yPos(d.intercept + d.slope * (d.entries.length - 1)));
+ctx.stroke();
+ctx.setLineDash([]);
+
+// Main line
+ctx.strokeStyle = '#7c3aed';
+ctx.lineWidth = 2;
+ctx.beginPath();
+for (let i = 0; i < d.entries.length; i++) {
+const x = xPos(i), y = yPos(d.entries[i].time);
+if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+}
+ctx.stroke();
+
+// Dots
+for (let i = 0; i < d.entries.length; i++) {
+const e = d.entries[i];
+const x = xPos(i), y = yPos(e.time);
+ctx.beginPath(); ctx.arc(x, y, e.isPB ? 5 : 3, 0, Math.PI * 2);
+if (e.isPB) {
+ctx.fillStyle = '#f59e0b'; ctx.fill();
+ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 1.5; ctx.stroke();
+} else {
+ctx.fillStyle = '#7c3aed'; ctx.fill();
+}
+}
+
+// PB labels
+ctx.font = '9px monospace'; ctx.fillStyle = '#f59e0b';
+for (let i = 0; i < d.entries.length; i++) {
+if (d.entries[i].isPB) {
+ctx.textAlign = 'center';
+ctx.fillText(formatTime(d.entries[i].time), xPos(i), yPos(d.entries[i].time) - 10);
+}
+}
+
+// Chart title
+ctx.font = 'bold 11px monospace'; ctx.fillStyle = '#e2e8f0'; ctx.textAlign = 'left';
+ctx.fillText(`${d.event.name} — ${d.course}`, pad.left, 18);
+
+// Note: Y-axis is inverted for swimming (lower = better, shown at top)
+ctx.font = '8px monospace'; ctx.fillStyle = '#64748b'; ctx.textAlign = 'right';
+ctx.fillText('← faster', pad.left - 4, pad.top - 4);
+}
+
+function switchTab(tabId) {
+document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+document.querySelector(`.tab-content#tab-${tabId}`).classList.add('active');
+document.querySelectorAll('.tab').forEach(t => {
+if (t.textContent.toLowerCase().replace(' ','') === tabId ||
+(tabId === 'overview' && t.textContent === 'Overview') ||
+(tabId === 'chart' && t.textContent === 'Progression Chart') ||
+(tabId === 'analysis' && t.textContent === 'Deep Analysis') ||
+(tabId === 'training' && t.textContent === 'Training Recs') ||
+(tabId === 'export' && t.textContent === 'Export')) {
+t.classList.add('active');
+}
+});
+}
+
+function loadSample() {
+document.getElementById('athleteName').value = 'Maya Chen';
+document.getElementById('ageGroup').value = '13-14';
+selectedEvent = '100fr';
+renderChips();
+document.getElementById('timeInput').value =
+`2025-06-12 1:05.88 Summer Kick-Off
+2025-07-20 1:04.22 Summer Champs
+2025-09-14 1:03.91 Fall Invite
+2025-10-05 1:03.45 Dual Meet vs Eagles
+2025-10-26 1:03.78 Halloween Sprint
+2025-11-15 1:02.89 November Classic
+2025-12-07 1:02.91 Winter Invite
+2026-01-11 1:02.44 New Year Open
+2026-01-25 1:02.51 Dual Meet vs Sharks
+2026-02-08 1:02.38 Regional Qualifier
+2026-02-22 1:01.95 State Prelims
+2026-03-08 1:01.72 State Championships`;
+analyze();
+}
+
+function quickAdd() {
+const date = document.getElementById('quickDate').value;
+const time = document.getElementById('quickTime').value;
+const meet = document.getElementById('quickMeet').value || 'Practice';
+if (!date || !time) return;
+const textarea = document.getElementById('timeInput');
+textarea.value += (textarea.value ? '\n' : '') + `${date} ${time} ${meet}`;
+document.getElementById('quickDate').value = '';
+document.getElementById('quickTime').value = '';
+document.getElementById('quickMeet').value = '';
+}
+
+function exportText() {
+const d = analysisData;
+if (!d) return;
+let text = `METTLE ATHLETE PROGRESS REPORT\n${'='.repeat(40)}\n`;
+text += `Athlete: ${d.name}\nEvent: ${d.event.name} (${d.course})\nAge Group: ${d.ageGroup}\n`;
+text += `Report Date: ${new Date().toISOString().split('T')[0]}\n\n`;
+text += `SUMMARY\n${'-'.repeat(20)}\n`;
+text += `Personal Best: ${formatTime(d.bestTime)} (${d.bestDate})\n`;
+text += `Total Improvement: ${d.totalImprovement > 0 ? '-' : '+'}${Math.abs(d.totalImprovement).toFixed(2)}s\n`;
+text += `Swims Tracked: ${d.entries.length}\n`;
+text += `Consistency: ${d.consistencyPct.toFixed(0)}%\n`;
+text += `Trend: ${d.trendPerMonth > 0 ? '-' : '+'}${Math.abs(d.trendPerMonth).toFixed(2)}s/month (${d.improvementRate})\n\n`;
+text += `TIME HISTORY\n${'-'.repeat(20)}\n`;
+for (const e of d.entries) {
+text += `${e.date}  ${formatTime(e.time).padStart(8)}  ${e.meet}${e.isPB ? '  *PB*' : ''}\n`;
+}
+const area = document.getElementById('exportArea');
+area.style.display = 'block';
+area.textContent = text;
+}
+
+function exportCSV() {
+const d = analysisData;
+if (!d) return;
+let csv = 'Date,Time,Seconds,Meet,PB\n';
+for (const e of d.entries) {
+csv += `${e.date},${formatTime(e.time)},${e.time.toFixed(2)},${e.meet},${e.isPB ? 'Yes' : 'No'}\n`;
+}
+const area = document.getElementById('exportArea');
+area.style.display = 'block';
+area.textContent = csv;
+}
+
+function exportJSON() {
+const d = analysisData;
+if (!d) return;
+const obj = {
+athlete: d.name, event: d.event.name, course: d.course, ageGroup: d.ageGroup,
+bestTime: formatTime(d.bestTime), totalImprovement: d.totalImprovement.toFixed(2),
+trendPerMonth: d.trendPerMonth.toFixed(2), consistencyPct: d.consistencyPct.toFixed(0),
+improvementRate: d.improvementRate, plateauDetected: d.plateauDetected,
+entries: d.entries.map(e => ({
+date: e.date, time: formatTime(e.time), seconds: e.time.toFixed(2),
+meet: e.meet, isPB: !!e.isPB
+}))
+};
+const area = document.getElementById('exportArea');
+area.style.display = 'block';
+area.textContent = JSON.stringify(obj, null, 2);
+}
+
+// Init
+renderChips();
+</script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spawn-Gate Orchestrator | PROXIMON</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #fafafa; color: #111; font-family: system-ui, -apple-system, sans-serif; }
+        .card { border: 2px solid #e5e7eb; border-radius: 12px; padding: 24px; background: #fff; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
+        .card:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        .glow { animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        .btn-primary { border: 2px solid #111; background: #111; color: white; padding: 12px 24px; font-weight: 600; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary:hover { background: #333; }
+        .tag { padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; border: 2px solid; }
+        .tag-read { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+        .tag-code { background: #fdf4ff; color: #c026d3; border-color: #f5d0fe; }
+        .tag-complex { background: #fef2f2; color: #dc2626; border-color: #fecaca; }
+        .tag-deepseek { background: #f0fdf4; color: #16a34a; border-color: #bbf7d0; }
+    </style>
+</head>
+<body class="p-8 md:p-12 w-full min-h-screen">
+    <header class="mb-12 border-b-2 border-gray-200 pb-8 flex justify-between items-end">
+        <div>
+            <h1 class="text-4xl font-black tracking-tight mb-2">Spawn-Gate Orchestrator</h1>
+            <p class="text-gray-500 font-medium text-lg">System: Proximon / HTN Task Decomposition Engine</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <div class="w-3 h-3 rounded-full bg-green-500 glow"></div>
+            <span class="font-bold text-sm uppercase tracking-wide text-gray-400">System Vital</span>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        <div class="lg:col-span-4 flex flex-col gap-6">
+            <div class="card bg-white">
+                <h2 class="text-xl font-bold mb-4">Task Input</h2>
+                <textarea id="taskInput" class="w-full h-48 border-2 border-gray-300 rounded-lg p-4 font-mono text-sm mb-4 focus:outline-none focus:border-blue-500 transition-colors resize-none" placeholder="Paste complex user request here..."></textarea>
+                <button onclick="decomposeTask()" class="btn-primary w-full flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Decompose & Route
+                </button>
+            </div>
+
+            <div class="card bg-gray-50 border-gray-200">
+                <h3 class="font-bold text-sm uppercase tracking-wider mb-4 text-gray-500">Routing Heuristics</h3>
+                <ul class="space-y-3 text-sm font-medium">
+                    <li class="flex justify-between items-center"><span class="text-gray-600">Read-Only / Analysis</span> <span class="tag tag-read">Haiku 3.5</span></li>
+                    <li class="flex justify-between items-center"><span class="text-gray-600">Code Generation</span> <span class="tag tag-code">Sonnet 4.5</span></li>
+                    <li class="flex justify-between items-center"><span class="text-gray-600">Cost-Effective Verification</span> <span class="tag tag-deepseek">DeepSeek V3.2</span></li>
+                    <li class="flex justify-between items-center"><span class="text-gray-600">Complex Reasoning</span> <span class="tag tag-complex">Opus 4.6</span></li>
+                </ul>
+                <div class="mt-6 pt-6 border-t-2 border-gray-200">
+                    <p class="text-xs text-red-500 font-bold mb-1">ANTI-TIMEOUT PROTOCOL ENFORCED:</p>
+                    <p class="text-xs text-gray-500">Max 3-5 tool calls per turn. Prompts > 3 sentences force HTN split.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-black">Atomic Spawns <span id="spawnCount" class="text-gray-400 text-lg ml-2">(0)</span></h2>
+                <div class="text-sm font-bold text-gray-500 bg-gray-100 px-4 py-2 rounded-full border-2 border-gray-200">Total Est. Cost: <span id="totalCost" class="text-black">$0.000</span></div>
+            </div>
+            
+            <div id="spawnsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div class="col-span-full py-20 text-center border-2 border-dashed border-gray-300 rounded-2xl text-gray-400">
+                    <svg class="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    <p class="font-medium text-lg">Awaiting task input.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function decomposeTask() {
+            const input = document.getElementById('taskInput').value.trim();
+            if (!input) return;
+
+            const grid = document.getElementById('spawnsGrid');
+            grid.innerHTML = '';
+            
+            const sentences = input.split(/[.!?]+/).filter(s => s.trim().length > 0);
+            
+            let spawns = [];
+            let totalCost = 0;
+
+            spawns.push({
+                task: "Read context and target files to map dependencies.",
+                agent: "WIDOW",
+                model: "Haiku 3.5",
+                type: "read",
+                cost: 0.002,
+                time: "< 15s"
+            });
+
+            if (sentences.length > 3) {
+                const mid = Math.ceil(sentences.length / 2);
+                spawns.push({
+                    task: "Generate structural boilerplate and data models. " + sentences.slice(0, mid).join('. ') + ".",
+                    agent: "NOVA",
+                    model: "Sonnet 4.5",
+                    type: "code",
+                    cost: 0.015,
+                    time: "~ 25s"
+                });
+                spawns.push({
+                    task: "Implement UI logic and wire up components. " + sentences.slice(mid).join('. ') + ".",
+                    agent: "SHURI",
+                    model: "Sonnet 4.5",
+                    type: "code",
+                    cost: 0.015,
+                    time: "~ 30s"
+                });
+            } else {
+                spawns.push({
+                    task: "Implement requested feature: " + input,
+                    agent: "TRIAGE",
+                    model: "Sonnet 4.5",
+                    type: "code",
+                    cost: 0.012,
+                    time: "~ 20s"
+                });
+            }
+
+            spawns.push({
+                task: "Verify output exists, check file sizes, and validate execution.",
+                agent: "PROXIMON",
+                model: "DeepSeek V3.2",
+                type: "deepseek",
+                cost: 0.005,
+                time: "~ 10s"
+            });
+
+            document.getElementById('spawnCount').innerText = \`(\${spawns.length})\`;
+
+            spawns.forEach((spawn, idx) => {
+                totalCost += spawn.cost;
+                
+                const card = document.createElement('div');
+                card.className = 'card flex flex-col justify-between';
+                
+                let tagClass = spawn.type === 'read' ? 'tag-read' : (spawn.type === 'code' ? 'tag-code' : (spawn.type === 'deepseek' ? 'tag-deepseek' : 'tag-complex'));
+                
+                card.innerHTML = \`
+                    <div>
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="tag \${tagClass}">\${spawn.model}</span>
+                            <span class="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded border border-gray-200">Seq 0\${idx + 1}</span>
+                        </div>
+                        <h4 class="font-black text-lg mb-1">\${spawn.agent}</h4>
+                        <p class="text-sm text-gray-600 font-medium mb-6 leading-relaxed line-clamp-3">\${spawn.task}</p>
+                    </div>
+                    <div class="border-t-2 border-gray-100 pt-4 mt-auto flex justify-between text-sm font-bold">
+                        <span class="text-gray-500 flex items-center gap-1"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> \${spawn.time}</span>
+                        <span class="text-green-600">$\${spawn.cost.toFixed(3)}</span>
+                    </div>
+                \`;
+                grid.appendChild(card);
+            });
+
+            document.getElementById('totalCost').innerText = \`$\${totalCost.toFixed(3)}\`;
+        }
+
+        window.onload = () => {
+            document.getElementById('taskInput').value = "Create a new Next.js dashboard for METTLE coach portal. Extract the 81 useState hooks into a shared context provider. Add a 30-day session expiry check using Firebase Auth. Ensure it handles offline states gracefully.";
+            setTimeout(decomposeTask, 500);
+        };
+    </script>
+</body>
+</html>

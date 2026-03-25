@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Practice Set Builder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a12;--surface:#12121e;--card:#1a1a2e;--border:#2a2a44;
+  --purple:#8b5cf6;--scarlet:#ef4444;--gold:#f59e0b;--blue:#3b82f6;--green:#22c55e;
+  --text:#e2e8f0;--muted:#94a3b8;--white:#fff;
+}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.app{max-width:1200px;margin:0 auto;padding:24px}
+header{text-align:center;padding:32px 0 24px;border-bottom:2px solid var(--purple)}
+header h1{font-size:28px;color:var(--purple);letter-spacing:4px;text-transform:uppercase}
+header p{color:var(--muted);font-size:13px;margin-top:8px}
+.badge{display:inline-block;background:var(--purple);color:var(--white);font-size:10px;padding:2px 8px;border-radius:3px;margin-left:8px;vertical-align:middle}
+
+/* Layout */
+.workspace{display:grid;grid-template-columns:320px 1fr;gap:24px;margin-top:24px}
+@media(max-width:768px){.workspace{grid-template-columns:1fr}}
+
+/* Sidebar - Set Config */
+.sidebar{display:flex;flex-direction:column;gap:16px}
+.panel{background:var(--card);border:2px solid var(--border);border-radius:8px;padding:16px}
+.panel h3{color:var(--gold);font-size:13px;text-transform:uppercase;letter-spacing:2px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.panel h3::before{content:'';width:8px;height:8px;background:var(--gold);border-radius:50%}
+
+label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;margin-top:12px}
+label:first-of-type{margin-top:0}
+select,input[type=number],input[type=text]{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:4px;font-family:inherit;font-size:13px}
+select:focus,input:focus{outline:none;border-color:var(--purple)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border:2px solid;border-radius:6px;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;transition:all .15s}
+.btn-primary{background:var(--purple);border-color:var(--purple);color:var(--white)}
+.btn-primary:hover{background:#7c3aed;transform:translateY(-1px)}
+.btn-gold{background:transparent;border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover{background:var(--gold);color:var(--bg)}
+.btn-danger{background:transparent;border-color:var(--scarlet);color:var(--scarlet);font-size:11px;padding:6px 10px}
+.btn-danger:hover{background:var(--scarlet);color:var(--white)}
+.btn-sm{padding:6px 10px;font-size:11px}
+
+/* Main area */
+.main{display:flex;flex-direction:column;gap:16px}
+.set-list{display:flex;flex-direction:column;gap:12px;min-height:200px}
+
+/* Set Card */
+.set-card{background:var(--card);border:2px solid var(--border);border-radius:8px;padding:16px;transition:border-color .15s;position:relative}
+.set-card:hover{border-color:var(--purple)}
+.set-card.dragging{opacity:0.5;border-color:var(--gold)}
+.set-card.drag-over{border-color:var(--green);border-style:dashed}
+.set-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.set-num{color:var(--purple);font-weight:700;font-size:14px}
+.set-meta{display:flex;gap:16px;font-size:12px;color:var(--muted)}
+.set-meta span{display:flex;align-items:center;gap:4px}
+.set-desc{font-size:13px;color:var(--text);margin-bottom:8px}
+.set-details{display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px}
+.detail-chip{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:6px 8px;text-align:center}
+.detail-chip .val{font-size:16px;font-weight:700;color:var(--white)}
+.detail-chip .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+.set-actions{display:flex;gap:6px;align-items:center}
+.drag-handle{cursor:grab;color:var(--muted);font-size:16px;padding:4px;user-select:none}
+.drag-handle:active{cursor:grabbing}
+
+/* Stroke tag colors */
+.stroke-tag{display:inline-block;font-size:10px;font-weight:700;padding:2px 6px;border-radius:3px;text-transform:uppercase;letter-spacing:1px}
+.stroke-free{background:#3b82f620;color:var(--blue)}
+.stroke-back{background:#22c55e20;color:var(--green)}
+.stroke-breast{background:#f59e0b20;color:var(--gold)}
+.stroke-fly{background:#ef444420;color:var(--scarlet)}
+.stroke-im{background:#8b5cf620;color:var(--purple)}
+.stroke-kick{background:#06b6d420;color:#06b6d4}
+.stroke-drill{background:#a855f720;color:#a855f7}
+.stroke-choice{background:#64748b20;color:#64748b}
+
+/* Summary */
+.summary-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;padding:16px;background:var(--card);border:2px solid var(--purple);border-radius:8px}
+@media(max-width:600px){.summary-bar{grid-template-columns:repeat(2,1fr)}}
+.summary-item{text-align:center}
+.summary-item .val{font-size:22px;font-weight:700;color:var(--white)}
+.summary-item .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+/* Empty state */
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted);border:2px dashed var(--border);border-radius:8px}
+.empty-state h3{color:var(--text);margin-bottom:8px;font-size:16px}
+.empty-state p{font-size:13px}
+
+/* Modal */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-overlay.active{opacity:1;pointer-events:all}
+.modal{background:var(--card);border:2px solid var(--purple);border-radius:12px;padding:24px;width:90%;max-width:500px;max-height:80vh;overflow-y:auto}
+.modal h2{color:var(--purple);font-size:18px;margin-bottom:16px;text-transform:uppercase;letter-spacing:2px}
+.modal-actions{display:flex;gap:10px;margin-top:20px;justify-content:flex-end}
+
+/* Interval builder */
+.interval-row{display:grid;grid-template-columns:60px 1fr 80px 60px;gap:8px;align-items:end;margin-bottom:8px}
+@media(max-width:600px){.interval-row{grid-template-columns:1fr 1fr;}}
+
+/* Export preview */
+.export-preview{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:16px;font-size:12px;line-height:1.6;white-space:pre-wrap;max-height:400px;overflow-y:auto;color:var(--text)}
+
+/* Category tabs */
+.cat-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.cat-tab{padding:6px 12px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);font-family:inherit;font-size:11px;cursor:pointer;text-transform:uppercase;letter-spacing:1px}
+.cat-tab.active{border-color:var(--purple);color:var(--purple);background:var(--purple)11}
+
+/* Pace reference */
+.pace-ref{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.pace-chip{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:4px 6px;font-size:11px;text-align:center;cursor:pointer;transition:all .15s}
+.pace-chip:hover{border-color:var(--gold);color:var(--gold)}
+.pace-chip .pace-label{color:var(--muted);font-size:9px;text-transform:uppercase}
+.pace-chip .pace-val{color:var(--text);font-weight:700}
+
+/* Print styles */
+@media print{
+  body{background:#fff;color:#000}
+  .sidebar,.btn,.set-actions,.drag-handle{display:none!important}
+  .set-card{border-color:#ccc;break-inside:avoid}
+  header{border-color:#000}
+  header h1{color:#000}
+  .summary-bar{border-color:#000}
+  .summary-item .val,.detail-chip .val{color:#000}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>METTLE <span style="color:var(--gold)">//</span> Practice Builder</h1>
+    <p>Structured practice design for competitive swim coaches <span class="badge">BETA</span></p>
+  </header>
+
+  <div class="workspace">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="panel">
+        <h3>New Set</h3>
+        <label>Category</label>
+        <div class="cat-tabs" id="catTabs">
+          <button class="cat-tab active" data-cat="main">Main</button>
+          <button class="cat-tab" data-cat="warm-up">Warm-Up</button>
+          <button class="cat-tab" data-cat="pre-set">Pre-Set</button>
+          <button class="cat-tab" data-cat="kick">Kick</button>
+          <button class="cat-tab" data-cat="drill">Drill</button>
+          <button class="cat-tab" data-cat="sprint">Sprint</button>
+          <button class="cat-tab" data-cat="cool-down">Cool-Down</button>
+        </div>
+
+        <label>Reps × Distance</label>
+        <div style="display:grid;grid-template-columns:60px 10px 1fr;gap:4px;align-items:center">
+          <input type="number" id="reps" value="4" min="1" max="50">
+          <span style="text-align:center;color:var(--muted)">×</span>
+          <select id="distance">
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="75">75</option>
+            <option value="100">100</option>
+            <option value="150">150</option>
+            <option value="200">200</option>
+            <option value="250">250</option>
+            <option value="300">300</option>
+            <option value="400">400</option>
+            <option value="500">500</option>
+          </select>
+        </div>
+
+        <label>Stroke</label>
+        <select id="stroke">
+          <option value="free">Freestyle</option>
+          <option value="back">Backstroke</option>
+          <option value="breast">Breaststroke</option>
+          <option value="fly">Butterfly</option>
+          <option value="im">IM</option>
+          <option value="kick">Kick</option>
+          <option value="drill">Drill</option>
+          <option value="choice">Choice</option>
+        </select>
+
+        <label>Intensity</label>
+        <select id="intensity">
+          <option value="easy">Easy (60%)</option>
+          <option value="moderate" selected>Moderate (75%)</option>
+          <option value="threshold">Threshold (85%)</option>
+          <option value="race">Race Pace (95%)</option>
+          <option value="max">Max Effort (100%)</option>
+        </select>
+
+        <label>Interval (seconds per 100)</label>
+        <input type="number" id="interval" value="90" min="30" max="300" step="5">
+
+        <label>Notes (optional)</label>
+        <input type="text" id="notes" placeholder="e.g., descend 1-4, breathe every 3">
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" style="width:100%" onclick="addSet()">+ Add Set</button>
+        </div>
+      </div>
+
+      <!-- Pace Reference -->
+      <div class="panel">
+        <h3>Pace Reference</h3>
+        <label>Skill Level</label>
+        <select id="skillLevel" onchange="updatePaceRef()">
+          <option value="novice">Novice (10 & Under)</option>
+          <option value="age-group" selected>Age Group (11-14)</option>
+          <option value="senior">Senior (15-18)</option>
+          <option value="elite">Elite / College</option>
+        </select>
+        <div id="paceRef" class="pace-ref"></div>
+      </div>
+
+      <!-- Quick Templates -->
+      <div class="panel">
+        <h3>Quick Templates</h3>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('warmup')">Standard Warm-Up (800)</button>
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('sprint')">Sprint Set (10×50)</button>
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('distance')">Distance Set (5×200)</button>
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('im')">IM Set (8×100 IM)</button>
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('kick')">Kick Set (6×100)</button>
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('cooldown')">Cool-Down (400)</button>
+          <button class="btn btn-gold btn-sm" onclick="loadTemplate('full')">Full Practice (4000)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+      <div class="summary-bar" id="summaryBar">
+        <div class="summary-item"><div class="val" id="totalYards">0</div><div class="lbl">Total Yards</div></div>
+        <div class="summary-item"><div class="val" id="totalSets">0</div><div class="lbl">Sets</div></div>
+        <div class="summary-item"><div class="val" id="estTime">0:00</div><div class="lbl">Est. Time</div></div>
+        <div class="summary-item"><div class="val" id="avgIntensity">—</div><div class="lbl">Avg Intensity</div></div>
+        <div class="summary-item"><div class="val" id="strokeMix">—</div><div class="lbl">Primary Stroke</div></div>
+      </div>
+
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-gold btn-sm" onclick="exportPractice()">Export Text</button>
+        <button class="btn btn-gold btn-sm" onclick="printPractice()">Print Card</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAll()">Clear All</button>
+      </div>
+
+      <div class="set-list" id="setList">
+        <div class="empty-state" id="emptyState">
+          <h3>No sets yet</h3>
+          <p>Add sets from the sidebar or load a template to get started.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal">
+    <h2>Export Practice</h2>
+    <div class="export-preview" id="exportPreview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-gold btn-sm" onclick="copyExport()">Copy to Clipboard</button>
+      <button class="btn btn-danger btn-sm" onclick="closeModal('exportModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// State
+let sets = [];
+let selectedCat = 'main';
+let dragIdx = null;
+
+// Pace data: base 100yd time in seconds by skill level
+const PACE_DATA = {
+  novice:    { free:95,  back:110, breast:115, fly:105, im:110, kick:140, drill:120, choice:100 },
+  'age-group':{ free:75,  back:85,  breast:90,  fly:82,  im:85,  kick:110, drill:95,  choice:80  },
+  senior:    { free:60,  back:68,  breast:72,  fly:65,  im:68,  kick:90,  drill:75,  choice:65  },
+  elite:     { free:50,  back:56,  breast:60,  fly:54,  im:56,  kick:75,  drill:62,  choice:54  }
+};
+
+const INTENSITY_MULT = { easy:1.15, moderate:1.0, threshold:0.92, race:0.85, max:0.80 };
+const INTENSITY_PCT = { easy:'60%', moderate:'75%', threshold:'85%', race:'95%', max:'100%' };
+const STROKE_LABELS = { free:'Freestyle', back:'Backstroke', breast:'Breaststroke', fly:'Butterfly', im:'IM', kick:'Kick', drill:'Drill', choice:'Choice' };
+const CAT_LABELS = { 'main':'Main Set', 'warm-up':'Warm-Up', 'pre-set':'Pre-Set', kick:'Kick Set', drill:'Drill Set', sprint:'Sprint Set', 'cool-down':'Cool-Down' };
+
+// Category tabs
+document.querySelectorAll('.cat-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    selectedCat = tab.dataset.cat;
+  });
+});
+
+function addSet(overrides) {
+  const s = {
+    id: Date.now() + Math.random(),
+    category: overrides?.category || selectedCat,
+    reps: overrides?.reps || parseInt(document.getElementById('reps').value),
+    distance: overrides?.distance || parseInt(document.getElementById('distance').value),
+    stroke: overrides?.stroke || document.getElementById('stroke').value,
+    intensity: overrides?.intensity || document.getElementById('intensity').value,
+    interval: overrides?.interval || parseInt(document.getElementById('interval').value),
+    notes: overrides?.notes || document.getElementById('notes').value
+  };
+  s.totalYards = s.reps * s.distance;
+  const level = document.getElementById('skillLevel').value;
+  const basePer100 = PACE_DATA[level][s.stroke] || 75;
+  const adjPer100 = basePer100 * INTENSITY_MULT[s.intensity];
+  s.estSeconds = Math.round((s.distance / 100) * adjPer100 * s.reps + (s.reps - 1) * 10);
+
+  sets.push(s);
+  render();
+}
+
+function removeSet(id) {
+  sets = sets.filter(s => s.id !== id);
+  render();
+}
+
+function moveSet(from, to) {
+  if (to < 0 || to >= sets.length) return;
+  const [item] = sets.splice(from, 1);
+  sets.splice(to, 0, item);
+  render();
+}
+
+function fmtTime(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+function fmtInterval(sec) {
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m}:${String(s).padStart(2,'0')}` : `0:${String(s).padStart(2,'0')}`;
+}
+
+function render() {
+  const list = document.getElementById('setList');
+  const empty = document.getElementById('emptyState');
+
+  if (sets.length === 0) {
+    list.innerHTML = '';
+    list.appendChild(createEmptyState());
+    updateSummary();
+    return;
+  }
+
+  list.innerHTML = sets.map((s, i) => `
+    <div class="set-card" draggable="true" data-idx="${i}"
+         ondragstart="onDragStart(event,${i})" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)"
+         ondragleave="onDragLeave(event)" ondrop="onDrop(event,${i})" ondragend="onDragEnd(event)">
+      <div class="set-header">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="drag-handle">⠿</span>
+          <span class="set-num">#${i+1}</span>
+          <span class="stroke-tag stroke-${s.stroke}">${STROKE_LABELS[s.stroke]}</span>
+          <span style="font-size:11px;color:var(--muted)">${CAT_LABELS[s.category] || s.category}</span>
+        </div>
+        <div class="set-actions">
+          <button class="btn btn-sm btn-gold" onclick="moveSet(${i},${i-1})" ${i===0?'disabled':''}>↑</button>
+          <button class="btn btn-sm btn-gold" onclick="moveSet(${i},${i+1})" ${i===sets.length-1?'disabled':''}>↓</button>
+          <button class="btn btn-danger" onclick="removeSet(${s.id})">✕</button>
+        </div>
+      </div>
+      <div class="set-desc">${s.reps} × ${s.distance} ${STROKE_LABELS[s.stroke]}${s.notes ? ' — ' + escHtml(s.notes) : ''}</div>
+      <div class="set-details">
+        <div class="detail-chip"><div class="val">${s.totalYards}</div><div class="lbl">Yards</div></div>
+        <div class="detail-chip"><div class="val">${fmtInterval(s.interval)}</div><div class="lbl">Interval/100</div></div>
+        <div class="detail-chip"><div class="val">${INTENSITY_PCT[s.intensity]}</div><div class="lbl">Intensity</div></div>
+        <div class="detail-chip"><div class="val">${fmtTime(s.estSeconds)}</div><div class="lbl">Est. Time</div></div>
+      </div>
+    </div>
+  `).join('');
+
+  updateSummary();
+}
+
+function createEmptyState() {
+  const d = document.createElement('div');
+  d.className = 'empty-state';
+  d.id = 'emptyState';
+  d.innerHTML = '<h3>No sets yet</h3><p>Add sets from the sidebar or load a template to get started.</p>';
+  return d;
+}
+
+function escHtml(s) { const d=document.createElement('div');d.textContent=s;return d.innerHTML; }
+
+function updateSummary() {
+  const totalYards = sets.reduce((a,s) => a + s.totalYards, 0);
+  const totalSec = sets.reduce((a,s) => a + s.estSeconds, 0);
+  document.getElementById('totalYards').textContent = totalYards.toLocaleString();
+  document.getElementById('totalSets').textContent = sets.length;
+  document.getElementById('estTime').textContent = fmtTime(totalSec);
+
+  if (sets.length === 0) {
+    document.getElementById('avgIntensity').textContent = '—';
+    document.getElementById('strokeMix').textContent = '—';
+    return;
+  }
+
+  const intMap = { easy:60, moderate:75, threshold:85, race:95, max:100 };
+  const avgInt = Math.round(sets.reduce((a,s) => a + intMap[s.intensity], 0) / sets.length);
+  document.getElementById('avgIntensity').textContent = avgInt + '%';
+
+  const strokeCounts = {};
+  sets.forEach(s => { strokeCounts[s.stroke] = (strokeCounts[s.stroke]||0) + s.totalYards; });
+  const primary = Object.entries(strokeCounts).sort((a,b) => b[1]-a[1])[0];
+  document.getElementById('strokeMix').textContent = STROKE_LABELS[primary[0]];
+}
+
+// Drag and drop
+function onDragStart(e, idx) { dragIdx = idx; e.currentTarget.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; }
+function onDragOver(e) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+function onDragEnter(e) { e.preventDefault(); e.currentTarget.closest('.set-card')?.classList.add('drag-over'); }
+function onDragLeave(e) { e.currentTarget.closest('.set-card')?.classList.remove('drag-over'); }
+function onDragEnd(e) { document.querySelectorAll('.set-card').forEach(c => { c.classList.remove('dragging','drag-over'); }); }
+function onDrop(e, toIdx) {
+  e.preventDefault();
+  document.querySelectorAll('.set-card').forEach(c => c.classList.remove('drag-over'));
+  if (dragIdx !== null && dragIdx !== toIdx) moveSet(dragIdx, toIdx);
+  dragIdx = null;
+}
+
+// Pace reference
+function updatePaceRef() {
+  const level = document.getElementById('skillLevel').value;
+  const paces = PACE_DATA[level];
+  const ref = document.getElementById('paceRef');
+  ref.innerHTML = Object.entries(paces).map(([stroke, sec]) => `
+    <div class="pace-chip" onclick="document.getElementById('stroke').value='${stroke}';document.getElementById('interval').value=${Math.ceil(sec/5)*5}">
+      <div class="pace-label">${STROKE_LABELS[stroke]}</div>
+      <div class="pace-val">${fmtInterval(sec)}/100</div>
+    </div>
+  `).join('');
+}
+updatePaceRef();
+
+// Templates
+function loadTemplate(name) {
+  const templates = {
+    warmup: [
+      { category:'warm-up', reps:1, distance:200, stroke:'free', intensity:'easy', interval:180, notes:'Steady, focus on streamline' },
+      { category:'warm-up', reps:4, distance:50, stroke:'drill', intensity:'easy', interval:70, notes:'25 drill / 25 swim' },
+      { category:'warm-up', reps:4, distance:50, stroke:'kick', intensity:'moderate', interval:80, notes:'Board kick, build each 50' }
+    ],
+    sprint: [
+      { category:'sprint', reps:10, distance:50, stroke:'free', intensity:'race', interval:60, notes:'All-out, focus on turns' }
+    ],
+    distance: [
+      { category:'main', reps:5, distance:200, stroke:'free', intensity:'threshold', interval:170, notes:'Descend 1-5, negative split each' }
+    ],
+    im: [
+      { category:'main', reps:8, distance:100, stroke:'im', intensity:'moderate', interval:110, notes:'Focus on transitions' }
+    ],
+    kick: [
+      { category:'kick', reps:6, distance:100, stroke:'kick', intensity:'moderate', interval:120, notes:'Odds streamline, evens with board' }
+    ],
+    cooldown: [
+      { category:'cool-down', reps:1, distance:200, stroke:'free', intensity:'easy', interval:240, notes:'Easy swim, stretch between laps' },
+      { category:'cool-down', reps:4, distance:50, stroke:'choice', intensity:'easy', interval:70, notes:'Mix strokes, shake out' }
+    ],
+    full: [
+      { category:'warm-up', reps:1, distance:400, stroke:'free', intensity:'easy', interval:360, notes:'Easy swim' },
+      { category:'warm-up', reps:4, distance:50, stroke:'drill', intensity:'easy', interval:70, notes:'25 drill / 25 swim' },
+      { category:'kick', reps:6, distance:50, stroke:'kick', intensity:'moderate', interval:70, notes:'Board kick, build' },
+      { category:'pre-set', reps:4, distance:100, stroke:'free', intensity:'moderate', interval:100, notes:'Build to threshold pace' },
+      { category:'main', reps:3, distance:200, stroke:'free', intensity:'threshold', interval:170, notes:'Descend 1-3' },
+      { category:'main', reps:6, distance:100, stroke:'im', intensity:'threshold', interval:110, notes:'Strong fly, fast turns' },
+      { category:'sprint', reps:8, distance:50, stroke:'free', intensity:'race', interval:60, notes:'Max effort, dive starts' },
+      { category:'cool-down', reps:1, distance:200, stroke:'choice', intensity:'easy', interval:240, notes:'Easy, stretch' }
+    ]
+  };
+
+  const t = templates[name];
+  if (!t) return;
+  t.forEach(s => addSet(s));
+}
+
+// Export
+function exportPractice() {
+  if (sets.length === 0) return;
+  const totalYards = sets.reduce((a,s) => a + s.totalYards, 0);
+  const totalSec = sets.reduce((a,s) => a + s.estSeconds, 0);
+  const date = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  let text = `═══════════════════════════════════════\n`;
+  text += `  METTLE // PRACTICE CARD\n`;
+  text += `  ${date}\n`;
+  text += `  Total: ${totalYards.toLocaleString()} yards | Est: ${fmtTime(totalSec)}\n`;
+  text += `═══════════════════════════════════════\n\n`;
+
+  let currentCat = '';
+  sets.forEach((s, i) => {
+    if (s.category !== currentCat) {
+      currentCat = s.category;
+      text += `── ${(CAT_LABELS[currentCat]||currentCat).toUpperCase()} ──\n`;
+    }
+    text += `${i+1}. ${s.reps}×${s.distance} ${STROKE_LABELS[s.stroke]} @ ${fmtInterval(s.interval)}/100`;
+    text += ` [${INTENSITY_PCT[s.intensity]}]`;
+    text += ` (${s.totalYards}yds, ~${fmtTime(s.estSeconds)})`;
+    if (s.notes) text += `\n   → ${s.notes}`;
+    text += '\n';
+  });
+
+  text += `\n═══════════════════════════════════════\n`;
+  text += `  Generated by METTLE Practice Builder\n`;
+  text += `═══════════════════════════════════════\n`;
+
+  document.getElementById('exportPreview').textContent = text;
+  document.getElementById('exportModal').classList.add('active');
+}
+
+function copyExport() {
+  const text = document.getElementById('exportPreview').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('#exportModal .btn-gold');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to Clipboard', 1500);
+  });
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function printPractice() { window.print(); }
+
+function clearAll() {
+  if (sets.length > 0 && confirm('Clear all sets?')) {
+    sets = [];
+    render();
+  }
+}
+
+// Init
+render();
+</script>
+</body>
+</html>

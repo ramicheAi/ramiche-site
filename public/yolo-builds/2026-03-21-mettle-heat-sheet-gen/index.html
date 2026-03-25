@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Heat Sheet Generator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--border:#2a2a3a;--text:#e8e8f0;--dim:#8888aa;--purple:#7c3aed;--scarlet:#dc2626;--gold:#f59e0b;--blue:#3b82f6;--green:#22c55e;--accent:var(--purple)}
+body{font-family:'SF Mono','Fira Code','Consolas',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:0}
+.header{background:linear-gradient(135deg,#1a0a2e,#0a0a1f);border-bottom:2px solid var(--purple);padding:24px 32px;display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1.4rem;letter-spacing:3px;color:var(--purple)}
+.header h1 span{color:var(--gold);font-weight:400}
+.header .sub{font-size:0.75rem;color:var(--dim);letter-spacing:1px}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.section{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px}
+.section h2{font-size:0.85rem;letter-spacing:2px;color:var(--purple);margin-bottom:16px;text-transform:uppercase}
+.form-row{display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap;align-items:end}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:0.7rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.form-group input,.form-group select{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:4px;font-family:inherit;font-size:0.85rem}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--purple)}
+.btn{padding:8px 20px;border:2px solid var(--purple);background:transparent;color:var(--purple);font-family:inherit;font-size:0.8rem;letter-spacing:1px;cursor:pointer;border-radius:4px;transition:all 0.2s}
+.btn:hover{background:var(--purple);color:#fff}
+.btn-scarlet{border-color:var(--scarlet);color:var(--scarlet)}
+.btn-scarlet:hover{background:var(--scarlet);color:#fff}
+.btn-gold{border-color:var(--gold);color:var(--gold)}
+.btn-gold:hover{background:var(--gold);color:#000}
+.btn-green{border-color:var(--green);color:var(--green)}
+.btn-green:hover{background:var(--green);color:#000}
+.btn-sm{padding:4px 10px;font-size:0.7rem}
+.entries-table{width:100%;border-collapse:collapse;margin-top:12px}
+.entries-table th{font-size:0.7rem;color:var(--dim);letter-spacing:1px;text-align:left;padding:8px;border-bottom:1px solid var(--border);text-transform:uppercase}
+.entries-table td{padding:8px;font-size:0.85rem;border-bottom:1px solid rgba(42,42,58,0.5)}
+.entries-table tr:hover{background:rgba(124,58,237,0.05)}
+.seed-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;letter-spacing:0.5px}
+.seed-a{background:rgba(245,158,11,0.15);color:var(--gold)}
+.seed-b{background:rgba(124,58,237,0.15);color:var(--purple)}
+.heat-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;page-break-inside:avoid}
+.heat-card h3{font-size:0.9rem;color:var(--gold);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+.heat-card h3 .event-name{color:var(--purple)}
+.lane-grid{display:grid;grid-template-columns:50px 1fr 80px 80px;gap:0;border:1px solid var(--border);border-radius:4px;overflow:hidden}
+.lane-grid .hdr{background:rgba(124,58,237,0.12);padding:6px 10px;font-size:0.7rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.lane-grid .cell{padding:6px 10px;font-size:0.85rem;border-bottom:1px solid rgba(42,42,58,0.3)}
+.lane-grid .cell.lane-num{color:var(--gold);font-weight:700;text-align:center}
+.lane-grid .cell.seed-time{color:var(--dim)}
+.lane-grid .cell.result{color:var(--green)}
+.stats-bar{display:flex;gap:24px;margin-top:12px;flex-wrap:wrap}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .val{font-size:1.2rem;color:var(--gold);font-weight:700}
+.stat .lbl{font-size:0.65rem;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+.seeding-mode{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.seeding-mode .chip{padding:6px 14px;border:1px solid var(--border);border-radius:20px;font-size:0.75rem;cursor:pointer;color:var(--dim);transition:all 0.2s}
+.seeding-mode .chip.active{border-color:var(--purple);color:var(--purple);background:rgba(124,58,237,0.1)}
+.seeding-mode .chip:hover{border-color:var(--purple)}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 24px;font-size:0.8rem;letter-spacing:1px;cursor:pointer;color:var(--dim);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.tab:hover{color:var(--text)}
+.hidden{display:none}
+.quick-add{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.quick-add .preset{padding:4px 12px;border:1px solid var(--border);border-radius:4px;font-size:0.7rem;color:var(--dim);cursor:pointer;transition:all 0.2s}
+.quick-add .preset:hover{border-color:var(--gold);color:var(--gold)}
+.empty-state{text-align:center;padding:40px;color:var(--dim)}
+.empty-state .icon{font-size:2rem;margin-bottom:8px}
+.empty-state p{font-size:0.85rem}
+.print-header{display:none}
+@media print{
+  body{background:#fff;color:#000;font-size:10pt}
+  .header,.section:not(.heat-output),.tabs,.no-print{display:none!important}
+  .print-header{display:block;text-align:center;margin-bottom:16px;border-bottom:2px solid #000;padding-bottom:8px}
+  .print-header h1{font-size:14pt}
+  .print-header p{font-size:9pt;color:#666}
+  .heat-card{border:1px solid #ccc;background:#fff;margin-bottom:8px}
+  .heat-card h3{color:#000}
+  .heat-card h3 .event-name{color:#333}
+  .lane-grid{border:1px solid #999}
+  .lane-grid .hdr{background:#eee;color:#333;border-bottom:1px solid #999}
+  .lane-grid .cell{color:#000;border-bottom:1px solid #ddd}
+  .lane-grid .cell.lane-num{color:#000}
+  .lane-grid .cell.seed-time{color:#666}
+  .container{padding:0;max-width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="print-header">
+  <h1>METTLE // Heat Sheet</h1>
+  <p id="printMeetInfo"></p>
+</div>
+
+<div class="header">
+  <div>
+    <h1>METTLE <span>// HEAT SHEET GENERATOR</span></h1>
+    <div class="sub">Circle-seeded lane assignments &bull; Printable heat cards</div>
+  </div>
+  <div style="text-align:right">
+    <div class="sub" id="entryCt">0 ENTRIES &bull; 0 EVENTS</div>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="tabs">
+    <div class="tab active" data-tab="setup" onclick="switchTab('setup')">MEET SETUP</div>
+    <div class="tab" data-tab="entries" onclick="switchTab('entries')">ENTRIES</div>
+    <div class="tab" data-tab="heats" onclick="switchTab('heats')">HEAT SHEETS</div>
+  </div>
+
+  <!-- SETUP TAB -->
+  <div id="tab-setup" class="tab-content">
+    <div class="section">
+      <h2>Meet Information</h2>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>Meet Name</label>
+          <input type="text" id="meetName" placeholder="e.g. Spring Invitational 2026" value="METTLE Dual Meet">
+        </div>
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="meetDate" value="2026-03-21">
+        </div>
+        <div class="form-group">
+          <label>Venue</label>
+          <input type="text" id="meetVenue" placeholder="Pool name" value="Aquatic Center">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Pool Length</label>
+          <select id="poolLength">
+            <option value="SCY" selected>SCY (25 yd)</option>
+            <option value="SCM">SCM (25 m)</option>
+            <option value="LCM">LCM (50 m)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Lanes</label>
+          <select id="laneCount">
+            <option value="4">4 Lanes</option>
+            <option value="6" selected>6 Lanes</option>
+            <option value="8">8 Lanes</option>
+            <option value="10">10 Lanes</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select id="meetGender">
+            <option value="mixed" selected>Mixed</option>
+            <option value="M">Boys Only</option>
+            <option value="F">Girls Only</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Quick Event Template</h2>
+      <div class="quick-add" id="quickEvents">
+        <div class="preset" onclick="loadTemplate('dual')">DUAL MEET (14 events)</div>
+        <div class="preset" onclick="loadTemplate('champ')">CHAMPIONSHIP (26 events)</div>
+        <div class="preset" onclick="loadTemplate('sprint')">SPRINT MEET (8 events)</div>
+        <div class="preset" onclick="loadTemplate('distance')">DISTANCE MEET (6 events)</div>
+      </div>
+      <div id="eventList" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+  <!-- ENTRIES TAB -->
+  <div id="tab-entries" class="tab-content hidden">
+    <div class="section">
+      <h2>Add Entry</h2>
+      <div class="form-row">
+        <div class="form-group" style="flex:1.5">
+          <label>Swimmer Name</label>
+          <input type="text" id="swimmerName" placeholder="Last, First">
+        </div>
+        <div class="form-group">
+          <label>Team</label>
+          <input type="text" id="swimmerTeam" placeholder="Team code" value="SAA">
+        </div>
+        <div class="form-group">
+          <label>Age</label>
+          <input type="number" id="swimmerAge" min="5" max="99" value="14">
+        </div>
+        <div class="form-group">
+          <label>Gender</label>
+          <select id="swimmerGender">
+            <option value="M">M</option>
+            <option value="F">F</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:1.5">
+          <label>Event</label>
+          <select id="entryEvent"></select>
+        </div>
+        <div class="form-group">
+          <label>Seed Time</label>
+          <input type="text" id="seedTime" placeholder="MM:SS.ss or SS.ss">
+        </div>
+        <div class="form-group" style="align-self:end">
+          <button class="btn" onclick="addEntry()">ADD</button>
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <button class="btn btn-gold btn-sm" onclick="generateSampleEntries()">LOAD SAMPLE DATA (20 swimmers)</button>
+        <button class="btn btn-scarlet btn-sm" onclick="clearEntries()" style="margin-left:8px">CLEAR ALL</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Entries (<span id="totalEntries">0</span>)</h2>
+      <div id="entriesContainer">
+        <div class="empty-state">
+          <div class="icon">📋</div>
+          <p>No entries yet. Add swimmers above or load sample data.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEATS TAB -->
+  <div id="tab-heats" class="tab-content hidden">
+    <div class="section no-print">
+      <h2>Seeding Configuration</h2>
+      <div class="seeding-mode">
+        <div class="chip active" data-mode="circle" onclick="setSeedMode('circle')">CIRCLE SEED</div>
+        <div class="chip" data-mode="straight" onclick="setSeedMode('straight')">STRAIGHT SEED</div>
+        <div class="chip" data-mode="random" onclick="setSeedMode('random')">RANDOM</div>
+      </div>
+      <div class="form-row">
+        <button class="btn btn-green" onclick="generateHeats()">GENERATE HEAT SHEETS</button>
+        <button class="btn btn-gold" onclick="window.print()" style="margin-left:8px">PRINT</button>
+        <button class="btn" onclick="exportText()" style="margin-left:8px">EXPORT TEXT</button>
+      </div>
+    </div>
+
+    <div class="section heat-output" id="heatOutput">
+      <div id="heatStats" class="stats-bar" style="margin-bottom:20px"></div>
+      <div id="heatCards">
+        <div class="empty-state">
+          <div class="icon">🏊</div>
+          <p>Configure seeding and click Generate to build heat sheets.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// --- STATE ---
+let events = [];
+let entries = [];
+let seedMode = 'circle';
+let entryId = 0;
+
+// --- EVENT TEMPLATES ---
+const TEMPLATES = {
+  dual: [
+    {num:1,name:'200 Medley Relay',dist:200,stroke:'Medley Relay',isRelay:true},
+    {num:2,name:'200 Freestyle',dist:200,stroke:'Free'},
+    {num:3,name:'200 IM',dist:200,stroke:'IM'},
+    {num:4,name:'50 Freestyle',dist:50,stroke:'Free'},
+    {num:5,name:'100 Butterfly',dist:100,stroke:'Fly'},
+    {num:6,name:'100 Freestyle',dist:100,stroke:'Free'},
+    {num:7,name:'500 Freestyle',dist:500,stroke:'Free'},
+    {num:8,name:'200 Free Relay',dist:200,stroke:'Free Relay',isRelay:true},
+    {num:9,name:'100 Backstroke',dist:100,stroke:'Back'},
+    {num:10,name:'100 Breaststroke',dist:100,stroke:'Breast'},
+    {num:11,name:'400 Free Relay',dist:400,stroke:'Free Relay',isRelay:true}
+  ],
+  champ: [
+    {num:1,name:'200 Medley Relay',dist:200,stroke:'Medley Relay',isRelay:true},
+    {num:2,name:'200 Freestyle',dist:200,stroke:'Free'},
+    {num:3,name:'200 IM',dist:200,stroke:'IM'},
+    {num:4,name:'50 Freestyle',dist:50,stroke:'Free'},
+    {num:5,name:'100 Butterfly',dist:100,stroke:'Fly'},
+    {num:6,name:'100 Freestyle',dist:100,stroke:'Free'},
+    {num:7,name:'500 Freestyle',dist:500,stroke:'Free'},
+    {num:8,name:'200 Free Relay',dist:200,stroke:'Free Relay',isRelay:true},
+    {num:9,name:'100 Backstroke',dist:100,stroke:'Back'},
+    {num:10,name:'100 Breaststroke',dist:100,stroke:'Breast'},
+    {num:11,name:'400 Free Relay',dist:400,stroke:'Free Relay',isRelay:true},
+    {num:12,name:'1000 Freestyle',dist:1000,stroke:'Free'},
+    {num:13,name:'200 Backstroke',dist:200,stroke:'Back'},
+    {num:14,name:'200 Breaststroke',dist:200,stroke:'Breast'},
+    {num:15,name:'200 Butterfly',dist:200,stroke:'Fly'},
+    {num:16,name:'400 IM',dist:400,stroke:'IM'},
+    {num:17,name:'800 Free Relay',dist:800,stroke:'Free Relay',isRelay:true}
+  ],
+  sprint: [
+    {num:1,name:'50 Freestyle',dist:50,stroke:'Free'},
+    {num:2,name:'100 Freestyle',dist:100,stroke:'Free'},
+    {num:3,name:'50 Backstroke',dist:50,stroke:'Back'},
+    {num:4,name:'50 Breaststroke',dist:50,stroke:'Breast'},
+    {num:5,name:'50 Butterfly',dist:50,stroke:'Fly'},
+    {num:6,name:'100 IM',dist:100,stroke:'IM'},
+    {num:7,name:'200 Free Relay',dist:200,stroke:'Free Relay',isRelay:true},
+    {num:8,name:'200 Medley Relay',dist:200,stroke:'Medley Relay',isRelay:true}
+  ],
+  distance: [
+    {num:1,name:'200 Freestyle',dist:200,stroke:'Free'},
+    {num:2,name:'500 Freestyle',dist:500,stroke:'Free'},
+    {num:3,name:'1000 Freestyle',dist:1000,stroke:'Free'},
+    {num:4,name:'1650 Freestyle',dist:1650,stroke:'Free'},
+    {num:5,name:'200 IM',dist:200,stroke:'IM'},
+    {num:6,name:'400 IM',dist:400,stroke:'IM'}
+  ]
+};
+
+// --- SAMPLE SWIMMERS ---
+const SAMPLE_NAMES = [
+  ['Martinez, Sofia','SAA',14,'F'],['Chen, Marcus','SAA',15,'M'],
+  ['Williams, Aisha','SAA',13,'F'],['Patel, Ravi','SAA',16,'M'],
+  ['Johnson, Tyler','VIS',14,'M'],['Kim, Yuna','VIS',15,'F'],
+  ['Brown, Caleb','VIS',13,'M'],['Davis, Maya','VIS',14,'F'],
+  ['Wilson, Jake','SAA',15,'M'],['Anderson, Lily','SAA',14,'F'],
+  ['Thomas, Drew','SAA',16,'M'],['Garcia, Elena','VIS',15,'F'],
+  ['Moore, Ryan','VIS',14,'M'],['Taylor, Zoe','SAA',13,'F'],
+  ['Harris, Noah','VIS',16,'M'],['Clark, Emma','SAA',15,'F'],
+  ['Lewis, Kai','VIS',14,'M'],['Walker, Ava','SAA',13,'F'],
+  ['Hall, Ethan','VIS',15,'M'],['Young, Mia','VIS',14,'F']
+];
+
+// Realistic seed times by event (seconds) — ranges for random generation
+const SEED_RANGES = {
+  '50 Free':[23,35],'100 Free':[50,75],'200 Free':[110,165],'500 Free':[300,420],
+  '1000 Free':[620,870],'1650 Free':[1020,1440],
+  '100 Back':[58,82],'200 Back':[120,170],
+  '100 Breast':[62,90],'200 Breast':[130,185],
+  '100 Fly':[56,80],'200 Fly':[120,170],
+  '100 IM':[58,82],'200 IM':[120,170],'400 IM':[260,380],
+  '50 Back':[28,40],'50 Breast':[30,42],'50 Fly':[26,38]
+};
+
+function getSeedKey(ev) {
+  if (ev.isRelay) return null;
+  const d = ev.dist;
+  const s = ev.stroke === 'Free' ? 'Free' : ev.stroke;
+  return d + ' ' + s;
+}
+
+function secondsToTime(s) {
+  if (s >= 60) {
+    const m = Math.floor(s / 60);
+    const sec = (s % 60).toFixed(2).padStart(5,'0');
+    return m + ':' + sec;
+  }
+  return s.toFixed(2);
+}
+
+function timeToSeconds(t) {
+  if (!t || t === 'NT') return Infinity;
+  t = t.trim();
+  if (t.includes(':')) {
+    const [m, s] = t.split(':');
+    return parseFloat(m) * 60 + parseFloat(s);
+  }
+  return parseFloat(t);
+}
+
+// --- TABS ---
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+}
+
+// --- EVENTS ---
+function loadTemplate(key) {
+  const gender = document.getElementById('meetGender').value;
+  events = [];
+  const tmpl = TEMPLATES[key];
+  if (gender === 'mixed') {
+    let n = 1;
+    tmpl.forEach(e => {
+      events.push({...e, num: n++, gender: 'F', fullName: 'Girls ' + e.name});
+      events.push({...e, num: n++, gender: 'M', fullName: 'Boys ' + e.name});
+    });
+  } else {
+    const label = gender === 'M' ? 'Boys' : 'Girls';
+    tmpl.forEach((e, i) => {
+      events.push({...e, num: i + 1, gender, fullName: label + ' ' + e.name});
+    });
+  }
+  renderEvents();
+  populateEventDropdown();
+  updateCounts();
+}
+
+function renderEvents() {
+  const el = document.getElementById('eventList');
+  if (!events.length) { el.innerHTML = ''; return; }
+  let html = '<table class="entries-table"><tr><th>#</th><th>Event</th><th>Gender</th><th>Entries</th></tr>';
+  events.forEach(e => {
+    const ct = entries.filter(en => en.eventNum === e.num).length;
+    html += `<tr><td style="color:var(--gold)">${e.num}</td><td>${e.fullName}</td>` +
+      `<td>${e.gender}</td><td>${ct}</td></tr>`;
+  });
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function populateEventDropdown() {
+  const sel = document.getElementById('entryEvent');
+  sel.innerHTML = events.filter(e => !e.isRelay).map(e =>
+    `<option value="${e.num}">#${e.num} ${e.fullName}</option>`
+  ).join('');
+}
+
+// --- ENTRIES ---
+function addEntry() {
+  const name = document.getElementById('swimmerName').value.trim();
+  const team = document.getElementById('swimmerTeam').value.trim();
+  const age = parseInt(document.getElementById('swimmerAge').value);
+  const gender = document.getElementById('swimmerGender').value;
+  const eventNum = parseInt(document.getElementById('entryEvent').value);
+  const seed = document.getElementById('seedTime').value.trim() || 'NT';
+
+  if (!name) return;
+  const ev = events.find(e => e.num === eventNum);
+  if (!ev) return;
+
+  entries.push({id: ++entryId, name, team, age, gender, eventNum, eventName: ev.fullName, seed, seedSec: timeToSeconds(seed)});
+  document.getElementById('swimmerName').value = '';
+  document.getElementById('seedTime').value = '';
+  renderEntries();
+  renderEvents();
+  updateCounts();
+}
+
+function removeEntry(id) {
+  entries = entries.filter(e => e.id !== id);
+  renderEntries();
+  renderEvents();
+  updateCounts();
+}
+
+function clearEntries() {
+  entries = [];
+  entryId = 0;
+  renderEntries();
+  renderEvents();
+  updateCounts();
+}
+
+function renderEntries() {
+  const el = document.getElementById('entriesContainer');
+  const ct = document.getElementById('totalEntries');
+  ct.textContent = entries.length;
+  if (!entries.length) {
+    el.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No entries yet.</p></div>';
+    return;
+  }
+  // Group by event
+  const grouped = {};
+  entries.forEach(en => {
+    if (!grouped[en.eventNum]) grouped[en.eventNum] = [];
+    grouped[en.eventNum].push(en);
+  });
+
+  let html = '';
+  Object.keys(grouped).sort((a,b) => a - b).forEach(num => {
+    const evEntries = grouped[num];
+    const ev = events.find(e => e.num === parseInt(num));
+    html += `<div style="margin-bottom:16px"><h3 style="font-size:0.8rem;color:var(--purple);margin-bottom:8px">#${num} ${ev ? ev.fullName : 'Unknown'} (${evEntries.length})</h3>`;
+    html += '<table class="entries-table"><tr><th>Name</th><th>Team</th><th>Age</th><th>Seed</th><th></th></tr>';
+    evEntries.sort((a,b) => a.seedSec - b.seedSec).forEach(en => {
+      html += `<tr><td>${en.name}</td><td>${en.team}</td><td>${en.age}</td>` +
+        `<td><span class="seed-badge ${en.seed === 'NT' ? 'seed-b' : 'seed-a'}">${en.seed}</span></td>` +
+        `<td><button class="btn btn-scarlet btn-sm" onclick="removeEntry(${en.id})">×</button></td></tr>`;
+    });
+    html += '</table></div>';
+  });
+  el.innerHTML = html;
+}
+
+function generateSampleEntries() {
+  if (!events.length) { loadTemplate('dual'); }
+  const indivEvents = events.filter(e => !e.isRelay);
+  SAMPLE_NAMES.forEach(([name, team, age, gender]) => {
+    // Each swimmer enters 2-3 events matching their gender
+    const eligible = indivEvents.filter(e => e.gender === gender);
+    const numEvents = 2 + Math.floor(Math.random() * 2); // 2-3
+    const shuffled = eligible.sort(() => Math.random() - 0.5).slice(0, numEvents);
+    shuffled.forEach(ev => {
+      const key = getSeedKey(ev);
+      let seed = 'NT';
+      if (key && SEED_RANGES[key] && Math.random() > 0.15) {
+        const [lo, hi] = SEED_RANGES[key];
+        const raw = lo + Math.random() * (hi - lo);
+        // Adjust by age: younger = slower
+        const ageFactor = 1 + (16 - age) * 0.04;
+        // Gender factor: F slightly slower
+        const genderFactor = gender === 'F' ? 1.08 : 1;
+        const adjusted = raw * ageFactor * genderFactor;
+        seed = secondsToTime(adjusted);
+      }
+      entries.push({
+        id: ++entryId, name, team, age, gender,
+        eventNum: ev.num, eventName: ev.fullName,
+        seed, seedSec: timeToSeconds(seed)
+      });
+    });
+  });
+  renderEntries();
+  renderEvents();
+  updateCounts();
+  switchTab('entries');
+}
+
+// --- SEEDING ---
+function setSeedMode(mode) {
+  seedMode = mode;
+  document.querySelectorAll('.seeding-mode .chip').forEach(c =>
+    c.classList.toggle('active', c.dataset.mode === mode));
+}
+
+// Circle seeding: fastest in last heat, center lanes first
+function circleSeed(swimmers, lanes) {
+  // Sort fastest first (NT at end)
+  const sorted = [...swimmers].sort((a, b) => a.seedSec - b.seedSec);
+  const numHeats = Math.ceil(sorted.length / lanes);
+  const heats = Array.from({length: numHeats}, () => Array(lanes).fill(null));
+
+  // Lane assignment order (center-out): e.g. 6 lanes → [3,4,2,5,1,6] (1-indexed)
+  const laneOrder = [];
+  const mid = Math.floor(lanes / 2);
+  for (let i = 0; i < lanes; i++) {
+    if (i % 2 === 0) laneOrder.push(mid - Math.floor(i / 2));
+    else laneOrder.push(mid + Math.ceil(i / 2));
+  }
+  // Convert to 0-indexed
+  const lo = laneOrder.map(l => l);
+
+  // Circle seed: distribute swimmers across heats in circle pattern
+  // Last heat gets fastest swimmers
+  // Within each "circle", distribute across heats from last to first
+  let swimIdx = 0;
+  for (let lanePos = 0; lanePos < lanes && swimIdx < sorted.length; lanePos++) {
+    const lane = lo[lanePos];
+    // Fill this lane position across heats, from last heat to first
+    for (let h = numHeats - 1; h >= 0 && swimIdx < sorted.length; h--) {
+      heats[h][lane] = sorted[swimIdx++];
+    }
+  }
+
+  return heats;
+}
+
+function straightSeed(swimmers, lanes) {
+  const sorted = [...swimmers].sort((a, b) => a.seedSec - b.seedSec);
+  const numHeats = Math.ceil(sorted.length / lanes);
+  const heats = Array.from({length: numHeats}, () => Array(lanes).fill(null));
+
+  const laneOrder = [];
+  const mid = Math.floor(lanes / 2);
+  for (let i = 0; i < lanes; i++) {
+    if (i % 2 === 0) laneOrder.push(mid - Math.floor(i / 2));
+    else laneOrder.push(mid + Math.ceil(i / 2));
+  }
+
+  let swimIdx = 0;
+  // Straight: fill last heat first, then second-to-last, etc.
+  for (let h = numHeats - 1; h >= 0 && swimIdx < sorted.length; h--) {
+    for (let lp = 0; lp < lanes && swimIdx < sorted.length; lp++) {
+      heats[h][laneOrder[lp]] = sorted[swimIdx++];
+    }
+  }
+  return heats;
+}
+
+function randomSeed(swimmers, lanes) {
+  const shuffled = [...swimmers].sort(() => Math.random() - 0.5);
+  const numHeats = Math.ceil(shuffled.length / lanes);
+  const heats = Array.from({length: numHeats}, () => Array(lanes).fill(null));
+  let idx = 0;
+  for (let h = 0; h < numHeats; h++) {
+    for (let l = 0; l < lanes && idx < shuffled.length; l++) {
+      heats[h][l] = shuffled[idx++];
+    }
+  }
+  return heats;
+}
+
+function generateHeats() {
+  const lanes = parseInt(document.getElementById('laneCount').value);
+  const container = document.getElementById('heatCards');
+  const statsEl = document.getElementById('heatStats');
+
+  // Group entries by event
+  const grouped = {};
+  entries.forEach(en => {
+    if (!grouped[en.eventNum]) grouped[en.eventNum] = [];
+    grouped[en.eventNum].push(en);
+  });
+
+  if (!Object.keys(grouped).length) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">🏊</div><p>No entries to seed.</p></div>';
+    statsEl.innerHTML = '';
+    return;
+  }
+
+  const seedFn = seedMode === 'circle' ? circleSeed : seedMode === 'straight' ? straightSeed : randomSeed;
+  let totalHeats = 0;
+  let totalSwimmers = 0;
+  let html = '';
+
+  // Update print header
+  document.getElementById('printMeetInfo').textContent =
+    `${document.getElementById('meetName').value} | ${document.getElementById('meetDate').value} | ${document.getElementById('meetVenue').value} | ${document.getElementById('poolLength').value}`;
+
+  Object.keys(grouped).sort((a,b) => a - b).forEach(num => {
+    const ev = events.find(e => e.num === parseInt(num));
+    const evEntries = grouped[num];
+    const heats = seedFn(evEntries, lanes);
+    totalHeats += heats.length;
+    totalSwimmers += evEntries.length;
+
+    heats.forEach((heat, hi) => {
+      html += `<div class="heat-card">`;
+      html += `<h3><span class="event-name">Event #${num} — ${ev ? ev.fullName : ''}</span>` +
+        `<span style="font-size:0.75rem;color:var(--dim)">Heat ${hi + 1} of ${heats.length}</span></h3>`;
+      html += `<div class="lane-grid">`;
+      html += `<div class="hdr">Lane</div><div class="hdr">Swimmer</div><div class="hdr">Team</div><div class="hdr">Seed</div>`;
+
+      for (let l = 0; l < lanes; l++) {
+        const sw = heat[l];
+        if (sw) {
+          html += `<div class="cell lane-num">${l + 1}</div>`;
+          html += `<div class="cell">${sw.name}</div>`;
+          html += `<div class="cell" style="color:var(--dim)">${sw.team}</div>`;
+          html += `<div class="cell seed-time">${sw.seed}</div>`;
+        } else {
+          html += `<div class="cell lane-num">${l + 1}</div>`;
+          html += `<div class="cell" style="color:var(--dim)">—</div>`;
+          html += `<div class="cell">—</div>`;
+          html += `<div class="cell">—</div>`;
+        }
+      }
+      html += `</div></div>`;
+    });
+  });
+
+  container.innerHTML = html;
+
+  const evCount = Object.keys(grouped).length;
+  statsEl.innerHTML = `
+    <div class="stat"><div class="val">${evCount}</div><div class="lbl">Events</div></div>
+    <div class="stat"><div class="val">${totalHeats}</div><div class="lbl">Heats</div></div>
+    <div class="stat"><div class="val">${totalSwimmers}</div><div class="lbl">Entries</div></div>
+    <div class="stat"><div class="val">${lanes}</div><div class="lbl">Lanes</div></div>
+    <div class="stat"><div class="val">${seedMode.toUpperCase()}</div><div class="lbl">Seeding</div></div>
+  `;
+}
+
+function exportText() {
+  const lanes = parseInt(document.getElementById('laneCount').value);
+  const grouped = {};
+  entries.forEach(en => {
+    if (!grouped[en.eventNum]) grouped[en.eventNum] = [];
+    grouped[en.eventNum].push(en);
+  });
+
+  const seedFn = seedMode === 'circle' ? circleSeed : seedMode === 'straight' ? straightSeed : randomSeed;
+  let text = `HEAT SHEET — ${document.getElementById('meetName').value}\n`;
+  text += `${document.getElementById('meetDate').value} | ${document.getElementById('meetVenue').value} | ${document.getElementById('poolLength').value}\n`;
+  text += `Seeding: ${seedMode.toUpperCase()}\n`;
+  text += '='.repeat(60) + '\n\n';
+
+  Object.keys(grouped).sort((a,b) => a - b).forEach(num => {
+    const ev = events.find(e => e.num === parseInt(num));
+    const evEntries = grouped[num];
+    const heats = seedFn(evEntries, lanes);
+
+    heats.forEach((heat, hi) => {
+      text += `Event #${num} — ${ev ? ev.fullName : ''} | Heat ${hi + 1} of ${heats.length}\n`;
+      text += '-'.repeat(50) + '\n';
+      for (let l = 0; l < lanes; l++) {
+        const sw = heat[l];
+        if (sw) {
+          text += `  Lane ${l + 1}: ${sw.name.padEnd(25)} ${sw.team.padEnd(5)} ${sw.seed}\n`;
+        } else {
+          text += `  Lane ${l + 1}: —\n`;
+        }
+      }
+      text += '\n';
+    });
+  });
+
+  const blob = new Blob([text], {type: 'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'heat-sheet.txt';
+  a.click();
+}
+
+function updateCounts() {
+  const evCount = events.filter(e => !e.isRelay).length;
+  document.getElementById('entryCt').textContent = `${entries.length} ENTRIES • ${evCount} EVENTS`;
+}
+
+// Init: load dual meet template
+loadTemplate('dual');
+</script>
+</body>
+</html>

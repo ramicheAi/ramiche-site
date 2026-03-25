@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Churn Risk Detector</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a12;--surface:#12121e;--card:#1a1a2e;--border:#2a2a3e;
+  --purple:#7c3aed;--scarlet:#dc2626;--gold:#f59e0b;--blue:#3b82f6;--green:#22c55e;
+  --text:#e2e8f0;--muted:#94a3b8;--white:#fff;
+}
+body{font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:24px}
+h1{font-size:28px;font-weight:700;color:var(--white);margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:14px;margin-bottom:28px}
+.brand{color:var(--purple);font-weight:600}
+
+/* Tabs */
+.tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+.tab{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:14px;transition:all .2s}
+.tab.active,.tab:hover{background:var(--purple);color:var(--white);border-color:var(--purple)}
+
+/* Dashboard Stats */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:28px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center}
+.stat-value{font-size:32px;font-weight:700;line-height:1.2}
+.stat-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+
+/* Roster Section */
+.section-title{font-size:18px;font-weight:600;color:var(--white);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.roster-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-bottom:32px}
+
+/* Athlete Card */
+.athlete-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;cursor:pointer;transition:all .3s}
+.athlete-card:hover{border-color:var(--purple);transform:translateY(-2px)}
+.athlete-card.risk-critical{border-left:4px solid var(--scarlet)}
+.athlete-card.risk-warning{border-left:4px solid var(--gold)}
+.athlete-card.risk-low{border-left:4px solid var(--green)}
+
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.athlete-name{font-size:16px;font-weight:600;color:var(--white)}
+.risk-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
+.risk-critical .risk-badge{background:rgba(220,38,38,.15);color:var(--scarlet)}
+.risk-warning .risk-badge{background:rgba(245,158,11,.15);color:var(--gold)}
+.risk-low .risk-badge{background:rgba(34,197,94,.15);color:var(--green)}
+
+.risk-score-bar{height:6px;background:var(--border);border-radius:3px;margin-bottom:12px;overflow:hidden}
+.risk-score-fill{height:100%;border-radius:3px;transition:width .6s ease}
+
+.signal-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.signal{font-size:12px;color:var(--muted);display:flex;justify-content:space-between}
+.signal-val{font-weight:600;color:var(--text)}
+.signal-val.bad{color:var(--scarlet)}
+.signal-val.warn{color:var(--gold)}
+.signal-val.good{color:var(--green)}
+
+/* Detail Panel */
+.detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;justify-content:center;align-items:center}
+.detail-overlay.open{display:flex}
+.detail-panel{background:var(--surface);border:1px solid var(--border);border-radius:16px;max-width:640px;width:90%;max-height:85vh;overflow-y:auto;padding:28px}
+.detail-close{float:right;background:none;border:none;color:var(--muted);font-size:24px;cursor:pointer}
+.detail-close:hover{color:var(--white)}
+.detail-section{margin-top:20px}
+.detail-section h3{font-size:14px;font-weight:600;color:var(--purple);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px}
+
+/* Timeline */
+.timeline{position:relative;padding-left:20px;border-left:2px solid var(--border)}
+.timeline-item{margin-bottom:14px;position:relative}
+.timeline-item::before{content:'';position:absolute;left:-25px;top:4px;width:10px;height:10px;border-radius:50%;border:2px solid var(--purple);background:var(--bg)}
+.timeline-date{font-size:11px;color:var(--muted)}
+.timeline-event{font-size:13px;color:var(--text);margin-top:2px}
+
+/* Win-back */
+.winback-sequence{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-top:8px}
+.winback-step{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+.step-num{min-width:28px;height:28px;border-radius:50%;background:var(--purple);color:var(--white);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.step-content{flex:1}
+.step-channel{font-size:11px;color:var(--purple);font-weight:600;text-transform:uppercase;margin-bottom:2px}
+.step-msg{font-size:13px;color:var(--text);line-height:1.4}
+.step-timing{font-size:11px;color:var(--muted);margin-top:2px}
+
+/* Copy button */
+.copy-btn{background:var(--purple);color:var(--white);border:none;padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;margin-top:12px;transition:all .2s}
+.copy-btn:hover{background:#6d28d9}
+.copy-btn.copied{background:var(--green)}
+
+/* Cohort chart */
+.cohort-chart{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+.cohort-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.cohort-label{width:100px;font-size:13px;color:var(--muted);text-align:right}
+.cohort-bar-bg{flex:1;height:24px;background:var(--border);border-radius:6px;overflow:hidden;position:relative}
+.cohort-bar{height:100%;border-radius:6px;transition:width .8s ease;display:flex;align-items:center;padding-left:8px;font-size:11px;font-weight:600;color:var(--white)}
+.cohort-pct{width:50px;font-size:13px;font-weight:600;text-align:right}
+
+/* Input */
+.input-section{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:28px}
+.input-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.input-group{flex:1;min-width:180px}
+.input-group label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px}
+.input-group input,.input-group select{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px}
+.btn-primary{background:var(--purple);color:var(--white);border:none;padding:10px 20px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+.btn-primary:hover{background:#6d28d9}
+
+/* Revenue Impact */
+.revenue-card{background:linear-gradient(135deg,rgba(124,58,237,.1),rgba(220,38,38,.1));border:1px solid var(--purple);border-radius:12px;padding:20px;margin-bottom:28px}
+.revenue-title{font-size:14px;color:var(--purple);font-weight:600;margin-bottom:8px}
+.revenue-amount{font-size:36px;font-weight:700;color:var(--scarlet)}
+.revenue-note{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* Export */
+.export-row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+
+@media(max-width:600px){
+  body{padding:12px}
+  .stats-row{grid-template-columns:1fr 1fr}
+  .roster-grid{grid-template-columns:1fr}
+  .input-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<h1><span class="brand">METTLE</span> // Churn Risk Detector</h1>
+<p class="subtitle">Identify at-risk athletes before they quit. Generate personalized win-back sequences.</p>
+
+<div class="tabs" id="tabs">
+  <button class="tab active" data-tab="dashboard">Dashboard</button>
+  <button class="tab" data-tab="roster">Full Roster</button>
+  <button class="tab" data-tab="winback">Win-Back Center</button>
+  <button class="tab" data-tab="simulate">Simulate</button>
+</div>
+
+<!-- DASHBOARD TAB -->
+<div id="tab-dashboard">
+  <div class="stats-row" id="statsRow"></div>
+  <div class="revenue-card">
+    <div class="revenue-title">Revenue at Risk (Monthly)</div>
+    <div class="revenue-amount" id="revenueAtRisk">$0</div>
+    <div class="revenue-note" id="revenueNote"></div>
+  </div>
+  <div class="section-title">Churn Cohort Breakdown</div>
+  <div class="cohort-chart" id="cohortChart"></div>
+  <div class="section-title">🔴 Critical Risk Athletes</div>
+  <div class="roster-grid" id="criticalGrid"></div>
+</div>
+
+<!-- ROSTER TAB -->
+<div id="tab-roster" style="display:none">
+  <div class="input-section">
+    <div class="input-row">
+      <div class="input-group">
+        <label>Filter by Risk</label>
+        <select id="riskFilter"><option value="all">All</option><option value="critical">Critical (75-100)</option><option value="warning">Warning (40-74)</option><option value="low">Low (0-39)</option></select>
+      </div>
+      <div class="input-group">
+        <label>Sort By</label>
+        <select id="sortBy"><option value="risk">Risk Score ↓</option><option value="name">Name A-Z</option><option value="revenue">Revenue ↓</option></select>
+      </div>
+      <div class="input-group">
+        <label>Group</label>
+        <select id="groupFilter"><option value="all">All Groups</option><option value="Senior">Senior</option><option value="Junior">Junior</option><option value="Age Group">Age Group</option><option value="Pre-Comp">Pre-Comp</option></select>
+      </div>
+    </div>
+  </div>
+  <div class="roster-grid" id="fullRoster"></div>
+  <div class="export-row">
+    <button class="btn-primary" onclick="exportCSV()">Export CSV</button>
+    <button class="btn-primary" onclick="exportJSON()">Export JSON (CRM)</button>
+  </div>
+</div>
+
+<!-- WIN-BACK TAB -->
+<div id="tab-winback" style="display:none">
+  <div class="section-title">Personalized Win-Back Sequences</div>
+  <p style="color:var(--muted);font-size:13px;margin-bottom:20px">Click any at-risk athlete to generate a multi-touch re-engagement sequence tailored to their churn signals.</p>
+  <div class="roster-grid" id="winbackRoster"></div>
+</div>
+
+<!-- SIMULATE TAB -->
+<div id="tab-simulate" style="display:none">
+  <div class="section-title">Churn Scenario Simulator</div>
+  <div class="input-section">
+    <div class="input-row">
+      <div class="input-group">
+        <label>Team Size</label>
+        <input type="number" id="simTeamSize" value="240" min="10" max="1000">
+      </div>
+      <div class="input-group">
+        <label>Avg Monthly / Athlete</label>
+        <input type="number" id="simAvgRev" value="125" min="50" max="500">
+      </div>
+      <div class="input-group">
+        <label>Current Churn Rate (%/mo)</label>
+        <input type="number" id="simChurnRate" value="5" min="0" max="30" step="0.5">
+      </div>
+      <div class="input-group">
+        <label>Win-Back Success Rate (%)</label>
+        <input type="number" id="simWinback" value="30" min="0" max="80">
+      </div>
+    </div>
+    <button class="btn-primary" style="margin-top:16px" onclick="runSimulation()">Run 12-Month Simulation</button>
+  </div>
+  <div id="simResults" style="margin-top:20px"></div>
+</div>
+
+<!-- Detail Overlay -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-panel" id="detailPanel"></div>
+</div>
+
+<script>
+// ============ DATA GENERATION ============
+const firstNames=['Emma','Liam','Sophia','Noah','Olivia','Mason','Ava','Ethan','Isabella','Lucas','Mia','Aiden','Charlotte','Logan','Amelia','Jackson','Harper','Sebastian','Ella','Jack','Grace','Owen','Chloe','Henry','Lily','Alexander','Riley','James','Aria','Benjamin','Zoe','Caleb','Nora','Ryan','Addison','Nathan','Hannah','Dylan','Leah','Luke'];
+const lastNames=['Johnson','Williams','Brown','Davis','Martinez','Garcia','Wilson','Anderson','Thomas','Taylor','Moore','Jackson','Martin','Lee','Thompson','White','Harris','Clark','Lewis','Robinson','Walker','Young','Allen','King','Wright','Scott','Hill','Green','Adams','Baker'];
+const groups=['Senior','Senior','Junior','Junior','Age Group','Age Group','Age Group','Pre-Comp'];
+const events=['50 Free','100 Free','200 Free','500 Free','100 Back','100 Breast','100 Fly','200 IM'];
+
+function genAthletes(n){
+  const athletes=[];
+  for(let i=0;i<n;i++){
+    const fn=firstNames[Math.floor(Math.random()*firstNames.length)];
+    const ln=lastNames[Math.floor(Math.random()*lastNames.length)];
+    const group=groups[Math.floor(Math.random()*groups.length)];
+    const event=events[Math.floor(Math.random()*events.length)];
+    const monthsOnTeam=Math.floor(Math.random()*36)+1;
+
+    // Engagement signals (0-100, lower=worse)
+    const practiceAttendance=Math.floor(Math.random()*100);
+    const meetParticipation=Math.floor(Math.random()*100);
+    const parentEngagement=Math.floor(Math.random()*100);
+    const pbTrend=Math.floor(Math.random()*100);
+    const socialActivity=Math.floor(Math.random()*100);
+
+    // Time-based signals
+    const weeksSinceLastPractice=Math.floor(Math.random()*8);
+    const weeksSinceLastMeet=Math.floor(Math.random()*12);
+    const weeksSinceLastPB=Math.floor(Math.random()*24);
+
+    // Calculate risk score (0-100, higher=more at risk)
+    let risk=0;
+    risk+=(100-practiceAttendance)*0.25;
+    risk+=(100-meetParticipation)*0.20;
+    risk+=(100-parentEngagement)*0.15;
+    risk+=(100-pbTrend)*0.15;
+    risk+=weeksSinceLastPractice*3;
+    risk+=weeksSinceLastMeet*1.5;
+    if(monthsOnTeam<6) risk+=10; // new athlete flight risk
+    if(weeksSinceLastPB>16) risk+=8;
+    risk=Math.min(100,Math.max(0,Math.round(risk)));
+
+    // Monthly revenue (varies by group)
+    const revMap={Senior:175,Junior:150,'Age Group':125,'Pre-Comp':100};
+    const monthlyRev=revMap[group]||125;
+
+    athletes.push({
+      id:i,name:`${fn} ${ln}`,group,primaryEvent:event,
+      monthsOnTeam,monthlyRev,riskScore:risk,
+      signals:{practiceAttendance,meetParticipation,parentEngagement,pbTrend,socialActivity},
+      timing:{weeksSinceLastPractice,weeksSinceLastMeet,weeksSinceLastPB},
+      churnReasons:getChurnReasons(risk,practiceAttendance,meetParticipation,parentEngagement,pbTrend,weeksSinceLastPractice,weeksSinceLastMeet,weeksSinceLastPB)
+    });
+  }
+  return athletes.sort((a,b)=>b.riskScore-a.riskScore);
+}
+
+function getChurnReasons(risk,pa,mp,pe,pb,wlp,wlm,wlpb){
+  const reasons=[];
+  if(pa<30) reasons.push('Practice attendance dropped below 30%');
+  if(mp<25) reasons.push('Skipping meets — disengaged from competition');
+  if(pe<30) reasons.push('Parent communication has gone cold');
+  if(pb<20) reasons.push('No personal bests in months — plateau frustration');
+  if(wlp>=4) reasons.push(`${wlp} weeks since last practice — ghost risk`);
+  if(wlm>=8) reasons.push(`${wlm} weeks since last meet — checked out`);
+  if(wlpb>=16) reasons.push('16+ weeks without a PB — motivation crisis');
+  if(reasons.length===0) reasons.push('No critical warning signals detected');
+  return reasons;
+}
+
+const rosterData=genAthletes(240);
+
+// ============ RENDERING ============
+function riskClass(score){return score>=75?'critical':score>=40?'warning':'low'}
+function riskLabel(score){return score>=75?'Critical':score>=40?'Warning':'Low'}
+function riskColor(score){return score>=75?'var(--scarlet)':score>=40?'var(--gold)':'var(--green)'}
+function sigClass(val){return val<30?'bad':val<60?'warn':'good'}
+
+function renderStats(){
+  const critical=rosterData.filter(a=>a.riskScore>=75).length;
+  const warning=rosterData.filter(a=>a.riskScore>=40&&a.riskScore<75).length;
+  const low=rosterData.filter(a=>a.riskScore<40).length;
+  const avgRisk=Math.round(rosterData.reduce((s,a)=>s+a.riskScore,0)/rosterData.length);
+  document.getElementById('statsRow').innerHTML=`
+    <div class="stat-card"><div class="stat-value" style="color:var(--scarlet)">${critical}</div><div class="stat-label">Critical Risk</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--gold)">${warning}</div><div class="stat-label">Warning</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--green)">${low}</div><div class="stat-label">Low Risk</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--purple)">${avgRisk}</div><div class="stat-label">Avg Risk Score</div></div>
+    <div class="stat-card"><div class="stat-value" style="color:var(--white)">${rosterData.length}</div><div class="stat-label">Total Athletes</div></div>
+  `;
+
+  // Revenue at risk
+  const atRiskAthletes=rosterData.filter(a=>a.riskScore>=60);
+  const monthlyAtRisk=atRiskAthletes.reduce((s,a)=>s+a.monthlyRev*(a.riskScore/100),0);
+  document.getElementById('revenueAtRisk').textContent='$'+Math.round(monthlyAtRisk).toLocaleString();
+  document.getElementById('revenueNote').textContent=`${atRiskAthletes.length} athletes at elevated risk × weighted revenue probability. Annual: $${Math.round(monthlyAtRisk*12).toLocaleString()}`;
+}
+
+function renderCohort(){
+  const cohorts=[
+    {label:'0-3 months',filter:a=>a.monthsOnTeam<=3},
+    {label:'4-6 months',filter:a=>a.monthsOnTeam>3&&a.monthsOnTeam<=6},
+    {label:'7-12 months',filter:a=>a.monthsOnTeam>6&&a.monthsOnTeam<=12},
+    {label:'1-2 years',filter:a=>a.monthsOnTeam>12&&a.monthsOnTeam<=24},
+    {label:'2+ years',filter:a=>a.monthsOnTeam>24}
+  ];
+  let html='';
+  cohorts.forEach(c=>{
+    const members=rosterData.filter(c.filter);
+    const avgRisk=members.length?Math.round(members.reduce((s,a)=>s+a.riskScore,0)/members.length):0;
+    const color=riskColor(avgRisk);
+    html+=`<div class="cohort-row">
+      <div class="cohort-label">${c.label}</div>
+      <div class="cohort-bar-bg"><div class="cohort-bar" style="width:${avgRisk}%;background:${color}">${members.length} athletes</div></div>
+      <div class="cohort-pct" style="color:${color}">${avgRisk}%</div>
+    </div>`;
+  });
+  document.getElementById('cohortChart').innerHTML=html;
+}
+
+function renderCard(a){
+  const rc=riskClass(a.riskScore);
+  return `<div class="athlete-card risk-${rc}" onclick="showDetail(${a.id})">
+    <div class="card-header">
+      <div class="athlete-name">${a.name}</div>
+      <span class="risk-badge">${riskLabel(a.riskScore)} — ${a.riskScore}</span>
+    </div>
+    <div class="risk-score-bar"><div class="risk-score-fill" style="width:${a.riskScore}%;background:${riskColor(a.riskScore)}"></div></div>
+    <div class="signal-grid">
+      <div class="signal">Practice <span class="signal-val ${sigClass(a.signals.practiceAttendance)}">${a.signals.practiceAttendance}%</span></div>
+      <div class="signal">Meets <span class="signal-val ${sigClass(a.signals.meetParticipation)}">${a.signals.meetParticipation}%</span></div>
+      <div class="signal">Parent <span class="signal-val ${sigClass(a.signals.parentEngagement)}">${a.signals.parentEngagement}%</span></div>
+      <div class="signal">PB Trend <span class="signal-val ${sigClass(a.signals.pbTrend)}">${a.signals.pbTrend}%</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:8px">${a.group} · ${a.primaryEvent} · ${a.monthsOnTeam}mo · $${a.monthlyRev}/mo</div>
+  </div>`;
+}
+
+function renderCritical(){
+  const critical=rosterData.filter(a=>a.riskScore>=75).slice(0,6);
+  document.getElementById('criticalGrid').innerHTML=critical.map(renderCard).join('');
+}
+
+function renderFullRoster(){
+  let filtered=[...rosterData];
+  const rf=document.getElementById('riskFilter').value;
+  const gf=document.getElementById('groupFilter').value;
+  const sb=document.getElementById('sortBy').value;
+  if(rf==='critical') filtered=filtered.filter(a=>a.riskScore>=75);
+  else if(rf==='warning') filtered=filtered.filter(a=>a.riskScore>=40&&a.riskScore<75);
+  else if(rf==='low') filtered=filtered.filter(a=>a.riskScore<40);
+  if(gf!=='all') filtered=filtered.filter(a=>a.group===gf);
+  if(sb==='name') filtered.sort((a,b)=>a.name.localeCompare(b.name));
+  else if(sb==='revenue') filtered.sort((a,b)=>b.monthlyRev-a.monthlyRev);
+  else filtered.sort((a,b)=>b.riskScore-a.riskScore);
+  document.getElementById('fullRoster').innerHTML=filtered.map(renderCard).join('');
+}
+
+function renderWinback(){
+  const atRisk=rosterData.filter(a=>a.riskScore>=40);
+  document.getElementById('winbackRoster').innerHTML=atRisk.map(renderCard).join('');
+}
+
+// ============ DETAIL PANEL ============
+function showDetail(id){
+  const a=rosterData.find(x=>x.id===id);
+  if(!a) return;
+  const rc=riskClass(a.riskScore);
+  const seq=generateWinbackSequence(a);
+
+  document.getElementById('detailPanel').innerHTML=`
+    <button class="detail-close" onclick="closeDetail()">×</button>
+    <h2 style="font-size:22px;color:var(--white)">${a.name}</h2>
+    <p style="color:var(--muted);font-size:13px">${a.group} · ${a.primaryEvent} · ${a.monthsOnTeam} months on team · $${a.monthlyRev}/mo</p>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+      <span class="risk-badge" style="font-size:14px;padding:6px 14px;${rc==='critical'?'background:rgba(220,38,38,.15);color:var(--scarlet)':rc==='warning'?'background:rgba(245,158,11,.15);color:var(--gold)':'background:rgba(34,197,94,.15);color:var(--green)'}">${riskLabel(a.riskScore)} Risk — ${a.riskScore}/100</span>
+    </div>
+
+    <div class="detail-section">
+      <h3>Engagement Signals</h3>
+      <div class="signal-grid" style="gap:10px">
+        <div class="signal">Practice Attendance <span class="signal-val ${sigClass(a.signals.practiceAttendance)}">${a.signals.practiceAttendance}%</span></div>
+        <div class="signal">Meet Participation <span class="signal-val ${sigClass(a.signals.meetParticipation)}">${a.signals.meetParticipation}%</span></div>
+        <div class="signal">Parent Engagement <span class="signal-val ${sigClass(a.signals.parentEngagement)}">${a.signals.parentEngagement}%</span></div>
+        <div class="signal">PB Trend <span class="signal-val ${sigClass(a.signals.pbTrend)}">${a.signals.pbTrend}%</span></div>
+        <div class="signal">Social Activity <span class="signal-val ${sigClass(a.signals.socialActivity)}">${a.signals.socialActivity}%</span></div>
+        <div class="signal">Last Practice <span class="signal-val ${a.timing.weeksSinceLastPractice>=4?'bad':a.timing.weeksSinceLastPractice>=2?'warn':'good'}">${a.timing.weeksSinceLastPractice}w ago</span></div>
+        <div class="signal">Last Meet <span class="signal-val ${a.timing.weeksSinceLastMeet>=8?'bad':a.timing.weeksSinceLastMeet>=4?'warn':'good'}">${a.timing.weeksSinceLastMeet}w ago</span></div>
+        <div class="signal">Last PB <span class="signal-val ${a.timing.weeksSinceLastPB>=16?'bad':a.timing.weeksSinceLastPB>=8?'warn':'good'}">${a.timing.weeksSinceLastPB}w ago</span></div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Churn Risk Factors</h3>
+      <div class="timeline">
+        ${a.churnReasons.map(r=>`<div class="timeline-item"><div class="timeline-event">${r}</div></div>`).join('')}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h3>Personalized Win-Back Sequence</h3>
+      <div class="winback-sequence">
+        ${seq.map((s,i)=>`<div class="winback-step">
+          <div class="step-num">${i+1}</div>
+          <div class="step-content">
+            <div class="step-channel">${s.channel}</div>
+            <div class="step-msg">${s.message}</div>
+            <div class="step-timing">${s.timing}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      <button class="copy-btn" onclick="copySequence(${a.id})">Copy Sequence to Clipboard</button>
+    </div>
+
+    <div class="detail-section">
+      <h3>Revenue Impact</h3>
+      <p style="font-size:14px">Losing ${a.name} costs <strong style="color:var(--scarlet)">$${(a.monthlyRev*12).toLocaleString()}/year</strong>. With a ${a.group} replacement cost of ~$${Math.round(a.monthlyRev*2).toLocaleString()} in acquisition spend, total impact: <strong style="color:var(--scarlet)">$${(a.monthlyRev*14).toLocaleString()}</strong>.</p>
+    </div>
+  `;
+  document.getElementById('detailOverlay').classList.add('open');
+}
+
+function closeDetail(){document.getElementById('detailOverlay').classList.remove('open')}
+document.getElementById('detailOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)closeDetail()});
+
+// ============ WIN-BACK SEQUENCE GENERATOR ============
+function generateWinbackSequence(a){
+  const seq=[];
+  const name=a.name.split(' ')[0];
+
+  // Step 1: Always starts with coach outreach
+  if(a.timing.weeksSinceLastPractice>=4){
+    seq.push({channel:'Coach Text',message:`Hey ${name}, Coach noticed you've been away. We miss having you on deck. Everything okay? No pressure — just checking in.`,timing:'Day 1 — within 24 hours of risk detection'});
+  } else if(a.signals.practiceAttendance<40){
+    seq.push({channel:'Coach Text',message:`${name}, wanted to reach out personally. I've been working on some new sets I think you'd really enjoy. Would love to see you at practice this week.`,timing:'Day 1 — personal touch'});
+  } else {
+    seq.push({channel:'Coach Email',message:`Hi ${name}, just wanted to let you know about some exciting things coming up on the team. We have a fun meet weekend coming up and I think you'd really shine in the ${a.primaryEvent}.`,timing:'Day 1 — warm outreach'});
+  }
+
+  // Step 2: Parent engagement
+  if(a.signals.parentEngagement<40){
+    seq.push({channel:'Parent Email',message:`Hi [Parent Name], I wanted to personally reach out about ${name}'s journey on the team. Swimming teaches resilience, discipline, and teamwork — and ${name} has shown real growth in the ${a.primaryEvent}. I'd love to schedule a quick 10-minute call to discuss how we can keep ${name} motivated and progressing.`,timing:'Day 3 — engage the decision-maker'});
+  } else {
+    seq.push({channel:'Parent App Notification',message:`${name}'s progress report is ready! See their ${a.primaryEvent} times, attendance streak, and upcoming meet schedule in the METTLE parent portal.`,timing:'Day 3 — value reinforcement'});
+  }
+
+  // Step 3: Social proof / team connection
+  if(a.signals.meetParticipation<30){
+    seq.push({channel:'Team Group Chat',message:`Shoutout to the ${a.group} squad — next meet is going to be 🔥. Who's racing ${a.primaryEvent}? Tag your lane mates!`,timing:'Day 5 — FOMO + social belonging'});
+  } else {
+    seq.push({channel:'Team Event',message:`Invite ${name} to the upcoming team social/pizza party/movie night. Peer connection reduces churn more than coaching alone.`,timing:'Day 5 — social anchor'});
+  }
+
+  // Step 4: Value add based on PB trend
+  if(a.signals.pbTrend<30){
+    seq.push({channel:'Coach 1-on-1',message:`Schedule a 15-min technique session with ${name} focused on ${a.primaryEvent} turns and underwaters. Show them a concrete path to their next PB. Athletes who see improvement pathways are 3x less likely to quit.`,timing:'Day 7 — progress catalyst'});
+  } else {
+    seq.push({channel:'App Achievement',message:`Unlock a milestone badge for ${name}: "${a.monthsOnTeam >= 12 ? 'Year-Round Warrior' : 'Rising Competitor'}" — celebrate consistency, not just speed.`,timing:'Day 7 — gamification hook'});
+  }
+
+  // Step 5: Last resort for critical
+  if(a.riskScore>=75){
+    seq.push({channel:'Coach Call',message:`Direct phone call from head coach to parent. Topic: "${name}'s future in swimming." Frame it as investment in the athlete's development, not retention. Offer a modified schedule or payment plan if needed. This is the save-the-deal moment.`,timing:'Day 10 — executive escalation'});
+  }
+
+  return seq;
+}
+
+// ============ COPY ============
+function copySequence(id){
+  const a=rosterData.find(x=>x.id===id);
+  const seq=generateWinbackSequence(a);
+  let text=`WIN-BACK SEQUENCE: ${a.name} (Risk: ${a.riskScore}/100)\n${'='.repeat(50)}\n\n`;
+  seq.forEach((s,i)=>{text+=`Step ${i+1} — ${s.channel}\nTiming: ${s.timing}\nMessage: ${s.message}\n\n`});
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='Copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='Copy Sequence to Clipboard';btn.classList.remove('copied')},2000);
+  });
+}
+
+// ============ EXPORTS ============
+function exportCSV(){
+  let csv='Name,Group,Event,Risk Score,Risk Level,Monthly Rev,Practice %,Meet %,Parent %,PB Trend,Weeks Since Practice,Weeks Since Meet,Top Churn Reason\n';
+  rosterData.forEach(a=>{
+    csv+=`"${a.name}",${a.group},${a.primaryEvent},${a.riskScore},${riskLabel(a.riskScore)},${a.monthlyRev},${a.signals.practiceAttendance},${a.signals.meetParticipation},${a.signals.parentEngagement},${a.signals.pbTrend},${a.timing.weeksSinceLastPractice},${a.timing.weeksSinceLastMeet},"${a.churnReasons[0]}"\n`;
+  });
+  downloadFile('mettle-churn-report.csv',csv,'text/csv');
+}
+
+function exportJSON(){
+  const leads=rosterData.filter(a=>a.riskScore>=40).map(a=>({
+    athlete_name:a.name,group:a.group,risk_score:a.riskScore,risk_level:riskLabel(a.riskScore),
+    monthly_revenue:a.monthlyRev,annual_revenue_at_risk:a.monthlyRev*12,
+    churn_reasons:a.churnReasons,
+    winback_sequence:generateWinbackSequence(a).map(s=>({channel:s.channel,message:s.message,timing:s.timing})),
+    signals:a.signals,timing:a.timing
+  }));
+  downloadFile('mettle-churn-leads.json',JSON.stringify(leads,null,2),'application/json');
+}
+
+function downloadFile(name,content,type){
+  const blob=new Blob([content],{type});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=name;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// ============ SIMULATION ============
+function runSimulation(){
+  const teamSize=+document.getElementById('simTeamSize').value;
+  const avgRev=+document.getElementById('simAvgRev').value;
+  const churnRate=+document.getElementById('simChurnRate').value/100;
+  const winbackRate=+document.getElementById('simWinback').value/100;
+
+  let html='<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px">';
+  html+='<h3 style="color:var(--white);margin-bottom:16px">12-Month Churn Simulation</h3>';
+
+  let currentSize=teamSize;
+  let totalLost=0;
+  let totalSaved=0;
+  let totalRevLost=0;
+  let totalRevSaved=0;
+
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px">';
+  for(let m=1;m<=12;m++){
+    const churning=Math.round(currentSize*churnRate);
+    const saved=Math.round(churning*winbackRate);
+    const netLost=churning-saved;
+    currentSize-=netLost;
+    totalLost+=netLost;
+    totalSaved+=saved;
+    totalRevLost+=netLost*avgRev*12;
+    totalRevSaved+=saved*avgRev*12;
+
+    html+=`<div style="background:var(--bg);border-radius:8px;padding:10px;text-align:center">
+      <div style="font-size:11px;color:var(--muted)">Month ${m}</div>
+      <div style="font-size:18px;font-weight:700;color:var(--white)">${currentSize}</div>
+      <div style="font-size:11px;color:var(--scarlet)">-${netLost}</div>
+      <div style="font-size:11px;color:var(--green)">↩ ${saved} saved</div>
+    </div>`;
+  }
+  html+='</div>';
+
+  const noIntervention=teamSize-Math.round(teamSize*Math.pow(1-churnRate,12));
+  const withIntervention=totalLost;
+
+  html+=`<div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px">
+    <div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--scarlet)">${noIntervention}</div><div style="font-size:12px;color:var(--muted)">Lost without METTLE</div></div>
+    <div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--gold)">${withIntervention}</div><div style="font-size:12px;color:var(--muted)">Lost with win-back</div></div>
+    <div style="text-align:center"><div style="font-size:28px;font-weight:700;color:var(--green)">${totalSaved}</div><div style="font-size:12px;color:var(--muted)">Athletes saved</div></div>
+  </div>`;
+  html+=`<div style="margin-top:16px;text-align:center;padding:16px;background:linear-gradient(135deg,rgba(34,197,94,.1),rgba(124,58,237,.1));border-radius:10px">
+    <div style="font-size:14px;color:var(--muted)">Revenue Preserved by Win-Back</div>
+    <div style="font-size:36px;font-weight:700;color:var(--green)">$${totalRevSaved.toLocaleString()}</div>
+    <div style="font-size:12px;color:var(--muted)">over 12 months at $${avgRev}/athlete/month</div>
+  </div>`;
+  html+='</div>';
+  document.getElementById('simResults').innerHTML=html;
+}
+
+// ============ TAB NAVIGATION ============
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    ['dashboard','roster','winback','simulate'].forEach(id=>{
+      document.getElementById('tab-'+id).style.display=id===t.dataset.tab?'block':'none';
+    });
+    if(t.dataset.tab==='roster') renderFullRoster();
+    if(t.dataset.tab==='winback') renderWinback();
+  });
+});
+
+// ============ FILTER LISTENERS ============
+document.getElementById('riskFilter').addEventListener('change',renderFullRoster);
+document.getElementById('sortBy').addEventListener('change',renderFullRoster);
+document.getElementById('groupFilter').addEventListener('change',renderFullRoster);
+
+// ============ INIT ============
+renderStats();
+renderCohort();
+renderCritical();
+</script>
+</body>
+</html>

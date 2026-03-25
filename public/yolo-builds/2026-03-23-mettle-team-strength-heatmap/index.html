@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Team Strength Heat Map</title>
+<style>
+:root {
+  --bg: #0a0a1a;
+  --surface: #12122a;
+  --border: #2a2a4a;
+  --text: #e0e0f0;
+  --muted: #8888aa;
+  --purple: #9b59b6;
+  --scarlet: #e74c3c;
+  --gold: #f1c40f;
+  --blue: #3498db;
+  --green: #2ecc71;
+  --cyan: #00d4aa;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:'Segoe UI',system-ui,sans-serif; min-height:100vh; }
+.header { padding:24px 32px; border-bottom:2px solid var(--border); display:flex; align-items:center; gap:16px; }
+.header h1 { font-size:1.4rem; letter-spacing:2px; }
+.header .brand { color:var(--purple); font-weight:800; }
+.header .subtitle { color:var(--muted); font-size:0.85rem; margin-left:auto; }
+.tabs { display:flex; gap:0; border-bottom:2px solid var(--border); padding:0 32px; }
+.tab { padding:12px 24px; cursor:pointer; color:var(--muted); font-size:0.85rem; font-weight:600; letter-spacing:1px; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; }
+.tab:hover { color:var(--text); }
+.tab.active { color:var(--cyan); border-bottom-color:var(--cyan); }
+.container { padding:24px 32px; max-width:1400px; }
+.panel { display:none; }
+.panel.active { display:block; }
+
+/* Setup Panel */
+.setup-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+.setup-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; }
+.setup-card h3 { font-size:0.9rem; color:var(--cyan); margin-bottom:12px; letter-spacing:1px; }
+.input-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+.input-row label { font-size:0.75rem; color:var(--muted); width:100px; flex-shrink:0; }
+.input-row input, .input-row select { background:var(--bg); border:1px solid var(--border); color:var(--text); padding:6px 10px; border-radius:4px; font-size:0.8rem; flex:1; }
+.input-row input:focus, .input-row select:focus { outline:none; border-color:var(--cyan); }
+.btn { padding:8px 20px; border:none; border-radius:4px; font-size:0.8rem; font-weight:600; cursor:pointer; letter-spacing:1px; transition:all 0.2s; }
+.btn-primary { background:var(--cyan); color:var(--bg); }
+.btn-primary:hover { opacity:0.85; }
+.btn-secondary { background:transparent; border:1px solid var(--border); color:var(--muted); }
+.btn-secondary:hover { border-color:var(--cyan); color:var(--cyan); }
+.btn-danger { background:var(--scarlet); color:white; }
+
+/* Swimmer List */
+.swimmer-list { max-height:300px; overflow-y:auto; }
+.swimmer-item { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); font-size:0.8rem; }
+.swimmer-item .name { flex:1; }
+.swimmer-item .events { color:var(--muted); font-size:0.7rem; }
+.swimmer-item .remove { color:var(--scarlet); cursor:pointer; font-size:0.7rem; }
+
+/* Heat Map */
+.heatmap-container { overflow-x:auto; }
+table.heatmap { border-collapse:collapse; width:100%; font-size:0.75rem; }
+table.heatmap th { padding:8px 6px; text-align:center; color:var(--muted); font-weight:600; font-size:0.7rem; letter-spacing:0.5px; border-bottom:2px solid var(--border); position:sticky; top:0; background:var(--bg); }
+table.heatmap th.event-header { writing-mode:vertical-lr; transform:rotate(180deg); height:100px; white-space:nowrap; }
+table.heatmap td { padding:6px; text-align:center; border:1px solid rgba(42,42,74,0.5); min-width:50px; cursor:default; position:relative; }
+table.heatmap tr:hover { background:rgba(0,212,170,0.03); }
+table.heatmap td.cell-0 { background:rgba(231,76,60,0.15); color:var(--scarlet); }
+table.heatmap td.cell-1 { background:rgba(231,76,60,0.3); color:var(--scarlet); }
+table.heatmap td.cell-2 { background:rgba(241,196,15,0.2); color:var(--gold); }
+table.heatmap td.cell-3 { background:rgba(46,204,113,0.2); color:var(--green); }
+table.heatmap td.cell-4 { background:rgba(46,204,113,0.35); color:var(--green); }
+table.heatmap td.cell-5 { background:rgba(0,212,170,0.4); color:var(--cyan); font-weight:700; }
+table.heatmap td.desert { background:rgba(231,76,60,0.08); }
+table.heatmap .swimmer-name { text-align:left; font-weight:600; color:var(--text); white-space:nowrap; padding-left:12px; min-width:140px; }
+.tooltip { position:fixed; background:var(--surface); border:1px solid var(--cyan); border-radius:6px; padding:10px 14px; font-size:0.75rem; pointer-events:none; z-index:999; display:none; max-width:220px; }
+.tooltip .tt-event { color:var(--cyan); font-weight:700; margin-bottom:4px; }
+.tooltip .tt-time { font-size:0.9rem; color:var(--gold); }
+.tooltip .tt-pct { color:var(--muted); font-size:0.7rem; }
+
+/* Scoring Panel */
+.scoring-grid { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+.score-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; }
+.score-card h3 { font-size:0.85rem; color:var(--cyan); margin-bottom:12px; }
+.score-big { font-size:2.4rem; font-weight:800; color:var(--gold); }
+.score-label { font-size:0.7rem; color:var(--muted); margin-top:4px; }
+.event-score-bar { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:0.75rem; }
+.event-score-bar .ev-name { width:80px; text-align:right; color:var(--muted); }
+.event-score-bar .bar-bg { flex:1; height:14px; background:var(--bg); border-radius:3px; overflow:hidden; }
+.event-score-bar .bar-fill { height:100%; border-radius:3px; transition:width 0.5s; }
+.event-score-bar .ev-pts { width:40px; text-align:right; font-weight:600; }
+
+/* Gap Analysis */
+.gap-list { list-style:none; }
+.gap-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
+.gap-severity { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.gap-severity.critical { background:var(--scarlet); }
+.gap-severity.warning { background:var(--gold); }
+.gap-severity.info { background:var(--blue); }
+.gap-event { font-weight:600; font-size:0.85rem; width:100px; }
+.gap-detail { font-size:0.75rem; color:var(--muted); flex:1; }
+.gap-action { font-size:0.7rem; color:var(--cyan); white-space:nowrap; }
+
+/* Recruit Panel */
+.recruit-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; margin-bottom:16px; }
+.recruit-card h3 { font-size:0.85rem; color:var(--purple); margin-bottom:8px; }
+.recruit-priority { display:inline-block; padding:2px 8px; border-radius:3px; font-size:0.65rem; font-weight:700; letter-spacing:1px; margin-bottom:8px; }
+.recruit-priority.p1 { background:rgba(231,76,60,0.2); color:var(--scarlet); }
+.recruit-priority.p2 { background:rgba(241,196,15,0.2); color:var(--gold); }
+.recruit-priority.p3 { background:rgba(52,152,219,0.2); color:var(--blue); }
+.recruit-detail { font-size:0.8rem; color:var(--muted); line-height:1.5; }
+
+/* Depth Chart */
+.depth-row { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); }
+.depth-event { width:80px; font-size:0.75rem; color:var(--muted); text-align:right; }
+.depth-swimmers { display:flex; gap:4px; flex:1; }
+.depth-chip { padding:3px 8px; border-radius:3px; font-size:0.65rem; font-weight:600; }
+.depth-chip.top { background:rgba(0,212,170,0.2); color:var(--cyan); }
+.depth-chip.mid { background:rgba(241,196,15,0.15); color:var(--gold); }
+.depth-chip.low { background:rgba(231,76,60,0.15); color:var(--scarlet); }
+.depth-empty { font-size:0.65rem; color:var(--scarlet); font-style:italic; }
+
+/* Summary stats */
+.stats-row { display:flex; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
+.stat-box { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:14px 20px; text-align:center; flex:1; min-width:120px; }
+.stat-val { font-size:1.6rem; font-weight:800; }
+.stat-label { font-size:0.65rem; color:var(--muted); margin-top:2px; letter-spacing:1px; }
+
+@media (max-width:768px) {
+  .setup-grid, .scoring-grid { grid-template-columns:1fr; }
+  .container { padding:16px; }
+  .header { padding:16px; }
+  .tabs { padding:0 16px; overflow-x:auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span class="brand">METTLE</span> // TEAM STRENGTH HEAT MAP</h1>
+  <span class="subtitle">Roster depth analysis & event coverage intelligence</span>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="setup">ROSTER</div>
+  <div class="tab" data-tab="heatmap">HEAT MAP</div>
+  <div class="tab" data-tab="scoring">SCORING</div>
+  <div class="tab" data-tab="gaps">GAP ANALYSIS</div>
+  <div class="tab" data-tab="recruit">RECRUITING</div>
+</div>
+
+<div class="container">
+  <!-- SETUP -->
+  <div class="panel active" id="panel-setup">
+    <div class="stats-row" id="roster-stats"></div>
+    <div class="setup-grid">
+      <div class="setup-card">
+        <h3>ADD SWIMMER</h3>
+        <div class="input-row"><label>Name</label><input type="text" id="inp-name" placeholder="e.g. Jordan Smith"></div>
+        <div class="input-row"><label>Age Group</label>
+          <select id="inp-age"><option>10&Under</option><option>11-12</option><option selected>13-14</option><option>15-16</option><option>17-18</option><option>Senior</option></select>
+        </div>
+        <div class="input-row"><label>Gender</label>
+          <select id="inp-gender"><option>M</option><option>F</option></select>
+        </div>
+        <div style="margin:12px 0 8px;font-size:0.75rem;color:var(--muted)">EVENT TIMES (mm:ss.xx or ss.xx)</div>
+        <div id="event-inputs"></div>
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="addSwimmer()">ADD SWIMMER</button>
+          <button class="btn btn-secondary" onclick="loadSample()">LOAD SAMPLE TEAM</button>
+        </div>
+      </div>
+      <div class="setup-card">
+        <h3>ROSTER (<span id="roster-count">0</span>)</h3>
+        <div class="swimmer-list" id="swimmer-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEAT MAP -->
+  <div class="panel" id="panel-heatmap">
+    <div class="stats-row" id="heatmap-stats"></div>
+    <div class="heatmap-container" id="heatmap-container"></div>
+  </div>
+
+  <!-- SCORING -->
+  <div class="panel" id="panel-scoring">
+    <div class="scoring-grid" id="scoring-container"></div>
+  </div>
+
+  <!-- GAP ANALYSIS -->
+  <div class="panel" id="panel-gaps">
+    <div class="stats-row" id="gap-stats"></div>
+    <div id="gap-container"></div>
+  </div>
+
+  <!-- RECRUITING -->
+  <div class="panel" id="panel-recruit">
+    <div id="recruit-container"></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const EVENTS = [
+  { id:'50fr', name:'50 Free', dist:50, stroke:'free' },
+  { id:'100fr', name:'100 Free', dist:100, stroke:'free' },
+  { id:'200fr', name:'200 Free', dist:200, stroke:'free' },
+  { id:'500fr', name:'500 Free', dist:500, stroke:'free' },
+  { id:'100bk', name:'100 Back', dist:100, stroke:'back' },
+  { id:'200bk', name:'200 Back', dist:200, stroke:'back' },
+  { id:'100br', name:'100 Breast', dist:100, stroke:'breast' },
+  { id:'200br', name:'200 Breast', dist:200, stroke:'breast' },
+  { id:'100fl', name:'100 Fly', dist:100, stroke:'fly' },
+  { id:'200fl', name:'200 Fly', dist:200, stroke:'fly' },
+  { id:'200im', name:'200 IM', dist:200, stroke:'im' },
+  { id:'400im', name:'400 IM', dist:400, stroke:'im' }
+];
+
+// Benchmark times (seconds) for 13-14 age group — used as reference percentiles
+// Approximately: AA=top tier, A=competitive, BB=developing, B=novice
+const BENCHMARKS = {
+  '50fr':  { aa:24.0, a:27.0, bb:30.0, b:35.0 },
+  '100fr': { aa:52.0, a:58.0, bb:65.0, b:75.0 },
+  '200fr': { aa:115.0, a:128.0, bb:145.0, b:165.0 },
+  '500fr': { aa:310.0, a:345.0, bb:390.0, b:450.0 },
+  '100bk': { aa:58.0, a:65.0, bb:73.0, b:85.0 },
+  '200bk': { aa:125.0, a:140.0, bb:158.0, b:180.0 },
+  '100br': { aa:63.0, a:71.0, bb:80.0, b:92.0 },
+  '200br': { aa:138.0, a:155.0, bb:175.0, b:200.0 },
+  '100fl': { aa:56.0, a:63.0, bb:72.0, b:84.0 },
+  '200fl': { aa:125.0, a:140.0, bb:160.0, b:185.0 },
+  '200im': { aa:120.0, a:135.0, bb:152.0, b:175.0 },
+  '400im': { aa:265.0, a:295.0, bb:335.0, b:385.0 }
+};
+
+// Dual meet scoring (top 3 per event): 6-4-2 for individual, 8 for relay
+const DUAL_SCORING = [6, 4, 2];
+
+let swimmers = [];
+let activeTab = 'setup';
+
+// Parse time string to seconds
+function parseTime(s) {
+  if (!s || !s.trim()) return null;
+  s = s.trim();
+  if (s.includes(':')) {
+    const [m, rest] = s.split(':');
+    return parseFloat(m) * 60 + parseFloat(rest);
+  }
+  return parseFloat(s);
+}
+
+// Format seconds to mm:ss.xx
+function fmtTime(secs) {
+  if (secs == null) return '—';
+  if (secs >= 60) {
+    const m = Math.floor(secs / 60);
+    const s = (secs % 60).toFixed(2).padStart(5, '0');
+    return m + ':' + s;
+  }
+  return secs.toFixed(2);
+}
+
+// Score a time against benchmarks: 0-5 scale
+function scoreTime(eventId, timeSecs) {
+  if (timeSecs == null) return -1;
+  const b = BENCHMARKS[eventId];
+  if (!b) return -1;
+  if (timeSecs <= b.aa) return 5;
+  if (timeSecs <= b.a) return 4;
+  if (timeSecs <= b.bb) return 3;
+  if (timeSecs <= b.b) return 2;
+  if (timeSecs <= b.b * 1.15) return 1;
+  return 0;
+}
+
+function scorePctLabel(score) {
+  return ['Novice','Developing','B Standard','BB Standard','A Standard','AA+ Elite'][Math.max(0,score)] || '—';
+}
+
+// Build event inputs
+function buildEventInputs() {
+  const c = document.getElementById('event-inputs');
+  c.innerHTML = EVENTS.map(e =>
+    `<div class="input-row"><label>${e.name}</label><input type="text" id="inp-${e.id}" placeholder="e.g. ${fmtTime(BENCHMARKS[e.id].a)}"></div>`
+  ).join('');
+}
+
+function addSwimmer() {
+  const name = document.getElementById('inp-name').value.trim();
+  if (!name) return alert('Enter swimmer name');
+  const age = document.getElementById('inp-age').value;
+  const gender = document.getElementById('inp-gender').value;
+  const times = {};
+  let hasAny = false;
+  EVENTS.forEach(e => {
+    const t = parseTime(document.getElementById('inp-' + e.id).value);
+    if (t != null) { times[e.id] = t; hasAny = true; }
+  });
+  if (!hasAny) return alert('Enter at least one event time');
+  swimmers.push({ name, age, gender, times });
+  EVENTS.forEach(e => document.getElementById('inp-' + e.id).value = '');
+  document.getElementById('inp-name').value = '';
+  renderRoster();
+  save();
+}
+
+function removeSwimmer(i) {
+  swimmers.splice(i, 1);
+  renderRoster();
+  save();
+}
+
+function renderRoster() {
+  document.getElementById('roster-count').textContent = swimmers.length;
+  const list = document.getElementById('swimmer-list');
+  if (!swimmers.length) { list.innerHTML = '<div style="color:var(--muted);font-size:0.8rem;padding:20px">No swimmers added. Load sample team or add manually.</div>'; return; }
+  list.innerHTML = swimmers.map((s, i) => {
+    const evts = Object.keys(s.times).length;
+    return `<div class="swimmer-item"><span class="name">${s.name}</span><span class="events">${s.age} ${s.gender} · ${evts} events</span><span class="remove" onclick="removeSwimmer(${i})">✕</span></div>`;
+  }).join('');
+  // Stats
+  const gm = swimmers.filter(s => s.gender === 'M').length;
+  const gf = swimmers.filter(s => s.gender === 'F').length;
+  const totalEvents = swimmers.reduce((a, s) => a + Object.keys(s.times).length, 0);
+  document.getElementById('roster-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val">${swimmers.length}</div><div class="stat-label">SWIMMERS</div></div>
+    <div class="stat-box"><div class="stat-val">${gm}/${gf}</div><div class="stat-label">M / F</div></div>
+    <div class="stat-box"><div class="stat-val">${totalEvents}</div><div class="stat-label">ENTRIES</div></div>
+    <div class="stat-box"><div class="stat-val">${(totalEvents / swimmers.length).toFixed(1)}</div><div class="stat-label">AVG EVENTS/SWIMMER</div></div>
+  `;
+}
+
+function loadSample() {
+  swimmers = [
+    { name:'Alex Rivera', age:'13-14', gender:'M', times:{'50fr':26.5,'100fr':57.8,'200fr':125.3,'100bk':63.2,'200im':130.5} },
+    { name:'Jordan Chen', age:'13-14', gender:'M', times:{'50fr':25.1,'100fr':54.9,'100fl':58.2,'200im':126.8} },
+    { name:'Marcus Bell', age:'13-14', gender:'M', times:{'100br':68.4,'200br':150.2,'200im':135.6} },
+    { name:'Ethan Park', age:'13-14', gender:'M', times:{'50fr':28.3,'100fr':62.1,'500fr':340.5,'200fr':132.8} },
+    { name:'Dylan Scott', age:'13-14', gender:'M', times:{'100bk':66.8,'200bk':142.5,'100fl':64.3} },
+    { name:'Noah Williams', age:'13-14', gender:'M', times:{'50fr':27.9,'100fr':60.5,'100br':72.1,'200im':140.2} },
+    { name:'Liam Foster', age:'13-14', gender:'M', times:{'500fr':330.0,'200fr':128.5,'200bk':145.8,'400im':290.5} },
+    { name:'Sofia Martinez', age:'13-14', gender:'F', times:{'50fr':27.2,'100fr':59.5,'200fr':130.1,'100fl':63.8,'200im':132.4} },
+    { name:'Emma Johnson', age:'13-14', gender:'F', times:{'50fr':28.8,'100fr':63.2,'100bk':67.5,'200bk':148.3} },
+    { name:'Mia Thompson', age:'13-14', gender:'F', times:{'100br':70.5,'200br':155.8,'200im':138.9,'100fl':66.2} },
+    { name:'Ava Garcia', age:'13-14', gender:'F', times:{'50fr':26.4,'100fr':57.1,'200fr':126.3,'500fr':335.2} },
+    { name:'Lily Chang', age:'13-14', gender:'F', times:{'100bk':65.2,'100fl':62.5,'200fl':138.5,'200im':128.7} },
+    { name:'Chloe Davis', age:'13-14', gender:'F', times:{'50fr':29.5,'100fr':65.0,'200fr':140.8} },
+    { name:'Isabella Kim', age:'13-14', gender:'F', times:{'100br':73.8,'200br':162.5,'100bk':70.2} },
+  ];
+  renderRoster();
+  save();
+}
+
+// HEAT MAP
+function renderHeatmap() {
+  if (!swimmers.length) {
+    document.getElementById('heatmap-container').innerHTML = '<div style="color:var(--muted);padding:40px;text-align:center">Add swimmers in the Roster tab first.</div>';
+    return;
+  }
+  // Stats
+  let deserts = 0, strong = 0, entries = 0;
+  EVENTS.forEach(e => {
+    const count = swimmers.filter(s => s.times[e.id] != null).length;
+    if (count === 0) deserts++;
+    if (count >= 3) strong++;
+    entries += count;
+  });
+  document.getElementById('heatmap-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val" style="color:var(--cyan)">${strong}</div><div class="stat-label">STRONG EVENTS (3+)</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:var(--scarlet)">${deserts}</div><div class="stat-label">EVENT DESERTS (0)</div></div>
+    <div class="stat-box"><div class="stat-val">${entries}</div><div class="stat-label">TOTAL ENTRIES</div></div>
+    <div class="stat-box"><div class="stat-val">${((entries / (swimmers.length * EVENTS.length)) * 100).toFixed(0)}%</div><div class="stat-label">COVERAGE</div></div>
+  `;
+
+  let html = '<table class="heatmap"><thead><tr><th></th>';
+  EVENTS.forEach(e => { html += `<th class="event-header">${e.name}</th>`; });
+  html += '<th class="event-header">Versatility</th></tr></thead><tbody>';
+
+  // Sort swimmers by total score descending
+  const scored = swimmers.map((s, idx) => {
+    let total = 0, count = 0;
+    EVENTS.forEach(e => {
+      const sc = scoreTime(e.id, s.times[e.id]);
+      if (sc >= 0) { total += sc; count++; }
+    });
+    return { ...s, idx, totalScore: total, eventCount: count };
+  }).sort((a, b) => b.totalScore - a.totalScore);
+
+  scored.forEach(s => {
+    html += `<tr><td class="swimmer-name">${s.name}</td>`;
+    EVENTS.forEach(e => {
+      const t = s.times[e.id];
+      const sc = scoreTime(e.id, t);
+      const cls = sc >= 0 ? `cell-${sc}` : 'desert';
+      const display = t != null ? fmtTime(t) : '';
+      html += `<td class="${cls}" data-swimmer="${s.name}" data-event="${e.name}" data-time="${t||''}" data-score="${sc}">${display}</td>`;
+    });
+    // Versatility score
+    const versatility = s.eventCount;
+    const vColor = versatility >= 5 ? 'var(--cyan)' : versatility >= 3 ? 'var(--gold)' : 'var(--scarlet)';
+    html += `<td style="color:${vColor};font-weight:700">${versatility}/${EVENTS.length}</td>`;
+    html += '</tr>';
+  });
+
+  // Summary row: depth per event
+  html += '<tr style="border-top:2px solid var(--cyan)"><td class="swimmer-name" style="color:var(--cyan)">DEPTH</td>';
+  EVENTS.forEach(e => {
+    const count = swimmers.filter(s => s.times[e.id] != null).length;
+    const color = count >= 3 ? 'var(--green)' : count >= 1 ? 'var(--gold)' : 'var(--scarlet)';
+    html += `<td style="color:${color};font-weight:700">${count}</td>`;
+  });
+  html += '<td></td></tr>';
+
+  html += '</tbody></table>';
+  document.getElementById('heatmap-container').innerHTML = html;
+
+  // Tooltip
+  const tooltip = document.getElementById('tooltip');
+  document.querySelectorAll('table.heatmap td[data-event]').forEach(td => {
+    td.addEventListener('mouseenter', ev => {
+      const swimmer = td.dataset.swimmer;
+      const event = td.dataset.event;
+      const time = td.dataset.time;
+      const score = parseInt(td.dataset.score);
+      if (score < 0) {
+        tooltip.innerHTML = `<div class="tt-event">${event}</div><div style="color:var(--muted)">No time entered</div>`;
+      } else {
+        tooltip.innerHTML = `<div class="tt-event">${swimmer} — ${event}</div><div class="tt-time">${fmtTime(parseFloat(time))}</div><div class="tt-pct">${scorePctLabel(score)}</div>`;
+      }
+      tooltip.style.display = 'block';
+      tooltip.style.left = (ev.clientX + 12) + 'px';
+      tooltip.style.top = (ev.clientY - 10) + 'px';
+    });
+    td.addEventListener('mousemove', ev => {
+      tooltip.style.left = (ev.clientX + 12) + 'px';
+      tooltip.style.top = (ev.clientY - 10) + 'px';
+    });
+    td.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+  });
+}
+
+// SCORING
+function renderScoring() {
+  if (!swimmers.length) return;
+  // Simulate dual meet scoring potential: top 3 per event get 6-4-2
+  let totalPts = 0;
+  const eventScores = [];
+  EVENTS.forEach(e => {
+    const entrants = swimmers.filter(s => s.times[e.id] != null)
+      .map(s => ({ name: s.name, time: s.times[e.id] }))
+      .sort((a, b) => a.time - b.time);
+    let pts = 0;
+    entrants.slice(0, 3).forEach((en, i) => { pts += DUAL_SCORING[i]; });
+    totalPts += pts;
+    eventScores.push({ event: e, pts, entrants: entrants.length, topTime: entrants[0]?.time });
+  });
+
+  const maxPossible = EVENTS.length * 12; // 6+4+2 = 12 per event
+  const bestEvents = [...eventScores].sort((a, b) => b.pts - a.pts);
+  const weakEvents = [...eventScores].sort((a, b) => a.pts - b.pts);
+
+  let html = `
+    <div class="score-card" style="grid-column:1/-1">
+      <h3>DUAL MEET SCORING POTENTIAL</h3>
+      <div style="display:flex;gap:40px;align-items:center;margin-bottom:20px">
+        <div><div class="score-big">${totalPts}</div><div class="score-label">MAX POTENTIAL POINTS (6-4-2 scoring)</div></div>
+        <div><div class="score-big" style="font-size:1.8rem;color:var(--cyan)">${maxPossible}</div><div class="score-label">THEORETICAL MAX</div></div>
+        <div><div class="score-big" style="font-size:1.8rem;color:${totalPts/maxPossible > 0.7 ? 'var(--green)' : 'var(--gold)'}">${((totalPts/maxPossible)*100).toFixed(0)}%</div><div class="score-label">COVERAGE EFFICIENCY</div></div>
+      </div>
+    </div>
+    <div class="score-card">
+      <h3>POINTS BY EVENT</h3>
+      ${eventScores.map(es => {
+        const pct = (es.pts / 12) * 100;
+        const color = pct >= 80 ? 'var(--green)' : pct >= 50 ? 'var(--gold)' : pct > 0 ? 'var(--scarlet)' : 'var(--muted)';
+        return `<div class="event-score-bar"><span class="ev-name">${es.event.name}</span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><span class="ev-pts" style="color:${color}">${es.pts}</span></div>`;
+      }).join('')}
+    </div>
+    <div class="score-card">
+      <h3>DEPTH CHART</h3>
+      ${EVENTS.map(e => {
+        const entrants = swimmers.filter(s => s.times[e.id] != null)
+          .map(s => ({ name: s.name, time: s.times[e.id] }))
+          .sort((a, b) => a.time - b.time);
+        return `<div class="depth-row"><span class="depth-event">${e.name}</span><div class="depth-swimmers">${
+          entrants.length ? entrants.map((en, i) =>
+            `<span class="depth-chip ${i === 0 ? 'top' : i < 3 ? 'mid' : 'low'}">${en.name.split(' ')[0]} ${fmtTime(en.time)}</span>`
+          ).join('') : '<span class="depth-empty">No swimmers</span>'
+        }</div></div>`;
+      }).join('')}
+    </div>
+  `;
+  document.getElementById('scoring-container').innerHTML = html;
+}
+
+// GAP ANALYSIS
+function renderGaps() {
+  if (!swimmers.length) return;
+  const gaps = [];
+  EVENTS.forEach(e => {
+    const entrants = swimmers.filter(s => s.times[e.id] != null);
+    const count = entrants.length;
+    if (count === 0) {
+      gaps.push({ event: e.name, severity: 'critical', detail: 'No swimmers. Complete event desert — guaranteed 0 points.', action: 'RECRUIT', priority: 1 });
+    } else if (count === 1) {
+      gaps.push({ event: e.name, severity: 'critical', detail: `Only 1 swimmer (${entrants[0].name}). Max 6 pts. Injury = 0 pts.`, action: 'RECRUIT 2+', priority: 2 });
+    } else if (count === 2) {
+      gaps.push({ event: e.name, severity: 'warning', detail: `2 swimmers. Max 10 pts but no depth backup.`, action: 'ADD 1 MORE', priority: 3 });
+    }
+    // Check if top swimmer is significantly better than #2 (gap > 10%)
+    if (count >= 2) {
+      const sorted = entrants.map(s => s.times[e.id]).sort((a,b) => a - b);
+      const gap = ((sorted[1] - sorted[0]) / sorted[0]) * 100;
+      if (gap > 10) {
+        gaps.push({ event: e.name, severity: 'warning', detail: `${gap.toFixed(1)}% gap between #1 and #2. Team relies on one swimmer.`, action: 'DEVELOP #2', priority: 4 });
+      }
+    }
+  });
+
+  // Stroke coverage check
+  const strokes = ['free','back','breast','fly','im'];
+  strokes.forEach(st => {
+    const strokeEvents = EVENTS.filter(e => e.stroke === st);
+    const totalEntries = strokeEvents.reduce((a, e) => a + swimmers.filter(s => s.times[e.id] != null).length, 0);
+    if (totalEntries === 0) {
+      gaps.push({ event: st.toUpperCase(), severity: 'critical', detail: `Zero entries across all ${st} events. Stroke group fully exposed.`, action: 'RECRUIT ' + st.toUpperCase(), priority: 0 });
+    }
+  });
+
+  gaps.sort((a, b) => a.priority - b.priority);
+
+  const critCount = gaps.filter(g => g.severity === 'critical').length;
+  const warnCount = gaps.filter(g => g.severity === 'warning').length;
+  document.getElementById('gap-stats').innerHTML = `
+    <div class="stat-box"><div class="stat-val" style="color:var(--scarlet)">${critCount}</div><div class="stat-label">CRITICAL GAPS</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:var(--gold)">${warnCount}</div><div class="stat-label">WARNINGS</div></div>
+    <div class="stat-box"><div class="stat-val" style="color:var(--green)">${EVENTS.length - critCount - warnCount}</div><div class="stat-label">COVERED</div></div>
+  `;
+
+  if (!gaps.length) {
+    document.getElementById('gap-container').innerHTML = '<div style="color:var(--green);padding:40px;text-align:center;font-size:0.9rem">No critical gaps detected. Team has solid event coverage.</div>';
+    return;
+  }
+
+  document.getElementById('gap-container').innerHTML = `<ul class="gap-list">${gaps.map(g =>
+    `<li class="gap-item"><span class="gap-severity ${g.severity}"></span><span class="gap-event">${g.event}</span><span class="gap-detail">${g.detail}</span><span class="gap-action">${g.action}</span></li>`
+  ).join('')}</ul>`;
+}
+
+// RECRUITING RECOMMENDATIONS
+function renderRecruit() {
+  if (!swimmers.length) return;
+  const recs = [];
+
+  // Find event deserts
+  EVENTS.forEach(e => {
+    const count = swimmers.filter(s => s.times[e.id] != null).length;
+    if (count === 0) {
+      recs.push({
+        priority: 1, event: e.name, stroke: e.stroke,
+        title: `${e.name} — Event Desert`,
+        detail: `Zero swimmers entered. This is a guaranteed forfeit in dual meets. Target: recruit at minimum 2 swimmers capable of ${scorePctLabel(2)} or better (${fmtTime(BENCHMARKS[e.id].b)} cutoff). Even B-standard swimmers score points vs. an empty lane.`,
+        impact: `+10 potential dual meet points (6+4 from two entries)`
+      });
+    } else if (count === 1) {
+      const swimmer = swimmers.find(s => s.times[e.id] != null);
+      recs.push({
+        priority: 2, event: e.name, stroke: e.stroke,
+        title: `${e.name} — Single Swimmer Dependency`,
+        detail: `Only ${swimmer.name} (${fmtTime(swimmer.times[e.id])}). If injured or absent, event becomes a desert. Target: recruit 1-2 swimmers to provide depth. Current #1 is at ${scorePctLabel(scoreTime(e.id, swimmer.times[e.id]))} level.`,
+        impact: `+6 potential points (4+2 from two additional entries)`
+      });
+    }
+  });
+
+  // Cross-training opportunities
+  const versatile = swimmers.filter(s => Object.keys(s.times).length >= 4);
+  const specialized = swimmers.filter(s => Object.keys(s.times).length <= 2);
+  if (specialized.length > versatile.length) {
+    recs.push({
+      priority: 3, event: 'ROSTER', stroke: 'all',
+      title: 'Cross-Training Opportunity',
+      detail: `${specialized.length} swimmers have ≤2 events vs ${versatile.length} with 4+. Developing secondary events for specialists increases lineup flexibility. Focus on adjacent strokes: free↔back, breast↔IM, fly↔free.`,
+      impact: 'Increased event coverage without new recruits'
+    });
+  }
+
+  // Stroke group weakness
+  const strokes = {free:'Freestyle',back:'Backstroke',breast:'Breaststroke',fly:'Butterfly',im:'IM'};
+  Object.entries(strokes).forEach(([key, label]) => {
+    const strokeEvents = EVENTS.filter(e => e.stroke === key);
+    const avgDepth = strokeEvents.reduce((a, e) => a + swimmers.filter(s => s.times[e.id] != null).length, 0) / strokeEvents.length;
+    if (avgDepth < 2 && avgDepth > 0) {
+      recs.push({
+        priority: 2, event: label, stroke: key,
+        title: `${label} Group — Thin Depth`,
+        detail: `Average ${avgDepth.toFixed(1)} swimmers per ${label.toLowerCase()} event. This stroke group is one injury away from collapse. Medley relay is also affected if ${key === 'free' ? '' : 'this leg has no backup.'}`,
+        impact: `Strengthens ${label.toLowerCase()} events AND medley relay`
+      });
+    }
+  });
+
+  recs.sort((a, b) => a.priority - b.priority);
+
+  document.getElementById('recruit-container').innerHTML = recs.length ? recs.map(r =>
+    `<div class="recruit-card">
+      <div class="recruit-priority p${r.priority}">P${r.priority} ${r.priority === 1 ? 'CRITICAL' : r.priority === 2 ? 'HIGH' : 'MEDIUM'}</div>
+      <h3>${r.title}</h3>
+      <div class="recruit-detail">${r.detail}</div>
+      <div style="margin-top:8px;font-size:0.75rem;color:var(--green)">Impact: ${r.impact}</div>
+    </div>`
+  ).join('') : '<div style="color:var(--green);padding:40px;text-align:center">No significant recruiting gaps. Team depth is solid across all events.</div>';
+}
+
+// TAB SWITCHING
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    activeTab = tab.dataset.tab;
+    document.getElementById('panel-' + activeTab).classList.add('active');
+    if (activeTab === 'heatmap') renderHeatmap();
+    if (activeTab === 'scoring') renderScoring();
+    if (activeTab === 'gaps') renderGaps();
+    if (activeTab === 'recruit') renderRecruit();
+  });
+});
+
+// PERSISTENCE
+function save() { try { localStorage.setItem('mettle-heatmap-swimmers', JSON.stringify(swimmers)); } catch(e){} }
+function load() {
+  try {
+    const d = localStorage.getItem('mettle-heatmap-swimmers');
+    if (d) swimmers = JSON.parse(d);
+  } catch(e){}
+}
+
+// INIT
+buildEventInputs();
+load();
+renderRoster();
+</script>
+</body>
+</html>

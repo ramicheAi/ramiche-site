@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Outbound Sequence Builder</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--border:#1e1e2e;--accent:#7c3aed;--accent2:#a855f7;--gold:#f59e0b;--green:#10b981;--red:#ef4444;--blue:#3b82f6;--text:#e2e8f0;--muted:#64748b;--white:#ffffff}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh}
+.header{padding:20px 24px;border-bottom:2px solid var(--accent);display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:16px;letter-spacing:2px;color:var(--accent2)}
+.header .sub{font-size:11px;color:var(--muted)}
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 24px}
+.tab{padding:12px 20px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);transition:all .2s;letter-spacing:1px;background:none;border-top:none;border-left:none;border-right:none;font-family:inherit}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent)}
+.panel{display:none;padding:24px;max-width:1200px;margin:0 auto}
+.panel.active{display:block}
+label{font-size:11px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;display:block;margin-bottom:6px}
+input,select,textarea{width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:6px;font-family:inherit;font-size:13px;margin-bottom:16px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+button{padding:10px 20px;background:var(--accent);color:var(--white);border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;letter-spacing:1px;transition:all .2s}
+button:hover{background:var(--accent2)}
+button.secondary{background:var(--surface);border:1px solid var(--border);color:var(--text)}
+button.secondary:hover{border-color:var(--accent)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px}
+.card h3{font-size:13px;color:var(--accent2);margin-bottom:12px;letter-spacing:1px}
+.badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;letter-spacing:1px}
+.badge.curiosity{background:rgba(59,130,246,.15);color:var(--blue)}
+.badge.casestudy{background:rgba(16,185,129,.15);color:var(--green)}
+.badge.social{background:rgba(168,85,247,.15);color:var(--accent2)}
+.badge.urgency{background:rgba(245,158,11,.15);color:var(--gold)}
+.badge.breakup{background:rgba(239,68,68,.15);color:var(--red)}
+.email-preview{background:#0d0d14;border:1px solid var(--border);border-radius:6px;padding:16px;margin:12px 0;font-size:12px;line-height:1.8}
+.email-preview .subject{color:var(--gold);font-weight:bold;margin-bottom:8px}
+.email-preview .body{color:var(--text);white-space:pre-wrap}
+.email-preview .merge{color:var(--accent2);font-weight:bold}
+.timing{display:flex;align-items:center;gap:12px;padding:10px 16px;background:rgba(124,58,237,.06);border-radius:6px;margin:8px 0;font-size:11px}
+.timing .day{color:var(--gold);font-weight:bold;min-width:60px}
+.timing .note{color:var(--muted)}
+.strategy-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;cursor:pointer;transition:all .2s}
+.strategy-card:hover{border-color:var(--accent)}
+.strategy-card.selected{border-color:var(--accent);box-shadow:0 0 12px rgba(124,58,237,.2)}
+.strategy-card h4{font-size:12px;color:var(--accent2);margin-bottom:6px}
+.strategy-card p{font-size:11px;color:var(--muted);line-height:1.6}
+.pipeline-item{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 100px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);font-size:12px}
+.pipeline-header{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;border-bottom:2px solid var(--border)}
+.stage{padding:3px 10px;border-radius:12px;font-size:10px;text-align:center}
+.stage.cold{background:rgba(100,116,139,.15);color:var(--muted)}
+.stage.warm{background:rgba(245,158,11,.15);color:var(--gold)}
+.stage.hot{background:rgba(239,68,68,.15);color:var(--red)}
+.stage.won{background:rgba(16,185,129,.15);color:var(--green)}
+.ab-row{display:grid;grid-template-columns:1fr 1fr 60px;gap:12px;align-items:start;margin:8px 0}
+.ab-label{font-size:10px;color:var(--gold);font-weight:bold;padding:4px 0}
+.metric{text-align:center;padding:16px}
+.metric .val{font-size:28px;font-weight:bold;color:var(--accent2)}
+.metric .lbl{font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:4px}
+.metrics-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.copy-btn{padding:4px 12px;font-size:10px;background:var(--surface);border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer}
+.copy-btn:hover{border-color:var(--accent);color:var(--accent2)}
+.section-title{font-size:13px;color:var(--accent2);letter-spacing:2px;margin:24px 0 16px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.touch-timeline{position:relative;padding-left:30px}
+.touch-timeline::before{content:'';position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--border)}
+.touch-node{position:relative;margin-bottom:24px}
+.touch-node::before{content:'';position:absolute;left:-26px;top:6px;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);background:var(--bg)}
+.touch-node.active::before{background:var(--accent)}
+.export-box{background:#0d0d14;border:1px solid var(--border);border-radius:6px;padding:16px;font-size:11px;white-space:pre-wrap;max-height:400px;overflow-y:auto;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>METTLE // OUTBOUND SEQUENCE BUILDER</h1>
+    <div class="sub">Cold Outreach Campaign Engine — 5-Touch Personalized Sequences</div>
+  </div>
+  <div style="font-size:11px;color:var(--muted)">MERCURY SALES TOOLS</div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" onclick="showTab('target')">TARGET</button>
+  <button class="tab" onclick="showTab('strategy')">STRATEGY</button>
+  <button class="tab" onclick="showTab('sequence')">SEQUENCE</button>
+  <button class="tab" onclick="showTab('pipeline')">PIPELINE</button>
+  <button class="tab" onclick="showTab('export')">EXPORT</button>
+</div>
+
+<!-- TARGET TAB -->
+<div id="target" class="panel active">
+  <div class="section-title">TEAM PROFILE</div>
+  <div class="row">
+    <div>
+      <label>Team / Club Name</label>
+      <input id="teamName" placeholder="e.g. Coral Springs Swim Club" value="">
+    </div>
+    <div>
+      <label>Location</label>
+      <input id="teamLocation" placeholder="e.g. South Florida" value="">
+    </div>
+  </div>
+  <div class="row3">
+    <div>
+      <label>Athlete Count</label>
+      <input id="athleteCount" type="number" placeholder="150" value="">
+    </div>
+    <div>
+      <label>Team Type</label>
+      <select id="teamType">
+        <option value="year-round">Year-Round Club</option>
+        <option value="summer-league">Summer League</option>
+        <option value="high-school">High School</option>
+        <option value="college">College</option>
+        <option value="masters">Masters</option>
+      </select>
+    </div>
+    <div>
+      <label>Current Software</label>
+      <select id="currentSoftware">
+        <option value="none">None / Spreadsheets</option>
+        <option value="teamunify">TeamUnify</option>
+        <option value="swimtopia">SwimTopia</option>
+        <option value="active">Active Network</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="section-title">CONTACT</div>
+  <div class="row">
+    <div>
+      <label>Contact Name</label>
+      <input id="contactName" placeholder="e.g. Coach Sarah Johnson">
+    </div>
+    <div>
+      <label>Role</label>
+      <select id="contactRole">
+        <option value="head-coach">Head Coach</option>
+        <option value="assistant-coach">Assistant Coach</option>
+        <option value="board-president">Board President</option>
+        <option value="treasurer">Treasurer</option>
+        <option value="admin">Team Admin</option>
+      </select>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>Email</label>
+      <input id="contactEmail" type="email" placeholder="sarah@coralspringsswim.com">
+    </div>
+    <div>
+      <label>Known Pain Points (select all that apply)</label>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);text-transform:none;margin:0;cursor:pointer">
+          <input type="checkbox" class="pain" value="retention"> Athlete retention
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);text-transform:none;margin:0;cursor:pointer">
+          <input type="checkbox" class="pain" value="engagement"> Low engagement
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);text-transform:none;margin:0;cursor:pointer">
+          <input type="checkbox" class="pain" value="parents"> Parent communication
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);text-transform:none;margin:0;cursor:pointer">
+          <input type="checkbox" class="pain" value="tracking"> Progress tracking
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);text-transform:none;margin:0;cursor:pointer">
+          <input type="checkbox" class="pain" value="burnout"> Athlete burnout
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text);text-transform:none;margin:0;cursor:pointer">
+          <input type="checkbox" class="pain" value="data"> Data management
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">DEAL CONTEXT</div>
+  <div class="row3">
+    <div>
+      <label>Estimated Tier</label>
+      <select id="estTier">
+        <option value="starter">Starter — $149/mo</option>
+        <option value="pro" selected>Pro — $349/mo</option>
+        <option value="platinum">Platinum — $549/mo</option>
+        <option value="enterprise">Enterprise — Custom</option>
+      </select>
+    </div>
+    <div>
+      <label>Season Timing</label>
+      <select id="seasonTiming">
+        <option value="pre-season">Pre-Season (ideal)</option>
+        <option value="mid-season">Mid-Season</option>
+        <option value="post-season">Post-Season / Offseason</option>
+        <option value="summer">Summer</option>
+      </select>
+    </div>
+    <div>
+      <label>Lead Source</label>
+      <select id="leadSource">
+        <option value="cold">Cold Outbound</option>
+        <option value="referral">Referral</option>
+        <option value="inbound">Inbound Inquiry</option>
+        <option value="event">Conference / Event</option>
+        <option value="social">Social Media</option>
+      </select>
+    </div>
+  </div>
+
+  <div style="margin-top:16px">
+    <button onclick="generateSequence()">GENERATE SEQUENCE →</button>
+  </div>
+</div>
+
+<!-- STRATEGY TAB -->
+<div id="strategy" class="panel">
+  <div class="section-title">SELECT OUTREACH STRATEGY</div>
+  <p style="font-size:11px;color:var(--muted);margin-bottom:20px;line-height:1.6">Each strategy uses a different psychological framework. Choose based on your read of the prospect.</p>
+  <div class="row" style="margin-bottom:16px">
+    <div class="strategy-card selected" onclick="selectStrategy('challenger')" id="strat-challenger">
+      <h4>THE CHALLENGER</h4>
+      <p>Lead with insight they haven't considered. Reframe their problem. Make them question their current approach before pitching the solution.</p>
+      <div style="margin-top:8px"><span class="badge curiosity">CURIOSITY</span> <span class="badge casestudy">INSIGHT</span> <span class="badge urgency">REFRAME</span></div>
+    </div>
+    <div class="strategy-card" onclick="selectStrategy('social-proof')" id="strat-social-proof">
+      <h4>THE PROOF STACK</h4>
+      <p>Lead with results from similar teams. Build credibility through specifics. Let the data close.</p>
+      <div style="margin-top:8px"><span class="badge casestudy">CASE STUDY</span> <span class="badge social">SOCIAL PROOF</span> <span class="badge curiosity">NUMBERS</span></div>
+    </div>
+  </div>
+  <div class="row" style="margin-bottom:16px">
+    <div class="strategy-card" onclick="selectStrategy('relationship')" id="strat-relationship">
+      <h4>THE RELATIONSHIP BUILDER</h4>
+      <p>No pitch until touch 3. Build genuine rapport first. Share value freely. Create trust before asking for the meeting.</p>
+      <div style="margin-top:8px"><span class="badge social">RAPPORT</span> <span class="badge casestudy">VALUE-FIRST</span> <span class="badge curiosity">TRUST</span></div>
+    </div>
+    <div class="strategy-card" onclick="selectStrategy('urgency')" id="strat-urgency">
+      <h4>THE WINDOW CLOSER</h4>
+      <p>Season is starting, athletes are leaving, competitors are adopting. Create legitimate urgency with real deadlines.</p>
+      <div style="margin-top:8px"><span class="badge urgency">SCARCITY</span> <span class="badge breakup">DEADLINE</span> <span class="badge curiosity">FOMO</span></div>
+    </div>
+  </div>
+  <div class="row">
+    <div class="strategy-card" onclick="selectStrategy('problem-agitate')" id="strat-problem-agitate">
+      <h4>PROBLEM → AGITATE → SOLVE</h4>
+      <p>Name their pain precisely. Make them feel the cost of inaction. Then present METTLE as the obvious fix.</p>
+      <div style="margin-top:8px"><span class="badge breakup">PAIN</span> <span class="badge urgency">AGITATE</span> <span class="badge casestudy">SOLVE</span></div>
+    </div>
+    <div class="strategy-card" onclick="selectStrategy('referral')" id="strat-referral">
+      <h4>THE WARM INTRO</h4>
+      <p>Leverage a mutual connection or shared community. Lower the guard immediately. Best for referrals and event follow-ups.</p>
+      <div style="margin-top:8px"><span class="badge social">CONNECTION</span> <span class="badge casestudy">CREDIBILITY</span> <span class="badge curiosity">WARMTH</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- SEQUENCE TAB -->
+<div id="sequence" class="panel">
+  <div class="metrics-bar">
+    <div class="card metric"><div class="val" id="seqTouches">5</div><div class="lbl">TOUCHES</div></div>
+    <div class="card metric"><div class="val" id="seqDays">14</div><div class="lbl">DAYS</div></div>
+    <div class="card metric"><div class="val" id="seqARR">$0</div><div class="lbl">POTENTIAL ARR</div></div>
+    <div class="card metric"><div class="val" id="seqRate">22%</div><div class="lbl">EST. REPLY RATE</div></div>
+  </div>
+
+  <div class="section-title">SEND TIMELINE</div>
+  <div id="timeline"></div>
+
+  <div class="section-title">EMAIL SEQUENCE</div>
+  <div id="emailSequence"></div>
+
+  <div class="section-title">A/B SUBJECT LINE VARIANTS</div>
+  <div id="abVariants"></div>
+</div>
+
+<!-- PIPELINE TAB -->
+<div id="pipeline" class="panel">
+  <div class="section-title">PROSPECT PIPELINE</div>
+  <div class="metrics-bar">
+    <div class="card metric"><div class="val" id="pipeTotal">0</div><div class="lbl">TOTAL PROSPECTS</div></div>
+    <div class="card metric"><div class="val" id="pipeHot">0</div><div class="lbl">HOT LEADS</div></div>
+    <div class="card metric"><div class="val" id="pipeARR">$0</div><div class="lbl">PIPELINE ARR</div></div>
+    <div class="card metric"><div class="val" id="pipeWin">0%</div><div class="lbl">WIN RATE</div></div>
+  </div>
+  <div class="card">
+    <div class="pipeline-item pipeline-header">
+      <span>TEAM</span><span>STAGE</span><span>TOUCH</span><span>ARR</span><span>ACTION</span>
+    </div>
+    <div id="pipelineList"></div>
+  </div>
+  <div style="margin-top:16px;display:flex;gap:12px">
+    <button onclick="addToPipeline()">+ ADD CURRENT TARGET</button>
+    <button class="secondary" onclick="clearPipeline()">CLEAR PIPELINE</button>
+  </div>
+</div>
+
+<!-- EXPORT TAB -->
+<div id="export" class="panel">
+  <div class="section-title">EXPORT FORMATS</div>
+  <div style="display:flex;gap:12px;margin-bottom:20px">
+    <button onclick="exportEmails()">COPY ALL EMAILS</button>
+    <button class="secondary" onclick="exportCSV()">CSV PIPELINE</button>
+    <button class="secondary" onclick="exportJSON()">CRM JSON</button>
+    <button class="secondary" onclick="exportCadence()">SEND CALENDAR</button>
+  </div>
+  <div class="export-box" id="exportOutput">Select an export format above...</div>
+</div>
+
+<script>
+let currentStrategy = 'challenger';
+let pipeline = JSON.parse(localStorage.getItem('mettle_pipeline') || '[]');
+let currentSequence = [];
+let currentTarget = {};
+
+const tierPricing = { starter: 149, pro: 349, platinum: 549, enterprise: 999 };
+const tierNames = { starter: 'Starter', pro: 'Pro', platinum: 'Platinum', enterprise: 'Enterprise' };
+
+const painCopy = {
+  retention: { problem: 'losing athletes every season', agitate: 'Every athlete who quits costs you $1,200+/year in dues — and the recruiting cost to replace them is 5x retention cost', solve: 'automated engagement tracking that flags at-risk athletes before they ghost' },
+  engagement: { problem: 'athletes going through the motions', agitate: 'Disengaged swimmers plateau, parents notice, and families start shopping other programs', solve: 'gamified progress tracking that makes every practice feel like it counts' },
+  parents: { problem: 'parents feeling disconnected from their kids\' progress', agitate: 'When parents don\'t see value, they don\'t renew. 40% of churn is parent-driven, not athlete-driven', solve: 'real-time parent dashboards showing splits, improvements, and coach feedback' },
+  tracking: { problem: 'managing athlete data across spreadsheets and paper', agitate: 'Manual tracking means errors, missed PBs, and coaching decisions based on gut feel instead of data', solve: 'automated time tracking with instant PB detection and progression analysis' },
+  burnout: { problem: 'athletes burning out before they peak', agitate: 'Overtraining isn\'t just physical — it\'s motivational. Athletes who can\'t see their progress lose the internal drive to push through plateaus', solve: 'workload monitoring with recovery insights and achievement milestones that maintain intrinsic motivation' },
+  data: { problem: 'drowning in spreadsheets and manual entry', agitate: 'Every hour spent on data entry is an hour not spent coaching. And manual data has 23% error rates in competitive swim programs', solve: 'one-click meet imports, automatic time parsing, and instant roster analytics' }
+};
+
+const strategies = {
+  challenger: {
+    name: 'The Challenger',
+    replyRate: 24,
+    touches: [
+      { day: 0, type: 'curiosity', label: 'Pattern Interrupt' },
+      { day: 2, type: 'casestudy', label: 'Insight Delivery' },
+      { day: 5, type: 'social', label: 'Reframe + Proof' },
+      { day: 9, type: 'urgency', label: 'Cost of Inaction' },
+      { day: 14, type: 'breakup', label: 'Door Close' }
+    ]
+  },
+  'social-proof': {
+    name: 'The Proof Stack',
+    replyRate: 22,
+    touches: [
+      { day: 0, type: 'casestudy', label: 'Result Lead' },
+      { day: 3, type: 'social', label: 'Similar Team Story' },
+      { day: 6, type: 'curiosity', label: 'Behind the Numbers' },
+      { day: 10, type: 'urgency', label: 'Peer Adoption' },
+      { day: 14, type: 'breakup', label: 'Last Share' }
+    ]
+  },
+  relationship: {
+    name: 'The Relationship Builder',
+    replyRate: 28,
+    touches: [
+      { day: 0, type: 'curiosity', label: 'Value Gift' },
+      { day: 4, type: 'social', label: 'Genuine Question' },
+      { day: 8, type: 'casestudy', label: 'Shared Resource' },
+      { day: 12, type: 'urgency', label: 'Soft Invite' },
+      { day: 17, type: 'breakup', label: 'Open Door' }
+    ]
+  },
+  urgency: {
+    name: 'The Window Closer',
+    replyRate: 20,
+    touches: [
+      { day: 0, type: 'urgency', label: 'Season Clock' },
+      { day: 2, type: 'casestudy', label: 'Quick Win Proof' },
+      { day: 4, type: 'urgency', label: 'Competitor Move' },
+      { day: 7, type: 'breakup', label: 'Final Window' },
+      { day: 10, type: 'breakup', label: 'Last Chance' }
+    ]
+  },
+  'problem-agitate': {
+    name: 'Problem → Agitate → Solve',
+    replyRate: 23,
+    touches: [
+      { day: 0, type: 'curiosity', label: 'Name the Pain' },
+      { day: 3, type: 'breakup', label: 'Agitate the Cost' },
+      { day: 6, type: 'casestudy', label: 'Show the Fix' },
+      { day: 10, type: 'social', label: 'Proof it Works' },
+      { day: 14, type: 'breakup', label: 'Move or Miss' }
+    ]
+  },
+  referral: {
+    name: 'The Warm Intro',
+    replyRate: 35,
+    touches: [
+      { day: 0, type: 'social', label: 'Warm Connection' },
+      { day: 3, type: 'casestudy', label: 'Quick Value' },
+      { day: 6, type: 'curiosity', label: 'Specific Fit' },
+      { day: 10, type: 'urgency', label: 'Easy Next Step' },
+      { day: 14, type: 'breakup', label: 'Friendly Close' }
+    ]
+  }
+};
+
+function showTab(id) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => { if(t.textContent.toLowerCase() === id || (id==='target'&&t.textContent==='TARGET') || (id==='strategy'&&t.textContent==='STRATEGY') || (id==='sequence'&&t.textContent==='SEQUENCE') || (id==='pipeline'&&t.textContent==='PIPELINE') || (id==='export'&&t.textContent==='EXPORT')) t.classList.add('active'); });
+}
+
+function selectStrategy(s) {
+  currentStrategy = s;
+  document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('strat-' + s).classList.add('selected');
+}
+
+function getTarget() {
+  const pains = [];
+  document.querySelectorAll('.pain:checked').forEach(c => pains.push(c.value));
+  return {
+    teamName: document.getElementById('teamName').value || 'Coral Springs Swim Club',
+    location: document.getElementById('teamLocation').value || 'South Florida',
+    athleteCount: parseInt(document.getElementById('athleteCount').value) || 150,
+    teamType: document.getElementById('teamType').value,
+    currentSoftware: document.getElementById('currentSoftware').value,
+    contactName: document.getElementById('contactName').value || 'Coach',
+    contactRole: document.getElementById('contactRole').value,
+    contactEmail: document.getElementById('contactEmail').value || 'coach@team.com',
+    pains: pains.length ? pains : ['retention', 'engagement'],
+    tier: document.getElementById('estTier').value,
+    seasonTiming: document.getElementById('seasonTiming').value,
+    leadSource: document.getElementById('leadSource').value
+  };
+}
+
+function firstName(name) { return name.split(' ')[0].replace(/coach\s*/i, ''); }
+
+function generateEmails(target, strategy) {
+  const strat = strategies[strategy];
+  const fn = firstName(target.contactName);
+  const pain1 = painCopy[target.pains[0]] || painCopy.retention;
+  const pain2 = target.pains[1] ? painCopy[target.pains[1]] : pain1;
+  const price = tierPricing[target.tier];
+  const tierName = tierNames[target.tier];
+  const teamTypeLabel = target.teamType.replace('-', ' ');
+  const softwareLabel = target.currentSoftware === 'none' ? 'spreadsheets' : target.currentSoftware;
+
+  const emailTemplates = {
+    challenger: [
+      { subject: `${target.teamName} — a pattern I noticed`, abSubject: `Quick question about ${target.teamName}'s retention`, body: `${fn},\n\nI've been studying ${teamTypeLabel} programs in ${target.location}, and there's a pattern that keeps showing up:\n\nTeams that rely on ${softwareLabel} for athlete management lose 15-25% of their roster every season — not because athletes don't love swimming, but because they can't SEE their progress.\n\nWhen an athlete can't answer "am I getting faster?" with data, motivation erodes silently.\n\nI have a 2-minute breakdown of how one ${teamTypeLabel} team with ${target.athleteCount}+ athletes reversed this. Worth a look?\n\n— METTLE Team` },
+      { subject: `The $${(target.athleteCount * 100).toLocaleString()} question`, abSubject: `What ${target.athleteCount} athletes × $100 really means`, body: `${fn},\n\nQuick math on ${target.teamName}:\n\n• ${target.athleteCount} athletes × ~$100/month avg dues = $${(target.athleteCount * 100).toLocaleString()}/mo\n• If 20% churn annually → $${(target.athleteCount * 20).toLocaleString()}/mo in lost revenue\n• Cost to replace each: 5x retention cost\n\nMost coaches I talk to know this intuitively but haven't quantified it. The teams using METTLE have cut that churn number in half — not with marketing, but with ${pain1.solve}.\n\nWorth a 15-minute look at how it works for a team your size?\n\n— METTLE Team` },
+      { subject: `Why ${softwareLabel} is costing ${target.teamName} athletes`, abSubject: `${target.teamName}'s hidden cost`, body: `${fn},\n\nThis isn't a pitch — it's an observation.\n\n${softwareLabel === 'spreadsheets' ? 'Spreadsheets track what happened. They don\'t change what happens next.' : `${softwareLabel} manages your operations. It doesn't transform your athletes.`}\n\nThe gap: ${pain1.problem}. The result: ${pain1.agitate}.\n\nSaint Andrew's Aquatics (240+ athletes) closed that gap with METTLE — ${pain1.solve}. Their retention rate jumped 20% in the first season.\n\nThey're a ${teamTypeLabel} program like yours. Different size, same problem.\n\n15 minutes to see if it fits ${target.teamName}?\n\n— METTLE Team` },
+      { subject: `The season clock is ticking for ${target.teamName}`, abSubject: `Before ${target.teamName}'s next season starts`, body: `${fn},\n\nEvery week without a system for ${pain1.problem} is another week where athletes disengage quietly and parents start asking "is this worth it?"\n\nThe cost of waiting isn't $${price}/month. It's the athletes who won't re-register because they never saw the progress they were making.\n\nTeams that onboard METTLE before the season start see the biggest impact. The ones that wait until mid-season are always playing catch-up.\n\nI'll make the demo fast — 15 minutes, ${target.teamName}-specific.\n\n— METTLE Team` },
+      { subject: `Closing the loop — ${target.teamName}`, abSubject: `Last note from METTLE`, body: `${fn},\n\nI've reached out a few times about ${pain1.problem} at ${target.teamName}. I'll take the silence as "not now" — which is completely fine.\n\nI'm leaving you with one thing: a free retention audit template we built for ${teamTypeLabel} programs. No strings. It might surface something useful even without METTLE.\n\n[Link to Retention Audit Template]\n\nIf the timing changes, I'm here. Good luck this season.\n\n— METTLE Team` }
+    ],
+    'social-proof': [
+      { subject: `How a ${target.athleteCount}-athlete team cut churn 20%`, abSubject: `${target.location} swim team case study`, body: `${fn},\n\nSaint Andrew's Aquatics — 240 athletes, ${teamTypeLabel} program, similar profile to ${target.teamName}.\n\nBefore METTLE:\n• ${pain1.problem}\n• 22% annual athlete churn\n• Parent satisfaction unknown\n\nAfter 1 season with METTLE:\n• 20% churn reduction\n• Real-time parent visibility into athlete progress\n• Coach hours on admin cut by 60%\n\nThey were using ${softwareLabel} before too. Happy to share what specifically moved the needle.\n\n— METTLE Team` },
+      { subject: `3 teams in ${target.location} already using this`, abSubject: `Your neighbors are ahead`, body: `${fn},\n\nThree ${teamTypeLabel} programs in the ${target.location} area have adopted METTLE in the last 6 months. I can't share names without permission, but the pattern is clear:\n\n• Teams with ${target.athleteCount}+ athletes need more than ${softwareLabel}\n• Parents want visibility — not just results emails, but real-time progress\n• Coaches want coaching time back, not more data entry\n\nWould a 15-minute walkthrough of what they're seeing be useful?\n\n— METTLE Team` },
+      { subject: `The numbers behind METTLE for ${target.teamName}`, abSubject: `ROI breakdown for a ${target.athleteCount}-athlete program`, body: `${fn},\n\nHere's the math for a team like ${target.teamName}:\n\n• ${tierName} tier: $${price}/mo ($${(price * 12).toLocaleString()}/yr)\n• If it prevents just ${Math.ceil(target.athleteCount * 0.05)} athletes from churning: $${(Math.ceil(target.athleteCount * 0.05) * 1200).toLocaleString()}/yr saved\n• ROI: ${Math.round((Math.ceil(target.athleteCount * 0.05) * 1200) / (price * 12) * 100)}% return in retention savings alone\n\nThat's before the coaching efficiency gains, parent satisfaction improvements, and recruitment advantages.\n\nWorth 15 minutes to see if the math works for ${target.teamName} specifically?\n\n— METTLE Team` },
+      { subject: `Programs adopting METTLE before summer — here's why`, abSubject: `The summer adoption window`, body: `${fn},\n\nQuick trend I'm seeing: ${teamTypeLabel} programs that onboard before their next season start get 3x more athlete engagement in the first month vs. mid-season adopters.\n\nReason: athletes and parents are fresh, excited, and ready to engage with new tools. Mid-season, they're in routine mode.\n\nIf ${target.teamName} is thinking about leveling up for next season, the setup window is now.\n\n— METTLE Team` },
+      { subject: `Last share for ${target.teamName}`, abSubject: `One more thing before I go`, body: `${fn},\n\nI realize the timing may not be right. No worries.\n\nHere's a free resource we put together: a Retention Playbook for ${teamTypeLabel} programs with ${target.athleteCount}+ athletes. Includes the frameworks our best teams use — works with or without METTLE.\n\n[Link to Retention Playbook]\n\nIf the timing changes, you know where to find us.\n\n— METTLE Team` }
+    ],
+    relationship: [
+      { subject: `Free resource for ${target.teamName}`, abSubject: `Something useful for ${teamTypeLabel} coaches`, body: `${fn},\n\nNo pitch, just value.\n\nWe put together a practice planning template specifically for ${teamTypeLabel} programs with ${target.athleteCount}+ athletes. It includes:\n\n• 7 structured practice templates by focus area\n• Pace reference charts for all 8 strokes\n• Season periodization framework\n\nFree to use, no signup required: [Link]\n\nHope it helps ${target.teamName} this season.\n\n— METTLE Team` },
+      { subject: `Question about ${target.teamName}'s approach`, abSubject: `Genuine curiosity about ${target.location} programs`, body: `${fn},\n\nI'm researching how ${teamTypeLabel} programs in ${target.location} handle ${pain1.problem}. Purely for our own learning — we're building tools for coaches and want to understand the real workflows.\n\nTwo quick questions if you have a moment:\n1. How does ${target.teamName} currently track athlete progress between meets?\n2. What's your biggest time sink that isn't actual coaching?\n\nNo agenda beyond understanding. Appreciate any insight.\n\n— METTLE Team` },
+      { subject: `Thought of ${target.teamName} when I saw this`, abSubject: `Resource that might help with ${pain1.problem}`, body: `${fn},\n\nWe just published a case study on how a ${teamTypeLabel} program solved ${pain1.problem} without overhauling their entire tech stack.\n\nThe approach was surprisingly simple: ${pain1.solve}.\n\nFull breakdown here: [Link to Case Study]\n\nLet me know if any of it resonates with what ${target.teamName} is experiencing.\n\n— METTLE Team` },
+      { subject: `Would this help ${target.teamName}?`, abSubject: `Quick demo tailored to ${target.teamName}`, body: `${fn},\n\nBased on our conversations, I think ${target.teamName} might get real value from what we've built at METTLE — specifically the ${pain1.solve} piece.\n\nWould a 15-minute walkthrough be useful? I can tailor it to a ${teamTypeLabel} program with ${target.athleteCount} athletes so you see exactly what it'd look like for your team.\n\nNo pressure either way. Just want to make sure you have the full picture.\n\n— METTLE Team` },
+      { subject: `Door's always open, ${fn}`, abSubject: `Standing offer for ${target.teamName}`, body: `${fn},\n\nJust wanted to say — no matter the timing, if ${target.teamName} ever wants to explore athlete engagement tools, the door's open.\n\nIn the meantime, feel free to use any of the free resources I've shared. They're built for coaches like you.\n\nRooting for ${target.teamName} this season.\n\n— METTLE Team` }
+    ],
+    urgency: [
+      { subject: `${target.teamName} — season starts in weeks`, abSubject: `The pre-season window is closing`, body: `${fn},\n\nQuick context: teams that set up METTLE before their season starts see 3x higher athlete engagement in month 1 vs. mid-season adopters.\n\nReason: athletes arrive fresh and ready to engage. Once routine sets in, adoption is an uphill battle.\n\n${target.teamName} has ${target.athleteCount} athletes. That's ${target.athleteCount} opportunities to start the season with real progress tracking from day one.\n\nThe setup takes 2 days. The impact lasts all season.\n\n15 minutes to see if it fits?\n\n— METTLE Team` },
+      { subject: `3 ${target.location} teams onboarded this month`, abSubject: `Your competitors aren't waiting`, body: `${fn},\n\nThree ${teamTypeLabel} programs in ${target.location} set up METTLE in the last 30 days.\n\nThey all had the same catalyst: ${pain1.problem}. And the same realization — ${pain1.agitate}.\n\nOne of them is a ${target.athleteCount - 50 > 0 ? target.athleteCount - 50 : target.athleteCount}-athlete team with a similar profile to ${target.teamName}. They went from ${softwareLabel} to full athlete analytics in 48 hours.\n\nThe window to get set up before the next competition block is narrowing.\n\n— METTLE Team` },
+      { subject: `2 setup slots left this month`, abSubject: `Limited onboarding capacity`, body: `${fn},\n\nStraight talk: we only onboard 5 new teams per month to ensure quality setup. We have 2 slots left for this month.\n\nFor a ${target.athleteCount}-athlete ${teamTypeLabel} program like ${target.teamName}, the ${tierName} tier ($${price}/mo) includes full white-glove onboarding — data migration, team setup, coach training.\n\nIf this season is the one where ${target.teamName} wants to solve ${pain1.problem}, the time to move is now.\n\n— METTLE Team` },
+      { subject: `Final onboarding window — ${target.teamName}`, abSubject: `Last call before season lockout`, body: `${fn},\n\nAfter this week, our next available onboarding slot is 6 weeks out — which means mid-season at best.\n\nMid-season onboarding works, but you lose the biggest advantage: athletes engaging with progress tracking from meet #1.\n\nIf ${target.teamName} is considering METTLE, this is the window. 15-minute call to confirm fit?\n\n— METTLE Team` },
+      { subject: `Moving on from ${target.teamName}`, abSubject: `Closing ${target.teamName}'s file`, body: `${fn},\n\nI've reached out a few times about METTLE for ${target.teamName}. Silence is an answer, and I respect it.\n\nClosing your file for now. If ${pain1.problem} becomes urgent enough to address, you know where to find us.\n\nOne standing offer: free 15-minute consultation on retention strategies for ${teamTypeLabel} programs. No pitch. Anytime.\n\nGood luck this season.\n\n— METTLE Team` }
+    ],
+    'problem-agitate': [
+      { subject: `${target.teamName} — is this happening?`, abSubject: `A pattern I see in ${target.location} programs`, body: `${fn},\n\nBe honest: is ${target.teamName} dealing with ${pain1.problem}?\n\nI ask because it's the #1 issue in ${teamTypeLabel} programs with ${target.athleteCount}+ athletes. Not because coaches don't care — because the tools don't surface the signals early enough.\n\nBy the time you notice, it's too late. The athlete is already mentally checked out.\n\nIs that resonating, or is ${target.teamName} ahead of the curve here?\n\n— METTLE Team` },
+      { subject: `The real cost of ${pain1.problem}`, abSubject: `What ${pain1.problem} actually costs ${target.teamName}`, body: `${fn},\n\n${pain1.agitate}.\n\nFor ${target.teamName} specifically:\n• ${target.athleteCount} athletes × 20% annual churn = ${Math.ceil(target.athleteCount * 0.2)} athletes lost\n• ${Math.ceil(target.athleteCount * 0.2)} athletes × $1,200/yr avg dues = $${(Math.ceil(target.athleteCount * 0.2) * 1200).toLocaleString()}/yr in lost revenue\n• Replacement cost: 5x → $${(Math.ceil(target.athleteCount * 0.2) * 6000).toLocaleString()} to recruit back to current levels\n\nThis isn't theoretical. This is the math of every ${teamTypeLabel} program that doesn't track engagement data.\n\n— METTLE Team` },
+      { subject: `Here's how to fix ${pain1.problem}`, abSubject: `The fix is simpler than you think`, body: `${fn},\n\nThe fix for ${pain1.problem} at ${target.teamName} isn't complicated:\n\n${pain1.solve}.\n\nThat's what METTLE does. Not a CRM. Not a communication tool. A system that makes athletes and parents SEE progress in real time.\n\nSaint Andrew's (240 athletes) implemented it in 48 hours. Retention improved 20% in one season.\n\n${target.teamName} has ${target.athleteCount} athletes. The ${tierName} tier ($${price}/mo) covers all of them.\n\n15 minutes to see the actual product?\n\n— METTLE Team` },
+      { subject: `Proof it works for teams like ${target.teamName}`, abSubject: `${teamTypeLabel} results with METTLE`, body: `${fn},\n\nI laid out the problem (${pain1.problem}) and the fix (${pain1.solve}).\n\nHere's the proof:\n\n• Saint Andrew's: 240 athletes, 20% churn reduction, 60% less admin time\n• Coach feedback: "Parents stopped asking 'how's my kid doing?' because they could see it themselves"\n• Time to value: 48-hour setup, impact visible by week 2\n\n${target.teamName} is in the same position they were 12 months ago. The difference is they acted.\n\n— METTLE Team` },
+      { subject: `${fn} — last note on ${pain1.problem}`, abSubject: `Wrapping up — ${target.teamName}`, body: `${fn},\n\nI've made the case:\n\n1. ${pain1.problem} is costing ${target.teamName} $${(Math.ceil(target.athleteCount * 0.2) * 1200).toLocaleString()}/yr\n2. The fix exists and works in 48 hours\n3. Teams your size are already using it\n\nIf the answer is "not now," I respect that. I'll check back next season.\n\nBut if the answer is "maybe" — a 15-minute call would give you everything you need to decide.\n\n— METTLE Team` }
+    ],
+    referral: [
+      { subject: `[Mutual Connection] suggested I reach out`, abSubject: `Referred to you by a fellow coach`, body: `${fn},\n\nI was chatting with a coach in the ${target.location} swim community who mentioned ${target.teamName} as a program that really cares about athlete development.\n\nThat tracks with what we do at METTLE — we build tools that help coaches track and improve athlete engagement, progress, and retention.\n\nGiven ${target.teamName}'s ${target.athleteCount} athletes, I think there's a fit worth exploring. Would 15 minutes work to see if it's relevant?\n\n— METTLE Team` },
+      { subject: `Something that's working for programs like ${target.teamName}`, abSubject: `Quick value for ${fn}`, body: `${fn},\n\nFollowing up from my earlier note. Wanted to share something concrete:\n\nWe just published a breakdown of how ${teamTypeLabel} programs are solving ${pain1.problem}. It's the same playbook our best teams use.\n\n[Link to Resource]\n\nNo strings — just figured it'd be useful given ${target.teamName}'s focus on athlete development.\n\n— METTLE Team` },
+      { subject: `Specific to ${target.teamName}'s ${target.athleteCount} athletes`, abSubject: `METTLE for a ${target.athleteCount}-athlete program`, body: `${fn},\n\nI took a closer look at what a ${teamTypeLabel} program with ${target.athleteCount} athletes would need.\n\nFor ${target.teamName}, the ${tierName} tier ($${price}/mo) would cover:\n• ${pain1.solve}\n• ${pain2.solve}\n• Full parent portal with real-time progress visibility\n\nROI math: preventing just ${Math.ceil(target.athleteCount * 0.05)} athletes from churning pays for METTLE ${Math.round((Math.ceil(target.athleteCount * 0.05) * 100) / price)}x over.\n\nWould a ${target.teamName}-specific demo be worth 15 minutes?\n\n— METTLE Team` },
+      { subject: `Easy next step for ${target.teamName}`, abSubject: `No-commitment look at METTLE`, body: `${fn},\n\nI know you're busy coaching — so here's the easiest possible next step:\n\nA 15-minute video call where I show you exactly what METTLE looks like for a ${target.athleteCount}-athlete ${teamTypeLabel} program. Your data, your athletes, your workflow.\n\nIf it fits, great. If not, you'll at least have ideas for solving ${pain1.problem} from what other teams are doing.\n\nPick any slot that works: [Calendar Link]\n\n— METTLE Team` },
+      { subject: `Open door for ${target.teamName}`, abSubject: `Standing offer, ${fn}`, body: `${fn},\n\nI've shared some resources and reached out a few times. I'll leave it here.\n\nThe door is always open for ${target.teamName}. If ${pain1.problem} becomes a priority, or if you just want a second opinion on your athlete engagement strategy, I'm a 15-minute call away.\n\nRooting for your swimmers this season.\n\n— METTLE Team` }
+    ]
+  };
+
+  return emailTemplates[strategy] || emailTemplates.challenger;
+}
+
+function generateSequence() {
+  currentTarget = getTarget();
+  const strat = strategies[currentStrategy];
+  currentSequence = generateEmails(currentTarget, currentStrategy);
+
+  // Update metrics
+  const arr = tierPricing[currentTarget.tier] * 12;
+  document.getElementById('seqTouches').textContent = strat.touches.length;
+  document.getElementById('seqDays').textContent = strat.touches[strat.touches.length - 1].day;
+  document.getElementById('seqARR').textContent = '$' + arr.toLocaleString();
+  document.getElementById('seqRate').textContent = strat.replyRate + '%';
+
+  // Build timeline
+  const timelineEl = document.getElementById('timeline');
+  timelineEl.innerHTML = strat.touches.map((t, i) => `
+    <div class="timing">
+      <span class="day">Day ${t.day}</span>
+      <span class="badge ${t.type}">${t.type.toUpperCase()}</span>
+      <span>${t.label}</span>
+      <span class="note">${t.day === 0 ? 'Send immediately' : getDayNote(t.day)}</span>
+    </div>
+  `).join('');
+
+  // Build email sequence
+  const emailEl = document.getElementById('emailSequence');
+  emailEl.innerHTML = '<div class="touch-timeline">' + currentSequence.map((e, i) => `
+    <div class="touch-node ${i === 0 ? 'active' : ''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div>
+          <span class="badge ${strat.touches[i].type}">${strat.touches[i].type.toUpperCase()}</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:8px">Touch ${i+1} — Day ${strat.touches[i].day}</span>
+        </div>
+        <button class="copy-btn" onclick="copyEmail(${i})">COPY</button>
+      </div>
+      <div class="email-preview">
+        <div class="subject">Subject: ${e.subject}</div>
+        <div class="body">${e.body}</div>
+      </div>
+    </div>
+  `).join('') + '</div>';
+
+  // Build A/B variants
+  const abEl = document.getElementById('abVariants');
+  abEl.innerHTML = currentSequence.map((e, i) => `
+    <div class="ab-row">
+      <div>
+        <div class="ab-label">TOUCH ${i+1} — VARIANT A</div>
+        <div style="font-size:12px;padding:8px 12px;background:var(--surface);border-radius:4px;border:1px solid var(--border)">${e.subject}</div>
+      </div>
+      <div>
+        <div class="ab-label">TOUCH ${i+1} — VARIANT B</div>
+        <div style="font-size:12px;padding:8px 12px;background:var(--surface);border-radius:4px;border:1px solid var(--border)">${e.abSubject}</div>
+      </div>
+      <div style="text-align:center;padding-top:16px">
+        <span style="font-size:10px;color:var(--muted)">50/50</span>
+      </div>
+    </div>
+  `).join('');
+
+  showTab('sequence');
+}
+
+function getDayNote(day) {
+  if (day <= 2) return 'Tue/Wed optimal';
+  if (day <= 5) return 'Mid-week send';
+  if (day <= 9) return 'Following week';
+  if (day <= 14) return 'Two weeks in';
+  return 'Final touch';
+}
+
+function copyEmail(idx) {
+  const e = currentSequence[idx];
+  const text = `Subject: ${e.subject}\n\n${e.body}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btns = document.querySelectorAll('.copy-btn');
+    if (btns[idx]) { btns[idx].textContent = 'COPIED'; setTimeout(() => btns[idx].textContent = 'COPY', 1500); }
+  });
+}
+
+function addToPipeline() {
+  const target = getTarget();
+  const strat = strategies[currentStrategy];
+  pipeline.push({
+    team: target.teamName,
+    contact: target.contactName,
+    email: target.contactEmail,
+    stage: 'cold',
+    touch: 0,
+    tier: target.tier,
+    arr: tierPricing[target.tier] * 12,
+    strategy: currentStrategy,
+    created: new Date().toISOString().split('T')[0],
+    pains: target.pains
+  });
+  localStorage.setItem('mettle_pipeline', JSON.stringify(pipeline));
+  renderPipeline();
+  showTab('pipeline');
+}
+
+function advanceStage(idx) {
+  const stages = ['cold', 'warm', 'hot', 'won'];
+  const current = stages.indexOf(pipeline[idx].stage);
+  if (current < stages.length - 1) {
+    pipeline[idx].stage = stages[current + 1];
+    pipeline[idx].touch = Math.min(pipeline[idx].touch + 1, 5);
+    localStorage.setItem('mettle_pipeline', JSON.stringify(pipeline));
+    renderPipeline();
+  }
+}
+
+function renderPipeline() {
+  const list = document.getElementById('pipelineList');
+  const total = pipeline.length;
+  const hot = pipeline.filter(p => p.stage === 'hot').length;
+  const totalARR = pipeline.reduce((s, p) => s + p.arr, 0);
+  const won = pipeline.filter(p => p.stage === 'won').length;
+
+  document.getElementById('pipeTotal').textContent = total;
+  document.getElementById('pipeHot').textContent = hot;
+  document.getElementById('pipeARR').textContent = '$' + totalARR.toLocaleString();
+  document.getElementById('pipeWin').textContent = total ? Math.round(won / total * 100) + '%' : '0%';
+
+  list.innerHTML = pipeline.map((p, i) => `
+    <div class="pipeline-item">
+      <span><strong>${p.team}</strong><br><span style="font-size:10px;color:var(--muted)">${p.contact}</span></span>
+      <span><span class="stage ${p.stage}">${p.stage.toUpperCase()}</span></span>
+      <span>${p.touch}/5</span>
+      <span>$${p.arr.toLocaleString()}</span>
+      <span><button class="copy-btn" onclick="advanceStage(${i})">ADVANCE</button></span>
+    </div>
+  `).join('');
+}
+
+function clearPipeline() {
+  if (confirm('Clear all pipeline data?')) {
+    pipeline = [];
+    localStorage.setItem('mettle_pipeline', JSON.stringify(pipeline));
+    renderPipeline();
+  }
+}
+
+function exportEmails() {
+  if (!currentSequence.length) { document.getElementById('exportOutput').textContent = 'Generate a sequence first.'; return; }
+  const strat = strategies[currentStrategy];
+  const text = currentSequence.map((e, i) =>
+    `═══════════════════════════════════════════\nTOUCH ${i+1} — Day ${strat.touches[i].day} — ${strat.touches[i].label}\n═══════════════════════════════════════════\n\nSubject A: ${e.subject}\nSubject B: ${e.abSubject}\n\n${e.body}\n`
+  ).join('\n\n');
+  document.getElementById('exportOutput').textContent = text;
+  navigator.clipboard.writeText(text);
+}
+
+function exportCSV() {
+  const header = 'Team,Contact,Email,Stage,Touch,Tier,ARR,Strategy,Created,Pains';
+  const rows = pipeline.map(p =>
+    `"${p.team}","${p.contact}","${p.email}",${p.stage},${p.touch},${p.tier},${p.arr},${p.strategy},${p.created},"${(p.pains||[]).join(';')}"`
+  );
+  const csv = [header, ...rows].join('\n');
+  document.getElementById('exportOutput').textContent = csv;
+  navigator.clipboard.writeText(csv);
+}
+
+function exportJSON() {
+  if (!currentTarget.teamName) { document.getElementById('exportOutput').textContent = 'Generate a sequence first.'; return; }
+  const obj = {
+    lead: {
+      team: currentTarget.teamName,
+      location: currentTarget.location,
+      athleteCount: currentTarget.athleteCount,
+      teamType: currentTarget.teamType,
+      contact: { name: currentTarget.contactName, role: currentTarget.contactRole, email: currentTarget.contactEmail },
+      painPoints: currentTarget.pains,
+      estimatedTier: currentTarget.tier,
+      estimatedARR: tierPricing[currentTarget.tier] * 12,
+      seasonTiming: currentTarget.seasonTiming,
+      leadSource: currentTarget.leadSource
+    },
+    sequence: {
+      strategy: currentStrategy,
+      strategyName: strategies[currentStrategy].name,
+      estimatedReplyRate: strategies[currentStrategy].replyRate,
+      touches: strategies[currentStrategy].touches.length,
+      durationDays: strategies[currentStrategy].touches[strategies[currentStrategy].touches.length - 1].day
+    },
+    pipeline: pipeline,
+    generatedAt: new Date().toISOString()
+  };
+  const json = JSON.stringify(obj, null, 2);
+  document.getElementById('exportOutput').textContent = json;
+  navigator.clipboard.writeText(json);
+}
+
+function exportCadence() {
+  if (!currentSequence.length) { document.getElementById('exportOutput').textContent = 'Generate a sequence first.'; return; }
+  const strat = strategies[currentStrategy];
+  const today = new Date();
+  const cal = strat.touches.map((t, i) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + t.day);
+    const dayStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const bestTime = t.day <= 2 ? '8:00 AM' : (t.day <= 7 ? '10:00 AM' : '7:30 AM');
+    return `${dayStr} @ ${bestTime}  →  Touch ${i+1}: ${t.label} (${t.type})\n  Subject: ${currentSequence[i].subject}\n  To: ${currentTarget.contactEmail}`;
+  });
+  const text = `SEND CALENDAR — ${currentTarget.teamName}\nStrategy: ${strat.name}\n${'─'.repeat(50)}\n\n${cal.join('\n\n')}`;
+  document.getElementById('exportOutput').textContent = text;
+  navigator.clipboard.writeText(text);
+}
+
+// Init
+renderPipeline();
+</script>
+</body>
+</html>

@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Decision War Game</title>
+<style>
+:root {
+  --bg: #0a0a0f;
+  --surface: #12121a;
+  --border: #2a2a3a;
+  --text: #e8e8f0;
+  --muted: #888899;
+  --purple: #7c3aed;
+  --scarlet: #dc2626;
+  --gold: #f59e0b;
+  --blue: #3b82f6;
+  --green: #10b981;
+  --cyan: #06b6d4;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+.header { padding: 20px 24px; border-bottom: 2px solid var(--purple); display: flex; align-items: center; gap: 16px; }
+.header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+.header h1 span { color: var(--purple); }
+.header .subtitle { color: var(--muted); font-size: 13px; }
+.tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); padding: 0 24px; }
+.tab { padding: 12px 20px; cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+.content { padding: 24px; max-width: 1400px; }
+.hidden { display: none !important; }
+
+/* Setup Tab */
+.setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.card { background: var(--surface); border: 2px solid var(--border); border-radius: 8px; padding: 20px; }
+.card h3 { font-size: 14px; color: var(--purple); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.form-row { display: flex; gap: 12px; margin-bottom: 10px; align-items: center; }
+.form-row label { font-size: 12px; color: var(--muted); min-width: 140px; }
+.form-row input, .form-row select { background: var(--bg); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 4px; font-size: 13px; width: 160px; }
+.form-row input:focus, .form-row select:focus { outline: none; border-color: var(--purple); }
+
+/* Decision Tree */
+.tree-container { position: relative; }
+.decision-node { background: var(--surface); border: 2px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s; }
+.decision-node:hover { border-color: var(--purple); }
+.decision-node.selected { border-color: var(--gold); box-shadow: 0 0 12px rgba(245, 158, 11, 0.2); }
+.decision-node .label { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+.decision-node .desc { font-size: 12px; color: var(--muted); }
+.decision-node .impact { display: flex; gap: 12px; margin-top: 8px; }
+.impact-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; }
+.impact-tag.positive { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+.impact-tag.negative { background: rgba(220, 38, 38, 0.15); color: var(--scarlet); }
+.impact-tag.neutral { background: rgba(136, 136, 153, 0.15); color: var(--muted); }
+
+.decisions-list { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.branch-header { font-size: 13px; color: var(--gold); font-weight: 600; margin: 20px 0 10px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* Scenario comparison */
+.scenario-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.scenario-card { background: var(--surface); border: 2px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+.scenario-card.best { border-color: var(--green); }
+.scenario-card.worst { border-color: var(--scarlet); }
+.scenario-card .scenario-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.scenario-card .scenario-value { font-size: 28px; font-weight: 700; }
+.scenario-card .scenario-delta { font-size: 12px; margin-top: 4px; }
+
+/* Canvas */
+canvas { width: 100%; border-radius: 8px; background: var(--surface); border: 2px solid var(--border); }
+
+/* Buttons */
+.btn { padding: 8px 16px; border-radius: 6px; border: 2px solid var(--purple); background: transparent; color: var(--purple); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn:hover { background: var(--purple); color: white; }
+.btn.active { background: var(--purple); color: white; }
+.btn-row { display: flex; gap: 8px; margin: 16px 0; }
+
+/* Timeline path */
+.path-list { list-style: none; }
+.path-list li { padding: 8px 16px; border-left: 3px solid var(--border); margin-left: 12px; font-size: 13px; position: relative; }
+.path-list li::before { content: ''; position: absolute; left: -8px; top: 12px; width: 10px; height: 10px; border-radius: 50%; background: var(--purple); border: 2px solid var(--bg); }
+.path-list li.chosen { border-left-color: var(--gold); }
+.path-list li.chosen::before { background: var(--gold); }
+
+/* Metrics bar */
+.metrics-bar { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 20px; }
+.metric { background: var(--surface); border: 2px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; }
+.metric .metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.metric .metric-value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+.metric .metric-delta { font-size: 11px; margin-top: 2px; }
+
+/* Export */
+textarea.export { width: 100%; height: 300px; background: var(--bg); border: 2px solid var(--border); color: var(--text); font-family: monospace; font-size: 12px; padding: 12px; border-radius: 8px; resize: vertical; }
+
+@media (max-width: 768px) {
+  .setup-grid, .decisions-list, .scenario-row { grid-template-columns: 1fr; }
+  .metrics-bar { grid-template-columns: repeat(3, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>METTLE // <span>Decision War Game</span></h1>
+  <div class="subtitle">Branching scenario engine — model business decisions and see cascading 12-month impacts</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="setup">Baseline</div>
+  <div class="tab" data-tab="decisions">Decisions</div>
+  <div class="tab" data-tab="simulation">Simulation</div>
+  <div class="tab" data-tab="comparison">Compare Paths</div>
+  <div class="tab" data-tab="export">Export</div>
+</div>
+
+<div class="content">
+  <!-- SETUP TAB -->
+  <div id="tab-setup">
+    <div class="setup-grid">
+      <div class="card">
+        <h3>Current State</h3>
+        <div class="form-row"><label>Current Teams</label><input type="number" id="baseTeams" value="12" min="1"></div>
+        <div class="form-row"><label>Avg Athletes/Team</label><input type="number" id="baseAthletes" value="45" min="1"></div>
+        <div class="form-row"><label>Monthly Churn %</label><input type="number" id="baseChurn" value="5" min="0" max="50" step="0.5"></div>
+        <div class="form-row"><label>Monthly New Teams</label><input type="number" id="baseAcq" value="2" min="0" step="0.5"></div>
+        <div class="form-row"><label>ARPU ($/team/mo)</label><input type="number" id="baseARPU" value="299" min="0"></div>
+      </div>
+      <div class="card">
+        <h3>Market Context</h3>
+        <div class="form-row"><label>TAM (total teams)</label><input type="number" id="tam" value="3500" min="100"></div>
+        <div class="form-row"><label>Competitor Count</label><input type="number" id="competitors" value="6" min="0"></div>
+        <div class="form-row"><label>Market Growth %/yr</label><input type="number" id="marketGrowth" value="8" min="0" max="50" step="1"></div>
+        <div class="form-row">
+          <label>Competitive Moat</label>
+          <select id="moat">
+            <option value="weak">Weak — Easy to copy</option>
+            <option value="moderate" selected>Moderate — Some differentiation</option>
+            <option value="strong">Strong — Hard to replicate</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Sales Channel</label>
+          <select id="salesChannel">
+            <option value="organic">Organic/Referral Only</option>
+            <option value="mixed" selected>Mixed (Organic + Outbound)</option>
+            <option value="aggressive">Aggressive Outbound</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:20px;">
+      <button class="btn" onclick="loadTemplate('conservative')">Conservative Template</button>
+      <button class="btn" onclick="loadTemplate('base')">Base Case Template</button>
+      <button class="btn" onclick="loadTemplate('aggressive')">Aggressive Template</button>
+    </div>
+  </div>
+
+  <!-- DECISIONS TAB -->
+  <div id="tab-decisions" class="hidden">
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Select decisions to model. Each decision triggers cascading effects across revenue, churn, growth, and market share. Build your scenario path, then simulate.</p>
+
+    <div class="branch-header">Quarter 1 — Foundation Decisions</div>
+    <div class="decisions-list" id="q1-decisions"></div>
+
+    <div class="branch-header">Quarter 2 — Growth Decisions</div>
+    <div class="decisions-list" id="q2-decisions"></div>
+
+    <div class="branch-header">Quarter 3 — Scale Decisions</div>
+    <div class="decisions-list" id="q3-decisions"></div>
+
+    <div class="branch-header">Quarter 4 — Optimize Decisions</div>
+    <div class="decisions-list" id="q4-decisions"></div>
+
+    <div style="margin-top:20px;">
+      <h3 style="font-size:14px;color:var(--gold);margin-bottom:10px;">CHOSEN PATH</h3>
+      <ul class="path-list" id="chosen-path"></ul>
+      <div class="btn-row">
+        <button class="btn" onclick="clearPath()">Clear Path</button>
+        <button class="btn" onclick="switchTab('simulation');runSimulation()">Run Simulation →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIMULATION TAB -->
+  <div id="tab-simulation" class="hidden">
+    <div class="metrics-bar" id="sim-metrics"></div>
+    <canvas id="simChart" height="360"></canvas>
+    <div style="margin-top:16px;">
+      <h3 style="font-size:14px;color:var(--purple);margin-bottom:10px;">MONTHLY BREAKDOWN</h3>
+      <div id="monthlyTable" style="overflow-x:auto;"></div>
+    </div>
+    <div style="margin-top:16px;">
+      <h3 style="font-size:14px;color:var(--purple);margin-bottom:10px;">DECISION IMPACT TIMELINE</h3>
+      <div id="impactTimeline"></div>
+    </div>
+  </div>
+
+  <!-- COMPARISON TAB -->
+  <div id="tab-comparison" class="hidden">
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Compare your chosen path against the do-nothing baseline and the optimal aggressive path.</p>
+    <div class="scenario-row" id="comparison-cards"></div>
+    <canvas id="compChart" height="360"></canvas>
+    <div style="margin-top:16px;">
+      <h3 style="font-size:14px;color:var(--purple);margin-bottom:10px;">SENSITIVITY ANALYSIS</h3>
+      <div id="sensitivity"></div>
+    </div>
+  </div>
+
+  <!-- EXPORT TAB -->
+  <div id="tab-export" class="hidden">
+    <div class="btn-row">
+      <button class="btn" onclick="exportJSON()">Export JSON</button>
+      <button class="btn" onclick="exportCSV()">Export CSV</button>
+      <button class="btn" onclick="exportText()">Export Summary</button>
+    </div>
+    <textarea class="export" id="exportArea" readonly></textarea>
+  </div>
+</div>
+
+<script>
+// ========== DECISION CATALOG ==========
+const DECISIONS = [
+  // Q1 — Foundation
+  { id:'raise_price', q:1, label:'Raise Prices 20%', desc:'Increase ARPU from current to +20%. Risk of churn spike.',
+    effects:{arpu:1.20, churnDelta:2.0, acqDelta:-0.5}, risk:'medium',
+    tags:[{text:'ARPU +20%',type:'positive'},{text:'Churn +2%',type:'negative'}]},
+  { id:'lower_price', q:1, label:'Lower Prices 15%', desc:'Undercut competitors. Volume play — more teams, lower ARPU.',
+    effects:{arpu:0.85, churnDelta:-1.5, acqDelta:1.5}, risk:'medium',
+    tags:[{text:'ARPU -15%',type:'negative'},{text:'Acq +1.5/mo',type:'positive'}]},
+  { id:'freemium', q:1, label:'Launch Freemium Tier', desc:'Free tier for <20 athletes. Conversion funnel to paid.',
+    effects:{arpu:0.90, churnDelta:-1.0, acqDelta:3.0, conversionRate:0.25}, risk:'high',
+    tags:[{text:'Acq +3/mo',type:'positive'},{text:'ARPU -10%',type:'negative'},{text:'High risk',type:'negative'}]},
+  { id:'annual_discount', q:1, label:'Annual Plans (20% off)', desc:'Lock in annual commitments. Reduces churn, defers revenue.',
+    effects:{arpu:0.95, churnDelta:-2.5, acqDelta:0.5}, risk:'low',
+    tags:[{text:'Churn -2.5%',type:'positive'},{text:'ARPU -5%',type:'negative'}]},
+
+  // Q2 — Growth
+  { id:'hire_sales', q:2, label:'Hire Sales Rep', desc:'$5k/mo cost. Doubles outbound acquisition velocity.',
+    effects:{acqDelta:2.0, fixedCost:5000}, risk:'medium',
+    tags:[{text:'Acq +2/mo',type:'positive'},{text:'-$5k/mo',type:'negative'}]},
+  { id:'referral_program', q:2, label:'Launch Referral Program', desc:'$50 credit per referral. 15% of customers refer within 3 months.',
+    effects:{acqDelta:1.0, arpu:0.97}, risk:'low',
+    tags:[{text:'Acq +1/mo',type:'positive'},{text:'ARPU -3%',type:'negative'}]},
+  { id:'conference_circuit', q:2, label:'Conference Circuit', desc:'Attend 4 swim conferences. $8k total. Brand awareness + 6 demos/event.',
+    effects:{acqDelta:1.5, fixedCost:2000}, risk:'medium',
+    tags:[{text:'Acq +1.5/mo',type:'positive'},{text:'-$2k/mo Q2',type:'negative'}]},
+  { id:'content_marketing', q:2, label:'Content Marketing Push', desc:'Weekly swim coaching content. Slow build, compounds over time.',
+    effects:{acqDeltaGrowth:0.3, fixedCost:1000}, risk:'low',
+    tags:[{text:'Acq +0.3/mo cumulative',type:'positive'},{text:'-$1k/mo',type:'negative'}]},
+
+  // Q3 — Scale
+  { id:'mobile_app', q:3, label:'Launch Mobile App', desc:'Athlete/parent mobile companion. Reduces churn through engagement.',
+    effects:{churnDelta:-2.0, arpu:1.05}, risk:'medium',
+    tags:[{text:'Churn -2%',type:'positive'},{text:'ARPU +5%',type:'positive'}]},
+  { id:'api_integrations', q:3, label:'API Integrations', desc:'Connect with TeamUnify, SwimTopia, Hy-Tek. Reduces switching cost.',
+    effects:{churnDelta:-1.5, acqDelta:1.0}, risk:'low',
+    tags:[{text:'Churn -1.5%',type:'positive'},{text:'Acq +1/mo',type:'positive'}]},
+  { id:'enterprise_tier', q:3, label:'Enterprise Tier ($549/mo)', desc:'Multi-team management for large clubs. Higher ARPU segment.',
+    effects:{arpu:1.12, acqDelta:0.5}, risk:'low',
+    tags:[{text:'ARPU +12%',type:'positive'},{text:'Acq +0.5/mo',type:'positive'}]},
+  { id:'white_label', q:3, label:'White-Label for LSCs', desc:'License METTLE to Local Swimming Committees. $2k/mo per LSC.',
+    effects:{acqDelta:0.3, fixedRevenue:6000}, risk:'high',
+    tags:[{text:'+$6k/mo',type:'positive'},{text:'High complexity',type:'negative'}]},
+
+  // Q4 — Optimize
+  { id:'ai_coaching', q:4, label:'AI Coaching Insights', desc:'ML-powered training recommendations. Premium differentiator.',
+    effects:{churnDelta:-1.5, arpu:1.08}, risk:'medium',
+    tags:[{text:'Churn -1.5%',type:'positive'},{text:'ARPU +8%',type:'positive'}]},
+  { id:'acquisition', q:4, label:'Acquire Competitor', desc:'Buy a small competitor ($50k). Absorb 80 teams instantly.',
+    effects:{teamBoost:80, fixedCost:50000, acqDelta:0.5}, risk:'high',
+    tags:[{text:'+80 teams',type:'positive'},{text:'-$50k one-time',type:'negative'}]},
+  { id:'geographic_expand', q:4, label:'Geographic Expansion', desc:'Enter Canadian/UK market. New TAM, same product.',
+    effects:{acqDelta:1.5, fixedCost:3000, tamExpand:1500}, risk:'medium',
+    tags:[{text:'TAM +1500',type:'positive'},{text:'-$3k/mo',type:'negative'}]},
+  { id:'cost_optimize', q:4, label:'Cost Optimization', desc:'Reduce infrastructure costs 30%. Improve margins without price changes.',
+    effects:{marginBoost:0.30}, risk:'low',
+    tags:[{text:'Margin +30%',type:'positive'}]}
+];
+
+// ========== STATE ==========
+let chosenPath = [];
+let simResults = null;
+let savedPaths = [];
+
+// ========== TEMPLATES ==========
+function loadTemplate(type) {
+  const t = {
+    conservative: { baseTeams:8, baseAthletes:40, baseChurn:4, baseAcq:1.5, baseARPU:249, tam:3500, competitors:6, marketGrowth:5, moat:'moderate', salesChannel:'organic' },
+    base: { baseTeams:12, baseAthletes:45, baseChurn:5, baseAcq:2, baseARPU:299, tam:3500, competitors:6, marketGrowth:8, moat:'moderate', salesChannel:'mixed' },
+    aggressive: { baseTeams:18, baseAthletes:50, baseChurn:6, baseAcq:3, baseARPU:349, tam:3500, competitors:6, marketGrowth:12, moat:'strong', salesChannel:'aggressive' }
+  }[type];
+  Object.entries(t).forEach(([k,v]) => {
+    const el = document.getElementById(k);
+    if (el) el.value = v;
+  });
+}
+
+// ========== TAB MANAGEMENT ==========
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+});
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  ['setup','decisions','simulation','comparison','export'].forEach(t => {
+    document.getElementById('tab-'+t).classList.toggle('hidden', t !== name);
+  });
+  if (name === 'decisions') renderDecisions();
+  if (name === 'simulation') runSimulation();
+  if (name === 'comparison') runComparison();
+}
+
+// ========== DECISIONS RENDERING ==========
+function renderDecisions() {
+  [1,2,3,4].forEach(q => {
+    const container = document.getElementById('q'+q+'-decisions');
+    container.innerHTML = '';
+    DECISIONS.filter(d => d.q === q).forEach(d => {
+      const isSelected = chosenPath.some(c => c.id === d.id);
+      const node = document.createElement('div');
+      node.className = 'decision-node' + (isSelected ? ' selected' : '');
+      node.innerHTML = `
+        <div class="label">${d.label}</div>
+        <div class="desc">${d.desc}</div>
+        <div class="impact">${d.tags.map(t => `<span class="impact-tag ${t.type}">${t.text}</span>`).join('')}</div>
+      `;
+      node.onclick = () => toggleDecision(d);
+      container.appendChild(node);
+    });
+  });
+  renderChosenPath();
+}
+
+function toggleDecision(d) {
+  const idx = chosenPath.findIndex(c => c.id === d.id);
+  if (idx >= 0) {
+    chosenPath.splice(idx, 1);
+  } else {
+    // Max 1 per quarter for pricing decisions, but allow multiple for others
+    chosenPath.push(d);
+  }
+  renderDecisions();
+}
+
+function renderChosenPath() {
+  const list = document.getElementById('chosen-path');
+  if (chosenPath.length === 0) {
+    list.innerHTML = '<li style="color:var(--muted);">No decisions selected yet. Click decisions above to build your scenario path.</li>';
+    return;
+  }
+  list.innerHTML = chosenPath.map(d =>
+    `<li class="chosen"><strong>Q${d.q}:</strong> ${d.label} <span style="color:var(--muted);font-size:11px;">${d.tags.map(t=>t.text).join(' | ')}</span></li>`
+  ).join('');
+}
+
+function clearPath() {
+  chosenPath = [];
+  renderDecisions();
+}
+
+// ========== SIMULATION ENGINE ==========
+function getBaseline() {
+  return {
+    teams: +document.getElementById('baseTeams').value,
+    athletesPerTeam: +document.getElementById('baseAthletes').value,
+    churnPct: +document.getElementById('baseChurn').value,
+    acqRate: +document.getElementById('baseAcq').value,
+    arpu: +document.getElementById('baseARPU').value,
+    tam: +document.getElementById('tam').value,
+    competitors: +document.getElementById('competitors').value,
+    marketGrowth: +document.getElementById('marketGrowth').value / 100,
+    moat: document.getElementById('moat').value,
+    salesChannel: document.getElementById('salesChannel').value
+  };
+}
+
+function simulate(baseline, decisions) {
+  const months = [];
+  let teams = baseline.teams;
+  let arpu = baseline.arpu;
+  let churnPct = baseline.churnPct;
+  let acqRate = baseline.acqRate;
+  let fixedCosts = 0;
+  let fixedRevenue = 0;
+  let contentAccum = 0;
+  let totalRevenue = 0;
+  let tam = baseline.tam;
+
+  // Apply decision effects per quarter
+  const decByQ = {1:[], 2:[], 3:[], 4:[]};
+  decisions.forEach(d => decByQ[d.q].push(d));
+
+  for (let m = 1; m <= 12; m++) {
+    const quarter = Math.ceil(m / 3);
+
+    // Apply decisions at start of quarter
+    if (m === 1 || m === 4 || m === 7 || m === 10) {
+      const qDecs = decByQ[quarter] || [];
+      qDecs.forEach(d => {
+        const e = d.effects;
+        if (e.arpu) arpu *= e.arpu;
+        if (e.churnDelta) churnPct = Math.max(0, churnPct + e.churnDelta);
+        if (e.acqDelta) acqRate += e.acqDelta;
+        if (e.fixedCost && !e.teamBoost) fixedCosts += e.fixedCost;
+        if (e.fixedRevenue) fixedRevenue += e.fixedRevenue;
+        if (e.tamExpand) tam += e.tamExpand;
+        if (e.teamBoost) teams += e.teamBoost;
+        if (e.acqDeltaGrowth) contentAccum += e.acqDeltaGrowth;
+      });
+    }
+
+    // One-time costs (acquisition) in month applied
+    let oneTimeCost = 0;
+    if (m === 10) { // Q4 start
+      const acqDec = decByQ[4].find(d => d.id === 'acquisition');
+      if (acqDec) oneTimeCost = 50000;
+    }
+
+    // Content marketing compounds
+    acqRate += contentAccum > 0 ? 0.05 : 0;
+
+    // Market saturation dampening
+    const saturation = Math.max(0.3, 1 - (teams / tam));
+    const effectiveAcq = Math.max(0, acqRate * saturation);
+
+    // Moat effect on churn
+    const moatMultiplier = baseline.moat === 'strong' ? 0.8 : baseline.moat === 'moderate' ? 1.0 : 1.2;
+    const effectiveChurn = churnPct * moatMultiplier;
+
+    const churned = Math.round(teams * (effectiveChurn / 100));
+    const acquired = Math.round(effectiveAcq);
+    teams = Math.max(1, teams - churned + acquired);
+
+    const mrr = teams * arpu + fixedRevenue;
+    const costs = fixedCosts + oneTimeCost;
+    const net = mrr - costs;
+    totalRevenue += mrr;
+
+    months.push({
+      month: m,
+      quarter,
+      teams,
+      arpu: Math.round(arpu),
+      churnPct: +effectiveChurn.toFixed(1),
+      acquired,
+      churned,
+      mrr: Math.round(mrr),
+      costs: Math.round(costs),
+      net: Math.round(net),
+      totalRevenue: Math.round(totalRevenue),
+      saturation: +(saturation * 100).toFixed(1),
+      marketShare: +((teams / tam) * 100).toFixed(2)
+    });
+  }
+
+  return months;
+}
+
+function runSimulation() {
+  const baseline = getBaseline();
+  simResults = simulate(baseline, chosenPath);
+  const baselineResults = simulate(baseline, []);
+
+  const final = simResults[11];
+  const baseFinal = baselineResults[11];
+  const start = simResults[0];
+
+  // Metrics bar
+  const metricsBar = document.getElementById('sim-metrics');
+  const deltaTeams = final.teams - baseFinal.teams;
+  const deltaMRR = final.mrr - baseFinal.mrr;
+  const deltaChurn = final.churnPct - baseFinal.churnPct;
+
+  metricsBar.innerHTML = [
+    { label:'Teams (M12)', value:final.teams, delta:`${deltaTeams >= 0 ? '+' : ''}${deltaTeams} vs baseline`, color: deltaTeams >= 0 ? 'var(--green)' : 'var(--scarlet)' },
+    { label:'MRR (M12)', value:'$'+final.mrr.toLocaleString(), delta:`${deltaMRR >= 0 ? '+' : ''}$${deltaMRR.toLocaleString()}`, color: deltaMRR >= 0 ? 'var(--green)' : 'var(--scarlet)' },
+    { label:'ARR (M12)', value:'$'+(final.mrr*12).toLocaleString(), delta:'Annualized', color:'var(--blue)' },
+    { label:'Churn Rate', value:final.churnPct+'%', delta:`${deltaChurn >= 0 ? '+' : ''}${deltaChurn.toFixed(1)}% vs base`, color: deltaChurn <= 0 ? 'var(--green)' : 'var(--scarlet)' },
+    { label:'Market Share', value:final.marketShare+'%', delta:`TAM: ${baseline.tam}`, color:'var(--purple)' }
+  ].map(m => `
+    <div class="metric">
+      <div class="metric-label">${m.label}</div>
+      <div class="metric-value" style="color:${m.color}">${m.value}</div>
+      <div class="metric-delta" style="color:var(--muted)">${m.delta}</div>
+    </div>
+  `).join('');
+
+  // Chart
+  drawSimChart(simResults, baselineResults);
+
+  // Monthly table
+  renderMonthlyTable(simResults);
+
+  // Impact timeline
+  renderImpactTimeline();
+}
+
+function drawSimChart(results, baseResults) {
+  const canvas = document.getElementById('simChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = 720;
+  ctx.scale(2, 2);
+  const w = canvas.offsetWidth;
+  const h = 360;
+
+  ctx.fillStyle = '#12121a';
+  ctx.fillRect(0, 0, w, h);
+
+  const pad = { top: 40, right: 80, bottom: 40, left: 70 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  // Get max values
+  const allMRR = [...results.map(r=>r.mrr), ...baseResults.map(r=>r.mrr)];
+  const maxMRR = Math.max(...allMRR) * 1.1;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (chartH / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+
+    const val = Math.round(maxMRR - (maxMRR / 5) * i);
+    ctx.fillStyle = '#888899';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + val.toLocaleString(), pad.left - 8, y + 4);
+  }
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  for (let m = 0; m < 12; m++) {
+    const x = pad.left + (chartW / 11) * m;
+    ctx.fillStyle = '#888899';
+    ctx.fillText('M' + (m + 1), x, h - 15);
+  }
+
+  // Baseline line (dashed)
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#555566';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  baseResults.forEach((r, i) => {
+    const x = pad.left + (chartW / 11) * i;
+    const y = pad.top + chartH - (r.mrr / maxMRR) * chartH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Scenario line
+  ctx.strokeStyle = '#7c3aed';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  results.forEach((r, i) => {
+    const x = pad.left + (chartW / 11) * i;
+    const y = pad.top + chartH - (r.mrr / maxMRR) * chartH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under scenario line
+  ctx.globalAlpha = 0.1;
+  ctx.fillStyle = '#7c3aed';
+  ctx.beginPath();
+  results.forEach((r, i) => {
+    const x = pad.left + (chartW / 11) * i;
+    const y = pad.top + chartH - (r.mrr / maxMRR) * chartH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(pad.left + chartW, pad.top + chartH);
+  ctx.lineTo(pad.left, pad.top + chartH);
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Data points
+  results.forEach((r, i) => {
+    const x = pad.left + (chartW / 11) * i;
+    const y = pad.top + chartH - (r.mrr / maxMRR) * chartH;
+    ctx.fillStyle = '#7c3aed';
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // Decision markers
+  const qMonths = {1:0, 2:3, 3:6, 4:9};
+  chosenPath.forEach(d => {
+    const m = qMonths[d.q];
+    const x = pad.left + (chartW / 11) * m;
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.moveTo(x, pad.top + chartH);
+    ctx.lineTo(x, pad.top);
+    ctx.strokeStyle = 'rgba(245,158,11,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = 'bold 9px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(d.label.substring(0, 15), x, pad.top - 5);
+  });
+
+  // Legend
+  ctx.fillStyle = '#7c3aed';
+  ctx.fillRect(w - pad.right - 10, pad.top, 12, 3);
+  ctx.fillStyle = '#e8e8f0';
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('Scenario', w - pad.right + 6, pad.top + 4);
+
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = '#555566';
+  ctx.beginPath();
+  ctx.moveTo(w - pad.right - 10, pad.top + 16);
+  ctx.lineTo(w - pad.right + 2, pad.top + 16);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillText('Baseline', w - pad.right + 6, pad.top + 19);
+
+  // Title
+  ctx.fillStyle = '#e8e8f0';
+  ctx.font = 'bold 13px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('MRR Trajectory — 12 Month Projection', pad.left, 20);
+}
+
+function renderMonthlyTable(results) {
+  const container = document.getElementById('monthlyTable');
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:12px;">';
+  html += '<tr style="border-bottom:2px solid var(--border);">';
+  ['Month','Teams','ARPU','MRR','Acq','Churned','Churn%','Net','Mkt Share'].forEach(h => {
+    html += `<th style="padding:8px;text-align:right;color:var(--muted);font-size:11px;">${h}</th>`;
+  });
+  html += '</tr>';
+  results.forEach(r => {
+    html += `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:6px 8px;text-align:right;color:var(--purple);font-weight:600;">M${r.month}</td>
+      <td style="padding:6px 8px;text-align:right;">${r.teams}</td>
+      <td style="padding:6px 8px;text-align:right;">$${r.arpu}</td>
+      <td style="padding:6px 8px;text-align:right;font-weight:600;">$${r.mrr.toLocaleString()}</td>
+      <td style="padding:6px 8px;text-align:right;color:var(--green);">+${r.acquired}</td>
+      <td style="padding:6px 8px;text-align:right;color:var(--scarlet);">-${r.churned}</td>
+      <td style="padding:6px 8px;text-align:right;">${r.churnPct}%</td>
+      <td style="padding:6px 8px;text-align:right;color:${r.net >= 0 ? 'var(--green)' : 'var(--scarlet)'};">$${r.net.toLocaleString()}</td>
+      <td style="padding:6px 8px;text-align:right;">${r.marketShare}%</td>
+    </tr>`;
+  });
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+function renderImpactTimeline() {
+  const container = document.getElementById('impactTimeline');
+  if (chosenPath.length === 0) {
+    container.innerHTML = '<p style="color:var(--muted);font-size:13px;">No decisions selected. Go to Decisions tab to build your scenario.</p>';
+    return;
+  }
+  let html = '<ul class="path-list">';
+  chosenPath.sort((a,b) => a.q - b.q).forEach(d => {
+    const monthNames = {1:'Jan-Mar',2:'Apr-Jun',3:'Jul-Sep',4:'Oct-Dec'};
+    html += `<li class="chosen">
+      <strong>Q${d.q} (${monthNames[d.q]}):</strong> ${d.label}<br>
+      <span style="color:var(--muted);font-size:11px;">${d.desc}</span><br>
+      <span style="font-size:11px;">${d.tags.map(t => `<span class="impact-tag ${t.type}">${t.text}</span>`).join(' ')}</span>
+    </li>`;
+  });
+  html += '</ul>';
+  container.innerHTML = html;
+}
+
+// ========== COMPARISON ==========
+function runComparison() {
+  const baseline = getBaseline();
+  const baseResults = simulate(baseline, []);
+  const scenarioResults = simulate(baseline, chosenPath);
+
+  // Optimal aggressive path
+  const aggressiveDecs = DECISIONS.filter(d =>
+    ['annual_discount','hire_sales','mobile_app','ai_coaching'].includes(d.id)
+  );
+  const aggressiveResults = simulate(baseline, aggressiveDecs);
+
+  const paths = [
+    { label: 'Do Nothing (Baseline)', results: baseResults, color: 'var(--muted)', border: 'var(--border)' },
+    { label: 'Your Scenario', results: scenarioResults, color: 'var(--purple)', border: 'var(--purple)' },
+    { label: 'Optimal Path', results: aggressiveResults, color: 'var(--green)', border: 'var(--green)' }
+  ];
+
+  // Cards
+  const cardsDiv = document.getElementById('comparison-cards');
+  cardsDiv.innerHTML = paths.map((p, i) => {
+    const final = p.results[11];
+    const arr = final.mrr * 12;
+    const isBest = i === 2;
+    const isWorst = i === 0 && scenarioResults[11].mrr > baseResults[11].mrr;
+    return `<div class="scenario-card ${isBest ? 'best' : isWorst ? 'worst' : ''}">
+      <div class="scenario-label">${p.label}</div>
+      <div class="scenario-value" style="color:${p.color}">$${arr.toLocaleString()}</div>
+      <div class="scenario-delta" style="color:var(--muted)">ARR at Month 12</div>
+      <div style="margin-top:8px;font-size:12px;">${final.teams} teams | ${final.churnPct}% churn</div>
+      <div style="font-size:12px;color:var(--muted);">${final.marketShare}% market share</div>
+    </div>`;
+  }).join('');
+
+  // Comparison chart
+  drawCompChart(paths);
+
+  // Sensitivity analysis
+  renderSensitivity(baseline);
+}
+
+function drawCompChart(paths) {
+  const canvas = document.getElementById('compChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = 720;
+  ctx.scale(2, 2);
+  const w = canvas.offsetWidth;
+  const h = 360;
+
+  ctx.fillStyle = '#12121a';
+  ctx.fillRect(0, 0, w, h);
+
+  const pad = { top: 40, right: 100, bottom: 40, left: 70 };
+  const chartW = w - pad.left - pad.right;
+  const chartH = h - pad.top - pad.bottom;
+
+  const allMRR = paths.flatMap(p => p.results.map(r => r.mrr));
+  const maxMRR = Math.max(...allMRR) * 1.1;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 5; i++) {
+    const y = pad.top + (chartH / 5) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+    ctx.fillStyle = '#888899';
+    ctx.font = '10px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText('$' + Math.round(maxMRR - (maxMRR / 5) * i).toLocaleString(), pad.left - 8, y + 4);
+  }
+
+  // X labels
+  ctx.textAlign = 'center';
+  for (let m = 0; m < 12; m++) {
+    ctx.fillStyle = '#888899';
+    ctx.fillText('M' + (m + 1), pad.left + (chartW / 11) * m, h - 15);
+  }
+
+  const colors = ['#555566', '#7c3aed', '#10b981'];
+  const dashes = [[5,5], [], [3,3]];
+
+  paths.forEach((p, pi) => {
+    ctx.setLineDash(dashes[pi]);
+    ctx.strokeStyle = colors[pi];
+    ctx.lineWidth = pi === 1 ? 2.5 : 1.5;
+    ctx.beginPath();
+    p.results.forEach((r, i) => {
+      const x = pad.left + (chartW / 11) * i;
+      const y = pad.top + chartH - (r.mrr / maxMRR) * chartH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // End label
+    const lastR = p.results[11];
+    const lastX = pad.left + chartW;
+    const lastY = pad.top + chartH - (lastR.mrr / maxMRR) * chartH;
+    ctx.fillStyle = colors[pi];
+    ctx.font = 'bold 10px system-ui';
+    ctx.textAlign = 'left';
+    ctx.fillText('$' + lastR.mrr.toLocaleString(), lastX + 8, lastY + 4);
+  });
+
+  // Legend
+  let ly = pad.top;
+  paths.forEach((p, i) => {
+    ctx.fillStyle = colors[i];
+    ctx.fillRect(w - pad.right + 5, ly, 12, 3);
+    ctx.fillStyle = '#e8e8f0';
+    ctx.font = '9px system-ui';
+    ctx.fillText(p.label.substring(0, 12), w - pad.right + 22, ly + 4);
+    ly += 14;
+  });
+
+  ctx.fillStyle = '#e8e8f0';
+  ctx.font = 'bold 13px system-ui';
+  ctx.textAlign = 'left';
+  ctx.fillText('Path Comparison — MRR Over 12 Months', pad.left, 20);
+}
+
+function renderSensitivity(baseline) {
+  const container = document.getElementById('sensitivity');
+  const vars = [
+    { name: 'Churn +3%', modify: b => ({...b, churnPct: b.churnPct + 3}) },
+    { name: 'Churn -3%', modify: b => ({...b, churnPct: Math.max(0, b.churnPct - 3)}) },
+    { name: 'Acq Rate 2x', modify: b => ({...b, acqRate: b.acqRate * 2}) },
+    { name: 'Acq Rate 0.5x', modify: b => ({...b, acqRate: b.acqRate * 0.5}) },
+    { name: 'ARPU +$100', modify: b => ({...b, arpu: b.arpu + 100}) },
+    { name: 'ARPU -$100', modify: b => ({...b, arpu: b.arpu - 100}) },
+    { name: 'TAM 2x', modify: b => ({...b, tam: b.tam * 2}) },
+    { name: 'Competitor Exit', modify: b => ({...b, competitors: Math.max(0, b.competitors - 2), acqRate: b.acqRate * 1.3}) }
+  ];
+
+  const baseARR = simulate(baseline, chosenPath)[11].mrr * 12;
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">';
+  vars.forEach(v => {
+    const modBaseline = v.modify({...baseline});
+    const modARR = simulate(modBaseline, chosenPath)[11].mrr * 12;
+    const delta = modARR - baseARR;
+    const pct = ((delta / baseARR) * 100).toFixed(1);
+    const isPositive = delta >= 0;
+    html += `<div class="card" style="padding:12px;">
+      <div style="font-size:11px;color:var(--muted);">${v.name}</div>
+      <div style="font-size:18px;font-weight:700;color:${isPositive ? 'var(--green)' : 'var(--scarlet)'};">
+        ${isPositive ? '+' : ''}${pct}%
+      </div>
+      <div style="font-size:11px;color:var(--muted);">$${modARR.toLocaleString()} ARR</div>
+    </div>`;
+  });
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+// ========== EXPORT ==========
+function exportJSON() {
+  const data = {
+    generatedAt: new Date().toISOString(),
+    baseline: getBaseline(),
+    decisions: chosenPath.map(d => ({id: d.id, label: d.label, quarter: d.q})),
+    simulation: simResults || simulate(getBaseline(), chosenPath),
+    finalMetrics: simResults ? {
+      teams: simResults[11].teams,
+      mrr: simResults[11].mrr,
+      arr: simResults[11].mrr * 12,
+      churnPct: simResults[11].churnPct,
+      marketShare: simResults[11].marketShare
+    } : null
+  };
+  document.getElementById('exportArea').value = JSON.stringify(data, null, 2);
+}
+
+function exportCSV() {
+  const results = simResults || simulate(getBaseline(), chosenPath);
+  let csv = 'Month,Teams,ARPU,MRR,Acquired,Churned,Churn%,Net,MarketShare%\n';
+  results.forEach(r => {
+    csv += `${r.month},${r.teams},${r.arpu},${r.mrr},${r.acquired},${r.churned},${r.churnPct},${r.net},${r.marketShare}\n`;
+  });
+  document.getElementById('exportArea').value = csv;
+}
+
+function exportText() {
+  const baseline = getBaseline();
+  const results = simResults || simulate(baseline, chosenPath);
+  const final = results[11];
+  let text = `METTLE DECISION WAR GAME — SCENARIO REPORT\n`;
+  text += `Generated: ${new Date().toISOString()}\n\n`;
+  text += `BASELINE: ${baseline.teams} teams, $${baseline.arpu}/mo ARPU, ${baseline.churnPct}% churn, ${baseline.acqRate} new teams/mo\n\n`;
+  text += `DECISIONS CHOSEN:\n`;
+  chosenPath.forEach(d => { text += `  Q${d.q}: ${d.label} — ${d.desc}\n`; });
+  text += `\n12-MONTH PROJECTION:\n`;
+  text += `  Teams: ${baseline.teams} → ${final.teams}\n`;
+  text += `  MRR: $${results[0].mrr.toLocaleString()} → $${final.mrr.toLocaleString()}\n`;
+  text += `  ARR: $${(final.mrr * 12).toLocaleString()}\n`;
+  text += `  Churn: ${final.churnPct}%\n`;
+  text += `  Market Share: ${final.marketShare}%\n`;
+  text += `  Total Revenue (12mo): $${final.totalRevenue.toLocaleString()}\n`;
+  document.getElementById('exportArea').value = text;
+}
+
+// ========== INIT ==========
+renderDecisions();
+</script>
+</body>
+</html>

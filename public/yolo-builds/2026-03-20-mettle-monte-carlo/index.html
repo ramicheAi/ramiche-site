@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METTLE // Monte Carlo Meet Simulator</title>
+    <style>
+        :root {
+            --bg-color: #0d0f12;
+            --panel-bg: #161a20;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --accent-purple: #8b5cf6;
+            --accent-scarlet: #ef4444;
+            --accent-gold: #f59e0b;
+            --accent-blue: #3b82f6;
+            --border: #374151;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 2rem;
+            line-height: 1.5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+        @media (min-width: 768px) {
+            .container { grid-template-columns: 350px 1fr; }
+        }
+        header {
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 1rem;
+        }
+        header h1 {
+            color: var(--accent-gold);
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            text-transform: uppercase;
+        }
+        header p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .panel {
+            background-color: var(--panel-bg);
+            border: 2px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+        }
+        .panel h2 {
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+        label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-main);
+        }
+        input, select {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 0.75rem;
+            border-radius: 0.375rem;
+            font-family: monospace;
+            font-size: 1rem;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-purple);
+        }
+        button {
+            width: 100%;
+            background-color: var(--accent-purple);
+            color: white;
+            border: none;
+            padding: 1rem;
+            font-weight: bold;
+            font-size: 1rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: background-color 0.2s;
+            margin-top: 1rem;
+        }
+        button:hover { background-color: #7c3aed; }
+        .results {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+        .stat-box {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+        .stat-box .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.25rem;
+        }
+        .stat-box .value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            font-family: monospace;
+        }
+        .stat-box.highlight .value {
+            color: var(--accent-gold);
+            font-size: 2rem;
+        }
+        canvas {
+            width: 100%;
+            background-color: var(--bg-color);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+        }
+        .simons-quote {
+            border-left: 4px solid var(--accent-blue);
+            padding-left: 1rem;
+            font-style: italic;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="controls">
+            <header>
+                <h1>METTLE // SIMULATOR</h1>
+                <p>Monte Carlo Probability Engine</p>
+            </header>
+            
+            <div class="panel">
+                <h2>Parameters</h2>
+                
+                <div class="form-group">
+                    <label>Event</label>
+                    <select id="event">
+                        <option>50 Freestyle</option>
+                        <option>100 Freestyle</option>
+                        <option>100 Butterfly</option>
+                        <option>200 IM</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Target Cut Time (Seconds)</label>
+                    <input type="number" id="targetTime" step="0.01" value="23.50">
+                </div>
+
+                <div class="form-group">
+                    <label>Athlete Historical Mean (Seconds)</label>
+                    <input type="number" id="meanTime" step="0.01" value="24.10">
+                </div>
+
+                <div class="form-group">
+                    <label>Standard Deviation (Seconds)</label>
+                    <input type="number" id="stdDev" step="0.01" value="0.45">
+                    <small style="color:var(--text-muted); font-size: 0.75rem;">Variance in recent race performances</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Simulations (N)</label>
+                    <select id="simCount">
+                        <option value="1000">1,000</option>
+                        <option value="5000" selected>5,000</option>
+                        <option value="10000">10,000</option>
+                    </select>
+                </div>
+
+                <button onclick="runSimulation()">Run Simulation</button>
+            </div>
+        </div>
+
+        <div class="results panel">
+            <h2>Distribution & Probability</h2>
+            
+            <div class="stat-grid">
+                <div class="stat-box highlight" style="grid-column: span 2;">
+                    <div class="label">Probability of Target (<span id="lblTarget">23.50</span>)</div>
+                    <div class="value" id="valProb">--%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">95% Confidence Interval</div>
+                    <div class="value" id="valCI">--</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">Expected Value</div>
+                    <div class="value" id="valEV">--</div>
+                </div>
+            </div>
+
+            <canvas id="chart" width="600" height="300"></canvas>
+            
+            <div class="simons-quote" id="quote">
+                "I speak in probabilities. Enter data to calculate the edge."
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Box-Muller transform for normal distribution
+        function randomNormal(mean, stdDev) {
+            let u1 = Math.random();
+            let u2 = Math.random();
+            let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            return z0 * stdDev + mean;
+        }
+
+        function formatTime(secs) {
+            return secs.toFixed(2);
+        }
+
+        function runSimulation() {
+            const targetTime = parseFloat(document.getElementById('targetTime').value);
+            const meanTime = parseFloat(document.getElementById('meanTime').value);
+            const stdDev = parseFloat(document.getElementById('stdDev').value);
+            const n = parseInt(document.getElementById('simCount').value);
+
+            document.getElementById('lblTarget').innerText = formatTime(targetTime);
+
+            let successCount = 0;
+            let results = [];
+            
+            // Run N simulations
+            for (let i = 0; i < n; i++) {
+                // In swimming, lower time is better.
+                let simTime = randomNormal(meanTime, stdDev);
+                results.push(simTime);
+                if (simTime <= targetTime) {
+                    successCount++;
+                }
+            }
+
+            // Calculate stats
+            results.sort((a, b) => a - b);
+            const prob = (successCount / n) * 100;
+            const ciLower = results[Math.floor(n * 0.025)];
+            const ciUpper = results[Math.floor(n * 0.975)];
+            const ev = results.reduce((a, b) => a + b, 0) / n;
+
+            // Update UI
+            document.getElementById('valProb').innerText = prob.toFixed(1) + '%';
+            document.getElementById('valCI').innerText = `${formatTime(ciLower)} - ${formatTime(ciUpper)}`;
+            document.getElementById('valEV').innerText = formatTime(ev);
+
+            // Update Quote
+            const quoteEl = document.getElementById('quote');
+            if (prob < 5) {
+                quoteEl.innerText = `"The edge here is nonexistent. A ${prob.toFixed(1)}% probability is statistical noise. The athlete needs fundamental mechanical changes, not luck."`;
+            } else if (prob < 30) {
+                quoteEl.innerText = `"A ${prob.toFixed(1)}% chance is an uphill battle. If you want better odds, reduce variance through mechanics or lower the mean through conditioning."`;
+            } else if (prob < 70) {
+                quoteEl.innerText = `"Coin-flip territory. The model shows a ${prob.toFixed(1)}% probability. Optimize the taper and control the controllables."`;
+            } else {
+                quoteEl.innerText = `"High confidence. ${prob.toFixed(1)}% probability of success. The math supports the thesis. Execute the race plan."`;
+            }
+
+            drawHistogram(results, targetTime, meanTime);
+        }
+
+        function drawHistogram(data, target, mean) {
+            const canvas = document.getElementById('chart');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const min = Math.min(...data);
+            const max = Math.max(...data);
+            const bins = 40;
+            const binSize = (max - min) / bins;
+            const histogram = new Array(bins).fill(0);
+
+            data.forEach(val => {
+                let bin = Math.floor((val - min) / binSize);
+                if (bin >= bins) bin = bins - 1;
+                histogram[bin]++;
+            });
+
+            const maxFreq = Math.max(...histogram);
+            const pad = 30;
+            const w = canvas.width - (pad * 2);
+            const h = canvas.height - (pad * 2);
+
+            // Draw bars
+            const barW = w / bins;
+            for (let i = 0; i < bins; i++) {
+                const barH = (histogram[i] / maxFreq) * h;
+                const x = pad + (i * barW);
+                const y = canvas.height - pad - barH;
+                
+                const binMid = min + (i + 0.5) * binSize;
+                // Purple for failure (> target), Gold for success (<= target)
+                ctx.fillStyle = binMid <= target ? '#f59e0b' : '#8b5cf6';
+                ctx.fillRect(x, y, barW - 1, barH);
+            }
+
+            // Draw target line
+            const targetX = pad + ((target - min) / (max - min)) * w;
+            if (targetX >= pad && targetX <= canvas.width - pad) {
+                ctx.strokeStyle = '#ef4444'; // Scarlet
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(targetX, pad);
+                ctx.lineTo(targetX, canvas.height - pad);
+                ctx.stroke();
+                
+                ctx.fillStyle = '#ef4444';
+                ctx.font = '12px monospace';
+                ctx.fillText('TARGET', targetX + 5, pad + 10);
+                ctx.setLineDash([]);
+            }
+
+            // Axes
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(pad, canvas.height - pad);
+            ctx.lineTo(canvas.width - pad, canvas.height - pad);
+            ctx.stroke();
+
+            ctx.fillStyle = '#9ca3af';
+            ctx.font = '12px monospace';
+            ctx.fillText(formatTime(min), pad, canvas.height - 10);
+            ctx.fillText(formatTime(max), canvas.width - pad - 30, canvas.height - 10);
+        }
+
+        // Run once on load
+        runSimulation();
+    </script>
+</body>
+</html>

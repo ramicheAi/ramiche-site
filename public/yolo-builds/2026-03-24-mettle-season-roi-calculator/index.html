@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Season ROI Calculator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--border:#2a2a3a;--text:#e0e0e8;--muted:#8888a0;--purple:#8b5cf6;--scarlet:#ef4444;--gold:#f59e0b;--blue:#3b82f6;--green:#22c55e;--pink:#ec4899}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+h1{font-size:1.6rem;letter-spacing:2px;text-align:center;margin-bottom:4px;background:linear-gradient(90deg,var(--purple),var(--scarlet),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.subtitle{text-align:center;color:var(--muted);font-size:.75rem;margin-bottom:24px;letter-spacing:1px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:1200px;margin:0 auto}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px}
+.card h2{font-size:.85rem;color:var(--purple);margin-bottom:14px;letter-spacing:1px;text-transform:uppercase}
+.card h3{font-size:.75rem;color:var(--gold);margin:12px 0 8px;letter-spacing:1px}
+label{display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px;margin-top:10px}
+input[type=range]{width:100%;accent-color:var(--purple);cursor:pointer}
+input[type=number]{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;font-family:inherit;font-size:.8rem}
+input[type=number]:focus{outline:none;border-color:var(--purple)}
+.val{float:right;color:var(--gold);font-weight:700;font-size:.8rem}
+.tier-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.tier-row label{margin:0;flex:0 0 80px;font-size:.7rem}
+.tier-row input{flex:1}
+.metric{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.78rem}
+.metric:last-child{border:none}
+.metric .label{color:var(--muted)}
+.metric .value{font-weight:700}
+.metric .value.positive{color:var(--green)}
+.metric .value.negative{color:var(--scarlet)}
+.metric .value.gold{color:var(--gold)}
+.metric .value.purple{color:var(--purple)}
+canvas{width:100%;height:200px;border-radius:4px;margin-top:8px}
+.bar-chart{margin-top:12px}
+.bar-row{display:flex;align-items:center;margin-bottom:6px;font-size:.7rem}
+.bar-row .bar-label{flex:0 0 90px;color:var(--muted);text-align:right;padding-right:8px}
+.bar-row .bar-track{flex:1;height:22px;background:var(--bg);border-radius:3px;position:relative;overflow:hidden}
+.bar-row .bar-fill{height:100%;border-radius:3px;transition:width .4s ease;display:flex;align-items:center;padding-left:8px;font-size:.65rem;color:#fff;font-weight:600;white-space:nowrap}
+.tabs{display:flex;gap:2px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:6px 14px;font-size:.7rem;background:var(--bg);border:1px solid var(--border);color:var(--muted);cursor:pointer;border-radius:4px;transition:all .2s;font-family:inherit;letter-spacing:.5px}
+.tab.active{background:var(--purple);color:#fff;border-color:var(--purple)}
+.panel{display:none}.panel.active{display:block}
+.scenario-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.scenario{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px;text-align:center}
+.scenario h4{font-size:.7rem;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.scenario .big{font-size:1.4rem;font-weight:700;margin-bottom:4px}
+.scenario .sub{font-size:.65rem;color:var(--muted)}
+.bear .big{color:var(--scarlet)}.base .big{color:var(--gold)}.bull .big{color:var(--green)}
+.insight{background:var(--bg);border-left:3px solid var(--purple);padding:10px 14px;margin-top:12px;font-size:.72rem;color:var(--muted);line-height:1.5}
+.insight strong{color:var(--text)}
+.export-btn{background:var(--purple);color:#fff;border:none;padding:8px 18px;border-radius:4px;font-family:inherit;font-size:.72rem;cursor:pointer;letter-spacing:.5px;margin-top:12px}
+.export-btn:hover{opacity:.85}
+.disclaimer{text-align:center;color:var(--muted);font-size:.6rem;margin-top:20px;opacity:.6;max-width:800px;margin-left:auto;margin-right:auto}
+</style>
+</head>
+<body>
+
+<h1>METTLE // SEASON ROI CALCULATOR</h1>
+<p class="subtitle">SUBSCRIPTION ECONOMICS & FINANCIAL MODELING ENGINE</p>
+
+<div class="tabs" id="mainTabs">
+  <button class="tab active" data-tab="inputs">INPUTS</button>
+  <button class="tab" data-tab="unit">UNIT ECONOMICS</button>
+  <button class="tab" data-tab="projections">12-MO PROJECTIONS</button>
+  <button class="tab" data-tab="scenarios">SCENARIOS</button>
+  <button class="tab" data-tab="upgrade">UPGRADE PATH</button>
+</div>
+
+<div id="inputs" class="panel active">
+<div class="grid">
+  <div class="card">
+    <h2>Team Configuration</h2>
+    <label>Total Athletes <span class="val" id="vAthletes">80</span></label>
+    <input type="range" id="athletes" min="20" max="500" value="80" step="5">
+    <label>Monthly Churn Rate <span class="val" id="vChurn">5%</span></label>
+    <input type="range" id="churn" min="0" max="20" value="5" step="0.5">
+    <label>Monthly New Signups <span class="val" id="vSignups">4</span></label>
+    <input type="range" id="signups" min="0" max="30" value="4" step="1">
+    <label>Avg Season Length (months) <span class="val" id="vSeason">10</span></label>
+    <input type="range" id="season" min="3" max="12" value="10" step="1">
+
+    <h3>Cost Structure</h3>
+    <label>Monthly COGS per Athlete ($) <span class="val" id="vCogs">2.50</span></label>
+    <input type="range" id="cogs" min="0.5" max="15" value="2.5" step="0.5">
+    <label>Fixed Monthly Overhead ($) <span class="val" id="vOverhead">500</span></label>
+    <input type="range" id="overhead" min="0" max="5000" value="500" step="50">
+    <label>Customer Acq. Cost per Athlete ($) <span class="val" id="vCac">15</span></label>
+    <input type="range" id="cac" min="0" max="100" value="15" step="1">
+  </div>
+
+  <div class="card">
+    <h2>Pricing Tiers</h2>
+    <p style="font-size:.65rem;color:var(--muted);margin-bottom:12px">Set price and distribution for each tier</p>
+
+    <div class="tier-row">
+      <label>Starter $<span id="vT1Price">8</span></label>
+      <input type="range" id="t1price" min="3" max="30" value="8" step="1">
+    </div>
+    <div class="tier-row">
+      <label>Dist: <span id="vT1Pct">50%</span></label>
+      <input type="range" id="t1pct" min="0" max="100" value="50" step="5">
+    </div>
+
+    <div class="tier-row" style="margin-top:10px">
+      <label>Pro $<span id="vT2Price">15</span></label>
+      <input type="range" id="t2price" min="5" max="60" value="15" step="1">
+    </div>
+    <div class="tier-row">
+      <label>Dist: <span id="vT2Pct">35%</span></label>
+      <input type="range" id="t2pct" min="0" max="100" value="35" step="5">
+    </div>
+
+    <div class="tier-row" style="margin-top:10px">
+      <label>Elite $<span id="vT3Price">29</span></label>
+      <input type="range" id="t3price" min="10" max="100" value="29" step="1">
+    </div>
+    <div class="tier-row">
+      <label>Dist: <span id="vT3Pct">15%</span></label>
+      <input type="range" id="t3pct" min="0" max="100" value="15" step="5">
+    </div>
+
+    <div class="insight" id="tierWarning" style="display:none;border-color:var(--scarlet)">
+      Tier distribution doesn't sum to 100%. Normalizing automatically.
+    </div>
+
+    <h3>Blended ARPU</h3>
+    <div class="metric">
+      <span class="label">Weighted Avg Revenue/Athlete/Mo</span>
+      <span class="value gold" id="arpu">$0.00</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<div id="unit" class="panel">
+<div class="grid">
+  <div class="card">
+    <h2>Unit Economics</h2>
+    <div class="metric"><span class="label">ARPU (Monthly)</span><span class="value gold" id="uArpu">—</span></div>
+    <div class="metric"><span class="label">COGS / Athlete</span><span class="value" id="uCogs">—</span></div>
+    <div class="metric"><span class="label">Gross Margin / Athlete</span><span class="value positive" id="uGrossMargin">—</span></div>
+    <div class="metric"><span class="label">Gross Margin %</span><span class="value positive" id="uGrossMarginPct">—</span></div>
+    <div class="metric"><span class="label">CAC</span><span class="value" id="uCac">—</span></div>
+    <div class="metric"><span class="label">Avg Lifetime (months)</span><span class="value purple" id="uLifetime">—</span></div>
+    <div class="metric"><span class="label">LTV</span><span class="value gold" id="uLtv">—</span></div>
+    <div class="metric"><span class="label">LTV:CAC Ratio</span><span class="value" id="uLtvCac">—</span></div>
+    <div class="metric"><span class="label">CAC Payback (months)</span><span class="value" id="uPayback">—</span></div>
+
+    <div class="insight" id="unitInsight"></div>
+  </div>
+
+  <div class="card">
+    <h2>Margin Breakdown</h2>
+    <div class="bar-chart" id="marginBars"></div>
+
+    <h3>Break-Even Analysis</h3>
+    <div class="metric"><span class="label">Break-Even Athletes</span><span class="value gold" id="uBreakeven">—</span></div>
+    <div class="metric"><span class="label">Current Headroom</span><span class="value positive" id="uHeadroom">—</span></div>
+    <div class="metric"><span class="label">Contribution Margin / Athlete</span><span class="value" id="uContrib">—</span></div>
+
+    <div class="insight" id="breakevenInsight"></div>
+  </div>
+</div>
+</div>
+
+<div id="projections" class="panel">
+<div class="grid">
+  <div class="card" style="grid-column:span 2">
+    <h2>12-Month Revenue & Profit Projection</h2>
+    <canvas id="projChart" height="220"></canvas>
+    <div style="display:flex;gap:20px;margin-top:10px;font-size:.65rem">
+      <span style="color:var(--blue)">■ Revenue</span>
+      <span style="color:var(--green)">■ Profit</span>
+      <span style="color:var(--scarlet)">■ Costs</span>
+      <span style="color:var(--muted)">■ Athletes</span>
+    </div>
+  </div>
+  <div class="card">
+    <h2>12-Month Summary</h2>
+    <div class="metric"><span class="label">Total Revenue</span><span class="value gold" id="pRevenue">—</span></div>
+    <div class="metric"><span class="label">Total Costs</span><span class="value negative" id="pCosts">—</span></div>
+    <div class="metric"><span class="label">Net Profit</span><span class="value positive" id="pProfit">—</span></div>
+    <div class="metric"><span class="label">Net Margin</span><span class="value" id="pMargin">—</span></div>
+    <div class="metric"><span class="label">Final Athletes</span><span class="value purple" id="pFinalAthletes">—</span></div>
+    <div class="metric"><span class="label">Revenue per Athlete (annual)</span><span class="value gold" id="pAnnualPerAthlete">—</span></div>
+    <div class="metric"><span class="label">Peak MRR</span><span class="value gold" id="pPeakMrr">—</span></div>
+    <div class="metric"><span class="label">MoM Revenue Growth</span><span class="value" id="pMomGrowth">—</span></div>
+    <div class="insight" id="projInsight"></div>
+  </div>
+  <div class="card">
+    <h2>Monthly Breakdown</h2>
+    <div id="monthlyTable" style="font-size:.65rem;max-height:300px;overflow-y:auto"></div>
+  </div>
+</div>
+</div>
+
+<div id="scenarios" class="panel">
+<div class="card" style="max-width:1200px;margin:0 auto">
+  <h2>Scenario Analysis (Bear / Base / Bull)</h2>
+  <p style="font-size:.65rem;color:var(--muted);margin-bottom:14px">Bear: churn +50%, signups -30%. Bull: churn -30%, signups +50%.</p>
+  <div class="scenario-grid">
+    <div class="scenario bear"><h4>Bear Case</h4><div class="big" id="sBearRev">—</div><div class="sub">12-mo revenue</div></div>
+    <div class="scenario base"><h4>Base Case</h4><div class="big" id="sBaseRev">—</div><div class="sub">12-mo revenue</div></div>
+    <div class="scenario bull"><h4>Bull Case</h4><div class="big" id="sBullRev">—</div><div class="sub">12-mo revenue</div></div>
+
+    <div class="scenario bear"><h4>Bear Profit</h4><div class="big" id="sBearProfit">—</div><div class="sub">net profit</div></div>
+    <div class="scenario base"><h4>Base Profit</h4><div class="big" id="sBaseProfit">—</div><div class="sub">net profit</div></div>
+    <div class="scenario bull"><h4>Bull Profit</h4><div class="big" id="sBullProfit">—</div><div class="sub">net profit</div></div>
+
+    <div class="scenario bear"><h4>Bear Athletes</h4><div class="big" id="sBearAth">—</div><div class="sub">final count</div></div>
+    <div class="scenario base"><h4>Base Athletes</h4><div class="big" id="sBaseAth">—</div><div class="sub">final count</div></div>
+    <div class="scenario bull"><h4>Bull Athletes</h4><div class="big" id="sBullAth">—</div><div class="sub">final count</div></div>
+  </div>
+
+  <h3>Sensitivity: Revenue vs Churn Rate</h3>
+  <canvas id="sensitivityChart" height="180"></canvas>
+  <div class="insight" id="scenarioInsight"></div>
+</div>
+</div>
+
+<div id="upgrade" class="panel">
+<div class="grid">
+  <div class="card">
+    <h2>Tier Upgrade Impact</h2>
+    <p style="font-size:.65rem;color:var(--muted);margin-bottom:14px">What happens when athletes upgrade tiers?</p>
+
+    <label>% Starter → Pro (monthly) <span class="val" id="vUp1">3%</span></label>
+    <input type="range" id="up1" min="0" max="20" value="3" step="0.5">
+    <label>% Pro → Elite (monthly) <span class="val" id="vUp2">2%</span></label>
+    <input type="range" id="up2" min="0" max="20" value="2" step="0.5">
+
+    <h3>12-Month Upgrade Revenue Impact</h3>
+    <div class="metric"><span class="label">Base Revenue (no upgrades)</span><span class="value" id="upBase">—</span></div>
+    <div class="metric"><span class="label">Revenue w/ Upgrades</span><span class="value gold" id="upWith">—</span></div>
+    <div class="metric"><span class="label">Upgrade Delta</span><span class="value positive" id="upDelta">—</span></div>
+    <div class="metric"><span class="label">ARPU Expansion</span><span class="value purple" id="upExpansion">—</span></div>
+
+    <div class="insight" id="upgradeInsight"></div>
+  </div>
+  <div class="card">
+    <h2>Tier Distribution Over Time</h2>
+    <canvas id="tierChart" height="220"></canvas>
+    <div style="display:flex;gap:16px;margin-top:8px;font-size:.65rem">
+      <span style="color:var(--blue)">■ Starter</span>
+      <span style="color:var(--purple)">■ Pro</span>
+      <span style="color:var(--gold)">■ Elite</span>
+    </div>
+    <button class="export-btn" onclick="exportCSV()" style="margin-top:16px">EXPORT CSV</button>
+    <button class="export-btn" onclick="exportJSON()" style="margin-left:8px">EXPORT JSON</button>
+  </div>
+</div>
+</div>
+
+<p class="disclaimer">METTLE Season ROI Calculator — Quantitative modeling tool for subscription economics. All projections are estimates based on input assumptions. Not financial advice. SIMONS // Parallax Ventures Inc.</p>
+
+<script>
+// --- State ---
+const $ = id => document.getElementById(id);
+const fmt = n => '$' + n.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+const fmtD = (n, d=2) => '$' + n.toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d});
+const pct = n => (n * 100).toFixed(1) + '%';
+
+// --- Tabs ---
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    $(t.dataset.tab).classList.add('active');
+  });
+});
+
+// --- Inputs ---
+const inputs = ['athletes','churn','signups','season','cogs','overhead','cac','t1price','t1pct','t2price','t2pct','t3price','t3pct','up1','up2'];
+const valMap = {
+  athletes:'vAthletes', churn:'vChurn', signups:'vSignups', season:'vSeason',
+  cogs:'vCogs', overhead:'vOverhead', cac:'vCac',
+  t1price:'vT1Price', t1pct:'vT1Pct', t2price:'vT2Price', t2pct:'vT2Pct',
+  t3price:'vT3Price', t3pct:'vT3Pct', up1:'vUp1', up2:'vUp2'
+};
+const fmtMap = {
+  churn: v => v + '%', cogs: v => v.toFixed(2), overhead: v => v,
+  t1pct: v => v + '%', t2pct: v => v + '%', t3pct: v => v + '%',
+  up1: v => v + '%', up2: v => v + '%'
+};
+
+inputs.forEach(id => {
+  $(id).addEventListener('input', () => {
+    const v = parseFloat($(id).value);
+    const f = fmtMap[id];
+    $(valMap[id]).textContent = f ? f(v) : v;
+    recalc();
+  });
+});
+
+function getInputs() {
+  const v = k => parseFloat($(k).value);
+  let t1p = v('t1pct'), t2p = v('t2pct'), t3p = v('t3pct');
+  const total = t1p + t2p + t3p;
+  const warn = $('tierWarning');
+  if (Math.abs(total - 100) > 1) {
+    warn.style.display = 'block';
+    t1p = t1p / total * 100; t2p = t2p / total * 100; t3p = t3p / total * 100;
+  } else { warn.style.display = 'none'; }
+  return {
+    athletes: v('athletes'), churn: v('churn') / 100, signups: v('signups'),
+    season: v('season'), cogs: v('cogs'), overhead: v('overhead'), cac: v('cac'),
+    t1: { price: v('t1price'), pct: t1p / 100 },
+    t2: { price: v('t2price'), pct: t2p / 100 },
+    t3: { price: v('t3price'), pct: t3p / 100 },
+    up1: v('up1') / 100, up2: v('up2') / 100
+  };
+}
+
+function calcArpu(inp) {
+  return inp.t1.price * inp.t1.pct + inp.t2.price * inp.t2.pct + inp.t3.price * inp.t3.pct;
+}
+
+function simulate12Mo(inp, churnMult=1, signupMult=1) {
+  const months = [];
+  let ath = inp.athletes;
+  const arpu = calcArpu(inp);
+  const churn = inp.churn * churnMult;
+  const signups = Math.round(inp.signups * signupMult);
+  for (let m = 1; m <= 12; m++) {
+    const lost = Math.round(ath * churn);
+    ath = Math.max(0, ath - lost + signups);
+    const rev = ath * arpu;
+    const varCost = ath * inp.cogs;
+    const totalCost = varCost + inp.overhead + signups * inp.cac;
+    const profit = rev - totalCost;
+    months.push({ month: m, athletes: ath, revenue: rev, costs: totalCost, profit, lost, signups });
+  }
+  return months;
+}
+
+function simulate12MoWithUpgrades(inp) {
+  const months = [];
+  let s = Math.round(inp.athletes * inp.t1.pct);
+  let p = Math.round(inp.athletes * inp.t2.pct);
+  let e = inp.athletes - s - p;
+  for (let m = 1; m <= 12; m++) {
+    // upgrades first
+    const s2p = Math.round(s * inp.up1);
+    const p2e = Math.round(p * inp.up2);
+    s -= s2p; p = p - p2e + s2p; e += p2e;
+    // churn (proportional)
+    const total = s + p + e;
+    const lost = Math.round(total * inp.churn);
+    const sLost = Math.round(lost * (s/Math.max(total,1)));
+    const pLost = Math.round(lost * (p/Math.max(total,1)));
+    const eLost = lost - sLost - pLost;
+    s = Math.max(0, s - sLost); p = Math.max(0, p - pLost); e = Math.max(0, e - eLost);
+    // new signups (all start at Starter)
+    s += Math.round(inp.signups);
+    const rev = s * inp.t1.price + p * inp.t2.price + e * inp.t3.price;
+    months.push({ month: m, s, p, e, total: s+p+e, revenue: rev });
+  }
+  return months;
+}
+
+function drawChart(canvasId, months, opts={}) {
+  const canvas = $(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const W = rect.width, H = rect.height;
+  const pad = { t: 20, r: 15, b: 30, l: 55 };
+  const pw = W - pad.l - pad.r, ph = H - pad.t - pad.b;
+
+  ctx.clearRect(0, 0, W, H);
+
+  // data series
+  const series = opts.series || [
+    { data: months.map(m => m.revenue), color: '#3b82f6', label: 'Revenue' },
+    { data: months.map(m => m.profit), color: '#22c55e', label: 'Profit' },
+    { data: months.map(m => m.costs), color: '#ef4444', label: 'Costs' }
+  ];
+
+  const allVals = series.flatMap(s => s.data);
+  const maxV = Math.max(...allVals, 1);
+  const minV = Math.min(...allVals, 0);
+  const range = maxV - minV || 1;
+
+  // grid
+  ctx.strokeStyle = '#1a1a2a'; ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + (ph / 4) * i;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    const val = maxV - (range / 4) * i;
+    ctx.fillStyle = '#555'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(fmt(Math.round(val)), pad.l - 5, y + 4);
+  }
+
+  // x labels
+  ctx.fillStyle = '#555'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  months.forEach((m, i) => {
+    const x = pad.l + (pw / (months.length - 1)) * i;
+    ctx.fillText('M' + m.month, x, H - 8);
+  });
+
+  // lines
+  series.forEach(s => {
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.beginPath();
+    s.data.forEach((v, i) => {
+      const x = pad.l + (pw / (s.data.length - 1)) * i;
+      const y = pad.t + ph - ((v - minV) / range) * ph;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    // dots
+    s.data.forEach((v, i) => {
+      const x = pad.l + (pw / (s.data.length - 1)) * i;
+      const y = pad.t + ph - ((v - minV) / range) * ph;
+      ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+    });
+  });
+
+  // zero line if needed
+  if (minV < 0) {
+    const zeroY = pad.t + ph - ((0 - minV) / range) * ph;
+    ctx.strokeStyle = '#444'; ctx.setLineDash([4,4]); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, zeroY); ctx.lineTo(W - pad.r, zeroY); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function recalc() {
+  const inp = getInputs();
+  const arpu = calcArpu(inp);
+  $('arpu').textContent = fmtD(arpu);
+
+  // Unit economics
+  const grossMargin = arpu - inp.cogs;
+  const grossMarginPct = grossMargin / arpu;
+  const lifetime = inp.churn > 0 ? 1 / inp.churn : 120;
+  const ltv = grossMargin * lifetime;
+  const ltvCac = inp.cac > 0 ? ltv / inp.cac : Infinity;
+  const payback = grossMargin > 0 ? inp.cac / grossMargin : Infinity;
+  const breakeven = grossMargin > 0 ? Math.ceil(inp.overhead / grossMargin) : Infinity;
+  const headroom = inp.athletes - breakeven;
+  const contrib = arpu - inp.cogs;
+
+  $('uArpu').textContent = fmtD(arpu);
+  $('uCogs').textContent = fmtD(inp.cogs);
+  $('uGrossMargin').textContent = fmtD(grossMargin);
+  $('uGrossMarginPct').textContent = pct(grossMarginPct);
+  $('uCac').textContent = fmtD(inp.cac);
+  $('uLifetime').textContent = lifetime.toFixed(1);
+  $('uLtv').textContent = fmtD(ltv);
+  $('uLtvCac').textContent = ltvCac === Infinity ? '∞' : ltvCac.toFixed(1) + 'x';
+  $('uPayback').textContent = payback === Infinity ? '∞' : payback.toFixed(1);
+  $('uBreakeven').textContent = breakeven === Infinity ? '∞' : breakeven;
+  $('uHeadroom').textContent = headroom > 0 ? '+' + headroom + ' athletes' : headroom + ' athletes';
+  $('uHeadroom').className = 'value ' + (headroom >= 0 ? 'positive' : 'negative');
+  $('uContrib').textContent = fmtD(contrib);
+
+  // Unit insight
+  let unitMsg = '';
+  if (ltvCac >= 3) unitMsg = '<strong>Healthy unit economics.</strong> LTV:CAC ≥ 3x is the SaaS gold standard. Payback in ' + payback.toFixed(1) + ' months means you recover acquisition cost fast.';
+  else if (ltvCac >= 1.5) unitMsg = '<strong>Acceptable but watch it.</strong> LTV:CAC of ' + ltvCac.toFixed(1) + 'x works but leaves thin margin for error. Consider reducing CAC or improving retention.';
+  else unitMsg = '<strong>Warning: LTV:CAC below 1.5x.</strong> You\'re spending too much to acquire athletes relative to their lifetime value. Cut CAC or reduce churn before scaling.';
+  $('unitInsight').innerHTML = unitMsg;
+
+  // Margin bars
+  const maxBar = arpu;
+  const bars = [
+    { label: 'ARPU', value: arpu, color: 'var(--gold)' },
+    { label: 'COGS', value: inp.cogs, color: 'var(--scarlet)' },
+    { label: 'Gross Margin', value: grossMargin, color: 'var(--green)' },
+    { label: 'Contrib.', value: contrib, color: 'var(--purple)' }
+  ];
+  $('marginBars').innerHTML = bars.map(b => {
+    const w = Math.max(0, (b.value / maxBar) * 100);
+    return `<div class="bar-row"><span class="bar-label">${b.label}</span><div class="bar-track"><div class="bar-fill" style="width:${w}%;background:${b.color}">${fmtD(b.value)}</div></div></div>`;
+  }).join('');
+
+  // Breakeven insight
+  if (breakeven !== Infinity && headroom >= 0) {
+    $('breakevenInsight').innerHTML = `<strong>Break-even at ${breakeven} athletes.</strong> You're ${headroom} athletes above break-even. Every additional athlete contributes ${fmtD(contrib)}/mo in pure margin.`;
+  } else if (breakeven !== Infinity) {
+    $('breakevenInsight').innerHTML = `<strong>Below break-even by ${Math.abs(headroom)} athletes.</strong> Need ${breakeven} athletes to cover ${fmt(inp.overhead)}/mo fixed costs. Focus on acquisition.`;
+  } else {
+    $('breakevenInsight').innerHTML = '<strong>Negative unit economics.</strong> COGS exceeds ARPU — every athlete loses money. Raise prices or reduce costs.';
+  }
+
+  // 12-month projections
+  const months = simulate12Mo(inp);
+  drawChart('projChart', months);
+
+  const totalRev = months.reduce((s, m) => s + m.revenue, 0);
+  const totalCosts = months.reduce((s, m) => s + m.costs, 0);
+  const totalProfit = totalRev - totalCosts;
+  const finalAth = months[11].athletes;
+  const peakMrr = Math.max(...months.map(m => m.revenue));
+  const momGrowth = months.length >= 2 ? (months[11].revenue / months[0].revenue - 1) : 0;
+
+  $('pRevenue').textContent = fmt(Math.round(totalRev));
+  $('pCosts').textContent = fmt(Math.round(totalCosts));
+  $('pProfit').textContent = fmt(Math.round(totalProfit));
+  $('pProfit').className = 'value ' + (totalProfit >= 0 ? 'positive' : 'negative');
+  $('pMargin').textContent = pct(totalRev > 0 ? totalProfit / totalRev : 0);
+  $('pMargin').className = 'value ' + (totalProfit >= 0 ? 'positive' : 'negative');
+  $('pFinalAthletes').textContent = finalAth;
+  $('pAnnualPerAthlete').textContent = fmtD(totalRev / Math.max(inp.athletes, 1), 0);
+  $('pPeakMrr').textContent = fmt(Math.round(peakMrr));
+  $('pMomGrowth').textContent = pct(momGrowth);
+  $('pMomGrowth').className = 'value ' + (momGrowth >= 0 ? 'positive' : 'negative');
+
+  // Monthly table
+  let tbl = '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:2px 8px;font-size:.63rem">';
+  tbl += '<div style="color:var(--muted);font-weight:700">Mo</div><div style="color:var(--muted);font-weight:700">Ath</div><div style="color:var(--muted);font-weight:700">Rev</div><div style="color:var(--muted);font-weight:700">Costs</div><div style="color:var(--muted);font-weight:700">Profit</div>';
+  months.forEach(m => {
+    const pc = m.profit >= 0 ? 'color:var(--green)' : 'color:var(--scarlet)';
+    tbl += `<div>${m.month}</div><div>${m.athletes}</div><div style="color:var(--gold)">${fmt(Math.round(m.revenue))}</div><div>${fmt(Math.round(m.costs))}</div><div style="${pc}">${fmt(Math.round(m.profit))}</div>`;
+  });
+  tbl += '</div>';
+  $('monthlyTable').innerHTML = tbl;
+
+  // Projection insight
+  const growthDir = finalAth > inp.athletes ? 'growing' : finalAth < inp.athletes ? 'shrinking' : 'stable';
+  $('projInsight').innerHTML = `<strong>Roster is ${growthDir}.</strong> From ${inp.athletes} → ${finalAth} athletes over 12 months (${pct((finalAth - inp.athletes) / inp.athletes)} change). Net monthly athlete flow: ${(inp.signups - Math.round(inp.athletes * inp.churn))} athletes/mo. ${totalProfit > 0 ? 'Cumulative profit: ' + fmt(Math.round(totalProfit)) + '.' : 'Operating at a loss. Reduce churn or raise prices.'}`;
+
+  // Scenarios
+  const bear = simulate12Mo(inp, 1.5, 0.7);
+  const base = months;
+  const bull = simulate12Mo(inp, 0.7, 1.5);
+
+  const scenRev = arr => arr.reduce((s,m) => s + m.revenue, 0);
+  const scenProfit = arr => scenRev(arr) - arr.reduce((s,m) => s + m.costs, 0);
+
+  $('sBearRev').textContent = fmt(Math.round(scenRev(bear)));
+  $('sBaseRev').textContent = fmt(Math.round(scenRev(base)));
+  $('sBullRev').textContent = fmt(Math.round(scenRev(bull)));
+  $('sBearProfit').textContent = fmt(Math.round(scenProfit(bear)));
+  $('sBaseProfit').textContent = fmt(Math.round(scenProfit(base)));
+  $('sBullProfit').textContent = fmt(Math.round(scenProfit(bull)));
+  $('sBearAth').textContent = bear[11].athletes;
+  $('sBaseAth').textContent = base[11].athletes;
+  $('sBullAth').textContent = bull[11].athletes;
+
+  // Sensitivity chart: revenue at different churn rates
+  const churnRates = [0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.15, 0.20];
+  const sensData = churnRates.map(cr => {
+    const sim = simulate12Mo({...inp, churn: cr});
+    return { churn: cr, revenue: sim.reduce((s,m) => s + m.revenue, 0) };
+  });
+  drawChart('sensitivityChart', sensData.map((d,i) => ({month: i+1})), {
+    series: [{
+      data: sensData.map(d => d.revenue),
+      color: '#f59e0b', label: '12mo Rev'
+    }]
+  });
+  // relabel x axis for sensitivity
+  const sensCanvas = $('sensitivityChart');
+  const sCtx = sensCanvas.getContext('2d');
+  const sDpr = window.devicePixelRatio || 1;
+  const sRect = sensCanvas.getBoundingClientRect();
+  sCtx.fillStyle = '#0a0a0f';
+  sCtx.fillRect(0, (sRect.height - 18) * sDpr, sRect.width * sDpr, 20 * sDpr);
+  sCtx.scale(1/sDpr, 1/sDpr); // temp reset for text
+  sCtx.scale(sDpr, sDpr);
+  const sPad = { l: 55, r: 15 };
+  const sPw = sRect.width - sPad.l - sPad.r;
+  sCtx.fillStyle = '#555'; sCtx.font = '10px monospace'; sCtx.textAlign = 'center';
+  sensData.forEach((d, i) => {
+    const x = sPad.l + (sPw / (sensData.length - 1)) * i;
+    sCtx.fillText((d.churn * 100).toFixed(0) + '%', x, sRect.height - 5);
+  });
+
+  const bearDelta = scenProfit(bear) - scenProfit(base);
+  const bullDelta = scenProfit(bull) - scenProfit(base);
+  $('scenarioInsight').innerHTML = `<strong>Downside risk: ${fmt(Math.round(Math.abs(bearDelta)))} profit swing.</strong> Bear case drops profit by ${fmt(Math.abs(Math.round(bearDelta)))} vs base. Bull case adds ${fmt(Math.round(bullDelta))}. ${Math.abs(bearDelta) > bullDelta ? 'Asymmetric risk — protect the downside first (retention > acquisition).' : 'Upside exceeds downside — growth investment justified.'}`;
+
+  // Upgrade path
+  const baseNoUpgrade = simulate12Mo(inp);
+  const withUpgrade = simulate12MoWithUpgrades(inp);
+
+  const baseRev12 = baseNoUpgrade.reduce((s,m) => s + m.revenue, 0);
+  const upRev12 = withUpgrade.reduce((s,m) => s + m.revenue, 0);
+  const upDelta = upRev12 - baseRev12;
+  const baseArpuFinal = baseNoUpgrade[11].revenue / Math.max(baseNoUpgrade[11].athletes, 1);
+  const upArpuFinal = withUpgrade[11].revenue / Math.max(withUpgrade[11].total, 1);
+
+  $('upBase').textContent = fmt(Math.round(baseRev12));
+  $('upWith').textContent = fmt(Math.round(upRev12));
+  $('upDelta').textContent = '+' + fmt(Math.round(upDelta));
+  $('upDelta').className = 'value ' + (upDelta >= 0 ? 'positive' : 'negative');
+  $('upExpansion').textContent = fmtD(upArpuFinal - baseArpuFinal) + '/athlete/mo';
+
+  $('upgradeInsight').innerHTML = `<strong>Tier upgrades add ${fmt(Math.round(upDelta))} over 12 months.</strong> ARPU expands from ${fmtD(arpu)} → ${fmtD(upArpuFinal)}/mo by month 12. ${inp.up1 + inp.up2 > 0.08 ? 'Aggressive upgrade assumptions — validate with actual conversion data before modeling at this rate.' : 'Conservative upgrade rates. Even small tier migration compounds significantly over a season.'}`;
+
+  // Tier distribution chart
+  drawChart('tierChart', withUpgrade.map(m => ({month: m.month})), {
+    series: [
+      { data: withUpgrade.map(m => m.s), color: '#3b82f6', label: 'Starter' },
+      { data: withUpgrade.map(m => m.p), color: '#8b5cf6', label: 'Pro' },
+      { data: withUpgrade.map(m => m.e), color: '#f59e0b', label: 'Elite' }
+    ]
+  });
+}
+
+// --- Export ---
+function exportCSV() {
+  const inp = getInputs();
+  const months = simulate12Mo(inp);
+  let csv = 'Month,Athletes,Revenue,Costs,Profit\n';
+  months.forEach(m => {
+    csv += `${m.month},${m.athletes},${m.revenue.toFixed(2)},${m.costs.toFixed(2)},${m.profit.toFixed(2)}\n`;
+  });
+  download('mettle-roi-projection.csv', csv, 'text/csv');
+}
+
+function exportJSON() {
+  const inp = getInputs();
+  const months = simulate12Mo(inp);
+  const upgrade = simulate12MoWithUpgrades(inp);
+  const obj = {
+    inputs: inp,
+    arpu: calcArpu(inp),
+    projections: months,
+    upgradePath: upgrade,
+    generated: new Date().toISOString(),
+    tool: 'METTLE Season ROI Calculator // SIMONS'
+  };
+  download('mettle-roi-model.json', JSON.stringify(obj, null, 2), 'application/json');
+}
+
+function download(name, content, type) {
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// --- Init ---
+recalc();
+window.addEventListener('resize', recalc);
+</script>
+</body>
+</html>

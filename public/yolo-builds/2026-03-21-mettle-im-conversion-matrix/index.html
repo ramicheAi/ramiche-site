@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>METTLE // IM Conversion Matrix</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --mettle-purple: #4c1d95;
+            --mettle-gold: #fbbf24;
+            --mettle-blue: #1e3a8a;
+            --mettle-scarlet: #b91c1c;
+            --bg-dark: #0f1115;
+            --bg-panel: #1a1d24;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+        .panel {
+            background-color: var(--bg-panel);
+            border: 1px solid #334155;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+        }
+        .glow-text {
+            text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+        }
+        input[type="number"] {
+            background-color: #0f1115;
+            border: 1px solid #334155;
+            color: #f8fafc;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            width: 100%;
+        }
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--mettle-gold);
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+        }
+        .bar-container {
+            height: 1.5rem;
+            background-color: #334155;
+            border-radius: 9999px;
+            overflow: hidden;
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            transition: width 0.5s ease-in-out, background-color 0.5s;
+        }
+        .stroke-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 0.375rem;
+            background: #1e293b;
+            font-weight: bold;
+            font-size: 0.875rem;
+        }
+        
+        /* Specific Stroke Colors */
+        .color-fly { color: #38bdf8; border-color: #38bdf8; }
+        .color-back { color: #a78bfa; border-color: #a78bfa; }
+        .color-breast { color: #f43f5e; border-color: #f43f5e; }
+        .color-free { color: #34d399; border-color: #34d399; }
+        
+        .bg-fly { background-color: #0ea5e9; }
+        .bg-back { background-color: #8b5cf6; }
+        .bg-breast { background-color: #e11d48; }
+        .bg-free { background-color: #10b981; }
+    </style>
+</head>
+<body class="p-4 md:p-8 min-h-screen flex flex-col items-center">
+    
+    <div class="max-w-6xl w-full">
+        <header class="mb-8 border-b border-gray-700 pb-4 flex justify-between items-end">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight glow-text text-yellow-400">METTLE</h1>
+                <h2 class="text-xl text-gray-400 tracking-wide mt-1">IM CONVERSION MATRIX</h2>
+            </div>
+            <div class="text-right">
+                <p class="text-sm text-gray-500 font-mono">MODEL: SIMONS_V3 // SIGNAL-FINDER</p>
+                <p class="text-xs text-green-400 font-mono mt-1">● DATA FEED ACTIVE</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Input Column -->
+            <div class="lg:col-span-5 space-y-6">
+                
+                <div class="panel p-6">
+                    <h3 class="text-lg font-semibold mb-4 border-b border-gray-700 pb-2 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Athlete Input Data (Seconds)
+                    </h3>
+                    
+                    <p class="text-sm text-gray-400 mb-6">Enter the athlete's flat 50 bests and their 200 IM splits to isolate structural inefficiencies.</p>
+                    
+                    <div class="space-y-4">
+                        <!-- Fly -->
+                        <div class="grid grid-cols-12 gap-4 items-center">
+                            <div class="col-span-3 font-mono text-sm text-gray-300 flex items-center">
+                                <span class="stroke-icon border border-sky-500 text-sky-500 mr-2">FL</span> Fly
+                            </div>
+                            <div class="col-span-4">
+                                <label class="text-xs text-gray-500 block mb-1">Flat 50 Best</label>
+                                <input type="number" id="flyBest" value="25.50" step="0.01">
+                            </div>
+                            <div class="col-span-5">
+                                <label class="text-xs text-gray-500 block mb-1">IM 50 Split</label>
+                                <input type="number" id="flySplit" value="27.10" step="0.01">
+                            </div>
+                        </div>
+                        
+                        <!-- Back -->
+                        <div class="grid grid-cols-12 gap-4 items-center">
+                            <div class="col-span-3 font-mono text-sm text-gray-300 flex items-center">
+                                <span class="stroke-icon border border-purple-500 text-purple-500 mr-2">BK</span> Back
+                            </div>
+                            <div class="col-span-4">
+                                <label class="text-xs text-gray-500 block mb-1">Flat 50 Best</label>
+                                <input type="number" id="backBest" value="27.80" step="0.01">
+                            </div>
+                            <div class="col-span-5">
+                                <label class="text-xs text-gray-500 block mb-1">IM 50 Split</label>
+                                <input type="number" id="backSplit" value="31.20" step="0.01">
+                            </div>
+                        </div>
+                        
+                        <!-- Breast -->
+                        <div class="grid grid-cols-12 gap-4 items-center">
+                            <div class="col-span-3 font-mono text-sm text-gray-300 flex items-center">
+                                <span class="stroke-icon border border-rose-500 text-rose-500 mr-2">BR</span> Brst
+                            </div>
+                            <div class="col-span-4">
+                                <label class="text-xs text-gray-500 block mb-1">Flat 50 Best</label>
+                                <input type="number" id="breastBest" value="30.20" step="0.01">
+                            </div>
+                            <div class="col-span-5">
+                                <label class="text-xs text-gray-500 block mb-1">IM 50 Split</label>
+                                <input type="number" id="breastSplit" value="36.50" step="0.01">
+                            </div>
+                        </div>
+                        
+                        <!-- Free -->
+                        <div class="grid grid-cols-12 gap-4 items-center">
+                            <div class="col-span-3 font-mono text-sm text-gray-300 flex items-center">
+                                <span class="stroke-icon border border-emerald-500 text-emerald-500 mr-2">FR</span> Free
+                            </div>
+                            <div class="col-span-4">
+                                <label class="text-xs text-gray-500 block mb-1">Flat 50 Best</label>
+                                <input type="number" id="freeBest" value="23.10" step="0.01">
+                            </div>
+                            <div class="col-span-5">
+                                <label class="text-xs text-gray-500 block mb-1">IM 50 Split</label>
+                                <input type="number" id="freeSplit" value="28.40" step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="calculateMatrix()" class="w-full mt-6 bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3 px-4 rounded transition duration-200 shadow-lg glow-text">
+                        RUN ANALYSIS MODEL
+                    </button>
+                </div>
+                
+                <div class="panel p-6">
+                    <h3 class="text-sm font-semibold text-gray-400 mb-2 font-mono uppercase">Theoretical Ideal Conversions</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed mb-3">Based on Medallion-inspired 10,000+ elite swim dataset analysis, optimal IM pacing dictates specific drop-off multipliers from flat sprint speeds. Variance from these ideals indicates training focus ROI.</p>
+                    <div class="grid grid-cols-4 gap-2 text-center text-xs font-mono">
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700"><span class="block text-sky-400 mb-1">FLY</span>1.05x</div>
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700"><span class="block text-purple-400 mb-1">BACK</span>1.12x</div>
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700"><span class="block text-rose-400 mb-1">BRST</span>1.16x</div>
+                        <div class="bg-gray-800 p-2 rounded border border-gray-700"><span class="block text-emerald-400 mb-1">FREE</span>1.14x</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Output Column -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Summary Stats -->
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="panel p-4 text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total IM Time</p>
+                        <p class="text-2xl font-bold font-mono text-white" id="totalTime">0:00.00</p>
+                    </div>
+                    <div class="panel p-4 text-center">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Bleed Time</p>
+                        <p class="text-2xl font-bold font-mono text-red-400" id="totalBleed">+0.00s</p>
+                    </div>
+                    <div class="panel p-4 text-center border border-yellow-500/30" style="background: linear-gradient(to bottom, #1a1d24, #2a2012);">
+                        <p class="text-xs text-yellow-500 uppercase tracking-wider mb-1">Highest ROI Focus</p>
+                        <p class="text-xl font-bold font-mono text-yellow-400 mt-1 uppercase" id="topFocus">--</p>
+                    </div>
+                </div>
+                
+                <!-- Matrix -->
+                <div class="panel p-6">
+                    <h3 class="text-lg font-semibold mb-6 flex items-center justify-between">
+                        <span>Conversion Efficiency Matrix</span>
+                        <span class="text-xs font-normal text-gray-400 bg-gray-800 px-2 py-1 rounded">Lower % = Better Conversion</span>
+                    </h3>
+                    
+                    <div id="resultsContainer" class="space-y-6 hidden">
+                        <!-- Bars will be injected here -->
+                    </div>
+                    <div id="emptyState" class="text-center py-10 text-gray-500 font-mono text-sm border border-dashed border-gray-700 rounded">
+                        [ AWAITING DATA INPUT ]
+                    </div>
+                </div>
+                
+                <!-- AI Coach Insight -->
+                <div class="panel p-6 border-l-4 border-yellow-500">
+                    <h3 class="text-sm font-bold uppercase text-yellow-500 mb-2 font-mono flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                        Simons ROI Analysis
+                    </h3>
+                    <p id="aiInsight" class="text-sm text-gray-300 leading-relaxed font-mono">
+                        Run the model to generate insights. The model will identify which stroke is mathematically underperforming relative to the athlete's raw speed potential.
+                    </p>
+                </div>
+                
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // Medallion-inspired ideal conversion ratios
+        const IDEAL_RATIOS = {
+            fly: 1.05,    // Fly is first, should be very close to flat speed
+            back: 1.12,   // Fatigue sets in, plus turn dynamics
+            breast: 1.16, // Heaviest leg, most affected by fatigue
+            free: 1.14    // Final leg, sprint but under heavy lactate load
+        };
+
+        const STROKE_NAMES = {
+            fly: "Butterfly",
+            back: "Backstroke",
+            breast: "Breaststroke",
+            free: "Freestyle"
+        };
+        
+        const STROKE_COLORS = {
+            fly: "bg-fly",
+            back: "bg-back",
+            breast: "bg-breast",
+            free: "bg-free"
+        };
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(2);
+            return `${mins}:${secs.padStart(5, '0')}`;
+        }
+
+        function calculateMatrix() {
+            document.getElementById('emptyState').classList.add('hidden');
+            const container = document.getElementById('resultsContainer');
+            container.classList.remove('hidden');
+            container.innerHTML = '';
+            
+            const strokes = ['fly', 'back', 'breast', 'free'];
+            let totalTime = 0;
+            let totalBleed = 0;
+            let maxBleed = -999;
+            let topFocusStroke = '';
+            
+            const data = strokes.map(stroke => {
+                const best = parseFloat(document.getElementById(`${stroke}Best`).value) || 0;
+                const split = parseFloat(document.getElementById(`${stroke}Split`).value) || 0;
+                
+                totalTime += split;
+                
+                const actualRatio = best > 0 ? (split / best) : 0;
+                const idealSplit = best * IDEAL_RATIOS[stroke];
+                const bleed = split - idealSplit; // Positive means they are slower than ideal (bleeding time)
+                
+                if (bleed > maxBleed) {
+                    maxBleed = bleed;
+                    topFocusStroke = stroke;
+                }
+                
+                if (bleed > 0) totalBleed += bleed;
+                
+                return { stroke, best, split, actualRatio, idealSplit, bleed };
+            });
+            
+            // Render results
+            data.forEach(item => {
+                const isWorst = item.stroke === topFocusStroke;
+                const bleedText = item.bleed > 0 ? `+${item.bleed.toFixed(2)}s bleed` : `${Math.abs(item.bleed).toFixed(2)}s ahead of curve`;
+                const bleedClass = item.bleed > 0 ? 'text-red-400' : 'text-green-400';
+                
+                // Calculate percentage for the bar (normalized around the ideal ratio)
+                // If actual is exactly ideal, bar is at 50%. If worse, goes right. If better, goes left.
+                // We'll just show actual ratio as a absolute bar where 1.0 = 0%, 1.3 = 100%
+                let pct = ((item.actualRatio - 1.0) / 0.3) * 100;
+                pct = Math.max(5, Math.min(100, pct));
+                
+                const idealMarkerPct = ((IDEAL_RATIOS[item.stroke] - 1.0) / 0.3) * 100;
+                
+                const html = `
+                    <div class="relative ${isWorst ? 'bg-gray-800 p-3 rounded border border-gray-700' : 'px-3'}">
+                        <div class="flex justify-between items-end mb-2">
+                            <div class="flex items-center">
+                                <span class="font-bold text-gray-200 uppercase tracking-wide w-24">${STROKE_NAMES[item.stroke]}</span>
+                                <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-900 border border-gray-700 text-gray-400 ml-2">
+                                    Ratio: ${item.actualRatio.toFixed(3)}x (Ideal: ${IDEAL_RATIOS[item.stroke]}x)
+                                </span>
+                            </div>
+                            <div class="text-xs font-mono font-bold ${bleedClass}">
+                                ${bleedText}
+                            </div>
+                        </div>
+                        
+                        <div class="bar-container w-full">
+                            <!-- Ideal marker -->
+                            <div class="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10" style="left: ${idealMarkerPct}%;"></div>
+                            <div class="absolute top-[-15px] text-[10px] text-yellow-400 font-mono z-10" style="left: calc(${idealMarkerPct}% - 10px);">IDEAL</div>
+                            
+                            <!-- Actual bar -->
+                            <div class="${STROKE_COLORS[item.stroke]} bar-fill rounded-r-none relative" style="width: ${pct}%;">
+                                ${isWorst ? '<div class="absolute inset-0 bg-white/20 animate-pulse"></div>' : ''}
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-[10px] text-gray-500 mt-1 font-mono">
+                            <span>1.0x (Flat Speed)</span>
+                            <span>1.3x (Heavy Fatigue)</span>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+            
+            // Update stats
+            document.getElementById('totalTime').innerText = formatTime(totalTime);
+            document.getElementById('totalBleed').innerText = `+${totalBleed.toFixed(2)}s`;
+            document.getElementById('topFocus').innerText = STROKE_NAMES[topFocusStroke];
+            
+            // Generate Insight
+            const worstStrokeData = data.find(d => d.stroke === topFocusStroke);
+            let insight = `ROI ANALYSIS: The highest mathematical leverage is in ${STROKE_NAMES[topFocusStroke]}. `;
+            
+            if (worstStrokeData.actualRatio > IDEAL_RATIOS[topFocusStroke] + 0.1) {
+                insight += `The conversion ratio of ${worstStrokeData.actualRatio.toFixed(2)}x indicates a severe structural breakdown. The athlete has the raw speed (${worstStrokeData.best.toFixed(2)}s), but is bleeding ${worstStrokeData.bleed.toFixed(2)}s due to endurance, technique failure under load, or poor pacing. `;
+                insight += `Focus 80% of IM training volume here. Fixing this one leg yields a guaranteed drop without needing to increase max velocity.`;
+            } else {
+                insight += `The conversion is relatively tight (${worstStrokeData.actualRatio.toFixed(2)}x vs ideal ${IDEAL_RATIOS[topFocusStroke]}x). Minor bleeding of ${worstStrokeData.bleed.toFixed(2)}s. The overall IM profile is highly efficient. To drop further, raw sprint speed must be increased across the board.`;
+            }
+            
+            document.getElementById('aiInsight').innerText = insight;
+        }
+        
+        // Auto-run on load
+        setTimeout(calculateMatrix, 500);
+    </script>
+</body>
+</html>

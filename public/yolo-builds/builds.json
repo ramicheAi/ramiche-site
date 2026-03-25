@@ -1,0 +1,884 @@
+[
+  {
+    "id": "print-failure-analyzer",
+    "name": "Print Failure Analyzer",
+    "date": "2026-03-02",
+    "slug": "print-failure-analyzer",
+    "description": "Interactive diagnostic tool for FDM 3D printing failures. Select a failure mode from the library to get symptoms, root causes, a step-by-step diagnostic flowchart, and recommended slicer setting chang",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "printflow-storefront",
+    "name": "Printflow Storefront",
+    "date": "2026-03-02",
+    "slug": "printflow-storefront",
+    "description": "",
+    "files": [
+      "index.html"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 1
+  },
+  {
+    "id": "squad-status-board",
+    "name": "Squad Status Board",
+    "date": "2026-03-02",
+    "slug": "squad-status-board",
+    "description": "**Date:** 2026-03-02",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "filament-tracker",
+    "name": "Filament Tracker",
+    "date": "2026-03-03",
+    "slug": "filament-tracker",
+    "description": "Interactive single-page tool for managing 3D printer filament inventory, logging print jobs with automatic spool deduction, tracking material costs per gram, and surfacing low-stock alerts. Built for ",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "print-queue-dashboard",
+    "name": "Print Queue Dashboard",
+    "date": "2026-03-05",
+    "slug": "print-queue-dashboard",
+    "description": "Real-time print job queue manager for the Bambu Lab A1. Tracks jobs through their full lifecycle: queued \u2192 printing \u2192 completed/failed. Manages priority ordering, material stock tracking, cost calcula",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "stl-instant-quoter",
+    "name": "Stl Instant Quoter",
+    "date": "2026-03-07",
+    "slug": "stl-instant-quoter",
+    "description": "Client-side STL file parser + real-time cost estimator for 3D print quoting. Parses binary and ASCII STL files entirely in the browser \u2014 no server, no uploads, no dependencies.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-athlete-cards",
+    "name": "Mettle Athlete Cards",
+    "date": "2026-03-08",
+    "slug": "mettle-athlete-cards",
+    "description": "Interactive athlete trading card generator for the METTLE platform. Coaches and parents can create shareable athlete profile cards with stats, level badges, event results, and custom themes \u2014 then dow",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "bambu-live-monitor",
+    "name": "Bambu Live Monitor",
+    "date": "2026-03-09",
+    "slug": "bambu-live-monitor",
+    "description": "Real-time printer status dashboard for the Bambu Lab A1. Connects via MQTT over LAN to display print progress, temperatures, speed, fan status, layer info, and machine state \u2014 all in a single self-con",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-meet-day",
+    "name": "Mettle Meet Day",
+    "date": "2026-03-10",
+    "slug": "mettle-meet-day",
+    "description": "A real-time command center for swim coaches on meet day. Track events, warmup countdowns, athlete status, heat/lane assignments, results with split times, and PB drops \u2014 all in one view.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-parent-portal",
+    "name": "Mettle Parent Portal",
+    "date": "2026-03-11",
+    "slug": "mettle-parent-portal",
+    "description": "Interactive parent-facing dashboard for the METTLE athlete management platform. Parents see their child's progress, METTLE level advancement, meet schedule, best times, achievements, and coach communi",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "studio-project-tracker",
+    "name": "Studio Project Tracker",
+    "date": "2026-03-12",
+    "slug": "studio-project-tracker",
+    "description": "Interactive client pipeline and project management dashboard for Ramiche Studio's creative services ($400/$1,500/$3,000/$6,000+ tiers). Track projects from inquiry through delivery with full revenue a",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-competitor-simulator",
+    "name": "Mettle Competitor Simulator",
+    "date": "2026-03-13",
+    "slug": "mettle-competitor-simulator",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-swim-analytics",
+    "name": "Mettle Swim Analytics",
+    "date": "2026-03-13",
+    "slug": "mettle-swim-analytics",
+    "description": "",
+    "files": [
+      "index.html"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 1
+  },
+  {
+    "id": "verified-agent-roi-calculator",
+    "name": "Verified Agent Roi Calculator",
+    "date": "2026-03-13",
+    "slug": "verified-agent-roi-calculator",
+    "description": "Interactive ROI calculator that lets enterprise prospects input their current staffing costs and see projected savings from deploying certified AI agents across 5 verticals.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-margin-simulator",
+    "name": "Agent Margin Simulator",
+    "date": "2026-03-14",
+    "slug": "agent-margin-simulator",
+    "description": "**Built by:** Simons (Data & Analytics)",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-orchestration-benchmark",
+    "name": "Agent Orchestration Benchmark",
+    "date": "2026-03-14",
+    "slug": "agent-orchestration-benchmark",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "apex-sales-dashboard",
+    "name": "Apex Sales Dashboard",
+    "date": "2026-03-14",
+    "slug": "apex-sales-dashboard",
+    "description": "**Built by:** MERCURY (Sales Lane)",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-practice-planner",
+    "name": "Mettle Practice Planner",
+    "date": "2026-03-14",
+    "slug": "mettle-practice-planner",
+    "description": "Interactive swim practice set builder for coaches. Build structured workouts with drag-and-drop set groups, energy zone tracking, and exportable practice cards.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-orchestration-simulator",
+    "name": "Agent Orchestration Simulator",
+    "date": "2026-03-15",
+    "slug": "agent-orchestration-simulator",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-recruitment-portal",
+    "name": "Mettle Recruitment Portal",
+    "date": "2026-03-15",
+    "slug": "mettle-recruitment-portal",
+    "description": "Interactive recruitment and onboarding portal for swim teams evaluating METTLE. Coaches complete a 12-question readiness assessment, get a personalized score and onboarding roadmap, review competitive",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-roi-forecaster",
+    "name": "Mettle Roi Forecaster",
+    "date": "2026-03-15",
+    "slug": "mettle-roi-forecaster",
+    "description": "An interactive financial modeling tool for swim club owners. It calculates the financial impact of implementing METTLE by modeling churn reduction and tier upgrade lift against the club's baseline met",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-orchestration-benchmark",
+    "name": "Agent Orchestration Benchmark",
+    "date": "2026-03-16",
+    "slug": "agent-orchestration-benchmark",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-athlete-checkin",
+    "name": "Mettle Athlete Checkin",
+    "date": "2026-03-16",
+    "slug": "mettle-athlete-checkin",
+    "description": "Mobile-first kiosk app for athletes to self-check-in at practice using a 4-digit PIN. Tracks attendance streaks, awards XP, and gives coaches real-time roster visibility.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "verified-agent-market-simulator",
+    "name": "Verified Agent Market Simulator",
+    "date": "2026-03-16",
+    "slug": "verified-agent-market-simulator",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "verified-agent-pe-multiplier",
+    "name": "Verified Agent Pe Multiplier",
+    "date": "2026-03-16",
+    "slug": "verified-agent-pe-multiplier",
+    "description": "An interactive Enterprise Value (EV) expansion calculator for Private Equity firms. Shows how automating SG&A with Verified Agents ($150/hr operating at 10x human speed) directly expands EBITDA margin",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mercury-pricing-calculator",
+    "name": "Mercury Pricing Calculator",
+    "date": "2026-03-17",
+    "slug": "mercury-pricing-calculator",
+    "description": "Value-based pricing engine for Ramiche Studio services. Enter service type and client budget, get a three-tier quote (Anchor/Target/Premium) with automatic floor pricing for 48h sprints.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mercury-velocity-engine",
+    "name": "Mercury Velocity Engine",
+    "date": "2026-03-17",
+    "slug": "mercury-velocity-engine",
+    "description": "Sales intelligence system that monitors funding rounds, exec hires, and DTC brand signals \u2014 then auto-generates pitch deck outlines from any company URL.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-proposal-generator",
+    "name": "Mettle Proposal Generator",
+    "date": "2026-03-17",
+    "slug": "mettle-proposal-generator",
+    "description": "Sales tool that generates customized pitch proposals for swim teams considering METTLE. Coach enters team info \u2192 tool generates a branded proposal with ROI projections, pain-to-solution mapping, prici",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-time-standards",
+    "name": "Mettle Time Standards",
+    "date": "2026-03-17",
+    "slug": "mettle-time-standards",
+    "description": "Interactive swim time utility with 4 tools in one:",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "nerve-center",
+    "name": "Nerve Center",
+    "date": "2026-03-17",
+    "slug": "nerve-center",
+    "description": "",
+    "files": [
+      "index.html"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 1
+  },
+  {
+    "id": "nova-spool-tracker",
+    "name": "Nova Spool Tracker",
+    "date": "2026-03-17",
+    "slug": "nova-spool-tracker",
+    "description": "A lightweight frontend for tracking 3D printer filament spools. It uses localStorage to maintain state and allows the user to add, update, and remove spools with visual indicators for remaining materi",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "pulse-ecosystem-vitals",
+    "name": "Pulse Ecosystem Vitals",
+    "date": "2026-03-17",
+    "slug": "pulse-ecosystem-vitals",
+    "description": "",
+    "files": [
+      "index.html"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 1
+  },
+  {
+    "id": "ramiche-hybrid-margin",
+    "name": "Ramiche Hybrid Margin",
+    "date": "2026-03-17",
+    "slug": "ramiche-hybrid-margin",
+    "description": "An interactive financial modeling tool for Ramiche Studio to calculate gross margin expansion when substituting traditional human creative hours with high-leverage AI agent hours.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-arbitrage-calc",
+    "name": "Agent Arbitrage Calc",
+    "date": "2026-03-18",
+    "slug": "agent-arbitrage-calc",
+    "description": "Interactive ROI calculator for the Verified Agent Business. Visualizes the cost/time arbitrage of renting a Parallax AI agent ($100-$500/hr) vs traditional human/agency retainers.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mercury-pricing-ab",
+    "name": "Mercury Pricing Ab",
+    "date": "2026-03-18",
+    "slug": "mercury-pricing-ab",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-expansion-simulator",
+    "name": "Mettle Expansion Simulator",
+    "date": "2026-03-18",
+    "slug": "mettle-expansion-simulator",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-split-analyzer",
+    "name": "Mettle Split Analyzer",
+    "date": "2026-03-18",
+    "slug": "mettle-split-analyzer",
+    "description": "Interactive swim race split analyzer for coaches. Paste or manually enter split times from any race event and get instant visual analysis.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-team-analytics",
+    "name": "Mettle Team Analytics",
+    "date": "2026-03-18",
+    "slug": "mettle-team-analytics",
+    "description": "Coach-facing team-wide analytics dashboard for METTLE \u2014 shows aggregate performance trends, attendance patterns, XP distribution, and exportable team report cards.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-workout-log",
+    "name": "Mettle Workout Log",
+    "date": "2026-03-18",
+    "slug": "mettle-workout-log",
+    "description": "Mobile-first athlete workout journal for swimmers. Log daily practice performance \u2014 yardage, duration, RPE (1-10), set types, focus areas, and freeform notes. Tracks volume over time with a weekly bar",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "parallax-command",
+    "name": "Parallax Command",
+    "date": "2026-03-18",
+    "slug": "parallax-command",
+    "description": "A strictly ultra-linear, mobile-first dashboard summarizing the entire Parallax ecosystem (Ventures, Revenue, Agents, Health).",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "proximon-nexus-experiment-lab",
+    "name": "Proximon Nexus Experiment Lab",
+    "date": "2026-03-18",
+    "slug": "proximon-nexus-experiment-lab",
+    "description": "Full interactive experiment designer, tracker, and leaderboard for the RAMICHE ecosystem.",
+    "files": [
+      ".vercel",
+      "index.html",
+      "README.md",
+      ".gitignore"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 4
+  },
+  {
+    "id": "mettle-relay-builder",
+    "name": "Mettle Relay Builder",
+    "date": "2026-03-19",
+    "slug": "mettle-relay-builder",
+    "description": "Interactive relay team builder for swim coaches. Select event type, gender, and age group, then build your 4-swimmer relay lineup with drag-and-drop or click-to-assign.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-sales-proposal-gen",
+    "name": "Mettle Sales Proposal Gen",
+    "date": "2026-03-19",
+    "slug": "mettle-sales-proposal-gen",
+    "description": "Mercury's first YOLO build. A branded, interactive sales proposal generator for METTLE.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "verified-agent-pricing-modeler",
+    "name": "Verified Agent Pricing Modeler",
+    "date": "2026-03-19",
+    "slug": "verified-agent-pricing-modeler",
+    "description": "A pricing tool that calculates the maximum justifiable monthly agent retainer fee based on the client's current revenue, margins, and the agent's projected margin/revenue impact.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-churn-detector",
+    "name": "Mettle Churn Detector",
+    "date": "2026-03-20",
+    "slug": "mettle-churn-detector",
+    "description": "Identifies at-risk athletes using 8 engagement signals (practice attendance, meet participation, parent engagement, PB trend, social activity, recency metrics), scores churn probability 0-100, and gen",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-competitor-simulator",
+    "name": "Mettle Competitor Simulator",
+    "date": "2026-03-20",
+    "slug": "mettle-competitor-simulator",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-monte-carlo",
+    "name": "Mettle Monte Carlo",
+    "date": "2026-03-20",
+    "slug": "mettle-monte-carlo",
+    "description": "",
+    "files": [
+      "index.html"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 1
+  },
+  {
+    "id": "mettle-practice-builder",
+    "name": "Mettle Practice Builder",
+    "date": "2026-03-20",
+    "slug": "mettle-practice-builder",
+    "description": "Structured practice design tool for competitive swim coaches. Build complete workout plans with drag-and-drop set ordering, pace calculations, and exportable practice cards.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-heat-sheet-gen",
+    "name": "Mettle Heat Sheet Gen",
+    "date": "2026-03-21",
+    "slug": "mettle-heat-sheet-gen",
+    "description": "Interactive heat sheet generator for swim coaches \u2014 enter swimmers and seed times, choose seeding mode, generate formatted heat cards with proper lane assignments.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-im-conversion-matrix",
+    "name": "Mettle Im Conversion Matrix",
+    "date": "2026-03-21",
+    "slug": "mettle-im-conversion-matrix",
+    "description": "A quantitative dashboard for swim coaches to identify where swimmers are losing time in a 200 IM relative to their raw potential. By comparing their 4 flat 50 bests against their 4 IM 50 splits, the m",
+    "files": [
+      "index.html",
+      "README.md",
+      "append.js"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 3
+  },
+  {
+    "id": "mettle-pricing-ab-simulator",
+    "name": "Mettle Pricing Ab Simulator",
+    "date": "2026-03-21",
+    "slug": "mettle-pricing-ab-simulator",
+    "description": "Sales intelligence tool for testing pricing psychology before going live. Compare 6 pricing strategies side-by-side with projected close rates, churn, LTV, ARR, and psychological trigger analysis.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "proximon-spawn-gate-sim",
+    "name": "Proximon Spawn Gate Sim",
+    "date": "2026-03-21",
+    "slug": "proximon-spawn-gate-sim",
+    "description": "**Lane:** Systems & optimization",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-swarm-health",
+    "name": "Agent Swarm Health",
+    "date": "2026-03-22",
+    "slug": "agent-swarm-health",
+    "description": "",
+    "files": [
+      "ash.js"
+    ],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 1
+  },
+  {
+    "id": "mettle-competitor-intelligence",
+    "name": "Mettle Competitor Intelligence",
+    "date": "2026-03-22",
+    "slug": "mettle-competitor-intelligence",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-meet-scorer",
+    "name": "Mettle Meet Scorer",
+    "date": "2026-03-22",
+    "slug": "mettle-meet-scorer",
+    "description": "Real-time swim meet scoring engine. Enter results event-by-event, see live team scores update with momentum analysis, running score progression, win condition detection, and projected finals.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-athlete-progress-tracker",
+    "name": "Mettle Athlete Progress Tracker",
+    "date": "2026-03-23",
+    "slug": "mettle-athlete-progress-tracker",
+    "description": "Individual swimmer time progression analyzer with plateau detection, pattern recognition, and training recommendations.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-deal-pipeline-sim",
+    "name": "Mettle Deal Pipeline Sim",
+    "date": "2026-03-23",
+    "slug": "mettle-deal-pipeline-sim",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-season-simulator",
+    "name": "Mettle Season Simulator",
+    "date": "2026-03-23",
+    "slug": "mettle-season-simulator",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-team-strength-heatmap",
+    "name": "Mettle Team Strength Heatmap",
+    "date": "2026-03-23",
+    "slug": "mettle-team-strength-heatmap",
+    "description": "Visual team depth analysis across all 12 standard swim events. Identifies event deserts, scoring potential, and recruiting priorities.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "agent-session-analytics",
+    "name": "Agent Session Analytics",
+    "date": "2026-03-24",
+    "slug": "agent-session-analytics",
+    "description": "Real-time dashboard visualising the 19-agent fleet's session metrics: token usage, response latency, success/failure rates, cost tracking with arbitrage analysis, throughput timeline, and system alert",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-decision-wargame",
+    "name": "Mettle Decision Wargame",
+    "date": "2026-03-24",
+    "slug": "mettle-decision-wargame",
+    "description": "Interactive branching scenario engine for METTLE business strategy. Model business decisions across 4 quarters and see cascading 12-month impacts on revenue, churn, growth, and market share.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-dual-meet-planner",
+    "name": "Mettle Dual Meet Planner",
+    "date": "2026-03-24",
+    "slug": "mettle-dual-meet-planner",
+    "description": "Pre-meet tactical simulation tool. Coaches enter two team rosters, simulate different lineup configurations, and get projected scores with strategic recommendations.",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-lead-pipeline",
+    "name": "Mettle Lead Pipeline",
+    "date": "2026-03-24",
+    "slug": "mettle-lead-pipeline",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  },
+  {
+    "id": "mettle-outbound-sequence-builder",
+    "name": "Mettle Outbound Sequence Builder",
+    "date": "2026-03-24",
+    "slug": "mettle-outbound-sequence-builder",
+    "description": "Cold outreach campaign engine \u2014 enter target swim team info, select a psychological outreach strategy, get a personalized 5-touch email sequence with A/B subject lines, send timing, pipeline tracking,",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-season-roi-calculator",
+    "name": "Mettle Season Roi Calculator",
+    "date": "2026-03-24",
+    "slug": "mettle-season-roi-calculator",
+    "description": "Interactive subscription economics modeler for METTLE swim coaching SaaS. Coaches and business analysts input team size, pricing tiers, churn rates, and cost structure to model 12-month financial proj",
+    "files": [
+      "index.html",
+      "README.md"
+    ],
+    "hasDemo": true,
+    "demoFile": "index.html",
+    "fileCount": 2
+  },
+  {
+    "id": "mettle-taper-predictor",
+    "name": "Mettle Taper Predictor",
+    "date": "2026-03-24",
+    "slug": "mettle-taper-predictor",
+    "description": "",
+    "files": [],
+    "hasDemo": false,
+    "demoFile": null,
+    "fileCount": 0
+  }
+]

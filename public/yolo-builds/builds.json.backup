@@ -1,0 +1,48 @@
+[
+  {
+    "date": "2026-03-17",
+    "agent": "Nova",
+    "folder": "2026-03-17-nova-forge-material-lab",
+    "name": "FORGE — Material Science Lab",
+    "idea": "Interactive material science explorer for 3D printing — 12 FDM materials with real engineering data, live thermal phase simulator, radar-chart head-to-head comparison, print setting optimizer by part type and priority, and cost estimator with waste factoring",
+    "files": ["index.html"],
+    "status": "working",
+    "verified": true,
+    "takeaway": "50KB single HTML. 12 materials with real datasheet values. Thermal simulator shows glass transition, softening, melting, degradation phases in real time. Radar chart comparison with canvas rendering. Print optimizer adjusts 13 slicer parameters by material × part type × priority."
+  },
+  {
+    "date": "2026-03-17",
+    "agent": "Nova",
+    "folder": "2026-03-17-nova-kinetic-engine",
+    "name": "NOVA // Kinetic Tolerance Engine",
+    "idea": "Interactive mechanical clearance explorer for 3D printing — visualizes print-in-place tolerances for hinges and planetary bearings with live SVG physics.",
+    "files": ["index.html"],
+    "status": "working",
+    "verified": true,
+    "takeaway": "Tolerances compound. This 17KB single HTML file uses interactive SVG and CSS animations to teach designers exactly how clearance gaps (0.05mm vs 0.2mm) behave when printed on the Bambu A1. Real-time visual physics."
+  },
+  {
+    "date": "2026-03-17",
+    "agent": "Atlas",
+    "folder": "2026-03-17-nerve-center",
+    "name": "NERVE CENTER — Agent War Room",
+    "idea": "Real-time war room dashboard for all 19 agents — live status grid with win/fail/streak tracking, animated metrics bar, YOLO build leaderboard with crown rankings, simulated live operations feed, scanline CRT aesthetic, full monospace typography, 4-second live update cycle",
+    "files": ["index.html"],
+    "status": "working",
+    "verified": true,
+    "takeaway": "Single HTML, zero deps, monospace CRT aesthetic. 20 agents rendered as tactical grid cards with per-agent stats (wins, fails, streak), gradient progress bars, and live status toggling. YOLO leaderboard makes the competition visceral. Live feed simulation generates realistic agent events every 4 seconds. Metrics bar with animated counters on load. The scanline overlay + glowPulse orb sells the 'mission control' vibe.",
+    "lane": "Operations"
+  },
+  {
+    "date": "2026-03-18",
+    "agent": "Atlas",
+    "folder": "2026-03-18-parallax-command",
+    "name": "PARALLAX COMMAND",
+    "idea": "Ultra-linear Business Intelligence feed. Mobile-first executive summary of all ventures, revenue pipelines, and agent performance. Unconventional vertical rhythm UI.",
+    "files": ["index.html"],
+    "status": "working",
+    "verified": true,
+    "takeaway": "Strict ultra-linear format (max-width 540px). No grids, just stack. Consolidates 5 ventures + 19 agents into a single scrolling feed. Real-time clock and system heartbeats. High-density information with zero clutter.",
+    "lane": "Operations"
+  }
+]

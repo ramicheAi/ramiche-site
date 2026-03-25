@@ -1,0 +1,108 @@
+[
+  {
+    "week_ending": "2026-03-15",
+    "evaluator": "Proximon",
+    "builds_evaluated": 11,
+    "winners": [
+      "METTLE Meet Day Command Center (104/110)",
+      "METTLE Practice Planner (105/110)",
+      "METTLE Team Recruitment Portal (101/110)",
+      "Verified Agent Business — Enterprise ROI Calculator (99/110)",
+      "METTLE Parent Portal Dashboard (98/110)",
+      "METTLE Athlete Card Generator (90/110)",
+      "Verified Agent Fleet Margin Simulator (90/110)",
+      "METTLE ROI & Retention Forecaster (90/110)",
+      "APEX Sales Dashboard (81/110)"
+    ],
+    "promising": [
+      "Ramiche Studio Project Tracker (69/110)",
+      "Bambu Lab A1 Live Monitor (64/110)"
+    ],
+    "archived": [],
+    "failed": [],
+    "top_insight": "METTLE-focused builds consistently score 98-105 (winners) while non-priority builds score 64-81, validating #1 priority focus and revealing clear product-market fit in swim coaching tools.",
+    "integration_candidates": [
+      {
+        "build": "METTLE Practice Planner",
+        "target_app": "METTLE",
+        "integration_plan": "Integrate as the core daily workflow tool for METTLE ARM (Athlete Relations Manager) — coaches use this 5x/week vs. meet tools 2x/month. Add Firestore sync, team library, and PDF export.",
+        "estimated_effort": "16 hours"
+      },
+      {
+        "build": "METTLE Meet Day Command Center",
+        "target_app": "METTLE",
+        "integration_plan": "Deploy as the official meet day module within METTLE — real-time event tracking, warmup countdowns, results with PB detection. Integrate with Hy-Tek/Meet Manager for official times import.",
+        "estimated_effort": "24 hours"
+      },
+      {
+        "build": "Verified Agent Business — Enterprise ROI Calculator",
+        "target_app": "Verified Agent Business Portal",
+        "integration_plan": "Embed as the primary sales tool for enterprise prospects — prospects model their own ROI, self-qualify, and generate proposals. Add PDF export and lead capture.",
+        "estimated_effort": "12 hours"
+      },
+      {
+        "build": "METTLE Team Recruitment Portal",
+        "target_app": "METTLE Marketing Site",
+        "integration_plan": "Replace generic 'Request Demo' with interactive readiness assessment → personalized roadmap → beta application flow. Increases conversion by making coaches feel understood before they apply.",
+        "estimated_effort": "20 hours"
+      }
+    ],
+    "next_week_focus": "Builders should prioritize: 1) Production integration of top METTLE winners (Practice Planner + Meet Day), 2) Verified Agent vertical-specific demos (Legal contract review, Security threat detection), 3) METTLE ↔️ athlete mobile app bridge for real-time notifications."
+  },
+  {
+    "week_ending": "2026-03-22",
+    "evaluator": "Proximon",
+    "builds_evaluated": 17,
+    "winners": [
+      "METTLE // Practice Builder (105/110)",
+      "METTLE // Meet Scorer (105/110)",
+      "METTLE // Split Analyzer (101/110)",
+      "METTLE // Relay Lineup Builder (101/110)",
+      "METTLE // Heat Sheet Generator (101/110)",
+      "METTLE // Churn Risk Detector (100/110)",
+      "METTLE // Pricing A/B Simulator (100/110)",
+      "METTLE // Sales Proposal Generator (99/110)",
+      "METTLE // IM Conversion Matrix (94/110)",
+      "Verified Agent Pricing Modeler (93/110)",
+      "Parallax Agent Arbitrage Calculator (90/110)",
+      "NERVE CENTER — Agent War Room (81/110)"
+    ],
+    "promising": [
+      "PARALLAX COMMAND (76/110)",
+      "The EKG: System Vitals Dashboard (71/110)",
+      "Spawn-Gate Orchestrator (67/110)",
+      "FORGE — Material Science Lab (66/110)",
+      "NOVA // Kinetic Tolerance Engine (66/110)"
+    ],
+    "archived": [],
+    "failed": [],
+    "top_insight": "METTLE dominance intensifies: 8 of 12 winners are METTLE tools scoring 94-105, completing full coach workflow (practice → relay → heat sheets → meet scoring → post-race analysis). Nova's shift from fabrication (66) to METTLE (101) yielded 35-point improvement, validating priority focus.",
+    "integration_candidates": [
+      {
+        "build": "METTLE // Practice Builder",
+        "target_app": "METTLE",
+        "integration_plan": "Integrate as daily practice planning module — coaches use this 5x/week. Add Firestore sync for team libraries, template sharing, and PDF export of practice cards. This is the highest-leverage daily tool.",
+        "estimated_effort": "18 hours"
+      },
+      {
+        "build": "METTLE // Meet Scorer",
+        "target_app": "METTLE",
+        "integration_plan": "Deploy as live meet scoring module with win condition detection — critical for meet-day strategy. Integrate with Heat Sheet Generator for seamless meet workflow and add Hy-Tek data import for official times.",
+        "estimated_effort": "20 hours"
+      },
+      {
+        "build": "METTLE // Churn Risk Detector",
+        "target_app": "METTLE",
+        "integration_plan": "Integrate as retention analytics dashboard with automated win-back sequence generation. Connect to METTLE engagement data and trigger coach alerts when athletes hit high-risk thresholds.",
+        "estimated_effort": "16 hours"
+      },
+      {
+        "build": "Verified Agent Pricing Modeler",
+        "target_app": "Verified Agent Business Portal",
+        "integration_plan": "Embed as value-based pricing calculator for enterprise sales — shifts conversation from cost savings to value creation. Add PDF export and CRM integration for proposal generation.",
+        "estimated_effort": "14 hours"
+      }
+    ],
+    "next_week_focus": "Builders should prioritize: 1) Production integration of METTLE workflow trilogy (Practice Builder + Heat Sheet Generator + Meet Scorer), 2) METTLE mobile companion for athlete notifications and check-ins, 3) Verified Agent vertical demos with industry-specific ROI cases (legal, security, healthcare)."
+  }
+]

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Meet Scorer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a12;--surface:#12121e;--card:#1a1a2e;--border:#2a2a40;--purple:#7c3aed;--scarlet:#dc2626;--gold:#f59e0b;--blue:#3b82f6;--text:#e2e8f0;--muted:#64748b;--green:#22c55e}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:0}
+.header{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-bottom:2px solid var(--purple);padding:20px 24px;display:flex;align-items:center;gap:16px}
+.header h1{font-size:1.6rem;font-weight:800;letter-spacing:2px}
+.header h1 span{color:var(--purple)}
+.header .subtitle{color:var(--muted);font-size:.85rem;margin-left:auto}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+.setup-panel{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px}
+.setup-panel h2{font-size:1.1rem;color:var(--purple);margin-bottom:16px;text-transform:uppercase;letter-spacing:1px}
+.form-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.form-group input,.form-group select{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:var(--text);font-size:.9rem;outline:none;transition:border .2s}
+.form-group input:focus,.form-group select:focus{border-color:var(--purple)}
+.form-group input[type="number"]{width:80px}
+.btn{padding:8px 18px;border-radius:6px;font-weight:700;font-size:.85rem;cursor:pointer;border:2px solid;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
+.btn-primary{background:var(--purple);color:#fff;border-color:var(--purple)}
+.btn-primary:hover{background:#6d28d9;border-color:#6d28d9}
+.btn-secondary{background:transparent;color:var(--gold);border-color:var(--gold)}
+.btn-secondary:hover{background:var(--gold);color:var(--bg)}
+.btn-danger{background:transparent;color:var(--scarlet);border-color:var(--scarlet);font-size:.75rem;padding:4px 10px}
+.btn-danger:hover{background:var(--scarlet);color:#fff}
+.btn-sm{padding:5px 12px;font-size:.75rem}
+
+.tabs{display:flex;gap:0;margin-bottom:20px;border-bottom:2px solid var(--border)}
+.tab{padding:10px 20px;cursor:pointer;color:var(--muted);font-weight:700;font-size:.85rem;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid transparent;transition:all .2s;margin-bottom:-2px}
+.tab.active{color:var(--purple);border-bottom-color:var(--purple)}
+.tab:hover{color:var(--text)}
+
+.teams-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.team-card{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:16px;position:relative}
+.team-card h3{font-size:1rem;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.team-card .team-score{font-size:2.4rem;font-weight:900;font-variant-numeric:tabular-nums}
+.team-card.leading{border-color:var(--gold)}
+.team-card.leading .team-score{color:var(--gold)}
+.team-card .team-score-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+.event-table{width:100%;border-collapse:collapse;margin-bottom:16px}
+.event-table th{text-align:left;padding:8px 10px;font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}
+.event-table td{padding:6px 10px;font-size:.85rem;border-bottom:1px solid var(--border)}
+.event-table tr:hover{background:rgba(124,58,237,.05)}
+.event-table .place-1{color:var(--gold);font-weight:700}
+.event-table .place-2{color:#94a3b8;font-weight:600}
+.event-table .place-3{color:#cd7f32;font-weight:600}
+
+.event-header{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:2px solid var(--purple);margin-bottom:8px}
+.event-header h3{font-size:.95rem;color:var(--purple)}
+.event-header .event-num{color:var(--muted);font-size:.8rem}
+
+.scoreboard{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:16px}
+.score-chip{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.score-chip .val{font-size:1.4rem;font-weight:800;font-variant-numeric:tabular-nums}
+.score-chip .lbl{font-size:.65rem;color:var(--muted);text-transform:uppercase;margin-top:2px}
+
+.format-badge{display:inline-block;padding:3px 10px;border-radius:100px;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.format-dual{background:rgba(124,58,237,.15);color:var(--purple);border:1px solid var(--purple)}
+.format-champ{background:rgba(245,158,11,.15);color:var(--gold);border:1px solid var(--gold)}
+.format-invitational{background:rgba(59,130,246,.15);color:var(--blue);border:1px solid var(--blue)}
+
+.add-result{background:var(--card);border:2px dashed var(--border);border-radius:8px;padding:12px;margin-bottom:8px}
+.inline-form{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.inline-form .form-group input,.inline-form .form-group select{padding:6px 10px;font-size:.8rem}
+
+.quick-templates{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.template-btn{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 12px;color:var(--text);font-size:.75rem;cursor:pointer;transition:all .2s}
+.template-btn:hover{border-color:var(--purple);color:var(--purple)}
+
+.empty-state{text-align:center;padding:40px;color:var(--muted);font-size:.9rem}
+.export-bar{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+
+.color-dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.color-a{background:var(--purple)}
+.color-b{background:var(--scarlet)}
+.color-c{background:var(--blue)}
+.color-d{background:var(--green)}
+.color-e{background:var(--gold)}
+
+.margin-bar{height:6px;border-radius:3px;margin-top:4px;transition:width .3s}
+.running-score{display:flex;gap:2px;align-items:end;height:60px;margin-top:8px}
+.running-bar{flex:1;border-radius:2px 2px 0 0;transition:height .3s;min-width:4px}
+
+.print-btn{position:fixed;bottom:20px;right:20px;z-index:100}
+@media print{.no-print{display:none!important}.team-card{border:1px solid #333}body{background:#fff;color:#000}.header{background:#f5f5f5;border-bottom:2px solid #333}}
+@media(max-width:768px){.teams-row{grid-template-columns:1fr}.form-row{flex-direction:column}.inline-form{flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1><span>METTLE</span> // Meet Scorer</h1>
+  <div class="subtitle">Real-Time Swim Meet Scoring Engine</div>
+</div>
+
+<div class="container">
+  <!-- Setup -->
+  <div class="setup-panel no-print">
+    <h2>Meet Setup</h2>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Meet Name</label>
+        <input type="text" id="meetName" value="Dual Meet" style="width:200px">
+      </div>
+      <div class="form-group">
+        <label>Scoring Format</label>
+        <select id="scoringFormat" onchange="updateFormat()">
+          <option value="dual">Dual Meet (6-4-3-2-1)</option>
+          <option value="dual5">Dual Meet 5-Lane (5-3-1)</option>
+          <option value="champ">Championship (20-17-16-15-14-13-12-11)</option>
+          <option value="invitational">Invitational (16-13-12-11-10-9-8-7)</option>
+          <option value="custom">Custom</option>
+        </select>
+      </div>
+      <div class="form-group" id="customScoreGroup" style="display:none">
+        <label>Custom Points (comma-sep)</label>
+        <input type="text" id="customScoreInput" placeholder="6,4,3,2,1" style="width:160px">
+      </div>
+      <div class="form-group">
+        <label>Relay Multiplier</label>
+        <select id="relayMultiplier">
+          <option value="2">2x (Standard)</option>
+          <option value="1">1x (No multiplier)</option>
+          <option value="1.5">1.5x</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Teams</label>
+        <div id="teamInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="addTeam()">+ Add Team</button>
+    </div>
+    <h2 style="margin-top:16px">Quick Templates</h2>
+    <div class="quick-templates">
+      <div class="template-btn" onclick="loadTemplate('dualHS')">HS Dual Meet (13 events)</div>
+      <div class="template-btn" onclick="loadTemplate('champHS')">HS Championship (22 events)</div>
+      <div class="template-btn" onclick="loadTemplate('dualAge')">Age Group Dual (16 events)</div>
+      <div class="template-btn" onclick="loadTemplate('sprint')">Sprint Invitational (10 events)</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs no-print">
+    <div class="tab active" data-tab="scoring" onclick="switchTab(this)">Live Scoring</div>
+    <div class="tab" data-tab="summary" onclick="switchTab(this)">Summary</div>
+    <div class="tab" data-tab="analysis" onclick="switchTab(this)">Analysis</div>
+  </div>
+
+  <!-- Live Scoring Tab -->
+  <div id="tab-scoring">
+    <div class="teams-row" id="teamScoreCards"></div>
+
+    <div class="setup-panel no-print" style="margin-bottom:16px">
+      <h2>Add Event</h2>
+      <div class="inline-form">
+        <div class="form-group">
+          <label>Event #</label>
+          <input type="number" id="newEventNum" min="1" style="width:60px">
+        </div>
+        <div class="form-group">
+          <label>Event Name</label>
+          <input type="text" id="newEventName" placeholder="200 Free" style="width:180px">
+        </div>
+        <div class="form-group">
+          <label>Type</label>
+          <select id="newEventType">
+            <option value="individual">Individual</option>
+            <option value="relay">Relay</option>
+          </select>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="addEvent()">Add Event</button>
+      </div>
+    </div>
+
+    <div id="eventsContainer"></div>
+  </div>
+
+  <!-- Summary Tab -->
+  <div id="tab-summary" style="display:none">
+    <div class="teams-row" id="summaryCards"></div>
+    <div id="summaryTable"></div>
+    <div class="export-bar no-print">
+      <button class="btn btn-secondary btn-sm" onclick="exportText()">Export Text</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportCSV()">Export CSV</button>
+    </div>
+  </div>
+
+  <!-- Analysis Tab -->
+  <div id="tab-analysis" style="display:none">
+    <div id="analysisContent"></div>
+  </div>
+</div>
+
+<button class="btn btn-primary print-btn no-print" onclick="window.print()">Print Scoresheet</button>
+
+<script>
+const SCORING_FORMATS={
+  dual:[6,4,3,2,1],
+  dual5:[5,3,1],
+  champ:[20,17,16,15,14,13,12,11],
+  invitational:[16,13,12,11,10,9,8,7],
+  custom:[]
+};
+const TEAM_COLORS=['var(--purple)','var(--scarlet)','var(--blue)','var(--green)','var(--gold)'];
+const COLOR_CLASSES=['color-a','color-b','color-c','color-d','color-e'];
+
+let state={
+  teams:['Home','Visitor'],
+  events:[],
+  format:'dual',
+  relayMult:2,
+  customScoring:[]
+};
+
+function getScoring(){
+  if(state.format==='custom')return state.customScoring;
+  return SCORING_FORMATS[state.format]||SCORING_FORMATS.dual;
+}
+
+function init(){
+  renderTeamInputs();
+  renderAll();
+  document.getElementById('newEventNum').value=1;
+}
+
+function renderTeamInputs(){
+  const c=document.getElementById('teamInputs');
+  c.innerHTML='';
+  state.teams.forEach((t,i)=>{
+    const d=document.createElement('div');
+    d.style.display='flex';d.style.alignItems='center';d.style.gap='4px';
+    d.innerHTML=`<span class="color-dot" style="background:${TEAM_COLORS[i%5]}"></span>
+      <input type="text" value="${t}" onchange="state.teams[${i}]=this.value;renderAll()" style="width:120px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:.85rem">
+      ${state.teams.length>2?`<button class="btn-danger btn" onclick="removeTeam(${i})">×</button>`:''}`;
+    c.appendChild(d);
+  });
+}
+
+function addTeam(){
+  if(state.teams.length>=5)return;
+  state.teams.push('Team '+(state.teams.length+1));
+  renderTeamInputs();renderAll();
+}
+
+function removeTeam(i){
+  state.teams.splice(i,1);
+  state.events.forEach(e=>{e.results=e.results.filter(r=>r.team!==i);e.results.forEach(r=>{if(r.team>i)r.team--})});
+  renderTeamInputs();renderAll();
+}
+
+function updateFormat(){
+  const f=document.getElementById('scoringFormat').value;
+  state.format=f;
+  document.getElementById('customScoreGroup').style.display=f==='custom'?'':'none';
+  if(f==='custom'){
+    const v=document.getElementById('customScoreInput').value;
+    state.customScoring=v.split(',').map(Number).filter(n=>n>0);
+  }
+  renderAll();
+}
+
+function addEvent(){
+  const num=parseInt(document.getElementById('newEventNum').value)||state.events.length+1;
+  const name=document.getElementById('newEventName').value.trim()||`Event ${num}`;
+  const type=document.getElementById('newEventType').value;
+  state.events.push({num,name,type,results:[]});
+  state.events.sort((a,b)=>a.num-b.num);
+  document.getElementById('newEventNum').value=num+1;
+  document.getElementById('newEventName').value='';
+  renderAll();
+}
+
+function removeEvent(idx){
+  state.events.splice(idx,1);
+  renderAll();
+}
+
+function addResult(eventIdx){
+  const e=state.events[eventIdx];
+  const swimmerInput=document.getElementById(`res-swimmer-${eventIdx}`);
+  const teamInput=document.getElementById(`res-team-${eventIdx}`);
+  const placeInput=document.getElementById(`res-place-${eventIdx}`);
+  const timeInput=document.getElementById(`res-time-${eventIdx}`);
+  const swimmer=swimmerInput.value.trim();
+  const team=parseInt(teamInput.value);
+  const place=parseInt(placeInput.value);
+  const time=timeInput.value.trim();
+  if(!swimmer||isNaN(place))return;
+  e.results.push({swimmer,team,place,time});
+  e.results.sort((a,b)=>a.place-b.place);
+  swimmerInput.value='';placeInput.value=e.results.length+1;timeInput.value='';
+  renderAll();
+}
+
+function removeResult(eIdx,rIdx){
+  state.events[eIdx].results.splice(rIdx,1);
+  renderAll();
+}
+
+function calcTeamScores(){
+  const scores=state.teams.map(()=>0);
+  const eventScores=[];
+  const pts=getScoring();
+  state.events.forEach(ev=>{
+    const es=state.teams.map(()=>0);
+    const mult=ev.type==='relay'?parseFloat(document.getElementById('relayMultiplier').value)||2:1;
+    ev.results.forEach(r=>{
+      const placeIdx=r.place-1;
+      if(placeIdx>=0&&placeIdx<pts.length){
+        const p=pts[placeIdx]*mult;
+        scores[r.team]+=p;
+        es[r.team]+=p;
+      }
+    });
+    eventScores.push(es);
+  });
+  return{scores,eventScores};
+}
+
+function renderAll(){
+  const{scores,eventScores}=calcTeamScores();
+  renderScoreCards(scores);
+  renderEvents(eventScores);
+  renderSummary(scores,eventScores);
+  renderAnalysis(scores,eventScores);
+}
+
+function renderScoreCards(scores){
+  const c=document.getElementById('teamScoreCards');
+  const maxScore=Math.max(...scores,1);
+  const leadIdx=scores.indexOf(Math.max(...scores));
+  c.innerHTML=state.teams.map((t,i)=>{
+    const isLead=scores[i]===Math.max(...scores)&&scores[i]>0;
+    return`<div class="team-card ${isLead?'leading':''}">
+      <h3><span class="color-dot" style="background:${TEAM_COLORS[i%5]}"></span>${t}${isLead?' 👑':''}</h3>
+      <div class="team-score">${scores[i]}</div>
+      <div class="team-score-label">Total Points</div>
+      <div class="margin-bar" style="width:${(scores[i]/maxScore*100)}%;background:${TEAM_COLORS[i%5]}"></div>
+    </div>`;
+  }).join('');
+}
+
+function renderEvents(eventScores){
+  const c=document.getElementById('eventsContainer');
+  const pts=getScoring();
+  const formatBadge=state.format==='dual'||state.format==='dual5'?'format-dual':state.format==='champ'?'format-champ':'format-invitational';
+  if(state.events.length===0){
+    c.innerHTML=`<div class="empty-state">No events yet. Add events above or use a quick template.</div>`;
+    return;
+  }
+  c.innerHTML=state.events.map((ev,eIdx)=>{
+    const mult=ev.type==='relay'?parseFloat(document.getElementById('relayMultiplier').value)||2:1;
+    let html=`<div class="setup-panel" style="margin-bottom:12px">
+      <div class="event-header">
+        <h3>Event ${ev.num}: ${ev.name} ${ev.type==='relay'?'<span class="format-badge format-champ">RELAY ×'+mult+'</span>':''}</h3>
+        <div><span class="event-num">${ev.results.length} result${ev.results.length!==1?'s':''}</span>
+        <button class="btn-danger btn" onclick="removeEvent(${eIdx})" style="margin-left:8px">Remove</button></div>
+      </div>`;
+    if(ev.results.length>0){
+      html+=`<table class="event-table"><thead><tr><th>Place</th><th>Swimmer</th><th>Team</th><th>Time</th><th>Points</th><th class="no-print"></th></tr></thead><tbody>`;
+      ev.results.forEach((r,rIdx)=>{
+        const placeIdx=r.place-1;
+        const p=(placeIdx>=0&&placeIdx<pts.length)?pts[placeIdx]*mult:0;
+        const placeClass=r.place<=3?`place-${r.place}`:'';
+        html+=`<tr><td class="${placeClass}">${r.place}${r.place===1?'st':r.place===2?'nd':r.place===3?'rd':'th'}</td>
+          <td>${r.swimmer}</td>
+          <td><span class="color-dot" style="background:${TEAM_COLORS[r.team%5]}"></span> ${state.teams[r.team]||'?'}</td>
+          <td>${r.time||'—'}</td>
+          <td style="font-weight:700;color:${TEAM_COLORS[r.team%5]}">${p}</td>
+          <td class="no-print"><button class="btn-danger btn" onclick="removeResult(${eIdx},${rIdx})">×</button></td></tr>`;
+      });
+      html+=`</tbody></table>`;
+    }
+    // Add result form
+    html+=`<div class="add-result no-print"><div class="inline-form">
+      <div class="form-group"><label>Swimmer</label><input type="text" id="res-swimmer-${eIdx}" placeholder="Name" style="width:140px" onkeydown="if(event.key==='Enter')addResult(${eIdx})"></div>
+      <div class="form-group"><label>Team</label><select id="res-team-${eIdx}">${state.teams.map((t,ti)=>`<option value="${ti}">${t}</option>`).join('')}</select></div>
+      <div class="form-group"><label>Place</label><input type="number" id="res-place-${eIdx}" value="${ev.results.length+1}" min="1" style="width:60px"></div>
+      <div class="form-group"><label>Time</label><input type="text" id="res-time-${eIdx}" placeholder="1:52.34" style="width:100px" onkeydown="if(event.key==='Enter')addResult(${eIdx})"></div>
+      <button class="btn btn-primary btn-sm" onclick="addResult(${eIdx})">Add</button>
+    </div></div>`;
+    html+=`</div>`;
+    return html;
+  }).join('');
+}
+
+function renderSummary(scores,eventScores){
+  const c=document.getElementById('summaryCards');
+  const maxScore=Math.max(...scores,1);
+  c.innerHTML=state.teams.map((t,i)=>{
+    const isLead=scores[i]===Math.max(...scores)&&scores[i]>0;
+    const eventWins=eventScores.filter(es=>es[i]===Math.max(...es)&&es[i]>0).length;
+    return`<div class="team-card ${isLead?'leading':''}">
+      <h3><span class="color-dot" style="background:${TEAM_COLORS[i%5]}"></span>${t}</h3>
+      <div class="team-score">${scores[i]}</div>
+      <div class="team-score-label">Total Points</div>
+      <div class="scoreboard" style="margin-top:12px">
+        <div class="score-chip"><div class="val">${eventWins}</div><div class="lbl">Event Wins</div></div>
+        <div class="score-chip"><div class="val">${scores[i]>0?(scores[i]/state.events.length).toFixed(1):'0'}</div><div class="lbl">Pts/Event</div></div>
+        <div class="score-chip"><div class="val">${Math.max(...scores)>0?((scores[i]/maxScore)*100).toFixed(0)+'%':'—'}</div><div class="lbl">Score %</div></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Event-by-event summary table
+  const t=document.getElementById('summaryTable');
+  if(state.events.length===0){t.innerHTML='';return;}
+  let html=`<div class="setup-panel"><h2>Event-by-Event Breakdown</h2>
+    <table class="event-table"><thead><tr><th>#</th><th>Event</th>${state.teams.map((tm,ti)=>`<th><span class="color-dot" style="background:${TEAM_COLORS[ti%5]}"></span> ${tm}</th>`).join('')}<th>Winner</th></tr></thead><tbody>`;
+  let running=state.teams.map(()=>0);
+  state.events.forEach((ev,eIdx)=>{
+    const es=eventScores[eIdx];
+    state.teams.forEach((_,ti)=>running[ti]+=es[ti]);
+    const maxES=Math.max(...es);
+    const winner=maxES>0?state.teams[es.indexOf(maxES)]:'—';
+    html+=`<tr><td>${ev.num}</td><td>${ev.name}${ev.type==='relay'?' ®':''}</td>`;
+    state.teams.forEach((_,ti)=>{
+      html+=`<td style="font-weight:${es[ti]===maxES&&maxES>0?'700':'400'};color:${es[ti]===maxES&&maxES>0?TEAM_COLORS[ti%5]:'var(--text)'}">${es[ti]} <span style="color:var(--muted);font-size:.7rem">(${running[ti]})</span></td>`;
+    });
+    html+=`<td style="font-weight:700">${winner}</td></tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  t.innerHTML=html;
+}
+
+function renderAnalysis(scores,eventScores){
+  const c=document.getElementById('analysisContent');
+  if(state.events.length<2){c.innerHTML=`<div class="empty-state">Need at least 2 scored events for analysis.</div>`;return;}
+
+  let html='';
+
+  // Running score chart
+  html+=`<div class="setup-panel"><h2>Running Score Progression</h2>`;
+  let running=state.teams.map(()=>[]);
+  let cum=state.teams.map(()=>0);
+  state.events.forEach((ev,eIdx)=>{
+    state.teams.forEach((_,ti)=>{cum[ti]+=eventScores[eIdx][ti];running[ti].push(cum[ti])});
+  });
+  const maxRun=Math.max(...cum,1);
+  html+=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">${state.teams.map((t,i)=>`<span style="font-size:.8rem;color:${TEAM_COLORS[i%5]}">● ${t}: ${cum[i]} pts</span>`).join('')}</div>`;
+  html+=`<div style="display:flex;gap:2px;align-items:end;height:100px;background:var(--card);border-radius:8px;padding:8px">`;
+  state.events.forEach((ev,eIdx)=>{
+    html+=`<div style="flex:1;display:flex;flex-direction:column;gap:1px;align-items:center;justify-content:end;height:100%">`;
+    state.teams.forEach((t,ti)=>{
+      const h=(running[ti][eIdx]/maxRun)*80;
+      html+=`<div style="width:${Math.max(100/state.teams.length-5,8)}%;height:${h}px;background:${TEAM_COLORS[ti%5]};border-radius:2px 2px 0 0;opacity:0.85"></div>`;
+    });
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:2px">E${ev.num}</div></div>`;
+  });
+  html+=`</div></div>`;
+
+  // Momentum analysis
+  html+=`<div class="setup-panel"><h2>Momentum Analysis</h2>`;
+  state.teams.forEach((t,ti)=>{
+    let streakW=0,streakL=0,bestStretch=0,curStretch=0;
+    eventScores.forEach(es=>{
+      const maxES=Math.max(...es);
+      if(es[ti]===maxES&&maxES>0){streakW++;curStretch++;bestStretch=Math.max(bestStretch,curStretch);streakL=0}
+      else{streakL++;curStretch=0}
+    });
+    const momentum=streakW>streakL?'🔥 Hot':streakL>streakW?'❄️ Cold':'➡️ Neutral';
+    html+=`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span class="color-dot" style="background:${TEAM_COLORS[ti%5]}"></span>
+      <strong>${t}</strong>
+      <span style="font-size:.85rem">${momentum}</span>
+      <span style="color:var(--muted);font-size:.8rem">Best streak: ${bestStretch} events</span>
+    </div>`;
+  });
+  html+=`</div>`;
+
+  // Projected final (if meet not complete)
+  if(state.events.some(e=>e.results.length===0)){
+    html+=`<div class="setup-panel"><h2>Projection (Unscored Events Remaining)</h2>`;
+    const scoredCount=state.events.filter(e=>e.results.length>0).length;
+    const totalCount=state.events.length;
+    const remaining=totalCount-scoredCount;
+    if(scoredCount>0){
+      state.teams.forEach((t,ti)=>{
+        const avgPtsPerEvent=scores[ti]/scoredCount;
+        const projected=scores[ti]+avgPtsPerEvent*remaining;
+        html+=`<div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span class="color-dot" style="background:${TEAM_COLORS[ti%5]}"></span>
+          <strong>${t}</strong>
+          <span style="font-size:.85rem">Current: ${scores[ti]} → Projected: <strong>${projected.toFixed(0)}</strong></span>
+          <span style="color:var(--muted);font-size:.8rem">(${avgPtsPerEvent.toFixed(1)} avg/event × ${remaining} remaining)</span>
+        </div>`;
+      });
+    }
+    html+=`</div>`;
+  }
+
+  // Win condition checker
+  html+=`<div class="setup-panel"><h2>Win Conditions</h2>`;
+  const sortedTeams=[...state.teams.map((t,i)=>({name:t,score:scores[i],idx:i}))].sort((a,b)=>b.score-a.score);
+  if(sortedTeams.length>=2&&sortedTeams[0].score>0){
+    const leader=sortedTeams[0];
+    const second=sortedTeams[1];
+    const gap=leader.score-second.score;
+    const maxPossPerEvent=getScoring()[0]*(state.format==='custom'?1:1);
+    const unscoredEvents=state.events.filter(e=>e.results.length===0).length;
+    const canOvertake=gap<=maxPossPerEvent*unscoredEvents;
+    html+=`<div style="padding:12px;background:var(--card);border-radius:8px;margin-bottom:8px">
+      <div style="font-weight:700;margin-bottom:4px">${leader.name} leads by ${gap} points</div>
+      ${unscoredEvents>0?`<div style="color:${canOvertake?'var(--gold)':'var(--green)'}">
+        ${canOvertake?`⚡ ${second.name} can still overtake with ${unscoredEvents} events remaining`:`✅ ${leader.name} has clinched — ${second.name} cannot catch up even with max points in remaining ${unscoredEvents} events`}
+      </div>`:`<div style="color:var(--green)">✅ Meet complete — ${leader.name} wins ${leader.score}-${second.score}</div>`}
+    </div>`;
+  }
+  html+=`</div>`;
+
+  c.innerHTML=html;
+}
+
+function switchTab(el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['scoring','summary','analysis'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display=el.dataset.tab===t?'':'none';
+  });
+}
+
+function loadTemplate(key){
+  const templates={
+    dualHS:[
+      {num:1,name:'200 Medley Relay',type:'relay'},
+      {num:2,name:'200 Freestyle',type:'individual'},
+      {num:3,name:'200 IM',type:'individual'},
+      {num:4,name:'50 Freestyle',type:'individual'},
+      {num:5,name:'100 Butterfly',type:'individual'},
+      {num:6,name:'100 Freestyle',type:'individual'},
+      {num:7,name:'500 Freestyle',type:'individual'},
+      {num:8,name:'200 Free Relay',type:'relay'},
+      {num:9,name:'100 Backstroke',type:'individual'},
+      {num:10,name:'100 Breaststroke',type:'individual'},
+      {num:11,name:'400 Free Relay',type:'relay'}
+    ],
+    champHS:[
+      {num:1,name:'200 Medley Relay',type:'relay'},
+      {num:2,name:'200 Freestyle',type:'individual'},
+      {num:3,name:'200 IM',type:'individual'},
+      {num:4,name:'50 Freestyle',type:'individual'},
+      {num:5,name:'1m Diving',type:'individual'},
+      {num:6,name:'100 Butterfly',type:'individual'},
+      {num:7,name:'100 Freestyle',type:'individual'},
+      {num:8,name:'500 Freestyle',type:'individual'},
+      {num:9,name:'200 Free Relay',type:'relay'},
+      {num:10,name:'100 Backstroke',type:'individual'},
+      {num:11,name:'100 Breaststroke',type:'individual'},
+      {num:12,name:'400 Free Relay',type:'relay'}
+    ],
+    dualAge:[
+      {num:1,name:'200 Medley Relay',type:'relay'},
+      {num:2,name:'100 IM',type:'individual'},
+      {num:3,name:'50 Freestyle',type:'individual'},
+      {num:4,name:'50 Backstroke',type:'individual'},
+      {num:5,name:'50 Butterfly',type:'individual'},
+      {num:6,name:'100 Freestyle',type:'individual'},
+      {num:7,name:'50 Breaststroke',type:'individual'},
+      {num:8,name:'100 Backstroke',type:'individual'},
+      {num:9,name:'100 Breaststroke',type:'individual'},
+      {num:10,name:'100 Butterfly',type:'individual'},
+      {num:11,name:'200 Freestyle',type:'individual'},
+      {num:12,name:'200 IM',type:'individual'},
+      {num:13,name:'500 Freestyle',type:'individual'},
+      {num:14,name:'200 Free Relay',type:'relay'},
+      {num:15,name:'200 Medley Relay',type:'relay'},
+      {num:16,name:'400 Free Relay',type:'relay'}
+    ],
+    sprint:[
+      {num:1,name:'200 Free Relay',type:'relay'},
+      {num:2,name:'50 Freestyle',type:'individual'},
+      {num:3,name:'50 Backstroke',type:'individual'},
+      {num:4,name:'50 Butterfly',type:'individual'},
+      {num:5,name:'50 Breaststroke',type:'individual'},
+      {num:6,name:'100 Freestyle',type:'individual'},
+      {num:7,name:'100 IM',type:'individual'},
+      {num:8,name:'100 Backstroke',type:'individual'},
+      {num:9,name:'100 Butterfly',type:'individual'},
+      {num:10,name:'200 Medley Relay',type:'relay'}
+    ]
+  };
+  if(templates[key]){
+    state.events=templates[key].map(e=>({...e,results:[]}));
+    // Set scoring format based on template
+    if(key==='champHS'){
+      document.getElementById('scoringFormat').value='champ';state.format='champ';
+    }else if(key==='sprint'){
+      document.getElementById('scoringFormat').value='invitational';state.format='invitational';
+    }else{
+      document.getElementById('scoringFormat').value='dual';state.format='dual';
+    }
+    document.getElementById('newEventNum').value=state.events.length+1;
+    renderAll();
+  }
+}
+
+function exportText(){
+  const{scores,eventScores}=calcTeamScores();
+  const pts=getScoring();
+  let txt=`${document.getElementById('meetName').value}\n`;
+  txt+=`Format: ${state.format.toUpperCase()}\n`;
+  txt+=`${'='.repeat(50)}\n\n`;
+  txt+=`FINAL SCORES\n`;
+  state.teams.forEach((t,i)=>txt+=`  ${t}: ${scores[i]} pts\n`);
+  txt+=`\nEVENT RESULTS\n${'─'.repeat(50)}\n`;
+  state.events.forEach((ev,eIdx)=>{
+    const mult=ev.type==='relay'?parseFloat(document.getElementById('relayMultiplier').value)||2:1;
+    txt+=`\nEvent ${ev.num}: ${ev.name}${ev.type==='relay'?' (Relay)':''}\n`;
+    ev.results.forEach(r=>{
+      const placeIdx=r.place-1;
+      const p=(placeIdx>=0&&placeIdx<pts.length)?pts[placeIdx]*mult:0;
+      txt+=`  ${r.place}. ${r.swimmer} (${state.teams[r.team]}) ${r.time||''} — ${p} pts\n`;
+    });
+  });
+  txt+=`\n— Generated by METTLE Meet Scorer`;
+  const blob=new Blob([txt],{type:'text/plain'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`meet-scores-${new Date().toISOString().slice(0,10)}.txt`;a.click();
+}
+
+function exportCSV(){
+  const{scores,eventScores}=calcTeamScores();
+  const pts=getScoring();
+  let csv='Event#,Event Name,Type,Place,Swimmer,Team,Time,Points\n';
+  state.events.forEach(ev=>{
+    const mult=ev.type==='relay'?parseFloat(document.getElementById('relayMultiplier').value)||2:1;
+    ev.results.forEach(r=>{
+      const placeIdx=r.place-1;
+      const p=(placeIdx>=0&&placeIdx<pts.length)?pts[placeIdx]*mult:0;
+      csv+=`${ev.num},"${ev.name}",${ev.type},${r.place},"${r.swimmer}","${state.teams[r.team]}","${r.time||''}",${p}\n`;
+    });
+  });
+  const blob=new Blob([csv],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`meet-scores-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+}
+
+// Auto-save/restore to localStorage
+function saveState(){try{localStorage.setItem('mettle-scorer',JSON.stringify(state))}catch(e){}}
+function loadState(){try{const s=localStorage.getItem('mettle-scorer');if(s){state=JSON.parse(s);document.getElementById('scoringFormat').value=state.format;document.getElementById('meetName').value=state.meetName||'Dual Meet';renderTeamInputs()}}catch(e){}}
+
+// Watch for changes
+const origRenderAll=renderAll;
+renderAll=function(){origRenderAll();saveState()};
+
+loadState();
+init();
+</script>
+</body>
+</html>

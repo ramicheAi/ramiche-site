@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE // Dual Meet Strategy Planner</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--card:#1a1a26;--border:#2a2a3a;
+  --text:#e8e8f0;--dim:#8888a0;--accent:#7c3aed;--accent2:#a855f7;
+  --win:#22c55e;--lose:#ef4444;--swing:#f59e0b;--neutral:#6366f1;
+  --mettle-purple:#7c3aed;--mettle-scarlet:#dc2626;--mettle-gold:#eab308;--mettle-blue:#3b82f6;
+}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono',SFMono-Regular,Consolas,'Liberation Mono',Menlo,monospace;line-height:1.6;min-height:100vh}
+.container{max-width:900px;margin:0 auto;padding:20px}
+header{text-align:center;padding:32px 0 24px;border-bottom:2px solid var(--border)}
+header h1{font-size:1.4rem;letter-spacing:4px;color:var(--accent2);text-transform:uppercase}
+header .sub{font-size:0.75rem;color:var(--dim);margin-top:4px;letter-spacing:2px}
+.tabs{display:flex;gap:0;margin:24px 0 0;border-bottom:2px solid var(--border)}
+.tab{padding:10px 20px;cursor:pointer;color:var(--dim);font-size:0.75rem;letter-spacing:1px;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all 0.2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.panel{display:none;padding:24px 0}
+.panel.active{display:block}
+.section-title{font-size:0.7rem;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.team-setup{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:16px}
+.team-col{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.team-col h3{font-size:0.8rem;letter-spacing:2px;margin-bottom:12px}
+.team-col.home h3{color:var(--mettle-purple)}
+.team-col.away h3{color:var(--mettle-scarlet)}
+input,select{background:var(--card);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:4px;font-family:inherit;font-size:0.8rem;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+label{font-size:0.7rem;color:var(--dim);display:block;margin:8px 0 4px;letter-spacing:1px}
+.swimmer-row{display:grid;grid-template-columns:1fr 80px 40px;gap:8px;align-items:center;margin:4px 0}
+.swimmer-row input{padding:6px 8px;font-size:0.75rem}
+.btn{background:var(--accent);color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:0.75rem;letter-spacing:1px;transition:all 0.2s}
+.btn:hover{background:var(--accent2);transform:translateY(-1px)}
+.btn-sm{padding:6px 12px;font-size:0.7rem}
+.btn-danger{background:var(--lose)}
+.btn-gold{background:var(--mettle-gold);color:#000}
+.btn-row{display:flex;gap:8px;margin:16px 0;flex-wrap:wrap}
+.event-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:8px 0;transition:border-color 0.3s}
+.event-card.home-win{border-left:3px solid var(--win)}
+.event-card.away-win{border-left:3px solid var(--lose)}
+.event-card.swing{border-left:3px solid var(--swing)}
+.event-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.event-name{font-size:0.8rem;font-weight:600;letter-spacing:1px}
+.event-points{font-size:0.75rem;color:var(--dim)}
+.matchup-row{display:grid;grid-template-columns:1fr 60px 60px 1fr;gap:4px;align-items:center;font-size:0.7rem;padding:3px 0}
+.matchup-row .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.matchup-row .time{text-align:center;color:var(--accent2);font-weight:600}
+.matchup-row .pts{text-align:center;font-size:0.65rem;color:var(--dim)}
+.matchup-row.winner .name{color:var(--win)}
+.score-bar{display:flex;height:32px;border-radius:4px;overflow:hidden;margin:8px 0}
+.score-bar .home-bar{background:var(--mettle-purple);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;transition:width 0.5s}
+.score-bar .away-bar{background:var(--mettle-scarlet);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;transition:width 0.5s}
+.score-summary{display:grid;grid-template-columns:1fr auto 1fr;gap:16px;align-items:center;text-align:center;padding:20px;background:var(--surface);border:2px solid var(--border);border-radius:8px;margin:16px 0}
+.score-summary .score{font-size:2rem;font-weight:700}
+.score-summary .team-label{font-size:0.7rem;color:var(--dim);letter-spacing:2px}
+.score-summary .vs{font-size:0.8rem;color:var(--dim)}
+.score-summary .home-side .score{color:var(--mettle-purple)}
+.score-summary .away-side .score{color:var(--mettle-scarlet)}
+.swing-card{background:var(--card);border:1px solid var(--swing);border-radius:8px;padding:12px;margin:8px 0}
+.swing-card .event{color:var(--swing);font-weight:600;font-size:0.8rem}
+.swing-card .impact{font-size:0.7rem;color:var(--dim);margin-top:4px}
+.swing-card .recommendation{font-size:0.75rem;margin-top:8px;padding:8px;background:var(--surface);border-radius:4px;border-left:2px solid var(--swing)}
+.strategy-rec{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;margin:8px 0}
+.strategy-rec h4{color:var(--accent2);font-size:0.75rem;letter-spacing:1px;margin-bottom:8px}
+.strategy-rec p{font-size:0.75rem;color:var(--dim);line-height:1.5}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:0.6rem;letter-spacing:1px;margin:2px}
+.tag-win{background:rgba(34,197,94,0.15);color:var(--win)}
+.tag-lose{background:rgba(239,68,68,0.15);color:var(--lose)}
+.tag-swing{background:rgba(245,158,11,0.15);color:var(--swing)}
+.tag-relay{background:rgba(99,102,241,0.15);color:var(--neutral)}
+.prob-meter{width:100%;height:8px;background:var(--card);border-radius:4px;overflow:hidden;margin:4px 0}
+.prob-fill{height:100%;border-radius:4px;transition:width 0.5s}
+.export-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;margin:16px 0;white-space:pre-wrap;font-size:0.7rem;max-height:400px;overflow-y:auto}
+.template-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0}
+.template-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;cursor:pointer;transition:all 0.2s}
+.template-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.template-card h4{font-size:0.75rem;color:var(--accent2);margin-bottom:4px}
+.template-card p{font-size:0.65rem;color:var(--dim)}
+.running-score{margin:16px 0}
+.running-event{display:grid;grid-template-columns:140px 1fr 60px 60px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:0.7rem}
+.running-event .ev-name{color:var(--dim)}
+.running-event .bar-container{height:12px;display:flex;border-radius:2px;overflow:hidden}
+.running-event .h-bar{background:var(--mettle-purple);height:100%;transition:width 0.3s}
+.running-event .a-bar{background:var(--mettle-scarlet);height:100%;transition:width 0.3s}
+.alt-row{display:grid;grid-template-columns:140px 1fr 1fr;gap:8px;align-items:start;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin:8px 0;font-size:0.7rem}
+.alt-row .label{color:var(--dim);letter-spacing:1px}
+.alt-row .change{color:var(--swing)}
+.alt-row .delta{font-weight:700;font-size:0.85rem}
+.delta-pos{color:var(--win)}
+.delta-neg{color:var(--lose)}
+@media(max-width:640px){
+  .team-setup{grid-template-columns:1fr}
+  .template-grid{grid-template-columns:1fr}
+  .matchup-row{grid-template-columns:1fr 50px 50px 1fr;font-size:0.65rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>METTLE // Dual Meet Strategy Planner</h1>
+    <div class="sub">Pre-Meet Tactical Simulation &amp; Lineup Optimization</div>
+  </header>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="setup">SETUP</div>
+    <div class="tab" data-tab="simulation">SIMULATION</div>
+    <div class="tab" data-tab="strategy">STRATEGY</div>
+    <div class="tab" data-tab="alternatives">WHAT-IF</div>
+    <div class="tab" data-tab="export">EXPORT</div>
+  </div>
+
+  <!-- SETUP PANEL -->
+  <div class="panel active" id="panel-setup">
+    <div class="section-title">MEET CONFIGURATION</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div><label>SCORING FORMAT</label>
+        <select id="scoringFormat">
+          <option value="dual-6">Dual — 6-4-3-2-1</option>
+          <option value="dual-5">Dual — 5-3-1</option>
+          <option value="dual-7">Dual — 7-5-4-3-2-1</option>
+        </select>
+      </div>
+      <div><label>RELAY SCORING</label>
+        <select id="relayScoring">
+          <option value="8">8 pts (1st only)</option>
+          <option value="8-4">8-4 pts (1st-2nd)</option>
+          <option value="10-4">10-4 pts (1st-2nd)</option>
+        </select>
+      </div>
+      <div><label>EVENTS</label>
+        <select id="eventTemplate">
+          <option value="hs">High School (11+2 relays)</option>
+          <option value="college">College (13+3 relays)</option>
+          <option value="age-group">Age Group (10+2 relays)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section-title">QUICK START</div>
+    <div class="template-grid">
+      <div class="template-card" onclick="loadSampleData('competitive')">
+        <h4>COMPETITIVE DUAL</h4>
+        <p>Two evenly matched teams — projected margin under 20 pts. High swing event count.</p>
+      </div>
+      <div class="template-card" onclick="loadSampleData('mismatch')">
+        <h4>MISMATCH DUAL</h4>
+        <p>Clear favorite vs underdog — focus on individual event wins and relay upsets.</p>
+      </div>
+    </div>
+
+    <div class="section-title">TEAM ROSTERS</div>
+    <div class="team-setup">
+      <div class="team-col home">
+        <h3>HOME TEAM</h3>
+        <label>TEAM NAME</label>
+        <input type="text" id="homeName" value="Eagles" placeholder="Team name">
+        <div id="homeRoster"></div>
+      </div>
+      <div class="team-col away">
+        <h3>AWAY TEAM</h3>
+        <label>TEAM NAME</label>
+        <input type="text" id="awayName" value="Sharks" placeholder="Team name">
+        <div id="awayRoster"></div>
+      </div>
+    </div>
+    <div class="btn-row" style="justify-content:center;margin-top:20px">
+      <button class="btn btn-gold" onclick="runSimulation()">▶ SIMULATE MEET</button>
+    </div>
+  </div>
+
+  <!-- SIMULATION PANEL -->
+  <div class="panel" id="panel-simulation">
+    <div class="score-summary" id="scoreSummary">
+      <div class="home-side">
+        <div class="team-label" id="simHomeName">HOME</div>
+        <div class="score" id="simHomeScore">0</div>
+      </div>
+      <div class="vs">VS</div>
+      <div class="away-side">
+        <div class="team-label" id="simAwayName">AWAY</div>
+        <div class="score" id="simAwayScore">0</div>
+      </div>
+    </div>
+    <div class="score-bar" id="scoreBar">
+      <div class="home-bar" style="width:50%">0</div>
+      <div class="away-bar" style="width:50%">0</div>
+    </div>
+
+    <div class="section-title">RUNNING SCORE BY EVENT</div>
+    <div class="running-score" id="runningScore"></div>
+
+    <div class="section-title">EVENT-BY-EVENT BREAKDOWN</div>
+    <div id="eventBreakdown"></div>
+  </div>
+
+  <!-- STRATEGY PANEL -->
+  <div class="panel" id="panel-strategy">
+    <div class="section-title">WIN PROBABILITY</div>
+    <div id="winProb"></div>
+
+    <div class="section-title">SWING EVENTS — WHERE THE MEET IS WON OR LOST</div>
+    <div id="swingEvents"></div>
+
+    <div class="section-title">STRATEGIC RECOMMENDATIONS</div>
+    <div id="strategyRecs"></div>
+
+    <div class="section-title">RELAY IMPACT ANALYSIS</div>
+    <div id="relayAnalysis"></div>
+  </div>
+
+  <!-- WHAT-IF PANEL -->
+  <div class="panel" id="panel-alternatives">
+    <div class="section-title">LINEUP ALTERNATIVES — WHAT HAPPENS IF...</div>
+    <p style="font-size:0.7rem;color:var(--dim);margin-bottom:16px">Click any swimmer in an event below to swap them. See how each change impacts the projected score.</p>
+    <div id="altScenarios"></div>
+    <div class="btn-row">
+      <button class="btn" onclick="generateAlternatives()">GENERATE TOP ALTERNATIVES</button>
+    </div>
+    <div id="altResults"></div>
+  </div>
+
+  <!-- EXPORT PANEL -->
+  <div class="panel" id="panel-export">
+    <div class="section-title">STRATEGY BRIEF</div>
+    <div class="btn-row">
+      <button class="btn" onclick="exportText()">COPY TEXT BRIEF</button>
+      <button class="btn btn-sm" onclick="exportJSON()">EXPORT JSON</button>
+    </div>
+    <div class="export-box" id="exportContent">Run simulation first...</div>
+  </div>
+</div>
+
+<script>
+const EVENTS_HS = [
+  {name:'200 Medley Relay',type:'relay',strokes:['back','breast','fly','free']},
+  {name:'200 Free',type:'individual',stroke:'free',dist:200},
+  {name:'200 IM',type:'individual',stroke:'im',dist:200},
+  {name:'50 Free',type:'individual',stroke:'free',dist:50},
+  {name:'100 Fly',type:'individual',stroke:'fly',dist:100},
+  {name:'100 Free',type:'individual',stroke:'free',dist:100},
+  {name:'500 Free',type:'individual',stroke:'free',dist:500},
+  {name:'200 Free Relay',type:'relay',strokes:['free','free','free','free']},
+  {name:'100 Back',type:'individual',stroke:'back',dist:100},
+  {name:'100 Breast',type:'individual',stroke:'breast',dist:100},
+  {name:'400 Free Relay',type:'relay',strokes:['free','free','free','free']}
+];
+const EVENTS_COLLEGE = [
+  {name:'200 Medley Relay',type:'relay',strokes:['back','breast','fly','free']},
+  {name:'1000 Free',type:'individual',stroke:'free',dist:1000},
+  {name:'200 Free',type:'individual',stroke:'free',dist:200},
+  {name:'100 Back',type:'individual',stroke:'back',dist:100},
+  {name:'100 Breast',type:'individual',stroke:'breast',dist:100},
+  {name:'200 Fly',type:'individual',stroke:'fly',dist:200},
+  {name:'50 Free',type:'individual',stroke:'free',dist:50},
+  {name:'100 Free',type:'individual',stroke:'free',dist:100},
+  {name:'200 Back',type:'individual',stroke:'back',dist:200},
+  {name:'200 Breast',type:'individual',stroke:'breast',dist:200},
+  {name:'500 Free',type:'individual',stroke:'free',dist:500},
+  {name:'200 IM',type:'individual',stroke:'im',dist:200},
+  {name:'200 Free Relay',type:'relay',strokes:['free','free','free','free']},
+  {name:'400 IM',type:'individual',stroke:'im',dist:400},
+  {name:'400 Free Relay',type:'relay',strokes:['free','free','free','free']},
+  {name:'800 Free Relay',type:'relay',strokes:['free','free','free','free']}
+];
+const EVENTS_AG = [
+  {name:'200 Medley Relay',type:'relay',strokes:['back','breast','fly','free']},
+  {name:'100 Free',type:'individual',stroke:'free',dist:100},
+  {name:'100 IM',type:'individual',stroke:'im',dist:100},
+  {name:'50 Back',type:'individual',stroke:'back',dist:50},
+  {name:'50 Breast',type:'individual',stroke:'breast',dist:50},
+  {name:'50 Fly',type:'individual',stroke:'fly',dist:50},
+  {name:'50 Free',type:'individual',stroke:'free',dist:50},
+  {name:'200 Free',type:'individual',stroke:'free',dist:200},
+  {name:'100 Back',type:'individual',stroke:'back',dist:100},
+  {name:'100 Breast',type:'individual',stroke:'breast',dist:100},
+  {name:'200 Free Relay',type:'relay',strokes:['free','free','free','free']},
+  {name:'400 Free Relay',type:'relay',strokes:['free','free','free','free']}
+];
+
+function getEvents(){
+  const t=document.getElementById('eventTemplate').value;
+  if(t==='college') return EVENTS_COLLEGE;
+  if(t==='age-group') return EVENTS_AG;
+  return EVENTS_HS;
+}
+
+function getScoringPoints(){
+  const f=document.getElementById('scoringFormat').value;
+  if(f==='dual-5') return [5,3,1];
+  if(f==='dual-7') return [7,5,4,3,2,1];
+  return [6,4,3,2,1];
+}
+
+function getRelayPoints(){
+  const r=document.getElementById('relayScoring').value;
+  if(r==='8-4') return [8,4];
+  if(r==='10-4') return [10,4];
+  return [8];
+}
+
+// Time utilities
+function timeToSec(t){
+  if(!t||t==='—') return Infinity;
+  const parts=t.split(':');
+  if(parts.length===2) return parseFloat(parts[0])*60+parseFloat(parts[1]);
+  return parseFloat(t);
+}
+function secToTime(s){
+  if(s>=Infinity) return '—';
+  if(s>=60){const m=Math.floor(s/60);const sec=(s-m*60).toFixed(2);return m+':'+sec.padStart(5,'0');}
+  return s.toFixed(2);
+}
+
+// Sample data generator
+const FIRST_NAMES=['Alex','Jordan','Riley','Casey','Morgan','Taylor','Sam','Jamie','Drew','Quinn','Blake','Avery','Devon','Kai','Reese','Skyler','Hayden','Parker','Sage','Rowan'];
+
+function genTime(base,variance){
+  return base+(Math.random()-0.3)*variance;
+}
+
+function generateTeamRoster(teamStrength){
+  const swimmers=[];
+  const str=teamStrength;
+  const baseTimes={
+    'free_50':[22+str,1.5],'free_100':[49+str*2,3],'free_200':[1*60+48+str*4,8],
+    'free_500':[5*60+str*10,15],'free_1000':[10*60+str*20,30],
+    'back_50':[27+str,2],'back_100':[57+str*2,4],'back_200':[2*60+str*4,8],
+    'breast_50':[29+str,2],'breast_100':[1*60+3+str*2,4],'breast_200':[2*60+12+str*4,8],
+    'fly_50':[25+str,2],'fly_100':[54+str*2,3],'fly_200':[2*60+str*4,7],
+    'im_100':[58+str*2,3],'im_200':[2*60+5+str*4,6],'im_400':[4*60+15+str*8,15]
+  };
+  const used=new Set();
+  for(let i=0;i<16;i++){
+    let name;
+    do{name=FIRST_NAMES[Math.floor(Math.random()*FIRST_NAMES.length)];}while(used.has(name));
+    used.add(name);
+    const times={};
+    for(const[k,[base,v]] of Object.entries(baseTimes)){
+      times[k]=genTime(base,v);
+    }
+    swimmers.push({name,times});
+  }
+  return swimmers;
+}
+
+let homeRoster=[], awayRoster=[];
+let simResults=null;
+
+function loadSampleData(type){
+  if(type==='competitive'){
+    homeRoster=generateTeamRoster(0);
+    awayRoster=generateTeamRoster(0.3);
+  } else {
+    homeRoster=generateTeamRoster(0);
+    awayRoster=generateTeamRoster(2);
+  }
+  document.getElementById('homeName').value=type==='competitive'?'Eagles':'Lions';
+  document.getElementById('awayName').value=type==='competitive'?'Sharks':'Minnows';
+  renderRosters();
+}
+
+function renderRosters(){
+  const renderTeam=(roster,containerId)=>{
+    const c=document.getElementById(containerId);
+    let html='<div class="section-title" style="margin-top:12px">ROSTER ('+roster.length+' swimmers)</div>';
+    roster.forEach((s,i)=>{
+      html+='<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:0.7rem">';
+      html+='<span>'+s.name+'</span>';
+      html+='<span style="color:var(--dim)">50Fr: '+secToTime(s.times.free_50)+' | 100Fr: '+secToTime(s.times.free_100)+'</span>';
+      html+='</div>';
+    });
+    c.innerHTML=html;
+  };
+  renderTeam(homeRoster,'homeRoster');
+  renderTeam(awayRoster,'awayRoster');
+}
+
+function assignLineup(roster,events){
+  const assignments=[];
+  const usageCount={};
+  roster.forEach(s=>usageCount[s.name]=0);
+
+  events.forEach(evt=>{
+    if(evt.type==='relay'){
+      const key=evt.strokes[0]==='back'?'medley_relay':'free_relay';
+      let available=[...roster];
+      const legs=[];
+      evt.strokes.forEach(stroke=>{
+        const timeKey=stroke+'_50';
+        available.sort((a,b)=>(a.times[timeKey]||999)-(b.times[timeKey]||999));
+        const pick=available.shift();
+        if(pick){
+          legs.push({name:pick.name,time:pick.times[timeKey]||99});
+          usageCount[pick.name]++;
+        }
+      });
+      assignments.push({event:evt,entries:legs,totalTime:legs.reduce((s,l)=>s+l.time,0)});
+    } else {
+      const timeKey=evt.stroke+'_'+evt.dist;
+      const available=roster.filter(s=>usageCount[s.name]<3).sort((a,b)=>(a.times[timeKey]||999)-(b.times[timeKey]||999));
+      const pts=getScoringPoints();
+      const entries=available.slice(0,pts.length).map(s=>{
+        usageCount[s.name]++;
+        return {name:s.name,time:s.times[timeKey]||999};
+      });
+      assignments.push({event:evt,entries});
+    }
+  });
+  return assignments;
+}
+
+function scoreEvent(homeEntries,awayEntries,isRelay){
+  if(isRelay){
+    const hTime=homeEntries.totalTime||homeEntries.reduce((s,e)=>s+e.time,0);
+    const aTime=awayEntries.totalTime||awayEntries.reduce((s,e)=>s+e.time,0);
+    const relayPts=getRelayPoints();
+    if(hTime<aTime) return {homePoints:relayPts[0],awayPoints:relayPts[1]||0,placements:[{team:'home',time:hTime},{team:'away',time:aTime}]};
+    return {homePoints:relayPts[1]||0,awayPoints:relayPts[0],placements:[{team:'away',time:aTime},{team:'home',time:hTime}]};
+  }
+  const all=[];
+  (homeEntries||[]).forEach(e=>all.push({...e,team:'home'}));
+  (awayEntries||[]).forEach(e=>all.push({...e,team:'away'}));
+  all.sort((a,b)=>a.time-b.time);
+  const pts=getScoringPoints();
+  let hPts=0,aPts=0;
+  const placements=all.map((entry,i)=>{
+    const p=i<pts.length?pts[i]:0;
+    if(entry.team==='home') hPts+=p; else aPts+=p;
+    return {...entry,points:p,place:i+1};
+  });
+  return {homePoints:hPts,awayPoints:aPts,placements};
+}
+
+function runSimulation(){
+  const events=getEvents();
+  const homeLineup=assignLineup(homeRoster,events);
+  const awayLineup=assignLineup(awayRoster,events);
+
+  let totalHome=0,totalAway=0;
+  const eventResults=[];
+
+  events.forEach((evt,i)=>{
+    const hData=homeLineup[i];
+    const aData=awayLineup[i];
+    const result=scoreEvent(
+      evt.type==='relay'?hData:hData.entries,
+      evt.type==='relay'?aData:aData.entries,
+      evt.type==='relay'
+    );
+    totalHome+=result.homePoints;
+    totalAway+=result.awayPoints;
+    eventResults.push({
+      event:evt,
+      homeEntries:hData.entries||hData,
+      awayEntries:aData.entries||aData,
+      homePoints:result.homePoints,
+      awayPoints:result.awayPoints,
+      placements:result.placements,
+      runningHome:totalHome,
+      runningAway:totalAway,
+      margin:result.homePoints-result.awayPoints
+    });
+  });
+
+  simResults={
+    homeName:document.getElementById('homeName').value,
+    awayName:document.getElementById('awayName').value,
+    totalHome,totalAway,eventResults,
+    homeLineup,awayLineup
+  };
+
+  renderSimulation();
+  renderStrategy();
+  renderAlternatives();
+  document.querySelector('[data-tab="simulation"]').click();
+}
+
+function renderSimulation(){
+  if(!simResults) return;
+  const r=simResults;
+  document.getElementById('simHomeName').textContent=r.homeName.toUpperCase();
+  document.getElementById('simAwayName').textContent=r.awayName.toUpperCase();
+  document.getElementById('simHomeScore').textContent=r.totalHome;
+  document.getElementById('simAwayScore').textContent=r.totalAway;
+
+  const total=r.totalHome+r.totalAway||1;
+  const hPct=(r.totalHome/total*100).toFixed(1);
+  const aPct=(r.totalAway/total*100).toFixed(1);
+  document.getElementById('scoreBar').innerHTML=
+    `<div class="home-bar" style="width:${hPct}%">${r.totalHome}</div>`+
+    `<div class="away-bar" style="width:${aPct}%">${r.totalAway}</div>`;
+
+  // Running score
+  let html='';
+  r.eventResults.forEach(er=>{
+    const rt=er.runningHome+er.runningAway||1;
+    const hp=(er.runningHome/rt*100).toFixed(1);
+    html+=`<div class="running-event">
+      <div class="ev-name">${er.event.name}</div>
+      <div class="bar-container"><div class="h-bar" style="width:${hp}%"></div><div class="a-bar" style="width:${100-hp}%"></div></div>
+      <div style="color:var(--mettle-purple);text-align:right">${er.runningHome}</div>
+      <div style="color:var(--mettle-scarlet)">${er.runningAway}</div>
+    </div>`;
+  });
+  document.getElementById('runningScore').innerHTML=html;
+
+  // Event breakdown
+  html='';
+  r.eventResults.forEach(er=>{
+    const cls=er.homePoints>er.awayPoints?'home-win':er.awayPoints>er.homePoints?'away-win':'';
+    const isSwing=Math.abs(er.margin)<=2&&er.event.type==='individual';
+    html+=`<div class="event-card ${cls} ${isSwing?'swing':''}">
+      <div class="event-header">
+        <div class="event-name">${er.event.name} ${isSwing?'<span class="tag tag-swing">SWING</span>':''} ${er.event.type==='relay'?'<span class="tag tag-relay">RELAY</span>':''}</div>
+        <div class="event-points">${r.homeName} ${er.homePoints} — ${er.awayPoints} ${r.awayName}</div>
+      </div>`;
+    if(er.placements){
+      er.placements.forEach((p,i)=>{
+        const isWinner=i===0;
+        const teamColor=p.team==='home'?'var(--mettle-purple)':'var(--mettle-scarlet)';
+        html+=`<div class="matchup-row ${isWinner?'winner':''}">
+          <div class="name" style="text-align:right;${p.team==='home'?'color:'+teamColor:''}">${p.team==='home'?p.name:''}</div>
+          <div class="time">${secToTime(p.time)}</div>
+          <div class="pts">${p.points!==undefined?p.points+'pt':''}</div>
+          <div class="name" style="${p.team==='away'?'color:'+teamColor:''}">${p.team==='away'?p.name:''}</div>
+        </div>`;
+      });
+    }
+    html+='</div>';
+  });
+  document.getElementById('eventBreakdown').innerHTML=html;
+}
+
+function renderStrategy(){
+  if(!simResults) return;
+  const r=simResults;
+
+  // Win probability (simple model based on projected margin + swing event count)
+  const margin=r.totalHome-r.totalAway;
+  const swingEvents=r.eventResults.filter(er=>Math.abs(er.margin)<=2&&er.event.type==='individual');
+  const uncertainty=swingEvents.length*3;
+  const homeWinProb=Math.min(98,Math.max(2,50+margin*1.5-uncertainty*(margin<0?1:-0.5)));
+  const awayWinProb=100-homeWinProb;
+
+  let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="text-align:center;padding:16px;background:var(--surface);border-radius:8px">
+      <div style="font-size:2rem;font-weight:700;color:var(--mettle-purple)">${homeWinProb.toFixed(0)}%</div>
+      <div style="font-size:0.7rem;color:var(--dim)">${r.homeName} WIN</div>
+      <div class="prob-meter"><div class="prob-fill" style="width:${homeWinProb}%;background:var(--mettle-purple)"></div></div>
+    </div>
+    <div style="text-align:center;padding:16px;background:var(--surface);border-radius:8px">
+      <div style="font-size:2rem;font-weight:700;color:var(--mettle-scarlet)">${awayWinProb.toFixed(0)}%</div>
+      <div style="font-size:0.7rem;color:var(--dim)">${r.awayName} WIN</div>
+      <div class="prob-meter"><div class="prob-fill" style="width:${awayWinProb}%;background:var(--mettle-scarlet)"></div></div>
+    </div>
+  </div>
+  <div style="text-align:center;font-size:0.7rem;color:var(--dim);margin-top:8px">
+    Projected margin: <strong style="color:${margin>=0?'var(--win)':'var(--lose)'}">
+    ${margin>=0?r.homeName:r.awayName} by ${Math.abs(margin)}</strong> |
+    ${swingEvents.length} swing events add ±${uncertainty} pts uncertainty
+  </div>`;
+  document.getElementById('winProb').innerHTML=html;
+
+  // Swing events
+  html='';
+  if(swingEvents.length===0){
+    html='<p style="font-size:0.75rem;color:var(--dim)">No swing events detected — meet outcome is relatively stable across lineup changes.</p>';
+  }
+  swingEvents.sort((a,b)=>Math.abs(a.margin)-Math.abs(b.margin));
+  swingEvents.forEach(se=>{
+    const hNames=(se.homeEntries||[]).map(e=>e.name).join(', ');
+    const aNames=(se.awayEntries||[]).map(e=>e.name).join(', ');
+    const pointSwing=getScoringPoints()[0]-getScoringPoints()[getScoringPoints().length-1];
+    const rec=generateEventRecommendation(se,r);
+    html+=`<div class="swing-card">
+      <div class="event">${se.event.name} <span class="tag tag-swing">±${pointSwing} PT SWING</span></div>
+      <div class="impact">
+        ${r.homeName}: ${hNames} (${se.homePoints} pts) vs ${r.awayName}: ${aNames} (${se.awayPoints} pts)
+      </div>
+      <div class="recommendation">${rec}</div>
+    </div>`;
+  });
+  document.getElementById('swingEvents').innerHTML=html;
+
+  // Strategy recommendations
+  html='';
+  const recs=generateStrategicRecommendations(r);
+  recs.forEach(rec=>{
+    html+=`<div class="strategy-rec">
+      <h4>${rec.title}</h4>
+      <p>${rec.text}</p>
+    </div>`;
+  });
+  document.getElementById('strategyRecs').innerHTML=html;
+
+  // Relay analysis
+  html='';
+  const relays=r.eventResults.filter(er=>er.event.type==='relay');
+  relays.forEach(rel=>{
+    const hTime=Array.isArray(rel.homeEntries)?rel.homeEntries.reduce((s,e)=>s+e.time,0):0;
+    const aTime=Array.isArray(rel.awayEntries)?rel.awayEntries.reduce((s,e)=>s+e.time,0):0;
+    const diff=Math.abs(hTime-aTime);
+    const winner=hTime<aTime?r.homeName:r.awayName;
+    html+=`<div class="event-card ${hTime<aTime?'home-win':'away-win'}">
+      <div class="event-header">
+        <span class="event-name">${rel.event.name}</span>
+        <span class="event-points">${winner} by ${diff.toFixed(2)}s</span>
+      </div>
+      <div style="font-size:0.7rem;color:var(--dim)">
+        ${r.homeName}: ${Array.isArray(rel.homeEntries)?rel.homeEntries.map(e=>e.name+' ('+secToTime(e.time)+')').join(' → '):''}<br>
+        ${r.awayName}: ${Array.isArray(rel.awayEntries)?rel.awayEntries.map(e=>e.name+' ('+secToTime(e.time)+')').join(' → '):''}
+      </div>
+      ${diff<2?'<div style="margin-top:8px;font-size:0.7rem;color:var(--swing)">⚠ Margin under 2 seconds — relay order or substitution could flip this.</div>':''}
+    </div>`;
+  });
+  document.getElementById('relayAnalysis').innerHTML=html;
+}
+
+function generateEventRecommendation(swingEvent,results){
+  const margin=swingEvent.homePoints-swingEvent.awayPoints;
+  const evtName=swingEvent.event.name;
+  if(margin>0){
+    return `${results.homeName} leads here, but by only ${margin} pt. Consider stacking a faster swimmer from a less contested event to lock this down.`;
+  }
+  if(margin<0){
+    return `${results.awayName} owns this event by ${Math.abs(margin)} pt. ${results.homeName} needs a lineup swap — check if a swimmer currently assigned to a dominant event can slide here without losing points.`;
+  }
+  return `Dead heat. Whoever gets the tactical edge in warm-ups and race execution takes this. Consider your best closer.`;
+}
+
+function generateStrategicRecommendations(results){
+  const recs=[];
+  const margin=results.totalHome-results.totalAway;
+  const homeWins=results.eventResults.filter(e=>e.homePoints>e.awayPoints).length;
+  const awayWins=results.eventResults.filter(e=>e.awayPoints>e.homePoints).length;
+  const swingCount=results.eventResults.filter(e=>Math.abs(e.margin)<=2&&e.event.type==='individual').length;
+  const relays=results.eventResults.filter(e=>e.event.type==='relay');
+  const relayMargin=relays.reduce((s,r)=>s+(r.homePoints-r.awayPoints),0);
+
+  if(Math.abs(margin)<=10){
+    recs.push({
+      title:'TIGHT MEET — EVERY EVENT MATTERS',
+      text:`Projected margin is only ${Math.abs(margin)} pts. With ${swingCount} swing events, small lineup changes could flip the outcome. Focus on winning the events where you're close, not the events where you're dominant.`
+    });
+  }
+  if(margin<0){
+    const deficit=Math.abs(margin);
+    recs.push({
+      title:'DEFICIT STRATEGY — STEAL POINTS',
+      text:`${results.homeName} is projected down ${deficit}. Target swing events first — they're the cheapest points to flip. ${swingCount>0?'There are '+swingCount+' swing events identified above.':'No clear swing events — may need relay substitutions or training-week focus shifts.'}`
+    });
+  }
+  if(relayMargin<0){
+    recs.push({
+      title:'RELAY VULNERABILITY',
+      text:`${results.homeName} is losing ${Math.abs(relayMargin)} points in relays. Relay points are high-value (${getRelayPoints()[0]} pts each). A single relay flip is worth more than improving placement in 2-3 individual events. Consider stacking relay legs with your fastest available swimmers — even if it means slightly worse individual placements.`
+    });
+  }
+  if(homeWins>awayWins+3){
+    recs.push({
+      title:'DEPTH ADVANTAGE — SPREAD THE WEALTH',
+      text:`${results.homeName} wins ${homeWins} events to ${awayWins}. This depth advantage means you can afford to sacrifice a few lower events to stack swing events. Move your 3rd-place finishers from dominant events into contested ones.`
+    });
+  }
+  const bigLosses=results.eventResults.filter(e=>e.margin<-4);
+  if(bigLosses.length>0){
+    recs.push({
+      title:'CONCEDE & REDIRECT — PICK YOUR BATTLES',
+      text:`${bigLosses.length} events are projected losses by 4+ pts: ${bigLosses.map(e=>e.event.name).join(', ')}. Don't over-invest in these. Accept the L and redirect swimmers to events where they can flip points.`
+    });
+  }
+  if(recs.length===0){
+    recs.push({
+      title:'DOMINANT POSITION — MAINTAIN LINEUP',
+      text:`Current lineup projects a ${margin}-point lead. No critical changes needed. Focus on execution and race-day performance. Watch relay margins — they're the highest-variance events.`
+    });
+  }
+  return recs;
+}
+
+function renderAlternatives(){
+  if(!simResults) return;
+  document.getElementById('altScenarios').innerHTML='<p style="font-size:0.7rem;color:var(--dim)">Click "Generate Top Alternatives" to see the best lineup swaps.</p>';
+}
+
+function generateAlternatives(){
+  if(!simResults) return;
+  const r=simResults;
+  const alts=[];
+  const swingEvents=r.eventResults.filter(er=>Math.abs(er.margin)<=3&&er.event.type==='individual');
+
+  swingEvents.forEach(se=>{
+    const evtIdx=r.eventResults.indexOf(se);
+    const currentNames=new Set((se.homeEntries||[]).map(e=>e.name));
+    const timeKey=se.event.stroke+'_'+se.event.dist;
+
+    homeRoster.forEach(swimmer=>{
+      if(currentNames.has(swimmer.name)) return;
+      const newTime=swimmer.times[timeKey];
+      if(!newTime||newTime>=999) return;
+      const worstCurrent=se.homeEntries?[...se.homeEntries].sort((a,b)=>b.time-a.time)[0]:null;
+      if(!worstCurrent) return;
+      if(newTime<worstCurrent.time){
+        const improvement=worstCurrent.time-newTime;
+        alts.push({
+          event:se.event.name,
+          swapIn:swimmer.name,
+          swapOut:worstCurrent.name,
+          timeDelta:-improvement,
+          description:`Swap ${swimmer.name} (${secToTime(newTime)}) for ${worstCurrent.name} (${secToTime(worstCurrent.time)}) in ${se.event.name}`,
+          impact:improvement>1?'Could flip event placement':'Marginal improvement'
+        });
+      }
+    });
+  });
+
+  alts.sort((a,b)=>a.timeDelta-b.timeDelta);
+  let html='';
+  if(alts.length===0){
+    html='<p style="font-size:0.75rem;color:var(--dim)">No beneficial swaps found — current lineup is optimal for swing events.</p>';
+  }
+  alts.slice(0,6).forEach(alt=>{
+    html+=`<div class="alt-row">
+      <div class="label">${alt.event}</div>
+      <div class="change">${alt.description}</div>
+      <div>
+        <div class="delta ${alt.timeDelta<0?'delta-pos':'delta-neg'}">${alt.timeDelta.toFixed(2)}s</div>
+        <div style="font-size:0.65rem;color:var(--dim)">${alt.impact}</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('altResults').innerHTML=html;
+}
+
+function exportText(){
+  if(!simResults) return;
+  const r=simResults;
+  let text=`METTLE DUAL MEET STRATEGY BRIEF\n${'='.repeat(40)}\n`;
+  text+=`${r.homeName} vs ${r.awayName}\n`;
+  text+=`Projected Score: ${r.totalHome} - ${r.totalAway}\n`;
+  text+=`Winner: ${r.totalHome>r.totalAway?r.homeName:r.awayName} by ${Math.abs(r.totalHome-r.totalAway)}\n\n`;
+  text+=`EVENT-BY-EVENT:\n${'-'.repeat(40)}\n`;
+  r.eventResults.forEach(er=>{
+    text+=`${er.event.name.padEnd(20)} ${r.homeName} ${er.homePoints} - ${er.awayPoints} ${r.awayName}  (Running: ${er.runningHome}-${er.runningAway})\n`;
+  });
+  text+=`\nSWING EVENTS:\n${'-'.repeat(40)}\n`;
+  const swings=r.eventResults.filter(e=>Math.abs(e.margin)<=2&&e.event.type==='individual');
+  if(swings.length===0) text+='None — meet outcome is stable.\n';
+  swings.forEach(s=>{text+=`• ${s.event.name} (margin: ${Math.abs(s.margin)} pts)\n`;});
+  text+=`\nSTRATEGIC RECOMMENDATIONS:\n${'-'.repeat(40)}\n`;
+  generateStrategicRecommendations(r).forEach(rec=>{
+    text+=`\n${rec.title}\n${rec.text}\n`;
+  });
+  document.getElementById('exportContent').textContent=text;
+  navigator.clipboard.writeText(text).catch(()=>{});
+}
+
+function exportJSON(){
+  if(!simResults) return;
+  const json=JSON.stringify(simResults,null,2);
+  document.getElementById('exportContent').textContent=json;
+  navigator.clipboard.writeText(json).catch(()=>{});
+}
+
+// Tab navigation
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-'+tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Auto-load competitive sample
+loadSampleData('competitive');
+</script>
+</body>
+</html>
