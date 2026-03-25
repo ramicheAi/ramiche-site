@@ -779,7 +779,7 @@ const Card = ({ children, className = "", glow = false, neon = false }: { childr
 export default function ApexAthletePage() {
   const router = useRouter();
   const [roster, setRoster] = useState<Athlete[]>([]);
-  const { coachPin, setCoachPin, pinInput, setPinInput, unlocked, setUnlocked } = useCoachAuth();
+  const { coachPin, setCoachPin, pinInput, setPinInput, unlocked, setUnlocked, coachRole, coachGroups, isHeadCoach } = useCoachAuth();
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   const [expandedCheckIn, setExpandedCheckIn] = useState<string | null>(null);
   const [parentPreviewAthlete, setParentPreviewAthlete] = useState<string | null>(null);
@@ -2135,11 +2135,15 @@ export default function ApexAthletePage() {
   }, [pinInput, coachPin, coaches]);
 
   const accessibleGroups = useMemo(() => {
-    // Master PIN or no coaches configured = all groups
+    // Auth-session-based scoping (email/password login)
+    if (!isHeadCoach && coachGroups.length > 0 && !coachGroups.includes("all")) {
+      return coachGroups as GroupId[];
+    }
+    // Legacy PIN-based scoping
     if (!currentCoach) return ROSTER_GROUPS.map(g => g.id);
     if (currentCoach.role === "head") return ROSTER_GROUPS.map(g => g.id);
     return currentCoach.groups;
-  }, [currentCoach]);
+  }, [currentCoach, isHeadCoach, coachGroups]);
 
   const addAthleteAction = useCallback(() => {
     if (!newAthleteName.trim() || !newAthleteAge) return;
