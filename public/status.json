@@ -146,7 +146,14 @@
       "role": "governance",
       "status": "idle",
       "task": "Standing by"
+    },
+    {
+      "name": "sentinel",
+      "model": "claude-haiku-4",
+      "role": "output-evaluator",
+      "status": "idle",
+      "task": "Standing by"
     }
   ],
-  "lastSync": "2026-03-24T18:10:54.263Z"
+  "lastSync": "2026-03-26T14:25:04.613Z"
 }

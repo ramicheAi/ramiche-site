@@ -1,32 +1,29 @@
 # Galactik Antics — Pipeline
+*Updated: Mar 25, 2026*
 
-## Current Sprint Flow
+## VERIFIED (Live)
+- Homepage: 12 sections with framer-motion animations
+- Nav: 6 primary links + MORE dropdown
+- 15 app routes: about, art, art-prints, checkout, collectibles, community, lore, merch, product, shop, store
+- 40+ shadcn/radix UI components
+- Replit assets (characters, maps, planets) in public/
+- CartContext with local storage
+- Hero: "Explore the Cosmic Universe" (Replit version)
+- Vercel: galactik-antics.vercel.app
 
-```
-QUEUED → IN PROGRESS → REVIEW → DEPLOY → VERIFIED
-```
+## DEPLOYED (Needs Visual QA)
+- Homepage sections — Ramon flagged "looks the same" after port
+- Animations (glitch, floating astronaut) — need browser verification
+- Art prints gallery, collectibles vault, lore hub
 
-### QUEUED
-(all items currently blocked — see TASKS.md)
+## QUEUED
+- Character detail modals (ProductDetailsViewer)
+- Interactive game pages (wheel/missions/vault — full interactivity)
+- Cart → checkout flow (Stripe integration)
+- Mobile responsive pass
+- SEO optimization
 
-### IN PROGRESS
-(none)
-
-### REVIEW
-(none)
-
-### DEPLOY
-(none)
-
-### VERIFIED
-- Aetherion Phase 1 architecture (Feb 26)
-
----
-
-## Pipeline Rules
-
-1. One task through ALL stages before next starts
-2. REVIEW = visual check on device
-3. DEPLOY = publish to Shopify / push to Instagram
-4. VERIFIED = Ramon confirms or analytics show traction
-5. BLOCKED items get prefix + reason
+## BLOCKED
+- Shopify API credentials
+- Original character art assets
+- Custom GA domain (separate from parallaxvinc.com)
