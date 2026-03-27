@@ -59,7 +59,7 @@ export default function ModernChatPage() {
   const [activeChannel, setActiveChannel] = useState(CHANNELS[1]);
   const [activeAgent, setActiveAgent] = useState<typeof AGENTS[0] | null>(null);
   const [messageInput, setMessageInput] = useState("");
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<{ id: string; type: string; sender: string; senderColor?: string; content: string; timestamp: string }[]>([]);
   const [typingUsers] = useState<string[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
