@@ -442,7 +442,17 @@ const ROLE_COLORS: Record<string, string> = {
   "workspace-indexer": "#94a3b8",
 };
 
-function mapApiAgent(a: any): Agent {
+interface ApiAgent {
+  id: string;
+  name: string;
+  model: string;
+  role?: string;
+  status?: string;
+  capabilities?: string[];
+  skills?: string[];
+}
+
+function mapApiAgent(a: ApiAgent): Agent {
   const displayModel = MODEL_DISPLAY[a.model] || a.model;
   return {
     name: a.name,
@@ -501,9 +511,9 @@ export default function AgentManagement() {
   }, []);
 
   useEffect(() => {
-    fetchAgents();
     const iv = setInterval(fetchAgents, 30_000);
-    return () => clearInterval(iv);
+    const t = setTimeout(fetchAgents, 0);
+    return () => { clearInterval(iv); clearTimeout(t); };
   }, [fetchAgents]);
 
   const filteredAgents = agents.filter((a) => {
