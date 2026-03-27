@@ -63,7 +63,7 @@ export default function FabricationPage() {
     fetch("/api/command-center/agents")
       .then(res => res.json())
       .then(data => {
-        const nova = data.agents?.find((a: any) => a.id === "nova");
+        const nova = data.agents?.find((a: { id: string; name: string; status?: string; model?: string; role?: string }) => a.id === "nova");
         if (nova) {
           setNovaAgent({
             id: nova.id,
