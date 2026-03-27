@@ -64,51 +64,53 @@ export default function TaskBoardPage() {
   const [reviseTask, setReviseTask] = useState<Task | null>(null);
   const [reviseFeedback, setReviseFeedback] = useState("");
 
-  // Fetch live tasks from bridge API OR fallback to pipeline data
+  // Fetch live tasks from projects API
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        // Try bridge API first
-        const res = await fetch("/api/bridge?type=tasks");
+        // Fetch all projects from the projects API
+        const res = await fetch("/api/command-center/projects");
         if (res.ok) {
           const data = await res.json();
-          if (data?.tasks && typeof data.tasks === "object") {
-            const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
-            for (const col of COLUMNS) {
-              if (Array.isArray(data.tasks[col.id])) {
-                live[col.id] = data.tasks[col.id];
+          const projects = data.projects || [];
+
+          // Convert project tasks to task board format
+          const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
+
+          projects.forEach((project: { slug: string; name: string; description?: string; tasks?: { t: string; done: boolean }[]; priority?: number; lead?: string; accent?: string; tags?: string[]; state?: string }) => {
+            if (!Array.isArray(project.tasks)) return;
+
+            project.tasks.forEach((taskItem: { t: string; done: boolean }, idx: number) => {
+              const task: Task = {
+                id: `${project.slug}-${idx}`,
+                title: taskItem.t,
+                description: `${project.name} — ${project.description || ""}`.slice(0, 150),
+                priority: (project.priority === 1 ? "CRITICAL" : project.priority === 2 ? "HIGH" : project.priority === 3 ? "MEDIUM" : "LOW") as Task["priority"],
+                assignee: project.lead || "Atlas",
+                avatar: "🤖",
+                accent: project.accent || "#C9A84C",
+                tags: [project.slug, ...(project.tags || [])].slice(0, 3),
+              };
+
+              // Distribute tasks based on done status and project state
+              if (taskItem.done) {
+                live.done.push(task);
+              } else if (project.state === "active") {
+                live["in-progress"].push(task);
+              } else {
+                live.backlog.push(task);
               }
-            }
-            const total = Object.values(live).reduce((s, a) => s + a.length, 0);
-            if (total > 0) {
-              setColumns(live);
-              return;
-            }
+            });
+          });
+
+          const total = Object.values(live).reduce((s, a) => s + a.length, 0);
+          if (total > 0) {
+            setColumns(live);
+            return;
           }
         }
-        
-        // Fallback 1: Load pipeline data from local API
-        try {
-          const pipelineRes = await fetch("/api/pipeline-tasks");
-          if (pipelineRes.ok) {
-            const pipelineData = await pipelineRes.json();
-            if (pipelineData?.tasks && typeof pipelineData.tasks === "object") {
-              const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
-              for (const col of COLUMNS) {
-                if (Array.isArray(pipelineData.tasks[col.id])) {
-                  live[col.id] = pipelineData.tasks[col.id];
-                }
-              }
-              const total = Object.values(live).reduce((s, a) => s + a.length, 0);
-              if (total > 0) {
-                setColumns(live);
-                return;
-              }
-            }
-          }
-        } catch {}
-        
-        // Fallback 2: Use static pipeline data
+
+        // Fallback: Load pipeline data from local JSON
         if (pipelineTasksData?.tasks && typeof pipelineTasksData.tasks === "object") {
           const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
           for (const col of COLUMNS) {
@@ -279,7 +281,7 @@ export default function TaskBoardPage() {
       return { ...prev, [fromCol]: fromTasks, [toCol]: toTasks };
     });
     setMobileMenu(null);
-  }, []);
+  }, [setMobileMenu]);
 
   const totalTasks = Object.values(columns).reduce((sum, col) => sum + col.length, 0);
   const doneTasks = columns.done.length;

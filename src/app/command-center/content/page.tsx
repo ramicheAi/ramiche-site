@@ -60,28 +60,32 @@ export default function ContentPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", platform: "All" as ContentItem["platform"] });
 
-  const fetchData = useCallback(async () => {
-    try {
-      const [agentsRes, contentRes] = await Promise.all([
-        fetch("/api/command-center/agents"),
-        fetch("/api/command-center/content"),
-      ]);
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [agentsRes, contentRes] = await Promise.all([
+          fetch("/api/command-center/agents"),
+          fetch("/api/command-center/content"),
+        ]);
 
-      if (agentsRes.ok) {
-        const data = await agentsRes.json();
-        setAgents((data.agents || []).filter((a: AgentStatus) => ["ink", "echo", "vee"].includes(a.id)));
-      }
-
-      if (contentRes.ok) {
-        const contentData = await contentRes.json();
-        if (contentData.items && contentData.items.length > 0) {
-          setContentItems(contentData.items);
+        if (agentsRes.ok) {
+          const data = await agentsRes.json();
+          setAgents((data.agents || []).filter((a: AgentStatus) => ["ink", "echo", "vee"].includes(a.id)));
         }
-      }
-    } catch { /* keep existing */ }
-  }, []);
 
-  useEffect(() => { fetchData(); const i = setInterval(fetchData, 30_000); return () => clearInterval(i); }, [fetchData]);
+        if (contentRes.ok) {
+          const contentData = await contentRes.json();
+          if (contentData.items && contentData.items.length > 0) {
+            setContentItems(contentData.items);
+          }
+        }
+      } catch { /* keep existing */ }
+    }
+
+    fetchData();
+    const i = setInterval(fetchData, 30_000);
+    return () => clearInterval(i);
+  }, []);
 
   const todaySchedule = SCHEDULE.find((s) => s.day === activeDay);
   const TEAM = [
