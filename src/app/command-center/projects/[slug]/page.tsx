@@ -126,8 +126,8 @@ export default function ProjectHQ() {
   useEffect(() => {
     const urlDoc = new URLSearchParams(window.location.search).get("doc");
     if (urlDoc && docs.includes(urlDoc)) {
-      loadDoc(urlDoc);
-      setTab("docs");
+      const t = setTimeout(() => { loadDoc(urlDoc); setTab("docs"); }, 0);
+      return () => clearTimeout(t);
     }
   }, [docs]); // eslint-disable-line react-hooks/exhaustive-deps
 
