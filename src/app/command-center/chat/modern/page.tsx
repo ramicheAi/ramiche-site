@@ -213,7 +213,7 @@ export default function ModernChatPage() {
               <div key={message.id} className="flex gap-3">
                 <AgentMessagePreview
                   agentName={message.sender}
-                  agentColor={message.senderColor}
+                  agentColor={message.senderColor ?? COLORS.agents.atlas}
                   initialContent={message.content}
                   streaming={false}
                   onAction={(action) => {

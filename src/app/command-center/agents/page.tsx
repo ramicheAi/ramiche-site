@@ -459,7 +459,7 @@ function mapApiAgent(a: ApiAgent): Agent {
     model: displayModel,
     role: (a.role || "").replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
     status: (a.status as "active" | "idle" | "done") || "idle",
-    color: ROLE_COLORS[a.role] || "#94a3b8",
+    color: ROLE_COLORS[a.role ?? ""] || "#94a3b8",
     desc: `${(a.capabilities || []).join(", ")}`,
     avatar: `/agents/${a.id}-3d.png`,
     credits: { used: 0, limit: 5000 },

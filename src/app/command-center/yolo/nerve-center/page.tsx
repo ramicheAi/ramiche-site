@@ -1,18 +1,43 @@
 // Command Center - YOLO Build - Nerve Center (Experiment Log Dashboard)
-// Status: ALPHA
-// Description: Live view of all active/past experiments
-// Created by: PROXIMON
+// Status: ALPHA — wired to /api/command-center/yolo-builds
 
-// Mock data to start - will wire real data later
-const EXPERIMENTS = [
-  { id: 'E-001', name: 'Gateway Timeout', status: 'SUCCESS', delta: '300s -> 1800s', created: '2026-03-13' },
-  { id: 'E-002', name: 'OpenRouter Cost', status: 'SUCCESS', delta: '-88% cost', created: '2026-03-13' },
-  { id: 'E-003', name: 'Coach Page Decomp', status: 'PROGRESS', delta: '5.5k -> 4k lines', created: '2026-03-14' },
-  { id: 'E-004', name: 'Zombie Prune', status: 'SUCCESS', delta: '-109 sessions', created: '2026-03-13' },
-  { id: 'E-005', name: 'Meet Mobile Scrape', status: 'Design', delta: 'TBD', created: '2026-03-17' },
-];
+"use client";
+
+import { useState, useEffect } from "react";
+
+interface BuildMeta {
+  date: string;
+  name: string;
+  idea: string;
+  status: "working" | "partial" | "failed";
+  takeaway: string;
+  folder: string;
+  agent: string;
+  files: string[];
+  verified?: boolean;
+}
+
+function statusLabel(s: string): string {
+  if (s === "working") return "SUCCESS";
+  if (s === "partial") return "PROGRESS";
+  return "FAILED";
+}
 
 export default function NerveCenterPage() {
+  const [builds, setBuilds] = useState<BuildMeta[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/command-center/yolo-builds")
+      .then(r => r.json())
+      .then((data: BuildMeta[]) => setBuilds(data))
+      .catch(() => setBuilds([]))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const successCount = builds.filter(b => b.status === "working").length;
+  const rate = builds.length ? Math.round((successCount / builds.length) * 100) : 0;
+
   return (
     <div className="min-h-screen bg-black text-green-500 font-mono p-8 selection:bg-green-900 overflow-x-hidden">
       <header className="mb-12 border-b border-green-900 pb-4 flex justify-between items-end">
@@ -32,19 +57,19 @@ export default function NerveCenterPage() {
           <div className="bg-green-950/10 border border-green-900/50 p-6 rounded-sm">
             <h3 className="text-green-700 text-xs font-bold mb-4 uppercase tracking-widest border-b border-green-900/30 pb-2">Throughput</h3>
             <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black text-green-400">88</span>
+              <span className="text-5xl font-black text-green-400">{loading ? "—" : rate}</span>
               <span className="text-green-800 text-sm font-bold">%</span>
             </div>
-            <p className="text-xs text-green-800 mt-2">Cost Reduction (Last 72h)</p>
+            <p className="text-xs text-green-800 mt-2">Build Success Rate</p>
           </div>
 
           <div className="bg-green-950/10 border border-green-900/50 p-6 rounded-sm">
             <h3 className="text-green-700 text-xs font-bold mb-4 uppercase tracking-widest border-b border-green-900/30 pb-2">Velocity</h3>
             <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black text-green-400">5</span>
-              <span className="text-green-800 text-sm font-bold">/day</span>
+              <span className="text-5xl font-black text-green-400">{loading ? "—" : builds.length}</span>
+              <span className="text-green-800 text-sm font-bold">total</span>
             </div>
-            <p className="text-xs text-green-800 mt-2">Experiments Deployed</p>
+            <p className="text-xs text-green-800 mt-2">YOLO Builds Tracked</p>
           </div>
         </section>
 
@@ -59,27 +84,33 @@ export default function NerveCenterPage() {
           </div>
 
           <div className="space-y-4">
-            {EXPERIMENTS.map((exp) => (
-              <div key={exp.id} className="group relative bg-green-950/5 hover:bg-green-900/10 border-l-2 border-green-900 hover:border-green-500 p-4 transition-all duration-300">
+            {loading && (
+              <div className="text-green-700 text-sm animate-pulse">Loading builds...</div>
+            )}
+            {builds.map((exp) => {
+              const label = statusLabel(exp.status);
+              return (
+              <div key={exp.folder} className="group relative bg-green-950/5 hover:bg-green-900/10 border-l-2 border-green-900 hover:border-green-500 p-4 transition-all duration-300">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex items-center space-x-3">
-                    <span className="text-xs font-bold text-green-800 bg-green-950/30 px-2 py-0.5 rounded">{exp.id}</span>
+                    <span className="text-xs font-bold text-green-800 bg-green-950/30 px-2 py-0.5 rounded">{exp.agent}</span>
                     <h4 className="font-bold text-lg group-hover:text-green-300 transition-colors">{exp.name}</h4>
                   </div>
                   <span className={`text-xs font-bold px-2 py-1 rounded border ${
-                    exp.status === 'SUCCESS' ? 'border-green-600 text-green-400 bg-green-900/20' :
-                    exp.status === 'PROGRESS' ? 'border-yellow-600 text-yellow-500 bg-yellow-900/20' :
+                    label === 'SUCCESS' ? 'border-green-600 text-green-400 bg-green-900/20' :
+                    label === 'PROGRESS' ? 'border-yellow-600 text-yellow-500 bg-yellow-900/20' :
                     'border-gray-800 text-gray-600'
                   }`}>
-                    {exp.status}
+                    {label}
                   </span>
                 </div>
                 <div className="flex justify-between items-end">
-                    <p className="text-sm text-green-600/80 font-mono">Result: {exp.delta}</p>
-                    <span className="text-[10px] text-green-900 uppercase font-bold tracking-wider">{exp.created}</span>
+                    <p className="text-sm text-green-600/80 font-mono">Result: {exp.takeaway || exp.idea || "—"}</p>
+                    <span className="text-[10px] text-green-900 uppercase font-bold tracking-wider">{exp.date}</span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       </main>
