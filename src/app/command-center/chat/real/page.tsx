@@ -60,9 +60,9 @@ type Message = {
   sender_user_id: string | null;
   sender_type?: string;
   content: string;
-  attachments: any[];
+  attachments: { url: string; name: string; type: string }[];
   created_at: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, string | number | boolean>;
   agent?: Agent;
 };
 
