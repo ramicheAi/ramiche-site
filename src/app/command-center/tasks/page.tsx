@@ -3,7 +3,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
-import pipelineTasksData from "@/data/pipeline-tasks.json";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TASK BOARD — Kanban sub-page of Command Center
@@ -44,15 +43,13 @@ const PRIORITY_STYLES: Record<string, { color: string; bg: string }> = {
   LOW: { color: "#6b7280", bg: "rgba(107,114,128,0.15)" },
 };
 
-const INITIAL_TASKS: Record<ColumnId, Task[]> = {
-  backlog: [],
-  "in-progress": [],
-  review: [],
-  done: [],
-};
-
 export default function TaskBoardPage() {
-  const [columns, setColumns] = useState<Record<ColumnId, Task[]>>(INITIAL_TASKS);
+  const [columns, setColumns] = useState<Record<ColumnId, Task[]>>({
+    backlog: [],
+    "in-progress": [],
+    review: [],
+    done: [],
+  });
   const [draggedTask, setDraggedTask] = useState<{ task: Task; fromCol: ColumnId } | null>(null);
   const [dropTarget, setDropTarget] = useState<ColumnId | null>(null);
   const dragCounter = useRef<Record<string, number>>({});
@@ -103,23 +100,7 @@ export default function TaskBoardPage() {
             });
           });
 
-          const total = Object.values(live).reduce((s, a) => s + a.length, 0);
-          if (total > 0) {
-            setColumns(live);
-            return;
-          }
-        }
-
-        // Fallback: Load pipeline data from local JSON
-        if (pipelineTasksData?.tasks && typeof pipelineTasksData.tasks === "object") {
-          const live: Record<ColumnId, Task[]> = { backlog: [], "in-progress": [], review: [], done: [] };
-          for (const col of COLUMNS) {
-            if (Array.isArray(pipelineTasksData.tasks[col.id])) {
-              live[col.id] = pipelineTasksData.tasks[col.id] as Task[];
-            }
-          }
-          const total = Object.values(live).reduce((s, a) => s + a.length, 0);
-          if (total > 0) setColumns(live);
+          setColumns(live);
         }
       } catch {}
     };
