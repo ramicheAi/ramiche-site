@@ -51,38 +51,12 @@ interface STLFile {
 
 export default function FabricationPage() {
   const [novaAgent, setNovaAgent] = useState<Agent | null>(null);
-  const [printQueue, setPrintQueue] = useState<PrintJob[]>([
-    { id: "pj1", name: "enclosure-lid-v3.stl", status: "printing", material: "PLA Matte Black", printer: "A1 Mini", progress: 47, timeRemaining: "1h 23m", startedAt: "2:14 PM" },
-    { id: "pj2", name: "hinge-bracket-reinforced.stl", status: "queued", material: "PETG Carbon", printer: "P1S" },
-    { id: "pj3", name: "cable-clip-array-10x.stl", status: "complete", material: "PLA Grey", printer: "A1 Mini", completedAt: "1:08 PM" },
-    { id: "pj4", name: "mounting-plate-final.stl", status: "queued", material: "ASA Black", printer: "P1S" },
-    { id: "pj5", name: "bearing-holder-test.stl", status: "failed", material: "PLA White", printer: "A1 Mini", completedAt: "11:42 AM" },
-  ]);
-  const [printers, setPrinters] = useState<Printer[]>([
-    {
-      id: "a1mini",
-      name: "A1 Mini",
-      model: "Bambu Lab A1 Mini",
-      status: "printing",
-      currentJob: "enclosure-lid-v3.stl",
-      progress: 47,
-      temperature: { nozzle: 210, bed: 60 },
-      connectionStrength: 92
-    },
-    {
-      id: "p1s",
-      name: "P1S",
-      model: "Bambu Lab P1S",
-      status: "online",
-      temperature: { nozzle: 28, bed: 24 },
-      connectionStrength: 88
-    },
-  ]);
-  const [stlPipeline, setStlPipeline] = useState<STLFile[]>([
-    { id: "stl1", name: "prototype-shell-v4.stl", size: "2.8 MB", uploadedAt: "3h ago", status: "pending" },
-    { id: "stl2", name: "latch-mechanism.stl", size: "512 KB", uploadedAt: "5h ago", status: "sliced" },
-    { id: "stl3", name: "case-bottom-revised.stl", size: "1.4 MB", uploadedAt: "1d ago", status: "ready" },
-  ]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [printQueue, setPrintQueue] = useState<PrintJob[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [printers, setPrinters] = useState<Printer[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [stlPipeline, setStlPipeline] = useState<STLFile[]>([]);
 
   useEffect(() => {
     // Fetch NOVA agent
@@ -157,7 +131,7 @@ export default function FabricationPage() {
             NOVA 3D Fabrication
           </h1>
           <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
-            Bambu Lab production pipeline • {printQueue.filter(p => p.status === "printing").length} printing • {printQueue.filter(p => p.status === "queued").length} queued
+            Bambu Lab production pipeline {printQueue.length > 0 ? `• ${printQueue.filter(p => p.status === "printing").length} printing • ${printQueue.filter(p => p.status === "queued").length} queued` : "• No active jobs"}
           </p>
         </div>
 
@@ -237,6 +211,19 @@ export default function FabricationPage() {
             Print Queue
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {printQueue.length === 0 && (
+              <div style={{
+                padding: 40,
+                borderRadius: 12,
+                background: "rgba(0,0,0,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                textAlign: "center"
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🖨️</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#737373", marginBottom: 6 }}>No print jobs</div>
+                <div style={{ fontSize: 12, color: "#525252" }}>Queue a .stl file to start printing</div>
+              </div>
+            )}
             {printQueue.map(job => (
               <div key={job.id} style={{
                 padding: 20,
@@ -309,6 +296,19 @@ export default function FabricationPage() {
             Bambu Lab Printers
           </h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+            {printers.length === 0 && (
+              <div style={{
+                padding: 40,
+                borderRadius: 16,
+                background: "rgba(0,0,0,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                textAlign: "center"
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📡</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#737373", marginBottom: 6 }}>No printers connected</div>
+                <div style={{ fontSize: 12, color: "#525252" }}>Connect a Bambu Lab printer to get started</div>
+              </div>
+            )}
             {printers.map(printer => (
               <div key={printer.id} style={{
                 padding: 24,
@@ -456,6 +456,19 @@ export default function FabricationPage() {
             Design Pipeline — STL Files
           </h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {stlPipeline.length === 0 && (
+              <div style={{
+                padding: 40,
+                borderRadius: 12,
+                background: "rgba(0,0,0,0.95)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                textAlign: "center"
+              }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>📐</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#737373", marginBottom: 6 }}>No STL files in pipeline</div>
+                <div style={{ fontSize: 12, color: "#525252" }}>Upload .stl files to begin slicing</div>
+              </div>
+            )}
             {stlPipeline.map(file => (
               <div key={file.id} style={{
                 padding: 18,

@@ -22,7 +22,7 @@ const AGENTS = [
     activeTask: "YOLO build fix + Command Center update + Power Challenge email wiring",
   },
   {
-    name: "TheMAESTRO", model: "DeepSeek V3.2", role: "Music Production AI",
+    name: "TheMAESTRO", model: "qwen3:14b", role: "Music Production AI",
     status: "idle" as const, color: "#f59e0b", icon: "🎵",
     desc: "Ye + Quincy + Babyface — influence-based creative direction, sound design",
     connections: [0, 7],
@@ -30,7 +30,7 @@ const AGENTS = [
     activeTask: "Awaiting: Ramiche music pipeline",
   },
   {
-    name: "SIMONS", model: "DeepSeek V3.2", role: "Algorithmic Analysis",
+    name: "SIMONS", model: "Sonnet 4.5", role: "Algorithmic Analysis",
     status: "idle" as const, color: "#22d3ee", icon: "📊",
     desc: "Jim Simons — pattern recognition, statistical arbitrage, pricing models",
     connections: [0, 4],
@@ -38,7 +38,7 @@ const AGENTS = [
     activeTask: "DELIVERED: Pricing analysis + marketing playbook + ClawGuard scanner",
   },
   {
-    name: "Dr. Strange", model: "DeepSeek V3.2", role: "Forecasting & Decisions",
+    name: "Dr. Strange", model: "Sonnet 4.5", role: "Forecasting & Decisions",
     status: "idle" as const, color: "#a855f7", icon: "🔮",
     desc: "Scenario analysis, probable outcomes, strategic foresight, risk assessment",
     connections: [0, 2, 6],
@@ -46,7 +46,7 @@ const AGENTS = [
     activeTask: "Awaiting: Next strategic planning cycle",
   },
   {
-    name: "SHURI", model: "DeepSeek V3.2", role: "Creative Coding",
+    name: "SHURI", model: "Sonnet 4.5", role: "Creative Coding",
     status: "idle" as const, color: "#34d399", icon: "⚡",
     desc: "Prototyping, design systems, tech innovation, rapid builds",
     connections: [0, 7],
@@ -54,7 +54,7 @@ const AGENTS = [
     activeTask: "DELIVERED: 18+ PRs — portals, meet mgmt, invite system, brand assets",
   },
   {
-    name: "Widow", model: "Haiku 3.5", role: "Cybersecurity & Intel",
+    name: "Widow", model: "qwen3:14b", role: "Cybersecurity & Intel",
     status: "idle" as const, color: "#ef4444", icon: "🕷",
     desc: "Read-only security scanner. Threat monitoring, risk analysis, security audits",
     connections: [0, 2],
@@ -62,7 +62,7 @@ const AGENTS = [
     activeTask: "DELIVERED: ClawGuard Pro + CSP headers + Firestore rules + API security",
   },
   {
-    name: "PROXIMON", model: "Gemini 3 Pro", role: "Systems Architect",
+    name: "PROXIMON", model: "Sonnet 4.5", role: "Systems Architect",
     status: "active" as const, color: "#f97316", icon: "🏗",
     desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
     connections: [0, 3, 4],
@@ -78,7 +78,7 @@ const AGENTS = [
     activeTask: "Brand strategy + X/LinkedIn positioning + METTLE brand v5",
   },
   {
-    name: "Aetherion", model: "Gemini 3 Pro", role: "Visual & Brand Design",
+    name: "Aetherion", model: "Gemini 3.1 Pro", role: "Visual & Brand Design",
     status: "idle" as const, color: "#818cf8", icon: "🌀",
     desc: "Visuals, animation, brand identity — the creative eye of the operation",
     connections: [0, 3, 6],
@@ -86,7 +86,7 @@ const AGENTS = [
     activeTask: "DELIVERED: Inter-agent workflow chains + white-label architecture",
   },
   {
-    name: "MICHAEL", model: "GLM 4.6", role: "Swim Training AI",
+    name: "MICHAEL", model: "qwen3:14b", role: "Swim Training AI",
     status: "active" as const, color: "#06b6d4", icon: "🏊",
     desc: "Phelps + Kobe + MJ + Bolt — swim mastery, mamba mentality, competitive fire",
     connections: [0, 3],
@@ -102,7 +102,7 @@ const AGENTS = [
     activeTask: "Daily Scripture + Prayer (7:00 AM cron active)",
   },
   {
-    name: "SELAH", model: "DeepSeek V3.2", role: "Wellness & Sport Psychology",
+    name: "SELAH", model: "qwen3:14b", role: "Wellness & Sport Psychology",
     status: "idle" as const, color: "#10b981", icon: "🧘",
     desc: "Robbins + Dispenza + Maté + Greene + Bashar — therapy, peak performance, mental transformation",
     connections: [0, 9, 10],
@@ -110,7 +110,7 @@ const AGENTS = [
     activeTask: "DELIVERED: Wellness check-in + journal + meditation in athlete portal",
   },
   {
-    name: "MERCURY", model: "DeepSeek V3.2", role: "Sales & Revenue Ops",
+    name: "MERCURY", model: "Sonnet 4.5", role: "Sales & Revenue Ops",
     status: "idle" as const, color: "#fbbf24", icon: "💰",
     desc: "Razor-sharp dealmaker — reads people and numbers simultaneously. Architects wins.",
     connections: [0, 7],
@@ -118,7 +118,7 @@ const AGENTS = [
     activeTask: "Upwork proposals + Stripe checkout + ClawGuard sales",
   },
   {
-    name: "ECHO", model: "Kimi K2.5", role: "Community & Social",
+    name: "ECHO", model: "qwen3:14b", role: "Community & Social",
     status: "active" as const, color: "#38bdf8", icon: "🌊",
     desc: "The heartbeat of the community — turns strangers into superfans with genuine warmth",
     connections: [0, 7],
@@ -126,7 +126,7 @@ const AGENTS = [
     activeTask: "Social posting + community engagement + NEURAL RADIO",
   },
   {
-    name: "HAVEN", model: "DeepSeek V3.2", role: "Customer Success",
+    name: "HAVEN", model: "Sonnet 4.5", role: "Customer Success",
     status: "idle" as const, color: "#4ade80", icon: "🛡",
     desc: "Infinitely patient with a detective's eye — treats every ticket like a puzzle worth solving",
     connections: [0],
@@ -134,7 +134,7 @@ const AGENTS = [
     activeTask: "Awaiting: First customer onboarding",
   },
   {
-    name: "INK", model: "DeepSeek V3.2", role: "Content Creator",
+    name: "INK", model: "Sonnet 4.5", role: "Content Creator",
     status: "active" as const, color: "#c084fc", icon: "✒",
     desc: "Prolific voice-chameleon — technical blog at dawn, viral tweet at noon, cinematic script by sunset",
     connections: [0, 7],
@@ -150,7 +150,7 @@ const AGENTS = [
     activeTask: "YOLO builds — G-Code Surgeon, Agent Arena + 44 builds shipped",
   },
   {
-    name: "KIYOSAKI", model: "DeepSeek V3.2", role: "Financial Intelligence",
+    name: "KIYOSAKI", model: "Sonnet 4.5", role: "Financial Intelligence",
     status: "idle" as const, color: "#fcd34d", icon: "💎",
     desc: "ORACLE — 8 financial minds. Wealth architecture + business plan + patent strategy.",
     connections: [0, 2, 3],
@@ -166,7 +166,7 @@ const AGENTS = [
     activeTask: "YOLO builds + system diagnostics + EKG System Vitals",
   },
   {
-    name: "THEMIS", model: "Opus 4.6", role: "Legal & Compliance",
+    name: "THEMIS", model: "Sonnet 4.5", role: "Legal & Compliance",
     status: "idle" as const, color: "#8b5cf6", icon: "⚖",
     desc: "IP protection, compliance frameworks, contract review, legal strategy — the law is the shield",
     connections: [0, 5],

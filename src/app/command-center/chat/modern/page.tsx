@@ -60,23 +60,14 @@ export default function ModernChatPage() {
   const [activeAgent, setActiveAgent] = useState<typeof AGENTS[0] | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  
+  const [typingUsers] = useState<string[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  // Simulate typing
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const typingAgents = ["Shuri", "Vee", "Atlas"].filter(() => Math.random() > 0.7);
-      setTypingUsers(typingAgents);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
