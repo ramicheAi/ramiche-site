@@ -3,8 +3,6 @@
 // Description: Live view of all active/past experiments
 // Created by: PROXIMON
 
-import { Suspense } from 'react';
-
 // Mock data to start - will wire real data later
 const EXPERIMENTS = [
   { id: 'E-001', name: 'Gateway Timeout', status: 'SUCCESS', delta: '300s -> 1800s', created: '2026-03-13' },
