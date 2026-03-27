@@ -108,9 +108,9 @@ export default function OfficePage() {
   }, []);
 
   useEffect(() => {
-    fetchAgents();
     const id = setInterval(fetchAgents, 30000);
-    return () => clearInterval(id);
+    const t = setTimeout(fetchAgents, 0);
+    return () => { clearInterval(id); clearTimeout(t); };
   }, [fetchAgents]);
 
   const statusCounts = {
