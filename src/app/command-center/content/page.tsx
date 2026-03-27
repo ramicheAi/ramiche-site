@@ -52,27 +52,33 @@ const STATUS_COLORS: Record<string, string> = { draft: "#f59e0b", reviewed: "#81
 
 export default function ContentPage() {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeDay, setActiveDay] = useState(() => {
     const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     return days[new Date().getDay()];
   });
-  const [contentItems, setContentItems] = useState<ContentItem[]>([
-    { id: "1", title: "AI Tips for Coaches", content: "5 ways AI is transforming swim training...", platform: "LinkedIn", stage: "draft", assignee: "INK", dueDate: "2026-03-15", createdAt: "2026-03-14" },
-    { id: "2", title: "Weekend Motivation", content: "Champions are made when no one is watching...", platform: "Instagram", stage: "reviewed", assignee: "VEE", dueDate: "2026-03-15", createdAt: "2026-03-13" },
-    { id: "3", title: "Design Process Reveal", content: "How we built the METTLE brand identity...", platform: "All", stage: "posted", assignee: "ECHO", dueDate: "2026-03-13", createdAt: "2026-03-12", performance: { likes: 342, comments: 28, shares: 15, reach: 5200 } },
-  ]);
+  const [contentItems, setContentItems] = useState<ContentItem[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPost, setNewPost] = useState({ title: "", content: "", platform: "All" as ContentItem["platform"] });
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents");
-      if (res.ok) {
-        const data = await res.json();
+      const [agentsRes, contentRes] = await Promise.all([
+        fetch("/api/command-center/agents"),
+        fetch("/api/command-center/content"),
+      ]);
+
+      if (agentsRes.ok) {
+        const data = await agentsRes.json();
         setAgents((data.agents || []).filter((a: AgentStatus) => ["ink", "echo", "vee"].includes(a.id)));
       }
-    } catch { /* keep existing */ } finally { setLoading(false); }
+
+      if (contentRes.ok) {
+        const contentData = await contentRes.json();
+        if (contentData.items && contentData.items.length > 0) {
+          setContentItems(contentData.items);
+        }
+      }
+    } catch { /* keep existing */ }
   }, []);
 
   useEffect(() => { fetchData(); const i = setInterval(fetchData, 30_000); return () => clearInterval(i); }, [fetchData]);

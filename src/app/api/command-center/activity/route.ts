@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { execSync } from "child_process";
+import { readdirSync, statSync, existsSync } from "fs";
+import { join } from "path";
 
 export const dynamic = "force-dynamic";
 
 const REPO_DIR = process.env.REPO_DIR || "/Users/admin/ramiche-site";
+const MEMORY_DIR = "/Users/admin/.openclaw/workspace/memory/";
 
 /* ── Parse git log into activity events ────────────────────────────── */
 function parseGitLog(raw: string) {
@@ -30,6 +33,36 @@ function parseGitLog(raw: string) {
       message,
       type,
     });
+  }
+  return events;
+}
+
+/* ── Extract memory file events ────────────────────────────────────── */
+function getMemoryEvents(): { hash: string; date: string; author: string; message: string; type: string }[] {
+  const events: { hash: string; date: string; author: string; message: string; type: string }[] = [];
+  try {
+    if (!existsSync(MEMORY_DIR)) return events;
+
+    const files = readdirSync(MEMORY_DIR)
+      .filter((f) => f.endsWith(".md") && f.match(/^\d{4}-\d{2}-\d{2}/))
+      .sort()
+      .reverse()
+      .slice(0, 10);
+
+    for (const file of files) {
+      const stat = statSync(join(MEMORY_DIR, file));
+      const dateMatch = file.match(/^(\d{4}-\d{2}-\d{2})/);
+      const date = dateMatch ? dateMatch[1] : file.replace(".md", "");
+      events.push({
+        hash: file.slice(0, 7),
+        date: stat.mtime.toISOString(),
+        author: "OpenClaw",
+        message: `Memory log: ${date}`,
+        type: "agent",
+      });
+    }
+  } catch {
+    // Memory dir not accessible
   }
   return events;
 }
@@ -67,9 +100,16 @@ export async function GET(req: NextRequest) {
       `git log --format="%h|%ci|%an|%s" -n ${safeLimit}`,
       { cwd: REPO_DIR, encoding: "utf-8", timeout: 5000 }
     );
-    const events = parseGitLog(raw);
-    if (events.length > 0) {
-      return NextResponse.json({ events, count: events.length, source: "git-log" });
+    const gitEvents = parseGitLog(raw);
+    const memoryEvents = getMemoryEvents();
+
+    // Merge and sort by date descending
+    const allEvents = [...gitEvents, ...memoryEvents]
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, safeLimit);
+
+    if (allEvents.length > 0) {
+      return NextResponse.json({ events: allEvents, count: allEvents.length, source: "git-log" });
     }
   } catch {
     // Git not available (Vercel) — fall through to static
