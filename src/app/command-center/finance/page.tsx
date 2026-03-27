@@ -37,7 +37,40 @@ interface RiskMetric {
   detail: string;
 }
 
-type Tab = "overview" | "portfolio" | "signals" | "risk" | "oracle" | "cashflow";
+type Tab = "overview" | "portfolio" | "signals" | "risk" | "oracle" | "cashflow" | "meridian";
+
+interface MeridianData {
+  generated_at: string;
+  pipeline_version: string;
+  portfolio: {
+    equity: number;
+    capital: number;
+    cash: number;
+    total_return_pct: number;
+    positions: Array<{
+      ticker: string;
+      shares: number;
+      direction: string;
+      entry_price: number;
+      entry_date: string;
+      last_score: number;
+    }>;
+  };
+  signals?: Array<{
+    ticker: string;
+    composite_score: number;
+    momentum_score: number;
+    value_score: number;
+    volatility_score: number;
+    action: string;
+  }>;
+  risk?: {
+    portfolio_var: number;
+    max_drawdown: number;
+    sharpe_ratio: number;
+    correlation_risk: string;
+  };
+}
 
 // ── PORTFOLIO DATA (from Phase 1+2 margin cleanup) ──────────────────────────
 
@@ -187,6 +220,8 @@ export default function FinanceHQ() {
   const [oracleInput, setOracleInput] = useState("");
   const [oracleLoading, setOracleLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [meridianData, setMeridianData] = useState<MeridianData | null>(null);
+  const [meridianError, setMeridianError] = useState(false);
 
   useEffect(() => {
     const tick = () => setTime(new Date().toLocaleTimeString("en-US", {
@@ -201,6 +236,16 @@ export default function FinanceHQ() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [oracleMessages]);
 
+  useEffect(() => {
+    if (tab !== "meridian" || meridianData || meridianError) return;
+    let cancelled = false;
+    fetch("/api/command-center/meridian")
+      .then(r => r.json())
+      .then(d => { if (!cancelled) setMeridianData(d); })
+      .catch(() => { if (!cancelled) setMeridianError(true); });
+    return () => { cancelled = true; };
+  }, [tab, meridianData, meridianError]);
+
   if (!time) return null;
 
   const riskMetrics = getRiskMetrics();
@@ -214,6 +259,7 @@ export default function FinanceHQ() {
     { id: "risk", label: "RISK", icon: "\u2665" },
     { id: "oracle", label: "ORACLE", icon: "\u03A3" },
     { id: "cashflow", label: "CASHFLOW", icon: "\u25C9" },
+    { id: "meridian", label: "MERIDIAN", icon: "\u2604" },
   ];
 
   // ── Oracle Chat Handler ──────────────────────────────────────────────────
@@ -788,6 +834,113 @@ export default function FinanceHQ() {
                 Coordinating with Kiyosaki agent via relay.
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ═══ MERIDIAN TAB ═══ */}
+        {tab === "meridian" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+            {meridianError ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "#ef4444" }}>Failed to load MERIDIAN data. Check API route.</div>
+            ) : !meridianData ? (
+              <div style={{ textAlign: "center", padding: "40px", color: "#5a6270" }}>Loading MERIDIAN data...</div>
+            ) : (
+              <>
+                {/* KPI Row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+                  {[
+                    { label: "Equity", value: `$${meridianData.portfolio.equity.toFixed(0)}`, color: "#00ff88" },
+                    { label: "Return", value: `${meridianData.portfolio.total_return_pct > 0 ? "+" : ""}${meridianData.portfolio.total_return_pct}%`, color: meridianData.portfolio.total_return_pct >= 0 ? "#00ff88" : "#ef4444" },
+                    { label: "Cash", value: `$${meridianData.portfolio.cash.toFixed(0)}`, color: "#22d3ee" },
+                    { label: "Positions", value: `${meridianData.portfolio.positions.length}`, color: "#a855f7" },
+                    { label: "Pipeline", value: `v${meridianData.pipeline_version}`, color: "#f59e0b" },
+                  ].map((kpi, i) => (
+                    <div key={i} style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "10px", padding: "14px" }}>
+                      <div style={{ fontSize: "10px", color: "#5a6270", letterSpacing: "1px", fontWeight: 700 }}>{kpi.label}</div>
+                      <div style={{ fontSize: "22px", fontWeight: 800, color: kpi.color, fontFamily: "'JetBrains Mono', monospace", marginTop: "4px" }}>{kpi.value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Positions Table */}
+                <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "16px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: "#00ff88", letterSpacing: "1.5px", marginBottom: "12px" }}>LIVE POSITIONS</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "80px 60px 80px 80px 80px 1fr", gap: "8px", fontSize: "10px", fontWeight: 700, color: "#5a6270", letterSpacing: "0.5px", marginBottom: "8px", padding: "0 4px" }}>
+                    <span>TICKER</span><span>DIR</span><span>SHARES</span><span>ENTRY</span><span>SCORE</span><span>DATE</span>
+                  </div>
+                  {meridianData.portfolio.positions.map((pos, i) => {
+                    const isLong = pos.direction === "long";
+                    const scoreColor = pos.last_score > 20 ? "#00ff88" : pos.last_score > 0 ? "#f59e0b" : "#ef4444";
+                    return (
+                      <div key={i} style={{
+                        display: "grid", gridTemplateColumns: "80px 60px 80px 80px 80px 1fr", gap: "8px",
+                        padding: "8px 4px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        fontSize: "12px", fontFamily: "'JetBrains Mono', monospace",
+                      }}>
+                        <span style={{ fontWeight: 700, color: "#e2e8f0" }}>{pos.ticker}</span>
+                        <span style={{ color: isLong ? "#00ff88" : "#ef4444", fontWeight: 700, fontSize: "10px" }}>{pos.direction.toUpperCase()}</span>
+                        <span style={{ color: "#c8ccd4" }}>{Math.abs(pos.shares).toFixed(2)}</span>
+                        <span style={{ color: "#c8ccd4" }}>${pos.entry_price.toFixed(2)}</span>
+                        <span style={{ color: scoreColor, fontWeight: 700 }}>{pos.last_score.toFixed(1)}</span>
+                        <span style={{ color: "#5a6270", fontSize: "10px" }}>{new Date(pos.entry_date).toLocaleDateString()}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Risk + Signals if available */}
+                {meridianData.risk && (
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "16px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#ef4444", letterSpacing: "1.5px", marginBottom: "12px" }}>RISK MONITOR</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "12px" }}>
+                      {[
+                        { label: "VaR (1d)", value: `${(meridianData.risk.portfolio_var * 100).toFixed(2)}%`, color: "#ef4444" },
+                        { label: "Max Drawdown", value: `${(meridianData.risk.max_drawdown * 100).toFixed(2)}%`, color: "#f59e0b" },
+                        { label: "Sharpe", value: meridianData.risk.sharpe_ratio.toFixed(2), color: "#22d3ee" },
+                        { label: "Correlation", value: meridianData.risk.correlation_risk, color: "#a855f7" },
+                      ].map((m, i) => (
+                        <div key={i} style={{ padding: "10px" }}>
+                          <div style={{ fontSize: "10px", color: "#5a6270", letterSpacing: "0.5px" }}>{m.label}</div>
+                          <div style={{ fontSize: "18px", fontWeight: 800, color: m.color, fontFamily: "'JetBrains Mono', monospace" }}>{m.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Signals if available */}
+                {meridianData.signals && meridianData.signals.length > 0 && (
+                  <div style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "12px", padding: "16px" }}>
+                    <div style={{ fontSize: "11px", fontWeight: 700, color: "#22d3ee", letterSpacing: "1.5px", marginBottom: "12px" }}>SIGNAL SCREENER</div>
+                    {meridianData.signals.map((sig, i) => (
+                      <div key={i} style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "10px 4px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                      }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                          <span style={{ fontSize: "13px", fontWeight: 700, color: "#e2e8f0", fontFamily: "'JetBrains Mono', monospace" }}>{sig.ticker}</span>
+                          <span style={{
+                            fontSize: "9px", fontWeight: 700, letterSpacing: "1px",
+                            padding: "2px 8px", borderRadius: "4px",
+                            background: sig.action === "BUY" ? "rgba(0,255,136,0.1)" : sig.action === "SELL" ? "rgba(239,68,68,0.1)" : "rgba(245,158,11,0.1)",
+                            color: sig.action === "BUY" ? "#00ff88" : sig.action === "SELL" ? "#ef4444" : "#f59e0b",
+                          }}>{sig.action}</span>
+                        </div>
+                        <div style={{ display: "flex", gap: "16px", fontSize: "11px", fontFamily: "'JetBrains Mono', monospace" }}>
+                          <span style={{ color: "#5a6270" }}>CS: <span style={{ color: "#e2e8f0" }}>{sig.composite_score.toFixed(1)}</span></span>
+                          <span style={{ color: "#5a6270" }}>M: <span style={{ color: "#22d3ee" }}>{sig.momentum_score.toFixed(1)}</span></span>
+                          <span style={{ color: "#5a6270" }}>V: <span style={{ color: "#a855f7" }}>{sig.value_score.toFixed(1)}</span></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ fontSize: "10px", color: "#3a4250", textAlign: "center", marginTop: "8px" }}>
+                  Last updated: {new Date(meridianData.generated_at).toLocaleString()} · MERIDIAN Pipeline v{meridianData.pipeline_version}
+                </div>
+              </>
+            )}
           </div>
         )}
 
