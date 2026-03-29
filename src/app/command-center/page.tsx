@@ -257,203 +257,7 @@ const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "a
   ],
 };
 
-/* ── PROJECTS / MISSIONS ───────────────────────────────────────────────────────────── */
-const MISSIONS = [
-  {
-    name: "METTLE", accent: "#C9A84C", status: "active" as const,
-    desc: "Gamified athlete SaaS — BETA with Saint Andrew\'s Aquatics (240+ athletes)", priority: "CRITICAL",
-    tasks: [
-      { t: "Three-portal architecture (Coach/Athlete/Parent)", done: true },
-      { t: "Game engine + level system (Rookie → Legend)", done: true },
-      { t: "Meet management (Hy-Tek parser, seeds, heat/lane, results)", done: true },
-      { t: "Stripe billing — 3 tiers ($149/$349/$549)", done: true },
-      { t: "CI/CD pipeline + security scanning (0 errors)", done: true },
-      { t: "ByteByteGo: 52/52 items implemented", done: true },
-      { t: "Copyright filed (Feb 17, 2026)", done: true },
-      { t: "Beta invite system + CSV import + setup wizard", done: true },
-      { t: "SwimCloud scraping fixed (multi-pattern fallback)", done: true },
-      { t: "Cognitive load audit complete", done: true },
-      { t: "Firebase Auth migration (multi-file)", done: false },
-      { t: "Coach portal refactor (extract hooks)", done: false },
-      { t: "Patent filing at USPTO ($65 micro entity)", done: false },
-      { t: "Trademark: Class 9+41+42", done: false },
-    ],
-    link: { label: "Open App", href: "/apex-athlete" },
-  },
-  {
-    name: "Verified Agents", accent: "#7c3aed", status: "active" as const,
-    desc: "Rent certified AI agents $100-500/hr — co-founder: Eric", priority: "HIGH",
-    tasks: [
-      { t: "Business model + positioning", done: true },
-      { t: "Landing page + intake flow", done: false },
-      { t: "Agent certification framework", done: false },
-      { t: "Billing + time tracking", done: false },
-    ],
-    link: null,
-  },
-  {
-    name: "Command Center", accent: "#7c3aed", status: "active" as const,
-    desc: "Live operations dashboard — bridge API + real-time sync", priority: "HIGH",
-    tasks: [
-      { t: "Bridge API (agent status, crons, links, activity)", done: true },
-      { t: "Frontend wired to bridge with 60s polling", done: true },
-      { t: "Bridge sync script (iMac → Firestore)", done: true },
-      { t: "Chat relay to agents", done: true },
-      { t: "Task approval API + Cron CRUD API", done: true },
-      { t: "Quick links section (fixed — was missing from render)", done: true },
-      { t: "Live data rendering (replace all hardcoded)", done: false },
-      { t: "Office page redesign", done: false },
-    ],
-    link: { label: "Command Center", href: "/command-center" },
-  },
-  {
-    name: "Parallax Site", accent: "#a855f7", status: "active" as const,
-    desc: "Agent marketplace + Claude Skills — 19 routes LIVE", priority: "HIGH",
-    tasks: [
-      { t: "White-label system (115 files, 7,554 LOC, 20 agents)", done: true },
-      { t: "Agent marketplace + payment-to-delivery e2e", done: true },
-      { t: "/forge creative tools hub (6 tools)", done: true },
-      { t: "Setup service verified e2e", done: true },
-      { t: "Linear restyle (agents page)", done: true },
-      { t: "Remaining pages audit + polish", done: false },
-    ],
-    link: { label: "Parallax Site", href: "https://parallax-site-ashen.vercel.app" },
-  },
-  {
-    name: "Parallax Publish", accent: "#38bdf8", status: "active" as const,
-    desc: "Social media publishing — 3 platforms LIVE (Twitter, Bluesky, LinkedIn)", priority: "HIGH",
-    tasks: [
-      { t: "Twitter OAuth2 + posting", done: true },
-      { t: "Bluesky AT Protocol + posting", done: true },
-      { t: "LinkedIn OAuth2 + posting", done: true },
-      { t: "6-tab UI (Compose, History, Calendar, Accounts, Analytics, AI Writer)", done: true },
-      { t: "Instagram OAuth (blocked on Facebook Developer Portal)", done: false },
-      { t: "Scheduling backend (SQLite → hosted DB)", done: false },
-    ],
-    link: { label: "Parallax Publish", href: "https://parallax-publish.vercel.app" },
-  },
-  {
-    name: "Power Challenge", accent: "#ef4444", status: "active" as const,
-    desc: "Swim Power Challenge event site — Stripe + Resend wired", priority: "HIGH",
-    tasks: [
-      { t: "Landing page + Stripe checkout", done: true },
-      { t: "Resend email integration wired", done: true },
-      { t: "Stripe webhook (waiting on Jesse)", done: false },
-      { t: "Custom domain email (DNS records from Jesse)", done: false },
-    ],
-    link: { label: "Power Challenge", href: "https://www.powerchallenge.org" },
-  },
-  {
-    name: "Ramiche Studio", accent: "#e879f9", status: "active" as const,
-    desc: "Creative services — $400/$1,500/$3,000/$6,000+", priority: "MED",
-    tasks: [
-      { t: "Landing page + inquiry form + checkout", done: true },
-      { t: "4-platform DM scripts + email sequences", done: true },
-      { t: "UGC video scripts + SOPs + onboarding runbook", done: true },
-      { t: "Stripe integration (needs STRIPE_SECRET_KEY)", done: false },
-      { t: "First 5 warm DMs sent", done: false },
-    ],
-    link: { label: "Studio", href: "/studio" },
-  },
-  {
-    name: "ClawGuard Pro", accent: "#22d3ee", status: "active" as const,
-    desc: "Security scanner — $299/$799/$1,499 — LIVE", priority: "MED",
-    tasks: [
-      { t: "Scanner live + Stripe wired", done: true },
-      { t: "GitHub integration", done: true },
-      { t: "Customer onboarding flow", done: false },
-    ],
-    link: { label: "ClawGuard", href: "https://parallax-site-ashen.vercel.app/clawguard" },
-  },
-  {
-    name: "Galactik Antics", accent: "#00f0ff", status: "active" as const,
-    desc: "AI art + merch — @galactikantics on IG", priority: "MED",
-    tasks: [
-      { t: "Product lineup confirmed (13 cases, 5 posters, 5 tees)", done: true },
-      { t: "Pre-launch content (4 briefs, 7-day calendar)", done: true },
-      { t: "Shopify store + API credentials (blocked on Ramon)", done: false },
-      { t: "Upload products + variants + pricing", done: false },
-    ],
-    link: null,
-  },
-];
-
-/* ── OPPORTUNITIES ───────────────────────────────────────────────────────────────── */
-const OPPS = [
-  { title: "METTLE SaaS", rev: "$149-$549/mo", tag: "BETA", accent: "#C9A84C", desc: "Gamified athlete management — 240+ beta users" },
-  { title: "Verified Agents", rev: "$100-500/hr", tag: "BUILDING", accent: "#7c3aed", desc: "Rent certified AI agents — co-founder: Eric" },
-  { title: "Ramiche Studio Sprint", rev: "$400", tag: "LIVE", accent: "#e879f9", desc: "48h Creative Direction Sprint" },
-  { title: "Ramiche Studio Pro", rev: "$3,000", tag: "LIVE", accent: "#a855f7", desc: "Complete brand transformation" },
-  { title: "ClawGuard Pro", rev: "$299-$1,499", tag: "LIVE", accent: "#22d3ee", desc: "Security scanning as a service" },
-  { title: "Claude Skills", rev: "$149-$499", tag: "LIVE", accent: "#a855f7", desc: "Agent skills marketplace" },
-  { title: "AI Agent Setup", rev: "$1-3K", tag: "SOON", accent: "#00f0ff", desc: "OpenClaw-style full setup" },
-];
-
-/* ── QUICK LINKS ─────────────────────────────────────────────────────────────────── */
-const LINKS = [
-  { label: "METTLE", href: "https://ramiche-site.vercel.app/apex-athlete", icon: "M", accent: "#C9A84C" },
-  { label: "Parallax Site", href: "https://parallax-site-ashen.vercel.app", icon: "P", accent: "#a855f7" },
-  { label: "Parallax Publish", href: "https://parallax-publish.vercel.app", icon: "PP", accent: "#38bdf8" },
-  { label: "ClawGuard Pro", href: "https://parallax-site-ashen.vercel.app/clawguard", icon: "CG", accent: "#22d3ee" },
-  { label: "YOLO Builds", href: "/command-center/yolo", icon: "Y", accent: "#f59e0b" },
-  { label: "Nerve Center", href: "/command-center/nerve-center", icon: "NC", accent: "#7C3AED" },
-  { label: "Signal Wire", href: "/command-center/signal-wire", icon: "SW", accent: "#22d3ee" },
-  { label: "Nexus Lab", href: "/command-center/nexus", icon: "NX", accent: "#f97316" },
-  { label: "Vercel", href: "https://vercel.com/dashboard", icon: "V", accent: "#ffffff" },
-  { label: "GitHub", href: "https://github.com/ramicheAi", icon: "GH", accent: "#737373" },
-  { label: "Firebase", href: "https://console.firebase.google.com/project/apex-athlete-73755", icon: "FB", accent: "#f59e0b" },
-  { label: "Shopify", href: "https://admin.shopify.com", icon: "S", accent: "#96bf48" },
-  { label: "GoMotion", href: "https://www.gomotionapp.com", icon: "G", accent: "#34d399" },
-];
-
-/* ── ACTIVITY LOG ────────────────────────────────────────────────────────────────── */
-const LOG = [
-  { time: "Mar 19", text: "Command Center — quick links fix (notifications guard), full data refresh", color: "#7c3aed" },
-  { time: "Mar 18", text: "Power Challenge — Resend API key wired, confirmation emails live on deploy", color: "#ef4444" },
-  { time: "Mar 18", text: "YOLO builds — 3 new builds added to SEED_BUILDS, pushed to main", color: "#f59e0b" },
-  { time: "Mar 18", text: "Echo session restarted on Kimi K2.5 after persona loss", color: "#38bdf8" },
-  { time: "Mar 16", text: "Intelligence layer deployed — spawn-gate.py, yolo-allocator, Q-learning model select", color: "#a855f7" },
-  { time: "Mar 16", text: "SwimCloud scraping FIXED — multi-pattern fallback (commit 7e7f35b)", color: "#22d3ee" },
-  { time: "Mar 16", text: "Cognitive load audit — Coach=4101 lines/81 useState (CRITICAL flagged)", color: "#C9A84C" },
-  { time: "Mar 16", text: "Inter-agent communication rewrite — inbox/outbox DEAD, sessions_spawn/send only", color: "#00f0ff" },
-  { time: "Mar 13", text: "Event-driven triggers + SOL priority queue (P0/P1/P2) implemented", color: "#059669" },
-  { time: "Mar 8", text: "Auth changes atomic-only rule enforced after cascading failure", color: "#ef4444" },
-  { time: "Mar 5", text: "Bridge sync live — 21 agents, 39 crons syncing to Firestore every 60s", color: "#059669" },
-  { time: "Mar 3", text: "Parallax Publish — 3 platforms live (Twitter, Bluesky, LinkedIn)", color: "#38bdf8" },
-  { time: "Feb 24", text: "ByteByteGo: 52/52 topics fully implemented across ecosystem", color: "#00f0ff" },
-];
-
-/* ── SCHEDULE ──────────────────────────────────────────────────────────────── */
-const SCHEDULE = [
-  { time: "12:30 AM", event: "YOLO: Proximon overnight build", accent: "#f97316" },
-  { time: "1:00 AM", event: "YOLO: Nova overnight build", accent: "#14b8a6" },
-  { time: "1:30 AM", event: "YOLO: Simons overnight build", accent: "#22d3ee" },
-  { time: "2:00 AM", event: "YOLO: Mercury overnight build", accent: "#fbbf24" },
-  { time: "2:30 AM", event: "YOLO: Dr Strange overnight build", accent: "#a855f7" },
-  { time: "3:00 AM", event: "Sunday Memory Maintenance", accent: "#C9A84C" },
-  { time: "6:30 AM", event: "AI Self-Improvement Digest", accent: "#00f0ff" },
-  { time: "7:00 AM", event: "Daily Scripture & Prayer (Prophets)", accent: "#d4a574" },
-  { time: "7:15 AM", event: "Morning Brief (weather, git, calendar, priorities)", accent: "#a855f7" },
-  { time: "8:00 AM", event: "Intel scans begin (8AM-12:15PM)", accent: "#38bdf8" },
-  { time: "8:30 AM", event: "LinkedIn Intelligence Scan", accent: "#38bdf8" },
-  { time: "1:00 PM", event: "Midday Checkpoint (pulse check, blockers)", accent: "#22d3ee" },
-  { time: "2:00 PM", event: "Social Listening Scan (X, LinkedIn, mentions)", accent: "#38bdf8" },
-  { time: "6:00 PM", event: "Weekly Strategy Review (Fridays only)", accent: "#f59e0b" },
-  { time: "7:00 AM", event: "Competitor Watch (Mondays only)", accent: "#ef4444" },
-  { time: "10:00 PM", event: "End of Day Recap", accent: "#C9A84C" },
-];
-
-/* ── NOTIFICATIONS / INBOX ────────────────────────────────────────────────── */
-const NOTIFICATIONS = [
-  { text: "METTLE beta-ready — 240+ athletes, 3 portals, meet management, game engine live", accent: "#C9A84C", icon: "\u25C8" },
-  { text: "Power Challenge — Resend email wired, waiting on Jesse for Stripe webhook", accent: "#ef4444", icon: "\u26A0" },
-  { text: "YOLO Builds — 44 builds on disk, auto-registration pipeline needed", accent: "#f59e0b", icon: "\u26A0" },
-  { text: "Firebase service account key MISSING from Vercel — blocks server-side Firestore writes", accent: "#ef4444", icon: "\u26A0" },
-  { text: "Echo session restarted — Kimi K2.5 persona was lost on local qwen3:14b", accent: "#38bdf8", icon: "\u25C8" },
-  { text: "Intelligence layer active — spawn-gate dedup + Q-learning model selection", accent: "#a855f7", icon: "\u25C8" },
-  { text: "SwimCloud scraping FIXED — multi-pattern fallback (commit 7e7f35b)", accent: "#22d3ee", icon: "\u25C8" },
-  { text: "167 skills installed (ClawHub + custom + Anthropic official)", accent: "#00f0ff", icon: "\u25C8" },
-];
+/* ── HARDCODED FALLBACKS REMOVED — all data now comes from bridge API ── */
 
 
 /* ── TYPES ─────────────────────────────────────────────────────────────────── */
@@ -547,6 +351,7 @@ export default function CommandCenter() {
   /* ── live bridge data (auto-refresh every 15s) ── */
   const [bridgeData, setBridgeData] = useState<Record<string, unknown> | null>(null);
   const [lastSynced, setLastSynced] = useState<string>("");
+  const [bridgeLoaded, setBridgeLoaded] = useState(false);
   useEffect(() => {
     const fetchBridge = async () => {
       try {
@@ -554,6 +359,7 @@ export default function CommandCenter() {
         if (res.ok) {
           const data = await res.json();
           setBridgeData(data);
+          setBridgeLoaded(true);
           setLastSynced(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }));
           // Update agent status from bridge display array (pre-formatted by sync script)
           const displayAgents = data?.agents?.display;
@@ -1021,7 +827,7 @@ export default function CommandCenter() {
         humidity: c?.humidity ?? "--",
         wind: `${c?.windspeedMiles ?? "--"} mph`,
         feelsLike: c?.FeelsLikeF ?? "--",
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         forecast: (d.weather?.slice(0, 3) ?? []).map((w: any) => ({
           day: new Date(w.date).toLocaleDateString("en", { weekday: "short" }),
           high: w.maxtempF ?? "--",
@@ -1084,8 +890,8 @@ export default function CommandCenter() {
       .catch(() => { /* fallback to hardcoded */ });
   }, []);
 
-  /* ── resolved agents: live data when available, fallback to static ── */
-  const agents = liveAgents || AGENTS;
+  /* ── resolved agents: live first, hardcoded while loading, empty if bridge confirmed no data ── */
+  const agents = liveAgents || (bridgeLoaded ? [] : AGENTS);
 
   useEffect(() => {
     setMounted(true);
@@ -1211,26 +1017,22 @@ export default function CommandCenter() {
 
   if (!mounted) return null;
 
-  /* ── resolved data: live first, fallback to hardcoded ── */
-  const missions = liveMissions || MISSIONS;
-  const schedule = liveSchedule || SCHEDULE;
-  const notifications = liveNotifications || NOTIFICATIONS;
-  const opps = liveOpps || OPPS;
-  const activityLog = liveActivity || LOG;
-  const links = liveLinks || LINKS;
+  /* ── resolved data: live first, empty if bridge has no data ── */
+  const missions = liveMissions || [];
+  const schedule = liveSchedule || [];
+  const notifications = liveNotifications || [];
+  const opps = liveOpps || [];
+  const activityLog = liveActivity || [];
+  const links = liveLinks || [];
 
   /* ── computed ── */
-  const totalT = liveMissions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? missions.reduce((s: number, p: Record<string, any>) => s + (p.totalTasks || 0), 0)
-    : MISSIONS.reduce((s, p) => s + p.tasks.length, 0);
-  const doneT = liveMissions
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ? missions.reduce((s: number, p: Record<string, any>) => s + (p.completedTasks || 0), 0)
-    : MISSIONS.reduce((s, p) => s + p.tasks.filter((t) => t.done).length, 0);
+   
+  const totalT = missions.reduce((s: number, p: Record<string, any>) => s + (p.totalTasks || p.tasks?.length || 0), 0);
+   
+  const doneT = missions.reduce((s: number, p: Record<string, any>) => s + (p.completedTasks || p.tasks?.filter((t: any) => t.done).length || 0), 0);
   const pct = totalT > 0 ? Math.round((doneT / totalT) * 100) : 0;
   const activeAgents = agents.filter((a) => a.status === "active").length;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const activeMissions = missions.filter((m: Record<string, any>) => m.status === "active").length;
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -1273,6 +1075,9 @@ export default function CommandCenter() {
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px', borderRadius: 20, border: '1px solid #1e1e1e', marginBottom: 32, fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', color: '#888888' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: sseConnected ? '#22c55e' : (lastSynced ? '#f59e0b' : '#ef4444'), boxShadow: sseConnected ? '0 0 8px #22c55e' : (lastSynced ? '0 0 8px #f59e0b' : '0 0 8px #ef4444'), animation: 'pulse 2s ease-in-out infinite' }} />
             MISSION CONTROL &middot; {sseConnected ? 'LIVE STREAM' : 'POLLING'}{sseLastPing ? ` · ${sseLastPing}` : (lastSynced ? ` · ${lastSynced}` : '')}
+            <span style={{ marginLeft: 8, padding: '2px 8px', borderRadius: 8, fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', background: bridgeLoaded ? 'rgba(34,197,94,0.15)' : 'rgba(245,158,11,0.15)', color: bridgeLoaded ? '#22c55e' : '#f59e0b', border: `1px solid ${bridgeLoaded ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.3)'}` }}>
+              {bridgeLoaded ? 'LIVE' : 'CACHED'}
+            </span>
           </div>
           <h1 style={{ fontSize: 'clamp(40px, 7vw, 72px)', fontWeight: 800, lineHeight: 1.05, marginBottom: 16 }}>
             <span style={{ color: '#e5e5e5' }}>Command</span>{' '}
@@ -1474,7 +1279,11 @@ export default function CommandCenter() {
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
 
           {/* ═══════ WHAT'S NEXT — #1 PRIORITY (DYNAMIC) ═══════ */}
-          {(() => {
+          {missions.length === 0 ? (
+            <div style={{ marginBottom: 24, padding: '24px 28px', borderRadius: 16, background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e' }}>
+              <span style={{ fontSize: 13, color: '#555' }}>No missions loaded — waiting for bridge sync</span>
+            </div>
+          ) : (() => {
             const topMission = missions.find((m: any) => m.priority === "CRITICAL" || m.priority === 1) || missions[0];
             const mName = topMission?.name || "METTLE";
             const mDesc = topMission?.desc || topMission?.description || "";
@@ -1544,6 +1353,9 @@ export default function CommandCenter() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {notifications.length === 0 && (
+                <span style={{ fontSize: 13, color: '#555', padding: '12px 0' }}>No notifications — waiting for bridge sync</span>
+              )}
               {notifications.map((n: any, i: number) => {
                 const nAccent = n.accent || '#888888';
                 return (
@@ -1812,6 +1624,9 @@ export default function CommandCenter() {
               <div className="h-px flex-1" style={{ background: 'linear-gradient(to left, rgba(201,168,76,0.2), transparent)' }} />
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+              {links.length === 0 && (
+                <span style={{ fontSize: 13, color: '#555', padding: '12px 0' }}>No links — waiting for bridge sync</span>
+              )}
               {links.map((link: any, i: number) => {
                 const lAccent = link.accent || '#888888';
                 const lHref = link.href || '#';

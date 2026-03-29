@@ -1,5 +1,8 @@
 /* ══════════════════════════════════════════════════════════════════════════════
    SHARED PROJECT DATA — Single source of truth for Missions + Projects
+   CANONICAL: This file is the source of truth for project/mission data across
+   all Command Center pages. Keep in sync with MEMORY.md project inventory.
+   Last updated: 2026-03-28
    ══════════════════════════════════════════════════════════════════════════════ */
 
 export interface ProjectTask {
