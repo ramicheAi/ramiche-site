@@ -36,7 +36,7 @@ export default function StudioPage() {
       if (res.ok) {
         const data = await res.json();
         const studioAgents = (data.agents || []).filter(
-          (a: AgentStatus) => ["maestro"].includes(a.id)
+          (a: AgentStatus) => ["themaestro"].includes(a.id)
         );
         setAgents(studioAgents);
       }
@@ -50,10 +50,10 @@ export default function StudioPage() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  const maestro = agents.find((a) => a.id === "maestro");
+  const maestro = agents.find((a) => a.id === "themaestro");
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
+    <div className="relative min-h-screen text-white overflow-hidden" style={{ background: "#000000" }}>
       <ParticleField />
 
       <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">

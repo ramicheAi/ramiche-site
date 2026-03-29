@@ -1549,6 +1549,8 @@ export default function CommandCenter() {
               { label: "MEMORY", href: "/command-center/memory", icon: "\u25CE", accent: "#f59e0b", desc: "Agent journal", sub: "Daily logs, search, timeline" },
               { label: "DOCS", href: "/command-center/docs", icon: "\u2261", accent: "#3b82f6", desc: "Doc viewer", sub: "Plans, SOPs, configs, reports" },
               { label: "OFFICE", href: "/command-center/office", icon: "\u25A3", accent: "#a855f7", desc: "3D Office", sub: "Isometric workspace, live status" },
+              { label: "COMMS", href: "/command-center/comms", icon: "\u2709", accent: "#34d399", desc: "Agent messaging", sub: "Send commands, broadcast, logs" },
+              { label: "REPORTS", href: "/command-center/reports", icon: "\u25A4", accent: "#f59e0b", desc: "Export & P&L", sub: "CSV, summaries, profit & loss" },
             ].map((card) => (
               <Link
                 key={card.href}

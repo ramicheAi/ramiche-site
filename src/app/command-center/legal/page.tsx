@@ -60,7 +60,7 @@ export default function LegalPage() {
   const themis = agents.find((a) => a.id === "themis");
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
+    <div className="relative min-h-screen text-white overflow-hidden" style={{ background: "#000000" }}>
       <ParticleField />
 
       <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">

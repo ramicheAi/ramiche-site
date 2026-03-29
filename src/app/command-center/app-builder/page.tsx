@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
@@ -34,7 +34,7 @@ export default function AppBuilderPage() {
     { id: "appstore", label: "App Store", status: "locked", icon: "🚀" },
   ]);
 
-  const [prerequisites] = useState<Prerequisite[]>([
+  const [prerequisites, setPrerequisites] = useState<Prerequisite[]>([
     {
       id: "apple-dev",
       label: "Apple Developer Program",
@@ -64,6 +64,24 @@ export default function AppBuilderPage() {
       required: true
     },
   ]);
+
+  const checkPrereqs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/command-center/app-builder", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.prerequisites) {
+          setPrerequisites(prev => prev.map(p => {
+            const live = data.prerequisites.find((lp: { id: string; status: string; detail: string }) => lp.id === p.id);
+            return live ? { ...p, status: live.status, description: live.detail || p.description } : p;
+          }));
+        }
+      }
+    } catch { /* keep defaults */ }
+  }, []);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { checkPrereqs(); }, [checkPrereqs]);
 
   const allPrerequisitesMet = prerequisites.every(p => p.status === "configured");
 

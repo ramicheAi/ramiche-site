@@ -21,7 +21,7 @@ export default function WellnessPage() {
       if (res.ok) {
         const data = await res.json();
         const wellnessAgents = (data.agents || []).filter(
-          (a: AgentStatus) => ["selah", "swimelite"].includes(a.id)
+          (a: AgentStatus) => ["selah", "michael"].includes(a.id)
         );
         setAgents(wellnessAgents);
       }
@@ -36,7 +36,7 @@ export default function WellnessPage() {
   }, [fetchData]);
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
+    <div className="relative min-h-screen text-white overflow-hidden" style={{ background: "#000000" }}>
       <ParticleField />
 
       <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">
@@ -59,7 +59,7 @@ export default function WellnessPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           {[
             { id: "selah", name: "SELAH", role: "Wellness & Sport Psychology", desc: "Mental performance, stress management, emotional clarity", color: "#06b6d4", tier: "LOCAL" },
-            { id: "swimelite", name: "MICHAEL", role: "Swim Training AI", desc: "Race strategy, training plans, technique analysis", color: "#22c55e", tier: "LOCAL" },
+            { id: "michael", name: "MICHAEL", role: "Swim Training AI", desc: "Race strategy, training plans, technique analysis", color: "#22c55e", tier: "LOCAL" },
           ].map((agent) => {
             const live = agents.find((a) => a.id === agent.id);
             return (

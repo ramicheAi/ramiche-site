@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    AGENT MANAGEMENT — Focused sub-page of Command Center
-   View, configure, and manage all 19 agents
+   View, configure, and manage all 21 agents (including Archivist)
    ══════════════════════════════════════════════════════════════════════════════ */
 
 /* ── Agent Data ─────────────────────────────────────────────────────────────── */
@@ -64,10 +65,15 @@ const AVAILABLE_MODELS = [
 const MODEL_DISPLAY: Record<string, string> = {
   "claude-opus-4-6": "Opus 4.6",
   "claude-sonnet-4-5": "Sonnet 4.5",
+  "claude-sonnet-4-5-20250929": "Sonnet 4.5",
+  "sonnet4.5": "Sonnet 4.5",
   "gemini-3-pro": "Gemini 3.0 Pro",
+  "gemini-3.1-pro-preview": "Gemini 3.1 Pro",
   "gemini-3.1-flash-lite-preview": "Flash-Lite",
   "deepseek-v3.2": "DeepSeek V3.2",
   "kimi-k2.5": "Kimi K2.5",
+  "qwen3:14b": "Qwen3 14B",
+  "qwen3:8b": "Qwen3 8B",
   "glm-4.6": "GLM 4.6",
   "claude-3.5-haiku": "Haiku 4.5",
 };
@@ -96,6 +102,30 @@ const ROLE_COLORS: Record<string, string> = {
   "workspace-indexer": "#94a3b8",
 };
 
+const AGENT_ICONS: Record<string, { icon: string; color: string }> = {
+  atlas: { icon: "🧭", color: "#C9A84C" },
+  triage: { icon: "🩺", color: "#22c55e" },
+  themis: { icon: "⚖️", color: "#818cf8" },
+  shuri: { icon: "⚡", color: "#10b981" },
+  proximon: { icon: "📐", color: "#06b6d4" },
+  aetherion: { icon: "👁️", color: "#a855f7" },
+  simons: { icon: "📊", color: "#22d3ee" },
+  mercury: { icon: "🪽", color: "#34d399" },
+  vee: { icon: "📣", color: "#f472b6" },
+  ink: { icon: "✒️", color: "#a78bfa" },
+  echo: { icon: "🌊", color: "#14b8a6" },
+  haven: { icon: "🛡️", color: "#38bdf8" },
+  widow: { icon: "🕸️", color: "#dc2626" },
+  "dr-strange": { icon: "🔮", color: "#a855f7" },
+  kiyosaki: { icon: "💰", color: "#C9A84C" },
+  michael: { icon: "🏊", color: "#1d4ed8" },
+  selah: { icon: "🧘", color: "#c4b5fd" },
+  prophets: { icon: "📜", color: "#d97706" },
+  themaestro: { icon: "🎵", color: "#ec4899" },
+  nova: { icon: "🧊", color: "#f97316" },
+  archivist: { icon: "🗄️", color: "#9ca3af" },
+};
+
 interface ApiAgent {
   id: string;
   name: string;
@@ -108,14 +138,15 @@ interface ApiAgent {
 
 function mapApiAgent(a: ApiAgent): Agent {
   const displayModel = MODEL_DISPLAY[a.model] || a.model;
+  const iconData = AGENT_ICONS[a.id] || { icon: "🤖", color: "#94a3b8" };
   return {
     name: a.name,
     model: displayModel,
     role: (a.role || "").replace(/-/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()),
     status: (a.status as "active" | "idle" | "done") || "idle",
-    color: ROLE_COLORS[a.role ?? ""] || "#94a3b8",
+    color: iconData.color || ROLE_COLORS[a.role ?? ""] || "#94a3b8",
     desc: `${(a.capabilities || []).join(", ")}`,
-    avatar: `/agents/${a.id}-3d.png`,
+    avatar: iconData.icon,
     credits: { used: 0, limit: 5000 },
     activeTask: "",
     skills: (a.skills || []).map((s: string) => ({ name: s, enabled: true, description: s })),

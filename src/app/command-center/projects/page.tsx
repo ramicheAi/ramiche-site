@@ -69,7 +69,7 @@ export default function ProjectTracker() {
 
   useEffect(() => {
     fetchProjects();
-    const interval = setInterval(fetchProjects, 30000);
+    const interval = setInterval(fetchProjects, 15000);
     return () => clearInterval(interval);
   }, [fetchProjects]);
 

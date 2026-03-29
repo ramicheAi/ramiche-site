@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   CALENDAR — Cron Schedule Visualization
-   Monthly/weekly view of all scheduled agent tasks
+   CALENDAR — Live Cron Schedule Visualization
+   Wired to real cron data from /api/command-center/calendar
    ══════════════════════════════════════════════════════════════════════════════ */
 
 interface CronEvent {
@@ -17,38 +17,15 @@ interface CronEvent {
   accent: string;
   frequency: string;
   days?: string[];
+  enabled: boolean;
+  schedule?: string;
+  description?: string;
+  lastRun?: string | null;
+  lastResult?: string | null;
 }
-
-const CRON_EVENTS: CronEvent[] = [
-  { id: "1", time: "01:00", label: "YOLO Overnight Builder", agent: "NOVA", accent: "#a78bfa", frequency: "Daily" },
-  { id: "2", time: "02:30", label: "Night Shift", agent: "TRIAGE", accent: "#60a5fa", frequency: "Daily" },
-  { id: "3", time: "03:00", label: "Memory Maintenance", agent: "Atlas", accent: "#34d399", frequency: "Sun", days: ["Sun"] },
-  { id: "4", time: "03:00", label: "Agent Self-Update (ClawHub)", agent: "Squad", accent: "#fbbf24", frequency: "Sun", days: ["Sun"] },
-  { id: "5", time: "06:30", label: "AI Digest", agent: "SIMONS", accent: "#f472b6", frequency: "Daily" },
-  { id: "6", time: "07:00", label: "Scripture", agent: "PROPHETS", accent: "#fbbf24", frequency: "Daily" },
-  { id: "7", time: "07:00", label: "Competitor Watch", agent: "DR STRANGE", accent: "#f87171", frequency: "Mon", days: ["Mon"] },
-  { id: "8", time: "07:15", label: "Morning Brief", agent: "Atlas", accent: "#34d399", frequency: "Daily" },
-  { id: "9", time: "08:00", label: "Intel Scan Wave 1", agent: "Squad", accent: "#818cf8", frequency: "Daily" },
-  { id: "10", time: "08:15", label: "Intel Scan Wave 2", agent: "Squad", accent: "#818cf8", frequency: "Daily" },
-  { id: "11", time: "08:30", label: "Intel Scan Wave 3", agent: "Squad", accent: "#818cf8", frequency: "Daily" },
-  { id: "12", time: "08:45", label: "Intel Scan Wave 4", agent: "Squad", accent: "#818cf8", frequency: "Daily" },
-  { id: "13", time: "09:00", label: "Intel Scan Wave 5", agent: "Squad", accent: "#818cf8", frequency: "Daily" },
-  { id: "14", time: "13:00", label: "Midday Check-in", agent: "Atlas", accent: "#34d399", frequency: "Daily" },
-  { id: "15", time: "14:00", label: "Social Listening", agent: "ECHO", accent: "#fb923c", frequency: "Daily" },
-  { id: "16", time: "18:00", label: "Weekly Strategy", agent: "Atlas", accent: "#34d399", frequency: "Fri", days: ["Fri"] },
-  { id: "17", time: "22:00", label: "EOD Report", agent: "Atlas", accent: "#34d399", frequency: "Daily" },
-];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
-
-function getEventsForDay(day: string): CronEvent[] {
-  return CRON_EVENTS.filter((e) => {
-    if (e.frequency === "Daily") return true;
-    if (e.days && e.days.includes(day)) return true;
-    return false;
-  });
-}
 
 function formatHour(h: number): string {
   if (h === 0) return "12 AM";
@@ -57,58 +34,116 @@ function formatHour(h: number): string {
   return `${h - 12} PM`;
 }
 
+function getEventsForDay(events: CronEvent[], day: string): CronEvent[] {
+  return events.filter((e) => {
+    if (!e.enabled) return false;
+    if (e.frequency === "Daily") return true;
+    if (e.days && e.days.includes(day)) return true;
+    return false;
+  });
+}
+
 export default function CalendarPage() {
   const [view, setView] = useState<"week" | "list">("week");
+  const [events, setEvents] = useState<CronEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [source, setSource] = useState<string>("loading");
+  const [stats, setStats] = useState({ total: 0, enabled: 0, disabled: 0 });
   const today = new Date();
-  const todayDay = DAYS[(today.getDay() + 6) % 7]; // Mon=0
+  const todayDay = DAYS[(today.getDay() + 6) % 7];
+
+  const fetchCrons = useCallback(async () => {
+    try {
+      const res = await fetch("/api/command-center/calendar", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.events?.length > 0) {
+          setEvents(data.events);
+          setSource(data.source || "live");
+          setStats({ total: data.total || 0, enabled: data.enabled || 0, disabled: data.disabled || 0 });
+        } else {
+          setSource("empty");
+        }
+      }
+    } catch { setSource("error"); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchCrons();
+    const interval = setInterval(fetchCrons, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchCrons]);
+
+  const enabledEvents = events.filter(e => e.enabled);
+  const disabledEvents = events.filter(e => !e.enabled);
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
+    <div className="relative min-h-screen" style={{ background: "#000000", color: "#e5e5e5" }}>
       <ParticleField />
 
-      {/* Header */}
-      <div className="relative z-10 px-4 pt-6 pb-4">
-        <div className="flex items-center gap-3 mb-4">
-          <Link
-            href="/command-center"
-            className="text-white/50 hover:text-white transition text-sm"
-          >
-            &larr; Command Center
-          </Link>
-        </div>
+      <div className="relative z-10 px-6 pt-8 pb-4">
+        <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#737373", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+          <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
+        </Link>
+
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">
-              <span className="text-purple-400">CRON</span> CALENDAR
+            <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, textShadow: "0 0 40px rgba(168,85,247,0.3)" }}>
+              <span style={{ color: "#a855f7" }}>CRON</span> CALENDAR
             </h1>
-            <p className="text-white/40 text-sm mt-1">
-              {CRON_EVENTS.length} scheduled events &middot; {today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}
+            <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
+              {loading ? "Loading cron data..." : `${stats.enabled} active · ${stats.disabled} disabled · ${stats.total} total`}
+              {source === "live" && <span style={{ marginLeft: 8, color: "rgba(34,197,94,0.6)" }}>● LIVE</span>}
+              {source === "empty" && <span style={{ marginLeft: 8, color: "#f59e0b" }}>No cron data found</span>}
+              <span style={{ marginLeft: 8 }}>{today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
             </p>
           </div>
-          <div className="flex gap-1 bg-white/5 rounded-lg p-1 border border-white/10">
+          <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4 }}>
             {(["week", "list"] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
-                  view === v
-                    ? "bg-purple-500/30 text-purple-300 border border-purple-500/40"
-                    : "text-white/50 hover:text-white/80"
-                }`}
-              >
-                {v === "week" ? "Week" : "List"}
+              <button key={v} onClick={() => setView(v)} style={{
+                padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
+                border: view === v ? "2px solid rgba(168,85,247,0.3)" : "2px solid transparent",
+                background: view === v ? "rgba(168,85,247,0.12)" : "transparent",
+                color: view === v ? "#a855f7" : "rgba(255,255,255,0.35)",
+                cursor: "pointer", transition: "all 0.2s"
+              }}>
+                {v === "week" ? "WEEK" : "LIST"}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="relative z-10 px-4 pb-12">
-        {view === "week" ? (
-          <WeekView todayDay={todayDay} />
+      <div className="relative z-10 px-6 pb-12">
+        {loading ? (
+          <div style={{ padding: 60, textAlign: "center", color: "#525252" }}>Loading cron schedule...</div>
+        ) : events.length === 0 ? (
+          <div style={{ padding: 60, textAlign: "center" }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F552;</div>
+            <p style={{ color: "#525252", fontSize: 14 }}>No cron jobs found</p>
+            <p style={{ color: "#404040", fontSize: 11 }}>Cron data will appear when jobs.json is populated</p>
+          </div>
+        ) : view === "week" ? (
+          <WeekView events={enabledEvents} todayDay={todayDay} />
         ) : (
-          <ListView />
+          <ListView events={events} />
+        )}
+
+        {/* Disabled Crons Summary */}
+        {disabledEvents.length > 0 && view === "list" && (
+          <div style={{ marginTop: 32 }}>
+            <h2 style={{ fontSize: 12, fontWeight: 800, color: "#525252", letterSpacing: "0.15em", marginBottom: 12, textTransform: "uppercase" }}>
+              Disabled ({disabledEvents.length})
+            </h2>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {disabledEvents.map((ev) => (
+                <div key={ev.id} style={{ padding: "6px 12px", borderRadius: 6, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", fontSize: 10, color: "#525252", textDecoration: "line-through" }}>
+                  {ev.label} ({ev.agent})
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -116,59 +151,54 @@ export default function CalendarPage() {
 }
 
 /* ── WEEK VIEW ──────────────────────────────────────────── */
-function WeekView({ todayDay }: { todayDay: string }) {
+function WeekView({ events, todayDay }: { events: CronEvent[]; todayDay: string }) {
+  const activeHours = HOURS.filter((h) =>
+    events.some((e) => parseInt(e.time.split(":")[0]) === h)
+  );
+
+  if (activeHours.length === 0) {
+    return <div style={{ padding: 40, textAlign: "center", color: "#525252" }}>No scheduled events this week</div>;
+  }
+
   return (
     <div className="overflow-x-auto">
-      <div className="min-w-[700px]">
-        {/* Day headers */}
-        <div className="grid grid-cols-8 gap-px mb-1">
-          <div className="p-2 text-xs text-white/30 font-mono">TIME</div>
+      <div style={{ minWidth: 700 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", gap: 1, marginBottom: 2 }}>
+          <div style={{ padding: 8, fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace" }}>TIME</div>
           {DAYS.map((d) => (
-            <div
-              key={d}
-              className={`p-2 text-center text-xs font-bold rounded-t-lg ${
-                d === todayDay
-                  ? "bg-purple-500/20 text-purple-300 border-b-2 border-purple-500"
-                  : "text-white/50 bg-white/5"
-              }`}
-            >
+            <div key={d} style={{
+              padding: 8, textAlign: "center", fontSize: 11, fontWeight: 700, borderRadius: "8px 8px 0 0",
+              background: d === todayDay ? "rgba(168,85,247,0.12)" : "rgba(255,255,255,0.03)",
+              color: d === todayDay ? "#a855f7" : "rgba(255,255,255,0.4)",
+              borderBottom: d === todayDay ? "2px solid #a855f7" : "2px solid transparent"
+            }}>
               {d}
             </div>
           ))}
         </div>
 
-        {/* Time grid */}
-        {HOURS.filter((h) => {
-          // Only show hours that have events (compact)
-          return CRON_EVENTS.some((e) => parseInt(e.time.split(":")[0]) === h);
-        }).map((hour) => (
-          <div key={hour} className="grid grid-cols-8 gap-px">
-            <div className="p-2 text-xs text-white/30 font-mono border-t border-white/5">
+        {activeHours.map((hour) => (
+          <div key={hour} style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", gap: 1 }}>
+            <div style={{ padding: 8, fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
               {formatHour(hour)}
             </div>
             {DAYS.map((day) => {
-              const events = getEventsForDay(day).filter(
+              const dayEvents = getEventsForDay(events, day).filter(
                 (e) => parseInt(e.time.split(":")[0]) === hour
               );
               return (
-                <div
-                  key={day}
-                  className={`p-1 border-t border-white/5 min-h-[48px] ${
-                    day === todayDay ? "bg-purple-500/5" : ""
-                  }`}
-                >
-                  {events.map((ev) => (
-                    <div
-                      key={ev.id}
-                      className="mb-1 px-2 py-1 rounded text-xs border cursor-default hover:scale-[1.02] transition-transform"
-                      style={{
-                        backgroundColor: `${ev.accent}15`,
-                        borderColor: `${ev.accent}40`,
-                        color: ev.accent,
-                      }}
-                    >
-                      <div className="font-semibold truncate">{ev.label}</div>
-                      <div className="opacity-60 text-[10px]">{ev.agent} &middot; {ev.time}</div>
+                <div key={day} style={{
+                  padding: 4, borderTop: "1px solid rgba(255,255,255,0.04)", minHeight: 48,
+                  background: day === todayDay ? "rgba(168,85,247,0.03)" : "transparent"
+                }}>
+                  {dayEvents.map((ev) => (
+                    <div key={ev.id} title={ev.description || ev.label} style={{
+                      marginBottom: 4, padding: "4px 8px", borderRadius: 6, fontSize: 10,
+                      border: `1px solid ${ev.accent}40`, background: `${ev.accent}12`, color: ev.accent,
+                      cursor: "default", transition: "transform 0.15s"
+                    }}>
+                      <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</div>
+                      <div style={{ opacity: 0.6, fontSize: 9 }}>{ev.agent} · {ev.time}</div>
                     </div>
                   ))}
                 </div>
@@ -182,38 +212,51 @@ function WeekView({ todayDay }: { todayDay: string }) {
 }
 
 /* ── LIST VIEW ──────────────────────────────────────────── */
-function ListView() {
-  const sorted = [...CRON_EVENTS].sort((a, b) => a.time.localeCompare(b.time));
+function ListView({ events }: { events: CronEvent[] }) {
+  const sorted = [...events].sort((a, b) => {
+    if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
+    return a.time.localeCompare(b.time);
+  });
 
   return (
-    <div className="space-y-2 max-w-2xl">
-      {sorted.map((ev) => (
-        <div
-          key={ev.id}
-          className="flex items-center gap-4 p-3 rounded-xl border bg-white/[0.02] hover:bg-white/[0.05] transition"
-          style={{ borderColor: `${ev.accent}30` }}
-        >
-          <div
-            className="w-12 h-12 rounded-lg flex items-center justify-center text-sm font-bold font-mono shrink-0"
-            style={{ backgroundColor: `${ev.accent}20`, color: ev.accent }}
-          >
+    <div style={{ maxWidth: 800 }}>
+      {sorted.filter(e => e.enabled).map((ev) => (
+        <div key={ev.id} style={{
+          display: "flex", alignItems: "center", gap: 16, padding: "12px 16px", marginBottom: 8,
+          borderRadius: 12, border: `2px solid ${ev.accent}20`, background: "rgba(0,0,0,0.95)",
+          transition: "all 0.2s"
+        }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 12, fontWeight: 700, fontFamily: "monospace", flexShrink: 0,
+            background: `${ev.accent}15`, color: ev.accent, border: `1px solid ${ev.accent}30`
+          }}>
             {ev.time}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-semibold text-sm truncate">{ev.label}</div>
-            <div className="text-xs text-white/40">
-              {ev.agent} &middot; {ev.frequency}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</div>
+            <div style={{ fontSize: 11, color: "#737373", marginTop: 2 }}>
+              {ev.agent} · {ev.frequency}
+              {ev.schedule && <span style={{ marginLeft: 6, fontSize: 9, fontFamily: "monospace", color: "#525252" }}>[{ev.schedule}]</span>}
             </div>
+            {ev.description && <div style={{ fontSize: 10, color: "#404040", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.description}</div>}
           </div>
-          <div
-            className="text-xs px-2 py-0.5 rounded-full border shrink-0"
-            style={{
-              borderColor: `${ev.accent}40`,
-              color: ev.accent,
-              backgroundColor: `${ev.accent}10`,
-            }}
-          >
-            {ev.frequency}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+            <div style={{
+              fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 700,
+              border: `1px solid ${ev.accent}30`, color: ev.accent, background: `${ev.accent}08`
+            }}>
+              {ev.frequency}
+            </div>
+            {ev.lastResult && (
+              <div style={{
+                fontSize: 9, padding: "1px 6px", borderRadius: 4,
+                background: ev.lastResult === "ok" || ev.lastResult === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                color: ev.lastResult === "ok" || ev.lastResult === "success" ? "#22c55e" : "#ef4444"
+              }}>
+                {ev.lastResult}
+              </div>
+            )}
           </div>
         </div>
       ))}

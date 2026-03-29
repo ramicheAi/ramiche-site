@@ -3,6 +3,8 @@ import { execSync } from "child_process";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join } from "path";
 import { cpus, totalmem, freemem } from "os";
+import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
+import { getFirestore, type Firestore, FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -201,6 +203,79 @@ function getCronLastRuns() {
   }, []);
 }
 
+/* ── Firestore Auto-Sync ─────────────────────────────────────────────── */
+
+let firestoreDb: Firestore | null = null;
+let lastSyncAt = 0;
+
+function getFirestoreDb(): Firestore | null {
+  if (firestoreDb) return firestoreDb;
+  const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
+  if (!sa) return null;
+  try {
+    const parsed = JSON.parse(sa);
+    const app: App = getApps().length > 0 ? getApps()[0] : initializeApp({ credential: cert(parsed) });
+    firestoreDb = getFirestore(app);
+    return firestoreDb;
+  } catch {
+    return null;
+  }
+}
+
+async function runFirestoreSync(): Promise<boolean> {
+  const db = getFirestoreDb();
+  if (!db) return false;
+
+  try {
+    const agentDir = getAgentDirectory();
+    const crons = getCronJobs();
+    const cronHistory = getCronExecutionLog();
+    const yolo = getYoloBuilds();
+    const memory = getDailyMemory();
+    const today = new Date().toISOString().split("T")[0];
+
+    const batch = db.batch();
+
+    batch.set(
+      db.collection("command-center").doc("agents").collection("directory").doc("latest"),
+      { ...agentDir, _syncedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    batch.set(
+      db.collection("command-center").doc("crons").collection("config").doc("latest"),
+      { jobs: crons, jobCount: Array.isArray(crons) ? crons.length : 0, _syncedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    batch.set(
+      db.collection("command-center").doc("crons").collection("history").doc("latest"),
+      { entries: cronHistory, entryCount: cronHistory.length, _syncedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    batch.set(
+      db.collection("command-center").doc("yolo-builds").collection("manifest").doc("latest"),
+      { builds: yolo, buildCount: yolo.length, _syncedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    if (memory.entries.length > 0) {
+      batch.set(
+        db.collection("command-center").doc("memory").collection(today).doc("daily"),
+        { date: today, content: JSON.stringify(memory), _syncedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
+    await batch.commit();
+    lastSyncAt = Date.now();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* ── Build full snapshot ─────────────────────────────────────────────── */
 
 function buildSnapshot() {
@@ -314,6 +389,15 @@ export async function GET(req: NextRequest) {
             controller.enqueue(encoder.encode(
               `event: agents\ndata: ${JSON.stringify({ agents, crons })}\n\n`
             ));
+          }
+
+          // Firestore auto-sync (every 60th tick = 5 minutes)
+          if (tickCount % 60 === 0) {
+            runFirestoreSync().then(ok => {
+              controller.enqueue(encoder.encode(
+                `event: firestoreSync\ndata: ${JSON.stringify({ ok, syncedAt: new Date().toISOString(), lastSyncAt })}\n\n`
+              ));
+            }).catch(() => {});
           }
         } catch {
           // If anything fails, just send a heartbeat

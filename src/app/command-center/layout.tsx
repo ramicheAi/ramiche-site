@@ -108,7 +108,39 @@ export default function CommandCenterLayout({
       </div>
       <style>{`
         @media (max-width: 767px) {
-          #cc-content { margin-left: 0 !important; }
+          #cc-content {
+            margin-left: 0 !important;
+            padding-top: 48px;
+          }
+          #cc-content h1 {
+            font-size: 24px !important;
+          }
+          #cc-content [style*="maxWidth: 1400"],
+          #cc-content [style*="max-width: 1400"],
+          #cc-content [style*="maxWidth: 1200"],
+          #cc-content [style*="max-width: 1200"] {
+            padding-left: 12px !important;
+            padding-right: 12px !important;
+          }
+        }
+        @media (max-width: 480px) {
+          #cc-content {
+            font-size: 14px;
+          }
+          #cc-content h1 {
+            font-size: 20px !important;
+          }
+          #cc-content h2 {
+            font-size: 13px !important;
+          }
+        }
+        @media (max-width: 767px) {
+          .cc-responsive-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .cc-responsive-flex {
+            flex-direction: column !important;
+          }
         }
       `}</style>
     </div>

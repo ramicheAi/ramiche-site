@@ -22,6 +22,7 @@ const sections = [
       { href: '/command-center/settings', label: 'Settings', icon: '⚙', accent: '#888888' },
       { href: '/command-center/yolo', label: 'YOLO Builds', icon: '⚡', accent: '#f59e0b' },
       { href: '/command-center/nerve-center', label: 'Nerve Center', icon: '⚛', accent: '#7c3aed' },
+      { href: '/command-center/comms', label: 'Comms', icon: '✉', accent: '#34d399' },
     ],
   },
   {
@@ -36,6 +37,7 @@ const sections = [
       { href: '/command-center/legal', label: 'Legal', icon: '⚖', accent: '#8b5cf6' },
       { href: '/command-center/strategy', label: 'Strategy', icon: '◇', accent: '#a855f7' },
       { href: '/command-center/observatory', label: 'Observatory', icon: '🔮', accent: '#9b5de5' },
+      { href: '/command-center/reports', label: 'Reports', icon: '▤', accent: '#f59e0b' },
     ],
   },
   {

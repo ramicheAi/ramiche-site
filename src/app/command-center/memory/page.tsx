@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Link from "next/link";
+import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    JOURNAL LOG v4 — Color-Coded, Engaging, Organized
@@ -41,6 +42,7 @@ const AGENT_META: Record<string, { color: string; bg: string; emoji: string }> =
   TheMAESTRO:  { color: "#F59E0B", bg: "#F59E0B18", emoji: "🎵" },
   THEMIS:      { color: "#A3E635", bg: "#A3E63518", emoji: "⚖️" },
   PROXIMON:    { color: "#38BDF8", bg: "#38BDF818", emoji: "🏗️" },
+  ARCHIVIST:   { color: "#9CA3AF", bg: "#9CA3AF18", emoji: "🗄️" },
 };
 
 function agentMeta(name?: string) {

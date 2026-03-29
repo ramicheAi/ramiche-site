@@ -105,7 +105,7 @@ export default function TaskBoardPage() {
       } catch {}
     };
     fetchTasks();
-    const iv = setInterval(fetchTasks, 60000);
+    const iv = setInterval(fetchTasks, 15000);
     return () => clearInterval(iv);
   }, []);
 
