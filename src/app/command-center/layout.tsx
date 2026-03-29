@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
 
 const MAX_PIN_DIGITS = 12;
-/** Session + idle; PIN verified via /api/command-center/auth/pin (CC_PIN_HASH / CC_PIN in env). */
+/** Session + idle; PIN verified via /api/command-center/auth/pin (`CC_PIN_HASH` / `CC_PIN`). Production requires one of them; local dev may use fallback when `NODE_ENV=development` or `CC_PIN_ALLOW_DEV=1`. */
 const STORAGE_KEY = 'cc-pin-auth';
 const IDLE_MS = 2 * 60 * 60 * 1000;
 
@@ -39,21 +39,30 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [serverMsg, setServerMsg] = useState<string | null>(null);
 
   const handleKey = useCallback((digit: string) => {
-    if (digit === 'clear') { setPin(''); setError(false); return; }
+    if (digit === 'clear') { setPin(''); setError(false); setServerMsg(null); return; }
     if (digit === 'enter') {
       if (pin.length < 1) return;
       setVerifying(true);
+      setServerMsg(null);
       void fetch('/api/command-center/auth/pin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin }),
       })
-        .then((res) => {
+        .then(async (res) => {
           if (res.ok) {
             sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ok: true, ts: Date.now(), lastActivity: Date.now() }));
             onUnlock();
+          } else if (res.status === 503) {
+            try {
+              const j = (await res.json()) as { error?: string };
+              setServerMsg(j.error || 'Set CC_PIN_HASH on the server');
+            } catch {
+              setServerMsg('Set CC_PIN_HASH on the server');
+            }
           } else {
             setError(true);
             setPin('');
@@ -79,6 +88,11 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
       <h1 style={{ color: '#fff', fontSize: 24, marginBottom: 8, fontFamily: 'monospace' }}>
         ENTER ACCESS PIN
       </h1>
+      {serverMsg && (
+        <p style={{ color: '#f87171', fontSize: 12, maxWidth: 320, textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
+          {serverMsg}
+        </p>
+      )}
       <div style={{
         display: 'flex', gap: 12, marginBottom: 24,
         animation: error ? 'shake 0.4s ease-in-out' : 'none',

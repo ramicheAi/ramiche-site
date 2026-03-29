@@ -7,6 +7,10 @@ export const dynamic = "force-dynamic";
  * POST { pin: string }
  * Set `CC_PIN_HASH` to sha256 hex of the PIN (e.g. `echo -n '2451' | shasum -a 256`),
  * or `CC_PIN` for plaintext comparison on trusted hosts only.
+ *
+ * Dev-only fallback PIN `2451` runs only when neither env is set and either
+ * `NODE_ENV === "development"` or `CC_PIN_ALLOW_DEV=1` (e.g. local `next start` testing).
+ * Production / Vercel: configure `CC_PIN_HASH` or all PIN checks fail closed.
  */
 export async function POST(req: NextRequest) {
   let pin = "";
@@ -43,7 +47,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 401 });
   }
 
-  /* Dev fallback — remove in production by setting CC_PIN_HASH */
+  const allowDevFallback =
+    process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
+
+  if (!allowDevFallback) {
+    return NextResponse.json(
+      { ok: false, error: "CC_PIN_HASH or CC_PIN not configured" },
+      { status: 503 }
+    );
+  }
+
   const dev = pin === "2451";
   return NextResponse.json(dev ? { ok: true } : { ok: false }, { status: dev ? 200 : 401 });
 }
