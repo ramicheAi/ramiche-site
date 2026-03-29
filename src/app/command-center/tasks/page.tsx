@@ -109,32 +109,65 @@ export default function TaskBoardPage() {
     return () => clearInterval(iv);
   }, []);
 
-  // Persist task move to API + trigger agent when starting
-  const persistMove = async (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
-    try {
-      if (toCol === "in-progress" && task.assignee) {
-        // Single call: moves task to in-progress AND triggers the agent
-        await fetch("/api/bridge", {
-          method: "PATCH",
+  const notifyTaskOutcome = useCallback(
+    async (
+      kind: "approve" | "reject" | "revise",
+      task: Task,
+      reason?: string
+    ) => {
+      try {
+        await fetch("/api/command-center/tasks/notify", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            action: "trigger",
+            kind,
             taskId: task.id,
-            fromCol,
-            agent: task.assignee,
             title: task.title,
             description: task.description,
+            assignee: task.assignee,
+            reason,
           }),
         });
-      } else {
-        await fetch("/api/bridge", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "move", taskId: task.id, fromCol, toCol }),
-        });
+      } catch {
+        /* best-effort */
       }
-    } catch {}
-  };
+    },
+    []
+  );
+
+  const persistMove = useCallback(
+    async (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
+      try {
+        if (toCol === "in-progress" && task.assignee) {
+          await fetch("/api/bridge", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "trigger",
+              taskId: task.id,
+              fromCol,
+              agent: task.assignee,
+              title: task.title,
+              description: task.description,
+            }),
+          });
+        } else {
+          await fetch("/api/bridge", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "move", taskId: task.id, fromCol, toCol }),
+          });
+        }
+        if (fromCol === "review" && toCol === "done") {
+          void notifyTaskOutcome("approve", task);
+        }
+        if (fromCol === "review" && toCol === "backlog") {
+          void notifyTaskOutcome("reject", task);
+        }
+      } catch {}
+    },
+    [notifyTaskOutcome]
+  );
 
   // Create new task
   const createTask = async () => {
@@ -157,17 +190,30 @@ export default function TaskBoardPage() {
       await fetch("/api/bridge", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "tasks", taskId: task.id, update: { ...task, status: "backlog" } }),
+        body: JSON.stringify({
+          action: "create",
+          task: {
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            assignee: task.assignee,
+            accent: task.accent,
+            tags: task.tags,
+            avatar: task.avatar,
+          },
+        }),
       });
     } catch {}
   };
 
-  // Send revision back to agent with feedback
   const submitRevision = async (task: Task) => {
     if (!reviseFeedback.trim()) return;
-    // Move task back to in-progress
-    quickAction(task, "review", "in-progress");
-    // Trigger agent re-spawn with feedback via bridge API
+    const fb = reviseFeedback.trim();
+    setColumns((prev) => {
+      const fromTasks = prev.review.filter((t) => t.id !== task.id);
+      const moved = { ...task, title: `[REVISION] ${task.title}` };
+      return { ...prev, review: fromTasks, "in-progress": [...prev["in-progress"], moved] };
+    });
     try {
       await fetch("/api/bridge", {
         method: "PATCH",
@@ -178,10 +224,11 @@ export default function TaskBoardPage() {
           fromCol: "review",
           agent: task.assignee,
           title: `[REVISION] ${task.title}`,
-          description: `REVISION FEEDBACK: ${reviseFeedback.trim()}. Original task: ${task.description}`,
+          description: `REVISION FEEDBACK: ${fb}. Original task: ${task.description}`,
         }),
       });
     } catch {}
+    void notifyTaskOutcome("revise", task, fb);
     setReviseTask(null);
     setReviseFeedback("");
   };
@@ -235,34 +282,41 @@ export default function TaskBoardPage() {
     }
   }, [dropTarget]);
 
-  const handleDrop = useCallback((e: React.DragEvent, toCol: ColumnId) => {
-    e.preventDefault();
-    setDropTarget(null);
-    dragCounter.current = {};
-    if (!draggedTask) return;
-    if (draggedTask.fromCol === toCol) return;
+  const handleDrop = useCallback(
+    (e: React.DragEvent, toCol: ColumnId) => {
+      e.preventDefault();
+      setDropTarget(null);
+      dragCounter.current = {};
+      if (!draggedTask) return;
+      if (draggedTask.fromCol === toCol) return;
 
-    setColumns((prev) => {
-      const fromTasks = prev[draggedTask.fromCol].filter((t) => t.id !== draggedTask.task.id);
-      const toTasks = [...prev[toCol], draggedTask.task];
-      return { ...prev, [draggedTask.fromCol]: fromTasks, [toCol]: toTasks };
-    });
-    persistMove(draggedTask.task, draggedTask.fromCol, toCol);
-    setDraggedTask(null);
-  }, [draggedTask]);
+      setColumns((prev) => {
+        const fromTasks = prev[draggedTask.fromCol].filter((t) => t.id !== draggedTask.task.id);
+        const toTasks = [...prev[toCol], draggedTask.task];
+        return { ...prev, [draggedTask.fromCol]: fromTasks, [toCol]: toTasks };
+      });
+      void persistMove(draggedTask.task, draggedTask.fromCol, toCol);
+      setDraggedTask(null);
+    },
+    [draggedTask, persistMove]
+  );
 
   /* ── Mobile: tap-to-move ───────────────────────────────────────────────── */
   const [mobileMenu, setMobileMenu] = useState<{ task: Task; fromCol: ColumnId } | null>(null);
 
-  const moveTask = useCallback((task: Task, fromCol: ColumnId, toCol: ColumnId) => {
-    if (fromCol === toCol) return;
-    setColumns((prev) => {
-      const fromTasks = prev[fromCol].filter((t) => t.id !== task.id);
-      const toTasks = [...prev[toCol], task];
-      return { ...prev, [fromCol]: fromTasks, [toCol]: toTasks };
-    });
-    setMobileMenu(null);
-  }, [setMobileMenu]);
+  const moveTask = useCallback(
+    (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
+      if (fromCol === toCol) return;
+      setColumns((prev) => {
+        const fromTasks = prev[fromCol].filter((t) => t.id !== task.id);
+        const toTasks = [...prev[toCol], task];
+        return { ...prev, [fromCol]: fromTasks, [toCol]: toTasks };
+      });
+      setMobileMenu(null);
+      void persistMove(task, fromCol, toCol);
+    },
+    [persistMove]
+  );
 
   const totalTasks = Object.values(columns).reduce((sum, col) => sum + col.length, 0);
   const doneTasks = columns.done.length;
@@ -472,6 +526,13 @@ export default function TaskBoardPage() {
                               onClick={() => quickAction(task, col.id, "done")}
                             >
                               Approve
+                            </button>
+                            <button
+                              className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
+                              style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }}
+                              onClick={() => quickAction(task, col.id, "backlog")}
+                            >
+                              Reject
                             </button>
                             <button
                               className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
