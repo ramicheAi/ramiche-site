@@ -37,6 +37,7 @@ const sections = [
       { href: '/command-center/legal', label: 'Legal', icon: '⚖', accent: '#8b5cf6' },
       { href: '/command-center/strategy', label: 'Strategy', icon: '◇', accent: '#a855f7' },
       { href: '/command-center/observatory', label: 'Observatory', icon: '🔮', accent: '#9b5de5' },
+      { href: '/command-center/observatory/live', label: 'Observatory Live', icon: '📡', accent: '#C9A84C' },
       { href: '/command-center/reports', label: 'Reports', icon: '▤', accent: '#f59e0b' },
     ],
   },

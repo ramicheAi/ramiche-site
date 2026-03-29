@@ -1,21 +1,61 @@
 import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
+import { fsUrl } from "@/lib/bridge-handlers";
 
 const DATA_PATH = join(
   process.env.HOME || "/Users/admin",
   ".openclaw/workspace/shared/artifacts/quantitative/dashboard_api.json"
 );
 
+function parseFirestoreMeridian(doc: { fields?: Record<string, { stringValue?: string }> }): unknown | null {
+  const f = doc.fields;
+  if (!f) return null;
+  const raw =
+    f.snapshot?.stringValue ??
+    f.payloadJson?.stringValue ??
+    f.dashboardJson?.stringValue;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function isValidPayload(data: unknown): data is { portfolio: { equity: number } } {
+  if (!data || typeof data !== "object") return false;
+  const p = (data as { portfolio?: unknown }).portfolio;
+  if (!p || typeof p !== "object") return false;
+  return "equity" in p && typeof (p as { equity: unknown }).equity === "number";
+}
+
 export async function GET() {
   try {
     const raw = await readFile(DATA_PATH, "utf-8");
-    const data = JSON.parse(raw);
-    return NextResponse.json(data);
+    const data = JSON.parse(raw) as unknown;
+    if (isValidPayload(data)) {
+      return NextResponse.json(data);
+    }
   } catch {
-    return NextResponse.json(
-      { error: "MERIDIAN data not available" },
-      { status: 503 }
-    );
+    /* try Firestore */
   }
+
+  try {
+    const res = await fetch(fsUrl("command-center/meridian"), { cache: "no-store" });
+    if (res.ok) {
+      const doc = (await res.json()) as { fields?: Record<string, { stringValue?: string }> };
+      const data = parseFirestoreMeridian(doc);
+      if (isValidPayload(data)) {
+        return NextResponse.json(data);
+      }
+    }
+  } catch {
+    /* fall through */
+  }
+
+  return NextResponse.json(
+    { error: "MERIDIAN data not available" },
+    { status: 503 }
+  );
 }

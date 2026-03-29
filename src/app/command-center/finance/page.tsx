@@ -354,14 +354,37 @@ export default function FinanceHQ() {
   }, [oracleMessages]);
 
   useEffect(() => {
-    if (tab !== "meridian" || meridianData || meridianError) return;
+    if (tab !== "meridian") return;
     let cancelled = false;
     fetch("/api/command-center/meridian")
-      .then(r => r.json())
-      .then(d => { if (!cancelled) setMeridianData(d); })
-      .catch(() => { if (!cancelled) setMeridianError(true); });
-    return () => { cancelled = true; };
-  }, [tab, meridianData, meridianError]);
+      .then(async (r) => {
+        const d = (await r.json()) as unknown;
+        if (cancelled) return;
+        const ok =
+          r.ok &&
+          d &&
+          typeof d === "object" &&
+          "portfolio" in (d as object) &&
+          (d as { portfolio?: { equity?: unknown } }).portfolio &&
+          typeof (d as { portfolio: { equity?: unknown } }).portfolio.equity === "number";
+        if (ok) {
+          setMeridianData(d as MeridianData);
+          setMeridianError(false);
+        } else {
+          setMeridianData(null);
+          setMeridianError(true);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMeridianData(null);
+          setMeridianError(true);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab]);
 
   if (!time) return null;
 
