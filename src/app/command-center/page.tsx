@@ -116,6 +116,35 @@ interface Weather {
 }
 interface Verse { text: string; ref: string; book?: string; chapter?: number; }
 
+/** Dashboard Live Chat select value → `/api/command-center/chat` `agentName` */
+function agentNameForChatApi(chatAgent: string): string {
+  const t = chatAgent.trim().toLowerCase();
+  if (t === "dr. strange" || t === "dr strange") return "drstrange";
+  return t.replace(/\s+/g, "").replace(/\./g, "");
+}
+
+/** Merge bridge poll with local turns so optimistic CC replies are not wiped every 30s */
+function mergeBridgeChatMessages(prev: any[], incoming: any[]): any[] {
+  const seen = new Set<string>();
+  const out: any[] = [];
+  const keyOf = (m: any) =>
+    `${m.timestamp ?? ""}|${m.sender ?? ""}|${String(m.message ?? m.text ?? "")}`;
+  const add = (m: any) => {
+    const k = keyOf(m);
+    if (seen.has(k)) return;
+    seen.add(k);
+    out.push(m);
+  };
+  for (const m of incoming) add(m);
+  for (const m of prev) add(m);
+  out.sort((a, b) => {
+    const ta = new Date(a.timestamp).getTime();
+    const tb = new Date(b.timestamp).getTime();
+    return (Number.isNaN(tb) || Number.isNaN(ta) ? 0 : tb - ta);
+  });
+  return out;
+}
+
 /* ══════════════════════════════════════════════════════════════════════════════
    COMPONENT
    ══════════════════════════════════════════════════════════════════════════════ */
@@ -285,6 +314,7 @@ export default function CommandCenter() {
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatAgent, setChatAgent] = useState('atlas');
+  const [chatSending, setChatSending] = useState(false);
   const [cronModal, setCronModal] = useState(false);
   const [taskModal, setTaskModal] = useState(false);
   const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
@@ -316,12 +346,16 @@ export default function CommandCenter() {
     return () => clearInterval(id);
   }, []);
 
-  /* ── fetch chat (mount + every 30s) ── */
+  /* ── fetch chat (mount + every 30s) — merge with local CC turns ── */
   useEffect(() => {
     const fetchChat = async () => {
       try {
         const res = await fetch('/api/bridge/chat', { cache: 'no-store' });
-        if (res.ok) { const data = await res.json(); setChatMessages(data.items || data.messages || []); }
+        if (res.ok) {
+          const data = await res.json();
+          const incoming = data.items || data.messages || [];
+          setChatMessages((prev) => mergeBridgeChatMessages(prev, incoming));
+        }
       } catch { /* silent */ }
     };
     fetchChat();
@@ -370,12 +404,73 @@ export default function CommandCenter() {
   };
 
   const handleSendChat = async () => {
-    if (!chatInput.trim()) return;
+    const text = chatInput.trim();
+    if (!text || chatSending) return;
+    const agentName = agentNameForChatApi(chatAgent);
+    const ts = new Date().toISOString();
+    setChatMessages((prev) => [
+      { sender: "commander", targetAgent: chatAgent, message: text, timestamp: ts },
+      ...prev,
+    ]);
+    setChatInput("");
+    setChatSending(true);
+    void fetch("/api/bridge/chat", {
+      method: "POST",
+      headers: bridgeHeaders,
+      body: JSON.stringify({ targetAgent: chatAgent, message: text, sender: "commander" }),
+    }).catch(() => {});
     try {
-      await fetch('/api/bridge/chat', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ targetAgent: chatAgent, message: chatInput, sender: 'commander' }) });
-      setChatMessages(prev => [{ sender: 'commander', targetAgent: chatAgent, message: chatInput, timestamp: new Date().toISOString() }, ...prev]);
-      setChatInput('');
-    } catch { /* silent */ }
+      const res = await fetch("/api/command-center/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          agentName,
+          channelName: "Command Center",
+          channelId: "cc-dashboard",
+        }),
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        response?: string;
+        error?: string;
+        source?: string;
+      };
+      if (data.ok && data.response) {
+        setChatMessages((prev) => [
+          {
+            sender: "agent",
+            targetAgent: chatAgent,
+            message: data.response,
+            timestamp: new Date().toISOString(),
+            relaySource: data.source,
+          },
+          ...prev,
+        ]);
+      } else {
+        setChatMessages((prev) => [
+          {
+            sender: "system",
+            targetAgent: chatAgent,
+            message: data.error || `Chat relay failed (${res.status})`,
+            timestamp: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+    } catch {
+      setChatMessages((prev) => [
+        {
+          sender: "system",
+          targetAgent: chatAgent,
+          message: "Network error — could not reach /api/command-center/chat",
+          timestamp: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+    } finally {
+      setChatSending(false);
+    }
   };
 
 
@@ -1394,21 +1489,38 @@ export default function CommandCenter() {
                     <option key={a} value={a}>{a.charAt(0).toUpperCase() + a.slice(1)}</option>
                   ))}
                 </select>
-                <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') handleSendChat(); }} placeholder="Message an agent..." className="flex-1 px-3 py-2 text-sm rounded-md" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
-                <button onClick={handleSendChat} className="px-4 py-2 text-[10px] font-mono uppercase tracking-wider flex-shrink-0" style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, cursor: 'pointer' }}>Send</button>
+                <input value={chatInput} onChange={e => setChatInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !chatSending) handleSendChat(); }} placeholder="Message an agent..." disabled={chatSending} className="flex-1 px-3 py-2 text-sm rounded-md disabled:opacity-50" style={{ background: '#0a0a0a', border: '1px solid #1e1e1e', color: '#e5e5e5', outline: 'none' }} />
+                <button type="button" onClick={handleSendChat} disabled={chatSending || !chatInput.trim()} className="px-4 py-2 text-[10px] font-mono uppercase tracking-wider flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed" style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)', borderRadius: 6, cursor: chatSending || !chatInput.trim() ? 'not-allowed' : 'pointer' }}>{chatSending ? "…" : "Send"}</button>
               </div>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {chatMessages.length === 0 && <div className="text-sm text-[#888888] text-center py-4">No messages yet — send one above</div>}
-                {chatMessages.slice(0, 20).map((msg, i) => (
+                {chatMessages.slice(0, 20).map((msg, i) => {
+                  const labelColor =
+                    msg.sender === "commander"
+                      ? "#34d399"
+                      : msg.sender === "system"
+                        ? "#f87171"
+                        : "#f59e0b";
+                  const src =
+                    msg.relaySource && msg.relaySource !== "fallback"
+                      ? String(msg.relaySource)
+                      : "";
+                  return (
                   <div key={i} className="p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-mono font-bold" style={{ color: msg.sender === 'commander' ? '#34d399' : '#f59e0b' }}>{(msg.sender || 'system').toUpperCase()}</span>
+                      <span className="text-[10px] font-mono font-bold" style={{ color: labelColor }}>{(msg.sender || 'system').toUpperCase()}</span>
                       {msg.targetAgent && <span className="text-[10px] text-[#888888]">→ {msg.targetAgent}</span>}
                       {msg.timestamp && <span className="text-[9px] font-mono text-[#555]">{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>}
                     </div>
                     <div className="text-sm text-[#e5e5e5]">{msg.message || msg.text || ''}</div>
+                    {src && (
+                      <div className="mt-1 text-[9px] uppercase tracking-wider text-[#C9A84C]/70">
+                        {src === "openclaw" ? "OpenClaw" : src === "gemini" ? "Gemini" : src === "deepseek" ? "DeepSeek" : src === "openrouter" ? "OpenRouter" : src}
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
