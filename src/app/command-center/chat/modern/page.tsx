@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase } from "@/lib/supabase";
 import AgentMessagePreview, { StreamingAgentMessage } from "@/components/chat/AgentMessagePreview";
-import { BentoGrid, BentoCard, AthleteStatsCard, ProgressCard, MetricCard, ActionCard } from "@/components/athlete/BentoDashboard";
-import { ThemeProvider, useTheme, ThemeToggle } from "@/components/theme/ThemeProvider";
+import { BentoGrid, AthleteStatsCard, ProgressCard, MetricCard, ActionCard } from "@/components/athlete/BentoDashboard";
+import { ThemeProvider, ThemeToggle } from "@/components/theme/ThemeProvider";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Modern 2026 Implementation
@@ -55,12 +54,13 @@ const AGENTS = [
 ];
 
 export default function ModernChatPage() {
-  const { resolvedTheme } = useTheme();
   const [activeChannel, setActiveChannel] = useState(CHANNELS[1]);
-  const [activeAgent, setActiveAgent] = useState<typeof AGENTS[0] | null>(null);
+  const [activeAgent, setActiveAgent] = useState<(typeof AGENTS)[0]>(AGENTS[0]);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<{ id: string; type: string; sender: string; senderColor?: string; content: string; timestamp: string }[]>([]);
-  const [typingUsers] = useState<string[]>([]);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+  const [relayError, setRelayError] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -70,31 +70,61 @@ export default function ModernChatPage() {
   }, [messages]);
 
   const handleSendMessage = () => {
-    if (!messageInput.trim()) return;
-    
+    const text = messageInput.trim();
+    if (!text || sending) return;
+
     const newMessage = {
       id: `msg-${Date.now()}`,
       type: "user",
       sender: "Ramon",
-      content: messageInput,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      content: text,
+      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     };
-    
-    setMessages(prev => [...prev, newMessage]);
+
+    setMessages((prev) => [...prev, newMessage]);
     setMessageInput("");
-    
-    // Simulate agent response
-    setTimeout(() => {
-      const replyMessage = {
-        id: `reply-${Date.now()}`,
-        type: "agent",
-        sender: activeAgent?.name || "Atlas",
-        senderColor: activeAgent?.color || COLORS.agents.atlas,
-        content: `Got it. ${activeAgent?.name || "Atlas"} will handle that.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages(prev => [...prev, replyMessage]);
-    }, 1000);
+    setRelayError(null);
+    setSending(true);
+    setTypingUsers([activeAgent.name]);
+
+    void fetch("/api/command-center/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: text,
+        channelId: activeChannel.id,
+        agentName: activeAgent.id,
+        channelName: activeChannel.name,
+      }),
+    })
+      .then(async (r) => {
+        const data = (await r.json()) as {
+          ok?: boolean;
+          response?: string;
+          error?: string;
+          source?: string;
+        };
+        setTypingUsers([]);
+        setSending(false);
+        if (data.ok && data.response) {
+          const replyMessage = {
+            id: `reply-${Date.now()}`,
+            type: "agent",
+            sender: activeAgent.name,
+            senderColor: activeAgent.color,
+            content: data.response,
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+          setMessages((prev) => [...prev, replyMessage]);
+        } else {
+          setRelayError(data.error || `Chat relay failed (${r.status})`);
+        }
+      })
+      .catch(() => {
+        setTypingUsers([]);
+        setSending(false);
+        setRelayError("Network error — could not reach /api/command-center/chat");
+      });
   };
 
   return (
@@ -134,7 +164,7 @@ export default function ModernChatPage() {
               key={agent.id}
               onClick={() => setActiveAgent(agent)}
               className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${
-                activeAgent?.id === agent.id
+                activeAgent.id === agent.id
                   ? "bg-[#2a2a2a]"
                   : "hover:bg-[#1a1a1a]"
               }`}
@@ -226,10 +256,7 @@ export default function ModernChatPage() {
 
             {/* Streaming demo */}
             {typingUsers.length > 0 && (
-              <StreamingAgentMessage 
-                agentName={typingUsers[0]} 
-                agentColor={COLORS.agents[typingUsers[0].toLowerCase() as keyof typeof COLORS.agents] || "#888"}
-              />
+              <StreamingAgentMessage agentName={typingUsers[0]} agentColor={activeAgent.color} />
             )}
           </div>
           <div ref={messagesEndRef} />
@@ -237,12 +264,18 @@ export default function ModernChatPage() {
 
         {/* Message Input */}
         <div className="p-4 border-t-2 border-[#333333] bg-[#111111]">
+          {relayError && (
+            <div className="mb-3 rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+              {relayError}
+            </div>
+          )}
           <div className="flex gap-3">
             <textarea
               value={messageInput}
               onChange={(e) => setMessageInput(e.target.value)}
-              placeholder={`Message ${activeChannel.name}...`}
-              className="flex-1 bg-[#1a1a1a] border-2 border-[#333333] rounded-xl px-4 py-3 text-[#f8fafc] text-sm resize-none focus:outline-none focus:border-[#555555] min-h-[44px]"
+              placeholder={`Message ${activeChannel.name} (${activeAgent.name})...`}
+              disabled={sending}
+              className="flex-1 bg-[#1a1a1a] border-2 border-[#333333] rounded-xl px-4 py-3 text-[#f8fafc] text-sm resize-none focus:outline-none focus:border-[#555555] min-h-[44px] disabled:opacity-50"
               rows={1}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -253,14 +286,14 @@ export default function ModernChatPage() {
             />
             <button
               onClick={handleSendMessage}
-              disabled={!messageInput.trim()}
+              disabled={!messageInput.trim() || sending}
               className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
-                messageInput.trim()
+                messageInput.trim() && !sending
                   ? "bg-gradient-to-r from-[#7c3aed] to-[#6b21a8] text-white hover:shadow-[0_0_20px_rgba(124,58,237,0.3)]"
                   : "bg-[#222222] text-[#666666] cursor-not-allowed"
               }`}
             >
-              Send
+              {sending ? "…" : "Send"}
             </button>
           </div>
 

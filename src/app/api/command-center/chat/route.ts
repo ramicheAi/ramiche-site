@@ -96,6 +96,10 @@ export async function POST(req: NextRequest) {
     let agentResponse: string | null = null;
     let responseSource: "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback" = "fallback";
 
+    const openclawStrict =
+      process.env.OPENCLAW_CHAT_STRICT === "1" ||
+      process.env.OPENCLAW_CHAT_STRICT === "true";
+
     // === OpenClaw Gateway (real agent sessions) — when token + URL allow sessions_send over HTTP ===
     if (isOpenClawGatewayConfigured()) {
       const sessionKey = resolveChatSessionKey(target);
@@ -104,6 +108,15 @@ export async function POST(req: NextRequest) {
       if (gw.ok) {
         agentResponse = gw.reply;
         responseSource = "openclaw";
+      } else if (openclawStrict) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: gw.error || "OpenClaw gateway did not return a reply",
+            source: "openclaw",
+          },
+          { status: 502 }
+        );
       }
     }
 
