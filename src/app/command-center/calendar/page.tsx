@@ -99,7 +99,25 @@ export default function CalendarPage() {
               <span style={{ marginLeft: 8 }}>{today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
             </p>
           </div>
-          <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <Link
+              href="/command-center/settings?tab=crons"
+              style={{
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "rgba(201,168,76,0.85)",
+                textDecoration: "none",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid rgba(201,168,76,0.25)",
+                background: "rgba(201,168,76,0.06)",
+              }}
+            >
+              Settings · Crons →
+            </Link>
+            <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4 }}>
             {(["week", "list"] as const).map((v) => (
               <button key={v} onClick={() => setView(v)} style={{
                 padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
@@ -111,6 +129,7 @@ export default function CalendarPage() {
                 {v === "week" ? "WEEK" : "LIST"}
               </button>
             ))}
+            </div>
           </div>
         </div>
       </div>
@@ -123,6 +142,9 @@ export default function CalendarPage() {
             <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F552;</div>
             <p style={{ color: "#525252", fontSize: 14 }}>No cron jobs found</p>
             <p style={{ color: "#404040", fontSize: 11 }}>Cron data will appear when jobs.json is populated</p>
+            <Link href="/command-center/settings?tab=crons" style={{ display: "inline-block", marginTop: 16, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(201,168,76,0.9)", textDecoration: "none" }}>
+              Open Crons in Settings →
+            </Link>
           </div>
         ) : view === "week" ? (
           <WeekView events={enabledEvents} todayDay={todayDay} />

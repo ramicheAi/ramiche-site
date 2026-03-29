@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
@@ -67,7 +68,8 @@ interface SystemVitals {
   uptime: string;
 }
 
-export default function SettingsPage() {
+function SettingsContent() {
+  const searchParams = useSearchParams();
   const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
@@ -79,6 +81,23 @@ export default function SettingsPage() {
   const [gatewayOutput, setGatewayOutput] = useState("");
   const [source, setSource] = useState<"live" | "static">("static");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  const [cronEvents, setCronEvents] = useState<
+    {
+      id: string;
+      time: string;
+      label: string;
+      agent: string;
+      enabled: boolean;
+      schedule: string;
+      frequency: string;
+      lastRun?: string | null;
+      lastResult?: string | null;
+    }[]
+  >([]);
+  const [cronLoading, setCronLoading] = useState(false);
+  const [cronSource, setCronSource] = useState<string>("");
+  const [cronStats, setCronStats] = useState({ total: 0, enabled: 0, disabled: 0 });
 
   const fetchData = useCallback(async () => {
     try {
@@ -100,6 +119,44 @@ export default function SettingsPage() {
     const interval = setInterval(fetchData, 15_000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "agents" || tab === "system" || tab === "crons") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (activeTab !== "crons") return;
+    let cancelled = false;
+    setCronLoading(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/command-center/calendar", { cache: "no-store" });
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        setCronEvents(Array.isArray(data.events) ? data.events : []);
+        setCronSource(typeof data.source === "string" ? data.source : "empty");
+        setCronStats({
+          total: typeof data.total === "number" ? data.total : 0,
+          enabled: typeof data.enabled === "number" ? data.enabled : 0,
+          disabled: typeof data.disabled === "number" ? data.disabled : 0,
+        });
+      } catch {
+        if (!cancelled) {
+          setCronEvents([]);
+          setCronSource("error");
+        }
+      } finally {
+        if (!cancelled) setCronLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab]);
 
   useEffect(() => {
     const es = new EventSource("/api/command-center/sse");
@@ -149,6 +206,25 @@ export default function SettingsPage() {
       });
       const data = await res.json();
       setGatewayOutput(data.output || data.error || "Done");
+      if (action === "reload-crons" && res.ok) {
+        try {
+          const cal = await fetch("/api/command-center/calendar", { cache: "no-store" });
+          if (cal.ok) {
+            const j = await cal.json();
+            if (Array.isArray(j.events)) {
+              setCronEvents(j.events);
+              setCronSource(typeof j.source === "string" ? j.source : "empty");
+              setCronStats({
+                total: typeof j.total === "number" ? j.total : 0,
+                enabled: typeof j.enabled === "number" ? j.enabled : 0,
+                disabled: typeof j.disabled === "number" ? j.disabled : 0,
+              });
+            }
+          }
+        } catch {
+          /* ignore refresh errors */
+        }
+      }
     } catch (err) {
       setGatewayOutput(`Error: ${err}`);
     }
@@ -158,7 +234,11 @@ export default function SettingsPage() {
   const tabs = [
     { id: "agents" as const, label: "AGENTS", count: agents.length },
     { id: "system" as const, label: "SYSTEM", count: null },
-    { id: "crons" as const, label: "CRONS", count: null },
+    {
+      id: "crons" as const,
+      label: "CRONS",
+      count: cronStats.total > 0 ? cronStats.total : null,
+    },
   ];
 
   return (
@@ -400,13 +480,148 @@ export default function SettingsPage() {
           </div>
         )}
 
-        {/* Crons Tab Placeholder */}
         {activeTab === "crons" && (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <p style={{ color: "#525252", fontSize: 13 }}>Cron management is available on the Calendar page.</p>
-            <Link href="/command-center/calendar" style={{ color: "#C9A84C", fontSize: 12, textDecoration: "none", marginTop: 8, display: "inline-block" }}>
-              Go to Calendar →
-            </Link>
+          <div style={{ maxWidth: 1100 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24 }}>
+              <div>
+                <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", margin: "0 0 8px", textTransform: "uppercase" }}>
+                  Cron jobs
+                </h2>
+                <p style={{ fontSize: 12, color: "#737373", margin: 0, maxWidth: 520 }}>
+                  Same data as Calendar — read from OpenClaw{" "}
+                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>~/.openclaw/cron/jobs.json</code> on the host that runs the gateway.
+                  On Vercel this list is empty until the bridge syncs or you open Settings from that machine.
+                </p>
+                <p style={{ fontSize: 11, color: "#525252", margin: "10px 0 0" }}>
+                  {cronLoading
+                    ? "Loading…"
+                    : cronSource === "live"
+                      ? `● ${cronStats.enabled} enabled · ${cronStats.disabled} disabled · ${cronStats.total} total`
+                      : cronSource === "empty"
+                        ? "No jobs.json on this host (or empty)."
+                        : cronSource === "error"
+                          ? "Could not load schedule."
+                          : ""}
+                </p>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                <Link
+                  href="/command-center/calendar"
+                  style={{
+                    padding: "10px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    background: "rgba(168,85,247,0.12)",
+                    border: "2px solid rgba(168,85,247,0.35)",
+                    borderRadius: 8,
+                    color: "#c4b5fd",
+                    textDecoration: "none",
+                  }}
+                >
+                  Open calendar →
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleGatewayAction("reload-crons")}
+                  disabled={gatewayAction === "reload-crons"}
+                  style={{
+                    padding: "10px 18px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.1em",
+                    background: "rgba(129,140,248,0.12)",
+                    border: "2px solid rgba(129,140,248,0.35)",
+                    borderRadius: 8,
+                    color: "#a5b4fc",
+                    cursor: gatewayAction === "reload-crons" ? "wait" : "pointer",
+                    opacity: gatewayAction === "reload-crons" ? 0.6 : 1,
+                  }}
+                >
+                  {gatewayAction === "reload-crons" ? "Reloading…" : "Reload crons (gateway)"}
+                </button>
+              </div>
+            </div>
+
+            {cronLoading ? (
+              <div style={{ padding: 48, textAlign: "center", color: "#525252", fontSize: 13 }}>Loading cron schedule…</div>
+            ) : cronEvents.length === 0 ? (
+              <div
+                style={{
+                  padding: 40,
+                  textAlign: "center",
+                  borderRadius: 12,
+                  border: "1px dashed rgba(255,255,255,0.1)",
+                  background: "rgba(0,0,0,0.4)",
+                }}
+              >
+                <p style={{ color: "#737373", fontSize: 14, margin: 0 }}>No cron jobs to show here.</p>
+                <p style={{ color: "#525252", fontSize: 12, margin: "10px 0 0" }}>
+                  Edit <code style={{ color: "#a3a3a3" }}>jobs.json</code> on the OpenClaw host or sync via your bridge.
+                </p>
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.5)" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
+                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Job</th>
+                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Agent</th>
+                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Time</th>
+                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Frequency</th>
+                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Status</th>
+                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Last run</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cronEvents.map((row) => (
+                      <tr key={row.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                        <td style={{ padding: "12px 14px", color: "#e5e5e5", fontWeight: 600, verticalAlign: "top" }}>{row.label}</td>
+                        <td style={{ padding: "12px 14px", color: "#a3a3a3", fontFamily: "monospace", verticalAlign: "top" }}>{row.agent}</td>
+                        <td style={{ padding: "12px 14px", color: "#a3a3a3", fontFamily: "monospace", verticalAlign: "top" }}>{row.time}</td>
+                        <td style={{ padding: "12px 14px", color: "#737373", verticalAlign: "top", maxWidth: 220 }}>{row.frequency}</td>
+                        <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
+                          <span
+                            style={{
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.06em",
+                              color: row.enabled ? "#22c55e" : "#f59e0b",
+                            }}
+                          >
+                            {row.enabled ? "ON" : "OFF"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "12px 14px", color: "#525252", fontSize: 11, fontFamily: "monospace", verticalAlign: "top" }}>
+                          {row.lastRun || "—"}
+                          {row.lastResult ? ` · ${row.lastResult}` : ""}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {gatewayOutput && activeTab === "crons" && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: 14,
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  fontFamily: "monospace",
+                  fontSize: 11,
+                  color: "#a3a3a3",
+                  whiteSpace: "pre-wrap",
+                  maxHeight: 160,
+                  overflow: "auto",
+                }}
+              >
+                {gatewayOutput}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -419,5 +634,30 @@ export default function SettingsPage() {
         select option { background: #111; color: #e5e5e5; }
       `}</style>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            background: "#000000",
+            color: "#737373",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            letterSpacing: "0.08em",
+          }}
+        >
+          Loading settings…
+        </div>
+      }
+    >
+      <SettingsContent />
+    </Suspense>
   );
 }

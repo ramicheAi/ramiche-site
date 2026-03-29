@@ -12,6 +12,10 @@ import {
   shortModelFromApi,
   type DashboardAgentDisplay,
 } from "./dashboard-agents";
+import { PROJECTS } from "./shared-projects";
+
+const TRACKED_PROJECTS = PROJECTS.length;
+const ACTIVE_PROJECTS = PROJECTS.filter((p) => p.status === "active").length;
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER v4 — HOLOGRAPHIC MISSION CONTROL
@@ -1536,7 +1540,7 @@ export default function CommandCenter() {
               { label: "TERMINAL", href: "/command-center/terminal", icon: ">_", accent: "#0f172a", desc: "Remote shell", sub: "Run commands on your Mac" },
               { label: "TASKS", href: "/command-center/tasks", icon: "\u2610", accent: "#8b5cf6", desc: "Kanban board", sub: "Backlog, in progress, review, done" },
               { label: "CALENDAR", href: "/command-center/calendar", icon: "\u2737", accent: "#06b6d4", desc: "Cron schedule", sub: "Agent schedules, events, reminders" },
-              { label: "PROJECTS", href: "/command-center/projects", icon: "\u25B6", accent: "#10b981", desc: "7 tracked", sub: "Progress, milestones, blockers" },
+              { label: "PROJECTS", href: "/command-center/projects", icon: "\u25B6", accent: "#10b981", desc: `${ACTIVE_PROJECTS} active \u00B7 ${TRACKED_PROJECTS} tracked`, sub: "Progress, milestones, blockers" },
               { label: "YOLO", href: "/command-center/yolo", icon: "\u26A1", accent: "#f59e0b", desc: "Overnight build gallery", sub: "Tiers, previews, nerve center" },
               { label: "FABRICATION", href: "/command-center/fabrication", icon: "\u2699", accent: "#14b8a6", desc: "NOVA · Bambu Lab", sub: "Printer status, print tools, queue" },
               { label: "APP BUILDER", href: "/command-center/app-builder", icon: "\u25B7", accent: "#8b5cf6", desc: "Expo · EAS · App Store path", sub: "Prerequisites, pipeline checklist" },
