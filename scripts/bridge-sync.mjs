@@ -8,7 +8,18 @@
 
 import { execSync, execFileSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
+
+/** Same rules as `src/lib/openclaw-paths.ts` — OPENCLAW_CRON_DIR, OPENCLAW_HOME/cron, or dirname(workspace)/cron. */
+function resolveOpenclawCronDir() {
+  const explicit = process.env.OPENCLAW_CRON_DIR?.trim();
+  if (explicit) return explicit;
+  const home = process.env.OPENCLAW_HOME?.trim();
+  if (home) return join(home, "cron");
+  const ws = process.env.OPENCLAW_WORKSPACE?.trim();
+  if (ws && /[/\\]workspace$/.test(ws)) return join(dirname(ws), "cron");
+  return join("/Users/admin/.openclaw", "cron");
+}
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
 const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
@@ -148,7 +159,7 @@ function getCronJobs() {
 
   // Fallback: read jobs.json directly if CLI returned nothing
   if (jobs.length === 0) {
-    const cronFile = join(process.env.HOME || "/Users/admin", ".openclaw/cron/jobs.json");
+    const cronFile = join(resolveOpenclawCronDir(), "jobs.json");
     if (existsSync(cronFile)) {
       try {
         const raw = JSON.parse(readFileSync(cronFile, "utf8"));
@@ -778,6 +789,7 @@ async function syncAll() {
 console.log("[bridge] Command Center Bridge Sync starting...");
 console.log(`[bridge] URL: ${BRIDGE_URL}`);
 console.log(`[bridge] Workspace: ${WORKSPACE}`);
+console.log(`[bridge] Cron dir (resolved): ${resolveOpenclawCronDir()}`);
 console.log(`[bridge] Interval: ${SYNC_INTERVAL / 1000}s`);
 
 // Initial sync

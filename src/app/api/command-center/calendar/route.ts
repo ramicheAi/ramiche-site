@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { fetchCommandCenterCronJobsFromFirestore } from "@/lib/firebase-admin";
+import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-const CRON_PATH = "/Users/admin/.openclaw/cron/jobs.json";
-const HISTORY_PATH = "/Users/admin/.openclaw/cron/history.json";
 
 interface RawCronJob {
   id?: string;
@@ -64,61 +63,109 @@ const AGENT_COLORS: Record<string, string> = {
   archivist: "#9ca3af",
 };
 
-export async function GET() {
-  try {
-    if (!existsSync(CRON_PATH)) {
-      return NextResponse.json({ events: [], source: "empty", error: "jobs.json not found" });
-    }
+function coerceJobs(raw: unknown): RawCronJob[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((j) => (typeof j === "object" && j !== null ? (j as RawCronJob) : {}));
+}
 
-    const raw = readFileSync(CRON_PATH, "utf-8");
-    const jobs: RawCronJob[] = JSON.parse(raw);
+function buildEvents(jobs: RawCronJob[], history: Record<string, unknown>[]) {
+  return jobs.map((job, i) => {
+    const parsed = parseCronSchedule(job.schedule || "");
+    const agentKey = (job.agent || "").toLowerCase().replace(/\s+/g, "-");
+    const accent = AGENT_COLORS[agentKey] || "#818cf8";
 
-    if (!Array.isArray(jobs)) {
-      return NextResponse.json({ events: [], source: "empty", error: "jobs.json not an array" });
-    }
+    const lastExec = history.filter((h: Record<string, unknown>) =>
+      (h.id === job.id || h.name === job.name)
+    ).pop();
 
-    let history: Record<string, unknown>[] = [];
-    if (existsSync(HISTORY_PATH)) {
-      try {
-        const histRaw = readFileSync(HISTORY_PATH, "utf-8");
-        const parsed = JSON.parse(histRaw);
-        history = Array.isArray(parsed) ? parsed : [];
-      } catch { /* ignore */ }
-    }
+    return {
+      id: job.id || String(i + 1),
+      time: parsed.time,
+      label: job.name || job.id || `Cron ${i + 1}`,
+      agent: job.agent || "System",
+      accent,
+      frequency: parsed.frequency,
+      days: parsed.days,
+      enabled: job.enabled !== false,
+      schedule: job.schedule || "",
+      description: job.description || job.prompt?.slice(0, 80) || "",
+      lastRun: (lastExec as Record<string, unknown>)?.time as string || job.lastRun || null,
+      lastResult: (lastExec as Record<string, unknown>)?.status as string || job.lastResult || null,
+    };
+  });
+}
 
-    const events = jobs.map((job, i) => {
-      const parsed = parseCronSchedule(job.schedule || "");
-      const agentKey = (job.agent || "").toLowerCase().replace(/\s+/g, "-");
-      const accent = AGENT_COLORS[agentKey] || "#818cf8";
+const emptyStats = { total: 0, enabled: 0, disabled: 0 };
 
-      const lastExec = history.filter((h: Record<string, unknown>) =>
-        (h.id === job.id || h.name === job.name)
-      ).pop();
-
-      return {
-        id: job.id || String(i + 1),
-        time: parsed.time,
-        label: job.name || job.id || `Cron ${i + 1}`,
-        agent: job.agent || "System",
-        accent,
-        frequency: parsed.frequency,
-        days: parsed.days,
-        enabled: job.enabled !== false,
-        schedule: job.schedule || "",
-        description: job.description || job.prompt?.slice(0, 80) || "",
-        lastRun: (lastExec as Record<string, unknown>)?.time as string || job.lastRun || null,
-        lastResult: (lastExec as Record<string, unknown>)?.status as string || job.lastResult || null,
-      };
-    });
-
-    return NextResponse.json({
+function respond(
+  events: ReturnType<typeof buildEvents>,
+  source: "live" | "firestore" | "empty" | "error",
+  paths: { cronDir: string; cronJobs: string; cronHistory: string },
+  extra?: { error?: string }
+) {
+  return NextResponse.json(
+    {
       events,
       total: events.length,
       enabled: events.filter(e => e.enabled).length,
       disabled: events.filter(e => !e.enabled).length,
-      source: "live",
+      source,
+      paths,
+      ...extra,
+    },
+    { headers: { "X-CC-Calendar-Source": source } }
+  );
+}
+
+export async function GET() {
+  const cronDir = resolveOpenclawCronDir();
+  const cronPath = join(cronDir, "jobs.json");
+  const historyPath = join(cronDir, "history.json");
+  const paths = { cronDir, cronJobs: cronPath, cronHistory: historyPath };
+
+  try {
+    if (existsSync(cronPath)) {
+      const raw = readFileSync(cronPath, "utf-8");
+      const parsed = JSON.parse(raw) as unknown;
+      const jobs = coerceJobs(parsed);
+      if (jobs.length === 0 && !Array.isArray(parsed)) {
+        return respond([], "empty", paths, { error: "jobs.json not an array" });
+      }
+
+      let history: Record<string, unknown>[] = [];
+      if (existsSync(historyPath)) {
+        try {
+          const histRaw = readFileSync(historyPath, "utf-8");
+          const h = JSON.parse(histRaw) as unknown;
+          history = Array.isArray(h) ? (h as Record<string, unknown>[]) : [];
+        } catch { /* ignore */ }
+      }
+
+      const events = buildEvents(jobs, history);
+      return respond(events, "live", paths);
+    }
+
+    const fs = await fetchCommandCenterCronJobsFromFirestore();
+    if (fs && fs.jobs.length > 0) {
+      const jobs = coerceJobs(fs.jobs);
+      const events = buildEvents(jobs, fs.history);
+      return respond(events, "firestore", paths);
+    }
+
+    return respond([], "empty", paths, {
+      error:
+        "jobs.json not on host; sync via POST /api/command-center/firestore-sync or set OPENCLAW_CRON_DIR / OPENCLAW_HOME",
     });
   } catch (e) {
-    return NextResponse.json({ events: [], error: String(e), source: "error" }, { status: 500 });
+    return NextResponse.json(
+      {
+        events: [],
+        error: String(e),
+        source: "error",
+        paths,
+        ...emptyStats,
+      },
+      { status: 500, headers: { "X-CC-Calendar-Source": "error" } }
+    );
   }
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
@@ -70,6 +70,8 @@ interface SystemVitals {
 
 function SettingsContent() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
   const [agents, setAgents] = useState<AgentConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastSync, setLastSync] = useState("");
@@ -98,6 +100,7 @@ function SettingsContent() {
   const [cronLoading, setCronLoading] = useState(false);
   const [cronSource, setCronSource] = useState<string>("");
   const [cronStats, setCronStats] = useState({ total: 0, enabled: 0, disabled: 0 });
+  const [syncPaths, setSyncPaths] = useState<Record<string, string> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -127,15 +130,49 @@ function SettingsContent() {
     }
   }, [searchParams]);
 
+  const selectTab = useCallback(
+    (id: "agents" | "system" | "crons") => {
+      setActiveTab(id);
+      router.replace(`${pathname}?tab=${id}`, { scroll: false });
+    },
+    [pathname, router]
+  );
+
   useEffect(() => {
     if (activeTab !== "crons") return;
     let cancelled = false;
     setCronLoading(true);
     void (async () => {
       try {
-        const res = await fetch("/api/command-center/calendar", { cache: "no-store" });
-        if (!res.ok || cancelled) return;
-        const data = await res.json();
+        const [calRes, fsRes] = await Promise.all([
+          fetch("/api/command-center/calendar", { cache: "no-store" }),
+          fetch("/api/command-center/firestore-sync", { cache: "no-store" }),
+        ]);
+        if (cancelled) return;
+
+        if (fsRes.ok) {
+          try {
+            const fsData = (await fsRes.json()) as { paths?: Record<string, string> };
+            const p = fsData.paths;
+            if (p && typeof p === "object" && !cancelled) {
+              setSyncPaths(p);
+            } else if (!cancelled) setSyncPaths(null);
+          } catch {
+            if (!cancelled) setSyncPaths(null);
+          }
+        } else if (!cancelled) {
+          setSyncPaths(null);
+        }
+
+        if (!calRes.ok || cancelled) {
+          if (!cancelled) {
+            setCronEvents([]);
+            setCronSource("error");
+            setCronStats({ total: 0, enabled: 0, disabled: 0 });
+          }
+          return;
+        }
+        const data = await calRes.json();
         if (cancelled) return;
         setCronEvents(Array.isArray(data.events) ? data.events : []);
         setCronSource(typeof data.source === "string" ? data.source : "empty");
@@ -148,6 +185,7 @@ function SettingsContent() {
         if (!cancelled) {
           setCronEvents([]);
           setCronSource("error");
+          setSyncPaths(null);
         }
       } finally {
         if (!cancelled) setCronLoading(false);
@@ -275,7 +313,7 @@ function SettingsContent() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4, width: "fit-content" }}>
           {tabs.map((tab) => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            <button key={tab.id} type="button" onClick={() => selectTab(tab.id)} style={{
               padding: "10px 20px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
               border: activeTab === tab.id ? "2px solid rgba(201,168,76,0.3)" : "2px solid transparent",
               background: activeTab === tab.id ? "rgba(201,168,76,0.12)" : "transparent",
@@ -487,22 +525,50 @@ function SettingsContent() {
                 <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", margin: "0 0 8px", textTransform: "uppercase" }}>
                   Cron jobs
                 </h2>
-                <p style={{ fontSize: 12, color: "#737373", margin: 0, maxWidth: 520 }}>
-                  Same data as Calendar — read from OpenClaw{" "}
-                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>~/.openclaw/cron/jobs.json</code> on the host that runs the gateway.
-                  On Vercel this list is empty until the bridge syncs or you open Settings from that machine.
+                <p style={{ fontSize: 12, color: "#737373", margin: 0, maxWidth: 560 }}>
+                  Same data as Calendar — local <code style={{ color: "#a3a3a3", fontSize: 11 }}>jobs.json</code> under the resolved cron directory (default{" "}
+                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>~/.openclaw/cron</code>; override with{" "}
+                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>OPENCLAW_CRON_DIR</code> or{" "}
+                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>OPENCLAW_HOME</code>) when this server can read the OpenClaw host; otherwise{" "}
+                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>POST /api/command-center/firestore-sync</code> pushes jobs to Firestore for Vercel.
                 </p>
                 <p style={{ fontSize: 11, color: "#525252", margin: "10px 0 0" }}>
                   {cronLoading
                     ? "Loading…"
-                    : cronSource === "live"
-                      ? `● ${cronStats.enabled} enabled · ${cronStats.disabled} disabled · ${cronStats.total} total`
+                    : cronSource === "live" || cronSource === "firestore"
+                      ? `● ${cronStats.enabled} enabled · ${cronStats.disabled} disabled · ${cronStats.total} total${cronSource === "firestore" ? " (Firestore)" : ""}`
                       : cronSource === "empty"
                         ? "No jobs.json on this host (or empty)."
                         : cronSource === "error"
                           ? "Could not load schedule."
                           : ""}
                 </p>
+                {syncPaths && !cronLoading && (
+                  <div
+                    style={{
+                      marginTop: 14,
+                      padding: "12px 14px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      fontSize: 10,
+                      color: "#737373",
+                      fontFamily: "ui-monospace, monospace",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <span style={{ color: "#525252", display: "block", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                      Sync paths (this server)
+                    </span>
+                    {Object.entries(syncPaths).map(([k, v]) => (
+                      <div key={k}>
+                        <span style={{ color: "#a3a3a3" }}>{k}</span>
+                        {": "}
+                        <span style={{ color: "#d4d4d4", wordBreak: "break-all" }}>{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                 <Link

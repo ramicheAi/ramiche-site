@@ -49,6 +49,11 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState<string>("loading");
   const [stats, setStats] = useState({ total: 0, enabled: 0, disabled: 0 });
+  const [cronPaths, setCronPaths] = useState<{
+    cronDir: string;
+    cronJobs: string;
+    cronHistory: string;
+  } | null>(null);
   const today = new Date();
   const todayDay = DAYS[(today.getDay() + 6) % 7];
 
@@ -59,6 +64,7 @@ export default function CalendarPage() {
         setEvents([]);
         setSource("error");
         setStats({ total: 0, enabled: 0, disabled: 0 });
+        setCronPaths(null);
         return;
       }
       const data = await res.json();
@@ -69,10 +75,28 @@ export default function CalendarPage() {
         enabled: typeof data.enabled === "number" ? data.enabled : 0,
         disabled: typeof data.disabled === "number" ? data.disabled : 0,
       });
+      const p = data.paths;
+      if (
+        p &&
+        typeof p === "object" &&
+        typeof (p as { cronJobs?: unknown }).cronJobs === "string"
+      ) {
+        setCronPaths({
+          cronDir: typeof (p as { cronDir?: string }).cronDir === "string" ? (p as { cronDir: string }).cronDir : "",
+          cronJobs: (p as { cronJobs: string }).cronJobs,
+          cronHistory:
+            typeof (p as { cronHistory?: string }).cronHistory === "string"
+              ? (p as { cronHistory: string }).cronHistory
+              : "",
+        });
+      } else {
+        setCronPaths(null);
+      }
     } catch {
       setEvents([]);
       setSource("error");
       setStats({ total: 0, enabled: 0, disabled: 0 });
+      setCronPaths(null);
     } finally {
       setLoading(false);
     }
@@ -158,9 +182,48 @@ export default function CalendarPage() {
             <p style={{ color: "#404040", fontSize: 11, maxWidth: 440, margin: "10px auto 0", lineHeight: 1.55 }}>
               {source === "error" && "The calendar API did not return data. Check deployment logs."}
               {source === "empty" &&
-                "No jobs.json on this host and no Firestore snapshot. Sync with POST /api/command-center/firestore-sync from your Mac, or set OPENCLAW_WORKSPACE."}
+                "No jobs.json on this host and no Firestore snapshot. Sync with POST /api/command-center/firestore-sync from your Mac, or set OPENCLAW_CRON_DIR / OPENCLAW_HOME."}
               {source === "live" && "jobs.json exists but the list is empty."}
             </p>
+            {cronPaths && (source === "empty" || source === "live") && (
+              <div
+                style={{
+                  marginTop: 16,
+                  padding: "12px 14px",
+                  borderRadius: 8,
+                  maxWidth: 520,
+                  marginLeft: "auto",
+                  marginRight: "auto",
+                  textAlign: "left",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  fontSize: 10,
+                  color: "#737373",
+                  fontFamily: "ui-monospace, monospace",
+                  lineHeight: 1.55,
+                }}
+              >
+                <span style={{ color: "#525252", display: "block", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Resolved on this server
+                </span>
+                {cronPaths.cronDir ? (
+                  <div>
+                    <span style={{ color: "#a3a3a3" }}>cronDir</span>
+                    <span style={{ color: "#d4d4d4" }}>: {cronPaths.cronDir}</span>
+                  </div>
+                ) : null}
+                <div>
+                  <span style={{ color: "#a3a3a3" }}>cronJobs</span>
+                  <span style={{ color: "#d4d4d4", wordBreak: "break-all" }}>: {cronPaths.cronJobs}</span>
+                </div>
+                {cronPaths.cronHistory ? (
+                  <div>
+                    <span style={{ color: "#a3a3a3" }}>cronHistory</span>
+                    <span style={{ color: "#d4d4d4", wordBreak: "break-all" }}>: {cronPaths.cronHistory}</span>
+                  </div>
+                ) : null}
+              </div>
+            )}
             <Link href="/command-center/settings?tab=crons" style={{ display: "inline-block", marginTop: 16, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(201,168,76,0.9)", textDecoration: "none" }}>
               Open Crons in Settings →
             </Link>

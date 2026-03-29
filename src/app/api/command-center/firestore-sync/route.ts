@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { readFileSync, existsSync, readdirSync, statSync } from "fs";
 import { join } from "path";
+import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore, FieldValue } from "firebase-admin/firestore";
 
@@ -16,7 +17,7 @@ export const runtime = "nodejs";
 /* ── Paths ─────────────────────────────────────────────────────────── */
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
-const CRON_DIR = "/Users/admin/.openclaw/cron";
+const CRON_DIR = resolveOpenclawCronDir();
 const DIRECTORY_PATH = join(WS, "agents", "directory.json");
 const CRON_JOBS_PATH = join(CRON_DIR, "jobs.json");
 const CRON_HISTORY_PATH = join(CRON_DIR, "history.json");
@@ -383,7 +384,19 @@ export async function GET() {
       }
     }
 
-    return NextResponse.json({ status, ok: true });
+    return NextResponse.json({
+      ok: true,
+      status,
+      /** Resolved paths on this host (sync reads these). PIN-gated UI only. */
+      paths: {
+        workspace: WS,
+        cronDir: CRON_DIR,
+        cronJobs: CRON_JOBS_PATH,
+        cronHistory: CRON_HISTORY_PATH,
+        agentsDirectory: DIRECTORY_PATH,
+        yoloBuilds: YOLO_DIR,
+      },
+    });
   } catch (e) {
     return NextResponse.json({ error: String(e), ok: false }, { status: 500 });
   }

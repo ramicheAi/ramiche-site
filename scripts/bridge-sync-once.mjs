@@ -4,7 +4,17 @@
 
 import { execSync, execFileSync } from "child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
+
+function resolveOpenclawCronDir() {
+  const explicit = process.env.OPENCLAW_CRON_DIR?.trim();
+  if (explicit) return explicit;
+  const home = process.env.OPENCLAW_HOME?.trim();
+  if (home) return join(home, "cron");
+  const ws = process.env.OPENCLAW_WORKSPACE?.trim();
+  if (ws && /[/\\]workspace$/.test(ws)) return join(dirname(ws), "cron");
+  return join("/Users/admin/.openclaw", "cron");
+}
 
 const BRIDGE_URL = process.env.BRIDGE_URL || "https://ramiche-site.vercel.app/api/bridge";
 const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET || "";
@@ -96,7 +106,7 @@ function getCronJobs() {
     if (jsonStart !== -1) { const parsed = JSON.parse(cronOutput.slice(jsonStart)); jobs = parsed.jobs || (Array.isArray(parsed) ? parsed : []); }
   } catch {}
   if (jobs.length === 0) {
-    const cronFile = join(process.env.HOME || "/Users/admin", ".openclaw/cron/jobs.json");
+    const cronFile = join(resolveOpenclawCronDir(), "jobs.json");
     if (existsSync(cronFile)) { try { const raw = JSON.parse(readFileSync(cronFile, "utf8")); jobs = raw.jobs || (Array.isArray(raw) ? raw : []); } catch {} }
   }
   return jobs.map(j => ({ id: j.id, name: j.name, enabled: j.enabled, agent: j.agentId || "atlas", schedule: j.schedule?.expr || (j.schedule?.everyMs ? `every ${Math.round(j.schedule.everyMs / 60000)}m` : ""), lastRun: j.state?.lastRunStatus || "unknown", nextRun: j.state?.nextRunAtMs ? new Date(j.state.nextRunAtMs).toISOString() : "" }));
@@ -265,6 +275,7 @@ function getAllAgentActivity() {
 // ── Run once ──
 const timestamp = new Date().toISOString();
 console.log(`[bridge] one-shot sync at ${timestamp}`);
+console.log(`[bridge] Cron dir (resolved): ${resolveOpenclawCronDir()}`);
 
 const agents = getAgentStatus();
 const crons = getCronJobs();
