@@ -131,6 +131,14 @@ export default function AppBuilderPage() {
           <p style={{ fontSize: 13, color: "#737373", margin: 0, lineHeight: 1.6 }}>
             Describe → Preview → Ship • Expo + EAS + Apple Developer
           </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14 }}>
+            <Link href="/command-center/fabrication" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#14b8a6", textDecoration: "none", opacity: 0.9 }}>
+              NOVA Fabrication →
+            </Link>
+            <Link href="/command-center/yolo" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#f59e0b", textDecoration: "none", opacity: 0.9 }}>
+              YOLO builds →
+            </Link>
+          </div>
         </div>
 
         {/* Info Banner */}

@@ -271,6 +271,17 @@ export default function FabricationPage() {
           <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
             Bambu Lab production pipeline {printQueue.length > 0 ? `• ${printQueue.filter(p => p.status === "printing").length} printing • ${printQueue.filter(p => p.status === "queued").length} queued` : "• No active jobs"}
           </p>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 14 }}>
+            <Link href="/command-center/yolo" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#f59e0b", textDecoration: "none", opacity: 0.9 }}>
+              YOLO builds →
+            </Link>
+            <Link href="/command-center/app-builder" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#a78bfa", textDecoration: "none", opacity: 0.9 }}>
+              App Builder →
+            </Link>
+            <Link href="/command-center/studio" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "#14b8a6", textDecoration: "none", opacity: 0.9 }}>
+              Studio →
+            </Link>
+          </div>
         </div>
 
         {/* NOVA Agent Status Card */}
