@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  gatewaySessionsSend,
+  isOpenClawGatewayConfigured,
+  resolveChatSessionKey,
+} from "@/lib/openclaw-gateway";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -89,6 +94,18 @@ export async function POST(req: NextRequest) {
     const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
 
     let agentResponse: string | null = null;
+    let responseSource: "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback" = "fallback";
+
+    // === OpenClaw Gateway (real agent sessions) — when token + URL allow sessions_send over HTTP ===
+    if (isOpenClawGatewayConfigured()) {
+      const sessionKey = resolveChatSessionKey(target);
+      const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${message}`;
+      const gw = await gatewaySessionsSend(sessionKey, routed, 90);
+      if (gw.ok) {
+        agentResponse = gw.reply;
+        responseSource = "openclaw";
+      }
+    }
 
     // === Provider 1: Gemini Direct (FREE — uses Google API key) ===
     const geminiKey = process.env.GEMINI_API_KEY;
@@ -107,6 +124,7 @@ export async function POST(req: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           agentResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+          if (agentResponse) responseSource = "gemini";
         } else {
           console.error(`Gemini direct failed: ${res.status}`);
         }
@@ -139,6 +157,7 @@ export async function POST(req: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           agentResponse = data.choices?.[0]?.message?.content || null;
+          if (agentResponse) responseSource = "deepseek";
         } else {
           console.error(`DeepSeek direct failed: ${res.status}`);
         }
@@ -173,6 +192,7 @@ export async function POST(req: NextRequest) {
         if (res.ok) {
           const data = await res.json();
           agentResponse = data.choices?.[0]?.message?.content || null;
+          if (agentResponse) responseSource = "openrouter";
         } else {
           console.error(`OpenRouter fallback failed: ${res.status}`);
         }
@@ -200,7 +220,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ ok: true, response: agentResponse, agent: target });
+    return NextResponse.json({
+      ok: true,
+      response: agentResponse,
+      agent: target,
+      source: responseSource,
+    });
   } catch (e) {
     console.error("Chat API error:", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

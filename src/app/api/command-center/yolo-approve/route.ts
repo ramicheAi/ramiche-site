@@ -2,12 +2,20 @@ import { NextResponse } from "next/server";
 import { readFile, writeFile, appendFile } from "fs/promises";
 import { join } from "path";
 import { existsSync, mkdirSync } from "fs";
+import { gatewaySessionsSpawn, isOpenClawGatewayConfigured } from "@/lib/openclaw-gateway";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-const BUILDS_DIR = join(process.cwd(), "public/yolo-builds");
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
+const BUILDS_DIR_WS = join(WS, "yolo-builds");
+const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
 const MEMORY_DIR = join(WS, "memory");
+
+function tierOutputDir(): string {
+  if (existsSync(BUILDS_DIR_WS)) return BUILDS_DIR_WS;
+  return BUILDS_DIR_PUBLIC;
+}
 
 const TIER_CONFIG = {
   internal: { file: "approved-internal.json", status: "queued_for_deploy" },
@@ -84,7 +92,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const filePath = join(BUILDS_DIR, config.file);
+    const outDir = tierOutputDir();
+    if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true });
+    const filePath = join(outDir, config.file);
     const entries = await loadEntries(filePath);
 
     entries.push({
@@ -100,10 +110,29 @@ export async function POST(request: Request) {
     const approveEntry = `## [${new Date().toLocaleTimeString()}] YOLO Approved — ${name}\n- **Build:** ${folder}\n- **Agent:** ${agent}\n- **Tier:** ${tier} (${config.status.replaceAll("_", " ")})\n- **Decision by:** Ramon\n- **Timestamp:** ${timestamp}\n`;
     await logToMemory(approveEntry);
 
+    let gateway: { ok: boolean; detail?: string } = { ok: false };
+    if (isOpenClawGatewayConfigured()) {
+      const task = [
+        `YOLO build promoted: ${name} (${folder})`,
+        `Tier: ${tier} → ${config.status}`,
+        `Assigned agent: ${agent}`,
+        `Source path: yolo-builds/${folder}`,
+        `Next: implement deployment / integration per tier playbook.`,
+      ].join("\n");
+      const spawn = await gatewaySessionsSpawn({
+        task,
+        label: `yolo-${folder.slice(0, 24)}`,
+      });
+      gateway = spawn.ok
+        ? { ok: true, detail: "sessions_spawn accepted" }
+        : { ok: false, detail: spawn.error };
+    }
+
     return NextResponse.json({
       success: true,
       tier,
       action: `${name} approved for ${tier} — ${config.status.replaceAll("_", " ")}`,
+      gateway,
     });
   } catch {
     return NextResponse.json(

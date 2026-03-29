@@ -43,6 +43,9 @@ function slugToName(folder: string): string {
   return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 }
 
+/** Maps UI tier buttons → yolo-approve API tier keys */
+const TIER_TO_API = { 1: "internal", 2: "integrate", 3: "product" } as const;
+
 const STATUS_STYLES: Record<string, { label: string; color: string; bg: string }> = {
   working:  { label: "Working",  color: "#22c55e", bg: "rgba(34,197,94,0.15)" },
   partial:  { label: "Partial",  color: "#f59e0b", bg: "rgba(245,158,11,0.15)" },
@@ -136,6 +139,7 @@ export default function YoloBuildsPage() {
   }, [toast]);
 
   const setReview = async (folder: string, status: ReviewStatus) => {
+    const build = builds.find((b) => b.folder === folder);
     if (db && hasConfig) {
       try {
         const docRef = doc(db, "yolo_builds", folder);
@@ -145,16 +149,29 @@ export default function YoloBuildsPage() {
     setBuilds((prev) =>
       prev.map((b) => (b.folder === folder ? { ...b, reviewStatus: status } : b)),
     );
+    if (status === "rejected" && build) {
+      void fetch("/api/command-center/yolo-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folder,
+          name: build.name,
+          agent: build.agent,
+          action: "reject",
+        }),
+      });
+    }
     if (status === "approved") {
       setToast({ message: "Build approved — select a tier to promote", color: "#22c55e" });
     } else if (status === "rejected") {
-      setToast({ message: "Build rejected", color: "#ef4444" });
+      setToast({ message: "Build rejected — logged to workspace memory", color: "#ef4444" });
     } else {
       setToast({ message: "Review reset", color: "#a3a3a3" });
     }
   };
 
   const setTier = async (folder: string, tier: 1 | 2 | 3) => {
+    const build = builds.find((b) => b.folder === folder);
     if (db && hasConfig) {
       try {
         const docRef = doc(db, "yolo_builds", folder);
@@ -166,6 +183,19 @@ export default function YoloBuildsPage() {
     );
     const t = TIER_CONFIG[tier];
     setToast({ message: `${t.icon} Promoted to ${t.label}`, color: t.color });
+    if (build) {
+      void fetch("/api/command-center/yolo-approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          folder,
+          name: build.name,
+          agent: build.agent,
+          action: "approve",
+          tier: TIER_TO_API[tier],
+        }),
+      });
+    }
   };
 
   const filtered = filter === "all"

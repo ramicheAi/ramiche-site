@@ -78,6 +78,7 @@ export default function SettingsPage() {
   const [gatewayAction, setGatewayAction] = useState<string | null>(null);
   const [gatewayOutput, setGatewayOutput] = useState("");
   const [source, setSource] = useState<"live" | "static">("static");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -118,6 +119,7 @@ export default function SettingsPage() {
   }, []);
 
   const handleSaveModel = async (agentId: string, newModel: string) => {
+    setSaveError(null);
     try {
       const res = await fetch("/api/command-center/agents", {
         method: "POST",
@@ -127,8 +129,13 @@ export default function SettingsPage() {
       if (res.ok) {
         setAgents(prev => prev.map(a => a.id === agentId ? { ...a, model: newModel } : a));
         setEditingAgent(null);
+      } else {
+        const data = (await res.json().catch(() => ({}))) as { error?: string; detail?: string };
+        setSaveError(data.detail || data.error || `Save failed (${res.status})`);
       }
-    } catch { /* show error toast in future */ }
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : "Network error");
+    }
   };
 
   const handleGatewayAction = async (action: string) => {
@@ -204,6 +211,11 @@ export default function SettingsPage() {
         {/* Agents Grid */}
         {activeTab === "agents" && (
           <div>
+            {saveError && (
+              <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.35)", color: "#fca5a5", fontSize: 13 }}>
+                {saveError}
+              </div>
+            )}
             {loading ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
