@@ -4,16 +4,16 @@ import { useState, useCallback } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
 
 const CORRECT_PIN = '2451';
+/** Session-only: PIN required each new browser session (tab closes = lock again). */
 const STORAGE_KEY = 'cc-pin-auth';
-const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
 function getStoredAuth(): boolean {
   if (typeof window === 'undefined') return false;
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = sessionStorage.getItem(STORAGE_KEY);
     if (!stored) return false;
-    const { ts } = JSON.parse(stored);
-    return Date.now() - ts < THIRTY_DAYS;
+    const { ok } = JSON.parse(stored) as { ok?: boolean };
+    return ok === true;
   } catch {
     return false;
   }
@@ -27,7 +27,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
     if (digit === 'clear') { setPin(''); setError(false); return; }
     if (digit === 'enter') {
       if (pin === CORRECT_PIN) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ts: Date.now() }));
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ok: true, ts: Date.now() }));
         onUnlock();
       } else {
         setError(true);
@@ -36,7 +36,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
       }
       return;
     }
-    if (pin.length < 6) setPin(prev => prev + digit);
+    if (pin.length < CORRECT_PIN.length) setPin(prev => prev + digit);
   }, [pin, onUnlock]);
 
   return (
