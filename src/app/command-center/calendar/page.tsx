@@ -55,18 +55,27 @@ export default function CalendarPage() {
   const fetchCrons = useCallback(async () => {
     try {
       const res = await fetch("/api/command-center/calendar", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.events?.length > 0) {
-          setEvents(data.events);
-          setSource(data.source || "live");
-          setStats({ total: data.total || 0, enabled: data.enabled || 0, disabled: data.disabled || 0 });
-        } else {
-          setSource("empty");
-        }
+      if (!res.ok) {
+        setEvents([]);
+        setSource("error");
+        setStats({ total: 0, enabled: 0, disabled: 0 });
+        return;
       }
-    } catch { setSource("error"); }
-    finally { setLoading(false); }
+      const data = await res.json();
+      setEvents(Array.isArray(data.events) ? data.events : []);
+      setSource(typeof data.source === "string" ? data.source : "empty");
+      setStats({
+        total: typeof data.total === "number" ? data.total : 0,
+        enabled: typeof data.enabled === "number" ? data.enabled : 0,
+        disabled: typeof data.disabled === "number" ? data.disabled : 0,
+      });
+    } catch {
+      setEvents([]);
+      setSource("error");
+      setStats({ total: 0, enabled: 0, disabled: 0 });
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -94,8 +103,13 @@ export default function CalendarPage() {
             </h1>
             <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
               {loading ? "Loading cron data..." : `${stats.enabled} active · ${stats.disabled} disabled · ${stats.total} total`}
-              {source === "live" && <span style={{ marginLeft: 8, color: "rgba(34,197,94,0.6)" }}>● LIVE</span>}
+              {(source === "live" || source === "firestore") && (
+                <span style={{ marginLeft: 8, color: "rgba(34,197,94,0.6)" }}>
+                  ● {source === "firestore" ? "FIRESTORE" : "LIVE"}
+                </span>
+              )}
               {source === "empty" && <span style={{ marginLeft: 8, color: "#f59e0b" }}>No cron data found</span>}
+              {source === "error" && <span style={{ marginLeft: 8, color: "#f87171" }}>Load failed</span>}
               <span style={{ marginLeft: 8 }}>{today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
             </p>
           </div>
@@ -119,7 +133,7 @@ export default function CalendarPage() {
             </Link>
             <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4 }}>
             {(["week", "list"] as const).map((v) => (
-              <button key={v} onClick={() => setView(v)} style={{
+              <button key={v} type="button" onClick={() => setView(v)} style={{
                 padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
                 border: view === v ? "2px solid rgba(168,85,247,0.3)" : "2px solid transparent",
                 background: view === v ? "rgba(168,85,247,0.12)" : "transparent",
@@ -141,7 +155,12 @@ export default function CalendarPage() {
           <div style={{ padding: 60, textAlign: "center" }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>&#x1F552;</div>
             <p style={{ color: "#525252", fontSize: 14 }}>No cron jobs found</p>
-            <p style={{ color: "#404040", fontSize: 11 }}>Cron data will appear when jobs.json is populated</p>
+            <p style={{ color: "#404040", fontSize: 11, maxWidth: 440, margin: "10px auto 0", lineHeight: 1.55 }}>
+              {source === "error" && "The calendar API did not return data. Check deployment logs."}
+              {source === "empty" &&
+                "No jobs.json on this host and no Firestore snapshot. Sync with POST /api/command-center/firestore-sync from your Mac, or set OPENCLAW_WORKSPACE."}
+              {source === "live" && "jobs.json exists but the list is empty."}
+            </p>
             <Link href="/command-center/settings?tab=crons" style={{ display: "inline-block", marginTop: 16, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "rgba(201,168,76,0.9)", textDecoration: "none" }}>
               Open Crons in Settings →
             </Link>
