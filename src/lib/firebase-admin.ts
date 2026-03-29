@@ -131,3 +131,28 @@ export async function revokeSession(uid: string): Promise<boolean> {
     return false;
   }
 }
+
+/** YOLO builds manifest synced by POST /api/command-center/firestore-sync (local → Firestore). */
+export async function fetchCommandCenterYoloManifest(): Promise<{
+  builds: Record<string, unknown>[];
+  buildCount: number;
+} | null> {
+  getAdminApp();
+  if (!adminDb) return null;
+  try {
+    const snap = await adminDb
+      .collection("command-center")
+      .doc("yolo-builds")
+      .collection("manifest")
+      .doc("latest")
+      .get();
+    if (!snap.exists) return null;
+    const data = snap.data();
+    const builds = data?.builds;
+    if (!Array.isArray(builds)) return null;
+    return { builds: builds as Record<string, unknown>[], buildCount: Number(data?.buildCount ?? builds.length) };
+  } catch (e) {
+    console.warn("[Firebase Admin] yolo manifest read failed:", e);
+    return null;
+  }
+}

@@ -1,42 +1,74 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
 
-const CORRECT_PIN = '2451';
-/** Session-only: PIN required each new browser session (tab closes = lock again). */
+const MAX_PIN_DIGITS = 12;
+/** Session + idle; PIN verified via /api/command-center/auth/pin (CC_PIN_HASH / CC_PIN in env). */
 const STORAGE_KEY = 'cc-pin-auth';
+const IDLE_MS = 2 * 60 * 60 * 1000;
 
 function getStoredAuth(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     const stored = sessionStorage.getItem(STORAGE_KEY);
     if (!stored) return false;
-    const { ok } = JSON.parse(stored) as { ok?: boolean };
-    return ok === true;
+    const { ok, lastActivity } = JSON.parse(stored) as { ok?: boolean; lastActivity?: number };
+    if (ok !== true) return false;
+    if (typeof lastActivity === 'number' && Date.now() - lastActivity > IDLE_MS) {
+      sessionStorage.removeItem(STORAGE_KEY);
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
 }
 
+function touchSession(): void {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const j = JSON.parse(raw) as { ok?: boolean; ts?: number; lastActivity?: number };
+    j.lastActivity = Date.now();
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(j));
+  } catch { /* ignore */ }
+}
+
 function PinGate({ onUnlock }: { onUnlock: () => void }) {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   const handleKey = useCallback((digit: string) => {
     if (digit === 'clear') { setPin(''); setError(false); return; }
     if (digit === 'enter') {
-      if (pin === CORRECT_PIN) {
-        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ok: true, ts: Date.now() }));
-        onUnlock();
-      } else {
-        setError(true);
-        setPin('');
-        setTimeout(() => setError(false), 600);
-      }
+      if (pin.length < 1) return;
+      setVerifying(true);
+      void fetch('/api/command-center/auth/pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin }),
+      })
+        .then((res) => {
+          if (res.ok) {
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ok: true, ts: Date.now(), lastActivity: Date.now() }));
+            onUnlock();
+          } else {
+            setError(true);
+            setPin('');
+            setTimeout(() => setError(false), 600);
+          }
+        })
+        .catch(() => {
+          setError(true);
+          setPin('');
+          setTimeout(() => setError(false), 600);
+        })
+        .finally(() => setVerifying(false));
       return;
     }
-    if (pin.length < CORRECT_PIN.length) setPin(prev => prev + digit);
+    if (pin.length < MAX_PIN_DIGITS) setPin(prev => prev + digit);
   }, [pin, onUnlock]);
 
   return (
@@ -51,7 +83,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
         display: 'flex', gap: 12, marginBottom: 24,
         animation: error ? 'shake 0.4s ease-in-out' : 'none',
       }}>
-        {[0,1,2,3].map(i => (
+        {[0, 1, 2, 3].map((i) => (
           <div key={i} style={{
             width: 20, height: 20, borderRadius: '50%',
             border: '2px solid #7c3aed',
@@ -66,7 +98,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
             fontSize: k.length > 1 ? 12 : 22, fontWeight: 600, fontFamily: 'monospace',
             background: k === 'enter' ? '#7c3aed' : k === 'clear' ? '#1a1a2e' : '#1a1a2e',
             color: k === 'enter' ? '#fff' : k === 'clear' ? '#666' : '#fff',
-          }}>{k === 'clear' ? 'CLR' : k === 'enter' ? 'GO' : k}</button>
+          }}>{k === 'clear' ? 'CLR' : k === 'enter' ? (verifying ? '…' : 'GO') : k}</button>
         ))}
       </div>
       <style>{`
@@ -86,6 +118,29 @@ export default function CommandCenterLayout({
   children: React.ReactNode;
 }) {
   const [authed, setAuthed] = useState(getStoredAuth);
+
+  useEffect(() => {
+    if (!authed) return;
+    const onAct = () => touchSession();
+    window.addEventListener('keydown', onAct);
+    window.addEventListener('click', onAct);
+    const id = window.setInterval(() => {
+      try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const j = JSON.parse(raw) as { ok?: boolean; lastActivity?: number };
+        if (j.ok && typeof j.lastActivity === 'number' && Date.now() - j.lastActivity > IDLE_MS) {
+          sessionStorage.removeItem(STORAGE_KEY);
+          setAuthed(false);
+        }
+      } catch { /* ignore */ }
+    }, 60_000);
+    return () => {
+      window.removeEventListener('keydown', onAct);
+      window.removeEventListener('click', onAct);
+      window.clearInterval(id);
+    };
+  }, [authed]);
 
   if (!authed) {
     return <PinGate onUnlock={() => setAuthed(true)} />;

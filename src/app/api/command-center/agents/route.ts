@@ -1,9 +1,19 @@
-import { NextResponse } from "next/server";
-import { readFile } from "fs/promises";
+import { NextRequest, NextResponse } from "next/server";
+import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
 import { execSync } from "child_process";
 
 export const dynamic = "force-dynamic";
+
+function inferProviderFromModel(model: string): string {
+  const m = model.toLowerCase();
+  if (m.includes("claude") || m.includes("opus") || m.includes("sonnet")) return "claude-max";
+  if (m.includes("gemini")) return "openrouter";
+  if (m.includes("kimi")) return "openrouter";
+  if (m.includes("deepseek")) return "openrouter";
+  if (m.includes("qwen") || m.includes("llama") || m.includes("gemma")) return "ollama";
+  return "openrouter";
+}
 
 const WORKSPACE_DIR = join(
   process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace",
@@ -50,29 +60,29 @@ function getRecentlyActiveAgents(): Set<string> {
   return active;
 }
 
-/* ── Static fallback agent data (embedded for Vercel where filesystem is unavailable) ── */
+/* ── Static fallback (Vercel / no filesystem) — aligned with MEMORY.md / Atlas audit ── */
 const STATIC_AGENTS: Record<string, DirectoryAgent> = {
-  archivist: { model: "gemini-3.1-flash-lite-preview", provider: "gemini", role: "workspace-indexer", capabilities: ["file-lookup", "route-mapping", "codebase-queries"], escalation_level: "level-0" },
-  atlas: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "operations-lead", capabilities: ["planning", "delegation", "review", "orchestration"], escalation_level: "final" },
-  triage: { model: "claude-sonnet-4-5", provider: "claude-max", role: "debugging", capabilities: ["debugging", "failure-tracing", "log-analysis", "system-health"], skills: ["app-log-analyzer", "log-analyzer", "coding-agent"], escalation_level: "specialist" },
-  shuri: { model: "deepseek-v3.2", provider: "openrouter", role: "engineering", capabilities: ["code-generation", "refactoring", "patches", "builds", "ui-design"], skills: ["ui-ux-pro-max", "nano-banana-pro", "coding-agent"], escalation_level: "executor" },
-  proximon: { model: "sonnet4.5", provider: "claude-max", role: "architecture", capabilities: ["systems-architecture", "infrastructure-design", "escalation-target"], skills: ["contextplus", "dns-networking"], escalation_level: "specialist" },
-  aetherion: { model: "gemini-3-pro", provider: "openrouter", role: "creative-director", capabilities: ["conceptual-frameworks", "design-architecture", "image-generation", "visual-identity"], skills: ["ui-ux-pro-max", "nano-banana-pro", "brand-cog"], escalation_level: "specialist" },
-  simons: { model: "deepseek-v3.2", provider: "openrouter", role: "data-analysis", capabilities: ["data-analysis", "quantitative-reasoning"], skills: ["data-visualization", "ga4-analytics"], escalation_level: "specialist" },
-  mercury: { model: "deepseek-v3.2", provider: "openrouter", role: "sales", capabilities: ["sales-strategy", "pricing", "revenue-modeling"], skills: ["marketing-mode", "competitive-analysis"], escalation_level: "specialist" },
+  archivist: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "workspace-indexer", capabilities: ["file-lookup", "route-mapping", "codebase-queries"], escalation_level: "level-0" },
+  atlas: { model: "claude-opus-4-6", provider: "claude-max", role: "operations-lead", capabilities: ["planning", "delegation", "review", "orchestration"], escalation_level: "final" },
+  triage: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "debugging", capabilities: ["debugging", "failure-tracing", "log-analysis", "system-health"], skills: ["app-log-analyzer", "log-analyzer", "coding-agent"], escalation_level: "specialist" },
+  shuri: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "engineering", capabilities: ["code-generation", "refactoring", "patches", "builds", "ui-design"], skills: ["ui-ux-pro-max", "nano-banana-pro", "coding-agent"], escalation_level: "executor" },
+  proximon: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "architecture", capabilities: ["systems-architecture", "infrastructure-design", "escalation-target"], skills: ["contextplus", "dns-networking"], escalation_level: "specialist" },
+  aetherion: { model: "gemini-3.1-pro-preview", provider: "openrouter", role: "creative-director", capabilities: ["conceptual-frameworks", "design-architecture", "image-generation", "visual-identity"], skills: ["ui-ux-pro-max", "nano-banana-pro", "brand-cog"], escalation_level: "specialist" },
+  simons: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "data-analysis", capabilities: ["data-analysis", "quantitative-reasoning"], skills: ["data-visualization", "ga4-analytics"], escalation_level: "specialist" },
+  mercury: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "sales", capabilities: ["sales-strategy", "pricing", "revenue-modeling"], skills: ["marketing-mode", "competitive-analysis"], escalation_level: "specialist" },
   vee: { model: "kimi-k2.5", provider: "openrouter", role: "brand-strategy", capabilities: ["brand-strategy", "positioning", "visual-direction"], skills: ["ui-ux-pro-max", "nano-banana-pro", "brand-analyzer"], escalation_level: "specialist" },
-  ink: { model: "deepseek-v3.2", provider: "openrouter", role: "copywriting", capabilities: ["copywriting", "content-generation", "social-content"], skills: ["nano-banana-pro", "marketing-mode"], escalation_level: "executor" },
+  ink: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "copywriting", capabilities: ["copywriting", "content-generation", "social-content"], skills: ["nano-banana-pro", "marketing-mode"], escalation_level: "executor" },
   echo: { model: "qwen3:14b", provider: "ollama", role: "community", capabilities: ["community-engagement", "social-interaction"], skills: ["marketing-mode"], escalation_level: "specialist", provider_note: "Local M5 MacBook" },
-  haven: { model: "deepseek-v3.2", provider: "openrouter", role: "support", capabilities: ["support-automation", "onboarding", "client-experience"], skills: ["ui-ux-pro-max"], escalation_level: "executor" },
+  haven: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "support", capabilities: ["support-automation", "onboarding", "client-experience"], skills: ["ui-ux-pro-max"], escalation_level: "executor" },
   widow: { model: "qwen3:14b", provider: "ollama", role: "security", capabilities: ["vulnerability-scanning", "security-checks"], skills: ["healthcheck", "dns-networking"], escalation_level: "specialist", provider_note: "Local M5 MacBook" },
-  "dr-strange": { model: "deepseek-v3.2", provider: "openrouter", role: "forecasting", capabilities: ["scenario-modeling", "strategic-forecasting"], skills: ["competitive-analysis", "business-plan"], escalation_level: "specialist" },
-  kiyosaki: { model: "deepseek-v3.2", provider: "openrouter", role: "finance", capabilities: ["financial-analysis", "capital-strategy"], skills: ["intellectia-stock-forecast", "invoice-generator"], escalation_level: "specialist" },
+  "dr-strange": { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "forecasting", capabilities: ["scenario-modeling", "strategic-forecasting"], skills: ["competitive-analysis", "business-plan"], escalation_level: "specialist" },
+  kiyosaki: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "finance", capabilities: ["financial-analysis", "capital-strategy"], skills: ["intellectia-stock-forecast", "invoice-generator"], escalation_level: "specialist" },
   michael: { model: "qwen3:14b", provider: "ollama", role: "swim-coaching", capabilities: ["swim-coaching", "race-strategy"], skills: ["data-visualization"], escalation_level: "specialist", provider_note: "Local M5 MacBook" },
   selah: { model: "qwen3:14b", provider: "ollama", role: "psychology", capabilities: ["psychology", "mental-performance"], skills: ["focus-deep-work", "habit-tracker"], escalation_level: "specialist", provider_note: "Local M5 MacBook" },
   prophets: { model: "qwen3:14b", provider: "ollama", role: "spiritual", capabilities: ["spiritual-counsel", "wisdom"], skills: ["oracle"], escalation_level: "specialist", provider_note: "Local M5 MacBook" },
   themaestro: { model: "qwen3:14b", provider: "ollama", role: "music", capabilities: ["music-production"], skills: ["ai-music-generation", "songsee", "clawtunes"], escalation_level: "executor", provider_note: "Local M5 MacBook" },
-  nova: { model: "claude-sonnet-4-5", provider: "claude-max", role: "fabrication", capabilities: ["prototyping", "3d-design", "overnight-builds", "ui-prototyping"], skills: ["ui-ux-pro-max", "nano-banana-pro", "coding-agent"], escalation_level: "executor" },
-  themis: { model: "claude-sonnet-4-5", provider: "claude-max", role: "governance", capabilities: ["rule-enforcement", "token-discipline", "protocol-audit", "security-auditing", "legal-counsel"], skills: ["cron-health", "agent-dashboard", "healthcheck", "github"], escalation_level: "authority" },
+  nova: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "fabrication", capabilities: ["prototyping", "3d-design", "overnight-builds", "ui-prototyping"], skills: ["ui-ux-pro-max", "nano-banana-pro", "coding-agent"], escalation_level: "executor" },
+  themis: { model: "claude-sonnet-4-5-20250929", provider: "claude-max", role: "governance", capabilities: ["rule-enforcement", "token-discipline", "protocol-audit", "security-auditing", "legal-counsel"], skills: ["cron-health", "agent-dashboard", "healthcheck", "github"], escalation_level: "authority" },
 };
 
 function mapAgent(id: string, a: DirectoryAgent, isActive: boolean) {
@@ -119,4 +129,56 @@ export async function GET() {
       version: "2.1",
     });
   }
+}
+
+interface PostBody {
+  agentId?: string;
+  updates?: { model?: string; provider?: string };
+}
+
+/** Persist model change to `agents/directory.json` when workspace is writable (local OpenClaw). */
+export async function POST(req: NextRequest) {
+  let body: PostBody;
+  try {
+    body = (await req.json()) as PostBody;
+  } catch {
+    return NextResponse.json({ error: "invalid json" }, { status: 400 });
+  }
+  const agentId = body.agentId?.toLowerCase().trim();
+  const model = body.updates?.model?.trim();
+  if (!agentId || !model) {
+    return NextResponse.json({ error: "agentId and updates.model required" }, { status: 400 });
+  }
+
+  const provider = body.updates?.provider?.trim() || inferProviderFromModel(model);
+  let dir: { version?: string; updated?: string; agents: Record<string, DirectoryAgent> };
+  try {
+    const raw = await readFile(DIRECTORY_PATH, "utf-8");
+    dir = JSON.parse(raw) as { version?: string; updated?: string; agents: Record<string, DirectoryAgent> };
+  } catch {
+    dir = {
+      version: "2.1",
+      updated: new Date().toISOString(),
+      agents: { ...STATIC_AGENTS },
+    };
+  }
+
+  const existing = dir.agents[agentId] ?? STATIC_AGENTS[agentId];
+  if (!existing) {
+    return NextResponse.json({ error: "unknown agent" }, { status: 400 });
+  }
+
+  dir.agents[agentId] = { ...existing, model, provider };
+  dir.updated = new Date().toISOString();
+
+  try {
+    await writeFile(DIRECTORY_PATH, JSON.stringify(dir, null, 2), "utf-8");
+  } catch (e) {
+    return NextResponse.json(
+      { error: "cannot write directory.json (read-only or missing workspace)", detail: String(e) },
+      { status: 503 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, agentId, model, provider });
 }

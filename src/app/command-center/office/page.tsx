@@ -20,28 +20,38 @@ interface Agent {
   room: "engineering" | "strategy" | "creative" | "security" | "analytics" | "comms";
 }
 
-const FALLBACK_AGENTS: Agent[] = [
-  { name: "Atlas", role: "Operations Lead", model: "Opus 4.6", status: "online", task: "Orchestrating squad", color: "#8B5CF6", room: "strategy" },
-  { name: "SHURI", role: "Engineering", model: "Sonnet 4.5", status: "busy", task: "Building features", color: "#EC4899", room: "engineering" },
-  { name: "TRIAGE", role: "Diagnostics", model: "Sonnet 4.5", status: "idle", color: "#EF4444", room: "engineering" },
-  { name: "NOVA", role: "Fabrication", model: "Sonnet 4.5", status: "busy", task: "YOLO Build", color: "#F59E0B", room: "creative" },
-  { name: "PROXIMON", role: "Architecture", model: "Sonnet 4.5", status: "idle", color: "#06B6D4", room: "strategy" },
-  { name: "AETHERION", role: "Meta-Systems", model: "Gemini 3.1 Pro", status: "offline", color: "#A855F7", room: "strategy" },
-  { name: "MERCURY", role: "Sales", model: "Sonnet 4.5", status: "idle", color: "#10B981", room: "analytics" },
-  { name: "VEE", role: "Brand Strategy", model: "Kimi K2.5", status: "idle", color: "#F472B6", room: "creative" },
-  { name: "INK", role: "Copywriting", model: "Sonnet 4.5", status: "idle", color: "#6366F1", room: "creative" },
-  { name: "ECHO", role: "Community", model: "qwen3:14b", status: "idle", color: "#22D3EE", room: "comms" },
-  { name: "HAVEN", role: "Support", model: "Sonnet 4.5", status: "idle", color: "#34D399", room: "comms" },
-  { name: "WIDOW", role: "Security", model: "qwen3:14b", status: "online", task: "Perimeter scan", color: "#DC2626", room: "security" },
-  { name: "DR STRANGE", role: "Forecasting", model: "Sonnet 4.5", status: "idle", color: "#7C3AED", room: "analytics" },
-  { name: "KIYOSAKI", role: "Finance", model: "Sonnet 4.5", status: "idle", color: "#059669", room: "analytics" },
-  { name: "SIMONS", role: "Data Analysis", model: "Sonnet 4.5", status: "idle", color: "#2563EB", room: "analytics" },
-  { name: "MICHAEL", role: "Swim Coach", model: "qwen3:14b", status: "idle", color: "#0EA5E9", room: "strategy" },
-  { name: "SELAH", role: "Psychology", model: "qwen3:14b", status: "idle", color: "#D946EF", room: "comms" },
-  { name: "PROPHETS", role: "Wisdom", model: "Kimi K2.5", status: "idle", color: "#F59E0B", room: "comms" },
-  { name: "TheMAESTRO", role: "Music", model: "qwen3:14b", status: "idle", color: "#E11D48", room: "creative" },
-  { name: "THEMIS", role: "Governance", model: "Sonnet 4.5", status: "online", task: "Protocol watch", color: "#CA8A04", room: "security" },
-];
+const OFFICE_COLORS: Record<string, string> = {
+  atlas: "#8B5CF6", themaestro: "#E11D48", simons: "#2563EB", "dr-strange": "#7C3AED",
+  shuri: "#EC4899", widow: "#DC2626", proximon: "#06B6D4", vee: "#F472B6",
+  aetherion: "#A855F7", michael: "#0EA5E9", prophets: "#F59E0B", selah: "#D946EF",
+  mercury: "#10B981", echo: "#22D3EE", haven: "#34D399", ink: "#6366F1",
+  nova: "#F59E0B", kiyosaki: "#059669", triage: "#EF4444", themis: "#CA8A04",
+};
+
+function roomFromRole(role: string): Agent["room"] {
+  const r = role.toLowerCase();
+  if (r.includes("security") || r.includes("governance")) return "security";
+  if (r.includes("sales") || r.includes("data") || r.includes("forecast") || r.includes("finance") || r.includes("swim")) return "analytics";
+  if (r.includes("brand") || r.includes("copy") || r.includes("music") || r.includes("fabricat") || r.includes("creative") || r.includes("visual")) return "creative";
+  if (r.includes("community") || r.includes("support") || r.includes("psychology") || r.includes("spiritual")) return "comms";
+  if (r.includes("engineer") || r.includes("debug")) return "engineering";
+  return "strategy";
+}
+
+function apiRowToAgent(a: { id: string; name: string; model: string; role: string; status: string }): Agent {
+  const short = a.model.includes("/") ? a.model.split("/").pop() ?? a.model : a.model;
+  const st = a.status === "active" ? "online" : "idle";
+  const room = roomFromRole(a.role);
+  const color = OFFICE_COLORS[a.id] ?? "#6B7280";
+  return {
+    name: a.name,
+    role: a.role.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+    model: short,
+    status: st as Agent["status"],
+    color,
+    room,
+  };
+}
 
 const STATUS_COLORS: Record<string, string> = {
   online: "#22C55E",
@@ -69,7 +79,8 @@ const ROOM_AMBIENT: Record<string, string> = {
 };
 
 export default function OfficePage() {
-  const [agents, setAgents] = useState<Agent[]>(FALLBACK_AGENTS);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(true);
   const [selected, setSelected] = useState<Agent | null>(null);
   const [tick, setTick] = useState(0);
   const [lastSync, setLastSync] = useState<string>("");
@@ -80,31 +91,39 @@ export default function OfficePage() {
     return () => clearInterval(t);
   }, []);
 
-  // Fetch live agent data from bridge API
   const fetchAgents = useCallback(async () => {
+    try {
+      const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.agents?.length > 0) {
+          setAgents(data.agents.map(apiRowToAgent));
+          setAgentsLoading(false);
+          return;
+        }
+      }
+    } catch { /* fall through */ }
     try {
       const res = await fetch("/api/bridge?type=agents", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       if (data?._syncedAt) setLastSync(data._syncedAt);
       if (data?.directory?.agents) {
-        const dir = data.directory.agents;
-        const updated = FALLBACK_AGENTS.map((fa) => {
-          const key = fa.name.toLowerCase().replace(/\s+/g, "-");
-          const live = dir[key];
-          if (live) {
-            return {
-              ...fa,
-              model: live.model || fa.model,
-              role: live.role || fa.role,
-              status: (live.status as Agent["status"]) || fa.status,
-            };
-          }
-          return fa;
-        });
-        setAgents(updated);
+        const dir = data.directory.agents as Record<string, { model?: string; role?: string; status?: string }>;
+        setAgents(
+          Object.entries(dir).map(([id, live]) =>
+            apiRowToAgent({
+              id,
+              name: id.charAt(0).toUpperCase() + id.slice(1),
+              model: live.model ?? "",
+              role: live.role ?? "",
+              status: live.status === "active" ? "active" : "idle",
+            })
+          )
+        );
       }
-    } catch { /* fallback to static */ }
+    } catch { /* ignore */ }
+    setAgentsLoading(false);
   }, []);
 
   useEffect(() => {
@@ -157,6 +176,12 @@ export default function OfficePage() {
           </div>
         </div>
       </div>
+
+      {agentsLoading && agents.length === 0 && (
+        <div className="relative z-10 px-4 py-8 text-center text-sm text-[#888]">
+          Loading agents from <span className="text-cyan-400/90">/api/command-center/agents</span>…
+        </div>
+      )}
 
       {/* 3D Office Floor — Enhanced */}
       <div className="relative z-10 p-4 hidden md:block">

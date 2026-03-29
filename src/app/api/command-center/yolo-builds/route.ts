@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { fetchCommandCenterYoloManifest } from "@/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
 const BUILDS_DIR_WS = join(WS, "yolo-builds");
 const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
-// Prefer workspace (live source of truth), fallback to public (Vercel)
-const BUILDS_DIR = existsSync(BUILDS_DIR_WS) ? BUILDS_DIR_WS : BUILDS_DIR_PUBLIC;
 
 interface BuildMeta {
   date: string;
@@ -54,68 +54,115 @@ function slugToName(folder: string): string {
   return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
 }
 
+function normalizeStatus(s: unknown): BuildMeta["status"] {
+  if (s === "partial" || s === "failed") return s;
+  return "working";
+}
+
+function manifestRowToBuild(row: Record<string, unknown>): BuildMeta | null {
+  const folder = typeof row.folder === "string" ? row.folder : "";
+  if (!folder) return null;
+  const files = Array.isArray(row.files)
+    ? row.files.map((f) => String(f))
+    : [];
+  return {
+    date: typeof row.date === "string" ? row.date : "unknown",
+    name: typeof row.name === "string" ? row.name : slugToName(folder),
+    idea: typeof row.idea === "string" ? row.idea : "",
+    status: normalizeStatus(row.status),
+    takeaway: typeof row.takeaway === "string" ? row.takeaway : "",
+    folder,
+    agent: typeof row.agent === "string" ? row.agent : extractAgentFromFolder(folder),
+    files,
+    verified: typeof row.verified === "boolean" ? row.verified : true,
+  };
+}
+
+function loadBuildsFromDir(buildsDir: string): BuildMeta[] {
+  if (!existsSync(buildsDir)) return [];
+
+  const entries = readdirSync(buildsDir, { withFileTypes: true });
+  const builds: BuildMeta[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith(".")) continue;
+
+    const dirPath = join(buildsDir, entry.name);
+    const metaPath = join(dirPath, "meta.json");
+    const indexPath = join(dirPath, "index.html");
+
+    const hasIndex = existsSync(indexPath);
+
+    const files = readdirSync(dirPath).filter(f => !f.startsWith("."));
+
+    if (existsSync(metaPath)) {
+      try {
+        const raw = readFileSync(metaPath, "utf-8");
+        const meta = JSON.parse(raw);
+        builds.push({
+          date: meta.date || extractDateFromFolder(entry.name),
+          name: meta.name || slugToName(entry.name),
+          idea: meta.idea || "",
+          status: normalizeStatus(meta.status),
+          takeaway: meta.takeaway || "",
+          folder: entry.name,
+          agent: meta.agent || extractAgentFromFolder(entry.name),
+          files,
+          verified: meta.verified ?? true,
+        });
+      } catch {
+        /* fall through */
+      }
+    }
+
+    if (!builds.find(b => b.folder === entry.name)) {
+      builds.push({
+        date: extractDateFromFolder(entry.name),
+        name: slugToName(entry.name),
+        idea: "",
+        status: hasIndex ? "working" : "failed",
+        takeaway: "",
+        folder: entry.name,
+        agent: extractAgentFromFolder(entry.name),
+        files,
+        verified: hasIndex,
+      });
+    }
+  }
+
+  builds.sort((a, b) => b.date.localeCompare(a.date) || b.folder.localeCompare(a.folder));
+  return builds;
+}
+
 export async function GET() {
   try {
-    if (!existsSync(BUILDS_DIR)) {
-      return NextResponse.json([], { status: 404 });
-    }
+    let source: "workspace" | "firestore" | "public" | "empty" = "empty";
+    let builds: BuildMeta[] = [];
 
-    const entries = readdirSync(BUILDS_DIR, { withFileTypes: true });
-    const builds: BuildMeta[] = [];
-
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue;
-      if (entry.name.startsWith(".")) continue;
-
-      const dirPath = join(BUILDS_DIR, entry.name);
-      const metaPath = join(dirPath, "meta.json");
-      const indexPath = join(dirPath, "index.html");
-
-      const hasIndex = existsSync(indexPath);
-
-      const files = readdirSync(dirPath).filter(f => !f.startsWith("."));
-
-      if (existsSync(metaPath)) {
-        // Use meta.json if available
-        try {
-          const raw = readFileSync(metaPath, "utf-8");
-          const meta = JSON.parse(raw);
-          builds.push({
-            date: meta.date || extractDateFromFolder(entry.name),
-            name: meta.name || slugToName(entry.name),
-            idea: meta.idea || "",
-            status: meta.status || "working",
-            takeaway: meta.takeaway || "",
-            folder: entry.name,
-            agent: meta.agent || extractAgentFromFolder(entry.name),
-            files,
-            verified: meta.verified ?? true,
-          });
-        } catch {
-          // meta.json parse failed, fall through to folder-name extraction
+    if (existsSync(BUILDS_DIR_WS)) {
+      builds = loadBuildsFromDir(BUILDS_DIR_WS);
+      source = "workspace";
+    } else {
+      const manifest = await fetchCommandCenterYoloManifest();
+      if (manifest?.builds?.length) {
+        const fromFs = manifest.builds
+          .map((row) => manifestRowToBuild(row))
+          .filter((b): b is BuildMeta => b !== null);
+        if (fromFs.length > 0) {
+          builds = fromFs;
+          source = "firestore";
         }
       }
-
-      // No meta.json or it failed — extract from folder name
-      if (!builds.find(b => b.folder === entry.name)) {
-        builds.push({
-          date: extractDateFromFolder(entry.name),
-          name: slugToName(entry.name),
-          idea: "",
-          status: hasIndex ? "working" : "failed",
-          takeaway: "",
-          folder: entry.name,
-          agent: extractAgentFromFolder(entry.name),
-          files,
-          verified: hasIndex,
-        });
+      if (builds.length === 0 && existsSync(BUILDS_DIR_PUBLIC)) {
+        builds = loadBuildsFromDir(BUILDS_DIR_PUBLIC);
+        source = builds.length ? "public" : "empty";
       }
     }
 
-    // Sort by date descending, then folder name descending
     builds.sort((a, b) => b.date.localeCompare(a.date) || b.folder.localeCompare(a.folder));
 
-    return NextResponse.json(builds);
+    return NextResponse.json(builds, { headers: { "X-CC-YOLO-Source": source } });
   } catch {
     return NextResponse.json([], { status: 500 });
   }

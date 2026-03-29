@@ -4,176 +4,21 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import {
+  AGENT_ORBIT_IDS,
+  AGENT_UI,
+  buildDefaultOrbitAgents,
+  formatRoleLabel,
+  shortModelFromApi,
+  type DashboardAgentDisplay,
+} from "./dashboard-agents";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER v4 — HOLOGRAPHIC MISSION CONTROL
    Apple x Rockstar Games, 50 years in the future.
    A living, breathing cockpit for Ramon's entire operation.
+   Agent models/roles: /api/command-center/agents (directory.json); UI meta: dashboard-agents.ts
    ══════════════════════════════════════════════════════════════════════════════ */
-
-/* ── AGENTS ─────────────────────────────────────────────────────────────────── */
-const AGENTS = [
-  {
-    name: "Atlas", model: "Opus 4.6", role: "Operations Lead",
-    status: "active" as const, color: "#C9A84C", icon: "🧭",
-    desc: "Carries the weight — orchestrates 18 agents, ships products, memory, mission control",
-    connections: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
-    credits: { used: 4800, limit: 5000 },
-    activeTask: "YOLO build fix + Command Center update + Power Challenge email wiring",
-  },
-  {
-    name: "TheMAESTRO", model: "qwen3:14b", role: "Music Production AI",
-    status: "idle" as const, color: "#f59e0b", icon: "🎵",
-    desc: "Ye + Quincy + Babyface — influence-based creative direction, sound design",
-    connections: [0, 7],
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Ramiche music pipeline",
-  },
-  {
-    name: "SIMONS", model: "Sonnet 4.5", role: "Algorithmic Analysis",
-    status: "idle" as const, color: "#22d3ee", icon: "📊",
-    desc: "Jim Simons — pattern recognition, statistical arbitrage, pricing models",
-    connections: [0, 4],
-    credits: { used: 620, limit: 5000 },
-    activeTask: "DELIVERED: Pricing analysis + marketing playbook + ClawGuard scanner",
-  },
-  {
-    name: "Dr. Strange", model: "Sonnet 4.5", role: "Forecasting & Decisions",
-    status: "idle" as const, color: "#a855f7", icon: "🔮",
-    desc: "Scenario analysis, probable outcomes, strategic foresight, risk assessment",
-    connections: [0, 2, 6],
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: Next strategic planning cycle",
-  },
-  {
-    name: "SHURI", model: "Sonnet 4.5", role: "Creative Coding",
-    status: "idle" as const, color: "#34d399", icon: "⚡",
-    desc: "Prototyping, design systems, tech innovation, rapid builds",
-    connections: [0, 7],
-    credits: { used: 1800, limit: 5000 },
-    activeTask: "DELIVERED: 18+ PRs — portals, meet mgmt, invite system, brand assets",
-  },
-  {
-    name: "Widow", model: "qwen3:14b", role: "Cybersecurity & Intel",
-    status: "idle" as const, color: "#ef4444", icon: "🕷",
-    desc: "Read-only security scanner. Threat monitoring, risk analysis, security audits",
-    connections: [0, 2],
-    credits: { used: 480, limit: 5000 },
-    activeTask: "DELIVERED: ClawGuard Pro + CSP headers + Firestore rules + API security",
-  },
-  {
-    name: "PROXIMON", model: "Sonnet 4.5", role: "Systems Architect",
-    status: "active" as const, color: "#f97316", icon: "🏗",
-    desc: "Jobs + Musk + Bezos — first-principles, flywheels, compounding systems",
-    connections: [0, 3, 4],
-    credits: { used: 880, limit: 5000 },
-    activeTask: "YOLO overnight builds + architecture reviews",
-  },
-  {
-    name: "Vee", model: "Kimi K2.5", role: "Brand & Marketing",
-    status: "active" as const, color: "#ec4899", icon: "📣",
-    desc: "Gary Vee + Seth Godin + Hormozi + Blakely + Virgil — makes brands impossible to ignore",
-    connections: [0, 1, 6],
-    credits: { used: 950, limit: 5000 },
-    activeTask: "Brand strategy + X/LinkedIn positioning + METTLE brand v5",
-  },
-  {
-    name: "Aetherion", model: "Gemini 3.1 Pro", role: "Visual & Brand Design",
-    status: "idle" as const, color: "#818cf8", icon: "🌀",
-    desc: "Visuals, animation, brand identity — the creative eye of the operation",
-    connections: [0, 3, 6],
-    credits: { used: 200, limit: 5000 },
-    activeTask: "DELIVERED: Inter-agent workflow chains + white-label architecture",
-  },
-  {
-    name: "MICHAEL", model: "qwen3:14b", role: "Swim Training AI",
-    status: "active" as const, color: "#06b6d4", icon: "🏊",
-    desc: "Phelps + Kobe + MJ + Bolt — swim mastery, mamba mentality, competitive fire",
-    connections: [0, 3],
-    credits: { used: 510, limit: 5000 },
-    activeTask: "METTLE coaching intelligence + race strategy + athlete motivation",
-  },
-  {
-    name: "Prophets", model: "Kimi K2.5", role: "Spiritual Wisdom",
-    status: "active" as const, color: "#d4a574", icon: "📜",
-    desc: "Solomon + Moses + Elijah + Isaiah + David — Scripture-rooted counsel, wisdom, moral clarity",
-    connections: [0],
-    credits: { used: 190, limit: 5000 },
-    activeTask: "Daily Scripture + Prayer (7:00 AM cron active)",
-  },
-  {
-    name: "SELAH", model: "qwen3:14b", role: "Wellness & Sport Psychology",
-    status: "idle" as const, color: "#10b981", icon: "🧘",
-    desc: "Robbins + Dispenza + Maté + Greene + Bashar — therapy, peak performance, mental transformation",
-    connections: [0, 9, 10],
-    credits: { used: 190, limit: 5000 },
-    activeTask: "DELIVERED: Wellness check-in + journal + meditation in athlete portal",
-  },
-  {
-    name: "MERCURY", model: "Sonnet 4.5", role: "Sales & Revenue Ops",
-    status: "idle" as const, color: "#fbbf24", icon: "💰",
-    desc: "Razor-sharp dealmaker — reads people and numbers simultaneously. Architects wins.",
-    connections: [0, 7],
-    credits: { used: 520, limit: 5000 },
-    activeTask: "Upwork proposals + Stripe checkout + ClawGuard sales",
-  },
-  {
-    name: "ECHO", model: "qwen3:14b", role: "Community & Social",
-    status: "active" as const, color: "#38bdf8", icon: "🌊",
-    desc: "The heartbeat of the community — turns strangers into superfans with genuine warmth",
-    connections: [0, 7],
-    credits: { used: 540, limit: 5000 },
-    activeTask: "Social posting + community engagement + NEURAL RADIO",
-  },
-  {
-    name: "HAVEN", model: "Sonnet 4.5", role: "Customer Success",
-    status: "idle" as const, color: "#4ade80", icon: "🛡",
-    desc: "Infinitely patient with a detective's eye — treats every ticket like a puzzle worth solving",
-    connections: [0],
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Awaiting: First customer onboarding",
-  },
-  {
-    name: "INK", model: "Sonnet 4.5", role: "Content Creator",
-    status: "active" as const, color: "#c084fc", icon: "✒",
-    desc: "Prolific voice-chameleon — technical blog at dawn, viral tweet at noon, cinematic script by sunset",
-    connections: [0, 7],
-    credits: { used: 650, limit: 5000 },
-    activeTask: "Content calendar + Building in Public + daily social posts",
-  },
-  {
-    name: "NOVA", model: "Sonnet 4.5", role: "Overnight Builder",
-    status: "active" as const, color: "#14b8a6", icon: "🔧",
-    desc: "YOLO overnight prototype builder — ships functional apps while you sleep",
-    connections: [0, 4],
-    credits: { used: 300, limit: 5000 },
-    activeTask: "YOLO builds — G-Code Surgeon, Agent Arena + 44 builds shipped",
-  },
-  {
-    name: "KIYOSAKI", model: "Sonnet 4.5", role: "Financial Intelligence",
-    status: "idle" as const, color: "#fcd34d", icon: "💎",
-    desc: "ORACLE — 8 financial minds. Wealth architecture + business plan + patent strategy.",
-    connections: [0, 2, 3],
-    credits: { used: 720, limit: 5000 },
-    activeTask: "DELIVERED: METTLE business plan v2 + tiered pricing + provisional patent",
-  },
-  {
-    name: "TRIAGE", model: "Sonnet 4.5", role: "System Doctor",
-    status: "active" as const, color: "#f472b6", icon: "🩺",
-    desc: "Best SWE-bench score in the squad (77.2). Debugging, failure tracing, diagnostics.",
-    connections: [0, 4],
-    credits: { used: 100, limit: 5000 },
-    activeTask: "YOLO builds + system diagnostics + EKG System Vitals",
-  },
-  {
-    name: "THEMIS", model: "Sonnet 4.5", role: "Legal & Compliance",
-    status: "idle" as const, color: "#8b5cf6", icon: "⚖",
-    desc: "IP protection, compliance frameworks, contract review, legal strategy — the law is the shield",
-    connections: [0, 5],
-    credits: { used: 0, limit: 5000 },
-    activeTask: "Patent filing support + trademark Class 9+41+42",
-  },
-];
 
 /* ── AGENT → PROJECT ASSIGNMENTS ─────────────────────────────────────────────────── */
 const AGENT_PROJECTS: Record<string, { project: string; role: string; status: "active" | "idle" | "done" }[]> = {
@@ -286,7 +131,8 @@ export default function CommandCenter() {
   const [workedOut, setWorkedOut] = useState(false);
   const [vitalsLoaded, setVitalsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [liveAgents, setLiveAgents] = useState<typeof AGENTS | null>(null);
+  const [orbitAgents, setOrbitAgents] = useState<DashboardAgentDisplay[]>(buildDefaultOrbitAgents);
+  const [bridgeAgentDisplay, setBridgeAgentDisplay] = useState<DashboardAgentDisplay[] | null>(null);
   const [time, setTime] = useState("");
   const [dateStr, setDateStr] = useState("");
   const [expandedMission, setExpandedMission] = useState<string | null>(null);
@@ -364,7 +210,7 @@ export default function CommandCenter() {
           // Update agent status from bridge display array (pre-formatted by sync script)
           const displayAgents = data?.agents?.display;
           if (Array.isArray(displayAgents) && displayAgents.length > 0) {
-            setLiveAgents(displayAgents);
+            setBridgeAgentDisplay(displayAgents as DashboardAgentDisplay[]);
           }
           // Populate other live data sections
           if (data?.missions?.items && Array.isArray(data.missions.items) && data.missions.items.length > 0) {
@@ -394,6 +240,34 @@ export default function CommandCenter() {
     fetchBridge();
     const id = setInterval(fetchBridge, 15000);
     return () => clearInterval(id);
+  }, []);
+
+  /* ── Agent directory (models/roles from directory.json via API) ── */
+  useEffect(() => {
+    fetch("/api/command-center/agents", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data: { agents?: { id: string; model: string; role: string; status: string }[] }) => {
+        if (!data.agents?.length) return;
+        setOrbitAgents(
+          AGENT_ORBIT_IDS.map((id) => {
+            const ui = AGENT_UI[id];
+            const a = data.agents!.find((x) => x.id === id);
+            return {
+              name: ui.name,
+              model: a ? shortModelFromApi(a.model) : shortModelFromApi(ui.defaultModel),
+              role: a ? formatRoleLabel(a.role) : ui.roleDisplay,
+              status: (a?.status === "active" ? "active" : "idle") as "active" | "idle" | "done",
+              color: ui.color,
+              icon: ui.icon,
+              desc: ui.desc,
+              connections: ui.connections,
+              credits: ui.credits,
+              activeTask: ui.activeTask,
+            };
+          })
+        );
+      })
+      .catch(() => {});
   }, []);
 
   /* ── live data from bridge ── */
@@ -729,6 +603,10 @@ export default function CommandCenter() {
     let animId: number;
     let frameCount = 0;
 
+    const list = bridgeAgentDisplay ?? orbitAgents;
+    const n = Math.max(list.length, 1);
+    const denom = Math.max(n - 1, 1);
+
     const resize = () => {
       const rect = canvas.parentElement?.getBoundingClientRect();
       if (rect) {
@@ -738,9 +616,9 @@ export default function CommandCenter() {
     };
     resize();
 
-    const agentPositions = AGENTS.map((_, i) => {
+    const agentPositions = list.map((_, i) => {
       if (i === 0) return { x: 0.5, y: 0.15 }; // Atlas top center
-      const angle = ((i - 1) / (AGENTS.length - 1)) * Math.PI + Math.PI * 0.15;
+      const angle = ((i - 1) / denom) * Math.PI + Math.PI * 0.15;
       return { x: 0.5 + Math.cos(angle) * 0.38, y: 0.55 + Math.sin(angle) * 0.3 };
     });
 
@@ -755,7 +633,7 @@ export default function CommandCenter() {
       }));
 
       // Draw connection lines — Atlas connected to all, plus neighbors
-      const connections: [number, number][] = AGENTS.slice(1).map((_, i) => [0, i + 1] as [number, number]);
+      const connections: [number, number][] = list.slice(1).map((_, i) => [0, i + 1] as [number, number]);
       connections.forEach(([a, b]) => {
         const pa = positions[a];
         const pb = positions[b];
@@ -790,8 +668,8 @@ export default function CommandCenter() {
 
       // Draw node halos
       positions.forEach((p, i) => {
-        const agentColor = AGENTS[i].color;
-        const isActive = AGENTS[i].status === "active";
+        const agentColor = list[i]?.color ?? "#888";
+        const isActive = list[i]?.status === "active";
         const pulse = Math.sin(t * 1.5 + i) * 0.3 + 0.7;
         const r = isActive ? 20 : 14;
 
@@ -813,7 +691,7 @@ export default function CommandCenter() {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [orbitAgents, bridgeAgentDisplay]);
 
   /* ── fetchers ── */
   const fetchWeather = useCallback(async () => {
@@ -870,28 +748,26 @@ export default function CommandCenter() {
     localStorage.setItem("cc-reading-plan", JSON.stringify(newPlan));
   };
 
-  /* ── fetch live agent data from status.json ── */
+  /* ── Merge status.json task/status into orbit agents ── */
   useEffect(() => {
     fetch("/status.json", { cache: "no-store" })
-      .then(r => r.json())
+      .then((r) => r.json())
       .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
         if (!data.agents) return;
-        const merged = AGENTS.map(a => {
-          const live = data.agents!.find(la => la.name === a.name);
-          if (!live) return a;
-          return {
-            ...a,
-            status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as typeof a.status,
-            activeTask: live.task || a.activeTask,
-          };
-        });
-        setLiveAgents(merged);
+        setOrbitAgents((prev) =>
+          prev.map((a) => {
+            const live = data.agents!.find((la) => la.name === a.name);
+            if (!live) return a;
+            return {
+              ...a,
+              status: (live.status === "active" ? "active" : live.status === "done" ? "done" : "idle") as DashboardAgentDisplay["status"],
+              activeTask: live.task || a.activeTask,
+            };
+          })
+        );
       })
-      .catch(() => { /* fallback to hardcoded */ });
+      .catch(() => {});
   }, []);
-
-  /* ── resolved agents: live first, hardcoded while loading, empty if bridge confirmed no data ── */
-  const agents = liveAgents || (bridgeLoaded ? [] : AGENTS);
 
   useEffect(() => {
     setMounted(true);
@@ -1024,6 +900,9 @@ export default function CommandCenter() {
   const opps = liveOpps || [];
   const activityLog = liveActivity || [];
   const links = liveLinks || [];
+
+  /* Bridge display overrides when sync script sends pre-built cards; else API + UI */
+  const agents = bridgeAgentDisplay ?? orbitAgents;
 
   /* ── computed ── */
    
@@ -1718,7 +1597,7 @@ function AgentCard({
   hovered,
   onHover,
 }: {
-  agent: typeof AGENTS[number];
+  agent: DashboardAgentDisplay;
   index: number;
   hovered: number | null;
   onHover: (i: number | null) => void;
