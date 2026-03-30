@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useSyncExternalStore } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -32,11 +32,16 @@ const NAV = [
   { label: "VITALS", href: "/command-center/vitals", active: true },
 ];
 
+const noopSubscribe = () => () => {};
+function useIsClient() {
+  return useSyncExternalStore(noopSubscribe, () => true, () => false);
+}
+
 export default function VitalsPage() {
   const [weather, setWeather] = useState<Weather | null>(null);
   const [verse, setVerse] = useState<Verse | null>(null);
   const [copied, setCopied] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useIsClient();
 
   // Health vitals
   const [steps, setSteps] = useState(0);
@@ -52,38 +57,38 @@ export default function VitalsPage() {
   const [devotionalCheckedIn, setDevotionalCheckedIn] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
-    // Load vitals
-    try {
-      const saved = localStorage.getItem("cc-vitals");
-      if (saved) {
-        const v = JSON.parse(saved);
-        if (typeof v.steps === "number") setSteps(v.steps);
-        if (typeof v.waterG === "number") setWaterG(v.waterG);
-        if (typeof v.sleepH === "number") setSleepH(v.sleepH);
-        if (typeof v.workedOut === "boolean") setWorkedOut(v.workedOut);
-      }
-    } catch { /* */ }
-    setVitalsLoaded(true);
+    queueMicrotask(() => {
+      // Load vitals (deferred so setState is not synchronous in effect body)
+      try {
+        const saved = localStorage.getItem("cc-vitals");
+        if (saved) {
+          const v = JSON.parse(saved) as Record<string, unknown>;
+          if (typeof v.steps === "number") setSteps(v.steps);
+          if (typeof v.waterG === "number") setWaterG(v.waterG);
+          if (typeof v.sleepH === "number") setSleepH(v.sleepH);
+          if (typeof v.workedOut === "boolean") setWorkedOut(v.workedOut);
+        }
+      } catch { /* */ }
+      setVitalsLoaded(true);
 
-    // Load spiritual
-    try {
-      const rp = localStorage.getItem("cc-reading-plan");
-      if (rp) setReadingPlan(JSON.parse(rp));
-    } catch { /* */ }
-    try {
-      const ss = localStorage.getItem("cc-spiritual-streak");
-      if (ss) {
-        const { count, lastDate } = JSON.parse(ss);
-        const today = new Date().toDateString();
-        const yesterday = new Date(Date.now() - 86400000).toDateString();
-        if (lastDate === today || lastDate === yesterday) setSpiritualStreak(count);
-        if (lastDate === today) setDevotionalCheckedIn(true);
-      }
-    } catch { /* */ }
+      try {
+        const rp = localStorage.getItem("cc-reading-plan");
+        if (rp) setReadingPlan(JSON.parse(rp) as { book: string; chapter: number; progress: number });
+      } catch { /* */ }
+      try {
+        const ss = localStorage.getItem("cc-spiritual-streak");
+        if (ss) {
+          const { count, lastDate } = JSON.parse(ss) as { count: number; lastDate: string };
+          const today = new Date().toDateString();
+          const yesterday = new Date(Date.now() - 86400000).toDateString();
+          if (lastDate === today || lastDate === yesterday) setSpiritualStreak(count);
+          if (lastDate === today) setDevotionalCheckedIn(true);
+        }
+      } catch { /* */ }
 
-    const focuses = ["Discipline & Focus", "God's Vision for My Life", "Financial Wisdom", "Spiritual Growth", "Health & Strength", "Gratitude & Praise", "Family & Relationships"];
-    setPrayerFocus(focuses[new Date().getDay()]);
+      const focuses = ["Discipline & Focus", "God's Vision for My Life", "Financial Wisdom", "Spiritual Growth", "Health & Strength", "Gratitude & Praise", "Family & Relationships"];
+      setPrayerFocus(focuses[new Date().getDay()]);
+    });
   }, []);
 
   useEffect(() => {
@@ -118,7 +123,13 @@ export default function VitalsPage() {
     } catch { /* */ }
   }, []);
 
-  useEffect(() => { fetchWeather(); fetchVerse(); }, [fetchWeather, fetchVerse]);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => {
+      void fetchWeather();
+      void fetchVerse();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [fetchWeather, fetchVerse]);
 
   const copyVerse = () => {
     if (!verse) return;

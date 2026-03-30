@@ -113,7 +113,8 @@ async function loadAllProjects() {
         ...(meta || {}),
         tasks: liveTasks || base.tasks,
         docs,
-        link: meta && "link" in meta ? (meta as any).link : base.link,
+        link:
+          meta && typeof meta.link === "string" ? meta.link : base.link,
       };
     })
   );

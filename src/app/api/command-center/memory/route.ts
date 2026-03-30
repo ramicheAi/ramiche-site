@@ -79,8 +79,16 @@ const SEED_DAYS = [
 ];
 
 /* ─── Parse daily memory file into structured entries ───────────────── */
-function parseMemoryFile(content: string, filename: string): any[] {
-  const entries: any[] = [];
+interface ParsedMemoryEntry {
+  date: string;
+  time: string | null;
+  title: string;
+  content: string;
+  agent: string | null;
+}
+
+function parseMemoryFile(content: string, filename: string): ParsedMemoryEntry[] {
+  const entries: ParsedMemoryEntry[] = [];
   const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
   const date = dateMatch ? dateMatch[1] : filename;
 
