@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { execSync } from "child_process";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import { join } from "path";
+import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
 import { cpus, totalmem, freemem } from "os";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore, FieldValue } from "firebase-admin/firestore";
@@ -11,6 +12,7 @@ export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
 const REPO = process.env.REPO_DIR || "/Users/admin/ramiche-site";
+const CRON_DIR = resolveOpenclawCronDir();
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -61,7 +63,7 @@ function getAgentDirectory() {
 
 function getCronJobs() {
   return safe(() => {
-    const raw = readFileSync(join("/Users/admin/.openclaw/cron", "jobs.json"), "utf-8");
+    const raw = readFileSync(join(CRON_DIR, "jobs.json"), "utf-8");
     const jobs = JSON.parse(raw);
     interface CronJob { id?: string; name?: string; schedule?: string; enabled?: boolean; lastRun?: string; lastResult?: string; }
     return Array.isArray(jobs) ? jobs.map((j: CronJob) => ({
@@ -144,9 +146,8 @@ function getGitActivity(limit = 20) {
 }
 
 function getCronExecutionLog() {
-  const logDir = "/Users/admin/.openclaw/cron";
   return safe(() => {
-    const historyPath = join(logDir, "history.json");
+    const historyPath = join(CRON_DIR, "history.json");
     if (!existsSync(historyPath)) return [];
     const raw = readFileSync(historyPath, "utf-8");
     const history = JSON.parse(raw);
@@ -195,7 +196,7 @@ function getYoloBuilds() {
 
 function getCronLastRuns() {
   return safe(() => {
-    const logPath = join("/Users/admin/.openclaw/cron", "history.json");
+    const logPath = join(CRON_DIR, "history.json");
     if (!existsSync(logPath)) return [];
     const raw = readFileSync(logPath, "utf-8");
     const history = JSON.parse(raw);
@@ -285,6 +286,8 @@ function buildSnapshot() {
     forge: getForgeFiles(),
     agents: getAgentDirectory(),
     crons: getCronJobs(),
+    cronDir: CRON_DIR,
+    workspace: WS,
     vitals: getSystemVitals(),
     memory: getDailyMemory(),
     sessions: getActiveSessions(),

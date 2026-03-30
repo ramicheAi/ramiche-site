@@ -23,6 +23,8 @@ const CRON_JOBS_PATH = join(CRON_DIR, "jobs.json");
 const CRON_HISTORY_PATH = join(CRON_DIR, "history.json");
 const MEMORY_DIR = join(WS, "memory");
 const YOLO_DIR = join(WS, "yolo-builds");
+/** SIMONS MERIDIAN pipeline output — same file as `GET /api/command-center/meridian` local path. */
+const MERIDIAN_JSON_PATH = join(WS, "shared/artifacts/quantitative/dashboard_api.json");
 
 /* ── Types ─────────────────────────────────────────────────────────── */
 
@@ -346,6 +348,25 @@ async function syncYoloBuilds(db: Firestore): Promise<SyncResult> {
   }
 }
 
+async function syncMeridian(db: Firestore): Promise<SyncResult> {
+  if (!existsSync(MERIDIAN_JSON_PATH)) {
+    return { collection: "meridian", ok: true, docCount: 0 };
+  }
+  try {
+    const raw = readFileSync(MERIDIAN_JSON_PATH, "utf-8");
+    await db.collection("command-center").doc("meridian").set(
+      {
+        snapshot: raw,
+        _syncedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return { collection: "meridian", ok: true, docCount: 1 };
+  } catch (e) {
+    return { collection: "meridian", ok: false, error: String(e) };
+  }
+}
+
 /* ── GET: Sync Status ──────────────────────────────────────────────── */
 
 export async function GET() {
@@ -420,6 +441,7 @@ export async function POST() {
   results.push(await syncCrons(db));
   results.push(await syncMemory(db));
   results.push(await syncYoloBuilds(db));
+  results.push(await syncMeridian(db));
 
   const elapsed = Date.now() - started;
   const allOk = results.every(r => r.ok);

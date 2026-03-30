@@ -156,3 +156,63 @@ export async function fetchCommandCenterYoloManifest(): Promise<{
     return null;
   }
 }
+
+/** Cron jobs + history synced by POST /api/command-center/firestore-sync (local jobs.json → Firestore). */
+export async function fetchCommandCenterCronJobsFromFirestore(): Promise<{
+  jobs: Record<string, unknown>[];
+  history: Record<string, unknown>[];
+} | null> {
+  getAdminApp();
+  if (!adminDb) return null;
+  try {
+    const [configSnap, historySnap] = await Promise.all([
+      adminDb.collection("command-center").doc("crons").collection("config").doc("latest").get(),
+      adminDb.collection("command-center").doc("crons").collection("history").doc("latest").get(),
+    ]);
+    const configData = configSnap.data();
+    const jobs = configData?.jobs;
+    if (!Array.isArray(jobs) || jobs.length === 0) return null;
+    const historyData = historySnap.data();
+    const entries = historyData?.entries;
+    return {
+      jobs,
+      history: Array.isArray(entries) ? (entries as Record<string, unknown>[]) : [],
+    };
+  } catch (e) {
+    console.warn("[Firebase Admin] cron jobs read failed:", e);
+    return null;
+  }
+}
+
+/** MERIDIAN `dashboard_api.json` synced to Firestore (same shape as local file). */
+export async function fetchMeridianDashboardFromFirestore(): Promise<unknown | null> {
+  getAdminApp();
+  if (!adminDb) return null;
+  try {
+    const snap = await adminDb.collection("command-center").doc("meridian").get();
+    if (!snap.exists) return null;
+    const d = snap.data();
+    if (!d || typeof d !== "object") return null;
+    const o = d as Record<string, unknown>;
+    const raw =
+      typeof o.snapshot === "string"
+        ? o.snapshot
+        : typeof o.payloadJson === "string"
+          ? o.payloadJson
+          : typeof o.dashboardJson === "string"
+            ? o.dashboardJson
+            : null;
+    if (raw) {
+      try {
+        return JSON.parse(raw) as unknown;
+      } catch {
+        return null;
+      }
+    }
+    if (o.portfolio && typeof o.portfolio === "object") return o;
+    return null;
+  } catch (e) {
+    console.warn("[Firebase Admin] meridian read failed:", e);
+    return null;
+  }
+}

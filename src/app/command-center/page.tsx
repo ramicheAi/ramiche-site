@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @next/next/no-img-element */
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 import {
@@ -125,6 +125,43 @@ function agentNameForChatApi(chatAgent: string): string {
   const t = chatAgent.trim().toLowerCase();
   if (t === "dr. strange" || t === "dr strange") return "drstrange";
   return t.replace(/\s+/g, "").replace(/\./g, "");
+}
+
+/** `/api/command-center/chat` `source` — shown on agent bubbles */
+function chatRelaySourceLabel(source: string): string {
+  const map: Record<string, string> = {
+    openclaw: "OpenClaw",
+    gemini: "Gemini",
+    deepseek: "DeepSeek",
+    openrouter: "OpenRouter",
+    fallback: "Fallback",
+  };
+  return map[source] ?? source;
+}
+
+function chatRelaySourcePillStyle(source: string): CSSProperties {
+  const pill: CSSProperties = {
+    fontSize: 8,
+    padding: "2px 8px",
+    borderRadius: 4,
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+  };
+  switch (source) {
+    case "openclaw":
+      return { ...pill, background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "1px solid rgba(201,168,76,0.35)" };
+    case "gemini":
+      return { ...pill, background: "rgba(56,189,248,0.12)", color: "#38bdf8", border: "1px solid rgba(56,189,248,0.3)" };
+    case "deepseek":
+      return { ...pill, background: "rgba(45,212,191,0.12)", color: "#2dd4bf", border: "1px solid rgba(45,212,191,0.28)" };
+    case "openrouter":
+      return { ...pill, background: "rgba(168,85,247,0.12)", color: "#c4b5fd", border: "1px solid rgba(168,85,247,0.3)" };
+    case "fallback":
+      return { ...pill, background: "rgba(82,82,82,0.2)", color: "#a3a3a3", border: "1px solid rgba(82,82,82,0.35)" };
+    default:
+      return { ...pill, background: "rgba(148,163,184,0.12)", color: "#94a3b8", border: "1px solid rgba(148,163,184,0.25)" };
+  }
 }
 
 /** Merge bridge poll with local turns so optimistic CC replies are not wiped every 30s */
@@ -1505,23 +1542,18 @@ export default function CommandCenter() {
                       : msg.sender === "system"
                         ? "#f87171"
                         : "#f59e0b";
-                  const src =
-                    msg.relaySource && msg.relaySource !== "fallback"
-                      ? String(msg.relaySource)
-                      : "";
+                  const relay = typeof msg.relaySource === "string" ? msg.relaySource : "";
                   return (
                   <div key={i} className="p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid #1e1e1e', borderRadius: 8 }}>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="text-[10px] font-mono font-bold" style={{ color: labelColor }}>{(msg.sender || 'system').toUpperCase()}</span>
+                      {msg.sender === "agent" && relay && (
+                        <span style={chatRelaySourcePillStyle(relay)}>{chatRelaySourceLabel(relay)}</span>
+                      )}
                       {msg.targetAgent && <span className="text-[10px] text-[#888888]">→ {msg.targetAgent}</span>}
                       {msg.timestamp && <span className="text-[9px] font-mono text-[#555]">{new Date(msg.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>}
                     </div>
                     <div className="text-sm text-[#e5e5e5]">{msg.message || msg.text || ''}</div>
-                    {src && (
-                      <div className="mt-1 text-[9px] uppercase tracking-wider text-[#C9A84C]/70">
-                        {src === "openclaw" ? "OpenClaw" : src === "gemini" ? "Gemini" : src === "deepseek" ? "DeepSeek" : src === "openrouter" ? "OpenRouter" : src}
-                      </div>
-                    )}
                   </div>
                   );
                 })}

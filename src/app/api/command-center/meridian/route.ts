@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { fsUrl } from "@/lib/bridge-handlers";
+import { fetchMeridianDashboardFromFirestore } from "@/lib/firebase-admin";
 
 const DATA_PATH = join(
   process.env.HOME || "/Users/admin",
@@ -47,7 +48,7 @@ export async function GET() {
       const doc = (await res.json()) as { fields?: Record<string, { stringValue?: string }> };
       const data = parseFirestoreMeridian(doc);
       if (isValidPayload(data)) {
-        return NextResponse.json(data);
+        return NextResponse.json(data, { headers: { "X-CC-Meridian-Source": "firestore-rest" } });
       }
     }
   } catch {
@@ -55,7 +56,11 @@ export async function GET() {
   }
 
   return NextResponse.json(
-    { error: "MERIDIAN data not available" },
-    { status: 503 }
+    {
+      unavailable: true,
+      message:
+        "MERIDIAN snapshot not on this host. Sync `dashboard_api.json` via bridge or open Finance HQ from the machine that runs the SIMONS pipeline.",
+    },
+    { status: 200, headers: { "X-CC-Meridian-Source": "unavailable" } }
   );
 }
