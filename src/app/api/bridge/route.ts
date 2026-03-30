@@ -5,81 +5,11 @@
 // Uses Firestore REST API — no Admin SDK needed
 
 import { NextRequest, NextResponse } from "next/server";
+import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
 
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "apex-athlete-73755";
-const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "";
-const FIRESTORE_BASE = `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/documents`;
 const BRIDGE_SECRET = (process.env.BRIDGE_API_SECRET || "").trim().replace(/\\n$/, "");
 
-function fsUrl(path: string) {
-  const base = `${FIRESTORE_BASE}/${path}`;
-  return API_KEY ? `${base}?key=${API_KEY}` : base;
-}
-
 export const dynamic = "force-dynamic";
-
-// Helper: Convert JS object to Firestore document fields format
-function toFirestoreFields(obj: Record<string, unknown>): Record<string, unknown> {
-  const fields: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      fields[key] = { stringValue: value };
-    } else if (typeof value === "number") {
-      fields[key] = { integerValue: String(value) };
-    } else if (typeof value === "boolean") {
-      fields[key] = { booleanValue: value };
-    } else if (Array.isArray(value)) {
-      fields[key] = {
-        arrayValue: {
-          values: value.map((v) =>
-            typeof v === "object" && v !== null
-              ? { mapValue: { fields: toFirestoreFields(v as Record<string, unknown>) } }
-              : typeof v === "string"
-              ? { stringValue: v }
-              : typeof v === "number"
-              ? { integerValue: String(v) }
-              : { stringValue: String(v) }
-          ),
-        },
-      };
-    } else if (typeof value === "object" && value !== null) {
-      fields[key] = {
-        mapValue: { fields: toFirestoreFields(value as Record<string, unknown>) },
-      };
-    } else {
-      fields[key] = { stringValue: String(value) };
-    }
-  }
-  return fields;
-}
-
-// Helper: Convert Firestore document to JS object
-function fromFirestoreFields(fields: Record<string, Record<string, unknown>>): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(fields)) {
-    if ("stringValue" in value) result[key] = value.stringValue;
-    else if ("integerValue" in value) result[key] = Number(value.integerValue);
-    else if ("booleanValue" in value) result[key] = value.booleanValue;
-    else if ("mapValue" in value) {
-      const mv = value.mapValue as { fields: Record<string, Record<string, unknown>> };
-      result[key] = mv.fields ? fromFirestoreFields(mv.fields) : {};
-    } else if ("arrayValue" in value) {
-      const av = value.arrayValue as { values?: Array<Record<string, unknown>> };
-      result[key] = (av.values || []).map((v) => {
-        if ("stringValue" in v) return v.stringValue;
-        if ("integerValue" in v) return Number(v.integerValue);
-        if ("mapValue" in v) {
-          const mv = v.mapValue as { fields: Record<string, Record<string, unknown>> };
-          return mv.fields ? fromFirestoreFields(mv.fields) : {};
-        }
-        return v;
-      });
-    } else {
-      result[key] = null;
-    }
-  }
-  return result;
-}
 
 // GET: Read current bridge state
 export async function GET(req: NextRequest) {

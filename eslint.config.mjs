@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static / vendored trees (not Next app source)
+    "public/projects/**",
+    "public/yolo-builds/**",
   ]),
 ]);
 

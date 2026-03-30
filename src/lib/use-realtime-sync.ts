@@ -3,8 +3,6 @@
 import { useEffect, useRef } from "react";
 import { syncListenRoster, syncListenConfig } from "./apex-sync";
 
-type Unsubscribe = () => void;
-
 /**
  * Hook: subscribe to real-time Firestore roster updates for a group.
  * When the coach updates the roster, this fires the callback with fresh data.
@@ -15,7 +13,10 @@ export function useRealtimeRoster(
   onUpdate: (athletes: unknown[]) => void
 ) {
   const callbackRef = useRef(onUpdate);
-  callbackRef.current = onUpdate;
+
+  useEffect(() => {
+    callbackRef.current = onUpdate;
+  });
 
   useEffect(() => {
     if (!groupId) return;
@@ -38,7 +39,10 @@ export function useRealtimeConfig<T>(
   onUpdate: (data: T) => void
 ) {
   const callbackRef = useRef(onUpdate);
-  callbackRef.current = onUpdate;
+
+  useEffect(() => {
+    callbackRef.current = onUpdate;
+  });
 
   useEffect(() => {
     if (!configKey) return;
