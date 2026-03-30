@@ -139,6 +139,9 @@ function cronScheduleLabel(j: Record<string, unknown>): string {
     const o = s as Record<string, unknown>;
     if (typeof o.expr === "string") return o.expr;
     if (typeof o.cron === "string") return o.cron;
+    if (typeof o.everyMs === "number") {
+      return `every ${Math.round(o.everyMs / 60000)}m`;
+    }
   }
   return "—";
 }

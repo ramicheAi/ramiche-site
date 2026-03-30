@@ -13,11 +13,54 @@ interface RawCronJob {
   schedule?: string;
   enabled?: boolean;
   agent?: string;
+  agentId?: string;
   prompt?: string;
   lastRun?: string;
   lastResult?: string;
   model?: string;
   description?: string;
+}
+
+/** OpenClaw often stores schedule as `{ expr: "0 7 * * *" }`, `{ everyMs }`, and agent as `agentId`. */
+function flattenScheduleFromJob(o: Record<string, unknown>): string {
+  const s = o.schedule;
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    const x = s as Record<string, unknown>;
+    if (typeof x.expr === "string") return x.expr;
+    if (typeof x.cron === "string") return x.cron;
+    if (typeof x.everyMs === "number") {
+      return `every ${Math.round(x.everyMs / 60000)}m`;
+    }
+  }
+  return "";
+}
+
+function normalizeCronJobEntry(j: unknown): RawCronJob {
+  if (typeof j !== "object" || j === null) return {};
+  const o = j as Record<string, unknown>;
+  const schedule = flattenScheduleFromJob(o);
+  const agentRaw = o.agent ?? o.agentId;
+  const agent = typeof agentRaw === "string" ? agentRaw : undefined;
+  const base = j as RawCronJob;
+  return {
+    ...base,
+    schedule: schedule || base.schedule,
+    agent: agent ?? base.agent,
+  };
+}
+
+function jobsPayloadShapeOk(parsed: unknown): boolean {
+  if (Array.isArray(parsed)) return true;
+  if (
+    parsed &&
+    typeof parsed === "object" &&
+    "jobs" in parsed &&
+    Array.isArray((parsed as { jobs: unknown }).jobs)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function parseCronSchedule(schedule: string): { time: string; days: string[]; frequency: string } {
@@ -64,14 +107,21 @@ const AGENT_COLORS: Record<string, string> = {
 };
 
 function coerceJobs(raw: unknown): RawCronJob[] {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((j) => (typeof j === "object" && j !== null ? (j as RawCronJob) : {}));
+  let arr: unknown[] = [];
+  if (Array.isArray(raw)) arr = raw;
+  else if (raw && typeof raw === "object" && "jobs" in raw) {
+    const j = (raw as { jobs: unknown }).jobs;
+    if (Array.isArray(j)) arr = j;
+  }
+  return arr.map((j) => normalizeCronJobEntry(j));
 }
 
 function buildEvents(jobs: RawCronJob[], history: Record<string, unknown>[]) {
   return jobs.map((job, i) => {
-    const parsed = parseCronSchedule(job.schedule || "");
-    const agentKey = (job.agent || "").toLowerCase().replace(/\s+/g, "-");
+    const schedStr = job.schedule || "";
+    const parsed = parseCronSchedule(schedStr);
+    const agentLabel = job.agent || job.agentId || "";
+    const agentKey = agentLabel.toLowerCase().replace(/\s+/g, "-");
     const accent = AGENT_COLORS[agentKey] || "#818cf8";
 
     const lastExec = history.filter((h: Record<string, unknown>) =>
@@ -82,12 +132,12 @@ function buildEvents(jobs: RawCronJob[], history: Record<string, unknown>[]) {
       id: job.id || String(i + 1),
       time: parsed.time,
       label: job.name || job.id || `Cron ${i + 1}`,
-      agent: job.agent || "System",
+      agent: agentLabel || "System",
       accent,
       frequency: parsed.frequency,
       days: parsed.days,
       enabled: job.enabled !== false,
-      schedule: job.schedule || "",
+      schedule: schedStr,
       description: job.description || job.prompt?.slice(0, 80) || "",
       lastRun: (lastExec as Record<string, unknown>)?.time as string || job.lastRun || null,
       lastResult: (lastExec as Record<string, unknown>)?.status as string || job.lastResult || null,
@@ -97,10 +147,17 @@ function buildEvents(jobs: RawCronJob[], history: Record<string, unknown>[]) {
 
 const emptyStats = { total: 0, enabled: 0, disabled: 0 };
 
+type CalendarPaths = {
+  workspace: string;
+  cronDir: string;
+  cronJobs: string;
+  cronHistory: string;
+};
+
 function respond(
   events: ReturnType<typeof buildEvents>,
   source: "live" | "firestore" | "empty" | "error",
-  paths: { cronDir: string; cronJobs: string; cronHistory: string },
+  paths: CalendarPaths,
   extra?: { error?: string }
 ) {
   return NextResponse.json(
@@ -118,18 +175,26 @@ function respond(
 }
 
 export async function GET() {
+  const workspace = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
   const cronDir = resolveOpenclawCronDir();
   const cronPath = join(cronDir, "jobs.json");
   const historyPath = join(cronDir, "history.json");
-  const paths = { cronDir, cronJobs: cronPath, cronHistory: historyPath };
+  const paths: CalendarPaths = {
+    workspace,
+    cronDir,
+    cronJobs: cronPath,
+    cronHistory: historyPath,
+  };
 
   try {
     if (existsSync(cronPath)) {
       const raw = readFileSync(cronPath, "utf-8");
       const parsed = JSON.parse(raw) as unknown;
       const jobs = coerceJobs(parsed);
-      if (jobs.length === 0 && !Array.isArray(parsed)) {
-        return respond([], "empty", paths, { error: "jobs.json not an array" });
+      if (jobs.length === 0 && !jobsPayloadShapeOk(parsed)) {
+        return respond([], "empty", paths, {
+          error: "jobs.json must be a JSON array or { \"jobs\": [ ... ] }",
+        });
       }
 
       let history: Record<string, unknown>[] = [];
