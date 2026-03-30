@@ -140,8 +140,8 @@ export default function CommandCenterRealChat() {
   };
 
   const setupRealtimeSubscriptions = () => {
-    // Subscribe to new messages
-    const messagesSubscription = supabase
+    // Subscribe to new messages (teardown: supabase.removeAllChannels in effect cleanup)
+    supabase
       .channel("messages")
       .on(
         "postgres_changes",
@@ -164,7 +164,7 @@ export default function CommandCenterRealChat() {
       .subscribe();
 
     // Subscribe to channel activity updates
-    const channelsSubscription = supabase
+    supabase
       .channel("channels")
       .on(
         "postgres_changes",
