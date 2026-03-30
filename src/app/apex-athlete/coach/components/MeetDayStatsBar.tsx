@@ -8,7 +8,7 @@ interface MeetDayStatsBarProps {
   roster: Athlete[];
 }
 
-export default function MeetDayStatsBar({ meet, roster }: MeetDayStatsBarProps) {
+export default function MeetDayStatsBar({ meet, roster: _roster }: MeetDayStatsBarProps) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {

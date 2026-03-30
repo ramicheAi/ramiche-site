@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getSession, setSession, type AuthSession } from "../auth";
-import { ROSTER_GROUPS, LEVELS } from "../constants";
-import { getLevel, getLevelProgress } from "../lib/game-engine";
-
+import { getSession, type AuthSession } from "../auth";
 /* ══════════════════════════════════════════════════════════════
    METTLE — Athlete Onboarding Flow
    Multi-step guided wizard for new athletes:

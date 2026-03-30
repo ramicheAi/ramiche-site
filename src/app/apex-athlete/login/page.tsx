@@ -10,7 +10,6 @@ import {
   getRedirectForRole,
   registerCoach,
   registerParent,
-  type AuthRole,
 } from "../auth";
 
 /* ══════════════════════════════════════════════════════════════
@@ -25,14 +24,6 @@ import {
    ══════════════════════════════════════════════════════════════ */
 
 // ── SVG Icons ───────────────────────────────────────────────
-
-const SvgShield = ({ size = 48, color = "#00f0ff" }: { size?: number; color?: string }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2l8 4v5c0 5.5-3.8 10-8 11.5C7.8 21 4 16.5 4 11V6l8-4z" stroke={color} strokeWidth="1.5" strokeLinejoin="round" fill={`${color}10`} />
-    <rect x="9" y="11" width="6" height="5" rx="1" stroke={color} strokeWidth="1.3" fill={`${color}15`} />
-    <path d="M10 11v-2a2 2 0 014 0v2" stroke={color} strokeWidth="1.3" strokeLinecap="round" />
-  </svg>
-);
 
 const SvgCoach = ({ size = 28, color = "#00f0ff" }: { size?: number; color?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -117,11 +108,12 @@ const BootCanvas = ({ phase }: { phase: "boot" | "ambient" }) => {
   const particlesRef = useRef<BootParticle[]>([]);
   const mouseRef = useRef({ x: -9999, y: -9999 });
   const animRef = useRef(0);
-  const startTime = useRef(Date.now());
+  const startTime = useRef<number | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    if (startTime.current === null) startTime.current = Date.now();
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -168,7 +160,7 @@ const BootCanvas = ({ phase }: { phase: "boot" | "ambient" }) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       t += 0.008;
       const now = Date.now();
-      const elapsed = (now - startTime.current) / 1000;
+      const elapsed = (now - (startTime.current ?? now)) / 1000;
 
       for (const p of particlesRef.current) {
         if (now < p.born) continue; // not born yet — stagger effect
@@ -340,7 +332,7 @@ export default function LoginPage() {
 
   // ── Boot sequence timing ──────────────────────────────
   useEffect(() => {
-    setMounted(true);
+    queueMicrotask(() => setMounted(true));
 
     // Nuclear cache clear — unregister stale service workers + purge all caches
     if ("serviceWorker" in navigator) {
@@ -362,9 +354,11 @@ export default function LoginPage() {
     // Deep-link: ?role=coach|parent|admin skips the select screen
     const params = new URLSearchParams(window.location.search);
     const role = params.get("role");
-    if (role === "coach") setMode("coach");
-    else if (role === "parent") setMode("parent");
-    else if (role === "admin") setMode("admin");
+    queueMicrotask(() => {
+      if (role === "coach") setMode("coach");
+      else if (role === "parent") setMode("parent");
+      else if (role === "admin") setMode("admin");
+    });
 
     // Boot sequence: black → particles emerge → logo fades in → UI ready
     const t1 = setTimeout(() => setBootPhase("particles"), 200);

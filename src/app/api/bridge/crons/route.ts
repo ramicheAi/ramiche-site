@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "cronId required" }, { status: 400 });
       }
 
-      const res = await fetch(`${FIRESTORE_BASE}/command-center-crons/${cronId}`, {
+      await fetch(`${FIRESTORE_BASE}/command-center-crons/${cronId}`, {
         method: "DELETE",
       });
 
@@ -100,8 +100,9 @@ export async function GET() {
       const data = await bridgeRes.json();
       // Bridge syncs crons as { items: [...] } via bridge-sync.mjs
       const items = data?.fields?.items?.arrayValue?.values || [];
-      items.forEach((v: any) => {
-        const f = v?.mapValue?.fields || {};
+      type Fs = Record<string, { stringValue?: string; booleanValue?: boolean } | undefined>;
+      items.forEach((v: Record<string, unknown>) => {
+        const f = ((v?.mapValue as { fields?: Fs } | undefined)?.fields || {}) as Fs;
         const name = f.name?.stringValue || "";
         const id = f.id?.stringValue || "";
         const schedule = f.schedule?.stringValue || "";

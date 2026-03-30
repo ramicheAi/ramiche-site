@@ -51,12 +51,6 @@ const STANDARDS: Record<string, Record<string, Record<string, string>>> = {
 const CUTS = ["B", "BB", "A", "AA", "AAA", "AAAA"];
 const CUT_COLORS: Record<string, string> = { B: "#6B7280", BB: "#2563EB", A: "#10B981", AA: "#F59E0B", AAA: "#DC2626", AAAA: "#6B21A8" };
 
-function parseTime(t: string): number {
-  const parts = t.split(":");
-  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
-  return parseFloat(t);
-}
-
 function formatTime(s: number): string {
   if (s >= 60) { const m = Math.floor(s / 60); return `${m}:${(s - m * 60).toFixed(2).padStart(5, "0")}`; }
   return s.toFixed(2);
@@ -75,8 +69,8 @@ function convertCourse(time: number, from: string, to: string): number {
 
 export default function TimeStandards() {
   const [ageGroup, setAgeGroup] = useState("13-14");
-  const [course, setCourse] = useState("SCY");
-  const [converterEvent, setConverterEvent] = useState("100 Free");
+  const [_course, _setCourse] = useState("SCY");
+  const [_converterEvent, _setConverterEvent] = useState("100 Free");
   const [converterCourse, setConverterCourse] = useState("SCY");
   const [converterTarget, setConverterTarget] = useState("LCM");
   const [converterMin, setConverterMin] = useState("");

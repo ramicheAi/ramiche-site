@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { MASTER_PIN, clearSession } from "../auth";
 import { useCoachAuth } from "../hooks/useCoachAuth";
@@ -9,8 +8,7 @@ import ParticleField from "@/components/ParticleField";
 import { createInvite, getInvites, deactivateInvite, getInviteUrl, type Invite, type InviteRole } from "../invites";
 import { fbSaveRoster, fbGet } from "@/lib/firebase";
 import BestTimesCard from "./components/BestTimesCard";
-import { QUALIFYING_STANDARDS } from "@/lib/qualifying-standards";
-import { syncSave, syncLoad, syncPushAllToFirebase } from "@/lib/apex-sync";
+import { syncSave, syncLoad } from "@/lib/apex-sync";
 import { AnimatedCounter } from "../components/AnimatedCounter";
 import StreakFlame from "../components/StreakFlame";
 import PinAuthScreen from "./components/PinAuthScreen";
@@ -18,7 +16,6 @@ import LevelUpOverlay from "./components/LevelUpOverlay";
 import AchievementToasts, { type AchievementToast } from "./components/AchievementToasts";
 import ComboCounter from "./components/ComboCounter";
 import PracticeRecapModal, { type RecapData } from "./components/PracticeRecapModal";
-import { useXPEngine } from "./hooks/useXPEngine";
 import GroupSelector from "./components/GroupSelector";
 import StaffView from "./components/StaffView";
 
@@ -27,10 +24,9 @@ import XpFloats from "./components/XpFloats";
 import ScheduleView from "./views/ScheduleView";
 import CommsView from "./views/CommsView";
 import MeetsView from "./views/MeetsView";
-import AnalyticsDashboard from "./views/AnalyticsDashboard";
 import AnalyticsTabContainer from "./views/AnalyticsTabContainer";
 import BillingView from "./views/BillingView";
-import type { Athlete, DailyXP, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, RosterGroup, SwimMeet, MentalReadiness, BreathworkSession, JournalEntry, RecoveryLog, WellnessData } from "./types";
+import type { Athlete, AuditEntry, TeamChallenge, DailySnapshot, TeamCulture, SwimMeet } from "./types";
 import type { ScoringResult } from "../lib/meet-scoring";
 import ParentPreviewModal from "./components/ParentPreviewModal";
 import SplitAnalyzer from "./components/SplitAnalyzer";
@@ -52,8 +48,7 @@ const SFX = {
 };
 
 // ── game engine (shared) ────────────────────────────────────
-import { LEVELS, getLevel, getNextLevel, getLevelProgress, getStreakMult, getWeightStreakMult, fmtStreak, fmtWStreak } from "../lib/game-engine";
-import { getSportConfig } from "../lib/sport-config";
+import { getLevel, getNextLevel, getLevelProgress, getStreakMult, getWeightStreakMult, fmtStreak, fmtWStreak } from "../lib/game-engine";
 
 const DAILY_XP_CAP = 150;
 const PRESENT_XP = 5; // Base XP just for showing up
@@ -130,58 +125,9 @@ const CAT_COLORS: Record<string, string> = {
   MINDSET: "bg-pink-500/20 text-pink-400",
 };
 
-// ── standard swim events ────────────────────────────────────
-
-const STANDARD_SWIM_EVENTS: { name: string; courses: ("SCY" | "SCM" | "LCM")[] }[] = [
-  { name: "50 Free", courses: ["SCY", "SCM", "LCM"] },
-  { name: "100 Free", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 Free", courses: ["SCY", "SCM", "LCM"] },
-  { name: "500 Free", courses: ["SCY"] },
-  { name: "400 Free", courses: ["SCM", "LCM"] },
-  { name: "1000 Free", courses: ["SCY"] },
-  { name: "800 Free", courses: ["SCM", "LCM"] },
-  { name: "1650 Free", courses: ["SCY"] },
-  { name: "1500 Free", courses: ["SCM", "LCM"] },
-  { name: "50 Back", courses: ["SCY", "SCM", "LCM"] },
-  { name: "100 Back", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 Back", courses: ["SCY", "SCM", "LCM"] },
-  { name: "50 Breast", courses: ["SCY", "SCM", "LCM"] },
-  { name: "100 Breast", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 Breast", courses: ["SCY", "SCM", "LCM"] },
-  { name: "50 Fly", courses: ["SCY", "SCM", "LCM"] },
-  { name: "100 Fly", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 Fly", courses: ["SCY", "SCM", "LCM"] },
-  { name: "100 IM", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 IM", courses: ["SCY", "SCM", "LCM"] },
-  { name: "400 IM", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 Free Relay", courses: ["SCY", "SCM", "LCM"] },
-  { name: "400 Free Relay", courses: ["SCY", "SCM", "LCM"] },
-  { name: "800 Free Relay", courses: ["SCY", "SCM", "LCM"] },
-  { name: "200 Medley Relay", courses: ["SCY", "SCM", "LCM"] },
-  { name: "400 Medley Relay", courses: ["SCY", "SCM", "LCM"] },
-];
-
-function parseTimeToSeconds(t: string): number {
-  if (!t || t === "NT") return Infinity;
-  const parts = t.split(":");
-  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
-  if (parts.length === 1) return parseFloat(parts[0]);
-  return Infinity;
-}
-
-function formatSecondsToTime(s: number): string {
-  if (!isFinite(s) || s <= 0) return "NT";
-  const mins = Math.floor(s / 60);
-  const secs = s % 60;
-  if (mins > 0) return `${mins}:${secs < 10 ? "0" : ""}${secs.toFixed(2)}`;
-  return secs.toFixed(2);
-}
-
 // ── schedule types ──────────────────────────────────────────
 
 type DayOfWeek = "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
-
-const DAYS_OF_WEEK: DayOfWeek[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 type SessionType = "pool" | "weight" | "dryland";
 
@@ -203,37 +149,6 @@ interface DaySchedule {
 interface GroupSchedule {
   groupId: string;
   weekSchedule: Record<DayOfWeek, DaySchedule>;
-}
-
-interface ScheduleTemplate {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-  description: string;
-}
-
-const SCHEDULE_TEMPLATES: ScheduleTemplate[] = [
-  { id: "sprint-day", name: "Sprint Day", icon: "\u26A1", color: "#f59e0b", description: "Short-distance speed work, starts & turns" },
-  { id: "endurance-day", name: "Endurance Day", icon: "\uD83C\uDF0A", color: "#60a5fa", description: "Distance sets, threshold training, pacing" },
-  { id: "drill-day", name: "Drill Day", icon: "\uD83D\uDD27", color: "#a855f7", description: "Technique drills, stroke correction, form focus" },
-  { id: "technique-day", name: "Technique Day", icon: "\uD83C\uDFAF", color: "#34d399", description: "Video review, underwater work, refinement" },
-  { id: "meet-day", name: "Meet Day", icon: "\uD83C\uDFC1", color: "#ef4444", description: "Competition day — warm-up, race, cool-down" },
-  { id: "rest-day", name: "Rest Day", icon: "\uD83D\uDCA4", color: "#475569", description: "Recovery — no scheduled sessions" },
-];
-
-function makeDefaultSession(type: SessionType, groupId: string): ScheduleSession {
-  const defaults: Record<SessionType, { label: string; start: string; end: string; location: string }> = {
-    pool: { label: "Pool Practice", start: "15:30", end: "17:30", location: "Main Pool" },
-    weight: { label: "Weight Room", start: "17:30", end: "18:30", location: "Weight Room" },
-    dryland: { label: "Dryland", start: "15:00", end: "15:30", location: "Pool Deck" },
-  };
-  const d = defaults[type];
-  // Platinum gets later weight room time
-  if (type === "weight" && groupId === "platinum") {
-    return { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, label: d.label, startTime: "17:30", endTime: "18:30", location: d.location, notes: "" };
-  }
-  return { id: `s-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, type, label: d.label, startTime: d.start, endTime: d.end, location: d.location, notes: "" };
 }
 
 // ── Real schedules from GoMotion + Ramon's PDF corrections (Feb 12) ──
@@ -699,25 +614,6 @@ function getCurrentScheduledSession(group: string): { startTime: string; endTime
   return null;
 }
 
-// Check if the current practice session has ended (3 hours past end time)
-function isSessionExpired(group: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    const active = JSON.parse(localStorage.getItem("apex-athlete-active-session-v1") || "null");
-    if (!active || active.group !== group) return false;
-    const now = new Date();
-    const [eh, em] = (active.endTime || "18:00").split(":").map(Number);
-    const endMins = eh * 60 + em;
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const activeDate = active.date || "";
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    // If the active session is from a previous day, it's expired
-    if (activeDate < todayStr) return true;
-    // If 3 hours past end time, it's expired
-    return nowMins > endMins + 180;
-  } catch { return false; }
-}
-
 function load<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
   try {
@@ -777,9 +673,8 @@ const Card = ({ children, className = "", glow = false, neon = false }: { childr
    ══════════════════════════════════════════════════════════════ */
 
 export default function ApexAthletePage() {
-  const router = useRouter();
   const [roster, setRoster] = useState<Athlete[]>([]);
-  const { coachPin, setCoachPin, pinInput, setPinInput, unlocked, setUnlocked, coachRole, coachGroups, isHeadCoach } = useCoachAuth();
+  const { coachPin, setCoachPin, pinInput, setPinInput, unlocked, setUnlocked, coachRole: _coachRole, coachGroups, isHeadCoach } = useCoachAuth();
   const [selectedAthlete, setSelectedAthlete] = useState<string | null>(null);
   const [expandedCheckIn, setExpandedCheckIn] = useState<string | null>(null);
   const [parentPreviewAthlete, setParentPreviewAthlete] = useState<string | null>(null);
@@ -787,10 +682,10 @@ export default function ApexAthletePage() {
   const [sessionMode, setSessionModeRaw] = useState<"pool" | "weight" | "meet">("pool");
   // Pending mode switch — requires confirmation tap to actually switch
   const [pendingMode, setPendingMode] = useState<"pool" | "weight" | "meet" | null>(null);
-  const pendingModeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const _pendingModeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Guard: only switch mode via deliberate onClick with strict debounce + scroll/touch guards
-  const lastModeSwitch = useRef(0);
-  const modeSwitchLocked = useRef(false);
+  const _lastModeSwitch = useRef(0);
+  const _modeSwitchLocked = useRef(false);
   const handleModeClick = useCallback((m: "pool" | "weight" | "meet", e: React.MouseEvent) => {
     if (!e.isTrusted) return;
     if (sessionMode === m) return;
@@ -866,7 +761,7 @@ export default function ApexAthletePage() {
   const [mounted, setMounted] = useState(false);
   const [levelUpName, setLevelUpName] = useState<string | null>(null);
   const [levelUpLevel, setLevelUpLevel] = useState<string>("");
-  const [levelUpIcon, setLevelUpIcon] = useState<string>("");
+  const [_levelUpIcon, setLevelUpIcon] = useState<string>("");
   const [levelUpColor, setLevelUpColor] = useState<string>("");
   const [levelUpExiting, setLevelUpExiting] = useState(false);
   const [xpFloats, setXpFloats] = useState<import("./components/XpFloats").XpFloat[]>([]);
@@ -1000,34 +895,34 @@ export default function ApexAthletePage() {
 
   // ── schedule state ──────────────────────────────────────
   const [schedules, setSchedules] = useState<GroupSchedule[]>([]);
-  const [scheduleGroup, setScheduleGroup] = useState<GroupId>("platinum");
-  const [editingSession, setEditingSession] = useState<{ day: DayOfWeek; sessionIdx: number } | null>(null);
-  const [scheduleEditMode, setScheduleEditMode] = useState(false);
+  const [scheduleGroup, _setScheduleGroup] = useState<GroupId>("platinum");
+  const [_editingSession, _setEditingSession] = useState<{ day: DayOfWeek; sessionIdx: number } | null>(null);
+  const [_scheduleEditMode, _setScheduleEditMode] = useState(false);
 
   // ── coach management state ──────────────────────────────
   const [coaches, setCoaches] = useState<CoachProfile[]>([]);
-  const [addCoachOpen, setAddCoachOpen] = useState(false);
+  const [_addCoachOpen, setAddCoachOpen] = useState(false);
   const [newCoachName, setNewCoachName] = useState("");
   const [newCoachRole, setNewCoachRole] = useState<"head" | "assistant">("assistant");
   const [newCoachGroups, setNewCoachGroups] = useState<GroupId[]>([]);
   const [newCoachEmail, setNewCoachEmail] = useState("");
-  const [editingCoachId, setEditingCoachId] = useState<string | null>(null);
+  const [_editingCoachId, setEditingCoachId] = useState<string | null>(null);
 
   // ── meets & comms state ─────────────────────────────────
   const [meets, setMeets] = useState<SwimMeet[]>([]);
-  const [broadcastMsg, setBroadcastMsg] = useState("");
-  const [newMeetName, setNewMeetName] = useState("");
-  const [newMeetDate, setNewMeetDate] = useState("");
-  const [newMeetLocation, setNewMeetLocation] = useState("");
-  const [newMeetCourse, setNewMeetCourse] = useState<"SCY" | "SCM" | "LCM">("SCY");
-  const [newMeetDeadline, setNewMeetDeadline] = useState("");
-  const [editingMeetId, setEditingMeetId] = useState<string | null>(null);
-  const [meetEventPicker, setMeetEventPicker] = useState<string | null>(null);
+  const [_broadcastMsg, _setBroadcastMsg] = useState("");
+  const [_newMeetName, _setNewMeetName] = useState("");
+  const [_newMeetDate, _setNewMeetDate] = useState("");
+  const [_newMeetLocation, _setNewMeetLocation] = useState("");
+  const [_newMeetCourse, _setNewMeetCourse] = useState<"SCY" | "SCM" | "LCM">("SCY");
+  const [_newMeetDeadline, _setNewMeetDeadline] = useState("");
+  const [_editingMeetId, _setEditingMeetId] = useState<string | null>(null);
+  const [_meetEventPicker, _setMeetEventPicker] = useState<string | null>(null);
 
   // ── comms state (must be at top level — hooks cannot be inside conditionals) ──
   const [allBroadcasts, setAllBroadcasts] = useState<{ id: string; message: string; timestamp: string; from: string; group: string }[]>([]);
-  const [commsMsg, setCommsMsg] = useState("");
-  const [commsGroup, setCommsGroup] = useState<"all" | GroupId>("all");
+  const [_commsMsg, _setCommsMsg] = useState("");
+  const [_commsGroup, _setCommsGroup] = useState<"all" | GroupId>("all");
   const [absenceReports, setAbsenceReports] = useState<{ id: string; athleteId: string; athleteName: string; reason: string; dateStart: string; dateEnd: string; note: string; submitted: string; group: string }[]>([]);
 
   // ── push notification state ──────────────────────────────
@@ -1377,7 +1272,7 @@ export default function ApexAthletePage() {
     }
   }, [pinInput, selectedGroup]);
 
-  const sendPushToGroup = useCallback(async (title: string, body: string, group?: string) => {
+  const _sendPushToGroup = useCallback(async (title: string, body: string, group?: string) => {
     try {
       await fetch("/api/push/send", {
         method: "POST",
@@ -2095,7 +1990,7 @@ export default function ApexAthletePage() {
   // ── coach management ──────────────────────────────────
   const saveCoaches = useCallback((c: CoachProfile[]) => { setCoaches(c); save(K.COACHES, c); }, []);
 
-  const addCoach = useCallback(() => {
+  const _addCoach = useCallback(() => {
     if (!newCoachName.trim()) return;
     const pin = String(1000 + Math.floor(Math.random() * 9000));
     const coach: CoachProfile = {
@@ -2111,19 +2006,19 @@ export default function ApexAthletePage() {
     addAudit("system", "System", `Added coach: ${coach.name} (${coach.role})`, 0);
   }, [newCoachName, newCoachRole, newCoachGroups, newCoachEmail, coaches, saveCoaches, addAudit]);
 
-  const removeCoach = useCallback((id: string) => {
+  const _removeCoach = useCallback((id: string) => {
     const c = coaches.find(x => x.id === id);
     if (!c) return;
     saveCoaches(coaches.filter(x => x.id !== id));
     addAudit("system", "System", `Removed coach: ${c.name}`, 0);
   }, [coaches, saveCoaches, addAudit]);
 
-  const updateCoach = useCallback((id: string, updates: Partial<CoachProfile>) => {
+  const _updateCoach = useCallback((id: string, updates: Partial<CoachProfile>) => {
     saveCoaches(coaches.map(c => c.id === id ? { ...c, ...updates } : c));
     setEditingCoachId(null);
   }, [coaches, saveCoaches]);
 
-  const toggleCoachGroup = useCallback((gid: GroupId) => {
+  const _toggleCoachGroup = useCallback((gid: GroupId) => {
     setNewCoachGroups(prev => prev.includes(gid) ? prev.filter(g => g !== gid) : [...prev, gid]);
   }, []);
 
@@ -2349,7 +2244,7 @@ export default function ApexAthletePage() {
   }, [snapshots]);
 
   // Coach efficiency — which checkpoints are most/least awarded
-  const checkpointEfficiency = useMemo(() => {
+  const _checkpointEfficiency = useMemo(() => {
     const counts: Record<string, number> = {};
     const groupRoster = roster.filter(a => a.group === selectedGroup);
     for (const a of groupRoster) {
@@ -2581,363 +2476,7 @@ export default function ApexAthletePage() {
   };
 
 
-  // ── expanded athlete detail ─────────────────────────────
-  const AthleteExpanded = ({ athlete }: { athlete: Athlete }) => {
-    const lv = getLevel(athlete.xp, getSportForAthlete(athlete));
-    const prog = getLevelProgress(athlete.xp, getSportForAthlete(athlete));
-    const nxt = getNextLevel(athlete.xp, getSportForAthlete(athlete));
-    const sk = fmtStreak(athlete.streak);
-    const wsk = fmtWStreak(athlete.weightStreak);
-    const combos = checkCombos(athlete);
-    const growth = getPersonalGrowth(athlete);
-    const dxp = athlete.dailyXP.date === today() ? athlete.dailyXP : { pool: 0, weight: 0, meet: 0 };
-    const dailyUsed = dxp.pool + dxp.weight + dxp.meet;
-    const cps = sessionMode === "pool" ? currentCPs : sessionMode === "weight" ? WEIGHT_CPS : MEET_CPS;
-    const cpMap = sessionMode === "pool" ? athlete.checkpoints : sessionMode === "weight" ? athlete.weightCheckpoints : athlete.meetCheckpoints;
 
-    return (
-      <div className="expand-in mt-5 space-y-6" onClick={e => e.stopPropagation()}>
-        {/* Profile card */}
-        <Card className="p-6">
-          <div className="flex items-center gap-5">
-            <div className="w-16 h-16 rounded-full bg-white/[0.06] flex items-center justify-center text-lg font-black text-[#f8fafc] shrink-0"
-              style={{ border: `3px solid ${lv.color}50`, boxShadow: `0 0 20px ${lv.color}20` }}>
-              {athlete.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[#f8fafc] font-bold text-lg">{athlete.name}</div>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                <span className="text-[#f8fafc]/60 text-xs">{athlete.age}y · {athlete.gender}</span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: lv.color, background: `${lv.color}15` }}>
-                  {lv.icon} {lv.name}
-                </span>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b]">
-                  {sk.label} · {sk.mult}
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="flex justify-between text-xs mb-1">
-                  <AnimatedCounter value={athlete.xp} suffix=" XP" className="text-[#f8fafc]/60 font-bold" />
-                  <span className="text-[#f8fafc]/60">{nxt ? `${prog.remaining} to ${nxt.name}` : "MAX LEVEL"}</span>
-                </div>
-                <div className="h-2.5 rounded-full bg-white/[0.04] overflow-hidden">
-                  <div className="h-full rounded-full xp-shimmer transition-all duration-500" style={{ width: `${prog.percent}%` }} />
-                </div>
-              </div>
-            </div>
-          </div>
-          <button onClick={(e) => { e.stopPropagation(); setParentPreviewAthlete(athlete.id); }}
-            className="mt-3 w-full rounded-lg border border-purple-500/30 bg-purple-900/20 px-3 py-2 text-xs font-medium text-purple-300 hover:bg-purple-900/40 hover:border-purple-500/50 transition-colors">
-            Preview Parent View
-          </button>
-        </Card>
-
-        {/* Stats row */}
-        <div className="grid grid-cols-4 gap-3">
-          {[
-            { label: "Sessions", val: athlete.totalPractices },
-            { label: "XP Earned", val: athlete.xp },
-            { label: "Streak", val: `${athlete.streak}d` },
-            { label: "Multiplier", val: sk.mult },
-          ].map(s => (
-            <Card key={s.label} className="py-4 px-3 text-center">
-              <div className="text-[#f8fafc] font-black text-lg tabular-nums whitespace-nowrap">{s.val}</div>
-              <div className="text-[#f8fafc]/60 text-xs uppercase tracking-wider font-medium mt-0.5">{s.label}</div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Daily cap */}
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-[#f8fafc]/60">Daily XP:</span>
-          <div className="flex-1 h-1.5 rounded-full bg-white/[0.04] overflow-hidden">
-            <div className={`h-full rounded-full transition-all ${dailyUsed >= DAILY_XP_CAP ? "bg-red-500" : "bg-[#6b21a8]"}`} style={{ width: `${(dailyUsed / DAILY_XP_CAP) * 100}%` }} />
-          </div>
-          <span className={`text-xs font-bold tabular-nums whitespace-nowrap ${dailyUsed >= DAILY_XP_CAP ? "text-red-400" : "text-[#f8fafc]/60"}`}>{dailyUsed}/{DAILY_XP_CAP}</span>
-        </div>
-
-        {/* Streaks */}
-        <div className="flex gap-3">
-          <Card className="flex-1 px-4 py-3 flex items-center justify-between">
-            <div>
-              <div className="text-[#f8fafc]/60 text-xs uppercase tracking-wider">Pool Streak</div>
-              <div className="text-[#f8fafc] font-bold">{athlete.streak}d <span className="text-[#a855f7] text-xs">{sk.label}</span></div>
-            </div>
-            <span className="text-[#a855f7] font-bold text-sm">{sk.mult}</span>
-          </Card>
-          <Card className="flex-1 px-4 py-3 flex items-center justify-between">
-            <div>
-              <div className="text-[#f8fafc]/60 text-xs uppercase tracking-wider">Weight Streak</div>
-              <div className="text-[#f8fafc] font-bold">{athlete.weightStreak}d <span className="text-[#f59e0b] text-xs">{wsk.label}</span></div>
-            </div>
-            <span className="text-[#f59e0b] font-bold text-sm">{wsk.mult}</span>
-          </Card>
-        </div>
-
-        {/* Daily Check-In — auto-checked basics the coach can deselect */}
-        {sessionMode === "pool" && (
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Daily Check-In</h4>
-              <span className={`text-xs font-bold tabular-nums ${athlete.present ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>{dailyUsed} xp today</span>
-            </div>
-            {!athlete.present && (
-              <Card className="px-5 py-4">
-                <button
-                  onClick={() => togglePresent(athlete.id)}
-                  className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 text-sm font-bold hover:bg-emerald-500/25 active:scale-95 transition-all touch-manipulation"
-                >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8.5L6.5 12L13 4" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Mark Present
-                </button>
-              </Card>
-            )}
-            {athlete.present && (
-              <Card className="divide-y divide-white/[0.04]">
-                {AUTO_POOL_CPS.map(cp => {
-                  const done = cpMap[cp.id];
-                  return (
-                    <button key={cp.id} onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, "pool", e)}
-                      className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${
-                        done ? "bg-emerald-500/5" : "hover:bg-white/[0.02]"
-                      }`}
-                    >
-                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                        done ? "border-emerald-400 bg-emerald-500" : "border-white/15"
-                      }`}>
-                        {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[#f8fafc] text-sm font-medium">{cp.name}</div>
-                        <div className="text-[#f8fafc]/40 text-[11px]">{cp.desc}</div>
-                      </div>
-                      <span className={`text-xs font-bold ${done ? "text-emerald-400" : "text-[#f8fafc]/30"}`}>+{cp.xp}</span>
-                    </button>
-                  );
-                })}
-              </Card>
-            )}
-          </div>
-        )}
-
-        {/* Standout awards — manual checkpoints coach taps for exceptional behavior */}
-        {sessionMode === "pool" && (
-          <div>
-            <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Standout Awards</h4>
-            <Card className="divide-y divide-white/[0.04]">
-              {MANUAL_POOL_CPS.map(cp => {
-                const done = cpMap[cp.id];
-                return (
-                  <button key={cp.id} onClick={(e) => toggleCheckpoint(athlete.id, cp.id, cp.xp, "pool", e)}
-                    className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[52px] ${
-                      done ? "bg-[#a855f7]/5" : "hover:bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      done ? "border-[#a855f7] bg-[#a855f7]" : "border-white/15"
-                    }`}>
-                      {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[#f8fafc] text-sm font-medium">{cp.name}</div>
-                      <div className="text-[#f8fafc]/40 text-[11px]">{cp.desc}</div>
-                    </div>
-                    <span className={`text-xs font-bold ${done ? "text-[#a855f7]" : "text-[#f8fafc]/30"}`}>+{cp.xp}</span>
-                  </button>
-                );
-              })}
-            </Card>
-          </div>
-        )}
-
-        {/* Shoutout — coach recognition for standout moments */}
-        <button
-          onClick={(e) => giveShoutout(athlete.id, e)}
-          className="w-full flex items-center justify-center gap-2 px-5 py-4 rounded-2xl bg-gradient-to-r from-[#f59e0b]/10 to-[#fbbf24]/10 border border-[#f59e0b]/20 hover:border-[#f59e0b]/40 hover:from-[#f59e0b]/15 hover:to-[#fbbf24]/15 transition-all active:scale-[0.98] min-h-[56px]"
-        >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M10 2l2.4 4.8L18 7.6l-4 3.9.9 5.5L10 14.5 5.1 17l.9-5.5-4-3.9 5.6-.8L10 2z" fill="#f59e0b" stroke="#f59e0b" strokeWidth="1"/></svg>
-          <span className="text-[#f59e0b] font-bold text-sm">Shoutout</span>
-          <span className="text-[#f59e0b]/60 text-xs font-mono">+{SHOUTOUT_XP} xp</span>
-        </button>
-
-        {/* Weight challenges */}
-        {sessionMode === "weight" && (
-          <div>
-            <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-3">Weight Challenges</h4>
-            <Card className="divide-y divide-white/[0.04]">
-              {WEIGHT_CHALLENGES.map(ch => {
-                const done = athlete.weightChallenges[ch.id];
-                return (
-                  <button key={ch.id} onClick={(e) => toggleWeightChallenge(athlete.id, ch.id, ch.xp, e)}
-                    className={`w-full flex items-center gap-4 px-5 py-4 text-left transition-colors min-h-[56px] ${
-                      done ? "bg-[#f59e0b]/5" : "hover:bg-white/[0.02]"
-                    }`}
-                  >
-                    <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${
-                      done ? "border-[#f59e0b] bg-[#f59e0b]" : "border-white/15"
-                    }`}>
-                      {done && <svg className="w-3.5 h-3.5 text-[#f8fafc]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[#f8fafc] text-sm font-medium">{ch.name}</div>
-                      <div className="text-[#f8fafc]/60 text-[11px]">{ch.desc}</div>
-                    </div>
-                    <span className={`text-xs font-bold ${done ? "text-[#f59e0b]" : "text-[#f8fafc]/60"}`}>+{ch.xp} xp</span>
-                  </button>
-                );
-              })}
-            </Card>
-          </div>
-        )}
-
-        {/* Side quests — Coach assigns, athlete completes, coach approves */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold">Side Quests</h4>
-              {Object.values(athlete.quests).filter(q => q === "submitted").length > 0 && (
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/30 animate-pulse">
-                  {Object.values(athlete.quests).filter(q => q === "submitted").length} to review
-                </span>
-              )}
-            </div>
-            <span className="text-[#f8fafc]/25 text-xs font-mono">{Object.values(athlete.quests).filter(q => q === "done").length}/{QUEST_DEFS.length} done</span>
-          </div>
-          <Card className="divide-y divide-white/[0.04]">
-            {QUEST_DEFS.map(q => {
-              const st = athlete.quests[q.id] || "pending";
-              return (
-                <div key={q.id}
-                  className={`w-full px-5 py-4 transition-colors ${
-                    st === "done" ? "bg-emerald-500/5" : st === "submitted" ? "bg-[#f59e0b]/5 border-l-2 border-l-[#f59e0b]/40" : st === "active" ? "bg-[#6b21a8]/5" : "bg-transparent"
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0 mt-0.5 ${
-                      st === "done" ? "border-emerald-400 bg-emerald-400/20" : st === "submitted" ? "border-[#f59e0b] bg-[#f59e0b]/20" : st === "active" ? "border-[#a855f7] bg-[#a855f7]/20" : "border-white/15"
-                    }`}>
-                      {st === "done" ? (
-                        <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                      ) : st === "submitted" ? (
-                        <svg className="w-3.5 h-3.5 text-[#f59e0b]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9 16H3L12 3z" /></svg>
-                      ) : st === "active" ? (
-                        <svg className="w-3.5 h-3.5 text-[#a855f7]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9" strokeWidth="2"/></svg>
-                      ) : (
-                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[#f8fafc] text-sm font-medium">{q.name}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${CAT_COLORS[q.cat] || "bg-white/10 text-[#f8fafc]/40"}`}>
-                          {q.cat}
-                        </span>
-                      </div>
-                      <div className="text-[#f8fafc]/40 text-xs mt-1">{q.desc}</div>
-                      <div className="flex items-center gap-2 mt-2">
-                        <span className={`text-xs font-mono tracking-wider ${
-                          st === "done" ? "text-emerald-400/70" : st === "submitted" ? "text-[#f59e0b]/70" : st === "active" ? "text-[#a855f7]/70" : "text-[#f8fafc]/25"
-                        }`}>
-                          {st === "done" ? "Completed" : st === "submitted" ? "Submitted — review now" : st === "active" ? "In progress" : "Not assigned"}
-                        </span>
-                        <span className={`text-xs font-bold font-mono ${st === "done" ? "text-emerald-400/60" : "text-[#f8fafc]/20"}`}>+{q.xp} xp</span>
-                      </div>
-                      {st === "submitted" && athlete.questNotes?.[q.id] && (
-                        <div className="mt-2 p-2 rounded-lg bg-[#f59e0b]/5 border border-[#f59e0b]/15">
-                          <span className="text-[#f59e0b]/60 text-[10px] uppercase tracking-wider font-bold">Athlete notes:</span>
-                          <p className="text-[#f8fafc]/70 text-xs mt-0.5">{athlete.questNotes[q.id]}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="shrink-0 flex items-center">
-                      {st === "pending" && (
-                        <button
-                          onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
-                          className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-[#a855f7]/15 text-[#a855f7] border border-[#a855f7]/25 hover:bg-[#a855f7]/25 transition-all active:scale-[0.97]"
-                        >
-                          Assign
-                        </button>
-                      )}
-                      {st === "submitted" && (
-                        <div className="flex gap-1.5">
-                          <button
-                            onClick={(e) => cycleQuest(athlete.id, q.id, q.xp, e)}
-                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 hover:bg-emerald-500/25 transition-all active:scale-[0.97] animate-pulse"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => denyQuest(athlete.id, q.id)}
-                            className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider min-h-[36px] bg-red-500/10 text-red-400/70 border border-red-500/15 hover:bg-red-500/20 transition-all active:scale-[0.97]"
-                          >
-                            Deny
-                          </button>
-                        </div>
-                      )}
-                      {st === "active" && (
-                        <span className="px-3 py-2 rounded-lg text-xs font-mono tracking-wider text-[#a855f7]/50 border border-[#a855f7]/10">
-                          Waiting
-                        </span>
-                      )}
-                      {st === "done" && (
-                        <span className="px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400/70 border border-emerald-500/15">
-                          Done
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </Card>
-        </div>
-
-        {/* Combos */}
-        {combos.length > 0 && (
-          <div className="space-y-2">
-            {combos.map(c => (
-              <div key={c} className="px-4 py-3 rounded-xl bg-[#f59e0b]/5 border border-[#f59e0b]/10 text-[#f59e0b] text-sm font-bold">
-                {c}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Personal growth */}
-        {growth && (
-          <Card className="p-6">
-            <h4 className="text-[#f8fafc]/60 text-[11px] uppercase tracking-[0.15em] font-bold mb-4">You vs Last Month</h4>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div>
-                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.xpGain > 0 ? "text-emerald-400" : growth.xpGain < 0 ? "text-red-400" : "text-[#f8fafc]/60"}`}>
-                  {growth.xpGain > 0 ? "+" : ""}{growth.xpGain}
-                </div>
-                <div className="text-[#f8fafc]/60 text-xs uppercase mt-1">XP Gained</div>
-              </div>
-              <div>
-                <div className={`text-2xl font-black tabular-nums whitespace-nowrap ${growth.streakDelta > 0 ? "text-emerald-400" : growth.streakDelta < 0 ? "text-red-400" : "text-[#f8fafc]/60"}`}>
-                  {growth.streakDelta > 0 ? "+" : ""}{growth.streakDelta}d
-                </div>
-                <div className="text-[#f8fafc]/60 text-xs uppercase mt-1">Streak</div>
-              </div>
-              <div>
-                <div className="text-2xl font-black tabular-nums whitespace-nowrap text-[#f8fafc]">{athlete.totalPractices}</div>
-                <div className="text-[#f8fafc]/60 text-xs uppercase mt-1">Total Sessions</div>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {view === "coach" && (
-          <button onClick={() => removeAthlete(athlete.id)} className="text-red-400/30 text-xs hover:text-red-400 transition-colors min-h-[36px] px-1">
-            Remove Athlete
-          </button>
-        )}
-      </div>
-    );
-  };
-
-  // ── ATHLETE DETAIL DRILL-DOWN VIEW ───────────────────────
   const AthleteDetailView = ({ athlete, onBack }: { athlete: Athlete; onBack: () => void }) => {
     const lv = getLevel(athlete.xp, getSportForAthlete(athlete));
     const prog = getLevelProgress(athlete.xp, getSportForAthlete(athlete));
@@ -3157,7 +2696,6 @@ export default function ApexAthletePage() {
       </div>
     );
   };
-
   // ── STAFF VIEW ───────────────────────────────────────────
   if (view === "staff") {
     const isAdmin = pinInput === coachPin || !currentCoach || (currentCoach && currentCoach.role === "head");
@@ -3366,9 +2904,6 @@ export default function ApexAthletePage() {
      COACH MAIN VIEW — LEADERBOARD-FIRST LAYOUT
      ════════════════════════════════════════════════════════════ */
 
-  const present = filteredRoster.filter(a => a.present || Object.values(a.checkpoints || {}).some(Boolean) || Object.values(a.weightCheckpoints || {}).some(Boolean)).length;
-  const totalXpToday = filteredRoster.reduce((s, a) => s + ((a.dailyXP?.date === today()) ? ((a.dailyXP?.pool || 0) + (a.dailyXP?.weight || 0) + (a.dailyXP?.meet || 0)) : 0), 0);
-
   // ── Athlete detail drill-down ──────────────────────────
   if (selectedAthlete) {
     const detailAthlete = roster.find(a => a.id === selectedAthlete);
@@ -3452,11 +2987,6 @@ export default function ApexAthletePage() {
                     const avatarSizes = ["w-20 h-20 sm:w-24 sm:h-24 text-xl sm:text-2xl", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg", "w-16 h-16 sm:w-18 sm:h-18 text-base sm:text-lg"];
                     const medals = ["🥇", "🥈", "🥉"];
                     const ringColors = ["border-[#f59e0b]", "border-[#c0c0d2]/50", "border-[#cd7f32]/60"];
-                    const glowColors = [
-                      "shadow-[0_0_50px_rgba(245,158,11,0.3),0_0_100px_rgba(245,158,11,0.1)]",
-                      "shadow-[0_0_30px_rgba(192,192,210,0.15)]",
-                      "shadow-[0_0_30px_rgba(205,127,50,0.15)]",
-                    ];
                     const cardBgs = [
                       "bg-gradient-to-b from-[#f59e0b]/10 via-[#06020f]/80 to-[#06020f] neon-pulse-gold",
                       "bg-gradient-to-b from-[#00f0ff]/5 via-[#06020f]/80 to-[#06020f] neon-pulse",

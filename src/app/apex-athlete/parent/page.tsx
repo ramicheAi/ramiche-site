@@ -312,7 +312,7 @@ const STYLE_TAG = (
 );
 
 // ── game engine (shared) ────────────────────────────────────
-import { LEVELS, getLevel, getNextLevel, getLevelProgress, fmtStreak } from "../lib/game-engine";
+import { getLevel, getNextLevel, getLevelProgress, fmtStreak } from "../lib/game-engine";
 
 const K = {
   ROSTER: "apex-athlete-roster-v5",
@@ -967,17 +967,17 @@ export default function ParentPortal() {
   const [pinError, setPinError] = useState(false);
   const [unlocked, setUnlocked] = useState(false);
   // Onboarding: parent links to child via USA Swimming ID, then locked
-  const [onboardStep, setOnboardStep] = useState<"swimid" | "confirm" | "addmore">("swimid");
+  const [_onboardStep, setOnboardStep] = useState<"swimid" | "confirm" | "addmore">("swimid");
   const [nameInput, setNameInput] = useState("");
-  const [idInput, setIdInput] = useState("");
-  const [onboardError, setOnboardError] = useState("");
+  const [_idInput, setIdInput] = useState("");
+  const [_onboardError, _setOnboardError] = useState("");
   const [linkedChildren, setLinkedChildren] = useState<string[]>([]); // athlete IDs
   const [athlete, setAthlete] = useState<Athlete | null>(null);
   const [roster, setRoster] = useState<Athlete[]>([]);
   const [snapshots, setSnapshots] = useState<DailySnapshot[]>([]);
   const [showWelcome, setShowWelcome] = useState(false);
-  const [pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
-  const [addingAnother, setAddingAnother] = useState(false);
+  const [_pendingAthlete, setPendingAthlete] = useState<Athlete | null>(null);
+  const [_addingAnother, setAddingAnother] = useState(false);
 
   // ── Enrollment state ──
   const [enrollment, setEnrollment] = useState<ParentEnrollment | null>(null);
@@ -1008,43 +1008,45 @@ export default function ParentPortal() {
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [showAllBroadcasts, setShowAllBroadcasts] = useState(false);
   useEffect(() => {
-    setMounted(true); // eslint-disable-line react-hooks/purity
-    // Load enrollment data from localStorage
-    try {
-      const enrollmentData = localStorage.getItem("apex-parent-enrollment");
-      if (enrollmentData) {
-        setEnrollment(JSON.parse(enrollmentData));
-      }
-    } catch { /* ignore */ }
-    const session = getSession();
-    if (session) {
-      // Athletes don't belong here — redirect them
-      if (session.role === "athlete") {
-        window.location.href = "/apex-athlete/athlete";
-        return;
-      }
-      // Parents auto-unlock
-      if (session.role === "parent") {
-        setUnlocked(true);
-      }
-      // Coaches/admins auto-unlock with coach view
-      if (session.role === "coach" || session.role === "admin") {
-        setUnlocked(true);
-        setIsCoach(true);
-      }
-    } else {
-      // Cross-portal: coach PIN verified elsewhere grants access here
+    queueMicrotask(() => {
+      setMounted(true);
+      // Load enrollment data from localStorage
       try {
-        const raw = localStorage.getItem("mettle_coach_session");
-        if (raw) {
-          const cs = JSON.parse(raw);
-          if (cs && cs.role === "coach" && Date.now() - cs.ts < 24 * 60 * 60 * 1000) {
-            setUnlocked(true);
-            setIsCoach(true);
-          }
+        const enrollmentData = localStorage.getItem("apex-parent-enrollment");
+        if (enrollmentData) {
+          setEnrollment(JSON.parse(enrollmentData));
         }
-      } catch {}
-    }
+      } catch { /* ignore */ }
+      const session = getSession();
+      if (session) {
+        // Athletes don't belong here — redirect them
+        if (session.role === "athlete") {
+          window.location.href = "/apex-athlete/athlete";
+          return;
+        }
+        // Parents auto-unlock
+        if (session.role === "parent") {
+          setUnlocked(true);
+        }
+        // Coaches/admins auto-unlock with coach view
+        if (session.role === "coach" || session.role === "admin") {
+          setUnlocked(true);
+          setIsCoach(true);
+        }
+      } else {
+        // Cross-portal: coach PIN verified elsewhere grants access here
+        try {
+          const raw = localStorage.getItem("mettle_coach_session");
+          if (raw) {
+            const cs = JSON.parse(raw);
+            if (cs && cs.role === "coach" && Date.now() - cs.ts < 24 * 60 * 60 * 1000) {
+              setUnlocked(true);
+              setIsCoach(true);
+            }
+          }
+        } catch { /* ignore */ }
+      }
+    });
   }, []);
 
   const handlePin = () => {
@@ -1061,13 +1063,15 @@ export default function ParentPortal() {
   useEffect(() => {
     if (!mounted) return;
     const localRoster = load<Athlete[]>(K.ROSTER, []);
-    setRoster(localRoster); // eslint-disable-line react-hooks/purity
-    setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
-    // Load communication data
-    setMeets(load<MeetEntry[]>(K.MEETS, []));
-    setRsvps(load<RsvpRecord[]>(K.RSVPS, []));
-    setAbsences(load<AbsenceReport[]>(K.ABSENCES, []));
-    setBroadcasts(load<Broadcast[]>(K.BROADCASTS, []));
+    queueMicrotask(() => {
+      setRoster(localRoster);
+      setSnapshots(load<DailySnapshot[]>(K.SNAPSHOTS, []));
+      // Load communication data
+      setMeets(load<MeetEntry[]>(K.MEETS, []));
+      setRsvps(load<RsvpRecord[]>(K.RSVPS, []));
+      setAbsences(load<AbsenceReport[]>(K.ABSENCES, []));
+      setBroadcasts(load<Broadcast[]>(K.BROADCASTS, []));
+    });
 
     // Firestore fallback: if localStorage roster is empty, fetch from Firestore
     if (localRoster.length === 0) {
@@ -1090,17 +1094,18 @@ export default function ParentPortal() {
     if (saved) {
       try {
         const links = JSON.parse(saved) as string[];
-        setLinkedChildren(links);
-        // Auto-load first linked child
-        if (links.length > 0) {
-          const found = localRoster.find(a => a.id === links[0]);
-          if (found) {
-            setAthlete(found);
-            setShowWelcome(true);
-            setTimeout(() => setShowWelcome(false), 2200);
+        queueMicrotask(() => {
+          setLinkedChildren(links);
+          if (links.length > 0) {
+            const found = localRoster.find(a => a.id === links[0]);
+            if (found) {
+              setAthlete(found);
+              setShowWelcome(true);
+              setTimeout(() => setShowWelcome(false), 2200);
+            }
           }
-        }
-      } catch {}
+        });
+      } catch { /* ignore */ }
     }
 
     return () => { if (unsub) unsub(); };
@@ -1122,7 +1127,12 @@ export default function ParentPortal() {
       lastSeen[key] = time;
     }
     localStorage.setItem(lastSeenKey, JSON.stringify(lastSeen));
-    if (newPbs.length > 0) { setPbQueue(newPbs); setCurrentPb(newPbs[0]); }
+    if (newPbs.length > 0) {
+      queueMicrotask(() => {
+        setPbQueue(newPbs);
+        setCurrentPb(newPbs[0]);
+      });
+    }
   }, [athlete]);
 
   // Derived state — computed from nameInput, doesn't need useEffect
@@ -1132,7 +1142,7 @@ export default function ParentPortal() {
     return roster.filter(a => a.name.toLowerCase().includes(q)).slice(0, 8);
   }, [nameInput, roster]);
 
-  const linkChild = (a: Athlete) => {
+  const _linkChild = (a: Athlete) => {
     const updated = [...new Set([...linkedChildren, a.id])];
     setLinkedChildren(updated);
     localStorage.setItem("apex-parent-links", JSON.stringify(updated));
@@ -1146,7 +1156,7 @@ export default function ParentPortal() {
   };
 
   // Find athlete by USA Swimming ID — searches roster for matching usaSwimmingId
-  const findAthleteBySwimId = (swimId: string): Athlete | null => {
+  const _findAthleteBySwimId = (swimId: string): Athlete | null => {
     const normalized = swimId.trim().toUpperCase();
     if (!normalized) return null;
     // First try exact match on usaSwimmingId field
@@ -1165,12 +1175,12 @@ export default function ParentPortal() {
     return null;
   };
 
-  const switchChild = (id: string) => {
+  const _switchChild = (id: string) => {
     const found = roster.find(a => a.id === id);
     if (found) setAthlete(found);
   };
 
-  const parentLogout = () => {
+  const _parentLogout = () => {
     localStorage.removeItem("apex-parent-links");
     setLinkedChildren([]);
     setAthlete(null);

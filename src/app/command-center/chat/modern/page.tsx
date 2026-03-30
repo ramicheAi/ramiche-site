@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import AgentMessagePreview, { StreamingAgentMessage } from "@/components/chat/AgentMessagePreview";
 import { BentoGrid, AthleteStatsCard, ProgressCard, MetricCard, ActionCard } from "@/components/athlete/BentoDashboard";
-import { ThemeProvider, ThemeToggle } from "@/components/theme/ThemeProvider";
+import { ThemeToggle } from "@/components/theme/ThemeProvider";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Modern 2026 Implementation

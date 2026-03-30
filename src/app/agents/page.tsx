@@ -286,7 +286,7 @@ function ServiceCard({ service, onBuy }: { service: typeof SERVICES[0]; onBuy: (
 
 export default function AgentsMarketplace() {
   const [activeTab, setActiveTab] = useState<"bundles" | "services" | "computer" | "custom">("bundles");
-  const [loading, setLoading] = useState<string | null>(null);
+  const [_loading, setLoading] = useState<string | null>(null);
 
   // Check for success/cancel from Stripe redirect
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;

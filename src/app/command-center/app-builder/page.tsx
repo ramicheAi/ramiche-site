@@ -83,7 +83,7 @@ export default function AppBuilderPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { checkPrereqs(); }, [checkPrereqs]);
 
-  const allPrerequisitesMet = prerequisites.every(p => p.status === "configured");
+  const _allPrerequisitesMet = prerequisites.every(p => p.status === "configured");
 
   return (
     <div style={{ minHeight: "100vh", background: "#000000", color: "#e5e5e5", fontFamily: "Inter, system-ui, sans-serif", position: "relative" }}>

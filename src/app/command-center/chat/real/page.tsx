@@ -10,30 +10,6 @@ const supabase = _supabase!;
    Connected to Supabase tables with real‑time WebSocket subscriptions
    ══════════════════════════════════════════════════════════════════════════════ */
 
-// Design tokens (copy from original)
-const COLORS = {
-  bg: {
-    main: "#0a0a0a",
-    card: "rgba(255,255,255,0.02)",
-    elevated: "#111111",
-    input: "#0a0a0a",
-    hover: "rgba(255,255,255,0.04)",
-  },
-  border: {
-    default: "#1e1e1e",
-    subtle: "rgba(255,255,255,0.06)",
-  },
-  text: {
-    primary: "#e5e5e5",
-    secondary: "#888888",
-    tertiary: "#666666",
-  },
-  accent: {
-    purple: "#7c3aed",
-    purpleLight: "#a855f7",
-  },
-};
-
 // Types matching Supabase schema
 type Agent = {
   id: string;
@@ -75,7 +51,7 @@ export default function CommandCenterRealChat() {
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Load initial data
+  // Load initial data (mount-only; helpers close over latest supabase client)
   useEffect(() => {
     loadInitialData();
     setupRealtimeSubscriptions();
@@ -84,6 +60,7 @@ export default function CommandCenterRealChat() {
       // Cleanup subscriptions
       supabase?.removeAllChannels();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only bootstrap
   }, []);
 
   const loadInitialData = async () => {
