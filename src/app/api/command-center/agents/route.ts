@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
   dir.updated = new Date().toISOString();
 
   try {
-    await writeFile(DIRECTORY_PATH, JSON.stringify(dir, null, 2), "utf-8");
+    await writeFile(DIRECTORY_PATH, `${JSON.stringify(dir, null, 2)}\n`, "utf-8");
   } catch (e) {
     return NextResponse.json(
       { error: "cannot write directory.json (read-only or missing workspace)", detail: String(e) },

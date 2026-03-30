@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
+import { join } from "path";
+
+const REPO_ROOT = process.env.REPO_DIR?.trim() || process.cwd();
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -40,10 +43,15 @@ function checkPrerequisite(id: string): { status: "configured" | "not-configured
       };
     }
     case "expo-project": {
-      const hasAppJson = existsSync("./app.json") || existsSync("./app.config.js") || existsSync("./app.config.ts");
+      const hasAppJson =
+        existsSync(join(REPO_ROOT, "app.json")) ||
+        existsSync(join(REPO_ROOT, "app.config.js")) ||
+        existsSync(join(REPO_ROOT, "app.config.ts"));
       return {
         status: hasAppJson ? "configured" : "not-configured",
-        detail: hasAppJson ? "Expo project detected" : "No app.json or app.config found in current directory",
+        detail: hasAppJson
+          ? `Expo project detected (${REPO_ROOT})`
+          : `No app.json or app.config under REPO_DIR/cwd (${REPO_ROOT})`,
       };
     }
     default:

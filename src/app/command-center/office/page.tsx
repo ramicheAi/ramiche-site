@@ -21,6 +21,7 @@ interface Agent {
 }
 
 const OFFICE_COLORS: Record<string, string> = {
+  archivist: "#9CA3AF",
   atlas: "#8B5CF6", themaestro: "#E11D48", simons: "#2563EB", "dr-strange": "#7C3AED",
   shuri: "#EC4899", widow: "#DC2626", proximon: "#06B6D4", vee: "#F472B6",
   aetherion: "#A855F7", michael: "#0EA5E9", prophets: "#F59E0B", selah: "#D946EF",

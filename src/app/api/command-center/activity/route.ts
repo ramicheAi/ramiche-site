@@ -6,7 +6,10 @@ import { join } from "path";
 export const dynamic = "force-dynamic";
 
 const REPO_DIR = process.env.REPO_DIR || "/Users/admin/ramiche-site";
-const MEMORY_DIR = "/Users/admin/.openclaw/workspace/memory/";
+const MEMORY_DIR = join(
+  process.env.OPENCLAW_WORKSPACE?.trim() || "/Users/admin/.openclaw/workspace",
+  "memory"
+);
 
 /* ── Parse git log into activity events ────────────────────────────── */
 function parseGitLog(raw: string) {
