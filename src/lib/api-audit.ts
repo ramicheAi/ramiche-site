@@ -20,7 +20,7 @@ export function auditLog(req: Request, route: string, status: number, startTime:
     timestamp: new Date().toISOString(),
     route,
     method: req.method,
-    ip: req.headers.get("x-forwarded-for")?.split(",")[0].trim() || "unknown",
+    ip: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown",
     userAgent: (req.headers.get("user-agent") || "unknown").slice(0, 200),
     status,
     durationMs: Date.now() - startTime,
