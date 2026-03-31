@@ -56,4 +56,11 @@ describe("feature-flags", () => {
     expect(raw).toBeTruthy();
     expect(JSON.parse(raw!)).toMatchObject({ billing: false });
   });
+
+  it("ignores invalid localStorage JSON and keeps defaults", async () => {
+    globalThis.localStorage.setItem("mettle_feature_flags", "{not-json");
+    const { getFlags } = await import("./feature-flags");
+    expect(getFlags().billing).toBe(true);
+    expect(getFlags().pushNotifications).toBe(false);
+  });
 });

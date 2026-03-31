@@ -74,6 +74,12 @@ describe("StorageService", () => {
     vi.unstubAllGlobals();
   });
 
+  it("saveRoster no-ops on empty roster", async () => {
+    await StorageService.saveRoster([], "org1");
+    expect(setDoc).not.toHaveBeenCalled();
+    expect(localStorage.getItem("apex-athlete-roster-v5")).toBeNull();
+  });
+
   it("saveRoster writes localStorage and calls setDoc", async () => {
     const roster = [minimalAthlete({ xp: 500 })];
     await StorageService.saveRoster(roster, "org1");
@@ -100,6 +106,19 @@ describe("StorageService", () => {
     const out = await StorageService.loadRoster();
     expect(out).toEqual(roster);
     expect(getDoc).not.toHaveBeenCalled();
+  });
+
+  it("loadRoster falls back when local JSON is invalid", async () => {
+    localStorage.setItem("apex-athlete-roster-v5", "not-json");
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    getDoc.mockResolvedValue({
+      exists: () => false,
+    });
+    const out = await StorageService.loadRoster("org-x");
+    expect(out).toBeNull();
+    expect(err).toHaveBeenCalled();
+    expect(getDoc).toHaveBeenCalled();
+    err.mockRestore();
   });
 
   it("loadRoster falls back to Firestore and caches locally", async () => {
