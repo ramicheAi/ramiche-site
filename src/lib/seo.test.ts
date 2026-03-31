@@ -50,4 +50,10 @@ describe("seo", () => {
     const m = generateMettleSEO("mettle");
     expect(m.openGraph?.siteName).toBe("METTLE");
   });
+
+  it("generateMettleSEO includes manifest and icons", () => {
+    const m = generateMettleSEO("mettle");
+    expect(m.manifest).toBe("/mettle-manifest.json");
+    expect(m.icons?.icon).toBe("/mettle-brand/v5/mettle-icon.svg");
+  });
 });
