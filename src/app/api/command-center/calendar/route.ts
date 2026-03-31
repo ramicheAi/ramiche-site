@@ -3,6 +3,7 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { fetchCommandCenterCronJobsFromFirestore } from "@/lib/firebase-admin";
 import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
+import { parseCronSchedule } from "@/lib/calendar-cron";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -61,40 +62,6 @@ function jobsPayloadShapeOk(parsed: unknown): boolean {
     return true;
   }
   return false;
-}
-
-function parseCronSchedule(schedule: string): { time: string; days: string[]; frequency: string } {
-  if (!schedule) return { time: "00:00", days: [], frequency: "Unknown" };
-
-  const atMatch = schedule.match(/^at\s+(\d{1,2}):(\d{2})/i);
-  if (atMatch) {
-    const time = `${atMatch[1].padStart(2, "0")}:${atMatch[2]}`;
-    const daysMatch = schedule.match(/on\s+([\w,\s]+)/i);
-    if (daysMatch) {
-      const days = daysMatch[1].split(/[,\s]+/).filter(Boolean);
-      return { time, days, frequency: days.length === 7 ? "Daily" : days.join(", ") };
-    }
-    if (schedule.toLowerCase().includes("daily") || !schedule.match(/on\s/i)) {
-      return { time, days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], frequency: "Daily" };
-    }
-  }
-
-  const parts = schedule.trim().split(/\s+/);
-  if (parts.length >= 5) {
-    const [min, hour, , , dow] = parts;
-    const h = parseInt(hour) || 0;
-    const m = parseInt(min) || 0;
-    const time = `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-
-    const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    if (dow === "*") return { time, days: ALL_DAYS, frequency: "Daily" };
-
-    const dayMap: Record<string, string> = { "0": "Sun", "1": "Mon", "2": "Tue", "3": "Wed", "4": "Thu", "5": "Fri", "6": "Sat", "7": "Sun" };
-    const days = dow.split(",").map(d => dayMap[d] || d).filter(Boolean);
-    return { time, days, frequency: days.length === 7 ? "Daily" : days.join(", ") };
-  }
-
-  return { time: "00:00", days: [], frequency: schedule };
 }
 
 const AGENT_COLORS: Record<string, string> = {
