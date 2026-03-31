@@ -1,0 +1,43 @@
+# CURRENT PRIORITY — CC Chat OpenClaw Integration
+
+## STOP. Read this first.
+
+Your #1 priority right now is implementing the CC Chat ↔ OpenClaw Integration Spec.
+Do NOT write tests, refactor utilities, or work on anything else until Phase 1 is complete.
+
+**Spec:** `docs/CC-CHAT-OPENCLAW-INTEGRATION-SPEC.md` — read it fully before starting.
+
+## Execution Order (STRICT)
+
+1. Phase 1.1 — @Mention Routing (parseMentions + autocomplete + parallel dispatch)
+2. Phase 1.2 — Group Chat Multi-Agent Response (replace random picker → parallel to all members)
+3. Phase 1.3 — Typing Indicators (agent typing state while waiting for OpenClaw response)
+4. Phase 1.4 — Delivery Status (sent/delivered/read checkmarks on user messages)
+5. Phase 2 — Rich Media (reactions, file upload, pinned messages)
+6. Phase 3 — Agent Push (webhook endpoint, agent status sync)
+7. Phase 4 — Threading + Search
+
+## Key Files
+
+- Chat frontend: `src/app/command-center/chat/page.tsx`
+- Chat API: `src/app/api/command-center/chat/route.ts`
+- Gateway lib: `src/lib/openclaw-gateway.ts`
+- Spec: `docs/CC-CHAT-OPENCLAW-INTEGRATION-SPEC.md`
+- Status tracking: `docs/CC-IMPLEMENTATION-STATUS.md`
+
+## Rules
+
+- One sub-task at a time. Commit after each.
+- Use existing design tokens from chat/page.tsx lines 13-62. No new colors.
+- No dark mode changes. No new dependencies without justification.
+- Update `docs/CC-IMPLEMENTATION-STATUS.md` after each phase completion.
+- Follow the Parallax Protocol: start with the human, make complexity invisible, every pixel intentional.
+
+## Design System (DO NOT DEVIATE)
+
+- Background: `#0a0a0a` (main), `rgba(255,255,255,0.02)` (card)
+- Borders: `#1e1e1e`
+- Text: `#e5e5e5` (primary), `#888888` (secondary)
+- Accent: `#7c3aed` (purple), `#C9A84C` (gold)
+- Agent colors: `COLORS.agents[agentId]`
+- Font: Inter, system-ui
