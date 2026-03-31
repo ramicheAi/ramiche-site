@@ -5,9 +5,10 @@ import {
   isOpenClawGatewayConfigured,
   resolveChatSessionKey,
 } from "@/lib/openclaw-gateway";
+import { resolveChatTargets } from "@/lib/chat-routing";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
@@ -67,177 +68,256 @@ function getSupabase() {
   return createClient(url, key);
 }
 
+/** Service role — updates user message delivery status (server-only). */
+function getSupabaseService() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
+}
+
+function isGroupNoResponse(text: string): boolean {
+  const t = text.trim();
+  if (!t) return true;
+  return /^\[NO_RESPONSE\]/i.test(t);
+}
+
+type ReplySource = "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback";
+
+async function generateAgentReply(
+  target: string,
+  userMessage: string,
+  channelName: string | undefined,
+  groupMode: boolean,
+  singleTargetStrict: boolean
+): Promise<{ text: string; source: ReplySource; openClawError?: string }> {
+  const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
+  const displayName = target.charAt(0).toUpperCase() + target.slice(1);
+  const groupRules = groupMode
+    ? `\n\nYou are in a shared channel with other agents. Only respond if the user's message is relevant to your role. If you should not reply, output exactly [NO_RESPONSE] and nothing else.`
+    : "";
+
+  const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags — except the literal token [NO_RESPONSE] when you must stay silent in group mode.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
+
+  let agentResponse: string | null = null;
+  let responseSource: ReplySource = "fallback";
+
+  const openclawStrict =
+    singleTargetStrict &&
+    (process.env.OPENCLAW_CHAT_STRICT === "1" || process.env.OPENCLAW_CHAT_STRICT === "true");
+
+  if (isOpenClawGatewayConfigured()) {
+    const sessionKey = resolveChatSessionKey(target);
+    const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${userMessage}`;
+    const gw = await gatewaySessionsSend(sessionKey, routed, 90);
+    if (gw.ok && gw.reply) {
+      agentResponse = gw.reply;
+      responseSource = "openclaw";
+    } else if (openclawStrict) {
+      return {
+        text: "",
+        source: "openclaw",
+        openClawError:
+          !gw.ok && "error" in gw ? gw.error : "OpenClaw gateway did not return a reply",
+      };
+    }
+  }
+
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!agentResponse && geminiKey) {
+    try {
+      const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: systemPrompt }] },
+          contents: [{ role: "user", parts: [{ text: userMessage }] }],
+          generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        agentResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
+        if (agentResponse) responseSource = "gemini";
+      }
+    } catch (err) {
+      console.error("Gemini direct timeout/error:", err);
+    }
+  }
+
+  const deepseekKey = process.env.DEEPSEEK_API_KEY;
+  if (!agentResponse && deepseekKey) {
+    try {
+      const res = await fetch(DEEPSEEK_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${deepseekKey}`,
+        },
+        body: JSON.stringify({
+          model: "deepseek-chat",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        agentResponse = data.choices?.[0]?.message?.content || null;
+        if (agentResponse) responseSource = "deepseek";
+      }
+    } catch (err) {
+      console.error("DeepSeek direct timeout/error:", err);
+    }
+  }
+
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  if (!agentResponse && openrouterKey) {
+    try {
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openrouterKey}`,
+          "HTTP-Referer": "https://ramiche-site.vercel.app",
+          "X-Title": "Parallax Command Center",
+        },
+        body: JSON.stringify({
+          model: "anthropic/claude-sonnet-4",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        agentResponse = data.choices?.[0]?.message?.content || null;
+        if (agentResponse) responseSource = "openrouter";
+      }
+    } catch (err) {
+      console.error("OpenRouter fallback timeout/error:", err);
+    }
+  }
+
+  if (!agentResponse) {
+    agentResponse = `${displayName} is temporarily unavailable. Please try again in a moment.`;
+    responseSource = "fallback";
+  }
+
+  return { text: agentResponse, source: responseSource };
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { message, channelId, agentName, channelName, channelMembers } = await req.json();
+    const body = await req.json();
+    const {
+      message,
+      channelId,
+      agentName,
+      channelName,
+      channelMembers,
+      mentionedAgents,
+      userMessageId,
+    } = body as {
+      message?: string;
+      channelId?: string;
+      agentName?: string;
+      channelName?: string;
+      channelMembers?: string[];
+      mentionedAgents?: string[];
+      /** Supabase UUID of the user row — mark delivered after relay completes */
+      userMessageId?: string;
+    };
 
     if (!message) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
 
-    // For DMs: use the specific agent. For team/project channels: pick a relevant member (not atlas unless alone)
-    let target: string;
-    if (agentName) {
-      target = agentName.toLowerCase();
-    } else if (channelMembers && Array.isArray(channelMembers) && channelMembers.length > 0) {
-      // Pick a random non-atlas member to respond (or atlas if he's the only one)
-      const nonAtlas = channelMembers.filter((m: string) => m !== "atlas");
-      target = nonAtlas.length > 0
-        ? nonAtlas[Math.floor(Math.random() * nonAtlas.length)]
-        : "atlas";
-    } else {
-      target = "atlas";
-    }
-    const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
-    const displayName = target.charAt(0).toUpperCase() + target.slice(1);
+    const targets = resolveChatTargets({ mentionedAgents, agentName, channelMembers });
+    const groupMode = targets.length > 1;
+    const singleTargetStrict = targets.length === 1;
 
-    const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
+    const results = await Promise.allSettled(
+      targets.map((target) =>
+        generateAgentReply(target, message, channelName, groupMode, singleTargetStrict)
+      )
+    );
 
-    let agentResponse: string | null = null;
-    let responseSource: "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback" = "fallback";
+    const responses: { agent: string; response: string; source: ReplySource }[] = [];
+    const supabase = getSupabase();
 
-    const openclawStrict =
-      process.env.OPENCLAW_CHAT_STRICT === "1" ||
-      process.env.OPENCLAW_CHAT_STRICT === "true";
-
-    // === OpenClaw Gateway (real agent sessions) — when token + URL allow sessions_send over HTTP ===
-    if (isOpenClawGatewayConfigured()) {
-      const sessionKey = resolveChatSessionKey(target);
-      const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${message}`;
-      const gw = await gatewaySessionsSend(sessionKey, routed, 90);
-      if (gw.ok) {
-        agentResponse = gw.reply;
-        responseSource = "openclaw";
-      } else if (openclawStrict) {
+    for (let i = 0; i < targets.length; i++) {
+      const target = targets[i];
+      const settled = results[i];
+      if (settled.status === "rejected") {
+        console.error(`Chat target ${target} rejected:`, settled.reason);
+        continue;
+      }
+      const r = settled.value;
+      if (r.openClawError && singleTargetStrict) {
         return NextResponse.json(
           {
             ok: false,
-            error: gw.error || "OpenClaw gateway did not return a reply",
+            error: r.openClawError,
             source: "openclaw",
           },
           { status: 502 }
         );
       }
-    }
+      const text = r.text;
+      if (groupMode && isGroupNoResponse(text)) {
+        continue;
+      }
+      responses.push({ agent: target, response: text, source: r.source });
 
-    // === Provider 1: Gemini Direct (FREE — uses Google API key) ===
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (!agentResponse && geminiKey) {
-      try {
-        const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: [{ role: "user", parts: [{ text: message }] }],
-            generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
-          }),
-          signal: AbortSignal.timeout(15000),
+      if (supabase && channelId) {
+        const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+        await supabase.from("messages").insert({
+          channel_id: channelId,
+          sender_agent_id: agentUUID,
+          sender_type: "agent",
+          content: text,
+          tenant_id: "11111111-1111-1111-1111-111111111111",
+          attachments: [],
         });
-        if (res.ok) {
-          const data = await res.json();
-          agentResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-          if (agentResponse) responseSource = "gemini";
-        } else {
-          console.error(`Gemini direct failed: ${res.status}`);
-        }
-      } catch (err) {
-        console.error("Gemini direct timeout/error:", err);
       }
     }
 
-    // === Provider 2: DeepSeek Direct (cheap — uses DeepSeek API key) ===
-    const deepseekKey = process.env.DEEPSEEK_API_KEY;
-    if (!agentResponse && deepseekKey) {
-      try {
-        const res = await fetch(DEEPSEEK_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${deepseekKey}`,
-          },
-          body: JSON.stringify({
-            model: "deepseek-chat",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: message },
-            ],
-            max_tokens: 500,
-            temperature: 0.7,
-          }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          agentResponse = data.choices?.[0]?.message?.content || null;
-          if (agentResponse) responseSource = "deepseek";
-        } else {
-          console.error(`DeepSeek direct failed: ${res.status}`);
-        }
-      } catch (err) {
-        console.error("DeepSeek direct timeout/error:", err);
-      }
-    }
+    const combined =
+      responses.length === 0
+        ? ""
+        : responses.length === 1
+          ? responses[0].response
+          : responses.map((x) => `**${x.agent}:** ${x.response}`).join("\n\n");
+    const first = responses[0];
 
-    // === Provider 3: OpenRouter fallback (only if both direct APIs fail) ===
-    const openrouterKey = process.env.OPENROUTER_API_KEY;
-    if (!agentResponse && openrouterKey) {
-      try {
-        const res = await fetch(OPENROUTER_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openrouterKey}`,
-            "HTTP-Referer": "https://ramiche-site.vercel.app",
-            "X-Title": "Parallax Command Center",
-          },
-          body: JSON.stringify({
-            model: "anthropic/claude-sonnet-4",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: message },
-            ],
-            max_tokens: 500,
-            temperature: 0.7,
-          }),
-          signal: AbortSignal.timeout(20000),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          agentResponse = data.choices?.[0]?.message?.content || null;
-          if (agentResponse) responseSource = "openrouter";
-        } else {
-          console.error(`OpenRouter fallback failed: ${res.status}`);
-        }
-      } catch (err) {
-        console.error("OpenRouter fallback timeout/error:", err);
-      }
-    }
-
-    if (!agentResponse) {
-      agentResponse = `${displayName} is temporarily unavailable. Please try again in a moment.`;
-    }
-
-    // Write agent response to Supabase
-    const supabase = getSupabase();
-    if (supabase && channelId) {
-      const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-
-      await supabase.from("messages").insert({
-        channel_id: channelId,
-        sender_agent_id: agentUUID,
-        sender_type: "agent",
-        content: agentResponse,
-        tenant_id: "11111111-1111-1111-1111-111111111111",
-        attachments: [],
-      });
+    const svc = getSupabaseService();
+    if (userMessageId && svc) {
+      await svc
+        .from("messages")
+        .update({
+          status: "delivered",
+          delivered_at: new Date().toISOString(),
+        })
+        .eq("id", userMessageId);
     }
 
     return NextResponse.json({
       ok: true,
-      response: agentResponse,
-      agent: target,
-      source: responseSource,
+      responses,
+      response: combined,
+      agent: first?.agent ?? targets[0],
+      source: first?.source ?? "fallback",
+      targets,
     });
   } catch (e) {
     console.error("Chat API error:", e);

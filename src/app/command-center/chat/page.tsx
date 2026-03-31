@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
+import { parseMentions } from "@/lib/chat-routing";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
@@ -262,8 +263,79 @@ const DEFAULT_MESSAGES = [
 /* ── TYPES ──────────────────────────────────────────────────────────────────── */
 type Channel = (typeof DEFAULT_CHANNELS)[0];
 type Agent = (typeof DEFAULT_AGENTS)[0];
-type Message = (typeof DEFAULT_MESSAGES)[0];
+type Message = (typeof DEFAULT_MESSAGES)[0] & {
+  deliveryStatus?: "sent" | "delivered" | "read";
+};
 type ViewMode = "channel" | "dm";
+
+/** Phase 1.1 — inline @agent styling (COLORS.agents) */
+function renderContentWithMentions(text: string) {
+  const parts = text.split(/(@[a-z][a-z0-9_-]*)/gi);
+  return parts.map((part, i) => {
+    const m = /^@([a-z][a-z0-9_-]*)$/i.exec(part);
+    if (m) {
+      const id = m[1].toLowerCase();
+      const color = (COLORS.agents as Record<string, string>)[id] ?? COLORS.text.secondary;
+      return (
+        <span key={i} style={{ color, fontWeight: 600 }}>
+          {part}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+/** Phase 1.3 — who to show in the typing row while waiting for OpenClaw */
+function computeTypingAgentNames(
+  contentTrimmed: string,
+  viewMode: ViewMode,
+  activeAgent: Agent | null,
+  activeChannel: Channel | null
+): string[] {
+  const mentioned = parseMentions(contentTrimmed);
+  if (mentioned.length > 0) {
+    return mentioned.map((id) => DEFAULT_AGENTS.find((a) => a.id === id)?.name ?? id);
+  }
+  if (viewMode === "dm" && activeAgent) return [activeAgent.name];
+  if (viewMode === "channel" && activeChannel) {
+    const ch = activeChannel as { members?: string[] };
+    if (ch.members?.length) {
+      return ch.members.map((mid) => DEFAULT_AGENTS.find((x) => x.id === mid)?.name ?? mid);
+    }
+  }
+  return ["Agents"];
+}
+
+function DeliveryTicks({ status }: { status?: Message["deliveryStatus"] }) {
+  if (!status) return null;
+  const tickStyle: CSSProperties = {
+    fontSize: 11,
+    marginLeft: 4,
+    fontFamily: "system-ui, sans-serif",
+    letterSpacing: -2,
+    userSelect: "none",
+  };
+  if (status === "sent") {
+    return (
+      <span title="Sent" style={{ ...tickStyle, color: COLORS.text.tertiary }}>
+        ✓
+      </span>
+    );
+  }
+  if (status === "delivered") {
+    return (
+      <span title="Delivered" style={{ ...tickStyle, color: COLORS.text.tertiary }}>
+        ✓✓
+      </span>
+    );
+  }
+  return (
+    <span title="Read" style={{ ...tickStyle, color: "#38bdf8" }}>
+      ✓✓
+    </span>
+  );
+}
 
 /* ── HELPERS ────────────────────────────────────────────────────────────────── */
 const getStatusColor = (status: string) => {
@@ -317,6 +389,7 @@ export default function CommandCenterChatPage() {
   const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("channel");
   const [messageInput, setMessageInput] = useState("");
+  const [mentionPick, setMentionPick] = useState<{ start: number; filter: string } | null>(null);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -336,6 +409,8 @@ export default function CommandCenterChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** Last user message UUID (Supabase) — mark read when agent reply arrives */
+  const lastPendingUserMessageIdRef = useRef<string | null>(null);
   const agentsRef = useRef<Agent[]>(agents);
 
   /* ── mount + cleanup ── */
@@ -459,6 +534,7 @@ export default function CommandCenterChatPage() {
           const isUser = (msg.sender_type as string) === "user"
             || (msg.sender_user_id as string) === "00000000-0000-0000-0000-000000000001"
             || (msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001";
+          const st = msg.status as string | undefined;
           return {
             id: msg.id as string,
             channelId: msg.channel_id as string,
@@ -468,6 +544,10 @@ export default function CommandCenterChatPage() {
             content: msg.content as string,
             timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             date: "Today",
+            deliveryStatus:
+              isUser && (st === "sent" || st === "delivered" || st === "read")
+                ? (st as Message["deliveryStatus"])
+                : undefined,
           };
         });
         setMessages(mapped);
@@ -553,8 +633,41 @@ export default function CommandCenterChatPage() {
                 date: "Today",
               };
 
+              const uid = lastPendingUserMessageIdRef.current;
+              if (uid) {
+                lastPendingUserMessageIdRef.current = null;
+                void fetch("/api/command-center/chat/mark-read", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ userMessageId: uid }),
+                });
+              }
+
               return [...prev, newMessage];
             });
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "messages",
+            filter: `channel_id=eq.${channelId}`,
+          },
+          (payload) => {
+            const row = payload.new as Record<string, unknown>;
+            const id = row.id as string;
+            const st = row.status as string | undefined;
+            if (!id || !st) return;
+            if (st !== "sent" && st !== "delivered" && st !== "read") return;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === id && m.type === "user"
+                  ? { ...m, deliveryStatus: st as Message["deliveryStatus"] }
+                  : m
+              )
+            );
           }
         )
         .subscribe((status) => {
@@ -595,18 +708,10 @@ export default function CommandCenterChatPage() {
     inputRef.current?.focus();
   }, [activeChannel, activeAgent]);
 
-  /* ── typing indicator driven by waitingForResponse ── */
+  /* ── pending read receipt applies to current channel only ── */
   useEffect(() => {
-    if (waitingForResponse) {
-      if (viewMode === "dm" && activeAgent) {
-        setTypingUsers([activeAgent.name]);
-      } else if (viewMode === "channel" && activeChannel) {
-        setTypingUsers(["Agent"]);
-      }
-    } else {
-      setTypingUsers([]);
-    }
-  }, [waitingForResponse, viewMode, activeAgent, activeChannel]);
+    lastPendingUserMessageIdRef.current = null;
+  }, [activeChannel, activeAgent, viewMode]);
 
   /* ── handlers ── */
   const handleChannelSelect = (channel: Channel) => {
@@ -630,6 +735,7 @@ export default function CommandCenterChatPage() {
     setThreadMessage(null);
     setSidebarOpen(false);
     setWaitingForResponse(false);
+    setTypingUsers([]);
     if (waitingTimeoutRef.current) {
       clearTimeout(waitingTimeoutRef.current);
       waitingTimeoutRef.current = null;
@@ -644,66 +750,78 @@ export default function CommandCenterChatPage() {
       ? `${messageInput}${messageInput ? "\n" : ""}${attachments.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
       : messageInput;
 
-    // Always show user's message immediately
+    const trimmed = content.trim();
+    const mentionedAgents = parseMentions(trimmed);
+    const typingNames = computeTypingAgentNames(trimmed, viewMode, activeAgent, activeChannel);
+    setMentionPick(null);
+
+    const isDM = viewMode === "dm" && activeAgent;
+    const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
+    const tempId = `pending-${Date.now()}`;
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
     const newMessage: Message = {
-      id: `msg-${Date.now()}`,
-      channelId: viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222"),
+      id: tempId,
+      channelId: targetChannelId,
       type: "user",
       sender: "Ramon",
       content,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      timestamp: ts,
       date: "Today",
     };
     setMessages((prev) => [...prev, newMessage]);
+    setMessageInput("");
+    setAttachments([]);
 
-    // Persist to Supabase — bridge picks up new user messages via Realtime
-    if (supabase) {
-      const isDM = viewMode === "dm" && activeAgent;
-      const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
-      const { error } = await supabase.from("messages").insert({
-        channel_id: targetChannelId,
-        sender_user_id: "00000000-0000-0000-0000-000000000001",
-        sender_type: "user",
-        content: content.trim(),
-        tenant_id: "11111111-1111-1111-1111-111111111111",
-        attachments: [],
-        metadata: {
-          targetAgent: isDM ? activeAgent!.id : undefined,
-          isDM: isDM,
-          dmChannelId: isDM ? targetChannelId : undefined,
-          channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
-          source: "command-center-ui",
-        },
-      });
-      if (error) console.error("Supabase send failed:", error);
+    setTypingUsers(typingNames);
+    setWaitingForResponse(true);
+    if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
+    waitingTimeoutRef.current = setTimeout(() => {
+      setWaitingForResponse(false);
+      setTypingUsers([]);
+      waitingTimeoutRef.current = null;
+    }, 10000);
 
-      // Relay to agent via API so it actually responds
-      // For DMs: send the agent ID directly
-      // For team/project channels: send channel members so the API picks the right responder
-      const agentName = isDM ? activeAgent!.id : undefined;
-      const channelMembers = (!isDM && activeChannel && "members" in activeChannel) ? (activeChannel as Record<string, unknown>).members as string[] | undefined : undefined;
-      const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
+    const agentName = isDM ? activeAgent!.id : undefined;
+    const channelMembers = (!isDM && activeChannel && "members" in activeChannel) ? (activeChannel as Record<string, unknown>).members as string[] | undefined : undefined;
+    const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
+
+    const runRelay = (userMessageId?: string) => {
       fetch("/api/command-center/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: content.trim(),
+          message: trimmed,
           channelId: targetChannelId,
           agentName,
           channelName,
           channelMembers,
+          mentionedAgents: mentionedAgents.length > 0 ? mentionedAgents : undefined,
+          userMessageId,
         }),
       })
         .then((r) => r.json())
-        .then((data) => {
+        .then((data: {
+          ok?: boolean;
+          response?: string;
+          responses?: { agent: string; response: string }[];
+          agent?: string;
+        }) => {
+          if (userMessageId) {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === userMessageId && m.type === "user"
+                  ? { ...m, deliveryStatus: "delivered" }
+                  : m
+              )
+            );
+          }
           if (data.ok && data.response) {
-            // Fallback: if realtime hasn't delivered after 2s, show the response directly
             setTimeout(() => {
               setMessages((prev) => {
-                // Check if realtime already added a message after the user's last message
                 const lastUserIdx = prev.findLastIndex((m) => m.type === "user");
                 const hasAgentReply = prev.slice(lastUserIdx + 1).some((m) => m.type === "agent");
-                if (hasAgentReply) return prev; // Realtime already delivered
+                if (hasAgentReply) return prev;
 
                 setWaitingForResponse(false);
                 setTypingUsers([]);
@@ -712,13 +830,14 @@ export default function CommandCenterChatPage() {
                   waitingTimeoutRef.current = null;
                 }
 
+                const text = String(data.response ?? "");
                 return [...prev, {
                   id: `api-${Date.now()}`,
                   channelId: targetChannelId,
                   type: "agent" as const,
-                  sender: isDM ? activeAgent!.name : (data.agent || "Agent"),
+                  sender: isDM ? activeAgent!.name : (data.agent ?? "Agent"),
                   senderColor: isDM ? (activeAgent!.color || "#888") : "#888",
-                  content: data.response,
+                  content: text,
                   timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                   date: "Today",
                 }];
@@ -735,17 +854,97 @@ export default function CommandCenterChatPage() {
             waitingTimeoutRef.current = null;
           }
         });
+    };
+
+    if (supabase) {
+      const { data: inserted, error } = await supabase
+        .from("messages")
+        .insert({
+          channel_id: targetChannelId,
+          sender_user_id: "00000000-0000-0000-0000-000000000001",
+          sender_type: "user",
+          content: trimmed,
+          tenant_id: "11111111-1111-1111-1111-111111111111",
+          attachments: [],
+          status: "sent",
+          metadata: {
+            targetAgent: isDM ? activeAgent!.id : undefined,
+            isDM: isDM,
+            dmChannelId: isDM ? targetChannelId : undefined,
+            channelName: isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general"),
+            source: "command-center-ui",
+          },
+        })
+        .select("id")
+        .single();
+
+      if (error) {
+        console.error("Supabase send failed:", error);
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+        setWaitingForResponse(false);
+        setTypingUsers([]);
+        return;
+      }
+
+      const realId = inserted.id as string;
+      lastPendingUserMessageIdRef.current = realId;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, id: realId, deliveryStatus: "sent" } : m
+        )
+      );
+      runRelay(realId);
+    } else {
+      lastPendingUserMessageIdRef.current = null;
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId ? { ...m, deliveryStatus: "sent" } : m
+        )
+      );
+      runRelay();
     }
+  };
 
-    setMessageInput("");
-    setAttachments([]);
+  const syncMentionFromInput = (text: string, cursor: number) => {
+    const before = text.slice(0, cursor);
+    const at = before.lastIndexOf("@");
+    if (at === -1) {
+      setMentionPick(null);
+      return;
+    }
+    const afterAt = before.slice(at + 1);
+    if (/\s/.test(afterAt)) {
+      setMentionPick(null);
+      return;
+    }
+    setMentionPick({ start: at, filter: afterAt.toLowerCase() });
+  };
 
-    setWaitingForResponse(true);
-    if (waitingTimeoutRef.current) clearTimeout(waitingTimeoutRef.current);
-    waitingTimeoutRef.current = setTimeout(() => {
-      setWaitingForResponse(false);
-      waitingTimeoutRef.current = null;
-    }, 10000);
+  const mentionCandidates =
+    mentionPick === null
+      ? []
+      : DEFAULT_AGENTS.filter(
+          (a) =>
+            a.id.toLowerCase().startsWith(mentionPick.filter) ||
+            a.name.toLowerCase().startsWith(mentionPick.filter)
+        ).slice(0, 8);
+
+  const pickMentionAgent = (agentId: string) => {
+    if (!mentionPick) return;
+    const { start, filter } = mentionPick;
+    const posAfter = start + agentId.length + 2;
+    setMessageInput((prev) => {
+      const before = prev.slice(0, start);
+      const after = prev.slice(start + 1 + filter.length);
+      return `${before}@${agentId} ${after}`;
+    });
+    setMentionPick(null);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(posAfter, posAfter);
+    });
   };
 
   const handleMessageClick = (message: Message) => {
@@ -1597,8 +1796,8 @@ export default function CommandCenterChatPage() {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
-            {/* Typing indicator */}
-            {typingUsers.length > 0 && viewMode === "channel" && (
+            {/* Typing indicator — Phase 1.3 (🟢 + names + dots) */}
+            {typingUsers.length > 0 && waitingForResponse && (
               <div
                 style={{
                   display: "flex",
@@ -1606,8 +1805,12 @@ export default function CommandCenterChatPage() {
                   gap: 8,
                   fontSize: 11,
                   color: COLORS.text.secondary,
+                  maxWidth: "min(420px, 42vw)",
                 }}
               >
+                <span style={{ fontSize: 12, lineHeight: 1 }} aria-hidden>
+                  🟢
+                </span>
                 <div style={{ display: "flex", alignItems: "center" }}>
                   {typingUsers.map((user) => {
                     const agentData = agents.find((a) => a.name === user);
@@ -1634,13 +1837,15 @@ export default function CommandCenterChatPage() {
                     );
                   })}
                 </div>
-                <span>
-                  {typingUsers.length === 1 ? `${typingUsers[0]} is typing` : `${typingUsers.length} typing`}
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                  {typingUsers.length === 1
+                    ? `${typingUsers[0]} is typing…`
+                    : `${typingUsers.slice(0, 3).join(", ")}${typingUsers.length > 3 ? "…" : ""} are typing…`}
                 </span>
-                <div style={{ display: "flex", gap: 3 }}>
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite" }} />
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite", animationDelay: "0.2s" }} />
-                  <span style={{ width: 3, height: 3, borderRadius: "50%", background: COLORS.text.tertiary, animation: "pulse 1.4s ease-in-out infinite", animationDelay: "0.4s" }} />
+                <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                  <span className="typing-dot" style={{ width: 4, height: 4, animationDelay: "0s" }} />
+                  <span className="typing-dot" style={{ width: 4, height: 4, animationDelay: "0.2s" }} />
+                  <span className="typing-dot" style={{ width: 4, height: 4, animationDelay: "0.4s" }} />
                 </div>
               </div>
             )}
@@ -1797,6 +2002,9 @@ export default function CommandCenterChatPage() {
                         >
                           {message.timestamp}
                         </span>
+                        {message.type === "user" && (
+                          <DeliveryTicks status={message.deliveryStatus} />
+                        )}
                       </div>
 
                       {/* Body */}
@@ -1807,7 +2015,7 @@ export default function CommandCenterChatPage() {
                           color: COLORS.text.primary,
                         }}
                       >
-                        {message.content}
+                        {renderContentWithMentions(message.content)}
                       </div>
 
                       {/* Reactions */}
@@ -1853,7 +2061,7 @@ export default function CommandCenterChatPage() {
               </div>
             </div>
           ))}
-          {typingUsers.length > 0 && (
+          {typingUsers.length > 0 && waitingForResponse && (
             <div
               style={{
                 display: "flex",
@@ -1862,27 +2070,37 @@ export default function CommandCenterChatPage() {
                 padding: "10px 12px",
               }}
             >
+              <span style={{ fontSize: 14, lineHeight: 1 }} aria-hidden>
+                🟢
+              </span>
               <div
                 style={{
                   width: 36,
                   height: 36,
                   borderRadius: 10,
-                  background: `${activeAgent?.color || "#888"}15`,
-                  border: `1px solid ${activeAgent?.color || "#888"}30`,
+                  background: `${(agents.find((a) => a.name === typingUsers[0])?.color || activeAgent?.color || "#888")}15`,
+                  border: `1px solid ${(agents.find((a) => a.name === typingUsers[0])?.color || activeAgent?.color || "#888")}30`,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: 13,
                   fontWeight: 700,
-                  color: activeAgent?.color || COLORS.text.secondary,
+                  color: agents.find((a) => a.name === typingUsers[0])?.color || activeAgent?.color || COLORS.text.secondary,
                 }}
               >
                 {typingUsers[0]?.charAt(0)}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span className="typing-dot" style={{ animationDelay: "0s" }} />
-                <span className="typing-dot" style={{ animationDelay: "0.2s" }} />
-                <span className="typing-dot" style={{ animationDelay: "0.4s" }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, color: COLORS.text.secondary, marginBottom: 4 }}>
+                  {typingUsers.length === 1
+                    ? `${typingUsers[0]} is typing…`
+                    : `${typingUsers.slice(0, 2).join(", ")}${typingUsers.length > 2 ? ", …" : ""} are typing…`}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span className="typing-dot" style={{ animationDelay: "0s" }} />
+                  <span className="typing-dot" style={{ animationDelay: "0.2s" }} />
+                  <span className="typing-dot" style={{ animationDelay: "0.4s" }} />
+                </div>
               </div>
             </div>
           )}
@@ -1975,13 +2193,71 @@ export default function CommandCenterChatPage() {
               </svg>
             </button>
 
-            {/* Text area */}
+            {/* Text area + Phase 1.1 @ mention autocomplete */}
             <div style={{ flex: 1, position: "relative" }}>
+              {mentionCandidates.length > 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    left: 8,
+                    bottom: "100%",
+                    marginBottom: 6,
+                    zIndex: 20,
+                    minWidth: 200,
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    borderRadius: 10,
+                    border: `1px solid ${COLORS.border.default}`,
+                    background: COLORS.bg.elevated,
+                    boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+                  }}
+                >
+                  {mentionCandidates.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        pickMentionAgent(a.id);
+                      }}
+                      style={{
+                        display: "flex",
+                        width: "100%",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 12px",
+                        border: "none",
+                        background: "transparent",
+                        cursor: "pointer",
+                        textAlign: "left",
+                        fontSize: 13,
+                        color: COLORS.text.primary,
+                      }}
+                    >
+                      <span style={{ fontWeight: 700, color: a.color }}>{a.name}</span>
+                      <span style={{ fontSize: 11, color: COLORS.text.tertiary, fontFamily: "monospace" }}>@{a.id}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <textarea
                 ref={inputRef}
                 className="chat-input-textarea"
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setMessageInput(v);
+                  const c = e.target.selectionStart ?? v.length;
+                  syncMentionFromInput(v, c);
+                }}
+                onSelect={(e) => {
+                  const t = e.currentTarget;
+                  syncMentionFromInput(t.value, t.selectionStart ?? 0);
+                }}
+                onClick={(e) => {
+                  const t = e.currentTarget;
+                  syncMentionFromInput(t.value, t.selectionStart ?? 0);
+                }}
                 placeholder={`Message ${viewMode === "dm" ? activeAgent?.name : activeChannel?.name}...`}
                 style={{
                   width: "100%",
@@ -2005,8 +2281,21 @@ export default function CommandCenterChatPage() {
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = COLORS.border.default;
+                  setMentionPick(null);
                 }}
                 onKeyDown={(e) => {
+                  if (mentionCandidates.length > 0) {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      pickMentionAgent(mentionCandidates[0].id);
+                      return;
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setMentionPick(null);
+                      return;
+                    }
+                  }
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
                     handleSendMessage();
@@ -2271,7 +2560,7 @@ export default function CommandCenterChatPage() {
                 </span>
               </div>
               <div style={{ fontSize: 12, lineHeight: 1.6, color: COLORS.text.primary }}>
-                {threadMessage.content}
+                {renderContentWithMentions(threadMessage.content)}
               </div>
             </div>
           </div>

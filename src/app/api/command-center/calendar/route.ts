@@ -3,66 +3,15 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { fetchCommandCenterCronJobsFromFirestore } from "@/lib/firebase-admin";
 import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
-import { parseCronSchedule } from "@/lib/calendar-cron";
+import {
+  coerceJobs,
+  jobsPayloadShapeOk,
+  parseCronSchedule,
+  type RawCronJob,
+} from "@/lib/calendar-cron";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-interface RawCronJob {
-  id?: string;
-  name?: string;
-  schedule?: string;
-  enabled?: boolean;
-  agent?: string;
-  agentId?: string;
-  prompt?: string;
-  lastRun?: string;
-  lastResult?: string;
-  model?: string;
-  description?: string;
-}
-
-/** OpenClaw often stores schedule as `{ expr: "0 7 * * *" }`, `{ everyMs }`, and agent as `agentId`. */
-function flattenScheduleFromJob(o: Record<string, unknown>): string {
-  const s = o.schedule;
-  if (typeof s === "string") return s;
-  if (s && typeof s === "object") {
-    const x = s as Record<string, unknown>;
-    if (typeof x.expr === "string") return x.expr;
-    if (typeof x.cron === "string") return x.cron;
-    if (typeof x.everyMs === "number") {
-      return `every ${Math.round(x.everyMs / 60000)}m`;
-    }
-  }
-  return "";
-}
-
-function normalizeCronJobEntry(j: unknown): RawCronJob {
-  if (typeof j !== "object" || j === null) return {};
-  const o = j as Record<string, unknown>;
-  const schedule = flattenScheduleFromJob(o);
-  const agentRaw = o.agent ?? o.agentId;
-  const agent = typeof agentRaw === "string" ? agentRaw : undefined;
-  const base = j as RawCronJob;
-  return {
-    ...base,
-    schedule: schedule || base.schedule,
-    agent: agent ?? base.agent,
-  };
-}
-
-function jobsPayloadShapeOk(parsed: unknown): boolean {
-  if (Array.isArray(parsed)) return true;
-  if (
-    parsed &&
-    typeof parsed === "object" &&
-    "jobs" in parsed &&
-    Array.isArray((parsed as { jobs: unknown }).jobs)
-  ) {
-    return true;
-  }
-  return false;
-}
 
 const AGENT_COLORS: Record<string, string> = {
   atlas: "#C9A84C", triage: "#22c55e", shuri: "#10b981", nova: "#f97316",
@@ -72,16 +21,6 @@ const AGENT_COLORS: Record<string, string> = {
   themaestro: "#ec4899", themis: "#818cf8", aetherion: "#8b5cf6", proximon: "#06b6d4",
   archivist: "#9ca3af",
 };
-
-function coerceJobs(raw: unknown): RawCronJob[] {
-  let arr: unknown[] = [];
-  if (Array.isArray(raw)) arr = raw;
-  else if (raw && typeof raw === "object" && "jobs" in raw) {
-    const j = (raw as { jobs: unknown }).jobs;
-    if (Array.isArray(j)) arr = j;
-  }
-  return arr.map((j) => normalizeCronJobEntry(j));
-}
 
 function buildEvents(jobs: RawCronJob[], history: Record<string, unknown>[]) {
   return jobs.map((job, i) => {
