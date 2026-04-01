@@ -299,9 +299,10 @@ function WeekView({ events, todayDay }: { events: CronEvent[]; todayDay: string 
                     <div key={ev.id} title={ev.description || ev.label} style={{
                       marginBottom: 4, padding: "4px 8px", borderRadius: 6, fontSize: 10,
                       border: `1px solid ${ev.accent}40`, background: `${ev.accent}12`, color: ev.accent,
-                      cursor: "default", transition: "transform 0.15s"
+                      cursor: "default", transition: "transform 0.15s",
+                      width: "100%", boxSizing: "border-box", maxWidth: "100%"
                     }}>
-                      <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</div>
+                      <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{ev.label}</div>
                       <div style={{ opacity: 0.6, fontSize: 9 }}>{ev.agent} · {ev.time}</div>
                     </div>
                   ))}
