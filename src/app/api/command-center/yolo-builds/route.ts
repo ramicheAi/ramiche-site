@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
-const BUILDS_DIR_WS = join(WS, "yolo-builds");
-const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
+const BUILDS_DIR_WS = join(WS, "builds");
+const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/builds");
 
 interface BuildMeta {
   date: string;

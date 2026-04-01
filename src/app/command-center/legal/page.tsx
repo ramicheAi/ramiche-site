@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import { IP_PORTFOLIO, COMPLIANCE_AREAS } from "@/data/legal-status";
 
 interface AgentStatus {
   id: string;
@@ -10,22 +11,6 @@ interface AgentStatus {
   status: string;
   role: string;
 }
-
-const IP_PORTFOLIO = [
-  { type: "Copyright", item: "METTLE Software", status: "Filed", date: "Feb 17, 2026", color: "#22c55e" },
-  { type: "Patent", item: "METTLE ARM System", status: "Filing", date: "In progress", color: "#f59e0b" },
-  { type: "Trademark", item: "METTLE (Class 9+41+42)", status: "Recommended", date: "Pending", color: "#818cf8" },
-  { type: "Copyright", item: "OpenClaw Framework", status: "Protectable", date: "Not filed", color: "#6b7280" },
-];
-
-const COMPLIANCE_AREAS = [
-  { area: "Data Privacy (CCPA/GDPR)", status: "Needs Review", risk: "medium" },
-  { area: "AI Agent Liability", status: "Framework Needed", risk: "high" },
-  { area: "Terms of Service", status: "Draft", risk: "medium" },
-  { area: "Client Contracts", status: "Template Ready", risk: "low" },
-  { area: "Stripe/Payment Compliance", status: "Active", risk: "low" },
-  { area: "Apple App Store Guidelines", status: "Needs Review", risk: "medium" },
-];
 
 const RISK_COLORS: Record<string, string> = {
   low: "#22c55e",

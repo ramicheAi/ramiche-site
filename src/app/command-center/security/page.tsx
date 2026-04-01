@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import { KNOWN_THREATS } from "@/data/security-status";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SECURITY — WIDOW Intel Dashboard
@@ -15,24 +16,6 @@ interface SecurityCheck {
   detail: string;
   category: string;
 }
-
-interface ThreatEntry {
-  severity: "critical" | "high" | "medium" | "low";
-  title: string;
-  detail: string;
-  mitigated: boolean;
-}
-
-const KNOWN_THREATS: ThreatEntry[] = [
-  { severity: "high", title: "Firebase Security Rules", detail: "Firestore rules locked down (Mar 8)", mitigated: true },
-  { severity: "high", title: "CSP Headers", detail: "Content Security Policy configured with nonce + strict domains", mitigated: true },
-  { severity: "medium", title: "API Rate Limiting", detail: "No rate limiting on public API routes", mitigated: false },
-  { severity: "medium", title: "Service Worker Cache", detail: "SW banned — self-destruct pattern deployed (Mar 2)", mitigated: true },
-  { severity: "low", title: "CORS Configuration", detail: "Restricted to ramiche-site.vercel.app origin", mitigated: true },
-  { severity: "critical", title: "Exposed API Keys", detail: "All keys in env vars, never hardcoded", mitigated: true },
-  { severity: "high", title: "Role-Based Portal Isolation", detail: "Coach/athlete/parent portals isolated (Mar 8)", mitigated: true },
-  { severity: "medium", title: "Session Duration", detail: "30-day sessions configured", mitigated: true },
-];
 
 const SEVERITY_COLORS: Record<string, string> = { critical: "#ef4444", high: "#f97316", medium: "#f59e0b", low: "#22d3ee" };
 

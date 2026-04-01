@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 /* ══════════════════════════════════════════════════════════════════════════════
@@ -48,6 +48,35 @@ const statusBadge = (status: RevenueStream["status"]) => {
 
 export default function RevenuePage() {
   const [filter, setFilter] = useState<"all" | "active" | "pending" | "opportunity">("all");
+  const [stripe, setStripe] = useState<{
+    mrr: number;
+    arr: number;
+    last30: number;
+    activeSubs: number;
+    source: string;
+    fetchedAt: string;
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/command-center/revenue", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data) return;
+        setStripe({
+          mrr: data.subscriptions?.mrr ?? 0,
+          arr: data.subscriptions?.arr ?? 0,
+          last30: data.revenue?.last30Days ?? 0,
+          activeSubs: data.subscriptions?.active ?? 0,
+          source: data.source ?? "unknown",
+          fetchedAt: data.fetchedAt ?? "",
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const filtered = filter === "all" ? STREAMS : STREAMS.filter(s => s.status === filter);
 
@@ -59,6 +88,23 @@ export default function RevenuePage() {
         <span style={{ color: "#d97706", fontSize: "18px" }}>◉</span>
         <span style={{ fontSize: "16px", fontWeight: 800, letterSpacing: "0.05em" }}>REVENUE</span>
       </div>
+
+      {stripe && (
+        <div style={{ margin: "0 20px 12px", padding: "14px 16px", background: "#0f172a", color: "#f8fafc", borderRadius: "10px", border: "2px solid #334155" }}>
+          <div style={{ fontSize: "10px", fontWeight: 800, letterSpacing: "0.12em", color: "#94a3b8", marginBottom: "8px" }}>
+            STRIPE (LIVE) · {stripe.source === "live" ? "CONNECTED" : "NO KEY / FALLBACK"}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "16px 24px", fontSize: "13px" }}>
+            <span><strong style={{ color: "#22c55e" }}>MRR</strong> ${stripe.mrr.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+            <span><strong>ARR</strong> ${stripe.arr.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+            <span><strong>30d volume</strong> ${stripe.last30.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+            <span><strong>Active subs</strong> {stripe.activeSubs}</span>
+          </div>
+          {stripe.fetchedAt && (
+            <div style={{ fontSize: "10px", color: "#64748b", marginTop: "8px" }}>Updated {new Date(stripe.fetchedAt).toLocaleString()}</div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ padding: "12px 20px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
