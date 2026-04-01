@@ -312,7 +312,7 @@ All UI must use the existing design tokens defined in `chat/page.tsx` lines 13-6
 - [x] Pinned messages banner + pin/unpin *(`POST /api/command-center/chat/pin`, `pinned` column)*
 - [x] Agents can push messages via webhook endpoint *(`POST /api/command-center/chat/webhook`)*
 - [x] Real agent status in sidebar *(poll `GET /api/command-center/agents` every 30s; active/idle from directory)*
-- [x] Thread replies + search *(`thread_parent_id`, thread panel replies, header search on current view)*
+- [x] Thread replies + search *(`thread_parent_id`, thread panel replies; header filters current view; `GET /api/command-center/chat/search` for all channels with jump-to-message)*
 - [x] All new UI uses existing design tokens — no new colors, no dark mode changes *(no visual token changes in this pass)*
 
 **Status file:** `docs/CC-IMPLEMENTATION-STATUS.md`

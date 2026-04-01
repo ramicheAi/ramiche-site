@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
@@ -494,6 +494,13 @@ export default function CommandCenterChatPage() {
     { name: string; size: string; type: string; url: string; file?: File }[]
   >([]);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [globalSearchHits, setGlobalSearchHits] = useState<
+    { id: string; channelId: string; content: string; createdAt: string }[]
+  >([]);
+  const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+  const [globalSearchUnavailable, setGlobalSearchUnavailable] = useState(false);
+  const [searchFieldFocused, setSearchFieldFocused] = useState(false);
+  const [pendingScrollToMessageId, setPendingScrollToMessageId] = useState<string | null>(null);
   const [pinnedBannerOpen, setPinnedBannerOpen] = useState(true);
   const [composerDragOver, setComposerDragOver] = useState(false);
 
@@ -521,6 +528,65 @@ export default function CommandCenterChatPage() {
   useEffect(() => {
     agentsRef.current = agents;
   }, [agents]);
+
+  /* ── Phase 4.2 — global search (all channels), debounced ── */
+  useEffect(() => {
+    const q = chatSearchQuery.trim();
+    if (q.length < 2) {
+      setGlobalSearchHits([]);
+      setGlobalSearchLoading(false);
+      setGlobalSearchUnavailable(false);
+      return;
+    }
+    setGlobalSearchLoading(true);
+    const t = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch(`/api/command-center/chat/search?q=${encodeURIComponent(q)}`);
+          const data = (await res.json()) as {
+            results?: { id: string; channelId: string; content: string; createdAt: string }[];
+            skipped?: boolean;
+          };
+          setGlobalSearchUnavailable(!!data.skipped);
+          if (data.skipped || !Array.isArray(data.results)) {
+            setGlobalSearchHits([]);
+          } else {
+            setGlobalSearchHits(data.results);
+          }
+        } catch {
+          setGlobalSearchHits([]);
+          setGlobalSearchUnavailable(false);
+        } finally {
+          setGlobalSearchLoading(false);
+        }
+      })();
+    }, 320);
+    return () => clearTimeout(t);
+  }, [chatSearchQuery]);
+
+  /* ── Scroll to message after navigation (global search pick) ── */
+  useEffect(() => {
+    const id = pendingScrollToMessageId;
+    if (!id) return;
+    const el = document.querySelector(`[data-message-id="${id}"]`);
+    if (el) {
+      const f = requestAnimationFrame(() => {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setPendingScrollToMessageId(null);
+      });
+      return () => cancelAnimationFrame(f);
+    }
+    return undefined;
+  }, [messages, pendingScrollToMessageId, activeChannel?.id, activeAgent?.id, viewMode]);
+
+  useEffect(() => {
+    const id = pendingScrollToMessageId;
+    if (!id) return;
+    const tm = setTimeout(() => {
+      setPendingScrollToMessageId((cur) => (cur === id ? null : cur));
+    }, 6000);
+    return () => clearTimeout(tm);
+  }, [pendingScrollToMessageId]);
 
   /* ── load data from Supabase on mount ── */
   useEffect(() => {
@@ -1383,6 +1449,52 @@ export default function CommandCenterChatPage() {
       URL.revokeObjectURL(prev[idx].url);
       return prev.filter((_, i) => i !== idx);
     });
+  };
+
+  const resolveChannelLabel = useCallback(
+    (cid: string) => {
+      const dm = Object.entries(DM_CHANNEL_MAP).find(([, u]) => u === cid);
+      if (dm) {
+        const ag = agents.find((a) => a.id === dm[0]) ?? DEFAULT_AGENTS.find((a) => a.id === dm[0]);
+        return ag ? `DM · ${ag.name}` : "Direct message";
+      }
+      const ch = channels.find((c) => c.id === cid) ?? DEFAULT_CHANNELS.find((c) => c.id === cid);
+      return ch?.name ?? cid.slice(0, 8);
+    },
+    [agents, channels]
+  );
+
+  const navigateToGlobalHit = (hit: { id: string; channelId: string }) => {
+    const cid = hit.channelId;
+    const dm = Object.entries(DM_CHANNEL_MAP).find(([, u]) => u === cid);
+    if (dm) {
+      const ag = agents.find((a) => a.id === dm[0]) ?? DEFAULT_AGENTS.find((a) => a.id === dm[0]);
+      if (ag) {
+        handleAgentSelect(ag);
+        setChatSearchQuery("");
+        setGlobalSearchHits([]);
+        setSearchFieldFocused(false);
+        setPendingScrollToMessageId(hit.id);
+      }
+      return;
+    }
+    const ch = (channels.find((c) => c.id === cid) ?? DEFAULT_CHANNELS.find((c) => c.id === cid)) as Channel | undefined;
+    if (ch) {
+      handleChannelSelect(ch);
+    } else {
+      handleChannelSelect({
+        id: cid,
+        name: `#${cid.slice(0, 8)}…`,
+        unread: 0,
+        description: "",
+        active: false,
+        type: "project",
+      } as Channel);
+    }
+    setChatSearchQuery("");
+    setGlobalSearchHits([]);
+    setSearchFieldFocused(false);
+    setPendingScrollToMessageId(hit.id);
   };
 
   /* ── filter messages (hide thread children from main timeline) + search ── */
@@ -2273,14 +2385,17 @@ export default function CommandCenterChatPage() {
               maxWidth: 400,
               marginLeft: 10,
               marginRight: 10,
+              position: "relative",
             }}
           >
             <input
               type="search"
               value={chatSearchQuery}
               onChange={(e) => setChatSearchQuery(e.target.value)}
-              placeholder="Search messages…"
+              placeholder="Filter chat · type 2+ chars for all channels"
               aria-label="Search messages"
+              aria-expanded={searchFieldFocused && chatSearchQuery.trim().length >= 2}
+              aria-controls="cc-chat-global-search-results"
               style={{
                 width: "100%",
                 padding: "8px 12px",
@@ -2293,12 +2408,89 @@ export default function CommandCenterChatPage() {
                 fontFamily: FONT_FAMILY,
               }}
               onFocus={(e) => {
+                setSearchFieldFocused(true);
                 e.currentTarget.style.borderColor = `${COLORS.accent.purple}40`;
               }}
               onBlur={(e) => {
                 e.currentTarget.style.borderColor = COLORS.border.default;
+                setTimeout(() => setSearchFieldFocused(false), 180);
               }}
             />
+            {searchFieldFocused && chatSearchQuery.trim().length >= 2 && (
+              <div
+                id="cc-chat-global-search-results"
+                role="listbox"
+                aria-label="All channels"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  top: "calc(100% + 6px)",
+                  zIndex: 50,
+                  maxHeight: 280,
+                  overflowY: "auto",
+                  borderRadius: 10,
+                  border: `1px solid ${COLORS.border.default}`,
+                  background: COLORS.bg.elevated,
+                  boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <div
+                  style={{
+                    padding: "8px 10px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.14em",
+                    color: COLORS.text.tertiary,
+                    borderBottom: `1px solid ${COLORS.border.default}`,
+                  }}
+                >
+                  ALL CHANNELS
+                </div>
+                {globalSearchLoading && (
+                  <div style={{ padding: 14, fontSize: 12, color: COLORS.text.secondary }}>Searching…</div>
+                )}
+                {!globalSearchLoading && globalSearchHits.length === 0 && (
+                  <div style={{ padding: 14, fontSize: 12, color: COLORS.text.tertiary }}>
+                    {globalSearchUnavailable
+                      ? "Cross-channel search needs SUPABASE_SERVICE_ROLE_KEY on the server."
+                      : "No matches in other channels (timeline messages only)."}
+                  </div>
+                )}
+                {!globalSearchLoading &&
+                  globalSearchHits.map((hit) => (
+                    <button
+                      key={hit.id}
+                      type="button"
+                      role="option"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        navigateToGlobalHit(hit);
+                      }}
+                      style={{
+                        display: "block",
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "10px 12px",
+                        border: "none",
+                        borderBottom: `1px solid ${COLORS.border.subtle}`,
+                        background: "transparent",
+                        cursor: "pointer",
+                        color: COLORS.text.primary,
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.accent.purpleLight, marginBottom: 4 }}>
+                        {resolveChannelLabel(hit.channelId)}
+                      </div>
+                      <div style={{ fontSize: 12, color: COLORS.text.secondary, lineHeight: 1.45 }}>
+                        {hit.content.length > 160 ? `${hit.content.slice(0, 160)}…` : hit.content}
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -2492,6 +2684,7 @@ export default function CommandCenterChatPage() {
                 {dateMessages.map((message) => (
                   <div
                     key={message.id}
+                    data-message-id={message.id}
                     onClick={() => handleMessageClick(message)}
                     style={{
                       display: "flex",
@@ -2501,6 +2694,10 @@ export default function CommandCenterChatPage() {
                       cursor: "pointer",
                       transition: "background 150ms ease",
                       position: "relative",
+                      outline:
+                        pendingScrollToMessageId === message.id
+                          ? `1px solid ${COLORS.accent.purple}55`
+                          : "none",
                     }}
                     onMouseEnter={(e) => {
                       handleReactionRowEnter(message.id);

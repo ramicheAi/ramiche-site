@@ -21,7 +21,7 @@
 | **Phase 2.2 media** | `POST /api/command-center/chat/upload` → Supabase Storage `chat-attachments`; composer drag/drop + paste; `attachments` JSONB on insert; inline previews in bubbles. |
 | **Phase 2.3 pins** | `POST /api/command-center/chat/pin`; collapsible pinned banner; hover Pin/Unpin; realtime `messages` UPDATE for `pinned`. |
 | **Phase 3.2 agent status** | Poll `GET /api/command-center/agents` every 30s; map `dr-strange` → `drstrange`; refresh sidebar `active` / `idle`. |
-| **Phase 4** | `thread_parent_id` on user + agent messages; thread panel lists replies; main timeline hides thread children; header **Search messages** filters current channel/DM. |
+| **Phase 4** | `thread_parent_id` on user + agent messages; thread panel lists replies; main timeline hides thread children; header search **filters current view**; **`GET /api/command-center/chat/search`** + dropdown for **all channels** (timeline rows only, `thread_parent_id` null). |
 
 ---
 
