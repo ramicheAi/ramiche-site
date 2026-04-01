@@ -227,6 +227,7 @@ export async function POST(req: NextRequest) {
       channelMembers,
       mentionedAgents,
       userMessageId,
+      threadParentId,
     } = body as {
       message?: string;
       channelId?: string;
@@ -236,11 +237,19 @@ export async function POST(req: NextRequest) {
       mentionedAgents?: string[];
       /** Supabase UUID of the user row — mark delivered after relay completes */
       userMessageId?: string;
+      /** When set, agent replies are stored as thread children of this message */
+      threadParentId?: string;
     };
 
     if (!message) {
       return NextResponse.json({ error: "message required" }, { status: 400 });
     }
+
+    const threadUuid =
+      threadParentId &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(threadParentId)
+        ? threadParentId
+        : undefined;
 
     const targets = resolveChatTargets({ mentionedAgents, agentName, channelMembers });
     const groupMode = targets.length > 1;
@@ -288,6 +297,7 @@ export async function POST(req: NextRequest) {
           content: text,
           tenant_id: "11111111-1111-1111-1111-111111111111",
           attachments: [],
+          ...(threadUuid ? { thread_parent_id: threadUuid } : {}),
         });
       }
     }

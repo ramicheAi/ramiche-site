@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
+import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
+import {
+  aggregateReactions,
+  CC_REACTION_USER_ID,
+  REACTION_PICKER_EMOJIS,
+  type ReactionRow,
+} from "@/lib/chat-reactions";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
@@ -263,8 +270,23 @@ const DEFAULT_MESSAGES = [
 /* ── TYPES ──────────────────────────────────────────────────────────────────── */
 type Channel = (typeof DEFAULT_CHANNELS)[0];
 type Agent = (typeof DEFAULT_AGENTS)[0];
-type Message = (typeof DEFAULT_MESSAGES)[0] & {
+
+type ChatAttachment = { url: string; name: string; type: string };
+
+type Message = {
+  id: string;
+  channelId: string;
+  type: "user" | "agent";
+  sender: string;
+  senderColor: string;
+  content: string;
+  timestamp: string;
+  date: string;
   deliveryStatus?: "sent" | "delivered" | "read";
+  reactions?: Array<{ emoji: string; count: number; me?: boolean }>;
+  attachments?: ChatAttachment[];
+  threadParentId?: string | null;
+  pinned?: boolean;
 };
 type ViewMode = "channel" | "dm";
 
@@ -307,6 +329,69 @@ function computeTypingAgentNames(
   return ["Agents"];
 }
 
+function parseAttachmentsFromRow(raw: unknown): ChatAttachment[] | undefined {
+  if (!raw || !Array.isArray(raw)) return undefined;
+  const out: ChatAttachment[] = [];
+  for (const x of raw) {
+    if (x && typeof x === "object" && typeof (x as { url?: unknown }).url === "string") {
+      const o = x as { url: string; name?: string; type?: string };
+      out.push({ url: o.url, name: o.name ?? "file", type: o.type ?? "file" });
+    }
+  }
+  return out.length ? out : undefined;
+}
+
+function renderMessageAttachments(list: ChatAttachment[] | undefined) {
+  if (!list?.length) return null;
+  return (
+    <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+      {list.map((a, i) => {
+        const looksImage =
+          a.type === "image" || /^image\//.test(a.type) || /\.(png|jpe?g|gif|webp|svg)$/i.test(a.name);
+        return looksImage ? (
+          <div
+            key={`${a.url}-${i}`}
+            style={{
+              maxWidth: 280,
+              borderRadius: 8,
+              overflow: "hidden",
+              border: `1px solid ${COLORS.border.default}`,
+            }}
+          >
+            <img
+              src={a.url}
+              alt={a.name}
+              style={{ width: "100%", height: "auto", display: "block", objectFit: "cover", maxHeight: 220 }}
+            />
+          </div>
+        ) : (
+          <a
+            key={`${a.url}-${i}`}
+            href={a.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 10px",
+              borderRadius: 8,
+              background: COLORS.bg.card,
+              border: `1px solid ${COLORS.border.default}`,
+              color: COLORS.accent.purpleLight,
+              fontSize: 12,
+              textDecoration: "none",
+            }}
+          >
+            <span style={{ color: COLORS.text.secondary }}>{a.name}</span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
 function DeliveryTicks({ status }: { status?: Message["deliveryStatus"] }) {
   if (!status) return null;
   const tickStyle: CSSProperties = {
@@ -331,7 +416,7 @@ function DeliveryTicks({ status }: { status?: Message["deliveryStatus"] }) {
     );
   }
   return (
-    <span title="Read" style={{ ...tickStyle, color: "#38bdf8" }}>
+    <span title="Read" style={{ ...tickStyle, color: COLORS.accent.purpleLight }}>
       ✓✓
     </span>
   );
@@ -390,6 +475,8 @@ export default function CommandCenterChatPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("channel");
   const [messageInput, setMessageInput] = useState("");
   const [mentionPick, setMentionPick] = useState<{ start: number; filter: string } | null>(null);
+  const [mentionSelectIdx, setMentionSelectIdx] = useState(0);
+  const [threadReplyInput, setThreadReplyInput] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [threadMessage, setThreadMessage] = useState<Message | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -402,16 +489,25 @@ export default function CommandCenterChatPage() {
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  /* ── file attachments ── */
-  const [attachments, setAttachments] = useState<{ name: string; size: string; type: string; url: string }[]>([]);
+  /* ── file attachments (file = local blob before upload) ── */
+  const [attachments, setAttachments] = useState<
+    { name: string; size: string; type: string; url: string; file?: File }[]
+  >([]);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+  const [pinnedBannerOpen, setPinnedBannerOpen] = useState(true);
+  const [composerDragOver, setComposerDragOver] = useState(false);
 
   /* ── refs ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mentionListRef = useRef<HTMLDivElement>(null);
+  const sendingRef = useRef(false);
   /** Last user message UUID (Supabase) — mark read when agent reply arrives */
   const lastPendingUserMessageIdRef = useRef<string | null>(null);
   const agentsRef = useRef<Agent[]>(agents);
+  const hoverReactionLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [hoverReactionMsgId, setHoverReactionMsgId] = useState<string | null>(null);
 
   /* ── mount + cleanup ── */
   useEffect(() => {
@@ -431,7 +527,7 @@ export default function CommandCenterChatPage() {
     const loadData = async () => {
       if (!supabase) {
         setActiveChannel(DEFAULT_CHANNELS[1]);
-        setMessages(DEFAULT_MESSAGES);
+        setMessages(DEFAULT_MESSAGES as unknown as Message[]);
         setLoading(false);
         return;
       }
@@ -515,7 +611,7 @@ export default function CommandCenterChatPage() {
   useEffect(() => {
     if (!activeChannel && viewMode !== "dm") return;
     if (!supabase) {
-      setMessages(DEFAULT_MESSAGES);
+      setMessages(DEFAULT_MESSAGES as unknown as Message[]);
       return;
     }
     const sb = supabase;
@@ -535,6 +631,8 @@ export default function CommandCenterChatPage() {
             || (msg.sender_user_id as string) === "00000000-0000-0000-0000-000000000001"
             || (msg.sender_agent_id as string) === "00000000-0000-0000-0000-000000000001";
           const st = msg.status as string | undefined;
+          const threadPid = msg.thread_parent_id as string | null | undefined;
+          const pinnedRaw = msg.pinned as boolean | undefined;
           return {
             id: msg.id as string,
             channelId: msg.channel_id as string,
@@ -548,9 +646,39 @@ export default function CommandCenterChatPage() {
               isUser && (st === "sent" || st === "delivered" || st === "read")
                 ? (st as Message["deliveryStatus"])
                 : undefined,
+            attachments: parseAttachmentsFromRow(msg.attachments),
+            threadParentId: threadPid ?? null,
+            pinned: pinnedRaw === true,
           };
         });
-        setMessages(mapped);
+
+        const ids = mapped.map((m) => m.id);
+        if (ids.length === 0) {
+          setMessages(mapped);
+        } else {
+        const { data: reactRows, error: reactErr } = await sb
+          .from("message_reactions")
+          .select("message_id, emoji, user_id")
+          .in("message_id", ids);
+
+        if (reactErr) {
+          console.warn("message_reactions load skipped:", reactErr.message);
+          setMessages(mapped);
+        } else {
+          const byMid = new Map<string, ReactionRow[]>();
+          for (const r of reactRows ?? []) {
+            const row = r as { message_id: string; emoji: string; user_id: string };
+            if (!byMid.has(row.message_id)) byMid.set(row.message_id, []);
+            byMid.get(row.message_id)!.push({ emoji: row.emoji, user_id: row.user_id });
+          }
+          const withReactions: Message[] = mapped.map((m) => {
+            const rows = byMid.get(m.id) ?? [];
+            const agg = aggregateReactions(rows, CC_REACTION_USER_ID);
+            return agg.length > 0 ? { ...m, reactions: agg } : m;
+          });
+          setMessages(withReactions);
+        }
+        }
       }
     };
     loadMessages();
@@ -622,7 +750,8 @@ export default function CommandCenterChatPage() {
               // Prevent duplicate messages
               if (prev.some((m) => m.id === (msg.id as string))) return prev;
 
-              const newMessage = {
+              const threadPid = (msg.thread_parent_id as string | null | undefined) ?? null;
+              const newMessage: Message = {
                 id: msg.id as string,
                 channelId: msgChannelId,
                 type: "agent" as const,
@@ -631,6 +760,9 @@ export default function CommandCenterChatPage() {
                 content: msg.content as string,
                 timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                 date: "Today",
+                attachments: parseAttachmentsFromRow(msg.attachments),
+                threadParentId: threadPid,
+                pinned: (msg.pinned as boolean) === true,
               };
 
               const uid = lastPendingUserMessageIdRef.current;
@@ -658,16 +790,55 @@ export default function CommandCenterChatPage() {
           (payload) => {
             const row = payload.new as Record<string, unknown>;
             const id = row.id as string;
+            if (!id) return;
             const st = row.status as string | undefined;
-            if (!id || !st) return;
-            if (st !== "sent" && st !== "delivered" && st !== "read") return;
+            const pin = row.pinned as boolean | undefined;
             setMessages((prev) =>
-              prev.map((m) =>
-                m.id === id && m.type === "user"
-                  ? { ...m, deliveryStatus: st as Message["deliveryStatus"] }
-                  : m
-              )
+              prev.map((m) => {
+                if (m.id !== id) return m;
+                let next: Message = { ...m };
+                if (
+                  m.type === "user" &&
+                  st &&
+                  (st === "sent" || st === "delivered" || st === "read")
+                ) {
+                  next = { ...next, deliveryStatus: st as Message["deliveryStatus"] };
+                }
+                if (typeof pin === "boolean") {
+                  next = { ...next, pinned: pin };
+                }
+                return next;
+              })
             );
+          }
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "message_reactions",
+          },
+          (payload) => {
+            const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const messageId = row?.message_id as string | undefined;
+            if (!messageId) return;
+            void (async () => {
+              const { data: rows, error } = await sb
+                .from("message_reactions")
+                .select("emoji, user_id")
+                .eq("message_id", messageId);
+              if (error) return;
+              const agg = aggregateReactions((rows ?? []) as ReactionRow[], CC_REACTION_USER_ID);
+              setMessages((prev) => {
+                if (!prev.some((m) => m.id === messageId)) return prev;
+                return prev.map((m) =>
+                  m.id === messageId
+                    ? { ...m, reactions: agg.length > 0 ? agg : undefined }
+                    : m
+                );
+              });
+            })();
           }
         )
         .subscribe((status) => {
@@ -708,6 +879,44 @@ export default function CommandCenterChatPage() {
     inputRef.current?.focus();
   }, [activeChannel, activeAgent]);
 
+  /* ── Phase 3.2 — agent status from `/api/command-center/agents` ── */
+  useEffect(() => {
+    let cancelled = false;
+    const normalizeApiAgentId = (id: string) => {
+      const k = id.toLowerCase();
+      if (k === "dr-strange") return "drstrange";
+      return k;
+    };
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/command-center/agents");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { agents?: Array<{ id: string; status?: string }> };
+        const map = new Map<string, "active" | "idle" | "offline">();
+        for (const a of data.agents ?? []) {
+          const uid = normalizeApiAgentId(a.id);
+          const st = a.status === "active" ? "active" : "idle";
+          map.set(uid, st);
+        }
+        setAgents((prev) =>
+          prev.map((ag) => {
+            const st = map.get(ag.id);
+            if (!st) return ag;
+            return { ...ag, status: st };
+          })
+        );
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const id = setInterval(tick, 30000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   /* ── pending read receipt applies to current channel only ── */
   useEffect(() => {
     lastPendingUserMessageIdRef.current = null;
@@ -719,6 +928,7 @@ export default function CommandCenterChatPage() {
     setActiveAgent(null);
     setViewMode("channel");
     setThreadMessage(null);
+    setThreadReplyInput("");
     setSidebarOpen(false);
     setWaitingForResponse(false);
     setTypingUsers([]);
@@ -733,6 +943,7 @@ export default function CommandCenterChatPage() {
     setActiveChannel(null);
     setViewMode("dm");
     setThreadMessage(null);
+    setThreadReplyInput("");
     setSidebarOpen(false);
     setWaitingForResponse(false);
     setTypingUsers([]);
@@ -742,15 +953,40 @@ export default function CommandCenterChatPage() {
     }
   };
 
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() && attachments.length === 0) return;
+  /** Shared send path for main composer and thread reply (Phase 1). */
+  const sendUserMessageContent = async (
+    displayContent: string,
+    opts?: {
+      threadParentId?: string;
+      localAttachments?: { name: string; size: string; type: string; url: string; file?: File }[];
+    }
+  ) => {
+    const trimmed = displayContent.trim();
+    const attList = opts?.localAttachments ?? [];
+    if (!trimmed && attList.length === 0) return;
     if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+    try {
+    const uploads: ChatAttachment[] = [];
+    for (const att of attList) {
+      if (att.file) {
+        const fd = new FormData();
+        fd.append("file", att.file);
+        const res = await fetch("/api/command-center/chat/upload", { method: "POST", body: fd });
+        const j = (await res.json()) as { url?: string; skipped?: boolean };
+        if (j.url) uploads.push({ url: j.url, name: att.name, type: att.type });
+      }
+    }
+    for (const att of attList) {
+      if (att.url.startsWith("blob:")) URL.revokeObjectURL(att.url);
+    }
 
-    const content = attachments.length > 0
-      ? `${messageInput}${messageInput ? "\n" : ""}${attachments.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
-      : messageInput;
+    const relayMessage =
+      uploads.length > 0
+        ? `${trimmed}${trimmed ? "\n\n" : ""}[Attachments]\n${uploads.map((u) => `- ${u.name}: ${u.url}`).join("\n")}`
+        : trimmed;
 
-    const trimmed = content.trim();
     const mentionedAgents = parseMentions(trimmed);
     const typingNames = computeTypingAgentNames(trimmed, viewMode, activeAgent, activeChannel);
     setMentionPick(null);
@@ -759,19 +995,21 @@ export default function CommandCenterChatPage() {
     const targetChannelId = isDM ? getDmChannelId(activeAgent!.id) : (activeChannel?.id || "22222222-2222-2222-2222-222222222222");
     const tempId = `pending-${Date.now()}`;
     const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const threadPid = opts?.threadParentId ?? null;
 
     const newMessage: Message = {
       id: tempId,
       channelId: targetChannelId,
       type: "user",
       sender: "Ramon",
-      content,
+      senderColor: "#3B82F6",
+      content: displayContent,
       timestamp: ts,
       date: "Today",
+      attachments: uploads.length > 0 ? uploads : undefined,
+      threadParentId: threadPid,
     };
     setMessages((prev) => [...prev, newMessage]);
-    setMessageInput("");
-    setAttachments([]);
 
     setTypingUsers(typingNames);
     setWaitingForResponse(true);
@@ -791,13 +1029,14 @@ export default function CommandCenterChatPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: trimmed,
+          message: relayMessage,
           channelId: targetChannelId,
           agentName,
           channelName,
           channelMembers,
           mentionedAgents: mentionedAgents.length > 0 ? mentionedAgents : undefined,
           userMessageId,
+          threadParentId: threadPid ?? undefined,
         }),
       })
         .then((r) => r.json())
@@ -816,7 +1055,7 @@ export default function CommandCenterChatPage() {
               )
             );
           }
-          if (data.ok && data.response) {
+          if (data.ok && (data.response || (data.responses && data.responses.length > 0))) {
             setTimeout(() => {
               setMessages((prev) => {
                 const lastUserIdx = prev.findLastIndex((m) => m.type === "user");
@@ -830,17 +1069,60 @@ export default function CommandCenterChatPage() {
                   waitingTimeoutRef.current = null;
                 }
 
+                const ts2 = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                const multiResponses = data.responses && data.responses.length > 1;
+                const threadExtra = threadPid ? { threadParentId: threadPid as string } : {};
+
+                if (multiResponses) {
+                  const newMsgs: Message[] = data.responses!.map((r, idx) => {
+                    const agentId = r.agent.toLowerCase();
+                    const agentDef = DEFAULT_AGENTS.find((a) => a.id === agentId);
+                    return {
+                      id: `api-${Date.now()}-${idx}`,
+                      channelId: targetChannelId,
+                      type: "agent" as const,
+                      sender: agentDef?.name ?? r.agent,
+                      senderColor: agentDef?.color ?? (COLORS.agents as Record<string, string>)[agentId] ?? "#888",
+                      content: String(r.response),
+                      timestamp: ts2,
+                      date: "Today",
+                      ...threadExtra,
+                    };
+                  });
+                  if (userMessageId) {
+                    lastPendingUserMessageIdRef.current = null;
+                    void fetch("/api/command-center/chat/mark-read", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ userMessageId }),
+                    });
+                  }
+                  return [...prev, ...newMsgs];
+                }
+
                 const text = String(data.response ?? "");
-                return [...prev, {
-                  id: `api-${Date.now()}`,
-                  channelId: targetChannelId,
-                  type: "agent" as const,
-                  sender: isDM ? activeAgent!.name : (data.agent ?? "Agent"),
-                  senderColor: isDM ? (activeAgent!.color || "#888") : "#888",
-                  content: text,
-                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                  date: "Today",
-                }];
+                if (userMessageId) {
+                  lastPendingUserMessageIdRef.current = null;
+                  void fetch("/api/command-center/chat/mark-read", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ userMessageId }),
+                  });
+                }
+                return [
+                  ...prev,
+                  {
+                    id: `api-${Date.now()}`,
+                    channelId: targetChannelId,
+                    type: "agent" as const,
+                    sender: isDM ? activeAgent!.name : (data.agent ?? "Agent"),
+                    senderColor: isDM ? (activeAgent!.color || "#888") : "#888",
+                    content: text,
+                    timestamp: ts2,
+                    date: "Today",
+                    ...threadExtra,
+                  },
+                ];
               });
             }, 2000);
           }
@@ -863,10 +1145,11 @@ export default function CommandCenterChatPage() {
           channel_id: targetChannelId,
           sender_user_id: "00000000-0000-0000-0000-000000000001",
           sender_type: "user",
-          content: trimmed,
+          content: trimmed || "(attachment)",
           tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: [],
+          attachments: uploads.length > 0 ? uploads : [],
           status: "sent",
+          thread_parent_id: threadPid,
           metadata: {
             targetAgent: isDM ? activeAgent!.id : undefined,
             isDM: isDM,
@@ -903,6 +1186,35 @@ export default function CommandCenterChatPage() {
       );
       runRelay();
     }
+    } finally {
+      sendingRef.current = false;
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() && attachments.length === 0) return;
+    if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
+
+    const displayContent = attachments.length > 0
+      ? `${messageInput}${messageInput ? "\n" : ""}${attachments.map((a) => `[${a.type === "image" ? "Image" : "File"}: ${a.name}]`).join(" ")}`
+      : messageInput;
+
+    const attSnap = [...attachments];
+    setMessageInput("");
+    setAttachments([]);
+    await sendUserMessageContent(displayContent, { localAttachments: attSnap });
+  };
+
+  const handleThreadReplySend = async () => {
+    const t = threadReplyInput.trim();
+    if (!t) return;
+    if (!activeChannel && !(viewMode === "dm" && activeAgent)) return;
+    const parentId =
+      threadMessage && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(threadMessage.id)
+        ? threadMessage.id
+        : undefined;
+    setThreadReplyInput("");
+    await sendUserMessageContent(t, parentId ? { threadParentId: parentId } : undefined);
   };
 
   const syncMentionFromInput = (text: string, cursor: number) => {
@@ -929,6 +1241,19 @@ export default function CommandCenterChatPage() {
             a.name.toLowerCase().startsWith(mentionPick.filter)
         ).slice(0, 8);
 
+  const mentionCandidatesKey = mentionCandidates.map((a) => a.id).join("|");
+  useEffect(() => {
+    setMentionSelectIdx(0);
+  }, [mentionCandidatesKey]);
+
+  useEffect(() => {
+    if (mentionCandidates.length === 0) return;
+    const root = mentionListRef.current;
+    if (!root) return;
+    const active = root.querySelector(`[data-mention-idx="${mentionSelectIdx}"]`);
+    active?.scrollIntoView({ block: "nearest" });
+  }, [mentionSelectIdx, mentionCandidatesKey, mentionCandidates.length]);
+
   const pickMentionAgent = (agentId: string) => {
     if (!mentionPick) return;
     const { start, filter } = mentionPick;
@@ -947,21 +1272,110 @@ export default function CommandCenterChatPage() {
     });
   };
 
+  const insertAtMainCursor = (text: string) => {
+    const el = inputRef.current;
+    if (!el) {
+      setMessageInput((prev) => prev + text);
+      return;
+    }
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? el.value.length;
+    const v = el.value;
+    const next = v.slice(0, start) + text + v.slice(end);
+    setMessageInput(next);
+    requestAnimationFrame(() => {
+      const pos = start + text.length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+      syncMentionFromInput(next, pos);
+    });
+  };
+
   const handleMessageClick = (message: Message) => {
     setThreadMessage(message);
+  };
+
+  const clearReactionHoverLeave = () => {
+    if (hoverReactionLeaveTimerRef.current) {
+      clearTimeout(hoverReactionLeaveTimerRef.current);
+      hoverReactionLeaveTimerRef.current = null;
+    }
+  };
+
+  const handleReactionRowEnter = (id: string) => {
+    clearReactionHoverLeave();
+    setHoverReactionMsgId(id);
+  };
+
+  const handleReactionRowLeave = () => {
+    clearReactionHoverLeave();
+    hoverReactionLeaveTimerRef.current = setTimeout(() => setHoverReactionMsgId(null), 220);
+  };
+
+  const refreshMessageReactions = async (messageId: string) => {
+    if (!supabase) return;
+    const { data: rows, error } = await supabase
+      .from("message_reactions")
+      .select("emoji, user_id")
+      .eq("message_id", messageId);
+    if (error) return;
+    const agg = aggregateReactions((rows ?? []) as ReactionRow[], CC_REACTION_USER_ID);
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, reactions: agg.length > 0 ? agg : undefined } : m
+      )
+    );
+  };
+
+  const handleToggleReaction = async (messageId: string, emoji: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(messageId)) return;
+    const res = await fetch("/api/command-center/chat/reactions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId, emoji }),
+    });
+    const out = (await res.json()) as { ok?: boolean; skipped?: boolean };
+    if (!res.ok) {
+      console.warn("Reaction toggle failed");
+      return;
+    }
+    if (out.skipped) return;
+    if (!out.ok) return;
+    await refreshMessageReactions(messageId);
+  };
+
+  const addLocalFiles = (files: FileList | File[]) => {
+    const list = Array.from(files);
+    const newAttachments = list.map((f) => ({
+      name: f.name,
+      size: f.size < 1024 ? `${f.size}B` : f.size < 1048576 ? `${(f.size / 1024).toFixed(1)}KB` : `${(f.size / 1048576).toFixed(1)}MB`,
+      type: f.type.startsWith("image/") ? "image" : "file",
+      url: URL.createObjectURL(f),
+      file: f,
+    }));
+    setAttachments((prev) => [...prev, ...newAttachments]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const newAttachments = Array.from(files).map((f) => ({
-      name: f.name,
-      size: f.size < 1024 ? `${f.size}B` : f.size < 1048576 ? `${(f.size / 1024).toFixed(1)}KB` : `${(f.size / 1048576).toFixed(1)}MB`,
-      type: f.type.startsWith("image/") ? "image" : "file",
-      url: URL.createObjectURL(f),
-    }));
-    setAttachments((prev) => [...prev, ...newAttachments]);
+    addLocalFiles(files);
     e.target.value = "";
+  };
+
+  const handlePinToggle = async (message: Message, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(message.id)) return;
+    const next = !message.pinned;
+    const res = await fetch("/api/command-center/chat/pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ messageId: message.id, pinned: next }),
+    });
+    const out = (await res.json()) as { ok?: boolean; skipped?: boolean };
+    if (!out.ok || out.skipped) return;
+    setMessages((prev) => prev.map((m) => (m.id === message.id ? { ...m, pinned: next } : m)));
   };
 
   const removeAttachment = (idx: number) => {
@@ -971,13 +1385,31 @@ export default function CommandCenterChatPage() {
     });
   };
 
-  /* ── filter messages ── */
-  const filteredMessages = messages.filter((msg) => {
+  /* ── filter messages (hide thread children from main timeline) + search ── */
+  const channelMessages = messages.filter((msg) => {
     if (viewMode === "dm" && activeAgent) {
-      return msg.channelId === getDmChannelId(activeAgent.id);
+      if (msg.channelId !== getDmChannelId(activeAgent.id)) return false;
+    } else if (msg.channelId !== activeChannel?.id) {
+      return false;
     }
-    return msg.channelId === activeChannel?.id;
+    if (msg.threadParentId) return false;
+    return true;
   });
+
+  const q = chatSearchQuery.trim().toLowerCase();
+  const filteredMessages = q
+    ? channelMessages.filter(
+        (m) =>
+          m.content.toLowerCase().includes(q) || m.sender.toLowerCase().includes(q)
+      )
+    : channelMessages;
+
+  const pinnedForChannel = channelMessages.filter((m) => m.pinned);
+
+  const threadReplies =
+    threadMessage && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(threadMessage.id)
+      ? messages.filter((m) => m.threadParentId === threadMessage.id)
+      : [];
 
   /* ── group messages by date ── */
   const groupedMessages = filteredMessages.reduce(
@@ -1073,6 +1505,45 @@ export default function CommandCenterChatPage() {
           position: "relative",
         }}
       >
+      {loading && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 100,
+            background: "rgba(10,10,10,0.88)",
+            backdropFilter: "blur(6px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexDirection: "column",
+            gap: 12,
+            pointerEvents: "all",
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              border: `2px solid ${COLORS.border.default}`,
+              borderTopColor: COLORS.accent.purple,
+              animation: "cc-spin 0.8s linear infinite",
+            }}
+          />
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: "0.12em",
+              color: COLORS.text.secondary,
+              textTransform: "uppercase" as const,
+            }}
+          >
+            Loading…
+          </span>
+        </div>
+      )}
 
       {/* ═══════ MOBILE OVERLAY ═══════ */}
       {sidebarOpen && (
@@ -1795,6 +2266,41 @@ export default function CommandCenterChatPage() {
             )}
           </div>
 
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              maxWidth: 400,
+              marginLeft: 10,
+              marginRight: 10,
+            }}
+          >
+            <input
+              type="search"
+              value={chatSearchQuery}
+              onChange={(e) => setChatSearchQuery(e.target.value)}
+              placeholder="Search messages…"
+              aria-label="Search messages"
+              style={{
+                width: "100%",
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: `1px solid ${COLORS.border.default}`,
+                background: COLORS.bg.card,
+                color: COLORS.text.primary,
+                fontSize: 12,
+                outline: "none",
+                fontFamily: FONT_FAMILY,
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = `${COLORS.accent.purple}40`;
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = COLORS.border.default;
+              }}
+            />
+          </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
             {/* Typing indicator — Phase 1.3 (🟢 + names + dots) */}
             {typingUsers.length > 0 && waitingForResponse && (
@@ -1866,6 +2372,73 @@ export default function CommandCenterChatPage() {
           </div>
         </div>
 
+        {pinnedForChannel.length > 0 && (
+          <div
+            style={{
+              borderBottom: `1px solid ${COLORS.border.default}`,
+              background: `${COLORS.accent.gold}0d`,
+              flexShrink: 0,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setPinnedBannerOpen((o) => !o)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "8px 16px",
+                border: "none",
+                background: "transparent",
+                cursor: "pointer",
+                color: COLORS.accent.gold,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                fontFamily: FONT_FAMILY,
+              }}
+            >
+              <span>Pinned messages ({pinnedForChannel.length})</span>
+              <span style={{ color: COLORS.text.tertiary }}>{pinnedBannerOpen ? "▼" : "▶"}</span>
+            </button>
+            {pinnedBannerOpen && (
+              <div
+                style={{
+                  padding: "4px 12px 12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 4,
+                }}
+              >
+                {pinnedForChannel.map((pm) => (
+                  <button
+                    key={pm.id}
+                    type="button"
+                    onClick={() => handleMessageClick(pm)}
+                    style={{
+                      textAlign: "left",
+                      padding: "8px 10px",
+                      borderRadius: 8,
+                      border: `1px solid ${COLORS.border.default}`,
+                      background: COLORS.bg.card,
+                      cursor: "pointer",
+                      fontSize: 12,
+                      color: COLORS.text.primary,
+                      fontFamily: FONT_FAMILY,
+                    }}
+                  >
+                    <span style={{ color: COLORS.accent.gold, marginRight: 6 }}>●</span>
+                    <span style={{ color: COLORS.text.secondary, fontWeight: 600 }}>{pm.sender}</span>
+                    <span style={{ color: COLORS.text.tertiary }}> — </span>
+                    {pm.content.length > 140 ? `${pm.content.slice(0, 140)}…` : pm.content}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ── Messages Container ── */}
         <div
           className="chat-messages-container"
@@ -1927,11 +2500,14 @@ export default function CommandCenterChatPage() {
                       borderRadius: 12,
                       cursor: "pointer",
                       transition: "background 150ms ease",
+                      position: "relative",
                     }}
                     onMouseEnter={(e) => {
+                      handleReactionRowEnter(message.id);
                       e.currentTarget.style.background = "rgba(255,255,255,0.02)";
                     }}
                     onMouseLeave={(e) => {
+                      handleReactionRowLeave();
                       e.currentTarget.style.background = "transparent";
                     }}
                   >
@@ -2005,6 +2581,18 @@ export default function CommandCenterChatPage() {
                         {message.type === "user" && (
                           <DeliveryTicks status={message.deliveryStatus} />
                         )}
+                        {message.pinned && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              letterSpacing: "0.12em",
+                              color: COLORS.accent.gold,
+                            }}
+                          >
+                            PINNED
+                          </span>
+                        )}
                       </div>
 
                       {/* Body */}
@@ -2016,15 +2604,78 @@ export default function CommandCenterChatPage() {
                         }}
                       >
                         {renderContentWithMentions(message.content)}
+                        {renderMessageAttachments(message.attachments)}
                       </div>
+
+                      {/* Phase 2.1 — hover reaction picker */}
+                      {hoverReactionMsgId === message.id && (
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseEnter={clearReactionHoverLeave}
+                          onMouseLeave={handleReactionRowLeave}
+                          style={{
+                            position: "absolute",
+                            top: 6,
+                            right: 10,
+                            display: "flex",
+                            gap: 2,
+                            alignItems: "center",
+                            padding: "4px 6px",
+                            borderRadius: 8,
+                            background: COLORS.bg.elevated,
+                            border: `1px solid ${COLORS.border.default}`,
+                            boxShadow: "0 4px 16px rgba(0,0,0,0.35)",
+                            zIndex: 6,
+                          }}
+                        >
+                          <button
+                            type="button"
+                            title={message.pinned ? "Unpin" : "Pin"}
+                            onClick={(e) => void handlePinToggle(message, e)}
+                            style={{
+                              padding: "2px 6px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.06em",
+                              border: `1px solid ${COLORS.border.default}`,
+                              borderRadius: 4,
+                              background: COLORS.bg.card,
+                              color: COLORS.accent.gold,
+                              cursor: "pointer",
+                            }}
+                          >
+                            {message.pinned ? "Unpin" : "Pin"}
+                          </button>
+                          {REACTION_PICKER_EMOJIS.map((emoji) => (
+                            <button
+                              key={emoji}
+                              type="button"
+                              title={emoji}
+                              onClick={(e) => void handleToggleReaction(message.id, emoji, e)}
+                              style={{
+                                fontSize: 16,
+                                lineHeight: 1,
+                                padding: "2px 4px",
+                                border: "none",
+                                background: "transparent",
+                                cursor: "pointer",
+                                borderRadius: 4,
+                              }}
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
 
                       {/* Reactions */}
                       {message.reactions && message.reactions.length > 0 && (
-                        <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                           {message.reactions.map((reaction, i) => (
                             <button
-                              key={i}
-                              onClick={(e) => e.stopPropagation()}
+                              key={`${reaction.emoji}-${i}`}
+                              type="button"
+                              onClick={(e) => void handleToggleReaction(message.id, reaction.emoji, e)}
                               style={{
                                 display: "flex",
                                 alignItems: "center",
@@ -2032,7 +2683,7 @@ export default function CommandCenterChatPage() {
                                 padding: "3px 8px",
                                 borderRadius: 6,
                                 background: COLORS.bg.card,
-                                border: `1px solid ${COLORS.border.default}`,
+                                border: `1px solid ${reaction.me ? `${COLORS.accent.purple}55` : COLORS.border.default}`,
                                 cursor: "pointer",
                                 fontSize: 11,
                                 color: COLORS.text.secondary,
@@ -2044,11 +2695,19 @@ export default function CommandCenterChatPage() {
                               }}
                               onMouseLeave={(e) => {
                                 e.currentTarget.style.background = COLORS.bg.card;
-                                e.currentTarget.style.borderColor = COLORS.border.default;
+                                e.currentTarget.style.borderColor = reaction.me ? `${COLORS.accent.purple}55` : COLORS.border.default;
                               }}
                             >
-                              <span style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 600, color: COLORS.accent.purpleLight }}>
-                                {REACTION_MAP[reaction.emoji] || reaction.emoji}
+                              <span
+                                style={{
+                                  fontSize: REACTION_MAP[reaction.emoji] ? 10 : 14,
+                                  fontFamily: REACTION_MAP[reaction.emoji] ? "monospace" : "inherit",
+                                  fontWeight: 600,
+                                  color: COLORS.accent.purpleLight,
+                                  lineHeight: 1,
+                                }}
+                              >
+                                {REACTION_MAP[reaction.emoji] ?? reaction.emoji}
                               </span>
                               <span style={{ fontWeight: 600, fontFamily: "monospace" }}>{reaction.count}</span>
                             </button>
@@ -2110,10 +2769,27 @@ export default function CommandCenterChatPage() {
         {/* ── Message Input ── */}
         <div
           className="chat-input-area"
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setComposerDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setComposerDragOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setComposerDragOver(false);
+            if (e.dataTransfer.files?.length) addLocalFiles(e.dataTransfer.files);
+          }}
           style={{
             padding: "12px 20px 16px",
             borderTop: `1px solid ${COLORS.border.default}`,
             flexShrink: 0,
+            outline: composerDragOver ? `1px dashed ${COLORS.accent.purple}60` : "none",
+            outlineOffset: -2,
           }}
         >
           {/* Attachment preview */}
@@ -2134,7 +2810,14 @@ export default function CommandCenterChatPage() {
                   }}
                 >
                   {att.type === "image" ? (
-                    <img src={att.url} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover" }} />
+                    <Image
+                      src={att.url}
+                      alt=""
+                      width={28}
+                      height={28}
+                      unoptimized
+                      style={{ borderRadius: 4, objectFit: "cover" }}
+                    />
                   ) : (
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={COLORS.text.secondary} strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                   )}
@@ -2197,6 +2880,8 @@ export default function CommandCenterChatPage() {
             <div style={{ flex: 1, position: "relative" }}>
               {mentionCandidates.length > 0 && (
                 <div
+                  ref={mentionListRef}
+                  data-mention-list=""
                   style={{
                     position: "absolute",
                     left: 8,
@@ -2212,10 +2897,12 @@ export default function CommandCenterChatPage() {
                     boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
                   }}
                 >
-                  {mentionCandidates.map((a) => (
+                  {mentionCandidates.map((a, i) => (
                     <button
                       key={a.id}
                       type="button"
+                      data-mention-idx={i}
+                      onMouseEnter={() => setMentionSelectIdx(i)}
                       onMouseDown={(e) => {
                         e.preventDefault();
                         pickMentionAgent(a.id);
@@ -2227,7 +2914,7 @@ export default function CommandCenterChatPage() {
                         gap: 8,
                         padding: "8px 12px",
                         border: "none",
-                        background: "transparent",
+                        background: i === mentionSelectIdx ? COLORS.bg.hover : "transparent",
                         cursor: "pointer",
                         textAlign: "left",
                         fontSize: 13,
@@ -2283,11 +2970,31 @@ export default function CommandCenterChatPage() {
                   e.currentTarget.style.borderColor = COLORS.border.default;
                   setMentionPick(null);
                 }}
+                onPaste={(e) => {
+                  const files = e.clipboardData?.files;
+                  if (files && files.length > 0) {
+                    e.preventDefault();
+                    addLocalFiles(files);
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (mentionCandidates.length > 0) {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setMentionSelectIdx((idx) => (idx + 1) % mentionCandidates.length);
+                      return;
+                    }
+                    if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setMentionSelectIdx((idx) =>
+                        (idx - 1 + mentionCandidates.length) % mentionCandidates.length
+                      );
+                      return;
+                    }
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      pickMentionAgent(mentionCandidates[0].id);
+                      const idx = Math.min(mentionSelectIdx, mentionCandidates.length - 1);
+                      pickMentionAgent(mentionCandidates[idx].id);
                       return;
                     }
                     if (e.key === "Escape") {
@@ -2314,9 +3021,11 @@ export default function CommandCenterChatPage() {
                   gap: 4,
                 }}
               >
-                {["@", "#"].map((sym) => (
+                {(["@", "#"] as const).map((sym) => (
                   <button
                     key={sym}
+                    type="button"
+                    onClick={() => insertAtMainCursor(sym)}
                     style={{
                       padding: "4px 6px",
                       borderRadius: 4,
@@ -2342,7 +3051,7 @@ export default function CommandCenterChatPage() {
                 {/* Send Button — game-btn style */}
                 <button
                   onClick={handleSendMessage}
-                  disabled={!messageInput.trim()}
+                  disabled={!messageInput.trim() && attachments.length === 0}
                   className="game-btn"
                   style={{
                     padding: "6px 16px",
@@ -2352,10 +3061,10 @@ export default function CommandCenterChatPage() {
                     letterSpacing: "0.1em",
                     textTransform: "uppercase" as const,
                     borderRadius: 6,
-                    border: `1px solid ${messageInput.trim() ? `${COLORS.accent.purple}50` : COLORS.border.default}`,
-                    background: messageInput.trim() ? `${COLORS.accent.purple}18` : COLORS.bg.card,
-                    color: messageInput.trim() ? COLORS.accent.purpleLight : COLORS.text.tertiary,
-                    cursor: messageInput.trim() ? "pointer" : "not-allowed",
+                    border: `1px solid ${messageInput.trim() || attachments.length > 0 ? `${COLORS.accent.purple}50` : COLORS.border.default}`,
+                    background: messageInput.trim() || attachments.length > 0 ? `${COLORS.accent.purple}18` : COLORS.bg.card,
+                    color: messageInput.trim() || attachments.length > 0 ? COLORS.accent.purpleLight : COLORS.text.tertiary,
+                    cursor: messageInput.trim() || attachments.length > 0 ? "pointer" : "not-allowed",
                     transition: "all 150ms ease",
                   }}
                 >
@@ -2457,7 +3166,11 @@ export default function CommandCenterChatPage() {
               </div>
             </div>
             <button
-              onClick={() => setThreadMessage(null)}
+              type="button"
+              onClick={() => {
+                setThreadMessage(null);
+                setThreadReplyInput("");
+              }}
               style={{
                 padding: 6,
                 borderRadius: 6,
@@ -2558,9 +3271,13 @@ export default function CommandCenterChatPage() {
                 <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
                   {threadMessage.timestamp}
                 </span>
+                {threadMessage.type === "user" && (
+                  <DeliveryTicks status={threadMessage.deliveryStatus} />
+                )}
               </div>
               <div style={{ fontSize: 12, lineHeight: 1.6, color: COLORS.text.primary }}>
                 {renderContentWithMentions(threadMessage.content)}
+                {renderMessageAttachments(threadMessage.attachments)}
               </div>
             </div>
           </div>
@@ -2580,40 +3297,88 @@ export default function CommandCenterChatPage() {
               Replies
             </div>
 
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: "40px 20px",
-                gap: 8,
-              }}
-            >
+            {threadReplies.length === 0 ? (
               <div
                 style={{
-                  fontSize: 20,
-                  color: COLORS.text.tertiary,
-                  opacity: 0.5,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "40px 20px",
+                  gap: 8,
                 }}
               >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-                </svg>
+                <div
+                  style={{
+                    fontSize: 20,
+                    color: COLORS.text.tertiary,
+                    opacity: 0.5,
+                  }}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+                  </svg>
+                </div>
+                <div style={{ fontSize: 12, color: COLORS.text.tertiary, fontWeight: 500 }}>
+                  No replies yet
+                </div>
+                <div style={{ fontSize: 10, color: COLORS.text.tertiary, opacity: 0.6 }}>
+                  Be the first to reply
+                </div>
               </div>
-              <div style={{ fontSize: 12, color: COLORS.text.tertiary, fontWeight: 500 }}>
-                No replies yet
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {threadReplies.map((rm) => (
+                  <div
+                    key={rm.id}
+                    style={{
+                      padding: 12,
+                      borderRadius: 10,
+                      border: `1px solid ${COLORS.border.default}`,
+                      background: COLORS.bg.card,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color:
+                            rm.type === "agent"
+                              ? rm.senderColor || COLORS.text.primary
+                              : COLORS.text.primary,
+                        }}
+                      >
+                        {rm.sender}
+                      </span>
+                      <span style={{ fontSize: 10, color: COLORS.text.tertiary, fontFamily: "monospace" }}>
+                        {rm.timestamp}
+                      </span>
+                      {rm.type === "user" && <DeliveryTicks status={rm.deliveryStatus} />}
+                    </div>
+                    <div style={{ fontSize: 12, lineHeight: 1.55, color: COLORS.text.primary }}>
+                      {renderContentWithMentions(rm.content)}
+                      {renderMessageAttachments(rm.attachments)}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ fontSize: 10, color: COLORS.text.tertiary, opacity: 0.6 }}>
-                Be the first to reply
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Thread Reply Input */}
+          {/* Thread Reply Input — same send pipeline as main composer */}
           <div style={{ padding: "12px 16px", borderTop: `1px solid ${COLORS.border.default}` }}>
             <div style={{ display: "flex", gap: 8 }}>
               <textarea
+                value={threadReplyInput}
+                onChange={(e) => setThreadReplyInput(e.target.value)}
                 placeholder="Reply to thread..."
                 style={{
                   flex: 1,
@@ -2636,9 +3401,18 @@ export default function CommandCenterChatPage() {
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = COLORS.border.default;
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleThreadReplySend();
+                  }
+                }}
               />
               <button
+                type="button"
                 className="game-btn"
+                disabled={!threadReplyInput.trim()}
+                onClick={() => void handleThreadReplySend()}
                 style={{
                   padding: "8px 14px",
                   fontSize: 10,
@@ -2647,10 +3421,10 @@ export default function CommandCenterChatPage() {
                   letterSpacing: "0.1em",
                   textTransform: "uppercase" as const,
                   borderRadius: 6,
-                  border: `1px solid ${COLORS.accent.purple}50`,
-                  background: `${COLORS.accent.purple}18`,
-                  color: COLORS.accent.purpleLight,
-                  cursor: "pointer",
+                  border: `1px solid ${threadReplyInput.trim() ? `${COLORS.accent.purple}50` : COLORS.border.default}`,
+                  background: threadReplyInput.trim() ? `${COLORS.accent.purple}18` : COLORS.bg.card,
+                  color: threadReplyInput.trim() ? COLORS.accent.purpleLight : COLORS.text.tertiary,
+                  cursor: threadReplyInput.trim() ? "pointer" : "not-allowed",
                   transition: "all 150ms ease",
                   flexShrink: 0,
                 }}
@@ -2743,6 +3517,9 @@ export default function CommandCenterChatPage() {
         }
         textarea::placeholder {
           color: ${COLORS.text.tertiary};
+        }
+        @keyframes cc-spin {
+          to { transform: rotate(360deg); }
         }
         @keyframes typingBounce {
           0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }

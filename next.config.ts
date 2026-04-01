@@ -8,7 +8,7 @@ const securityHeaders = [
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.firebaseapp.com https://*.googleapis.com https://js.stripe.com https://va.vercel-scripts.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
-      "img-src 'self' data: blob: https://*.googleapis.com https://*.stripe.com",
+      "img-src 'self' data: blob: https://*.googleapis.com https://*.stripe.com https://*.supabase.co",
       "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://api.stripe.com https://vitals.vercel-insights.com https://va.vercel-scripts.com wss://*.firebaseio.com https://wttr.in https://bible-api.com https://*.supabase.co wss://*.supabase.co",
       "frame-src 'self' https://js.stripe.com https://*.firebaseapp.com",
       "object-src 'none'",

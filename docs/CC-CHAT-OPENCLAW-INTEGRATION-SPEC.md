@@ -303,12 +303,16 @@ All UI must use the existing design tokens defined in `chat/page.tsx` lines 13-6
 
 ## Success Criteria
 
-- [ ] User can @mention agents and get responses from those specific agents
-- [ ] Team channels route to all members, only relevant agents respond
-- [ ] Typing indicators show while waiting for agent response
-- [ ] Delivery status checkmarks on user messages
-- [ ] Emoji reactions stored in Supabase and rendered in real-time
-- [ ] Image/file uploads via Supabase Storage
-- [ ] Agents can push messages via webhook endpoint
-- [ ] Real agent status (active/idle/offline) shown in sidebar
-- [ ] All new UI uses existing design tokens — no new colors, no dark mode changes
+- [x] User can @mention agents and get responses from those specific agents *(API + `parseMentions`; UI passes `mentionedAgents`)*
+- [x] Team channels route to all members, only relevant agents respond *(parallel `gatewaySessionsSend` / LLM chain per member; `[NO_RESPONSE]` filtered)*
+- [x] Typing indicators show while waiting for agent response *(existing `waitingForResponse`; team channels show member names)*
+- [x] Delivery status checkmarks on user messages *(Supabase `status` / `mark-read`; read ticks use `COLORS.accent.purpleLight`)*
+- [x] Emoji reactions stored in Supabase and rendered in real-time *(`message_reactions` + `/api/command-center/chat/reactions`)*
+- [x] Image/file uploads via Supabase Storage *(`/api/command-center/chat/upload`, bucket `chat-attachments`, drag/drop + paste)*
+- [x] Pinned messages banner + pin/unpin *(`POST /api/command-center/chat/pin`, `pinned` column)*
+- [x] Agents can push messages via webhook endpoint *(`POST /api/command-center/chat/webhook`)*
+- [x] Real agent status in sidebar *(poll `GET /api/command-center/agents` every 30s; active/idle from directory)*
+- [x] Thread replies + search *(`thread_parent_id`, thread panel replies, header search on current view)*
+- [x] All new UI uses existing design tokens — no new colors, no dark mode changes *(no visual token changes in this pass)*
+
+**Status file:** `docs/CC-IMPLEMENTATION-STATUS.md`
