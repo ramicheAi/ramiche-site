@@ -358,7 +358,7 @@ export default function YoloBuildsPage() {
 
                 {/* Name */}
                 <a
-                  href={`/yolo-builds/${build.folder}/index.html`}
+                  href={`/api/command-center/yolo-builds/preview/${build.folder}/index.html`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group"
@@ -410,7 +410,7 @@ export default function YoloBuildsPage() {
                     </span>
                     <div className="flex gap-2">
                       <a
-                        href={`/yolo-builds/${build.folder}/index.html`}
+                        href={`/api/command-center/yolo-builds/preview/${build.folder}/index.html`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs px-2 py-1 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors"
