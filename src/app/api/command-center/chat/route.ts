@@ -6,6 +6,7 @@ import {
   resolveChatSessionKey,
 } from "@/lib/openclaw-gateway";
 import { resolveChatTargets } from "@/lib/chat-routing";
+import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -13,30 +14,6 @@ export const maxDuration = 60;
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
-
-/* Map agent short IDs to their DM channel UUIDs (used as sender_agent_id so the frontend resolves names) */
-const AGENT_DM_UUID: Record<string, string> = {
-  atlas: "aa000001-0000-0000-0000-000000000000",
-  triage: "aa000002-0000-0000-0000-000000000000",
-  shuri: "aa000003-0000-0000-0000-000000000000",
-  proximon: "aa000004-0000-0000-0000-000000000000",
-  aetherion: "aa000005-0000-0000-0000-000000000000",
-  simons: "aa000006-0000-0000-0000-000000000000",
-  mercury: "aa000007-0000-0000-0000-000000000000",
-  vee: "aa000008-0000-0000-0000-000000000000",
-  ink: "aa000009-0000-0000-0000-000000000000",
-  echo: "aa000010-0000-0000-0000-000000000000",
-  haven: "aa000011-0000-0000-0000-000000000000",
-  widow: "aa000012-0000-0000-0000-000000000000",
-  drstrange: "aa000013-0000-0000-0000-000000000000",
-  kiyosaki: "aa000014-0000-0000-0000-000000000000",
-  michael: "aa000015-0000-0000-0000-000000000000",
-  selah: "aa000016-0000-0000-0000-000000000000",
-  prophets: "aa000017-0000-0000-0000-000000000000",
-  themaestro: "aa000018-0000-0000-0000-000000000000",
-  nova: "aa000019-0000-0000-0000-000000000000",
-  themis: "aa000020-0000-0000-0000-000000000000",
-};
 
 const AGENT_PERSONAS: Record<string, { role: string; style: string }> = {
   atlas: { role: "Operations Lead & Strategic Command", style: "Calm, sharp, direct. Systems thinker." },

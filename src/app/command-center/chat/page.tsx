@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from "react";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
@@ -495,10 +495,21 @@ export default function CommandCenterChatPage() {
   >([]);
   const [chatSearchQuery, setChatSearchQuery] = useState("");
   const [globalSearchHits, setGlobalSearchHits] = useState<
-    { id: string; channelId: string; content: string; createdAt: string }[]
+    {
+      id: string;
+      channelId: string;
+      content: string;
+      createdAt: string;
+      agentId?: string | null;
+      senderType?: string | null;
+    }[]
   >([]);
   const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
   const [globalSearchUnavailable, setGlobalSearchUnavailable] = useState(false);
+  const [globalSearchChannelId, setGlobalSearchChannelId] = useState("");
+  const [globalSearchAgentId, setGlobalSearchAgentId] = useState("");
+  const [globalSearchDateFrom, setGlobalSearchDateFrom] = useState("");
+  const [globalSearchDateTo, setGlobalSearchDateTo] = useState("");
   const [searchFieldFocused, setSearchFieldFocused] = useState(false);
   const [pendingScrollToMessageId, setPendingScrollToMessageId] = useState<string | null>(null);
   const [pinnedBannerOpen, setPinnedBannerOpen] = useState(true);
@@ -509,6 +520,7 @@ export default function CommandCenterChatPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mentionListRef = useRef<HTMLDivElement>(null);
+  const searchPortalRef = useRef<HTMLDivElement>(null);
   const sendingRef = useRef(false);
   /** Last user message UUID (Supabase) — mark read when agent reply arrives */
   const lastPendingUserMessageIdRef = useRef<string | null>(null);
@@ -529,10 +541,17 @@ export default function CommandCenterChatPage() {
     agentsRef.current = agents;
   }, [agents]);
 
-  /* ── Phase 4.2 — global search (all channels), debounced ── */
+  /* ── Phase 4.2 — global search (all channels) + filters, debounced ── */
   useEffect(() => {
-    const q = chatSearchQuery.trim();
-    if (q.length < 2) {
+    const qTrim = chatSearchQuery.trim();
+    const hasText = qTrim.length >= 2;
+    const hasFilters = !!(
+      globalSearchChannelId ||
+      globalSearchAgentId ||
+      globalSearchDateFrom ||
+      globalSearchDateTo
+    );
+    if (!hasText && !hasFilters) {
       setGlobalSearchHits([]);
       setGlobalSearchLoading(false);
       setGlobalSearchUnavailable(false);
@@ -542,9 +561,22 @@ export default function CommandCenterChatPage() {
     const t = setTimeout(() => {
       void (async () => {
         try {
-          const res = await fetch(`/api/command-center/chat/search?q=${encodeURIComponent(q)}`);
+          const params = new URLSearchParams();
+          if (hasText) params.set("q", qTrim);
+          if (globalSearchChannelId) params.set("channelId", globalSearchChannelId);
+          if (globalSearchAgentId) params.set("agentId", globalSearchAgentId);
+          if (globalSearchDateFrom) params.set("from", globalSearchDateFrom);
+          if (globalSearchDateTo) params.set("to", globalSearchDateTo);
+          const res = await fetch(`/api/command-center/chat/search?${params.toString()}`);
           const data = (await res.json()) as {
-            results?: { id: string; channelId: string; content: string; createdAt: string }[];
+            results?: {
+              id: string;
+              channelId: string;
+              content: string;
+              createdAt: string;
+              agentId?: string | null;
+              senderType?: string | null;
+            }[];
             skipped?: boolean;
           };
           setGlobalSearchUnavailable(!!data.skipped);
@@ -562,7 +594,13 @@ export default function CommandCenterChatPage() {
       })();
     }, 320);
     return () => clearTimeout(t);
-  }, [chatSearchQuery]);
+  }, [
+    chatSearchQuery,
+    globalSearchChannelId,
+    globalSearchAgentId,
+    globalSearchDateFrom,
+    globalSearchDateTo,
+  ]);
 
   /* ── Scroll to message after navigation (global search pick) ── */
   useEffect(() => {
@@ -1497,6 +1535,31 @@ export default function CommandCenterChatPage() {
     setPendingScrollToMessageId(hit.id);
   };
 
+  const searchChannelOptions = useMemo(() => {
+    const m = new Map<string, { id: string; name: string }>();
+    for (const c of channels) {
+      if (!m.has(c.id)) m.set(c.id, { id: c.id, name: c.name });
+    }
+    for (const c of DEFAULT_CHANNELS) {
+      if (!m.has(c.id)) m.set(c.id, { id: c.id, name: c.name });
+    }
+    for (const [aid, uid] of Object.entries(DM_CHANNEL_MAP)) {
+      const ag = DEFAULT_AGENTS.find((a) => a.id === aid);
+      const label = ag ? `DM · ${ag.name}` : `DM · ${aid}`;
+      m.set(uid, { id: uid, name: label });
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [channels]);
+
+  const hasActiveGlobalSearch =
+    chatSearchQuery.trim().length >= 2 ||
+    !!(
+      globalSearchChannelId ||
+      globalSearchAgentId ||
+      globalSearchDateFrom ||
+      globalSearchDateTo
+    );
+
   /* ── filter messages (hide thread children from main timeline) + search ── */
   const channelMessages = messages.filter((msg) => {
     if (viewMode === "dm" && activeAgent) {
@@ -2379,6 +2442,7 @@ export default function CommandCenterChatPage() {
           </div>
 
           <div
+            ref={searchPortalRef}
             style={{
               flex: 1,
               minWidth: 0,
@@ -2392,9 +2456,9 @@ export default function CommandCenterChatPage() {
               type="search"
               value={chatSearchQuery}
               onChange={(e) => setChatSearchQuery(e.target.value)}
-              placeholder="Filter chat · type 2+ chars for all channels"
+              placeholder="Filter chat · 2+ chars or set filters below"
               aria-label="Search messages"
-              aria-expanded={searchFieldFocused && chatSearchQuery.trim().length >= 2}
+              aria-expanded={searchFieldFocused && hasActiveGlobalSearch}
               aria-controls="cc-chat-global-search-results"
               style={{
                 width: "100%",
@@ -2412,11 +2476,16 @@ export default function CommandCenterChatPage() {
                 e.currentTarget.style.borderColor = `${COLORS.accent.purple}40`;
               }}
               onBlur={(e) => {
-                e.currentTarget.style.borderColor = COLORS.border.default;
-                setTimeout(() => setSearchFieldFocused(false), 180);
+                const el = e.currentTarget;
+                requestAnimationFrame(() => {
+                  const root = searchPortalRef.current;
+                  if (root?.contains(document.activeElement)) return;
+                  el.style.borderColor = COLORS.border.default;
+                  setSearchFieldFocused(false);
+                });
               }}
             />
-            {searchFieldFocused && chatSearchQuery.trim().length >= 2 && (
+            {searchFieldFocused && hasActiveGlobalSearch && (
               <div
                 id="cc-chat-global-search-results"
                 role="listbox"
@@ -2427,14 +2496,13 @@ export default function CommandCenterChatPage() {
                   right: 0,
                   top: "calc(100% + 6px)",
                   zIndex: 50,
-                  maxHeight: 280,
+                  maxHeight: 420,
                   overflowY: "auto",
                   borderRadius: 10,
                   border: `1px solid ${COLORS.border.default}`,
                   background: COLORS.bg.elevated,
                   boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
                 }}
-                onMouseDown={(e) => e.preventDefault()}
               >
                 <div
                   style={{
@@ -2446,7 +2514,122 @@ export default function CommandCenterChatPage() {
                     borderBottom: `1px solid ${COLORS.border.default}`,
                   }}
                 >
-                  ALL CHANNELS
+                  ALL CHANNELS — FILTERS
+                </div>
+                <div
+                  style={{
+                    padding: "10px 10px 12px",
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr",
+                    gap: 8,
+                    borderBottom: `1px solid ${COLORS.border.default}`,
+                  }}
+                >
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 10, color: COLORS.text.tertiary }}>
+                    Channel
+                    <select
+                      value={globalSearchChannelId}
+                      onChange={(e) => setGlobalSearchChannelId(e.target.value)}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: 6,
+                        border: `1px solid ${COLORS.border.default}`,
+                        background: COLORS.bg.card,
+                        color: COLORS.text.primary,
+                        fontSize: 11,
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    >
+                      <option value="">Any channel</option>
+                      {searchChannelOptions.map((opt) => (
+                        <option key={opt.id} value={opt.id}>
+                          {opt.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 10, color: COLORS.text.tertiary }}>
+                    Agent (sender)
+                    <select
+                      value={globalSearchAgentId}
+                      onChange={(e) => setGlobalSearchAgentId(e.target.value)}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: 6,
+                        border: `1px solid ${COLORS.border.default}`,
+                        background: COLORS.bg.card,
+                        color: COLORS.text.primary,
+                        fontSize: 11,
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    >
+                      <option value="">Any agent</option>
+                      {DEFAULT_AGENTS.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 10, color: COLORS.text.tertiary }}>
+                    From
+                    <input
+                      type="date"
+                      value={globalSearchDateFrom}
+                      onChange={(e) => setGlobalSearchDateFrom(e.target.value)}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: 6,
+                        border: `1px solid ${COLORS.border.default}`,
+                        background: COLORS.bg.card,
+                        color: COLORS.text.primary,
+                        fontSize: 11,
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 10, color: COLORS.text.tertiary }}>
+                    To
+                    <input
+                      type="date"
+                      value={globalSearchDateTo}
+                      onChange={(e) => setGlobalSearchDateTo(e.target.value)}
+                      style={{
+                        padding: "6px 8px",
+                        borderRadius: 6,
+                        border: `1px solid ${COLORS.border.default}`,
+                        background: COLORS.bg.card,
+                        color: COLORS.text.primary,
+                        fontSize: 11,
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    />
+                  </label>
+                  <div style={{ gridColumn: "1 / -1", display: "flex", justifyContent: "flex-end" }}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setGlobalSearchChannelId("");
+                        setGlobalSearchAgentId("");
+                        setGlobalSearchDateFrom("");
+                        setGlobalSearchDateTo("");
+                      }}
+                      style={{
+                        padding: "4px 10px",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        border: `1px solid ${COLORS.border.default}`,
+                        background: COLORS.bg.card,
+                        color: COLORS.text.secondary,
+                        cursor: "pointer",
+                        fontFamily: FONT_FAMILY,
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  </div>
                 </div>
                 {globalSearchLoading && (
                   <div style={{ padding: 14, fontSize: 12, color: COLORS.text.secondary }}>Searching…</div>
@@ -2455,7 +2638,7 @@ export default function CommandCenterChatPage() {
                   <div style={{ padding: 14, fontSize: 12, color: COLORS.text.tertiary }}>
                     {globalSearchUnavailable
                       ? "Cross-channel search needs SUPABASE_SERVICE_ROLE_KEY on the server."
-                      : "No matches in other channels (timeline messages only)."}
+                      : "No matching messages (timeline rows only)."}
                   </div>
                 )}
                 {!globalSearchLoading &&
@@ -2481,8 +2664,41 @@ export default function CommandCenterChatPage() {
                         fontFamily: FONT_FAMILY,
                       }}
                     >
-                      <div style={{ fontSize: 10, fontWeight: 700, color: COLORS.accent.purpleLight, marginBottom: 4 }}>
-                        {resolveChannelLabel(hit.channelId)}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          marginBottom: 4,
+                        }}
+                      >
+                        <span style={{ fontSize: 10, fontWeight: 700, color: COLORS.accent.purpleLight }}>
+                          {resolveChannelLabel(hit.channelId)}
+                        </span>
+                        {hit.agentId && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              letterSpacing: "0.06em",
+                              color: COLORS.text.tertiary,
+                            }}
+                          >
+                            @{hit.agentId}
+                          </span>
+                        )}
+                        {hit.senderType === "user" && (
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 600,
+                              color: COLORS.text.tertiary,
+                            }}
+                          >
+                            user
+                          </span>
+                        )}
                       </div>
                       <div style={{ fontSize: 12, color: COLORS.text.secondary, lineHeight: 1.45 }}>
                         {hit.content.length > 160 ? `${hit.content.slice(0, 160)}…` : hit.content}
