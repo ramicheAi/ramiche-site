@@ -130,7 +130,11 @@ function readCronJobs(): CronJob[] {
     if (!existsSync(CRON_JOBS_PATH)) return [];
     const raw = readFileSync(CRON_JOBS_PATH, "utf-8");
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed as CronJob[] : [];
+    if (Array.isArray(parsed)) return parsed as CronJob[];
+    if (parsed && typeof parsed === "object" && "jobs" in parsed && Array.isArray(parsed.jobs)) {
+      return parsed.jobs as CronJob[];
+    }
+    return [];
   }, []);
 }
 
