@@ -1,8 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+
+/** Single-line ellipsis; `minWidth: 0` required inside flex/grid children */
+const TEXT_TRUNCATE: CSSProperties = {
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
+  minWidth: 0,
+};
+
+const WEEK_GRID_COLS = "60px repeat(7, minmax(0, 1fr))" as const;
 
 /* ══════════════════════════════════════════════════════════════════════════════
    CALENDAR — Live Cron Schedule Visualization
@@ -240,10 +250,35 @@ export default function CalendarPage() {
             <h2 style={{ fontSize: 12, fontWeight: 800, color: "#525252", letterSpacing: "0.15em", marginBottom: 12, textTransform: "uppercase" }}>
               Disabled ({disabledEvents.length})
             </h2>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(0, min(100%, 280px)))",
+                gap: 8,
+                width: "100%",
+                boxSizing: "border-box",
+              }}
+            >
               {disabledEvents.map((ev) => (
-                <div key={ev.id} style={{ padding: "6px 12px", borderRadius: 6, background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.04)", fontSize: 10, color: "#525252", textDecoration: "line-through" }}>
-                  {ev.label} ({ev.agent})
+                <div
+                  key={ev.id}
+                  title={`${ev.label} (${ev.agent})`}
+                  style={{
+                    minWidth: 0,
+                    width: "100%",
+                    maxWidth: "100%",
+                    boxSizing: "border-box",
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,0.02)",
+                    border: "1px solid rgba(255,255,255,0.04)",
+                    fontSize: 10,
+                    color: "#525252",
+                    textDecoration: "line-through",
+                    overflow: "hidden",
+                  }}
+                >
+                  <span style={{ ...TEXT_TRUNCATE, display: "block" }}>{ev.label} ({ev.agent})</span>
                 </div>
               ))}
             </div>
@@ -266,25 +301,55 @@ function WeekView({ events, todayDay }: { events: CronEvent[]; todayDay: string 
 
   return (
     <div className="overflow-x-auto">
-      <div style={{ minWidth: 700 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", gap: 1, marginBottom: 2 }}>
+      <div style={{ minWidth: 700, width: "100%", boxSizing: "border-box" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: WEEK_GRID_COLS,
+            gap: 1,
+            marginBottom: 2,
+            width: "100%",
+            boxSizing: "border-box",
+          }}
+        >
           <div style={{ padding: 8, fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace" }}>TIME</div>
           {DAYS.map((d) => (
             <div key={d} style={{
+              minWidth: 0,
+              width: "100%",
+              boxSizing: "border-box",
               padding: 8, textAlign: "center", fontSize: 11, fontWeight: 700, borderRadius: "8px 8px 0 0",
               background: d === todayDay ? "rgba(168,85,247,0.12)" : "rgba(255,255,255,0.03)",
               color: d === todayDay ? "#a855f7" : "rgba(255,255,255,0.4)",
               borderBottom: d === todayDay ? "2px solid #a855f7" : "2px solid transparent"
             }}>
-              {d}
+              <span style={{ ...TEXT_TRUNCATE, display: "block" }}>{d}</span>
             </div>
           ))}
         </div>
 
         {activeHours.map((hour) => (
-          <div key={hour} style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", gap: 1 }}>
-            <div style={{ padding: 8, fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-              {formatHour(hour)}
+          <div
+            key={hour}
+            style={{
+              display: "grid",
+              gridTemplateColumns: WEEK_GRID_COLS,
+              gap: 1,
+              width: "100%",
+              boxSizing: "border-box",
+              alignItems: "stretch",
+            }}
+          >
+            <div style={{
+              padding: 8, fontSize: 10, color: "rgba(255,255,255,0.2)", fontFamily: "monospace",
+              borderTop: "1px solid rgba(255,255,255,0.04)",
+              minWidth: 0,
+              boxSizing: "border-box",
+              alignSelf: "stretch",
+              display: "flex",
+              alignItems: "flex-start",
+            }}>
+              <span style={{ ...TEXT_TRUNCATE, display: "block" }}>{formatHour(hour)}</span>
             </div>
             {DAYS.map((day) => {
               const dayEvents = getEventsForDay(events, day).filter(
@@ -293,17 +358,40 @@ function WeekView({ events, todayDay }: { events: CronEvent[]; todayDay: string 
               return (
                 <div key={day} style={{
                   padding: 4, borderTop: "1px solid rgba(255,255,255,0.04)", minHeight: 48,
-                  background: day === todayDay ? "rgba(168,85,247,0.03)" : "transparent"
+                  background: day === todayDay ? "rgba(168,85,247,0.03)" : "transparent",
+                  minWidth: 0,
+                  width: "100%",
+                  maxWidth: "100%",
+                  boxSizing: "border-box",
+                  display: "grid",
+                  gridTemplateColumns: "minmax(0, 1fr)",
+                  alignContent: "start",
+                  gap: 4,
+                  alignSelf: "stretch",
                 }}>
                   {dayEvents.map((ev) => (
-                    <div key={ev.id} title={ev.description || ev.label} style={{
-                      marginBottom: 4, padding: "4px 8px", borderRadius: 6, fontSize: 10,
-                      border: `1px solid ${ev.accent}40`, background: `${ev.accent}12`, color: ev.accent,
-                      cursor: "default", transition: "transform 0.15s",
-                      width: "100%", boxSizing: "border-box", maxWidth: "100%"
-                    }}>
-                      <div style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{ev.label}</div>
-                      <div style={{ opacity: 0.6, fontSize: 9 }}>{ev.agent} · {ev.time}</div>
+                    <div
+                      key={ev.id}
+                      title={[ev.label, ev.description].filter(Boolean).join(" — ")}
+                      style={{
+                        minWidth: 0,
+                        width: "100%",
+                        maxWidth: "100%",
+                        boxSizing: "border-box",
+                        padding: "4px 8px", borderRadius: 6, fontSize: 10,
+                        border: `1px solid ${ev.accent}40`, background: `${ev.accent}12`, color: ev.accent,
+                        cursor: "default", transition: "transform 0.15s",
+                        overflow: "hidden",
+                        justifySelf: "stretch",
+                      }}
+                    >
+                      <div style={{ ...TEXT_TRUNCATE, display: "block", fontWeight: 700 }}>{ev.label}</div>
+                      <div
+                        title={`${ev.agent} · ${ev.time}`}
+                        style={{ ...TEXT_TRUNCATE, display: "block", opacity: 0.6, fontSize: 9 }}
+                      >
+                        {ev.agent} · {ev.time}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -324,42 +412,74 @@ function ListView({ events }: { events: CronEvent[] }) {
   });
 
   return (
-    <div style={{ maxWidth: 800 }}>
+    <div style={{ maxWidth: 800, width: "100%", boxSizing: "border-box" }}>
       {sorted.filter(e => e.enabled).map((ev) => (
         <div key={ev.id} style={{
-          display: "flex", alignItems: "center", gap: 16, padding: "12px 16px", marginBottom: 8,
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+          display: "flex", alignItems: "stretch", gap: 16, padding: "12px 16px", marginBottom: 8,
           borderRadius: 12, border: `2px solid ${ev.accent}20`, background: "rgba(0,0,0,0.95)",
-          transition: "all 0.2s"
+          transition: "all 0.2s",
+          minWidth: 0,
         }}>
-          <div style={{
-            width: 52, height: 52, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 12, fontWeight: 700, fontFamily: "monospace", flexShrink: 0,
-            background: `${ev.accent}15`, color: ev.accent, border: `1px solid ${ev.accent}30`
-          }}>
-            {ev.time}
+          <div
+            title={ev.time}
+            style={{
+              width: 52, height: 52, boxSizing: "border-box", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 11, fontWeight: 700, fontFamily: "monospace", flexShrink: 0,
+              background: `${ev.accent}15`, color: ev.accent, border: `1px solid ${ev.accent}30`,
+              overflow: "hidden", padding: "0 4px",
+            }}
+          >
+            <span style={{ ...TEXT_TRUNCATE, display: "block", textAlign: "center", width: "100%" }}>{ev.time}</span>
           </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</div>
-            <div style={{ fontSize: 11, color: "#737373", marginTop: 2 }}>
+          <div style={{ flex: 1, minWidth: 0, maxWidth: "100%", overflow: "hidden" }}>
+            <div style={{ ...TEXT_TRUNCATE, fontWeight: 700, fontSize: 13 }}>{ev.label}</div>
+            <div
+              title={`${ev.agent} · ${ev.frequency}${ev.schedule ? ` [${ev.schedule}]` : ""}`}
+              style={{ ...TEXT_TRUNCATE, fontSize: 11, color: "#737373", marginTop: 2 }}
+            >
               {ev.agent} · {ev.frequency}
               {ev.schedule && <span style={{ marginLeft: 6, fontSize: 9, fontFamily: "monospace", color: "#525252" }}>[{ev.schedule}]</span>}
             </div>
-            {ev.description && <div style={{ fontSize: 10, color: "#404040", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.description}</div>}
+            {ev.description && (
+              <div title={ev.description} style={{ ...TEXT_TRUNCATE, fontSize: 10, color: "#404040", marginTop: 2 }}>
+                {ev.description}
+              </div>
+            )}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-            <div style={{
-              fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 700,
-              border: `1px solid ${ev.accent}30`, color: ev.accent, background: `${ev.accent}08`
-            }}>
-              {ev.frequency}
+          <div style={{
+            display: "flex", flexDirection: "column", alignItems: "stretch", gap: 4,
+            flexShrink: 0, width: 100, minWidth: 100, maxWidth: 100,
+          }}>
+            <div
+              title={ev.frequency}
+              style={{
+                fontSize: 10, padding: "2px 8px", borderRadius: 6, fontWeight: 700,
+                boxSizing: "border-box",
+                width: "100%",
+                minWidth: 0,
+                border: `1px solid ${ev.accent}30`, color: ev.accent, background: `${ev.accent}08`,
+                overflow: "hidden",
+              }}
+            >
+              <span style={{ ...TEXT_TRUNCATE, display: "block", textAlign: "center" }}>{ev.frequency}</span>
             </div>
             {ev.lastResult && (
-              <div style={{
-                fontSize: 9, padding: "1px 6px", borderRadius: 4,
-                background: ev.lastResult === "ok" || ev.lastResult === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
-                color: ev.lastResult === "ok" || ev.lastResult === "success" ? "#22c55e" : "#ef4444"
-              }}>
-                {ev.lastResult}
+              <div
+                title={ev.lastResult}
+                style={{
+                  fontSize: 9, padding: "1px 6px", borderRadius: 4,
+                  boxSizing: "border-box",
+                  width: "100%",
+                  minWidth: 0,
+                  overflow: "hidden",
+                  background: ev.lastResult === "ok" || ev.lastResult === "success" ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)",
+                  color: ev.lastResult === "ok" || ev.lastResult === "success" ? "#22c55e" : "#ef4444"
+                }}
+              >
+                <span style={{ ...TEXT_TRUNCATE, display: "block", textAlign: "center" }}>{ev.lastResult}</span>
               </div>
             )}
           </div>

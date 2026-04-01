@@ -13,7 +13,8 @@ import {
   revokeSession,
 } from "@/lib/firebase-admin";
 
-const COOKIE_NAME = "mettle_session";
+/** Firebase-style session cookie name (METTLE Task 1a / middleware). */
+const COOKIE_NAME = "__session";
 const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
 
 // ── POST: Exchange ID token for session cookie ───────────────

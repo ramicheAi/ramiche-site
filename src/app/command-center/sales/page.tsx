@@ -186,9 +186,9 @@ export default function SalesPage() {
         <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", marginBottom: 16, marginTop: 32, textTransform: "uppercase" }}>Sales Intelligence Tools</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {[
-            { name: "APEX Sales Dashboard", desc: "Lead scoring, email sequences, pipeline projection for METTLE sales", url: "/builds/2026-03-14-apex-sales-dashboard/index.html", accent: "#C9A84C" },
-            { name: "ROI Calculator", desc: "Enterprise ROI calculator for Verified Agent Business — 5 verticals", url: "/builds/2026-03-13-verified-agent-roi-calculator/index.html", accent: "#22d3ee" },
-            { name: "Margin Simulator", desc: "Interactive pricing and margin simulator — MRR, token costs, break-even", url: "/builds/2026-03-14-agent-margin-simulator/index.html", accent: "#a855f7" },
+            { name: "APEX Sales Dashboard", desc: "Lead scoring, email sequences, pipeline projection for METTLE sales", url: "/yolo-builds/2026-03-14-apex-sales-dashboard/index.html", accent: "#C9A84C" },
+            { name: "ROI Calculator", desc: "Enterprise ROI calculator for Verified Agent Business — 5 verticals", url: "/yolo-builds/2026-03-13-verified-agent-roi-calculator/index.html", accent: "#22d3ee" },
+            { name: "Margin Simulator", desc: "Interactive pricing and margin simulator — MRR, token costs, break-even", url: "/yolo-builds/2026-03-14-agent-margin-simulator/index.html", accent: "#a855f7" },
           ].map((tool) => (
             <div key={tool.name} className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: `${tool.accent}33`, background: `${tool.accent}08` }}>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.9)", marginBottom: 4, marginTop: 0 }}>{tool.name}</h4>

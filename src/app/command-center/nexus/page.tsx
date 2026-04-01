@@ -7,7 +7,7 @@ export default function NexusPage() {
 
   useEffect(() => {
     // Load the Nexus Experiment Lab as embedded HTML
-    fetch("/builds/2026-03-18-proximon-nexus-experiment-lab/index.html")
+    fetch("/yolo-builds/2026-03-18-proximon-nexus-experiment-lab/index.html")
       .then((r) => r.text())
       .then((html) => {
         if (!containerRef.current) return;

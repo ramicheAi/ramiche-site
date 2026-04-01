@@ -1,7 +1,7 @@
 export default function PricingCalculatorPage() {
   return (
     <iframe
-      src="/builds/2026-03-17-mercury-pricing-calculator/index.html"
+      src="/yolo-builds/2026-03-17-mercury-pricing-calculator/index.html"
       style={{
         width: "100%",
         height: "100vh",

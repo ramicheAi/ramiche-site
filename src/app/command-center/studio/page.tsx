@@ -151,7 +151,7 @@ export default function StudioPage() {
           <div className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: 'rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.03)' }}>
             <h4 className="text-sm font-bold text-white/90 mb-1">Studio Project Tracker</h4>
             <p className="text-xs text-white/50 mb-3">Client pipeline Kanban — 5 stages, tier pricing ($400-$6K+), revenue analytics</p>
-            <a href="/builds/2026-03-12-studio-project-tracker/index.html" target="_blank" rel="noopener noreferrer"
+            <a href="/yolo-builds/2026-03-12-studio-project-tracker/index.html" target="_blank" rel="noopener noreferrer"
               className="text-xs px-3 py-1.5 rounded border-2 font-semibold tracking-wider transition-all"
               style={{ borderColor: 'rgba(201,168,76,0.4)', color: '#C9A84C' }}>
               Launch Tool →

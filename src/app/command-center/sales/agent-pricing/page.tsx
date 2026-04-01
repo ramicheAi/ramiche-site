@@ -1,7 +1,7 @@
 export default function AgentPricingModelerPage() {
   return (
     <iframe
-      src="/builds/2026-03-19-verified-agent-pricing-modeler/index.html"
+      src="/yolo-builds/2026-03-19-verified-agent-pricing-modeler/index.html"
       style={{
         width: "100%",
         height: "100vh",

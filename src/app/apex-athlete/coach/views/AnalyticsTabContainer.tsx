@@ -73,7 +73,7 @@ export default function AnalyticsTabContainer(props: Props) {
       {subTab === "swim-performance" && (
         <div className="w-full rounded-2xl overflow-hidden border-2 border-white/10" style={{ minHeight: "80vh" }}>
           <iframe
-            src="/builds/2026-03-13-mettle-swim-analytics/index.html"
+            src="/yolo-builds/2026-03-13-mettle-swim-analytics/index.html"
             className="w-full border-0"
             style={{ minHeight: "80vh", background: "#f8f7f4" }}
             title="Swim Performance Analytics"
@@ -84,7 +84,7 @@ export default function AnalyticsTabContainer(props: Props) {
       {subTab === "split-analysis" && (
         <div className="w-full rounded-2xl overflow-hidden border-2 border-white/10" style={{ minHeight: "80vh" }}>
           <iframe
-            src="/builds/2026-03-18-mettle-split-analyzer/index.html"
+            src="/yolo-builds/2026-03-18-mettle-split-analyzer/index.html"
             className="w-full border-0"
             style={{ minHeight: "80vh", background: "#f8f7f4" }}
             title="Split Analysis"
