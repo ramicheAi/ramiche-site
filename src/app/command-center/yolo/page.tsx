@@ -358,7 +358,7 @@ export default function YoloBuildsPage() {
 
                 {/* Name */}
                 <a
-                  href={`/builds/${build.folder}/index.html`}
+                  href={`/yolo-builds/${build.folder}/index.html`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="group"
@@ -410,7 +410,7 @@ export default function YoloBuildsPage() {
                     </span>
                     <div className="flex gap-2">
                       <a
-                        href={`/builds/${build.folder}/index.html`}
+                        href={`/yolo-builds/${build.folder}/index.html`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs px-2 py-1 rounded border border-blue-500/30 text-blue-400 hover:bg-blue-500/10 transition-colors"
@@ -476,7 +476,7 @@ export default function YoloBuildsPage() {
                       </div>
                       <button
                         onClick={() => {
-                          navigator.clipboard.writeText(`vercel deploy --prod ./builds/${build.folder} --name tools-${build.folder}`);
+                          navigator.clipboard.writeText(`vercel deploy --prod ./yolo-builds/${build.folder} --name tools-${build.folder}`);
                           setToast({ message: "Deploy command copied to clipboard", color: TIER_CONFIG[1].color });
                         }}
                         className="text-[10px] font-bold tracking-wider py-1.5 rounded border-2 transition-all hover:brightness-125"
@@ -503,12 +503,12 @@ export default function YoloBuildsPage() {
                         className="w-full rounded border-2 bg-transparent text-[10px] tracking-wider text-white/70 p-2 resize-none focus:outline-none"
                         style={{ borderColor: `${TIER_CONFIG[2].color}30` }}
                         rows={7}
-                        defaultValue={`AGENT: \nTARGET PROJECT: \nSOURCE: /builds/${build.folder}\nTASK: Extract core logic and integrate into target\nDONE CRITERIA: `}
+                        defaultValue={`AGENT: \nTARGET PROJECT: \nSOURCE: /yolo-builds/${build.folder}\nTASK: Extract core logic and integrate into target\nDONE CRITERIA: `}
                       />
                       <button
                         onClick={() => {
                           const textarea = document.querySelector<HTMLTextAreaElement>(`textarea[data-packet="${build.folder}"]`);
-                          const text = textarea?.value || `AGENT: \nTARGET PROJECT: \nSOURCE: /builds/${build.folder}\nTASK: Extract core logic and integrate into target\nDONE CRITERIA: `;
+                          const text = textarea?.value || `AGENT: \nTARGET PROJECT: \nSOURCE: /yolo-builds/${build.folder}\nTASK: Extract core logic and integrate into target\nDONE CRITERIA: `;
                           navigator.clipboard.writeText(text);
                           setToast({ message: "Delegation packet copied", color: TIER_CONFIG[2].color });
                         }}

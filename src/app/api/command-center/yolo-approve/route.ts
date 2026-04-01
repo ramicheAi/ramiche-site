@@ -9,7 +9,7 @@ export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
 const BUILDS_DIR_WS = join(WS, "builds");
-const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/builds");
+const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
 const MEMORY_DIR = join(WS, "memory");
 
 function tierOutputDir(): string {
