@@ -286,7 +286,7 @@ async function generateWeeklySummary(): Promise<string> {
   const crons = await collectCrons();
 
   let yoloBuilds: string[] = [];
-  const yoloDir = join(WS, "yolo-builds");
+  const yoloDir = join(WS, "builds");
   if (existsSync(yoloDir)) {
     safe(() => {
       yoloBuilds = readdirSync(yoloDir, { withFileTypes: true })

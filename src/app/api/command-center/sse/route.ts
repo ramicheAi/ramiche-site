@@ -161,7 +161,7 @@ function getCronExecutionLog() {
 }
 
 function getYoloBuilds() {
-  const dir = join(WS, "yolo-builds");
+  const dir = join(WS, "builds");
   return safe(() => {
     if (!existsSync(dir)) return [];
     return readdirSync(dir)

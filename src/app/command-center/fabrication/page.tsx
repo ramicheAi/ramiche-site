@@ -372,7 +372,7 @@ export default function FabricationPage() {
               return (
                 <a
                   key={tool.folder}
-                  href={`/yolo-builds/${tool.folder}/index.html`}
+                  href={`/builds/${tool.folder}/index.html`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{

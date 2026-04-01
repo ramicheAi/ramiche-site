@@ -22,7 +22,7 @@ const DIRECTORY_PATH = join(WS, "agents", "directory.json");
 const CRON_JOBS_PATH = join(CRON_DIR, "jobs.json");
 const CRON_HISTORY_PATH = join(CRON_DIR, "history.json");
 const MEMORY_DIR = join(WS, "memory");
-const YOLO_DIR = join(WS, "yolo-builds");
+const YOLO_DIR = join(WS, "builds");
 /** SIMONS MERIDIAN pipeline output — same file as `GET /api/command-center/meridian` local path. */
 const MERIDIAN_JSON_PATH = join(WS, "shared/artifacts/quantitative/dashboard_api.json");
 

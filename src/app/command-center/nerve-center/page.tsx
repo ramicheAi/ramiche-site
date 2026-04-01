@@ -23,7 +23,7 @@ export default function NerveCenterPage() {
       </div>
       <div style={{ paddingTop: 40, width: "100%", height: "100%", background: "#000000" }}>
         <iframe
-          src="/yolo-builds/2026-03-17-nerve-center/index.html"
+          src="/builds/2026-03-17-nerve-center/index.html"
           style={{
             width: "100%",
             height: "calc(100% - 40px)",

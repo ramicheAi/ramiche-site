@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
-const BUILDS_DIR_WS = join(WS, "yolo-builds");
-const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/yolo-builds");
+const BUILDS_DIR_WS = join(WS, "builds");
+const BUILDS_DIR_PUBLIC = join(process.cwd(), "public/builds");
 const MEMORY_DIR = join(WS, "memory");
 
 function tierOutputDir(): string {
@@ -116,7 +116,7 @@ export async function POST(request: Request) {
         `YOLO build promoted: ${name} (${folder})`,
         `Tier: ${tier} → ${config.status}`,
         `Assigned agent: ${agent}`,
-        `Source path: yolo-builds/${folder}`,
+        `Source path: builds/${folder}`,
         `Next: implement deployment / integration per tier playbook.`,
       ].join("\n");
       const spawn = await gatewaySessionsSpawn({
