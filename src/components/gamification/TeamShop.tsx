@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import TierBadge, { getTierForGrit, TIERS, TIER_ORDER } from "./TierBadge";
-import type { TierLevel } from "./TierBadge";
+import TierBadge, { getTierForXP } from "./TierBadge";
+import { getSportConfig } from "@/app/apex-athlete/lib/sport-config";
 
 /* ══════════════════════════════════════════════════════════════
    TEAM SHOP — Embedded Tier-Locked Merch Store
@@ -17,7 +17,7 @@ interface ShopItem {
   description: string;
   category: "apparel" | "gear" | "digital" | "experience";
   price: number; // in Grit
-  requiredTier: TierLevel;
+  requiredTierIndex: number; // index into sport levels array
   image?: string;
   emoji: string;
   limited?: boolean;
@@ -30,28 +30,42 @@ interface TeamShopProps {
   athleteName: string;
   teamName?: string;
   onPurchase?: (item: ShopItem) => void;
+  sport?: string;
 }
 
-// ── Mock Items ─────────────────────────────────────────────
+// ── Helpers ────────────────────────────────────────────────
+
+function getGlowStyles(color: string) {
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return {
+    glow: `rgba(${r},${g},${b},0.15)`,
+    bg: `rgba(${r},${g},${b},0.08)`,
+    border: `rgba(${r},${g},${b},0.25)`,
+  };
+}
+
+// ── Mock Items (tier index: 0=Rookie, 1=Contender, 2=Warrior, 3=Elite, 4=Captain, 5=Legend) ──
 
 const SHOP_ITEMS: ShopItem[] = [
-  // Explorer tier (0+ Grit)
-  { id: "s1", name: "Team Sticker Pack", description: "5 holographic team stickers", category: "gear", price: 50, requiredTier: "explorer", emoji: "🏷️" },
-  { id: "s2", name: "Digital Badge", description: "Profile badge — show your team pride", category: "digital", price: 75, requiredTier: "explorer", emoji: "🎖️" },
-  { id: "s3", name: "Swim Cap", description: "Team-branded silicone cap", category: "gear", price: 150, requiredTier: "explorer", emoji: "🧢" },
-  // Voyager tier (500+ Grit)
-  { id: "s4", name: "Team Hoodie", description: "Premium cotton-blend hoodie", category: "apparel", price: 400, requiredTier: "voyager", emoji: "🧥" },
-  { id: "s5", name: "Mesh Bag", description: "Team mesh equipment bag", category: "gear", price: 300, requiredTier: "voyager", emoji: "🎒" },
-  { id: "s6", name: "Custom Goggles", description: "Anti-fog team-color goggles", category: "gear", price: 350, requiredTier: "voyager", emoji: "🥽" },
-  // Pioneer tier (1500+ Grit)
-  { id: "s7", name: "Gold Parka", description: "Limited warmup parka — pioneer exclusive", category: "apparel", price: 800, requiredTier: "pioneer", emoji: "🧥", limited: true, stock: 20 },
-  { id: "s8", name: "Tech Suit Discount", description: "$50 off next tech suit purchase", category: "digital", price: 600, requiredTier: "pioneer", emoji: "💳" },
-  { id: "s9", name: "Private Lesson", description: "30-min 1-on-1 with head coach", category: "experience", price: 1000, requiredTier: "pioneer", emoji: "🏊", limited: true, stock: 5 },
-  // Stellar tier (3000+ Grit)
-  { id: "s10", name: "Platinum Jacket", description: "Embroidered team jacket — stellar only", category: "apparel", price: 1500, requiredTier: "stellar", emoji: "🥇", limited: true, stock: 10 },
-  { id: "s11", name: "Meet Entry Waiver", description: "Free entry to next invitational", category: "experience", price: 2000, requiredTier: "stellar", emoji: "🎫" },
-  // Cosmic tier (5000+ Grit)
-  { id: "s12", name: "Cosmic Bundle", description: "Full branded kit — cap, suit, parka, bag", category: "apparel", price: 3000, requiredTier: "cosmic", emoji: "✨", limited: true, stock: 3 },
+  // Rookie tier (0)
+  { id: "s1", name: "Team Sticker Pack", description: "5 holographic team stickers", category: "gear", price: 50, requiredTierIndex: 0, emoji: "🏷️" },
+  { id: "s2", name: "Digital Badge", description: "Profile badge — show your team pride", category: "digital", price: 75, requiredTierIndex: 0, emoji: "🎖️" },
+  { id: "s3", name: "Swim Cap", description: "Team-branded silicone cap", category: "gear", price: 150, requiredTierIndex: 0, emoji: "🧢" },
+  // Contender tier (1)
+  { id: "s4", name: "Team Hoodie", description: "Premium cotton-blend hoodie", category: "apparel", price: 400, requiredTierIndex: 1, emoji: "🧥" },
+  { id: "s5", name: "Mesh Bag", description: "Team mesh equipment bag", category: "gear", price: 300, requiredTierIndex: 1, emoji: "🎒" },
+  { id: "s6", name: "Custom Goggles", description: "Anti-fog team-color goggles", category: "gear", price: 350, requiredTierIndex: 1, emoji: "🥽" },
+  // Warrior tier (2)
+  { id: "s7", name: "Gold Parka", description: "Limited warmup parka — warrior exclusive", category: "apparel", price: 800, requiredTierIndex: 2, emoji: "🧥", limited: true, stock: 20 },
+  { id: "s8", name: "Tech Suit Discount", description: "$50 off next tech suit purchase", category: "digital", price: 600, requiredTierIndex: 2, emoji: "💳" },
+  { id: "s9", name: "Private Lesson", description: "30-min 1-on-1 with head coach", category: "experience", price: 1000, requiredTierIndex: 2, emoji: "🏊", limited: true, stock: 5 },
+  // Elite tier (3)
+  { id: "s10", name: "Platinum Jacket", description: "Embroidered team jacket — elite only", category: "apparel", price: 1500, requiredTierIndex: 3, emoji: "🥇", limited: true, stock: 10 },
+  { id: "s11", name: "Meet Entry Waiver", description: "Free entry to next invitational", category: "experience", price: 2000, requiredTierIndex: 3, emoji: "🎫" },
+  // Legend tier (5)
+  { id: "s12", name: "Legend Bundle", description: "Full branded kit — cap, suit, parka, bag", category: "apparel", price: 3000, requiredTierIndex: 5, emoji: "✨", limited: true, stock: 3 },
 ];
 
 const CATEGORY_LABELS: Record<ShopItem["category"], { label: string; icon: string }> = {
@@ -68,13 +82,25 @@ export default function TeamShop({
   athleteName,
   teamName = "Mettle Aquatics",
   onPurchase,
+  sport = "swimming",
 }: TeamShopProps) {
   const [selectedCategory, setSelectedCategory] = useState<"all" | ShopItem["category"]>("all");
   const [selectedItem, setSelectedItem] = useState<ShopItem | null>(null);
   const [confirmPurchase, setConfirmPurchase] = useState(false);
 
-  const tier = getTierForGrit(athleteGrit);
-  const tierIndex = TIER_ORDER.indexOf(tier);
+  const levels = getSportConfig(sport).levels;
+  const currentTier = getTierForXP(sport, athleteGrit);
+
+  // Find current tier index
+  let currentTierIdx = 0;
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (athleteGrit >= levels[i].xpThreshold) {
+      currentTierIdx = i;
+      break;
+    }
+  }
+
+  const tierStyles = getGlowStyles(currentTier.color);
 
   const filtered = SHOP_ITEMS.filter((item) => {
     if (selectedCategory !== "all" && item.category !== selectedCategory) return false;
@@ -82,7 +108,7 @@ export default function TeamShop({
   });
 
   function isUnlocked(item: ShopItem): boolean {
-    return TIER_ORDER.indexOf(item.requiredTier) <= tierIndex;
+    return item.requiredTierIndex <= currentTierIdx;
   }
 
   function canAfford(item: ShopItem): boolean {
@@ -100,7 +126,10 @@ export default function TeamShop({
     setSelectedItem(null);
   }
 
-  const tierConfig = TIERS[tier];
+  function getItemTierStyles(item: ShopItem) {
+    const level = levels[Math.min(item.requiredTierIndex, levels.length - 1)];
+    return { ...getGlowStyles(level.color), color: level.color, name: level.name };
+  }
 
   return (
     <div className="space-y-4">
@@ -120,11 +149,11 @@ export default function TeamShop({
           <div className="flex items-center gap-3">
             <div className="text-right">
               <p className="text-[10px] text-[#f8fafc]/30 uppercase">Balance</p>
-              <p className="text-sm font-black tabular-nums" style={{ color: tierConfig.color }}>
+              <p className="text-sm font-black tabular-nums" style={{ color: currentTier.color }}>
                 {athleteGrit.toLocaleString()} Grit
               </p>
             </div>
-            <TierBadge tier={tier} size="sm" />
+            <TierBadge sport={sport} xp={athleteGrit} size="sm" />
           </div>
         </div>
       </div>
@@ -163,7 +192,7 @@ export default function TeamShop({
         {filtered.map((item) => {
           const unlocked = isUnlocked(item);
           const affordable = canAfford(item);
-          const itemTierConfig = TIERS[item.requiredTier];
+          const itemTier = getItemTierStyles(item);
           const isSelected = selectedItem?.id === item.id;
 
           return (
@@ -176,10 +205,10 @@ export default function TeamShop({
               className="relative text-left rounded-xl p-3 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
               style={{
                 background: isSelected
-                  ? `linear-gradient(135deg, ${itemTierConfig.bg}, rgba(14,14,24,0.95))`
+                  ? `linear-gradient(135deg, ${itemTier.bg}, rgba(14,14,24,0.95))`
                   : "rgba(255,255,255,0.03)",
                 border: isSelected
-                  ? `2px solid ${itemTierConfig.color}40`
+                  ? `2px solid ${itemTier.color}40`
                   : "2px solid rgba(255,255,255,0.06)",
                 opacity: unlocked ? 1 : 0.5,
                 filter: unlocked ? "none" : "grayscale(0.6)",
@@ -190,9 +219,9 @@ export default function TeamShop({
                 <div className="absolute inset-0 rounded-xl flex items-center justify-center z-10">
                   <div
                     className="px-2 py-1 rounded-md text-[9px] font-bold uppercase tracking-wider"
-                    style={{ background: itemTierConfig.bg, color: itemTierConfig.color, border: `1px solid ${itemTierConfig.border}` }}
+                    style={{ background: itemTier.bg, color: itemTier.color, border: `1px solid ${itemTier.border}` }}
                   >
-                    🔒 {TIERS[item.requiredTier].label}
+                    🔒 {itemTier.name}
                   </div>
                 </div>
               )}
@@ -230,61 +259,64 @@ export default function TeamShop({
       </div>
 
       {/* ── Purchase Panel ── */}
-      {selectedItem && isUnlocked(selectedItem) && (
-        <div
-          className="rounded-xl p-4 space-y-3"
-          style={{
-            background: `linear-gradient(135deg, ${TIERS[selectedItem.requiredTier].bg}, rgba(14,14,24,0.98))`,
-            border: `2px solid ${TIERS[selectedItem.requiredTier].border}`,
-            boxShadow: `0 0 20px ${TIERS[selectedItem.requiredTier].glow}`,
-          }}
-        >
-          <div className="flex items-start gap-3">
-            <span className="text-3xl">{selectedItem.emoji}</span>
-            <div className="flex-1">
-              <h4 className="text-sm font-black text-[#f8fafc]">{selectedItem.name}</h4>
-              <p className="text-xs text-[#f8fafc]/50 mt-0.5">{selectedItem.description}</p>
-              <div className="flex items-center gap-2 mt-2">
-                <span className="text-lg font-black tabular-nums" style={{ color: TIERS[selectedItem.requiredTier].color }}>
-                  {selectedItem.price.toLocaleString()}
-                </span>
-                <span className="text-[10px] text-[#f8fafc]/30 uppercase">Grit</span>
+      {selectedItem && isUnlocked(selectedItem) && (() => {
+        const selTier = getItemTierStyles(selectedItem);
+        return (
+          <div
+            className="rounded-xl p-4 space-y-3"
+            style={{
+              background: `linear-gradient(135deg, ${selTier.bg}, rgba(14,14,24,0.98))`,
+              border: `2px solid ${selTier.border}`,
+              boxShadow: `0 0 20px ${selTier.glow}`,
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <span className="text-3xl">{selectedItem.emoji}</span>
+              <div className="flex-1">
+                <h4 className="text-sm font-black text-[#f8fafc]">{selectedItem.name}</h4>
+                <p className="text-xs text-[#f8fafc]/50 mt-0.5">{selectedItem.description}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="text-lg font-black tabular-nums" style={{ color: selTier.color }}>
+                    {selectedItem.price.toLocaleString()}
+                  </span>
+                  <span className="text-[10px] text-[#f8fafc]/30 uppercase">Grit</span>
+                </div>
               </div>
             </div>
+
+            {canAfford(selectedItem) && !selectedItem.soldOut ? (
+              <button
+                onClick={() => handlePurchase(selectedItem)}
+                className="w-full py-2.5 rounded-xl text-sm font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: confirmPurchase
+                    ? "linear-gradient(135deg, #f59e0b, #f59e0bcc)"
+                    : `linear-gradient(135deg, ${selTier.color}, ${selTier.color}cc)`,
+                  color: "#0e0e18",
+                  boxShadow: `0 0 20px ${confirmPurchase ? "rgba(245,158,11,0.3)" : selTier.glow}`,
+                }}
+              >
+                {confirmPurchase ? "Tap Again to Confirm" : `Purchase for ${selectedItem.price.toLocaleString()} Grit`}
+              </button>
+            ) : selectedItem.soldOut ? (
+              <div className="w-full py-2.5 rounded-xl text-sm font-bold text-center text-red-400/60 bg-red-500/10 border border-red-500/20">
+                Sold Out
+              </div>
+            ) : (
+              <div className="w-full py-2.5 rounded-xl text-sm font-bold text-center text-[#f8fafc]/30 bg-white/[0.03] border border-white/[0.06]">
+                Need {(selectedItem.price - athleteGrit).toLocaleString()} more Grit
+              </div>
+            )}
+
+            {/* Balance after purchase */}
+            {canAfford(selectedItem) && !selectedItem.soldOut && (
+              <p className="text-[10px] text-[#f8fafc]/30 text-center">
+                Balance after: {(athleteGrit - selectedItem.price).toLocaleString()} Grit
+              </p>
+            )}
           </div>
-
-          {canAfford(selectedItem) && !selectedItem.soldOut ? (
-            <button
-              onClick={() => handlePurchase(selectedItem)}
-              className="w-full py-2.5 rounded-xl text-sm font-bold transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
-              style={{
-                background: confirmPurchase
-                  ? "linear-gradient(135deg, #f59e0b, #f59e0bcc)"
-                  : `linear-gradient(135deg, ${TIERS[selectedItem.requiredTier].color}, ${TIERS[selectedItem.requiredTier].color}cc)`,
-                color: "#0e0e18",
-                boxShadow: `0 0 20px ${confirmPurchase ? "rgba(245,158,11,0.3)" : TIERS[selectedItem.requiredTier].glow}`,
-              }}
-            >
-              {confirmPurchase ? "Tap Again to Confirm" : `Purchase for ${selectedItem.price.toLocaleString()} Grit`}
-            </button>
-          ) : selectedItem.soldOut ? (
-            <div className="w-full py-2.5 rounded-xl text-sm font-bold text-center text-red-400/60 bg-red-500/10 border border-red-500/20">
-              Sold Out
-            </div>
-          ) : (
-            <div className="w-full py-2.5 rounded-xl text-sm font-bold text-center text-[#f8fafc]/30 bg-white/[0.03] border border-white/[0.06]">
-              Need {(selectedItem.price - athleteGrit).toLocaleString()} more Grit
-            </div>
-          )}
-
-          {/* Balance after purchase */}
-          {canAfford(selectedItem) && !selectedItem.soldOut && (
-            <p className="text-[10px] text-[#f8fafc]/30 text-center">
-              Balance after: {(athleteGrit - selectedItem.price).toLocaleString()} Grit
-            </p>
-          )}
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

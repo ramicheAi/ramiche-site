@@ -1,97 +1,51 @@
 "use client";
 
 /* ══════════════════════════════════════════════════════════════
-   TIER BADGE — Grit Economy Tier System
-   Explorer → Voyager → Pioneer → Stellar → Cosmic
+   TIER BADGE — METTLE Tier System (sport-aware)
+   Swimming: Rookie → Contender → Warrior → Elite → Captain → Legend
+   General:  Rookie → Starter → Captain → MVP → Hall of Fame → GOAT
+   Source: getSportConfig(sport).levels
    Design: Apex dark theme · neon accents · glassmorphism
    ══════════════════════════════════════════════════════════════ */
 
-export type TierLevel = "explorer" | "voyager" | "pioneer" | "stellar" | "cosmic";
-
-interface TierConfig {
-  label: string;
-  icon: string;
-  color: string;
-  glow: string;
-  bg: string;
-  border: string;
-  minGrit: number;
-}
-
-export const TIERS: Record<TierLevel, TierConfig> = {
-  explorer: {
-    label: "Explorer",
-    icon: "🧭",
-    color: "#94a3b8",
-    glow: "rgba(148,163,184,0.15)",
-    bg: "rgba(148,163,184,0.08)",
-    border: "rgba(148,163,184,0.20)",
-    minGrit: 0,
-  },
-  voyager: {
-    label: "Voyager",
-    icon: "🚀",
-    color: "#00f0ff",
-    glow: "rgba(0,240,255,0.15)",
-    bg: "rgba(0,240,255,0.08)",
-    border: "rgba(0,240,255,0.25)",
-    minGrit: 500,
-  },
-  pioneer: {
-    label: "Pioneer",
-    icon: "⚡",
-    color: "#a855f7",
-    glow: "rgba(168,85,247,0.15)",
-    bg: "rgba(168,85,247,0.08)",
-    border: "rgba(168,85,247,0.25)",
-    minGrit: 1500,
-  },
-  stellar: {
-    label: "Stellar",
-    icon: "🌟",
-    color: "#f59e0b",
-    glow: "rgba(245,158,11,0.15)",
-    bg: "rgba(245,158,11,0.08)",
-    border: "rgba(245,158,11,0.25)",
-    minGrit: 3500,
-  },
-  cosmic: {
-    label: "Cosmic",
-    icon: "💎",
-    color: "#ec4899",
-    glow: "rgba(236,72,153,0.20)",
-    bg: "rgba(236,72,153,0.10)",
-    border: "rgba(236,72,153,0.30)",
-    minGrit: 7500,
-  },
-};
-
-export const TIER_ORDER: TierLevel[] = ["explorer", "voyager", "pioneer", "stellar", "cosmic"];
-
-export function getTierForGrit(grit: number): TierLevel {
-  for (let i = TIER_ORDER.length - 1; i >= 0; i--) {
-    if (grit >= TIERS[TIER_ORDER[i]].minGrit) return TIER_ORDER[i];
-  }
-  return "explorer";
-}
-
-export function getNextTier(current: TierLevel): TierLevel | null {
-  const idx = TIER_ORDER.indexOf(current);
-  return idx < TIER_ORDER.length - 1 ? TIER_ORDER[idx + 1] : null;
-}
+import { getSportConfig } from "@/app/apex-athlete/lib/sport-config";
 
 interface TierBadgeProps {
-  tier: TierLevel;
+  sport?: string;
+  xp: number;
   size?: "sm" | "md" | "lg";
   showLabel?: boolean;
-  grit?: number;
   showProgress?: boolean;
 }
 
-export default function TierBadge({ tier, size = "md", showLabel = true, grit, showProgress = false }: TierBadgeProps) {
-  const config = TIERS[tier];
-  const next = getNextTier(tier);
-  const nextConfig = next ? TIERS[next] : null;
+function getGlowStyles(color: string) {
+  // Convert hex to rgba for glow/bg/border
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return {
+    glow: `rgba(${r},${g},${b},0.15)`,
+    bg: `rgba(${r},${g},${b},0.08)`,
+    border: `rgba(${r},${g},${b},0.25)`,
+  };
+}
+
+export default function TierBadge({ sport = "swimming", xp, size = "md", showLabel = true, showProgress = false }: TierBadgeProps) {
+  const config = getSportConfig(sport);
+  const levels = config.levels;
+
+  // Find current tier (highest level where xp >= threshold)
+  let tierIdx = 0;
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (xp >= levels[i].xpThreshold) {
+      tierIdx = i;
+      break;
+    }
+  }
+
+  const current = levels[tierIdx];
+  const next = tierIdx < levels.length - 1 ? levels[tierIdx + 1] : null;
+  const styles = getGlowStyles(current.color);
 
   const sizes = {
     sm: { badge: "w-6 h-6 text-xs", text: "text-[10px]", gap: "gap-1" },
@@ -101,35 +55,37 @@ export default function TierBadge({ tier, size = "md", showLabel = true, grit, s
 
   const s = sizes[size];
 
-  const progress = showProgress && grit !== undefined && nextConfig
-    ? Math.min(100, Math.round(((grit - config.minGrit) / (nextConfig.minGrit - config.minGrit)) * 100))
+  const progress = showProgress && next
+    ? Math.min(100, Math.round(((xp - current.xpThreshold) / (next.xpThreshold - current.xpThreshold)) * 100))
     : null;
+
+  const nextStyles = next ? getGlowStyles(next.color) : null;
 
   return (
     <div className={`flex items-center ${s.gap}`}>
       <div
         className={`${s.badge} rounded-lg flex items-center justify-center font-black shrink-0`}
         style={{
-          background: config.bg,
-          border: `1.5px solid ${config.border}`,
-          boxShadow: `0 0 12px ${config.glow}`,
+          background: styles.bg,
+          border: `1.5px solid ${styles.border}`,
+          boxShadow: `0 0 12px ${styles.glow}`,
         }}
       >
-        {config.icon}
+        {current.icon}
       </div>
       {showLabel && (
         <div className="flex flex-col min-w-0">
-          <span className={`${s.text} font-bold truncate`} style={{ color: config.color }}>
-            {config.label}
+          <span className={`${s.text} font-bold truncate`} style={{ color: current.color }}>
+            {current.name}
           </span>
-          {progress !== null && (
+          {progress !== null && next && (
             <div className="flex items-center gap-1.5 mt-0.5">
               <div className="w-16 h-1 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
                     width: `${progress}%`,
-                    background: `linear-gradient(90deg, ${config.color}, ${nextConfig!.color})`,
+                    background: `linear-gradient(90deg, ${current.color}, ${next.color})`,
                   }}
                 />
               </div>
@@ -140,4 +96,23 @@ export default function TierBadge({ tier, size = "md", showLabel = true, grit, s
       )}
     </div>
   );
+}
+
+// Re-export for consumers that need tier info
+export function getTierForXP(sport: string, xp: number) {
+  const levels = getSportConfig(sport).levels;
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (xp >= levels[i].xpThreshold) return levels[i];
+  }
+  return levels[0];
+}
+
+export function getNextTier(sport: string, xp: number) {
+  const levels = getSportConfig(sport).levels;
+  for (let i = levels.length - 1; i >= 0; i--) {
+    if (xp >= levels[i].xpThreshold) {
+      return i < levels.length - 1 ? levels[i + 1] : null;
+    }
+  }
+  return levels.length > 1 ? levels[1] : null;
 }
