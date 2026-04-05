@@ -24,13 +24,22 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  logging: {
+    browserToTerminal: true,
+  },
   experimental: {
     staleTimes: {
       dynamic: 0,
       static: 0,
     },
+    prefetchInlining: true,
   },
   redirects: async () => [
+    {
+      source: "/portal",
+      destination: "/apex-athlete/portal",
+      permanent: false,
+    },
     {
       source: "/apex-athlete",
       destination: "/apex-athlete/coach",
