@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Geopolitical Impact Simulator — DR STRANGE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;--text:#e0e0e8;--muted:#8888a0;--accent:#6c5ce7;--green:#00d2a0;--red:#ff6b6b;--orange:#ffa726;--blue:#42a5f5;--yellow:#ffee58;--chart-bg:#16161f}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600;letter-spacing:-0.5px}
+.header .badge{font-size:11px;padding:3px 8px;border-radius:4px;background:#e74c3c;color:#fff;font-weight:500}
+.header .sub{color:var(--muted);font-size:12px;margin-left:auto}
+.grid{display:grid;grid-template-columns:340px 1fr;gap:20px;min-height:calc(100vh - 100px)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-y:auto;max-height:calc(100vh - 100px)}
+.panel h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px}
+.section{margin-bottom:20px}
+.section h3{font-size:12px;color:var(--accent);margin-bottom:8px;font-weight:500}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+input[type="range"]{width:100%;accent-color:var(--accent);margin:4px 0}
+input[type="number"],select,input[type="text"]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px}
+.val{font-size:12px;color:var(--text);font-weight:600;float:right}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row>div{flex:1}
+.btn{padding:8px 14px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s}
+.btn:hover{border-color:var(--accent);background:#1e1e30}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#5a4bd6}
+.btn.active{border-color:var(--accent);background:#1e1e30}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:rgba(255,107,107,.1)}
+.right-panel{display:flex;flex-direction:column;gap:16px;overflow-y:auto;max-height:calc(100vh - 100px)}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.metric-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.metric-card .value{font-size:22px;font-weight:700}
+.metric-card .delta{font-size:11px;margin-top:2px}
+.delta.pos{color:var(--green)}.delta.neg{color:var(--red)}.delta.neutral{color:var(--muted)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column}
+.chart-box h3{font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:500}
+canvas{width:100%;height:220px}
+.scenario-tree{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.scenario-tree h3{font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.tree-node{padding:8px 12px;margin:4px 0;border-radius:6px;font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:all .15s}
+.tree-node:hover{background:var(--surface2)}
+.tree-node .prob{font-weight:600;min-width:40px}
+.tree-node .impact{margin-left:auto;font-weight:600}
+.tree-children{margin-left:20px;border-left:2px solid var(--border);padding-left:12px}
+.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.insights{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.insights h3{font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.insight-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5}
+.insight-item:last-child{border:none}
+.severity{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.severity.high{background:rgba(255,107,107,.15);color:var(--red)}
+.severity.medium{background:rgba(255,167,38,.15);color:var(--orange)}
+.severity.low{background:rgba(0,210,160,.15);color:var(--green)}
+.timeline-bar{height:6px;border-radius:3px;margin:4px 0;background:var(--surface2);overflow:hidden;position:relative}
+.timeline-fill{height:100%;border-radius:3px;transition:width .3s}
+textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px;resize:vertical;min-height:60px}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Geopolitical Impact Simulator</h1>
+  <span class="badge">DR STRANGE</span>
+  <span class="sub">Scenario modeling • Cascade analysis • 18-month horizon</span>
+</div>
+<div class="grid">
+  <div class="panel">
+    <h2>Event Configuration</h2>
+    <div class="preset-row">
+      <button class="btn" onclick="loadPreset('tariff')">Tariff War</button>
+      <button class="btn" onclick="loadPreset('rate')">Rate Hike</button>
+      <button class="btn" onclick="loadPreset('conflict')">Regional Conflict</button>
+      <button class="btn" onclick="loadPreset('election')">Election Shift</button>
+      <button class="btn" onclick="loadPreset('pandemic')">Pandemic</button>
+      <button class="btn" onclick="loadPreset('custom')">Custom</button>
+    </div>
+
+    <div class="section">
+      <h3>Primary Event</h3>
+      <div style="margin-bottom:8px">
+        <label>Event Description</label>
+        <input type="text" id="eventName" value="US-China 25% Tariff Escalation" onchange="recalc()">
+      </div>
+      <div class="row">
+        <div>
+          <label>Probability <span class="val" id="probVal">65%</span></label>
+          <input type="range" id="eventProb" min="5" max="95" value="65" oninput="onSlider()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Severity (1-10) <span class="val" id="sevVal">7</span></label>
+          <input type="range" id="eventSeverity" min="1" max="10" value="7" oninput="onSlider()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Timeline (months)</label>
+          <select id="eventTimeline" onchange="recalc()">
+            <option value="1">1 month</option>
+            <option value="3" selected>3 months</option>
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
+            <option value="18">18 months</option>
+          </select>
+        </div>
+        <div>
+          <label>Onset Speed</label>
+          <select id="eventOnset" onchange="recalc()">
+            <option value="sudden">Sudden (shock)</option>
+            <option value="gradual" selected>Gradual</option>
+            <option value="phased">Phased</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Business Exposure</h3>
+      <div class="row">
+        <div>
+          <label>Revenue Exposure <span class="val" id="revExpVal">40%</span></label>
+          <input type="range" id="revExposure" min="0" max="100" value="40" oninput="onSlider()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Supply Chain Dep. <span class="val" id="supExpVal">60%</span></label>
+          <input type="range" id="supExposure" min="0" max="100" value="60" oninput="onSlider()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Monthly Revenue ($)</label>
+          <input type="number" id="baseRevenue" value="50000" min="0" step="1000" onchange="recalc()">
+        </div>
+        <div>
+          <label>Monthly Costs ($)</label>
+          <input type="number" id="baseCosts" value="35000" min="0" step="1000" onchange="recalc()">
+        </div>
+      </div>
+      <div>
+        <label>Industry</label>
+        <select id="industry" onchange="recalc()">
+          <option value="saas">SaaS / Software</option>
+          <option value="ecommerce">E-Commerce / Retail</option>
+          <option value="manufacturing">Manufacturing</option>
+          <option value="services">Professional Services</option>
+          <option value="fintech">Fintech</option>
+          <option value="media">Media / Content</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Cascade Effects</h3>
+      <div id="cascadeList"></div>
+      <button class="btn" onclick="addCascade()" style="width:100%;margin-top:8px">+ Add Cascade</button>
+    </div>
+
+    <div class="section">
+      <h3>Simulation</h3>
+      <div class="row">
+        <div>
+          <label>Monte Carlo Runs</label>
+          <select id="mcRuns" onchange="recalc()">
+            <option value="500">500</option>
+            <option value="1000" selected>1,000</option>
+            <option value="5000">5,000</option>
+          </select>
+        </div>
+        <div>
+          <label>Horizon</label>
+          <select id="horizon" onchange="recalc()">
+            <option value="6">6 months</option>
+            <option value="12">12 months</option>
+            <option value="18" selected>18 months</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn primary" onclick="recalc()" style="width:100%;margin-top:8px">Run Simulation</button>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="metrics-row">
+      <div class="metric-card"><div class="label">Expected Impact</div><div class="value" id="mImpact">-$0</div><div class="delta" id="mImpactDelta"></div></div>
+      <div class="metric-card"><div class="label">Risk Score</div><div class="value" id="mRisk">0</div><div class="delta" id="mRiskDelta"></div></div>
+      <div class="metric-card"><div class="label">Worst Case</div><div class="value" id="mWorst">-$0</div><div class="delta" id="mWorstDelta"></div></div>
+      <div class="metric-card"><div class="label">Recovery (mo)</div><div class="value" id="mRecovery">0</div><div class="delta" id="mRecoveryDelta"></div></div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>Revenue Scenarios (18mo)</h3>
+        <canvas id="chartRevenue"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Probability Distribution — Net Impact</h3>
+        <canvas id="chartDistribution"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Cascade Timeline</h3>
+        <canvas id="chartCascade"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Cost Surge vs Revenue Drop</h3>
+        <canvas id="chartCostRev"></canvas>
+      </div>
+    </div>
+
+    <div class="scenario-tree">
+      <h3>Scenario Tree — Probability-Weighted Paths</h3>
+      <div id="treeContainer"></div>
+    </div>
+
+    <div class="insights">
+      <h3>Strategic Intelligence</h3>
+      <div id="insightsList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── State ──
+let state = {
+  event: 'US-China 25% Tariff Escalation',
+  prob: 65, severity: 7, timeline: 3, onset: 'gradual',
+  revExposure: 40, supExposure: 60,
+  baseRevenue: 50000, baseCosts: 35000,
+  industry: 'saas',
+  cascades: [
+    {name:'Supply chain disruption', prob:70, delay:1, severity:6, duration:6},
+    {name:'Currency volatility', prob:55, delay:0, severity:4, duration:12},
+    {name:'Customer churn spike', prob:40, delay:3, severity:5, duration:9}
+  ],
+  mcRuns: 1000, horizon: 18
+};
+
+let simResults = null;
+
+// ── Industry multipliers ──
+const INDUSTRY = {
+  saas:          {revSens:0.3, costSens:0.2, recovery:0.7, label:'SaaS'},
+  ecommerce:    {revSens:0.8, costSens:0.9, recovery:0.5, label:'E-Com'},
+  manufacturing:{revSens:0.7, costSens:1.0, recovery:0.3, label:'Mfg'},
+  services:     {revSens:0.4, costSens:0.3, recovery:0.8, label:'Services'},
+  fintech:      {revSens:0.6, costSens:0.4, recovery:0.6, label:'Fintech'},
+  media:        {revSens:0.5, costSens:0.3, recovery:0.7, label:'Media'}
+};
+
+// ── Presets ──
+const PRESETS = {
+  tariff: {
+    event:'US-China 25% Tariff Escalation', prob:65, severity:7, timeline:3, onset:'gradual',
+    revExposure:40, supExposure:60, industry:'ecommerce',
+    cascades:[
+      {name:'Supply chain disruption', prob:70, delay:1, severity:6, duration:6},
+      {name:'Currency volatility', prob:55, delay:0, severity:4, duration:12},
+      {name:'Retaliatory tariffs', prob:45, delay:2, severity:5, duration:12}
+    ]
+  },
+  rate: {
+    event:'Fed +75bp Rate Hike', prob:50, severity:5, timeline:1, onset:'sudden',
+    revExposure:30, supExposure:20, industry:'fintech',
+    cascades:[
+      {name:'Credit tightening', prob:80, delay:1, severity:5, duration:12},
+      {name:'Startup funding freeze', prob:60, delay:2, severity:7, duration:18},
+      {name:'Consumer spending decline', prob:50, delay:3, severity:4, duration:9}
+    ]
+  },
+  conflict: {
+    event:'Taiwan Strait Crisis', prob:25, severity:10, timeline:1, onset:'sudden',
+    revExposure:50, supExposure:80, industry:'manufacturing',
+    cascades:[
+      {name:'Semiconductor shortage', prob:90, delay:0, severity:9, duration:18},
+      {name:'Shipping lane disruption', prob:85, delay:0, severity:8, duration:12},
+      {name:'Energy price spike', prob:70, delay:1, severity:7, duration:12},
+      {name:'Market crash (-20%+)', prob:60, delay:0, severity:8, duration:6}
+    ]
+  },
+  election: {
+    event:'US Regulatory Regime Change', prob:55, severity:4, timeline:6, onset:'phased',
+    revExposure:25, supExposure:15, industry:'saas',
+    cascades:[
+      {name:'Compliance cost increase', prob:65, delay:6, severity:4, duration:18},
+      {name:'Tax policy shift', prob:50, delay:3, severity:3, duration:18},
+      {name:'Government contract shifts', prob:40, delay:6, severity:5, duration:12}
+    ]
+  },
+  pandemic: {
+    event:'Novel Pathogen Outbreak', prob:15, severity:9, timeline:2, onset:'gradual',
+    revExposure:60, supExposure:70, industry:'services',
+    cascades:[
+      {name:'Workforce disruption', prob:80, delay:1, severity:7, duration:12},
+      {name:'Supply chain collapse', prob:70, delay:2, severity:8, duration:18},
+      {name:'Demand destruction', prob:60, delay:1, severity:6, duration:12},
+      {name:'Government intervention', prob:75, delay:3, severity:3, duration:18}
+    ]
+  },
+  custom: {
+    event:'Custom Event', prob:50, severity:5, timeline:3, onset:'gradual',
+    revExposure:30, supExposure:30, industry:'saas',
+    cascades:[{name:'Secondary effect', prob:50, delay:1, severity:4, duration:6}]
+  }
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  state = {...state, ...JSON.parse(JSON.stringify(p))};
+  syncUI();
+  recalc();
+}
+
+function syncUI() {
+  document.getElementById('eventName').value = state.event;
+  document.getElementById('eventProb').value = state.prob;
+  document.getElementById('eventSeverity').value = state.severity;
+  document.getElementById('eventTimeline').value = state.timeline;
+  document.getElementById('eventOnset').value = state.onset;
+  document.getElementById('revExposure').value = state.revExposure;
+  document.getElementById('supExposure').value = state.supExposure;
+  document.getElementById('baseRevenue').value = state.baseRevenue;
+  document.getElementById('baseCosts').value = state.baseCosts;
+  document.getElementById('industry').value = state.industry;
+  updateLabels();
+  renderCascades();
+}
+
+function updateLabels() {
+  document.getElementById('probVal').textContent = state.prob + '%';
+  document.getElementById('sevVal').textContent = state.severity;
+  document.getElementById('revExpVal').textContent = state.revExposure + '%';
+  document.getElementById('supExpVal').textContent = state.supExposure + '%';
+}
+
+function onSlider() {
+  state.prob = +document.getElementById('eventProb').value;
+  state.severity = +document.getElementById('eventSeverity').value;
+  state.revExposure = +document.getElementById('revExposure').value;
+  state.supExposure = +document.getElementById('supExposure').value;
+  updateLabels();
+  recalc();
+}
+
+function readState() {
+  state.event = document.getElementById('eventName').value;
+  state.timeline = +document.getElementById('eventTimeline').value;
+  state.onset = document.getElementById('eventOnset').value;
+  state.baseRevenue = +document.getElementById('baseRevenue').value;
+  state.baseCosts = +document.getElementById('baseCosts').value;
+  state.industry = document.getElementById('industry').value;
+  state.mcRuns = +document.getElementById('mcRuns').value;
+  state.horizon = +document.getElementById('horizon').value;
+}
+
+// ── Cascades ──
+function renderCascades() {
+  const el = document.getElementById('cascadeList');
+  el.innerHTML = state.cascades.map((c, i) => `
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <input type="text" value="${c.name}" style="flex:1;margin-right:8px" onchange="updateCascade(${i},'name',this.value)">
+        <button class="btn danger" onclick="removeCascade(${i})" style="padding:4px 8px;font-size:10px">×</button>
+      </div>
+      <div class="row">
+        <div><label>Prob %</label><input type="number" value="${c.prob}" min="0" max="100" onchange="updateCascade(${i},'prob',+this.value)"></div>
+        <div><label>Delay (mo)</label><input type="number" value="${c.delay}" min="0" max="18" onchange="updateCascade(${i},'delay',+this.value)"></div>
+      </div>
+      <div class="row">
+        <div><label>Severity</label><input type="number" value="${c.severity}" min="1" max="10" onchange="updateCascade(${i},'severity',+this.value)"></div>
+        <div><label>Duration (mo)</label><input type="number" value="${c.duration}" min="1" max="18" onchange="updateCascade(${i},'duration',+this.value)"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateCascade(i, key, val) { state.cascades[i][key] = val; recalc(); }
+function removeCascade(i) { state.cascades.splice(i, 1); renderCascades(); recalc(); }
+function addCascade() {
+  state.cascades.push({name:'New effect', prob:50, delay:1, severity:5, duration:6});
+  renderCascades(); recalc();
+}
+
+// ── Monte Carlo Engine ──
+function gaussRand() {
+  let u = 0, v = 0;
+  while(u === 0) u = Math.random();
+  while(v === 0) v = Math.random();
+  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+}
+
+function runMonteCarlo() {
+  readState();
+  const {prob, severity, timeline, onset, revExposure, supExposure,
+         baseRevenue, baseCosts, industry, cascades, mcRuns, horizon} = state;
+  const ind = INDUSTRY[industry];
+  const runs = [];
+  const impacts = [];
+
+  for(let r = 0; r < mcRuns; r++) {
+    const monthlyRev = [];
+    const monthlyCost = [];
+    const eventFires = Math.random() * 100 < prob;
+
+    let cumImpact = 0;
+
+    for(let m = 0; m < horizon; m++) {
+      let revMult = 1;
+      let costMult = 1;
+
+      if(eventFires) {
+        // Primary event impact
+        let eventImpact = 0;
+        if(onset === 'sudden') {
+          eventImpact = m >= 0 ? severity / 10 : 0;
+        } else if(onset === 'gradual') {
+          eventImpact = m < timeline ? (severity / 10) * (m + 1) / timeline : severity / 10;
+        } else { // phased
+          const phase = Math.floor(m / (timeline / 3));
+          eventImpact = Math.min(1, (severity / 10) * (phase + 1) / 3);
+        }
+
+        // Apply with exposure + industry sensitivity
+        const revHit = eventImpact * (revExposure / 100) * ind.revSens;
+        const costHit = eventImpact * (supExposure / 100) * ind.costSens;
+
+        // Add noise
+        const noise = gaussRand() * 0.05;
+        revMult = Math.max(0.3, 1 - revHit + noise);
+        costMult = Math.max(0.8, 1 + costHit * 0.5 + Math.abs(noise) * 0.3);
+
+        // Cascade effects
+        cascades.forEach(c => {
+          const cascadeFires = Math.random() * 100 < c.prob;
+          if(cascadeFires && m >= c.delay && m < c.delay + c.duration) {
+            const progress = (m - c.delay) / c.duration;
+            const cascadeImpact = (c.severity / 10) * Math.sin(progress * Math.PI); // bell curve
+            revMult *= Math.max(0.5, 1 - cascadeImpact * 0.15 * ind.revSens);
+            costMult *= (1 + cascadeImpact * 0.1 * ind.costSens);
+          }
+        });
+
+        // Recovery factor (later months bounce back)
+        if(m > timeline + 3) {
+          const recoveryProgress = Math.min(1, (m - timeline - 3) / (12 * (1 - ind.recovery + 0.1)));
+          revMult = revMult + (1 - revMult) * recoveryProgress * 0.7;
+          costMult = costMult - (costMult - 1) * recoveryProgress * 0.5;
+        }
+      } else {
+        // Baseline with small noise
+        revMult = 1 + gaussRand() * 0.02;
+        costMult = 1 + gaussRand() * 0.01;
+      }
+
+      const rev = baseRevenue * revMult;
+      const cost = baseCosts * costMult;
+      monthlyRev.push(rev);
+      monthlyCost.push(cost);
+      cumImpact += (rev - baseRevenue) - (cost - baseCosts);
+    }
+
+    runs.push({rev: monthlyRev, cost: monthlyCost, eventFired: eventFires});
+    impacts.push(cumImpact);
+  }
+
+  // Compute percentiles
+  const revPercentiles = {};
+  const costPercentiles = {};
+  [10, 25, 50, 75, 90].forEach(pct => {
+    revPercentiles[pct] = [];
+    costPercentiles[pct] = [];
+    for(let m = 0; m < horizon; m++) {
+      const revs = runs.map(r => r.rev[m]).sort((a, b) => a - b);
+      const costs = runs.map(r => r.cost[m]).sort((a, b) => a - b);
+      const idx = Math.floor(revs.length * pct / 100);
+      revPercentiles[pct].push(revs[idx]);
+      costPercentiles[pct].push(costs[idx]);
+    }
+  });
+
+  impacts.sort((a, b) => a - b);
+  const expectedImpact = impacts.reduce((s, v) => s + v, 0) / impacts.length;
+  const worstCase = impacts[Math.floor(impacts.length * 0.05)]; // P5
+  const bestCase = impacts[Math.floor(impacts.length * 0.95)];  // P95
+
+  // Risk score (0-100)
+  const riskScore = Math.round(
+    (prob / 100) * (severity / 10) *
+    ((revExposure + supExposure) / 200) *
+    (1 - ind.recovery) * 100
+  );
+
+  // Recovery month estimate
+  let recoveryMonth = horizon;
+  const medianRev = revPercentiles[50];
+  for(let m = 0; m < horizon; m++) {
+    if(medianRev[m] >= baseRevenue * 0.95 && m > state.timeline) {
+      recoveryMonth = m;
+      break;
+    }
+  }
+
+  simResults = {
+    runs, impacts, revPercentiles, costPercentiles,
+    expectedImpact, worstCase, bestCase, riskScore, recoveryMonth
+  };
+}
+
+// ── Render ──
+function recalc() {
+  readState();
+  runMonteCarlo();
+  renderMetrics();
+  drawAllCharts();
+  renderScenarioTree();
+  renderInsights();
+}
+
+function fmt(n) {
+  if(Math.abs(n) >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if(Math.abs(n) >= 1000) return (n/1000).toFixed(1)+'k';
+  return n.toFixed(0);
+}
+
+function renderMetrics() {
+  const {expectedImpact, riskScore, worstCase, recoveryMonth} = simResults;
+
+  document.getElementById('mImpact').textContent = (expectedImpact >= 0 ? '+$' : '-$') + fmt(Math.abs(expectedImpact));
+  document.getElementById('mImpact').style.color = expectedImpact >= 0 ? 'var(--green)' : 'var(--red)';
+
+  document.getElementById('mRisk').textContent = riskScore;
+  document.getElementById('mRisk').style.color = riskScore > 60 ? 'var(--red)' : riskScore > 30 ? 'var(--orange)' : 'var(--green)';
+
+  document.getElementById('mWorst').textContent = '-$' + fmt(Math.abs(worstCase));
+  document.getElementById('mWorst').style.color = 'var(--red)';
+
+  document.getElementById('mRecovery').textContent = recoveryMonth >= state.horizon ? '>' + state.horizon : recoveryMonth;
+  document.getElementById('mRecovery').style.color = recoveryMonth > 12 ? 'var(--red)' : recoveryMonth > 6 ? 'var(--orange)' : 'var(--green)';
+
+  // Deltas
+  const severity = state.severity > 7 ? 'CRITICAL' : state.severity > 4 ? 'MODERATE' : 'LOW';
+  document.getElementById('mImpactDelta').textContent = 'P50 over ' + state.horizon + 'mo';
+  document.getElementById('mImpactDelta').className = 'delta neutral';
+  document.getElementById('mRiskDelta').textContent = severity;
+  document.getElementById('mRiskDelta').className = 'delta ' + (riskScore > 60 ? 'neg' : riskScore > 30 ? 'neutral' : 'pos');
+  document.getElementById('mWorstDelta').textContent = 'P5 scenario';
+  document.getElementById('mWorstDelta').className = 'delta neg';
+  document.getElementById('mRecoveryDelta').textContent = 'to 95% baseline';
+  document.getElementById('mRecoveryDelta').className = 'delta neutral';
+}
+
+// ── Charts ──
+function setupCanvas(id) {
+  const canvas = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  return {ctx, w: rect.width, h: rect.height};
+}
+
+function drawAxes(ctx, w, h, pad, xLabels, yMin, yMax, yFmt) {
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#666';
+  ctx.font = '10px monospace';
+
+  const ySteps = 5;
+  for(let i = 0; i <= ySteps; i++) {
+    const y = pad.top + (h - pad.top - pad.bottom) * (1 - i / ySteps);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    const val = yMin + (yMax - yMin) * i / ySteps;
+    ctx.textAlign = 'right';
+    ctx.fillText(yFmt(val), pad.left - 6, y + 3);
+  }
+
+  ctx.textAlign = 'center';
+  const plotW = w - pad.left - pad.right;
+  const step = Math.max(1, Math.floor(xLabels.length / 6));
+  xLabels.forEach((l, i) => {
+    if(i % step !== 0 && i !== xLabels.length - 1) return;
+    const x = pad.left + plotW * i / (xLabels.length - 1);
+    ctx.fillText(l, x, h - pad.bottom + 14);
+  });
+}
+
+function drawBand(ctx, upper, lower, color, w, h, pad, yMin, yMax) {
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  upper.forEach((v, i) => {
+    const x = pad.left + plotW * i / (upper.length - 1);
+    const y = pad.top + plotH * (1 - (v - yMin) / (yMax - yMin));
+    if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  for(let i = lower.length - 1; i >= 0; i--) {
+    const x = pad.left + plotW * i / (lower.length - 1);
+    const y = pad.top + plotH * (1 - (lower[i] - yMin) / (yMax - yMin));
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawLine(ctx, pts, color, w, h, pad, yMin, yMax, lw) {
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lw || 2;
+  ctx.beginPath();
+  pts.forEach((v, i) => {
+    const x = pad.left + plotW * i / (pts.length - 1);
+    const y = pad.top + plotH * (1 - (v - yMin) / (yMax - yMin));
+    if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+}
+
+function drawRevenueChart() {
+  const {ctx, w, h} = setupCanvas('chartRevenue');
+  const pad = {top: 10, right: 10, bottom: 24, left: 55};
+  const {revPercentiles} = simResults;
+  const horizon = state.horizon;
+  const xLabels = Array.from({length: horizon}, (_, i) => 'M' + (i + 1));
+
+  const allVals = [...revPercentiles[10], ...revPercentiles[90]];
+  const yMin = Math.min(...allVals) * 0.9;
+  const yMax = Math.max(...allVals) * 1.1;
+
+  drawAxes(ctx, w, h, pad, xLabels, yMin, yMax, v => '$' + fmt(v));
+
+  // Fan bands
+  drawBand(ctx, revPercentiles[90], revPercentiles[10], 'rgba(108,92,231,0.08)', w, h, pad, yMin, yMax);
+  drawBand(ctx, revPercentiles[75], revPercentiles[25], 'rgba(108,92,231,0.15)', w, h, pad, yMin, yMax);
+
+  // Lines
+  drawLine(ctx, revPercentiles[10], '#ff6b6b55', w, h, pad, yMin, yMax, 1);
+  drawLine(ctx, revPercentiles[90], '#00d2a055', w, h, pad, yMin, yMax, 1);
+  drawLine(ctx, revPercentiles[50], '#6c5ce7', w, h, pad, yMin, yMax, 2.5);
+
+  // Baseline
+  const baseline = Array(horizon).fill(state.baseRevenue);
+  ctx.setLineDash([4, 4]);
+  drawLine(ctx, baseline, '#ffffff44', w, h, pad, yMin, yMax, 1);
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = '#6c5ce7'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('P50', pad.left + 4, pad.top + 14);
+  ctx.fillStyle = '#ff6b6b55';
+  ctx.fillText('P10', pad.left + 4, pad.top + 26);
+  ctx.fillStyle = '#00d2a055';
+  ctx.fillText('P90', pad.left + 4, pad.top + 38);
+}
+
+function drawDistributionChart() {
+  const {ctx, w, h} = setupCanvas('chartDistribution');
+  const pad = {top: 10, right: 10, bottom: 24, left: 45};
+  const {impacts} = simResults;
+
+  const min = Math.min(...impacts);
+  const max = Math.max(...impacts);
+  const bins = 30;
+  const binWidth = (max - min) / bins || 1;
+  const histogram = Array(bins).fill(0);
+
+  impacts.forEach(v => {
+    const idx = Math.min(bins - 1, Math.floor((v - min) / binWidth));
+    histogram[idx]++;
+  });
+
+  const maxCount = Math.max(...histogram);
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  const barW = plotW / bins;
+
+  drawAxes(ctx, w, h, pad,
+    Array.from({length: bins}, (_, i) => {
+      if(i % Math.ceil(bins / 6) !== 0) return '';
+      return '$' + fmt(min + i * binWidth);
+    }),
+    0, maxCount, v => Math.round(v).toString()
+  );
+
+  histogram.forEach((count, i) => {
+    const val = min + (i + 0.5) * binWidth;
+    const x = pad.left + i * barW + 1;
+    const barH = (count / maxCount) * plotH;
+    const y = pad.top + plotH - barH;
+
+    ctx.fillStyle = val >= 0 ? 'rgba(0,210,160,0.6)' : 'rgba(255,107,107,0.6)';
+    ctx.fillRect(x, y, barW - 2, barH);
+  });
+
+  // Expected value line
+  const ev = simResults.expectedImpact;
+  const evX = pad.left + ((ev - min) / (max - min)) * plotW;
+  ctx.strokeStyle = '#ffa726';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath(); ctx.moveTo(evX, pad.top); ctx.lineTo(evX, h - pad.bottom); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffa726'; ctx.font = '10px monospace'; ctx.textAlign = 'center';
+  ctx.fillText('E[V]=$' + fmt(ev), evX, pad.top - 2);
+}
+
+function drawCascadeChart() {
+  const {ctx, w, h} = setupCanvas('chartCascade');
+  const pad = {top: 10, right: 10, bottom: 24, left: 55};
+  const horizon = state.horizon;
+  const cascades = state.cascades;
+  const xLabels = Array.from({length: horizon}, (_, i) => 'M' + (i + 1));
+
+  if(cascades.length === 0) {
+    ctx.fillStyle = '#666'; ctx.font = '12px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('No cascade effects configured', w / 2, h / 2);
+    return;
+  }
+
+  const COLORS = ['#6c5ce7', '#00d2a0', '#ff6b6b', '#ffa726', '#42a5f5', '#ab47bc'];
+  const barH = Math.min(30, (h - pad.top - pad.bottom - 20) / cascades.length);
+
+  cascades.forEach((c, i) => {
+    const y = pad.top + i * (barH + 8);
+    const plotW = w - pad.left - pad.right;
+
+    // Label
+    ctx.fillStyle = '#888'; ctx.font = '10px monospace'; ctx.textAlign = 'right';
+    ctx.fillText(c.name.substring(0, 18), pad.left - 6, y + barH / 2 + 3);
+
+    // Background bar
+    ctx.fillStyle = 'var(--surface2)';
+    ctx.fillRect(pad.left, y, plotW, barH);
+
+    // Active period
+    const startX = pad.left + (c.delay / horizon) * plotW;
+    const endX = pad.left + (Math.min(c.delay + c.duration, horizon) / horizon) * plotW;
+    const color = COLORS[i % COLORS.length];
+
+    // Intensity gradient (bell curve shape)
+    const grad = ctx.createLinearGradient(startX, 0, endX, 0);
+    grad.addColorStop(0, color + '33');
+    grad.addColorStop(0.5, color + 'cc');
+    grad.addColorStop(1, color + '33');
+    ctx.fillStyle = grad;
+    ctx.fillRect(startX, y, endX - startX, barH);
+
+    // Border
+    ctx.strokeStyle = color; ctx.lineWidth = 1;
+    ctx.strokeRect(startX, y, endX - startX, barH);
+
+    // Prob + severity label
+    ctx.fillStyle = '#fff'; ctx.font = '9px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(c.prob + '% • S' + c.severity, startX + 4, y + barH / 2 + 3);
+  });
+
+  // Month markers
+  ctx.fillStyle = '#444'; ctx.font = '9px monospace'; ctx.textAlign = 'center';
+  const plotW = w - pad.left - pad.right;
+  for(let m = 0; m < horizon; m += 3) {
+    const x = pad.left + (m / horizon) * plotW;
+    ctx.fillText('M' + (m + 1), x, h - pad.bottom + 12);
+  }
+}
+
+function drawCostRevChart() {
+  const {ctx, w, h} = setupCanvas('chartCostRev');
+  const pad = {top: 10, right: 10, bottom: 24, left: 55};
+  const {revPercentiles, costPercentiles} = simResults;
+  const horizon = state.horizon;
+  const xLabels = Array.from({length: horizon}, (_, i) => 'M' + (i + 1));
+
+  const allVals = [...revPercentiles[50], ...costPercentiles[50],
+                   ...revPercentiles[25], ...costPercentiles[75]];
+  const yMin = Math.min(...allVals) * 0.85;
+  const yMax = Math.max(...allVals) * 1.15;
+
+  drawAxes(ctx, w, h, pad, xLabels, yMin, yMax, v => '$' + fmt(v));
+
+  // Revenue band P25-P75
+  drawBand(ctx, revPercentiles[75], revPercentiles[25], 'rgba(0,210,160,0.1)', w, h, pad, yMin, yMax);
+  // Cost band
+  drawBand(ctx, costPercentiles[75], costPercentiles[25], 'rgba(255,107,107,0.1)', w, h, pad, yMin, yMax);
+
+  drawLine(ctx, revPercentiles[50], '#00d2a0', w, h, pad, yMin, yMax, 2);
+  drawLine(ctx, costPercentiles[50], '#ff6b6b', w, h, pad, yMin, yMax, 2);
+
+  // Break-even zones
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  for(let m = 0; m < horizon; m++) {
+    if(revPercentiles[50][m] < costPercentiles[50][m]) {
+      const x = pad.left + (m / (horizon - 1)) * plotW;
+      ctx.fillStyle = 'rgba(255,107,107,0.08)';
+      ctx.fillRect(x - plotW / (horizon * 2), pad.top, plotW / horizon, plotH);
+    }
+  }
+
+  ctx.fillStyle = '#00d2a0'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('Revenue', pad.left + 4, pad.top + 14);
+  ctx.fillStyle = '#ff6b6b';
+  ctx.fillText('Costs', pad.left + 4, pad.top + 26);
+}
+
+function drawAllCharts() {
+  drawRevenueChart();
+  drawDistributionChart();
+  drawCascadeChart();
+  drawCostRevChart();
+}
+
+// ── Scenario Tree ──
+function renderScenarioTree() {
+  const {prob, severity, event, cascades} = state;
+  const ind = INDUSTRY[state.industry];
+
+  const eventImpact = -(severity / 10) * (state.revExposure / 100) * ind.revSens * state.baseRevenue * state.horizon;
+  const noEventImpact = state.baseRevenue * state.horizon * 0.02; // slight growth
+
+  let html = '';
+
+  // Event fires
+  html += `<div class="tree-node" style="background:rgba(255,107,107,0.08);border:1px solid var(--border)">
+    <span class="prob" style="color:var(--red)">${prob}%</span>
+    <span><b>${event}</b> occurs</span>
+    <span class="impact" style="color:var(--red)">-$${fmt(Math.abs(eventImpact))}</span>
+  </div>`;
+
+  // Cascades
+  if(cascades.length > 0) {
+    html += `<div class="tree-children">`;
+    cascades.forEach(c => {
+      const cascImpact = -(c.severity / 10) * 0.15 * state.baseRevenue * c.duration;
+      const jointProb = Math.round(prob * c.prob / 100);
+      html += `<div class="tree-node" style="background:rgba(255,167,38,0.05);border:1px solid var(--border)">
+        <span class="prob" style="color:var(--orange)">${c.prob}%</span>
+        <span>${c.name} <span style="color:var(--muted);font-size:10px">(joint: ${jointProb}%)</span></span>
+        <span class="impact" style="color:var(--orange)">-$${fmt(Math.abs(cascImpact))}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Event doesn't fire
+  html += `<div class="tree-node" style="background:rgba(0,210,160,0.05);border:1px solid var(--border)">
+    <span class="prob" style="color:var(--green)">${100 - prob}%</span>
+    <span><b>No event</b> — baseline growth</span>
+    <span class="impact" style="color:var(--green)">+$${fmt(noEventImpact)}</span>
+  </div>`;
+
+  document.getElementById('treeContainer').innerHTML = html;
+}
+
+// ── Insights ──
+function renderInsights() {
+  const {expectedImpact, worstCase, bestCase, riskScore, recoveryMonth} = simResults;
+  const ind = INDUSTRY[state.industry];
+  const insights = [];
+
+  // Risk severity
+  const sevClass = riskScore > 60 ? 'high' : riskScore > 30 ? 'medium' : 'low';
+  const sevLabel = riskScore > 60 ? 'HIGH' : riskScore > 30 ? 'MEDIUM' : 'LOW';
+  insights.push(`<span class="severity ${sevClass}">${sevLabel} RISK</span> Composite risk score: <b>${riskScore}/100</b>. Expected cumulative impact: <b>$${fmt(expectedImpact)}</b> over ${state.horizon} months.`);
+
+  // Worst vs best
+  const spread = bestCase - worstCase;
+  insights.push(`📊 Outcome spread: <b>$${fmt(spread)}</b> between P5 worst (-$${fmt(Math.abs(worstCase))}) and P95 best (+$${fmt(bestCase)}).`);
+
+  // Recovery
+  if(recoveryMonth < state.horizon) {
+    insights.push(`⏱️ Expected recovery to 95% baseline revenue by <b>month ${recoveryMonth}</b>. ${ind.label} industry recovery factor: ${(ind.recovery * 100).toFixed(0)}%.`);
+  } else {
+    insights.push(`⚠️ Recovery beyond ${state.horizon}-month horizon. ${ind.label} industry has ${(ind.recovery * 100).toFixed(0)}% recovery rate — consider extending analysis.`);
+  }
+
+  // Cascade risks
+  const highCascades = state.cascades.filter(c => c.prob > 60 && c.severity > 5);
+  if(highCascades.length > 0) {
+    insights.push(`🔗 Critical cascade risks: <b>${highCascades.map(c => c.name).join(', ')}</b> — high probability + high severity. Prioritize mitigation.`);
+  }
+
+  // Industry-specific advice
+  if(ind.costSens > 0.7 && state.supExposure > 50) {
+    insights.push(`🏭 ${ind.label} has high cost sensitivity (${(ind.costSens * 100).toFixed(0)}%) combined with ${state.supExposure}% supply chain exposure. Consider: dual-sourcing, inventory buffers, forward contracts.`);
+  }
+  if(ind.revSens > 0.6 && state.revExposure > 40) {
+    insights.push(`💰 Revenue highly exposed (${state.revExposure}% × ${(ind.revSens * 100).toFixed(0)}% sensitivity). Hedging options: geographic diversification, alternative channels, currency hedging.`);
+  }
+
+  // Actionable recommendations
+  if(riskScore > 50) {
+    insights.push(`🎯 <b>Recommended actions:</b> (1) Build ${Math.ceil(Math.abs(worstCase) / state.baseRevenue)} months cash reserve, (2) Diversify ${state.supExposure > state.revExposure ? 'supply chain' : 'revenue sources'}, (3) Develop contingency triggers at P25 threshold.`);
+  }
+
+  document.getElementById('insightsList').innerHTML = insights.map(i =>
+    `<div class="insight-item"><div>${i}</div></div>`
+  ).join('');
+}
+
+// ── Init ──
+syncUI();
+recalc();
+window.addEventListener('resize', drawAllCharts);
+</script>
+</body>
+</html>

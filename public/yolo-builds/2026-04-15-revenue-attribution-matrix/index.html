@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Revenue Attribution Matrix — SIMONS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;--text:#e0e0e8;--muted:#8888a0;--accent:#6c5ce7;--green:#00d2a0;--red:#ff6b6b;--orange:#ffa726;--blue:#42a5f5;--cyan:#26c6da;--yellow:#ffd54f;--chart-bg:#16161f;--purple:#ab47bc}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600;letter-spacing:-0.5px}
+.header .badge{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;font-weight:500}
+.header .sub{color:var(--muted);font-size:12px;margin-left:auto}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:20px;min-height:calc(100vh - 100px)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-y:auto;max-height:calc(100vh - 100px)}
+.panel h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px}
+.section{margin-bottom:20px}
+.section h3{font-size:12px;color:var(--accent);margin-bottom:8px;font-weight:500}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;margin-top:10px}
+input[type="number"],select,input[type="text"]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px}
+input[type="range"]{width:100%;accent-color:var(--accent);margin:4px 0}
+.val{font-size:12px;color:var(--text);font-weight:600;float:right}
+.row{display:flex;gap:8px}
+.row>div{flex:1}
+.btn{padding:8px 14px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s;width:100%;margin-top:12px}
+.btn:hover{border-color:var(--accent);background:#1e1e30}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#5a4bd6}
+.btn.sm{width:auto;padding:4px 10px;margin-top:6px}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:rgba(255,107,107,0.1)}
+.right-panel{display:flex;flex-direction:column;gap:16px;overflow-y:auto;max-height:calc(100vh - 100px)}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.metric-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.metric-card .value{font-size:20px;font-weight:700}
+.metric-card .detail{font-size:10px;color:var(--muted);margin-top:2px}
+.delta.pos{color:var(--green)}.delta.neg{color:var(--red)}.delta.warn{color:var(--orange)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column}
+.chart-box.full{grid-column:1/-1}
+.chart-box h3{font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:500}
+canvas{flex:1;width:100%;min-height:220px}
+.table-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto}
+.table-box h3{font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+table{width:100%;border-collapse:collapse;font-size:11px}
+table th{text-align:left;color:var(--muted);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+table td{padding:6px 8px;border-bottom:1px solid var(--border)}
+table tr:last-child td{border:none}
+table tr:hover{background:rgba(108,92,231,0.05)}
+.channel-tag{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.journey-list{max-height:300px;overflow-y:auto}
+.journey-item{padding:8px;border-bottom:1px solid var(--border);font-size:11px}
+.journey-item:last-child{border:none}
+.journey-path{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:4px}
+.journey-node{padding:2px 6px;border-radius:3px;font-size:10px;font-weight:500}
+.journey-arrow{color:var(--muted);font-size:10px}
+.journey-meta{color:var(--muted);font-size:10px}
+.insights{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.insights h3{font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.insight-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5}
+.insight-item:last-child{border:none}
+.insight-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.model-tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+.model-tab{padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .15s}
+.model-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.model-tab:hover:not(.active){border-color:var(--accent);color:var(--text)}
+.bar-h{height:18px;border-radius:3px;transition:width .3s ease}
+.stacked-bar{display:flex;height:24px;border-radius:4px;overflow:hidden;margin:4px 0}
+.stacked-bar div{transition:width .3s ease}
+.opt-row{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:11px}
+.opt-current{color:var(--muted)}
+.opt-arrow{color:var(--accent);font-size:10px}
+.opt-suggested{color:var(--green);font-weight:600}
+.tooltip{position:absolute;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-size:11px;pointer-events:none;z-index:100;display:none;max-width:240px;line-height:1.4}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Revenue Attribution Matrix</h1>
+  <span class="badge">SIMONS</span>
+  <span class="badge" style="background:var(--green)">YOLO BUILD</span>
+  <span class="sub">Multi-Touch Attribution Modeler &bull; Apr 15, 2026</span>
+</div>
+
+<div class="grid">
+  <div class="panel" id="leftPanel">
+    <h2>Configuration</h2>
+
+    <div class="section">
+      <h3>Channels &amp; Spend</h3>
+      <div id="channelList"></div>
+      <button class="btn sm" onclick="addChannel()">+ Add Channel</button>
+    </div>
+
+    <div class="section">
+      <h3>Customer Journeys</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;color:var(--muted)">Count:</span>
+        <input type="number" id="journeyCount" value="200" min="10" max="2000" style="width:80px">
+        <span style="font-size:11px;color:var(--muted)">Avg touches:</span>
+        <input type="number" id="avgTouches" value="3.5" min="1" max="10" step="0.5" style="width:70px">
+      </div>
+      <label>Avg Revenue per Conversion ($)</label>
+      <input type="number" id="avgRevenue" value="85" min="1" step="5">
+      <label>Conversion Rate (%)</label>
+      <input type="number" id="convRate" value="12" min="1" max="100" step="0.5">
+      <button class="btn primary" onclick="generate()" style="margin-top:16px">Generate Journeys &amp; Analyze</button>
+    </div>
+
+    <div class="section">
+      <h3>Attribution Model</h3>
+      <div class="model-tabs" id="modelTabs">
+        <div class="model-tab active" data-model="linear">Linear</div>
+        <div class="model-tab" data-model="first">First Touch</div>
+        <div class="model-tab" data-model="last">Last Touch</div>
+        <div class="model-tab" data-model="time_decay">Time Decay</div>
+        <div class="model-tab" data-model="position">Position Based</div>
+      </div>
+      <div style="font-size:10px;color:var(--muted)" id="modelDesc">Credit distributed equally across all touchpoints.</div>
+    </div>
+
+    <div class="section">
+      <h3>Time Decay Half-Life</h3>
+      <input type="range" id="halfLife" min="1" max="14" value="7" oninput="document.getElementById('halfLifeVal').textContent=this.value+'d'">
+      <span class="val" id="halfLifeVal">7d</span>
+    </div>
+
+    <div class="section">
+      <h3>Position-Based Split</h3>
+      <label>First Touch Weight <span class="val" id="posFirstVal">40%</span></label>
+      <input type="range" id="posFirst" min="10" max="80" value="40" step="5" oninput="updatePosSplit()">
+      <label>Last Touch Weight <span class="val" id="posLastVal">40%</span></label>
+      <input type="range" id="posLast" min="10" max="80" value="40" step="5" oninput="updatePosSplit()">
+      <div style="font-size:10px;color:var(--muted);margin-top:4px" id="posMidVal">Middle touches: 20%</div>
+    </div>
+
+    <div class="section">
+      <h3>Quick Presets</h3>
+      <button class="btn" onclick="loadPreset('ecommerce')">E-Commerce (6ch)</button>
+      <button class="btn" onclick="loadPreset('saas')">SaaS B2B (5ch)</button>
+      <button class="btn" onclick="loadPreset('dtc')">DTC Brand (4ch)</button>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="metrics-row" id="metricsRow">
+      <div class="metric-card"><div class="label">Total Spend</div><div class="value" id="metricSpend">—</div></div>
+      <div class="metric-card"><div class="label">Conversions</div><div class="value" id="metricConv">—</div></div>
+      <div class="metric-card"><div class="label">Total Revenue</div><div class="value" id="metricRev">—</div></div>
+      <div class="metric-card"><div class="label">Blended ROAS</div><div class="value" id="metricROAS">—</div><div class="detail" id="metricROASDelta"></div></div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>Attribution by Channel — <span id="chartModelLabel">Linear</span></h3>
+        <canvas id="attrChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>ROAS by Channel &amp; Model</h3>
+        <canvas id="roasChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Model Comparison — Revenue Attribution</h3>
+        <canvas id="compChart"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Budget Optimization Suggestion</h3>
+        <canvas id="optChart"></canvas>
+      </div>
+    </div>
+
+    <div class="table-box">
+      <h3>Attribution Matrix — All Models</h3>
+      <table id="matrixTable">
+        <thead><tr><th>Channel</th><th>Spend</th><th>First Touch</th><th>Last Touch</th><th>Linear</th><th>Time Decay</th><th>Position</th><th>Avg ROAS</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="table-box">
+      <h3>Sample Customer Journeys</h3>
+      <div class="journey-list" id="journeyList"></div>
+    </div>
+
+    <div class="insights" id="insightsPanel">
+      <h3>Signal Intelligence</h3>
+      <div id="insightsList"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const CHANNEL_COLORS = ['#6c5ce7','#00d2a0','#ff6b6b','#42a5f5','#ffa726','#ab47bc','#26c6da','#ffd54f','#e91e63','#8bc34a'];
+const MODEL_DESCS = {
+  linear: 'Credit distributed equally across all touchpoints.',
+  first: '100% credit to the first touchpoint in the journey.',
+  last: '100% credit to the last touchpoint before conversion.',
+  time_decay: 'More credit to touchpoints closer to conversion. Half-life controls decay rate.',
+  position: 'Configurable weight on first/last touch, remainder split among middle touches.'
+};
+
+let channels = [];
+let journeys = [];
+let results = {};
+let activeModel = 'linear';
+
+function initChannels() {
+  channels = [
+    {name:'Paid Search', spend:4500, color:CHANNEL_COLORS[0], weight:0.25},
+    {name:'Social Ads', spend:3200, color:CHANNEL_COLORS[1], weight:0.20},
+    {name:'Email', spend:800, color:CHANNEL_COLORS[2], weight:0.18},
+    {name:'Organic Search', spend:500, color:CHANNEL_COLORS[3], weight:0.15},
+    {name:'Direct', spend:0, color:CHANNEL_COLORS[4], weight:0.12},
+    {name:'Referral', spend:200, color:CHANNEL_COLORS[5], weight:0.10}
+  ];
+  renderChannels();
+}
+
+function renderChannels() {
+  const el = document.getElementById('channelList');
+  el.innerHTML = channels.map((c,i) => `
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <div style="width:10px;height:10px;border-radius:2px;background:${c.color};flex-shrink:0"></div>
+      <input type="text" value="${c.name}" style="flex:1;min-width:0" onchange="channels[${i}].name=this.value">
+      <span style="font-size:10px;color:var(--muted)">$</span>
+      <input type="number" value="${c.spend}" style="width:70px" min="0" step="100" onchange="channels[${i}].spend=+this.value">
+      <button class="btn sm danger" style="margin:0;width:20px;padding:2px" onclick="removeChannel(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function addChannel() {
+  const idx = channels.length;
+  channels.push({name:'New Channel', spend:1000, color:CHANNEL_COLORS[idx % CHANNEL_COLORS.length], weight:0.05});
+  normalizeWeights();
+  renderChannels();
+}
+
+function removeChannel(i) {
+  if (channels.length <= 2) return;
+  channels.splice(i,1);
+  normalizeWeights();
+  renderChannels();
+}
+
+function normalizeWeights() {
+  const total = channels.reduce((s,c) => s+c.weight, 0);
+  channels.forEach(c => c.weight = c.weight / total);
+}
+
+function loadPreset(p) {
+  if (p === 'ecommerce') {
+    channels = [
+      {name:'Google Ads', spend:6000, color:CHANNEL_COLORS[0], weight:0.28},
+      {name:'Facebook/IG Ads', spend:4000, color:CHANNEL_COLORS[1], weight:0.22},
+      {name:'Email', spend:600, color:CHANNEL_COLORS[2], weight:0.18},
+      {name:'Organic Search', spend:300, color:CHANNEL_COLORS[3], weight:0.14},
+      {name:'Affiliates', spend:1500, color:CHANNEL_COLORS[4], weight:0.10},
+      {name:'Direct', spend:0, color:CHANNEL_COLORS[5], weight:0.08}
+    ];
+    document.getElementById('avgRevenue').value = 75;
+    document.getElementById('convRate').value = 8;
+    document.getElementById('avgTouches').value = 3.5;
+  } else if (p === 'saas') {
+    channels = [
+      {name:'Content/SEO', spend:3000, color:CHANNEL_COLORS[0], weight:0.30},
+      {name:'LinkedIn Ads', spend:5000, color:CHANNEL_COLORS[1], weight:0.25},
+      {name:'Email Nurture', spend:400, color:CHANNEL_COLORS[2], weight:0.20},
+      {name:'Webinars', spend:1500, color:CHANNEL_COLORS[3], weight:0.15},
+      {name:'Sales Outbound', spend:2000, color:CHANNEL_COLORS[4], weight:0.10}
+    ];
+    document.getElementById('avgRevenue').value = 2400;
+    document.getElementById('convRate').value = 4;
+    document.getElementById('avgTouches').value = 5;
+  } else if (p === 'dtc') {
+    channels = [
+      {name:'TikTok Ads', spend:3500, color:CHANNEL_COLORS[0], weight:0.30},
+      {name:'Instagram', spend:2500, color:CHANNEL_COLORS[1], weight:0.25},
+      {name:'Influencer', spend:2000, color:CHANNEL_COLORS[2], weight:0.25},
+      {name:'Email/SMS', spend:500, color:CHANNEL_COLORS[3], weight:0.20}
+    ];
+    document.getElementById('avgRevenue').value = 55;
+    document.getElementById('convRate').value = 6;
+    document.getElementById('avgTouches').value = 2.8;
+  }
+  renderChannels();
+}
+
+// --- Journey Generation ---
+function generate() {
+  const count = +document.getElementById('journeyCount').value;
+  const avgTouches = +document.getElementById('avgTouches').value;
+  const avgRev = +document.getElementById('avgRevenue').value;
+  const convRate = +document.getElementById('convRate').value / 100;
+
+  journeys = [];
+  for (let i = 0; i < count; i++) {
+    const nTouches = Math.max(1, Math.round(avgTouches + (Math.random() - 0.5) * avgTouches * 0.8));
+    const path = [];
+    for (let t = 0; t < nTouches; t++) {
+      const chIdx = weightedRandom(channels.map(c => c.weight));
+      const dayOffset = Math.floor((t / nTouches) * 21 + Math.random() * 3);
+      path.push({channel: chIdx, day: dayOffset});
+    }
+    const converted = Math.random() < convRate;
+    const revenue = converted ? avgRev * (0.5 + Math.random()) : 0;
+    journeys.push({path, converted, revenue});
+  }
+
+  runAttribution();
+  renderAll();
+}
+
+function weightedRandom(weights) {
+  const total = weights.reduce((s,w) => s+w, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < weights.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return i;
+  }
+  return weights.length - 1;
+}
+
+// --- Attribution Models ---
+function runAttribution() {
+  const models = ['first','last','linear','time_decay','position'];
+  results = {};
+  models.forEach(m => {
+    results[m] = new Array(channels.length).fill(0);
+  });
+
+  const halfLife = +document.getElementById('halfLife').value;
+  const posFirst = +document.getElementById('posFirst').value / 100;
+  const posLast = +document.getElementById('posLast').value / 100;
+
+  const converted = journeys.filter(j => j.converted);
+  converted.forEach(j => {
+    const path = j.path;
+    const n = path.length;
+    const rev = j.revenue;
+
+    // First Touch
+    results.first[path[0].channel] += rev;
+
+    // Last Touch
+    results.last[path[n-1].channel] += rev;
+
+    // Linear
+    const share = rev / n;
+    path.forEach(p => { results.linear[p.channel] += share; });
+
+    // Time Decay
+    const maxDay = path[n-1].day;
+    let decayWeights = path.map(p => Math.pow(0.5, (maxDay - p.day) / halfLife));
+    const decayTotal = decayWeights.reduce((s,w) => s+w, 0);
+    decayWeights = decayWeights.map(w => w / decayTotal);
+    path.forEach((p,i) => { results.time_decay[p.channel] += rev * decayWeights[i]; });
+
+    // Position Based
+    if (n === 1) {
+      results.position[path[0].channel] += rev;
+    } else if (n === 2) {
+      results.position[path[0].channel] += rev * posFirst;
+      results.position[path[1].channel] += rev * posLast;
+    } else {
+      const midWeight = (1 - posFirst - posLast) / (n - 2);
+      results.position[path[0].channel] += rev * posFirst;
+      results.position[path[n-1].channel] += rev * posLast;
+      for (let i = 1; i < n-1; i++) {
+        results.position[path[i].channel] += rev * midWeight;
+      }
+    }
+  });
+}
+
+function updatePosSplit() {
+  const f = +document.getElementById('posFirst').value;
+  const l = +document.getElementById('posLast').value;
+  document.getElementById('posFirstVal').textContent = f+'%';
+  document.getElementById('posLastVal').textContent = l+'%';
+  const mid = Math.max(0, 100 - f - l);
+  document.getElementById('posMidVal').textContent = 'Middle touches: '+mid+'%';
+  if (journeys.length) { runAttribution(); renderAll(); }
+}
+
+// --- Rendering ---
+function renderAll() {
+  renderMetrics();
+  renderAttrChart();
+  renderROASChart();
+  renderCompChart();
+  renderOptChart();
+  renderMatrix();
+  renderJourneys();
+  renderInsights();
+}
+
+function renderMetrics() {
+  const totalSpend = channels.reduce((s,c) => s+c.spend, 0);
+  const converted = journeys.filter(j => j.converted);
+  const totalRev = converted.reduce((s,j) => s+j.revenue, 0);
+  const roas = totalSpend > 0 ? totalRev / totalSpend : 0;
+
+  document.getElementById('metricSpend').textContent = '$'+totalSpend.toLocaleString();
+  document.getElementById('metricConv').textContent = converted.length.toLocaleString();
+  document.getElementById('metricRev').textContent = '$'+Math.round(totalRev).toLocaleString();
+  document.getElementById('metricROAS').textContent = roas.toFixed(2)+'x';
+  document.getElementById('metricROASDelta').innerHTML = roas >= 3 ? '<span class="delta pos">Strong</span>' : roas >= 1 ? '<span class="delta warn">Moderate</span>' : '<span class="delta neg">Below 1x</span>';
+}
+
+function renderAttrChart() {
+  const canvas = document.getElementById('attrChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+
+  document.getElementById('chartModelLabel').textContent = {linear:'Linear',first:'First Touch',last:'Last Touch',time_decay:'Time Decay',position:'Position Based'}[activeModel];
+
+  const data = results[activeModel];
+  if (!data) return;
+  const maxVal = Math.max(...data, 1);
+  const barW = Math.min(40, (W - 60) / channels.length - 10);
+  const chartH = H - 40;
+  const startX = 50;
+
+  // Y axis
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = 10 + (chartH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(startX,y); ctx.lineTo(W-10,y); ctx.stroke();
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText('$'+Math.round(maxVal*(4-i)/4).toLocaleString(), startX-4, y+3);
+  }
+
+  // Bars
+  channels.forEach((ch, i) => {
+    const x = startX + i * ((W - startX - 10) / channels.length) + ((W - startX - 10) / channels.length - barW) / 2;
+    const barH = (data[i] / maxVal) * chartH;
+    const y = 10 + chartH - barH;
+
+    ctx.fillStyle = ch.color;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, [3,3,0,0]);
+    ctx.fill();
+
+    // Value on top
+    ctx.fillStyle = '#e0e0e8';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('$'+Math.round(data[i]).toLocaleString(), x+barW/2, y-4);
+
+    // Label
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '9px monospace';
+    const label = ch.name.length > 10 ? ch.name.slice(0,9)+'…' : ch.name;
+    ctx.fillText(label, x+barW/2, H-4);
+  });
+}
+
+function renderROASChart() {
+  const canvas = document.getElementById('roasChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+
+  const models = ['first','last','linear','time_decay','position'];
+  const modelLabels = ['1st','Last','Lin','Decay','Pos'];
+  const modelColors = ['#ff6b6b','#ffa726','#6c5ce7','#42a5f5','#00d2a0'];
+
+  // Calculate ROAS per channel per model
+  const roasData = channels.map((ch, ci) => {
+    return models.map(m => ch.spend > 0 ? results[m][ci] / ch.spend : 0);
+  });
+
+  const maxRoas = Math.max(...roasData.flat(), 1);
+  const chartH = H - 50;
+  const chartW = W - 60;
+  const groupW = chartW / channels.length;
+  const barW = Math.min(8, (groupW - 10) / models.length);
+  const startX = 50;
+
+  // Y grid
+  ctx.strokeStyle = '#2a2a3a';
+  for (let i = 0; i <= 4; i++) {
+    const y = 10 + (chartH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(startX,y); ctx.lineTo(W-10,y); ctx.stroke();
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText((maxRoas*(4-i)/4).toFixed(1)+'x', startX-4, y+3);
+  }
+
+  channels.forEach((ch, ci) => {
+    const gx = startX + ci * groupW;
+    models.forEach((m, mi) => {
+      const roas = roasData[ci][mi];
+      const barH = (roas / maxRoas) * chartH;
+      const x = gx + (groupW - barW * models.length - (models.length-1)*2) / 2 + mi * (barW + 2);
+      const y = 10 + chartH - barH;
+      ctx.fillStyle = modelColors[mi];
+      ctx.globalAlpha = activeModel === m ? 1 : 0.4;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barW, barH, [2,2,0,0]);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    });
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    const label = ch.name.length > 8 ? ch.name.slice(0,7)+'…' : ch.name;
+    ctx.fillText(label, gx+groupW/2, H-18);
+  });
+
+  // Legend
+  const legY = H - 8;
+  let legX = startX;
+  models.forEach((m, mi) => {
+    ctx.fillStyle = modelColors[mi];
+    ctx.fillRect(legX, legY-6, 8, 6);
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(modelLabels[mi], legX+10, legY);
+    legX += ctx.measureText(modelLabels[mi]).width + 20;
+  });
+}
+
+function renderCompChart() {
+  const canvas = document.getElementById('compChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+
+  const models = ['first','last','linear','time_decay','position'];
+  const modelLabels = ['First Touch','Last Touch','Linear','Time Decay','Position Based'];
+  const totalRevByModel = models.map(m => results[m].reduce((s,v) => s+v, 0));
+  const barH = Math.min(28, (H - 30) / models.length - 6);
+  const startX = 100;
+  const chartW = W - startX - 20;
+
+  models.forEach((m, mi) => {
+    const y = 10 + mi * ((H - 20) / models.length);
+    let x = startX;
+
+    // Model label
+    ctx.fillStyle = activeModel === m ? '#e0e0e8' : '#8888a0';
+    ctx.font = (activeModel === m ? 'bold ' : '') + '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(modelLabels[mi], startX - 8, y + barH/2 + 3);
+
+    // Stacked bar
+    const total = totalRevByModel[mi] || 1;
+    channels.forEach((ch, ci) => {
+      const w = (results[m][ci] / total) * chartW;
+      ctx.fillStyle = ch.color;
+      ctx.globalAlpha = activeModel === m ? 1 : 0.5;
+      ctx.fillRect(x, y, Math.max(w, 1), barH);
+      ctx.globalAlpha = 1;
+      if (w > 30) {
+        ctx.fillStyle = '#fff';
+        ctx.font = '9px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(Math.round(results[m][ci]/total*100)+'%', x+w/2, y+barH/2+3);
+      }
+      x += w;
+    });
+  });
+}
+
+function renderOptChart() {
+  const canvas = document.getElementById('optChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = canvas.offsetHeight;
+  ctx.clearRect(0,0,W,H);
+
+  const totalSpend = channels.reduce((s,c) => s+c.spend, 0);
+  if (totalSpend === 0) return;
+
+  // Compute average ROAS across models per channel
+  const models = ['first','last','linear','time_decay','position'];
+  const avgRoas = channels.map((ch, ci) => {
+    if (ch.spend === 0) return 0;
+    const avgRev = models.reduce((s,m) => s + results[m][ci], 0) / models.length;
+    return avgRev / ch.spend;
+  });
+
+  // Suggest reallocation: proportional to avg ROAS (marginal efficiency)
+  const totalRoas = avgRoas.reduce((s,r) => s+r, 0) || 1;
+  const suggested = avgRoas.map(r => totalSpend * (r / totalRoas));
+
+  const maxSpend = Math.max(...channels.map(c=>c.spend), ...suggested, 1);
+  const barH = Math.min(22, (H - 30) / channels.length - 8);
+  const startX = 100;
+  const chartW = W - startX - 20;
+
+  channels.forEach((ch, ci) => {
+    const y = 10 + ci * ((H - 20) / channels.length);
+
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    const label = ch.name.length > 12 ? ch.name.slice(0,11)+'…' : ch.name;
+    ctx.fillText(label, startX - 8, y + barH/2 + 3);
+
+    // Current
+    const curW = (ch.spend / maxSpend) * chartW;
+    ctx.fillStyle = ch.color;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.roundRect(startX, y, Math.max(curW,2), barH/2-1, 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Suggested
+    const sugW = (suggested[ci] / maxSpend) * chartW;
+    ctx.fillStyle = ch.color;
+    ctx.beginPath();
+    ctx.roundRect(startX, y+barH/2+1, Math.max(sugW,2), barH/2-1, 2);
+    ctx.fill();
+
+    // Delta label
+    const delta = suggested[ci] - ch.spend;
+    if (ch.spend > 0) {
+      const pct = ((delta / ch.spend) * 100).toFixed(0);
+      ctx.fillStyle = delta >= 0 ? '#00d2a0' : '#ff6b6b';
+      ctx.font = '9px monospace';
+      ctx.textAlign = 'left';
+      const labelX = startX + Math.max(curW, sugW) + 6;
+      ctx.fillText((delta>=0?'+':'') + pct + '%', labelX, y + barH/2 + 3);
+    }
+  });
+
+  // Legend
+  ctx.fillStyle = '#8888a0';
+  ctx.globalAlpha = 0.3;
+  ctx.fillRect(startX, H-12, 20, 6);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#8888a0';
+  ctx.font = '9px monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Current', startX+24, H-6);
+  ctx.fillStyle = '#6c5ce7';
+  ctx.fillRect(startX+80, H-12, 20, 6);
+  ctx.fillStyle = '#8888a0';
+  ctx.fillText('Suggested', startX+104, H-6);
+}
+
+function renderMatrix() {
+  const tbody = document.getElementById('matrixTable').querySelector('tbody');
+  const totalSpend = channels.reduce((s,c) => s+c.spend, 0);
+  const models = ['first','last','linear','time_decay','position'];
+
+  tbody.innerHTML = channels.map((ch, ci) => {
+    const avgRev = models.reduce((s,m) => s + results[m][ci], 0) / models.length;
+    const avgRoas = ch.spend > 0 ? (avgRev / ch.spend).toFixed(2) + 'x' : '∞';
+    const roasColor = ch.spend > 0 ? (avgRev/ch.spend >= 3 ? 'var(--green)' : avgRev/ch.spend >= 1 ? 'var(--orange)' : 'var(--red)') : 'var(--cyan)';
+    return `<tr>
+      <td><span class="channel-tag" style="background:${ch.color}20;color:${ch.color}">${ch.name}</span></td>
+      <td>$${ch.spend.toLocaleString()}</td>
+      ${models.map(m => `<td>$${Math.round(results[m][ci]).toLocaleString()}</td>`).join('')}
+      <td style="color:${roasColor};font-weight:600">${avgRoas}</td>
+    </tr>`;
+  }).join('');
+
+  // Totals row
+  const totals = models.map(m => results[m].reduce((s,v) => s+v, 0));
+  tbody.innerHTML += `<tr style="font-weight:600;border-top:2px solid var(--border)">
+    <td>TOTAL</td>
+    <td>$${totalSpend.toLocaleString()}</td>
+    ${totals.map(t => `<td>$${Math.round(t).toLocaleString()}</td>`).join('')}
+    <td style="color:var(--accent)">${totalSpend>0?(totals.reduce((s,t)=>s+t,0)/models.length/totalSpend).toFixed(2)+'x':'—'}</td>
+  </tr>`;
+}
+
+function renderJourneys() {
+  const el = document.getElementById('journeyList');
+  const sample = journeys.slice(0, 20);
+  el.innerHTML = sample.map((j,idx) => {
+    const pathHtml = j.path.map((p,pi) => {
+      const ch = channels[p.channel];
+      return `<span class="journey-node" style="background:${ch.color}20;color:${ch.color}">${ch.name}</span>` +
+        (pi < j.path.length-1 ? '<span class="journey-arrow">→</span>' : '');
+    }).join('');
+    return `<div class="journey-item">
+      <div class="journey-path">${pathHtml}</div>
+      <div class="journey-meta">${j.path.length} touches • ${j.path[j.path.length-1].day}d span • ${j.converted ? '<span style="color:var(--green)">Converted — $'+Math.round(j.revenue)+'</span>' : '<span style="color:var(--muted)">No conversion</span>'}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderInsights() {
+  const el = document.getElementById('insightsList');
+  const insights = [];
+  const models = ['first','last','linear','time_decay','position'];
+
+  // Find most volatile channel (biggest spread across models)
+  let maxSpread = 0, volatileIdx = 0;
+  channels.forEach((ch, ci) => {
+    const vals = models.map(m => results[m][ci]);
+    const spread = Math.max(...vals) - Math.min(...vals);
+    if (spread > maxSpread) { maxSpread = spread; volatileIdx = ci; }
+  });
+  if (maxSpread > 0) {
+    insights.push({icon:'⚡', text:`<strong>${channels[volatileIdx].name}</strong> shows highest attribution variance across models ($${Math.round(maxSpread).toLocaleString()} spread). Attribution model choice matters most for this channel.`});
+  }
+
+  // Find highest ROAS channel
+  const avgRoas = channels.map((ch, ci) => {
+    if (ch.spend === 0) return {idx:ci, roas:Infinity, nospend:true};
+    const avg = models.reduce((s,m) => s + results[m][ci], 0) / models.length;
+    return {idx:ci, roas:avg/ch.spend, nospend:false};
+  }).filter(r => !r.nospend).sort((a,b) => b.roas - a.roas);
+
+  if (avgRoas.length > 0) {
+    insights.push({icon:'🎯', text:`<strong>${channels[avgRoas[0].idx].name}</strong> delivers highest avg ROAS at ${avgRoas[0].roas.toFixed(2)}x. Consider increasing spend here.`});
+  }
+
+  // Find lowest ROAS channel (with spend)
+  if (avgRoas.length > 1) {
+    const worst = avgRoas[avgRoas.length-1];
+    if (worst.roas < 2) {
+      insights.push({icon:'🔻', text:`<strong>${channels[worst.idx].name}</strong> has lowest ROAS at ${worst.roas.toFixed(2)}x. Evaluate spend efficiency or shift budget.`});
+    }
+  }
+
+  // First vs Last touch divergence
+  const converted = journeys.filter(j => j.converted);
+  if (converted.length > 0) {
+    const firstCh = new Array(channels.length).fill(0);
+    const lastCh = new Array(channels.length).fill(0);
+    converted.forEach(j => { firstCh[j.path[0].channel]++; lastCh[j.path[j.path.length-1].channel]++; });
+    let maxDivIdx = 0, maxDiv = 0;
+    channels.forEach((ch,ci) => {
+      const div = Math.abs(firstCh[ci] - lastCh[ci]);
+      if (div > maxDiv) { maxDiv = div; maxDivIdx = ci; }
+    });
+    if (maxDiv > converted.length * 0.05) {
+      const isIntro = firstCh[maxDivIdx] > lastCh[maxDivIdx];
+      insights.push({icon:'🔄', text:`<strong>${channels[maxDivIdx].name}</strong> is primarily an ${isIntro?'introducer (top-funnel)':'closer (bottom-funnel)'} — ${isIntro?firstCh[maxDivIdx]+' first touches vs '+lastCh[maxDivIdx]+' last':lastCh[maxDivIdx]+' last touches vs '+firstCh[maxDivIdx]+' first'}.`});
+    }
+  }
+
+  // Conversion rate insight
+  const convRate = converted.length / journeys.length * 100;
+  insights.push({icon:'📊', text:`Conversion rate: ${convRate.toFixed(1)}% (${converted.length}/${journeys.length}). Average journey: ${(journeys.reduce((s,j)=>s+j.path.length,0)/journeys.length).toFixed(1)} touchpoints over ${(journeys.reduce((s,j)=>s+j.path[j.path.length-1].day,0)/journeys.length).toFixed(0)} days.`});
+
+  // Zero-spend channels
+  const zeroSpend = channels.filter(c => c.spend === 0);
+  if (zeroSpend.length > 0) {
+    insights.push({icon:'💡', text:`${zeroSpend.map(c=>'<strong>'+c.name+'</strong>').join(', ')} ha${zeroSpend.length>1?'ve':'s'} $0 spend → infinite ROAS. These organic channels are pure signal.`});
+  }
+
+  el.innerHTML = insights.map(i => `<div class="insight-item"><span class="insight-icon">${i.icon}</span><span>${i.text}</span></div>`).join('');
+}
+
+// --- Event Handlers ---
+document.getElementById('modelTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.model-tab');
+  if (!tab) return;
+  document.querySelectorAll('.model-tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  activeModel = tab.dataset.model;
+  document.getElementById('modelDesc').textContent = MODEL_DESCS[activeModel];
+  if (journeys.length) renderAll();
+});
+
+document.getElementById('halfLife').addEventListener('input', () => {
+  if (journeys.length) { runAttribution(); renderAll(); }
+});
+
+window.addEventListener('resize', () => { if (journeys.length) renderAll(); });
+
+// --- Init ---
+initChannels();
+generate();
+</script>
+</body>
+</html>

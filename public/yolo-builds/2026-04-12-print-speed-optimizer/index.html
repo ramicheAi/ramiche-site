@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Speed Optimizer — NOVA</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --card: #12121a;
+    --border: #1e1e2e;
+    --accent: #6366f1;
+    --accent-glow: rgba(99, 102, 241, 0.15);
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --surface: #1a1a2e;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  header .badge {
+    display: inline-block;
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 100px;
+    border: 1px solid rgba(99,102,241,0.25);
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 15px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+
+  .input-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .input-row.triple {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .input-group label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+
+  .input-group select,
+  .input-group input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group select:focus,
+  .input-group input:focus {
+    border-color: var(--accent);
+  }
+
+  .input-group select option {
+    background: var(--card);
+  }
+
+  /* Preset buttons */
+  .presets {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .preset-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .preset-btn:hover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .preset-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  /* Speed bars */
+  .speed-feature {
+    margin-bottom: 20px;
+  }
+
+  .speed-feature:last-child {
+    margin-bottom: 0;
+  }
+
+  .speed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .speed-label {
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .speed-value {
+    font-size: 14px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .speed-bar-track {
+    width: 100%;
+    height: 8px;
+    background: var(--surface);
+    border-radius: 100px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .speed-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    transition: width 0.4s ease, background 0.3s;
+  }
+
+  .speed-bar-fill.green { background: var(--green); }
+  .speed-bar-fill.amber { background: var(--amber); }
+  .speed-bar-fill.red { background: var(--red); }
+
+  .speed-hint {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* Metrics strip */
+  .metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+
+  .metric-card {
+    text-align: center;
+    padding: 20px 12px;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.5px;
+    margin-bottom: 4px;
+  }
+
+  .metric-value.green { color: var(--green); }
+  .metric-value.amber { color: var(--amber); }
+  .metric-value.red { color: var(--red); }
+  .metric-value.accent { color: var(--accent); }
+
+  .metric-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+
+  /* Time chart */
+  .time-chart {
+    margin-top: 8px;
+  }
+
+  .time-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .time-bar-label {
+    font-size: 12px;
+    color: var(--muted);
+    width: 80px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .time-bar-wrapper {
+    flex: 1;
+    height: 28px;
+    background: var(--surface);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .time-bar-segment {
+    height: 100%;
+    display: inline-block;
+    transition: width 0.4s ease;
+  }
+
+  .time-bar-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    min-width: 60px;
+    flex-shrink: 0;
+  }
+
+  /* Quality gauge */
+  .quality-gauge {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+
+  .gauge-ring {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+  }
+
+  .gauge-ring svg {
+    transform: rotate(-90deg);
+  }
+
+  .gauge-circle-bg {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 6;
+  }
+
+  .gauge-circle-fill {
+    fill: none;
+    stroke-width: 6;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s ease, stroke 0.3s;
+  }
+
+  .gauge-text {
+    font-size: 18px;
+    font-weight: 700;
+    fill: var(--text);
+    text-anchor: middle;
+    dominant-baseline: central;
+  }
+
+  .gauge-info h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .gauge-info p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Tips section */
+  .tip-item {
+    display: flex;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tip-item:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .tip-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    width: 28px;
+    text-align: center;
+  }
+
+  .tip-text {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .tip-text strong {
+    color: var(--accent);
+  }
+
+  /* Footer */
+  footer {
+    text-align: center;
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+  }
+
+  footer p {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  @media (max-width: 640px) {
+    .input-row, .input-row.triple, .metrics {
+      grid-template-columns: 1fr;
+    }
+    h1 { font-size: 26px; }
+    .container { padding: 32px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">NOVA Fabrication Tools</div>
+    <h1>Print Speed Optimizer</h1>
+    <p>Calculate optimal print speeds per feature type based on your material, nozzle, and quality target.</p>
+  </header>
+
+  <!-- Setup -->
+  <div class="section">
+    <div class="section-title">Setup</div>
+    <div class="input-row">
+      <div class="input-group">
+        <label>Material</label>
+        <select id="material" onchange="recalculate()">
+          <option value="pla">PLA</option>
+          <option value="pla+">PLA+</option>
+          <option value="petg">PETG</option>
+          <option value="abs">ABS</option>
+          <option value="asa">ASA</option>
+          <option value="tpu95">TPU 95A</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Nozzle Diameter</label>
+        <select id="nozzle" onchange="recalculate()">
+          <option value="0.2">0.2 mm</option>
+          <option value="0.4" selected>0.4 mm</option>
+          <option value="0.6">0.6 mm</option>
+          <option value="0.8">0.8 mm</option>
+        </select>
+      </div>
+    </div>
+    <div class="input-row triple">
+      <div class="input-group">
+        <label>Layer Height (mm)</label>
+        <select id="layerHeight" onchange="recalculate()">
+          <option value="0.08">0.08</option>
+          <option value="0.12">0.12</option>
+          <option value="0.16">0.16</option>
+          <option value="0.20" selected>0.20</option>
+          <option value="0.24">0.24</option>
+          <option value="0.28">0.28</option>
+          <option value="0.32">0.32</option>
+        </select>
+      </div>
+      <div class="input-group">
+        <label>Model Height (mm)</label>
+        <input type="number" id="modelHeight" value="60" min="1" max="500" onchange="recalculate()">
+      </div>
+      <div class="input-group">
+        <label>Est. Perimeter (mm)</label>
+        <input type="number" id="perimeter" value="200" min="10" max="2000" onchange="recalculate()">
+      </div>
+    </div>
+  </div>
+
+  <!-- Quality Preset -->
+  <div class="section">
+    <div class="section-title">Quality Target</div>
+    <div class="presets" id="presetContainer">
+      <button class="preset-btn" data-preset="ultra" onclick="setPreset('ultra')">Ultra Detail</button>
+      <button class="preset-btn active" data-preset="quality" onclick="setPreset('quality')">Quality</button>
+      <button class="preset-btn" data-preset="balanced" onclick="setPreset('balanced')">Balanced</button>
+      <button class="preset-btn" data-preset="speed" onclick="setPreset('speed')">Speed</button>
+      <button class="preset-btn" data-preset="draft" onclick="setPreset('draft')">Draft</button>
+    </div>
+  </div>
+
+  <!-- Optimized Speeds -->
+  <div class="section">
+    <div class="section-title">Optimized Speeds</div>
+    <div id="speedBars"></div>
+  </div>
+
+  <!-- Quality Gauge -->
+  <div class="section">
+    <div class="section-title">Quality Assessment</div>
+    <div class="quality-gauge">
+      <div class="gauge-ring">
+        <svg viewBox="0 0 80 80" width="80" height="80">
+          <circle class="gauge-circle-bg" cx="40" cy="40" r="34"/>
+          <circle class="gauge-circle-fill" id="gaugeCircle" cx="40" cy="40" r="34"
+                  stroke-dasharray="213.6" stroke-dashoffset="53.4"/>
+          <text class="gauge-text" id="gaugeText" x="40" y="40" transform="rotate(90 40 40)">75</text>
+        </svg>
+      </div>
+      <div class="gauge-info">
+        <h3 id="qualityLabel">Good Quality</h3>
+        <p id="qualityDesc">Visible layer lines on close inspection. Good dimensional accuracy. Suitable for functional parts and display models.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Metrics -->
+  <div class="section">
+    <div class="section-title">Estimated Print Metrics</div>
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-value accent" id="metricTime">2h 15m</div>
+        <div class="metric-label">Print Time</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value green" id="metricFlow">4.2</div>
+        <div class="metric-label">Flow mm³/s</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value amber" id="metricLayers">300</div>
+        <div class="metric-label">Layers</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Time Breakdown -->
+  <div class="section">
+    <div class="section-title">Time Breakdown (Estimated)</div>
+    <div class="time-chart" id="timeChart"></div>
+  </div>
+
+  <!-- Smart Tips -->
+  <div class="section">
+    <div class="section-title">Optimization Tips</div>
+    <div id="tipsContainer"></div>
+  </div>
+
+  <footer>
+    <p>NOVA Print Speed Optimizer v1.0 — Built for Bambu Lab A1</p>
+  </footer>
+</div>
+
+<script>
+const MATERIALS = {
+  pla:   { name: 'PLA',     maxFlow: 15, maxSpeed: 300, tempRange: [200,220], safeOverhang: 45, bridgeMulti: 0.5, retractDist: 0.8 },
+  'pla+':{ name: 'PLA+',    maxFlow: 16, maxSpeed: 300, tempRange: [210,230], safeOverhang: 50, bridgeMulti: 0.5, retractDist: 0.8 },
+  petg:  { name: 'PETG',    maxFlow: 12, maxSpeed: 200, tempRange: [230,250], safeOverhang: 40, bridgeMulti: 0.4, retractDist: 1.0 },
+  abs:   { name: 'ABS',     maxFlow: 14, maxSpeed: 250, tempRange: [240,260], safeOverhang: 40, bridgeMulti: 0.45, retractDist: 0.6 },
+  asa:   { name: 'ASA',     maxFlow: 13, maxSpeed: 230, tempRange: [240,260], safeOverhang: 40, bridgeMulti: 0.4, retractDist: 0.6 },
+  tpu95: { name: 'TPU 95A', maxFlow: 6,  maxSpeed: 50,  tempRange: [220,240], safeOverhang: 35, bridgeMulti: 0.3, retractDist: 0 }
+};
+
+const PRESETS = {
+  ultra:    { factor: 0.35, label: 'Ultra Detail' },
+  quality:  { factor: 0.55, label: 'Quality' },
+  balanced: { factor: 0.72, label: 'Balanced' },
+  speed:    { factor: 0.88, label: 'Speed' },
+  draft:    { factor: 1.0,  label: 'Draft' }
+};
+
+const FEATURES = [
+  { key: 'outerWall',  label: 'Outer Wall',       baseFactor: 0.40, icon: '🧱', hint: 'Slowest for surface finish' },
+  { key: 'innerWall',  label: 'Inner Wall',        baseFactor: 0.65, icon: '🔲', hint: 'Structural, less visible' },
+  { key: 'topSurface', label: 'Top Surface',       baseFactor: 0.45, icon: '🔝', hint: 'Ironing-compatible speed' },
+  { key: 'infill',     label: 'Infill',            baseFactor: 1.00, icon: '🔷', hint: 'Max speed, hidden geometry' },
+  { key: 'support',    label: 'Support',           baseFactor: 0.85, icon: '🏗️', hint: 'Fast but needs adhesion' },
+  { key: 'overhang',   label: 'Overhang',          baseFactor: 0.35, icon: '📐', hint: 'Angle-dependent cooling' },
+  { key: 'bridge',     label: 'Bridge',            baseFactor: 0.30, icon: '🌉', hint: 'Fan 100%, minimal sag' },
+  { key: 'firstLayer', label: 'First Layer',       baseFactor: 0.28, icon: '🏠', hint: 'Adhesion critical — go slow' }
+];
+
+let currentPreset = 'quality';
+
+function setPreset(preset) {
+  currentPreset = preset;
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.preset === preset);
+  });
+  recalculate();
+}
+
+function getSpeedColor(speed, maxSpeed) {
+  const ratio = speed / maxSpeed;
+  if (ratio < 0.4) return 'green';
+  if (ratio < 0.7) return 'amber';
+  return 'red';
+}
+
+function getQualityScore(preset) {
+  const scores = { ultra: 97, quality: 82, balanced: 65, speed: 45, draft: 28 };
+  return scores[preset] || 65;
+}
+
+function getQualityInfo(score) {
+  if (score >= 90) return { label: 'Exceptional Quality', desc: 'Nearly invisible layer lines. Museum-grade surface finish. Ideal for display pieces and high-detail miniatures.' };
+  if (score >= 75) return { label: 'Good Quality', desc: 'Visible layer lines on close inspection. Good dimensional accuracy. Suitable for functional parts and display models.' };
+  if (score >= 55) return { label: 'Balanced', desc: 'Moderate layer visibility. Good speed-to-quality ratio. Best for prototypes and functional parts where appearance matters.' };
+  if (score >= 35) return { label: 'Speed Priority', desc: 'Obvious layer lines but structurally sound. Great for rapid prototyping and internal components.' };
+  return { label: 'Draft Quality', desc: 'Rough surface finish. Maximum speed for concept models, test fits, and disposable parts.' };
+}
+
+function recalculate() {
+  const mat = MATERIALS[document.getElementById('material').value];
+  const nozzle = parseFloat(document.getElementById('nozzle').value);
+  const layerH = parseFloat(document.getElementById('layerHeight').value);
+  const modelH = parseFloat(document.getElementById('modelHeight').value);
+  const perim = parseFloat(document.getElementById('perimeter').value);
+  const preset = PRESETS[currentPreset];
+
+  // Max volumetric flow constrains speed: speed = maxFlow / (nozzle * layerH)
+  const flowMaxSpeed = mat.maxFlow / (nozzle * layerH);
+  const effectiveMax = Math.min(mat.maxSpeed, flowMaxSpeed);
+
+  // Calculate per-feature speeds
+  const speeds = {};
+  FEATURES.forEach(f => {
+    let speed = effectiveMax * f.baseFactor * preset.factor;
+    // Floor at 10mm/s for printability
+    speed = Math.max(10, Math.min(speed, effectiveMax));
+    speeds[f.key] = Math.round(speed);
+  });
+
+  // Render speed bars
+  const barsHtml = FEATURES.map(f => {
+    const speed = speeds[f.key];
+    const pct = (speed / effectiveMax) * 100;
+    const color = getSpeedColor(speed, effectiveMax);
+    return `
+      <div class="speed-feature">
+        <div class="speed-header">
+          <span class="speed-label">${f.icon} ${f.label}</span>
+          <span class="speed-value">${speed} mm/s</span>
+        </div>
+        <div class="speed-bar-track">
+          <div class="speed-bar-fill ${color}" style="width:${pct}%"></div>
+        </div>
+        <div class="speed-hint">${f.hint}</div>
+      </div>`;
+  }).join('');
+  document.getElementById('speedBars').innerHTML = barsHtml;
+
+  // Quality gauge
+  const qScore = getQualityScore(currentPreset);
+  const qInfo = getQualityInfo(qScore);
+  const circumference = 2 * Math.PI * 34; // ~213.6
+  const offset = circumference * (1 - qScore / 100);
+  const gaugeCircle = document.getElementById('gaugeCircle');
+  gaugeCircle.style.strokeDashoffset = offset;
+  gaugeCircle.style.stroke = qScore >= 75 ? 'var(--green)' : qScore >= 50 ? 'var(--amber)' : 'var(--red)';
+  document.getElementById('gaugeText').textContent = qScore;
+  document.getElementById('qualityLabel').textContent = qInfo.label;
+  document.getElementById('qualityDesc').textContent = qInfo.desc;
+
+  // Metrics
+  const layers = Math.ceil(modelH / layerH);
+  const avgSpeed = Object.values(speeds).reduce((a,b) => a+b, 0) / Object.values(speeds).length;
+  const flowRate = (nozzle * layerH * avgSpeed).toFixed(1);
+
+  // Rough time estimate: perimeter * layers / avg speed + overhead
+  const wallTime = (perim * layers * 2) / speeds.outerWall; // outer + inner walls in seconds
+  const infillTime = (perim * 0.5 * layers) / speeds.infill; // rough infill estimate
+  const travelTime = layers * 1.5; // ~1.5s travel per layer
+  const totalSec = wallTime + infillTime + travelTime;
+  const hours = Math.floor(totalSec / 3600);
+  const minutes = Math.round((totalSec % 3600) / 60);
+  const timeStr = hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+
+  document.getElementById('metricTime').textContent = timeStr;
+  document.getElementById('metricFlow').textContent = flowRate;
+  document.getElementById('metricLayers').textContent = layers;
+
+  // Color metrics
+  const flowEl = document.getElementById('metricFlow');
+  flowEl.className = 'metric-value ' + (parseFloat(flowRate) > mat.maxFlow * 0.9 ? 'red' : parseFloat(flowRate) > mat.maxFlow * 0.6 ? 'amber' : 'green');
+
+  // Time breakdown chart
+  const wallPct = (wallTime / totalSec * 100).toFixed(1);
+  const infillPct = (infillTime / totalSec * 100).toFixed(1);
+  const travelPct = (travelTime / totalSec * 100).toFixed(1);
+
+  const timeHtml = `
+    <div class="time-bar-container">
+      <span class="time-bar-label">Walls</span>
+      <div class="time-bar-wrapper">
+        <div class="time-bar-segment" style="width:${wallPct}%;background:var(--accent);display:inline-block;height:100%;"></div>
+      </div>
+      <span class="time-bar-text">${wallPct}%</span>
+    </div>
+    <div class="time-bar-container">
+      <span class="time-bar-label">Infill</span>
+      <div class="time-bar-wrapper">
+        <div class="time-bar-segment" style="width:${infillPct}%;background:var(--green);display:inline-block;height:100%;"></div>
+      </div>
+      <span class="time-bar-text">${infillPct}%</span>
+    </div>
+    <div class="time-bar-container">
+      <span class="time-bar-label">Travel</span>
+      <div class="time-bar-wrapper">
+        <div class="time-bar-segment" style="width:${travelPct}%;background:var(--amber);display:inline-block;height:100%;"></div>
+      </div>
+      <span class="time-bar-text">${travelPct}%</span>
+    </div>`;
+  document.getElementById('timeChart').innerHTML = timeHtml;
+
+  // Tips
+  generateTips(mat, nozzle, layerH, speeds, flowRate);
+}
+
+function generateTips(mat, nozzle, layerH, speeds, flowRate) {
+  const tips = [];
+
+  if (parseFloat(flowRate) > mat.maxFlow * 0.85) {
+    tips.push({ icon: '⚠️', text: `<strong>Flow rate near limit.</strong> ${mat.name} maxes out at ~${mat.maxFlow} mm³/s. Current avg: ${flowRate}. Risk of under-extrusion on fast moves. Consider reducing infill speed or switching to a larger nozzle.` });
+  }
+
+  if (layerH > nozzle * 0.75) {
+    tips.push({ icon: '📏', text: `<strong>Layer height is ${Math.round(layerH/nozzle*100)}% of nozzle diameter.</strong> Recommended max is 75%. You may see weak layer adhesion. Drop to ${(nozzle * 0.6).toFixed(2)}mm for reliability.` });
+  }
+
+  if (mat.name === 'TPU 95A') {
+    tips.push({ icon: '🧪', text: `<strong>Flexible filament detected.</strong> Disable retraction (or keep under 1mm). Use direct drive if available. Bowden setups will struggle above 30mm/s.` });
+  }
+
+  if (speeds.outerWall > 80) {
+    tips.push({ icon: '🎯', text: `<strong>Outer wall at ${speeds.outerWall}mm/s.</strong> Above 80mm/s you'll see ringing artifacts on corners. Enable pressure advance / linear advance and input shaping if your firmware supports it.` });
+  }
+
+  if (speeds.bridge < 20) {
+    tips.push({ icon: '🌉', text: `<strong>Bridge speed very low.</strong> Counter-intuitively, slightly faster bridges (25-40mm/s) can produce better results because the filament stretches thinner with less time to sag. Test at 30mm/s.` });
+  }
+
+  if (speeds.infill > 200) {
+    tips.push({ icon: '🔷', text: `<strong>Infill over 200mm/s.</strong> Your hotend needs to keep up. Ensure nozzle temp is at the high end (${mat.tempRange[1]}°C) and consider a high-flow nozzle for sustained speeds.` });
+  }
+
+  if (nozzle === 0.2) {
+    tips.push({ icon: '🔬', text: `<strong>0.2mm nozzle active.</strong> Clog risk is elevated. Use well-dried filament, keep retractions short (${mat.retractDist}mm), and never exceed ${Math.round(mat.maxFlow * 0.5)} mm³/s flow rate.` });
+  }
+
+  if (tips.length === 0) {
+    tips.push({ icon: '✅', text: `<strong>Settings look solid.</strong> Your speed profile is within safe limits for ${mat.name} at ${nozzle}mm. Print a calibration cube to verify dimensional accuracy before committing to a long print.` });
+  }
+
+  const tipsHtml = tips.map(t => `
+    <div class="tip-item">
+      <div class="tip-icon">${t.icon}</div>
+      <div class="tip-text">${t.text}</div>
+    </div>`).join('');
+  document.getElementById('tipsContainer').innerHTML = tipsHtml;
+}
+
+// Initialize
+recalculate();
+</script>
+</body>
+</html>

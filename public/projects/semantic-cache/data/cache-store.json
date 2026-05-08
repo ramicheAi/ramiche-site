@@ -1,0 +1,30 @@
+{
+  "9a10fe4a1be82689298fcc198116c98d881eccd6f78fc4099c3ee958aa2066cb": {
+    "prompt": "claude-sonnet-4-5-20250929::[{\"type\":\"text\",\"text\":\"\\n",
+    "response": "{\"id\":\"cache-reconstructed-1775581471371\",\"object\":\"chat.completion\",\"created\":1775581471,\"model\":\"claude-sonnet-4-5-20250929\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"NO_REPLY\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":2,\"total_tokens\":2}}",
+    "metadata": {
+      "model": "claude-sonnet-4-5-20250929",
+      "agent": "unknown",
+      "input_tokens": 35272,
+      "output_tokens": 157
+    },
+    "created_at": 1775581471372,
+    "last_hit": null,
+    "hit_count": 0,
+    "ttl": 86400000
+  },
+  "e8aa49f287ca99cee4c17a719ead5fc7fd4e1809f5dedb12c2518ac5f9522674": {
+    "prompt": "claude-opus-4-6::[{\"type\":\"text\",\"text\":\"\\n",
+    "response": "{\"id\":\"cache-reconstructed-1775581583517\",\"object\":\"chat.completion\",\"created\":1775581583,\"model\":\"claude-opus-4-6\",\"choices\":[{\"index\":0,\"message\":{\"role\":\"assistant\",\"content\":\"Removing fuzzy matching only affects cache hit rate. You'll still get exact-match caching (identical prompts return cached responses), but similar-but-not-identical prompts always go to Claude.\\n\\n**Impact:**\\n- Cost savings drop slightly — fewer cache hits\\n- Zero risk of poisoned/repeated responses\\n- Your subscription routing (claude-max-api) still handles the real cost savings\\n\\nNet effect is minimal. The subscription proxy saves far more than fuzzy caching ever would.\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":0,\"completion_tokens\":118,\"total_tokens\":118}}",
+    "metadata": {
+      "model": "claude-opus-4-6",
+      "agent": "unknown",
+      "input_tokens": 47561,
+      "output_tokens": 671
+    },
+    "created_at": 1775581583517,
+    "last_hit": 1775582223289,
+    "hit_count": 3,
+    "ttl": 86400000
+  }
+}

@@ -6,17 +6,13 @@
 - [ ] Stripe subscription billing
 
 ## Recent Deploys
+- **Apr 5**: Next.js 16.2 prefetchInlining + TierBadge sport-aware (8d895be, fd68fbb)
+- **Apr 1-4**: YOLO build path fixes, cron calendar parsing (a9d199b, 8d35286)
+- **Mar 28-31**: Billing page, auth-session group scoping, GritPointsBalance (fc9f797, 4e117a7, 4569d59)
+- **Mar 25-27**: BestTimesCard qualifying gaps, onboarding wizard, GoMotion CSV (9845d25, dec3c48, 87fde9d, a8d8a21)
+- **Mar 23-24**: BillingView, Observatory, CsvImport, lint fixes (b79d2e9, 1799453, e14efbf)
 - **Mar 23 02:48**: Athlete Onboarding Wizard (6e6e900) — verified 200
-- **Mar 22 23:20**: Mobile Safari drag-and-drop fix (3fe1e90) — verified 200
-- **Mar 22 19:42**: Practice Builder + Churn Detector (c8b42b9) — verified 200
-- **Mar 22 17:05**: Firebase Auth Phase 5 — Admin SDK + middleware (94f758b)
-- **Mar 22 16:50**: Firebase Auth Phase 3 — Parent dual-write (756a507)
-- **Mar 22 16:45**: Firebase Auth Phase 2 — Coach dual-write (6ae1644)
-- **Mar 22 16:30**: Firebase Auth Phase 1 — SDK wrapper (401d0dc)
-- **Mar 22 15:35**: Meet Scorer integration (9497ebc)
-- **Mar 22 15:20**: Pricing Modeler (e31ecb5)
-- **Mar 17 11:35**: Coach components + Nerve Center (9328b75)
-- **Mar 16**: PracticePlanner + AthleteCard
+- **Mar 22**: Firebase Auth Phases 1-5, Practice Builder, Churn Detector, Meet Scorer
 
 ## Branch Strategy
 - `main`: Production (all deploys via git push)

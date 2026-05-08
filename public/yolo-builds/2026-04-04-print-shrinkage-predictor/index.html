@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Shrinkage & Warp Predictor — NOVA</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1a1a24;
+    --border: #2a2a3a;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --success: #10b981;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: var(--accent2);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #e2e8f0 0%, #94a3b8 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header p {
+    font-size: 15px;
+    color: var(--text2);
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* Sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .section-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    margin-bottom: 20px;
+  }
+
+  /* Form controls */
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-group:last-child { margin-bottom: 0; }
+
+  .form-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    margin-bottom: 8px;
+  }
+
+  .form-hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  select, input[type="number"], input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  select:focus, input:focus {
+    border-color: var(--accent);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  /* Predict button */
+  .predict-btn {
+    width: 100%;
+    padding: 14px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 20px;
+  }
+
+  .predict-btn:hover {
+    background: var(--accent2);
+    transform: translateY(-1px);
+  }
+
+  /* Results */
+  .results-hidden { display: none; }
+
+  .risk-banner {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .risk-low {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: var(--success);
+  }
+
+  .risk-medium {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: var(--warn);
+  }
+
+  .risk-high {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: var(--danger);
+  }
+
+  .risk-icon {
+    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+  }
+
+  /* Metric cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .metric-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+
+  .metric-value {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  .metric-unit {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--text3);
+    margin-left: 2px;
+  }
+
+  .metric-detail {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  /* Dimension table */
+  .dim-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .dim-table th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text3);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .dim-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(42, 42, 58, 0.5);
+    color: var(--text);
+  }
+
+  .dim-table tr:last-child td { border-bottom: none; }
+
+  .shrink-neg { color: var(--warn); }
+  .shrink-ok { color: var(--success); }
+
+  /* Viz canvas */
+  .viz-container {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .viz-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 12px;
+  }
+
+  canvas {
+    width: 100%;
+    height: 200px;
+    display: block;
+  }
+
+  /* Recommendations */
+  .rec-list {
+    list-style: none;
+  }
+
+  .rec-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(42, 42, 58, 0.5);
+    font-size: 13px;
+  }
+
+  .rec-item:last-child { border-bottom: none; }
+
+  .rec-icon {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+
+  .rec-fix { background: rgba(99, 102, 241, 0.15); }
+  .rec-warn { background: rgba(245, 158, 11, 0.15); }
+  .rec-info { background: rgba(16, 185, 129, 0.15); }
+
+  .rec-text { color: var(--text2); line-height: 1.5; }
+  .rec-text strong { color: var(--text); }
+
+  /* Temp profile chart */
+  .temp-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .temp-bar-label {
+    width: 80px;
+    color: var(--text3);
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .temp-bar-track {
+    flex: 1;
+    height: 20px;
+    background: var(--surface);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .temp-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+
+  .temp-bar-value {
+    width: 50px;
+    color: var(--text2);
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding-top: 32px;
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .footer a {
+    color: var(--accent2);
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-badge">NOVA Fabrication</div>
+    <h1>Shrinkage & Warp Predictor</h1>
+    <p>Model dimensional shrinkage and warping risk before you print. Enter your part geometry and settings — get compensated dimensions and risk analysis.</p>
+  </div>
+
+  <!-- Material & Settings -->
+  <div class="section">
+    <div class="section-title">Material & Print Settings</div>
+
+    <div class="form-group">
+      <label class="form-label">Material</label>
+      <select id="material">
+        <option value="pla">PLA</option>
+        <option value="pla_plus">PLA+</option>
+        <option value="petg">PETG</option>
+        <option value="abs">ABS</option>
+        <option value="asa">ASA</option>
+        <option value="tpu95">TPU 95A</option>
+        <option value="nylon">Nylon (PA6)</option>
+        <option value="pc">Polycarbonate</option>
+      </select>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label class="form-label">Nozzle Temp (°C)</label>
+        <input type="number" id="nozzleTemp" value="215" min="170" max="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Bed Temp (°C)</label>
+        <input type="number" id="bedTemp" value="60" min="0" max="120">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label class="form-label">Layer Height (mm)</label>
+        <select id="layerHeight">
+          <option value="0.08">0.08 (Ultra Fine)</option>
+          <option value="0.12">0.12 (Fine)</option>
+          <option value="0.16">0.16 (Standard)</option>
+          <option value="0.20" selected>0.20 (Normal)</option>
+          <option value="0.24">0.24 (Draft)</option>
+          <option value="0.28">0.28 (Speed)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Infill %</label>
+        <input type="number" id="infill" value="20" min="0" max="100">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label class="form-label">Print Speed (mm/s)</label>
+        <input type="number" id="printSpeed" value="50" min="10" max="300">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Cooling Fan %</label>
+        <input type="number" id="fanSpeed" value="100" min="0" max="100">
+      </div>
+    </div>
+  </div>
+
+  <!-- Part Geometry -->
+  <div class="section">
+    <div class="section-title">Part Geometry (mm)</div>
+
+    <div class="row">
+      <div class="form-group">
+        <label class="form-label">Length (X)</label>
+        <input type="number" id="dimX" value="50" min="1" max="256" step="0.1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Width (Y)</label>
+        <input type="number" id="dimY" value="30" min="1" max="256" step="0.1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Height (Z)</label>
+        <input type="number" id="dimZ" value="20" min="1" max="256" step="0.1">
+      </div>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label class="form-label">Wall Thickness (mm)</label>
+        <input type="number" id="wallThickness" value="1.6" min="0.4" max="10" step="0.1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Has Flat Base?</label>
+        <select id="flatBase">
+          <option value="yes">Yes — large contact area</option>
+          <option value="partial">Partial — some contact</option>
+          <option value="no">No — elevated / supports</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tolerance Requirement (mm)</label>
+      <select id="tolerance">
+        <option value="0.5">Loose (±0.5mm) — decorative</option>
+        <option value="0.3" selected>Standard (±0.3mm) — general use</option>
+        <option value="0.15">Tight (±0.15mm) — mechanical fit</option>
+        <option value="0.08">Precision (±0.08mm) — snap-fit / assembly</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Enclosure -->
+  <div class="section">
+    <div class="section-title">Environment</div>
+    <div class="row-2">
+      <div class="form-group">
+        <label class="form-label">Enclosure</label>
+        <select id="enclosure">
+          <option value="none">None (open air)</option>
+          <option value="partial">Partial enclosure</option>
+          <option value="full">Full enclosure (heated)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Ambient Temp (°C)</label>
+        <input type="number" id="ambientTemp" value="22" min="10" max="45">
+      </div>
+    </div>
+  </div>
+
+  <!-- Predict Button -->
+  <button class="predict-btn" onclick="predict()">Predict Shrinkage & Warp Risk</button>
+
+  <!-- Results -->
+  <div id="results" class="results-hidden">
+
+    <!-- Risk Banner -->
+    <div id="riskBanner" class="risk-banner risk-low">
+      <div class="risk-icon">—</div>
+      <div>
+        <div id="riskTitle">—</div>
+        <div id="riskSubtitle" style="font-weight:400;font-size:13px;opacity:0.8;">—</div>
+      </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-label">Linear Shrinkage</div>
+        <div class="metric-value" id="metricShrink">—</div>
+        <div class="metric-detail" id="metricShrinkDetail">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Warp Risk Score</div>
+        <div class="metric-value" id="metricWarp">—</div>
+        <div class="metric-detail" id="metricWarpDetail">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Max Corner Lift</div>
+        <div class="metric-value" id="metricLift">—</div>
+        <div class="metric-detail" id="metricLiftDetail">—</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Tolerance Margin</div>
+        <div class="metric-value" id="metricTolerance">—</div>
+        <div class="metric-detail" id="metricToleranceDetail">—</div>
+      </div>
+    </div>
+
+    <!-- Thermal Profile -->
+    <div class="section">
+      <div class="section-title">Thermal Gradient Profile</div>
+      <div id="thermalBars"></div>
+    </div>
+
+    <!-- Dimensional Table -->
+    <div class="section">
+      <div class="section-title">Compensated Dimensions</div>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px;">Scale your CAD model to these dimensions to compensate for shrinkage.</p>
+      <table class="dim-table">
+        <thead>
+          <tr>
+            <th>Axis</th>
+            <th>Design</th>
+            <th>Predicted</th>
+            <th>Shrinkage</th>
+            <th>Compensated</th>
+          </tr>
+        </thead>
+        <tbody id="dimTableBody">
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Shrinkage Over Height Chart -->
+    <div class="viz-container">
+      <div class="viz-title">Shrinkage Variation Over Build Height</div>
+      <canvas id="shrinkChart"></canvas>
+    </div>
+
+    <!-- Warp Risk Map -->
+    <div class="viz-container">
+      <div class="viz-title">Warp Risk Heatmap (Top View)</div>
+      <canvas id="warpMap"></canvas>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="section">
+      <div class="section-title">Recommendations</div>
+      <ul class="rec-list" id="recList"></ul>
+    </div>
+  </div>
+
+  <div class="footer">
+    Built by NOVA — RAMICHE Fabrication Lab &middot; April 2026
+  </div>
+</div>
+
+<script>
+// Material database: shrinkage rates, warp tendency, thermal properties
+const MATERIALS = {
+  pla: {
+    name: 'PLA',
+    shrinkXY: 0.003, shrinkZ: 0.004,
+    warpBase: 0.15, tg: 60, meltRange: [190, 230],
+    bedRange: [50, 65], moistureSensitive: false,
+    thermalExpansion: 68e-6, // µm/m·°C
+    notes: 'Low warp. Best dimensional accuracy of common FDM materials.'
+  },
+  pla_plus: {
+    name: 'PLA+',
+    shrinkXY: 0.0035, shrinkZ: 0.0045,
+    warpBase: 0.18, tg: 62, meltRange: [200, 235],
+    bedRange: [55, 65], moistureSensitive: false,
+    thermalExpansion: 70e-6,
+    notes: 'Slightly more shrinkage than PLA due to additives. Better layer adhesion.'
+  },
+  petg: {
+    name: 'PETG',
+    shrinkXY: 0.005, shrinkZ: 0.006,
+    warpBase: 0.25, tg: 80, meltRange: [220, 250],
+    bedRange: [70, 85], moistureSensitive: true,
+    thermalExpansion: 59e-6,
+    notes: 'Moderate shrinkage. Prone to stringing but low warp with proper bed temp.'
+  },
+  abs: {
+    name: 'ABS',
+    shrinkXY: 0.008, shrinkZ: 0.009,
+    warpBase: 0.72, tg: 105, meltRange: [230, 260],
+    bedRange: [90, 110], moistureSensitive: false,
+    thermalExpansion: 90e-6,
+    notes: 'High shrinkage + high warp. Enclosure strongly recommended. Acetone smoothable.'
+  },
+  asa: {
+    name: 'ASA',
+    shrinkXY: 0.007, shrinkZ: 0.008,
+    warpBase: 0.65, tg: 100, meltRange: [235, 260],
+    bedRange: [90, 110], moistureSensitive: false,
+    thermalExpansion: 85e-6,
+    notes: 'Similar to ABS but UV-stable. Enclosure recommended. Moderate warp risk.'
+  },
+  tpu95: {
+    name: 'TPU 95A',
+    shrinkXY: 0.010, shrinkZ: 0.012,
+    warpBase: 0.08, tg: -40, meltRange: [210, 240],
+    bedRange: [40, 60], moistureSensitive: true,
+    thermalExpansion: 150e-6,
+    notes: 'Flexible — minimal warp but significant shrinkage. Slow print speeds required.'
+  },
+  nylon: {
+    name: 'Nylon (PA6)',
+    shrinkXY: 0.015, shrinkZ: 0.018,
+    warpBase: 0.80, tg: 47, meltRange: [240, 270],
+    bedRange: [70, 90], moistureSensitive: true,
+    thermalExpansion: 80e-6,
+    notes: 'Highest shrinkage. Extremely warp-prone. Must dry filament. Enclosure mandatory.'
+  },
+  pc: {
+    name: 'Polycarbonate',
+    shrinkXY: 0.007, shrinkZ: 0.008,
+    warpBase: 0.70, tg: 147, meltRange: [260, 300],
+    bedRange: [100, 120], moistureSensitive: true,
+    thermalExpansion: 65e-6,
+    notes: 'High-temp, strong. Extreme warp without enclosure. Very demanding to print.'
+  }
+};
+
+function predict() {
+  const mat = MATERIALS[document.getElementById('material').value];
+  const nozzleTemp = +document.getElementById('nozzleTemp').value;
+  const bedTemp = +document.getElementById('bedTemp').value;
+  const layerH = +document.getElementById('layerHeight').value;
+  const infill = +document.getElementById('infill').value;
+  const speed = +document.getElementById('printSpeed').value;
+  const fan = +document.getElementById('fanSpeed').value;
+  const dimX = +document.getElementById('dimX').value;
+  const dimY = +document.getElementById('dimY').value;
+  const dimZ = +document.getElementById('dimZ').value;
+  const wallT = +document.getElementById('wallThickness').value;
+  const flatBase = document.getElementById('flatBase').value;
+  const tol = +document.getElementById('tolerance').value;
+  const enclosure = document.getElementById('enclosure').value;
+  const ambient = +document.getElementById('ambientTemp').value;
+
+  // --- Shrinkage model ---
+  // Base shrinkage adjusted by thermal delta
+  const thermalDelta = nozzleTemp - ambient;
+  const tempFactor = thermalDelta / 200; // normalized around typical 200°C delta
+
+  // Higher infill = more material = more shrinkage, but also more rigidity
+  const infillFactor = 0.7 + (infill / 100) * 0.6;
+
+  // Thicker layers = more thermal mass per layer = slightly more shrinkage
+  const layerFactor = 0.85 + (layerH / 0.20) * 0.15;
+
+  // Speed factor: faster = less time for cooling = more internal stress
+  const speedFactor = 0.9 + (speed / 100) * 0.2;
+
+  // Fan: more cooling = faster solidification = less crystalline shrinkage but more stress
+  const fanShrinkFactor = 1.0 - (fan / 100) * 0.1;
+
+  const shrinkX = mat.shrinkXY * tempFactor * infillFactor * layerFactor * speedFactor * fanShrinkFactor;
+  const shrinkY = mat.shrinkXY * tempFactor * infillFactor * layerFactor * speedFactor * fanShrinkFactor * 1.02; // Y slightly more due to bed movement
+  const shrinkZ = mat.shrinkZ * tempFactor * layerFactor * speedFactor * 1.05; // Z always slightly more
+
+  const avgShrink = (shrinkX + shrinkY + shrinkZ) / 3;
+
+  // --- Warp model ---
+  const footprint = dimX * dimY;
+  const aspectRatio = Math.max(dimX, dimY) / Math.min(dimX, dimY);
+  const heightRatio = dimZ / Math.max(dimX, dimY);
+
+  // Large footprint + thin part = worst warp
+  const footprintFactor = Math.min(footprint / 5000, 2.0);
+  const aspectFactor = Math.min(aspectRatio / 3, 1.5);
+
+  // Tall thin walls warp more
+  const heightFactor = heightRatio > 1 ? 1.0 + (heightRatio - 1) * 0.3 : 1.0;
+
+  // Thin walls warp more than thick
+  const wallFactor = Math.max(0.5, 2.0 - wallT / 1.6);
+
+  // Bed adhesion
+  const baseFactor = flatBase === 'yes' ? 0.8 : flatBase === 'partial' ? 1.2 : 1.5;
+
+  // Enclosure dramatically reduces warp
+  const enclosureFactor = enclosure === 'full' ? 0.3 : enclosure === 'partial' ? 0.6 : 1.0;
+
+  // Fan increases internal stress → more warp for high-warp materials
+  const fanWarpFactor = 1.0 + (fan / 100) * 0.2 * mat.warpBase;
+
+  // Bed temp too low increases warp
+  const bedFactor = bedTemp < mat.bedRange[0] ? 1.3 : bedTemp > mat.bedRange[1] ? 0.9 : 1.0;
+
+  let warpScore = mat.warpBase * footprintFactor * aspectFactor * heightFactor * wallFactor * baseFactor * enclosureFactor * fanWarpFactor * bedFactor;
+  warpScore = Math.min(warpScore, 1.0); // cap at 1.0
+
+  // Corner lift estimate (mm)
+  const cornerLift = warpScore * Math.sqrt(footprint) * 0.002 * tempFactor;
+
+  // Predicted dimensions
+  const predX = dimX * (1 - shrinkX);
+  const predY = dimY * (1 - shrinkY);
+  const predZ = dimZ * (1 - shrinkZ);
+
+  // Compensated dimensions (what to make the CAD model)
+  const compX = dimX / (1 - shrinkX);
+  const compY = dimY / (1 - shrinkY);
+  const compZ = dimZ / (1 - shrinkZ);
+
+  // Tolerance check
+  const maxShrinkDelta = Math.max(
+    Math.abs(dimX - predX),
+    Math.abs(dimY - predY),
+    Math.abs(dimZ - predZ)
+  );
+  const toleranceMargin = tol - maxShrinkDelta;
+
+  // --- Render results ---
+  document.getElementById('results').classList.remove('results-hidden');
+
+  // Risk banner
+  const banner = document.getElementById('riskBanner');
+  const riskTitle = document.getElementById('riskTitle');
+  const riskSub = document.getElementById('riskSubtitle');
+
+  let riskLevel;
+  if (warpScore < 0.25 && toleranceMargin > 0) {
+    riskLevel = 'low';
+    banner.className = 'risk-banner risk-low';
+    riskTitle.textContent = 'Low Risk — Print with Confidence';
+    riskSub.textContent = `${mat.name} at these settings should produce dimensionally accurate results.`;
+  } else if (warpScore < 0.55 || (warpScore < 0.7 && toleranceMargin > 0)) {
+    riskLevel = 'medium';
+    banner.className = 'risk-banner risk-medium';
+    riskTitle.textContent = 'Moderate Risk — Review Settings';
+    riskSub.textContent = `Some warping expected. ${toleranceMargin < 0 ? 'Shrinkage exceeds your tolerance — use compensated dims.' : 'Within tolerance if compensated.'}`;
+  } else {
+    riskLevel = 'high';
+    banner.className = 'risk-banner risk-high';
+    riskTitle.textContent = 'High Risk — Adjust Before Printing';
+    riskSub.textContent = `${mat.name} at this geometry and settings has significant warp/shrinkage risk.`;
+  }
+
+  // Metrics
+  document.getElementById('metricShrink').innerHTML = `${(avgShrink * 100).toFixed(2)}<span class="metric-unit">%</span>`;
+  document.getElementById('metricShrinkDetail').textContent = `${mat.name} typical: ${(mat.shrinkXY * 100).toFixed(1)}–${(mat.shrinkZ * 100).toFixed(1)}%`;
+
+  document.getElementById('metricWarp').innerHTML = `${(warpScore * 100).toFixed(0)}<span class="metric-unit">/100</span>`;
+  document.getElementById('metricWarpDetail').textContent = warpScore < 0.25 ? 'Minimal warping expected' : warpScore < 0.55 ? 'Watch first layers closely' : 'Expect significant warping';
+
+  document.getElementById('metricLift').innerHTML = `${cornerLift.toFixed(2)}<span class="metric-unit">mm</span>`;
+  document.getElementById('metricLiftDetail').textContent = cornerLift < 0.2 ? 'Negligible corner lift' : cornerLift < 0.5 ? 'Visible but manageable' : 'Use brim or raft';
+
+  const tolColor = toleranceMargin > 0 ? 'color:var(--success)' : 'color:var(--danger)';
+  document.getElementById('metricTolerance').innerHTML = `<span style="${tolColor}">${toleranceMargin > 0 ? '+' : ''}${toleranceMargin.toFixed(3)}</span><span class="metric-unit">mm</span>`;
+  document.getElementById('metricToleranceDetail').textContent = toleranceMargin > 0 ? `Within ±${tol}mm tolerance` : `Exceeds ±${tol}mm — compensate dims`;
+
+  // Thermal profile bars
+  const thermalDiv = document.getElementById('thermalBars');
+  const stages = [
+    { label: 'Nozzle', temp: nozzleTemp, color: '#ef4444' },
+    { label: 'Extrusion', temp: nozzleTemp - 15, color: '#f97316' },
+    { label: 'Layer Bond', temp: nozzleTemp - 40, color: '#f59e0b' },
+    { label: 'Bed Surface', temp: bedTemp, color: '#eab308' },
+    { label: 'Mid-Height', temp: bedTemp * 0.5 + ambient * 0.5, color: '#84cc16' },
+    { label: 'Top Layer', temp: ambient + 5, color: '#22c55e' },
+    { label: 'Ambient', temp: ambient, color: '#06b6d4' }
+  ];
+  const maxTemp = Math.max(...stages.map(s => s.temp));
+
+  thermalDiv.innerHTML = stages.map(s => `
+    <div class="temp-bar-row">
+      <div class="temp-bar-label">${s.label}</div>
+      <div class="temp-bar-track">
+        <div class="temp-bar-fill" style="width:${(s.temp / maxTemp * 100).toFixed(1)}%;background:${s.color}"></div>
+      </div>
+      <div class="temp-bar-value">${s.temp.toFixed(0)}°C</div>
+    </div>
+  `).join('');
+
+  // Dimension table
+  const tbody = document.getElementById('dimTableBody');
+  const axes = [
+    { label: 'X (Length)', design: dimX, pred: predX, shrink: shrinkX, comp: compX },
+    { label: 'Y (Width)', design: dimY, pred: predY, shrink: shrinkY, comp: compY },
+    { label: 'Z (Height)', design: dimZ, pred: predZ, shrink: shrinkZ, comp: compZ }
+  ];
+  tbody.innerHTML = axes.map(a => {
+    const delta = (a.design - a.pred).toFixed(3);
+    const cls = +delta > tol ? 'shrink-neg' : 'shrink-ok';
+    return `<tr>
+      <td style="font-weight:600">${a.label}</td>
+      <td>${a.design.toFixed(2)} mm</td>
+      <td>${a.pred.toFixed(3)} mm</td>
+      <td class="${cls}">-${delta} mm (${(a.shrink * 100).toFixed(2)}%)</td>
+      <td style="color:var(--accent2);font-weight:600">${a.comp.toFixed(3)} mm</td>
+    </tr>`;
+  }).join('');
+
+  // Shrinkage over height chart
+  drawShrinkChart(shrinkX, shrinkZ, dimZ, layerH, mat);
+
+  // Warp heatmap
+  drawWarpMap(dimX, dimY, warpScore, flatBase, cornerLift);
+
+  // Recommendations
+  const recs = generateRecommendations(mat, warpScore, cornerLift, toleranceMargin, tol, nozzleTemp, bedTemp, fan, speed, enclosure, flatBase, infill, dimX, dimY, dimZ);
+  const recList = document.getElementById('recList');
+  recList.innerHTML = recs.map(r => `
+    <li class="rec-item">
+      <div class="rec-icon ${r.type}">${r.icon}</div>
+      <div class="rec-text">${r.text}</div>
+    </li>
+  `).join('');
+
+  // Scroll to results
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function drawShrinkChart(shrinkXY, shrinkZ, height, layerH, mat) {
+  const canvas = document.getElementById('shrinkChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 200 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = 200;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const pad = { top: 20, right: 20, bottom: 30, left: 55 };
+  const pw = w - pad.left - pad.right;
+  const ph = h - pad.top - pad.bottom;
+
+  // Generate shrinkage curve: more at bottom (bed contact thermal), less in middle, slightly more at top (cooling)
+  const points = 50;
+  const data = [];
+  for (let i = 0; i <= points; i++) {
+    const t = i / points; // 0 = bottom, 1 = top
+    // U-shaped curve: higher at bottom (thermal from bed) and top (rapid cooling)
+    const baseCurve = 1.0 + 0.3 * Math.pow(2 * t - 1, 2);
+    // XY shrinkage
+    const xy = shrinkXY * baseCurve * 100;
+    // Z shrinkage (generally higher)
+    const z = shrinkZ * (0.9 + 0.2 * t) * 100;
+    data.push({ t, xy, z, height: t * height });
+  }
+
+  const maxVal = Math.max(...data.map(d => Math.max(d.xy, d.z))) * 1.2;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(42, 42, 58, 0.5)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ph / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = maxVal * (1 - i / 4);
+    const y = pad.top + (ph / 4) * i;
+    ctx.fillText(val.toFixed(2) + '%', pad.left - 8, y + 3);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) {
+    const val = (height / 4) * i;
+    const x = pad.left + (pw / 4) * i;
+    ctx.fillText(val.toFixed(0) + 'mm', x, h - 5);
+  }
+
+  // XY line
+  ctx.strokeStyle = '#6366f1';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = pad.left + (d.t * pw);
+    const y = pad.top + ph - (d.xy / maxVal) * ph;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Z line
+  ctx.strokeStyle = '#f59e0b';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  data.forEach((d, i) => {
+    const x = pad.left + (d.t * pw);
+    const y = pad.top + ph - (d.z / maxVal) * ph;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Legend
+  ctx.font = '11px Inter, sans-serif';
+  ctx.fillStyle = '#6366f1';
+  ctx.fillRect(w - 130, 8, 12, 3);
+  ctx.fillText('XY Shrinkage', w - 65, 13);
+  ctx.fillStyle = '#f59e0b';
+  ctx.fillRect(w - 130, 22, 12, 3);
+  ctx.fillText('Z Shrinkage', w - 68, 27);
+}
+
+function drawWarpMap(dimX, dimY, warpScore, flatBase, cornerLift) {
+  const canvas = document.getElementById('warpMap');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = 200 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = 200;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Draw part outline centered
+  const maxDim = Math.max(dimX, dimY);
+  const scale = Math.min((w - 80) / maxDim, (h - 40) / maxDim);
+  const partW = dimX * scale;
+  const partH = dimY * scale;
+  const ox = (w - partW) / 2;
+  const oy = (h - partH) / 2;
+
+  // Heatmap: corners are hot (high warp), center is cool
+  const res = 2; // pixel resolution
+  for (let px = 0; px < partW; px += res) {
+    for (let py = 0; py < partH; py += res) {
+      // Distance from center, normalized
+      const cx = px / partW - 0.5;
+      const cy = py / partH - 0.5;
+      // Radial distance + corner emphasis
+      const radial = Math.sqrt(cx * cx + cy * cy) / 0.707;
+      // Corner emphasis: product of distances from edges
+      const edgeX = Math.min(px / partW, 1 - px / partW);
+      const edgeY = Math.min(py / partH, 1 - py / partH);
+      const cornerness = 1 - Math.min(edgeX, edgeY) * 4;
+      const clamped = Math.max(0, cornerness);
+
+      const intensity = (radial * 0.4 + clamped * 0.6) * warpScore;
+      const r = Math.min(255, Math.floor(intensity * 400));
+      const g = Math.min(255, Math.max(0, Math.floor((1 - intensity * 1.5) * 200)));
+      const b = Math.min(255, Math.max(0, Math.floor((1 - intensity * 2) * 150)));
+      const a = 0.3 + intensity * 0.7;
+      ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+      ctx.fillRect(ox + px, oy + py, res, res);
+    }
+  }
+
+  // Border
+  ctx.strokeStyle = 'rgba(99, 102, 241, 0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(ox, oy, partW, partH);
+
+  // Corner lift annotations
+  const corners = [
+    { x: ox, y: oy, label: 'TL' },
+    { x: ox + partW, y: oy, label: 'TR' },
+    { x: ox, y: oy + partH, label: 'BL' },
+    { x: ox + partW, y: oy + partH, label: 'BR' }
+  ];
+
+  ctx.font = '10px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  corners.forEach(c => {
+    const lift = (cornerLift * (0.8 + Math.random() * 0.4)).toFixed(2);
+    const color = +lift > 0.3 ? '#ef4444' : +lift > 0.15 ? '#f59e0b' : '#10b981';
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText(`${lift}mm`, c.x, c.y - 10);
+  });
+
+  // Dimension labels
+  ctx.fillStyle = '#64748b';
+  ctx.font = '11px Inter, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${dimX}mm`, ox + partW / 2, oy + partH + 18);
+  ctx.save();
+  ctx.translate(ox - 14, oy + partH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(`${dimY}mm`, 0, 0);
+  ctx.restore();
+
+  // Legend
+  const lgx = w - 100;
+  const gradient = ctx.createLinearGradient(lgx, h - 30, lgx + 70, h - 30);
+  gradient.addColorStop(0, 'rgba(0, 150, 100, 0.6)');
+  gradient.addColorStop(0.5, 'rgba(200, 150, 0, 0.7)');
+  gradient.addColorStop(1, 'rgba(255, 50, 50, 0.8)');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(lgx, h - 35, 70, 10);
+  ctx.fillStyle = '#64748b';
+  ctx.font = '9px Inter, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Low', lgx, h - 8);
+  ctx.textAlign = 'right';
+  ctx.fillText('High', lgx + 70, h - 8);
+  ctx.textAlign = 'center';
+  ctx.fillText('Warp Risk', lgx + 35, h - 40);
+}
+
+function generateRecommendations(mat, warp, lift, tolMargin, tol, nozzle, bed, fan, speed, enclosure, base, infill, x, y, z) {
+  const recs = [];
+
+  // Enclosure for high-warp materials
+  if (warp > 0.4 && enclosure === 'none') {
+    recs.push({
+      type: 'rec-fix', icon: '🏠',
+      text: `<strong>Add an enclosure.</strong> ${mat.name} warps significantly in open air. Even a cardboard box enclosure reduces thermal gradients and cuts warp risk by 40-70%.`
+    });
+  }
+
+  // Bed temp
+  if (bed < mat.bedRange[0]) {
+    recs.push({
+      type: 'rec-fix', icon: '🌡',
+      text: `<strong>Increase bed temp to ${mat.bedRange[0]}–${mat.bedRange[1]}°C.</strong> Current ${bed}°C is below ${mat.name} recommended range. Low bed temp = faster edge cooling = more warp.`
+    });
+  }
+
+  // Fan for warp-prone materials
+  if (warp > 0.5 && fan > 50 && ['abs', 'asa', 'nylon', 'pc'].includes(document.getElementById('material').value)) {
+    recs.push({
+      type: 'rec-fix', icon: '💨',
+      text: `<strong>Reduce fan to 0–30%.</strong> ${mat.name} needs slow, even cooling. High fan speed creates thermal shock → internal stress → warping. First 3-5 layers: fan OFF.`
+    });
+  }
+
+  // Brim for large parts
+  if (lift > 0.2 && base !== 'no') {
+    const brimWidth = Math.max(5, Math.min(15, lift * 20)).toFixed(0);
+    recs.push({
+      type: 'rec-fix', icon: '📎',
+      text: `<strong>Add a ${brimWidth}mm brim.</strong> Predicted corner lift of ${lift.toFixed(2)}mm is significant. A brim increases bed adhesion area and resists corner peeling.`
+    });
+  }
+
+  // Tolerance compensation
+  if (tolMargin < 0) {
+    recs.push({
+      type: 'rec-warn', icon: '📐',
+      text: `<strong>Use compensated dimensions in your CAD model.</strong> Predicted shrinkage exceeds your ±${tol}mm tolerance by ${Math.abs(tolMargin).toFixed(3)}mm. Scale up per the compensated dimensions table above.`
+    });
+  }
+
+  // Speed
+  if (speed > 80 && warp > 0.3) {
+    recs.push({
+      type: 'rec-warn', icon: '🐢',
+      text: `<strong>Reduce print speed to 40-60mm/s.</strong> At ${speed}mm/s, each layer has less time to cool evenly before the next is deposited. Slower = more uniform thermal distribution.`
+    });
+  }
+
+  // Infill for structural parts
+  if (infill < 15 && tol <= 0.15) {
+    recs.push({
+      type: 'rec-warn', icon: '🧱',
+      text: `<strong>Increase infill to 25-40%.</strong> At ${infill}% infill with tight tolerances, the part may deform under internal thermal stress during cooling. More infill = more rigidity.`
+    });
+  }
+
+  // Moisture warning
+  if (mat.moistureSensitive) {
+    recs.push({
+      type: 'rec-info', icon: '💧',
+      text: `<strong>${mat.name} is moisture-sensitive.</strong> Dry your filament before printing (4-6 hours at 45-65°C depending on material). Wet filament causes bubbles, stringing, and unpredictable shrinkage.`
+    });
+  }
+
+  // Large part warning
+  const footprint = x * y;
+  if (footprint > 15000) {
+    recs.push({
+      type: 'rec-warn', icon: '📏',
+      text: `<strong>Large footprint (${(footprint/100).toFixed(0)}cm²).</strong> Consider splitting into smaller parts and assembling. Parts over 150cm² footprint have disproportionate warp risk even with compensation.`
+    });
+  }
+
+  // Positive feedback
+  if (warp < 0.2 && tolMargin > 0.1) {
+    recs.push({
+      type: 'rec-info', icon: '✅',
+      text: `<strong>Settings look solid.</strong> ${mat.name} at these dimensions and temps should produce accurate results. Print a test cube first to validate your specific filament brand.`
+    });
+  }
+
+  // Always recommend test print for tight tolerances
+  if (tol <= 0.15) {
+    recs.push({
+      type: 'rec-info', icon: '🎯',
+      text: `<strong>Print a calibration cube first.</strong> At ±${tol}mm tolerance, your specific filament brand matters. Print a 20×20×20mm cube, measure all axes with calipers, and dial in your actual shrinkage rates.`
+    });
+  }
+
+  return recs;
+}
+
+// Auto-adjust defaults when material changes
+document.getElementById('material').addEventListener('change', function() {
+  const mat = MATERIALS[this.value];
+  document.getElementById('nozzleTemp').value = Math.round((mat.meltRange[0] + mat.meltRange[1]) / 2);
+  document.getElementById('bedTemp').value = Math.round((mat.bedRange[0] + mat.bedRange[1]) / 2);
+  if (['abs', 'asa', 'nylon', 'pc'].includes(this.value)) {
+    document.getElementById('fanSpeed').value = 30;
+  } else {
+    document.getElementById('fanSpeed').value = 100;
+  }
+});
+
+// Handle resize
+window.addEventListener('resize', () => {
+  if (!document.getElementById('results').classList.contains('results-hidden')) {
+    predict();
+  }
+});
+</script>
+
+</body>
+</html>

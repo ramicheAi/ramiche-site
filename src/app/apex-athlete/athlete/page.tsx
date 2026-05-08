@@ -11,6 +11,8 @@ import AthleteCard from "../components/AthleteCard";
 import WorkoutLog from "../components/WorkoutLog";
 import { storageSaveRoster } from "../lib/storage";
 import { fbSaveAthleteData, fbGetAthleteData } from "@/lib/firebase";
+import GritPointsBalance from "@/components/gamification/GritPointsBalance";
+import { useGamificationFlag } from "../gamification-flag-context";
 
 /* ══════════════════════════════════════════════════════════════
    APEX ATHLETE — Athlete Portal (Enhanced)
@@ -630,6 +632,7 @@ function fmtTime(secs: number): string {
 type TabKey = "dashboard" | "times" | "goals" | "standards" | "raceprep" | "quests" | "journal" | "feedback" | "leaderboard" | "wellness" | "meets" | "workout";
 
 export default function AthletePortal() {
+  const gamificationOn = useGamificationFlag();
   const [mounted, setMounted] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [pinError, setPinError] = useState(false);
@@ -1519,6 +1522,19 @@ export default function AthletePortal() {
               style={{ width: `${progress.percent}%`, background: 'linear-gradient(90deg, #7C3AED, #A78BFA)' }} />
           </div>
         </div>
+
+        {/* Gamification: Grit Points Balance (flag-gated) */}
+        {gamificationOn && athlete && (
+          <div className="mb-4 lg:mb-8 w-full">
+            <GritPointsBalance
+              athleteName={athlete.name}
+              totalGrit={athlete.xp}
+              lifetimeEarned={athlete.xp + 350}
+              lifetimeRedeemed={350}
+              sport="swimming"
+            />
+          </div>
+        )}
 
         {/* Quick Stats Row */}
         <div className="grid grid-cols-3 gap-3 lg:gap-6 mb-5 lg:mb-10 w-full">

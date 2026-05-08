@@ -39,6 +39,9 @@ yarn-error.log*
 # context+
 .mcp_data/
 
+# nested node_modules
+public/projects/**/node_modules/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

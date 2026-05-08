@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrintFlow Job Tracker — Ramiche Studio</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--surface3:#222233;
+  --border:#2a2a3a;--border-hover:#3a3a5a;
+  --text:#e8e8f0;--text-muted:#8888a0;--text-dim:#555570;
+  --accent:#6c5ce7;--accent-glow:#6c5ce740;--accent-light:#a29bfe;
+  --green:#00d2a0;--green-glow:#00d2a030;
+  --amber:#ffb347;--amber-glow:#ffb34730;
+  --red:#ff6b6b;--red-glow:#ff6b6b30;
+  --blue:#4ecdc4;--blue-glow:#4ecdc430;
+  --purple:#b388ff;
+  --font:'Inter',system-ui,-apple-system,sans-serif;
+  --mono:'JetBrains Mono','SF Mono','Fira Code',monospace;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh;overflow-x:hidden}
+.app{max-width:800px;margin:0 auto;padding:24px 20px 100px}
+
+/* Header */
+.header{text-align:center;padding:48px 0 40px;border-bottom:1px solid var(--border);margin-bottom:32px}
+.header .logo{font-size:11px;letter-spacing:6px;text-transform:uppercase;color:var(--accent-light);margin-bottom:16px;font-weight:500}
+.header h1{font-size:32px;font-weight:700;letter-spacing:-0.5px;margin-bottom:8px;background:linear-gradient(135deg,var(--text),var(--accent-light));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .sub{font-size:14px;color:var(--text-muted);font-weight:400}
+
+/* Stats Row */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;text-align:center;transition:all .2s}
+.stat-card:hover{border-color:var(--border-hover);transform:translateY(-1px)}
+.stat-card .value{font-size:28px;font-weight:700;font-family:var(--mono);margin-bottom:2px}
+.stat-card .label{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px}
+.stat-card.queued .value{color:var(--blue)}
+.stat-card.printing .value{color:var(--amber)}
+.stat-card.done .value{color:var(--green)}
+.stat-card.revenue .value{color:var(--accent-light)}
+
+/* Action Bar */
+.action-bar{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.btn{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;font-family:var(--font)}
+.btn:hover{border-color:var(--accent);background:var(--surface2)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#5a4bd6;box-shadow:0 4px 20px var(--accent-glow)}
+.filter-tabs{display:flex;gap:4px;background:var(--surface);border-radius:8px;padding:3px;border:1px solid var(--border)}
+.filter-tab{padding:6px 14px;border-radius:6px;border:none;background:transparent;color:var(--text-muted);font-size:12px;cursor:pointer;transition:all .2s;font-family:var(--font);font-weight:500}
+.filter-tab.active{background:var(--accent);color:#fff}
+.filter-tab:hover:not(.active){color:var(--text);background:var(--surface2)}
+
+/* Job Cards */
+.jobs-list{display:flex;flex-direction:column;gap:12px}
+.job-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 24px;transition:all .25s;cursor:pointer;position:relative;overflow:hidden}
+.job-card:hover{border-color:var(--border-hover);transform:translateY(-1px);box-shadow:0 8px 32px rgba(0,0,0,.3)}
+.job-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px}
+.job-card.status-queued::before{background:var(--blue)}
+.job-card.status-printing::before{background:var(--amber)}
+.job-card.status-done::before{background:var(--green)}
+.job-card.status-failed::before{background:var(--red)}
+.job-card.status-review::before{background:var(--purple)}
+
+.job-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.job-name{font-size:16px;font-weight:600;letter-spacing:-0.2px}
+.job-id{font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:2px}
+.job-status{padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;white-space:nowrap}
+.status-queued .job-status{background:var(--blue-glow);color:var(--blue)}
+.status-printing .job-status{background:var(--amber-glow);color:var(--amber)}
+.status-done .job-status{background:var(--green-glow);color:var(--green)}
+.status-failed .job-status{background:var(--red-glow);color:var(--red)}
+.status-review .job-status{background:#b388ff30;color:var(--purple)}
+
+.job-meta{display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px}
+.job-meta-item{font-size:12px;color:var(--text-muted)}
+.job-meta-item span{color:var(--text);font-weight:500}
+
+.job-progress{margin-top:8px}
+.progress-bar{height:4px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:4px;transition:width .5s ease}
+.status-queued .progress-fill{background:var(--blue);width:0%}
+.status-printing .progress-fill{background:var(--amber)}
+.status-done .progress-fill{background:var(--green);width:100%}
+.status-failed .progress-fill{background:var(--red)}
+.status-review .progress-fill{background:var(--purple);width:100%}
+.progress-label{display:flex;justify-content:space-between;margin-top:4px;font-size:11px;color:var(--text-dim);font-family:var(--mono)}
+
+/* Expanded Job Detail */
+.job-detail{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.job-card.expanded .job-detail{max-height:600px}
+.detail-inner{padding-top:16px;border-top:1px solid var(--border);margin-top:16px}
+.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.detail-item{background:var(--surface2);border-radius:8px;padding:12px}
+.detail-item .dlabel{font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.detail-item .dvalue{font-size:14px;font-weight:600;font-family:var(--mono)}
+.detail-actions{display:flex;gap:8px;flex-wrap:wrap}
+.detail-actions .btn{font-size:12px;padding:7px 14px}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-overlay.active{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;padding:32px}
+.modal h2{font-size:20px;font-weight:700;margin-bottom:20px;letter-spacing:-0.3px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;font-weight:500}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:var(--font);transition:border-color .2s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{outline:none;border-color:var(--accent)}
+.form-group textarea{resize:vertical;min-height:60px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;padding-top:16px;border-top:1px solid var(--border)}
+
+/* Timeline */
+.timeline{margin-top:12px}
+.timeline-item{display:flex;gap:12px;padding:6px 0;font-size:12px}
+.timeline-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);margin-top:5px;flex-shrink:0}
+.timeline-item .ttime{color:var(--text-dim);font-family:var(--mono);min-width:70px}
+.timeline-item .tevent{color:var(--text-muted)}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 24px;font-size:13px;z-index:200;transition:transform .3s ease;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast.show{transform:translateX(-50%) translateY(0)}
+
+/* Empty State */
+.empty{text-align:center;padding:60px 20px;color:var(--text-dim)}
+.empty .icon{font-size:48px;margin-bottom:16px;opacity:.5}
+.empty p{font-size:14px}
+
+/* Responsive */
+@media(max-width:600px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .detail-grid{grid-template-columns:1fr}
+  .form-row{grid-template-columns:1fr}
+  .action-bar{flex-direction:column}
+  .header h1{font-size:24px}
+}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="logo">Ramiche Studio</div>
+    <h1>PrintFlow Job Tracker</h1>
+    <p class="sub">3D Print Production Management — Intake to Delivery</p>
+  </header>
+
+  <div class="stats-row" id="stats"></div>
+
+  <div class="action-bar">
+    <button class="btn primary" onclick="openNewJob()">+ New Job</button>
+    <div class="filter-tabs" id="filterTabs"></div>
+  </div>
+
+  <div class="jobs-list" id="jobsList"></div>
+</div>
+
+<!-- New Job Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modalTitle">New Print Job</h2>
+    <div class="form-group">
+      <label>Job Name</label>
+      <input type="text" id="fName" placeholder="Custom Phone Stand v2">
+    </div>
+    <div class="form-group">
+      <label>Client</label>
+      <input type="text" id="fClient" placeholder="Client name or 'Internal'">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Material</label>
+        <select id="fMaterial">
+          <option value="PLA">PLA — $22/kg</option>
+          <option value="PLA+">PLA+ — $26/kg</option>
+          <option value="PETG">PETG — $28/kg</option>
+          <option value="ASA">ASA — $32/kg</option>
+          <option value="ABS">ABS — $24/kg</option>
+          <option value="TPU">TPU — $38/kg</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Profile</label>
+        <select id="fProfile">
+          <option value="Quality">Quality — 0.16mm</option>
+          <option value="Fast">Fast — 0.20mm</option>
+          <option value="Draft">Draft — 0.28mm</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Est. Weight (g)</label>
+        <input type="number" id="fWeight" placeholder="45" min="1">
+      </div>
+      <div class="form-group">
+        <label>Est. Print Time (hrs)</label>
+        <input type="number" id="fHours" placeholder="6" min="0.5" step="0.5">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" id="fQty" value="1" min="1">
+      </div>
+      <div class="form-group">
+        <label>Priority</label>
+        <select id="fPriority">
+          <option value="Normal">Normal</option>
+          <option value="Rush">Rush (+25%)</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <textarea id="fNotes" placeholder="Special instructions, color, post-processing..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="submitJob()">Create Job</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const MATERIALS={PLA:{cost:22,temp:'210°C',bed:'60°C'},['PLA+']:{cost:26,temp:'220°C',bed:'65°C'},PETG:{cost:28,temp:'240°C',bed:'80°C'},ASA:{cost:32,temp:'260°C',bed:'100°C'},ABS:{cost:24,temp:'250°C',bed:'100°C'},TPU:{cost:38,temp:'225°C',bed:'50°C'}};
+const STATUSES=['all','review','queued','printing','done','failed'];
+const STATUS_LABELS={all:'All',review:'Review',queued:'Queued',printing:'Printing',done:'Done',failed:'Failed'};
+
+let jobs=[];
+let currentFilter='all';
+let editingId=null;
+
+function init(){
+  const stored=localStorage.getItem('printflow-jobs');
+  if(stored){jobs=JSON.parse(stored)}else{jobs=generateSampleJobs();save()}
+  renderFilters();
+  render();
+}
+
+function save(){localStorage.setItem('printflow-jobs',JSON.stringify(jobs))}
+
+function generateId(){return'PF-'+String(Math.floor(Math.random()*9000)+1000)}
+
+function generateSampleJobs(){
+  const now=Date.now();
+  return[
+    {id:'PF-4201',name:'Rozi Cosmic Mechanic — Full Body',client:'Internal',material:'PLA+',profile:'Quality',weight:182,hours:14,qty:1,priority:'Normal',status:'review',progress:100,quote:42.80,notes:'6-part split, v10 final. Awaiting Ramon validation.',created:now-86400000*5,timeline:[{t:now-86400000*5,e:'Job created'},{t:now-86400000*4,e:'Mesh repaired (6 watertight STLs)'},{t:now-86400000*3,e:'Sliced with OrcaSlicer — tree supports'},{t:now-86400000*2,e:'Awaiting client review'}]},
+    {id:'PF-4202',name:'Custom Grinder — 55mm Matte Black',client:'Etsy Order #8834',material:'PETG',profile:'Quality',weight:68,hours:7.5,qty:2,priority:'Normal',status:'printing',progress:64,quote:36.50,notes:'2x units, matte black PETG, tree supports on teeth.',created:now-86400000*2,timeline:[{t:now-86400000*2,e:'Job created'},{t:now-86400000*1.5,e:'Design approved'},{t:now-86400000,e:'Queued for print'},{t:now-43200000,e:'Print started — ETA 7.5h'}]},
+    {id:'PF-4203',name:'Stash Jar — Screw Top, Galaxy Purple',client:'Walk-in',material:'PLA',profile:'Fast',weight:34,hours:3,qty:1,priority:'Rush',status:'queued',progress:0,quote:18.00,notes:'Rush order, galaxy purple PLA, screw-top lid.',created:now-3600000*6,timeline:[{t:now-3600000*6,e:'Job created (Rush)'},{t:now-3600000*4,e:'Design reviewed — good to print'}]},
+    {id:'PF-4204',name:'Desk Cable Tray — 200x120mm',client:'Internal',material:'PLA',profile:'Draft',weight:52,hours:2.5,qty:3,priority:'Low',status:'queued',progress:0,quote:24.00,notes:'3x trays for studio desk organization.',created:now-86400000,timeline:[{t:now-86400000,e:'Job created'},{t:now-43200000,e:'Design approved'}]},
+    {id:'PF-4205',name:'Coaster Set — Ramiche Logo',client:'Ramiche Brand',material:'PETG',profile:'Quality',weight:22,hours:1.5,qty:6,priority:'Normal',status:'done',progress:100,quote:32.40,notes:'6x branded coasters, anti-slip feet, logo recess. Shipped.',created:now-86400000*8,timeline:[{t:now-86400000*8,e:'Job created'},{t:now-86400000*7,e:'Design approved'},{t:now-86400000*6,e:'Print started'},{t:now-86400000*5,e:'Print complete — QC passed'},{t:now-86400000*4,e:'Post-processing complete'},{t:now-86400000*3,e:'Shipped to client'}]},
+    {id:'PF-4206',name:'Phone Stand — Articulated',client:'Prototype',material:'TPU',profile:'Fast',weight:28,hours:4,qty:1,priority:'Normal',status:'failed',progress:72,quote:0,notes:'Failed at layer 212 — partial clog from moisture. Drying filament.',created:now-86400000*3,timeline:[{t:now-86400000*3,e:'Job created'},{t:now-86400000*2.5,e:'Print started'},{t:now-86400000*2,e:'FAILED — Layer 212, partial clog'},{t:now-86400000*1.5,e:'Root cause: moisture in TPU spool'},{t:now-86400000,e:'Filament drying — reschedule pending'}]},
+    {id:'PF-4207',name:'Bambu A1 Camera Mount',client:'Internal',material:'PETG',profile:'Quality',weight:15,hours:2,qty:1,priority:'Normal',status:'done',progress:100,quote:0,notes:'Internal tool — camera mount for print monitoring.',created:now-86400000*10,timeline:[{t:now-86400000*10,e:'Job created'},{t:now-86400000*9,e:'Printed successfully'},{t:now-86400000*8,e:'Installed on printer'}]},
+    {id:'PF-4208',name:'Client Sample Pack — 4 Materials',client:'B2B Lead',material:'PLA',profile:'Quality',weight:40,hours:3,qty:4,priority:'Rush',status:'queued',progress:0,quote:28.00,notes:'Sample pack: 1x PLA, 1x PETG, 1x ASA, 1x TPU. Same model, different materials. For material comparison.',created:now-7200000,timeline:[{t:now-7200000,e:'Job created (Rush)'},{t:now-3600000,e:'Models sliced — 4 profiles ready'}]}
+  ];
+}
+
+function calcQuote(weight,hours,material,qty,priority){
+  const matCost=(weight/1000)*MATERIALS[material].cost;
+  const electricity=hours*0.15;
+  const depreciation=hours*0.50;
+  const labor=hours*12;
+  const base=matCost+electricity+depreciation+labor;
+  const withMargin=base*1.4;
+  const rushMult=priority==='Rush'?1.25:1;
+  return Math.round(withMargin*qty*rushMult*100)/100;
+}
+
+function renderFilters(){
+  const el=document.getElementById('filterTabs');
+  el.innerHTML=STATUSES.map(s=>`<button class="filter-tab${currentFilter===s?' active':''}" onclick="setFilter('${s}')">${STATUS_LABELS[s]}</button>`).join('');
+}
+
+function setFilter(f){currentFilter=f;renderFilters();render()}
+
+function render(){
+  renderStats();
+  renderJobs();
+}
+
+function renderStats(){
+  const queued=jobs.filter(j=>j.status==='queued').length;
+  const printing=jobs.filter(j=>j.status==='printing').length;
+  const done=jobs.filter(j=>j.status==='done').length;
+  const revenue=jobs.filter(j=>j.status==='done').reduce((a,j)=>a+j.quote,0);
+  document.getElementById('stats').innerHTML=`
+    <div class="stat-card queued"><div class="value">${queued}</div><div class="label">Queued</div></div>
+    <div class="stat-card printing"><div class="value">${printing}</div><div class="label">Printing</div></div>
+    <div class="stat-card done"><div class="value">${done}</div><div class="label">Complete</div></div>
+    <div class="stat-card revenue"><div class="value">$${revenue.toFixed(0)}</div><div class="label">Revenue</div></div>
+  `;
+}
+
+function renderJobs(){
+  const el=document.getElementById('jobsList');
+  const filtered=currentFilter==='all'?jobs:jobs.filter(j=>j.status===currentFilter);
+  if(!filtered.length){
+    el.innerHTML=`<div class="empty"><div class="icon">⚙️</div><p>No jobs matching "${STATUS_LABELS[currentFilter]}"</p></div>`;
+    return;
+  }
+  const sorted=[...filtered].sort((a,b)=>{
+    const order={printing:0,queued:1,review:2,failed:3,done:4};
+    if(order[a.status]!==order[b.status])return order[a.status]-order[b.status];
+    if(a.priority==='Rush'&&b.priority!=='Rush')return-1;
+    if(b.priority==='Rush'&&a.priority!=='Rush')return 1;
+    return b.created-a.created;
+  });
+  el.innerHTML=sorted.map(j=>{
+    const mat=MATERIALS[j.material]||MATERIALS.PLA;
+    const created=new Date(j.created);
+    const dateStr=created.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const rushBadge=j.priority==='Rush'?'<span style="color:var(--red);font-size:11px;font-weight:600;margin-left:8px">⚡ RUSH</span>':'';
+    return`
+    <div class="job-card status-${j.status}" id="job-${j.id}" onclick="toggleJob('${j.id}')">
+      <div class="job-top">
+        <div>
+          <div class="job-name">${j.name}${rushBadge}</div>
+          <div class="job-id">${j.id} · ${j.client} · ${dateStr}</div>
+        </div>
+        <div class="job-status">${j.status}</div>
+      </div>
+      <div class="job-meta">
+        <div class="job-meta-item">Material: <span>${j.material}</span></div>
+        <div class="job-meta-item">Weight: <span>${j.weight}g × ${j.qty}</span></div>
+        <div class="job-meta-item">Time: <span>${j.hours}h</span></div>
+        <div class="job-meta-item">Quote: <span>${j.quote>0?'$'+j.quote.toFixed(2):'—'}</span></div>
+      </div>
+      ${j.status==='printing'||j.progress>0?`
+      <div class="job-progress">
+        <div class="progress-bar"><div class="progress-fill" style="width:${j.progress}%"></div></div>
+        <div class="progress-label"><span>${j.progress}%</span><span>${j.status==='printing'?'~'+Math.round(j.hours*(1-j.progress/100)*60)+'m remaining':''}</span></div>
+      </div>`:''}
+      <div class="job-detail">
+        <div class="detail-inner">
+          <div class="detail-grid">
+            <div class="detail-item"><div class="dlabel">Nozzle Temp</div><div class="dvalue">${mat.temp}</div></div>
+            <div class="detail-item"><div class="dlabel">Bed Temp</div><div class="dvalue">${mat.bed}</div></div>
+            <div class="detail-item"><div class="dlabel">Layer Height</div><div class="dvalue">${j.profile==='Quality'?'0.16mm':j.profile==='Fast'?'0.20mm':'0.28mm'}</div></div>
+            <div class="detail-item"><div class="dlabel">Total Weight</div><div class="dvalue">${j.weight*j.qty}g</div></div>
+          </div>
+          ${j.notes?`<p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.5">${j.notes}</p>`:''}
+          <div class="timeline">${(j.timeline||[]).map(t=>`
+            <div class="timeline-item">
+              <div class="timeline-dot"></div>
+              <div class="ttime">${new Date(t.t).toLocaleDateString('en-US',{month:'short',day:'numeric'})}</div>
+              <div class="tevent">${t.e}</div>
+            </div>`).join('')}
+          </div>
+          <div class="detail-actions" style="margin-top:16px">
+            ${j.status==='queued'?`<button class="btn" onclick="event.stopPropagation();advanceStatus('${j.id}','printing')">▶ Start Print</button>`:''}
+            ${j.status==='printing'?`<button class="btn" onclick="event.stopPropagation();advanceStatus('${j.id}','done')">✓ Mark Done</button><button class="btn" onclick="event.stopPropagation();advanceStatus('${j.id}','failed')">✗ Mark Failed</button>`:''}
+            ${j.status==='review'?`<button class="btn" onclick="event.stopPropagation();advanceStatus('${j.id}','queued')">✓ Approve → Queue</button>`:''}
+            ${j.status==='failed'?`<button class="btn" onclick="event.stopPropagation();advanceStatus('${j.id}','queued')">↻ Requeue</button>`:''}
+            <button class="btn" onclick="event.stopPropagation();deleteJob('${j.id}')" style="color:var(--red)">Delete</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleJob(id){
+  const el=document.getElementById('job-'+id);
+  if(el)el.classList.toggle('expanded');
+}
+
+function advanceStatus(id,newStatus){
+  const job=jobs.find(j=>j.id===id);
+  if(!job)return;
+  job.status=newStatus;
+  if(newStatus==='printing')job.progress=Math.floor(Math.random()*30)+5;
+  if(newStatus==='done')job.progress=100;
+  if(newStatus==='queued')job.progress=0;
+  if(!job.timeline)job.timeline=[];
+  job.timeline.push({t:Date.now(),e:`Status → ${newStatus.charAt(0).toUpperCase()+newStatus.slice(1)}`});
+  save();render();
+  toast(`${job.id} → ${newStatus}`);
+}
+
+function deleteJob(id){
+  if(!confirm('Delete this job?'))return;
+  jobs=jobs.filter(j=>j.id!==id);
+  save();render();
+  toast('Job deleted');
+}
+
+function openNewJob(){
+  editingId=null;
+  document.getElementById('modalTitle').textContent='New Print Job';
+  document.getElementById('fName').value='';
+  document.getElementById('fClient').value='';
+  document.getElementById('fMaterial').value='PLA';
+  document.getElementById('fProfile').value='Quality';
+  document.getElementById('fWeight').value='';
+  document.getElementById('fHours').value='';
+  document.getElementById('fQty').value='1';
+  document.getElementById('fPriority').value='Normal';
+  document.getElementById('fNotes').value='';
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('active')}
+
+function submitJob(){
+  const name=document.getElementById('fName').value.trim();
+  const client=document.getElementById('fClient').value.trim()||'Internal';
+  const material=document.getElementById('fMaterial').value;
+  const profile=document.getElementById('fProfile').value;
+  const weight=parseFloat(document.getElementById('fWeight').value)||30;
+  const hours=parseFloat(document.getElementById('fHours').value)||3;
+  const qty=parseInt(document.getElementById('fQty').value)||1;
+  const priority=document.getElementById('fPriority').value;
+  const notes=document.getElementById('fNotes').value.trim();
+  if(!name){toast('Job name required');return}
+  const quote=calcQuote(weight,hours,material,qty,priority);
+  const job={
+    id:generateId(),name,client,material,profile,weight,hours,qty,priority,
+    status:'review',progress:0,quote,notes,
+    created:Date.now(),
+    timeline:[{t:Date.now(),e:'Job created'+(priority==='Rush'?' (Rush)':'')}]
+  };
+  jobs.unshift(job);
+  save();render();closeModal();
+  toast(`${job.id} created — $${quote.toFixed(2)}`);
+}
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2500);
+}
+
+// Simulate printing progress
+setInterval(()=>{
+  let changed=false;
+  jobs.forEach(j=>{
+    if(j.status==='printing'&&j.progress<98){
+      j.progress=Math.min(98,j.progress+Math.random()*2);
+      changed=true;
+    }
+  });
+  if(changed){save();render()}
+},10000);
+
+document.getElementById('modal').addEventListener('click',e=>{if(e.target===document.getElementById('modal'))closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+init();
+</script>
+</body>
+</html>

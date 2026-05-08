@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE Deal Objection Handler</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--card:#12121a;--border:#1e1e2e;--accent:#6c5ce7;--accent2:#a29bfe;--green:#00b894;--red:#e17055;--orange:#fdcb6e;--text:#e0e0e0;--muted:#666;--white:#fff}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.container{max-width:1200px;margin:0 auto;padding:20px}
+
+/* Header */
+.header{text-align:center;padding:30px 0 20px;border-bottom:1px solid var(--border);margin-bottom:30px}
+.header h1{font-size:2rem;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:6px}
+.header .sub{color:var(--muted);font-size:.85rem;letter-spacing:2px;text-transform:uppercase}
+.stats-bar{display:flex;justify-content:center;gap:30px;margin-top:16px;flex-wrap:wrap}
+.stat{text-align:center}
+.stat .num{font-size:1.6rem;font-weight:700;color:var(--accent2)}
+.stat .label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+
+/* Tabs */
+.tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+.tab{padding:10px 20px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--muted);cursor:pointer;font-size:.85rem;transition:all .2s}
+.tab:hover{border-color:var(--accent);color:var(--text)}
+.tab.active{background:var(--accent);color:var(--white);border-color:var(--accent)}
+
+/* Panels */
+.panel{display:none}
+.panel.active{display:block}
+
+/* Analyzer */
+.input-area{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+.input-area label{display:block;font-size:.8rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.input-area textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:1rem;resize:vertical;min-height:80px;font-family:inherit}
+.input-area textarea:focus{outline:none;border-color:var(--accent)}
+.input-area textarea::placeholder{color:#444}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+.btn{padding:10px 24px;border-radius:8px;border:none;cursor:pointer;font-size:.9rem;font-weight:600;transition:all .2s}
+.btn-primary{background:var(--accent);color:var(--white)}
+.btn-primary:hover{background:var(--accent2)}
+.btn-secondary{background:var(--card);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent)}
+.btn-danger{background:var(--red);color:var(--white)}
+.btn-danger:hover{opacity:.85}
+
+/* Result Card */
+.result{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.result-header{padding:16px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.result-header .cat-badge{padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.cat-price .cat-badge{background:rgba(225,112,85,.15);color:var(--red)}
+.cat-timing .cat-badge{background:rgba(253,203,110,.15);color:var(--orange)}
+.cat-competitor .cat-badge{background:rgba(108,92,231,.15);color:var(--accent2)}
+.cat-authority .cat-badge{background:rgba(0,184,148,.15);color:var(--green)}
+.cat-need .cat-badge{background:rgba(162,155,254,.15);color:var(--accent2)}
+.cat-trust .cat-badge{background:rgba(253,203,110,.15);color:var(--orange)}
+.cat-complexity .cat-badge{background:rgba(225,112,85,.15);color:var(--red)}
+.cat-status-quo .cat-badge{background:rgba(108,92,231,.15);color:var(--accent)}
+.result-header .objection-text{font-style:italic;color:var(--muted);font-size:.9rem;flex:1}
+.result-body{padding:20px}
+.response-section{margin-bottom:18px}
+.response-section h4{font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent2);margin-bottom:8px}
+.response-section p{line-height:1.6;font-size:.95rem}
+.response-section .talk-track{background:var(--bg);border-left:3px solid var(--accent);padding:12px 16px;border-radius:0 8px 8px 0;font-style:italic;margin-top:6px}
+.follow-up{background:var(--bg);border-radius:8px;padding:14px;margin-top:8px}
+.follow-up li{margin-bottom:6px;padding-left:8px;font-size:.9rem;list-style:none}
+.follow-up li::before{content:"→ ";color:var(--accent2)}
+
+/* Confidence Rating */
+.confidence-row{display:flex;align-items:center;gap:12px;padding:16px 20px;border-top:1px solid var(--border)}
+.confidence-row span{font-size:.8rem;color:var(--muted)}
+.stars{display:flex;gap:4px}
+.star{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.8rem;transition:all .2s}
+.star:hover,.star.filled{border-color:var(--accent);background:var(--accent);color:var(--white)}
+
+/* Drill Mode */
+.drill-area{text-align:center;padding:40px 20px}
+.drill-objection{font-size:1.4rem;font-weight:600;margin:30px 0;min-height:60px;line-height:1.4}
+.drill-timer{font-size:3rem;font-weight:700;color:var(--accent2);font-variant-numeric:tabular-nums;margin:20px 0}
+.drill-category{display:inline-block;padding:4px 14px;border-radius:20px;font-size:.75rem;background:rgba(108,92,231,.15);color:var(--accent2);margin-bottom:20px}
+.drill-input{width:100%;max-width:600px;margin:0 auto}
+.drill-input textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;color:var(--text);font-size:1rem;resize:vertical;min-height:100px;font-family:inherit}
+.drill-input textarea:focus{outline:none;border-color:var(--accent)}
+.drill-stats{display:flex;justify-content:center;gap:30px;margin-top:30px}
+.drill-result{margin-top:24px;text-align:left;max-width:600px;margin-left:auto;margin-right:auto}
+.drill-result .grade{font-size:1.2rem;font-weight:700;margin-bottom:12px;text-align:center}
+.grade-great{color:var(--green)}
+.grade-good{color:var(--accent2)}
+.grade-needs-work{color:var(--orange)}
+
+/* History */
+.history-item{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.history-item .cat-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cat-price .cat-dot{background:var(--red)}
+.cat-timing .cat-dot{background:var(--orange)}
+.cat-competitor .cat-dot{background:var(--accent)}
+.cat-authority .cat-dot{background:var(--green)}
+.cat-need .cat-dot{background:var(--accent2)}
+.cat-trust .cat-dot{background:var(--orange)}
+.cat-complexity .cat-dot{background:var(--red)}
+.cat-status-quo .cat-dot{background:var(--accent)}
+.history-item .h-text{flex:1;font-size:.9rem}
+.history-item .h-date{color:var(--muted);font-size:.75rem;flex-shrink:0}
+.history-item .h-conf{font-size:.75rem;color:var(--accent2)}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state .icon{font-size:3rem;margin-bottom:16px}
+
+/* Heatmap */
+.heatmap{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:30px}
+.heat-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px;text-align:center;transition:all .2s}
+.heat-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.heat-card .h-count{font-size:2rem;font-weight:700}
+.heat-card .h-name{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.heat-card .h-bar{height:4px;border-radius:2px;margin-top:10px;background:var(--border)}
+.heat-card .h-bar-fill{height:100%;border-radius:2px;transition:width .5s ease}
+
+/* Mobile */
+@media(max-width:768px){
+  .heatmap{grid-template-columns:repeat(2,1fr)}
+  .stats-bar{gap:16px}
+  .header h1{font-size:1.5rem}
+  .drill-objection{font-size:1.1rem}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🎯 Deal Objection Handler</h1>
+    <div class="sub">METTLE Sales Playbook Engine</div>
+    <div class="stats-bar">
+      <div class="stat"><div class="num" id="totalHandled">0</div><div class="label">Objections Handled</div></div>
+      <div class="stat"><div class="num" id="avgConfidence">—</div><div class="label">Avg Confidence</div></div>
+      <div class="stat"><div class="num" id="topCategory">—</div><div class="label">Most Common</div></div>
+      <div class="stat"><div class="num" id="drillScore">—</div><div class="label">Drill Score</div></div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="analyzer">Analyze Objection</div>
+    <div class="tab" data-tab="drill">Quick-Fire Drill</div>
+    <div class="tab" data-tab="history">History</div>
+    <div class="tab" data-tab="heatmap">Heatmap</div>
+  </div>
+
+  <!-- ANALYZER PANEL -->
+  <div class="panel active" id="panel-analyzer">
+    <div class="input-area">
+      <label>What did the prospect say?</label>
+      <textarea id="objectionInput" placeholder="e.g. &quot;We already use TeamUnify and switching would be a nightmare...&quot;"></textarea>
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="analyzeObjection()">Analyze & Respond</button>
+        <button class="btn btn-secondary" onclick="loadExample()">Load Example</button>
+      </div>
+    </div>
+    <div id="resultArea"></div>
+  </div>
+
+  <!-- DRILL PANEL -->
+  <div class="panel" id="panel-drill">
+    <div class="drill-area">
+      <div id="drillState">
+        <div style="margin-bottom:20px">
+          <div class="empty-state">
+            <div class="icon">⚡</div>
+            <p>Quick-Fire Drill Mode</p>
+            <p style="font-size:.85rem;margin-top:8px">Random objections. Timed responses. Get sharper.</p>
+          </div>
+          <button class="btn btn-primary" onclick="startDrill()" style="margin-top:20px">Start Drill</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORY PANEL -->
+  <div class="panel" id="panel-history">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="font-size:1rem">Objection History</h3>
+      <button class="btn btn-danger" onclick="clearHistory()" style="padding:6px 14px;font-size:.8rem">Clear All</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+
+  <!-- HEATMAP PANEL -->
+  <div class="panel" id="panel-heatmap">
+    <h3 style="font-size:1rem;margin-bottom:16px">Objection Category Heatmap</h3>
+    <div class="heatmap" id="heatmapGrid"></div>
+    <div id="heatInsights" style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px"></div>
+  </div>
+</div>
+
+<script>
+// ===== OBJECTION DATABASE =====
+const CATEGORIES = {
+  price: {
+    name: "Price",
+    color: "#e17055",
+    keywords: ["expensive","cost","price","budget","afford","cheap","money","investment","pay","pricing","roi","return","dollar","spend","fee","charge","free"],
+    reframe: "Price objections are really value objections in disguise. The prospect isn't saying your product costs too much — they're saying they don't yet see enough value to justify the cost.",
+    empathy: "I completely understand. Nobody wants to overspend, and you're being responsible with your program's budget. That's actually a sign of a well-run organization.",
+    proofPoint: "Saint Andrew's Aquatics saw a 23% improvement in athlete retention within 6 months of implementing METTLE. At 240+ athletes, that's roughly 55 athletes who would have churned — each worth $1,200/year in program fees. The math: $66K in retained revenue against a $4,188 annual METTLE investment. That's a 15.7x return.",
+    closingQuestion: "If I could show you that METTLE pays for itself within the first 90 days through reduced athlete churn alone — would the investment make sense for your program?",
+    talkTrack: "I hear you on the investment. Here's what I've learned working with 50+ swim programs: the real cost isn't the software — it's the athletes you lose because engagement drops. Every swimmer who quits mid-season is $1,200 in lost fees and a parent who tells five other parents. METTLE doesn't cost money — it prevents the bleeding.",
+    followUp: ["Send ROI calculator customized to their athlete count","Share Saint Andrew's case study within 24 hours","Schedule 15-min demo focused specifically on retention features","Follow up in 3 days with: 'Did the numbers make sense for your program?'"]
+  },
+  timing: {
+    name: "Timing",
+    color: "#fdcb6e",
+    keywords: ["timing","later","not now","next year","busy","season","quarter","soon","wait","ready","month","after","schedule","calendar","start","begin","summer","winter","spring","fall"],
+    reframe: "Timing objections are usually fear of change disguised as a schedule problem. The real question isn't 'when' — it's 'why not now?' There's always a reason to wait. There's rarely a reason this specific.",
+    empathy: "I get it — there's never a 'perfect' time to add something new, especially mid-season when you're already juggling meets, practices, and parent communication.",
+    proofPoint: "Programs that onboard during mid-season actually see faster adoption because athletes are already engaged. Claremont Swim Club started METTLE in October (mid-season) and had 89% athlete adoption within 3 weeks because the kids were already in the pool daily.",
+    closingQuestion: "What if we set up METTLE now with a soft launch — just your top training group — so you're fully dialed in before next season? Zero disruption to current operations.",
+    talkTrack: "I've heard 'after the season' from a lot of coaches. Here's what happens: season ends, summer hits, everyone scatters, and suddenly it's September and you're starting from scratch again. The coaches who win are the ones who plant the seed NOW so they harvest results NEXT season. What if we did a zero-pressure pilot with one group?",
+    followUp: ["Propose a phased rollout starting with one training group","Send onboarding timeline showing <2 hours of coach setup","Share mid-season success story from similar program","Book a call for 1 week out: 'Let's map this to YOUR season calendar'"]
+  },
+  competitor: {
+    name: "Competitor",
+    color: "#6c5ce7",
+    keywords: ["teamunify","team unify","swimmingly","active","already use","current","switch","switching","platform","software","system","tool","app","using","have","competitor","alternative","compare","vs"],
+    reframe: "They're not comparing you to a competitor — they're comparing the pain of switching to the comfort of staying. Your job is to reframe the category: METTLE isn't a replacement for their admin tool. It's a new category entirely.",
+    empathy: "That makes total sense. You've invested time learning your current system, your staff knows it, and switching costs are real. I wouldn't suggest ripping that out either.",
+    proofPoint: "72% of METTLE clients run TeamUnify alongside us. TeamUnify handles registration, billing, and meet entries. METTLE handles what TeamUnify can't: athlete engagement, gamified training progression, and data-driven coaching insights. They're complementary, not competitive.",
+    closingQuestion: "What if METTLE plugged INTO your current stack instead of replacing it? Would you be open to seeing how coaches at similar programs use both together?",
+    talkTrack: "TeamUnify runs your office. METTLE transforms your athletes. They're different tools for different jobs — like comparing Excel to a coaching playbook. 72% of our clients use both. The question isn't 'switch to METTLE.' It's 'what are your athletes missing right now that no admin tool can give them?'",
+    followUp: ["Send integration overview showing METTLE + TeamUnify side by side","Share testimonial from a program running both platforms","Offer 'stack audit' — show where METTLE fills gaps their current tools don't","Follow up: 'I mapped out how [Program X] runs both — want to see their setup?'"]
+  },
+  authority: {
+    name: "Authority",
+    color: "#00b894",
+    keywords: ["board","committee","approval","decide","boss","director","manager","vote","check with","run it by","talk to","permission","sign off","approve","stakeholder","parent","treasurer"],
+    reframe: "Authority objections mean they're interested but can't say yes alone. Your job shifts from selling to enabling — give them the ammunition to sell internally.",
+    empathy: "Totally fair — big decisions should involve the right people. I wouldn't want you to commit to something without your board's buy-in either.",
+    proofPoint: "We've built a board presentation template that three programs used to get unanimous approval in a single meeting. It covers ROI, implementation timeline, and athlete outcome projections — everything a treasurer and board president need to see.",
+    closingQuestion: "What if I put together a one-page brief specifically for your board that addresses their top concerns? I'll even join the call if that would help.",
+    talkTrack: "Here's what I've seen work: the coach who just says 'I found this software' gets pushback. The coach who says 'I found a tool that will retain 20 more athletes next year — here are the numbers' gets budget. Let me help you build that case. Who specifically needs to approve this?",
+    followUp: ["Send board-ready one-pager with ROI projections for their specific program size","Offer to join the board meeting (15 min, Q&A only)","Identify the actual decision-maker and their concerns","Follow up: 'I built the deck for your board — want me to walk you through it first?'"]
+  },
+  need: {
+    name: "Need",
+    color: "#a29bfe",
+    keywords: ["need","necessary","fine without","don't see","why","what for","already have","manage","doing okay","not sure","purpose","benefit","value","reason","point","worth"],
+    reframe: "When someone says they don't need it, they're telling you they don't see the problem yet. Your job isn't to sell the solution — it's to illuminate the gap they've normalized.",
+    empathy: "I respect that. If your program is running smoothly, the last thing you need is a solution looking for a problem. Can I ask you one question, though?",
+    proofPoint: "The average swim program loses 15-25% of athletes per season to disengagement — not injury, not cost, just boredom and lack of progression visibility. Most coaches don't see it because it happens slowly. METTLE programs average 8% attrition. That delta is the difference between growing and treading water.",
+    closingQuestion: "What's your athlete retention rate season over season? If it's above 90%, you genuinely might not need us. But if there's a gap — even 5% — that's real revenue walking out the door.",
+    talkTrack: "Most coaches think attrition is normal. 'Kids quit — that's just how it goes.' But when I show them the data — that programs using METTLE retain 15% more athletes — they realize what they thought was normal was actually a solvable problem. What does your retention look like?",
+    followUp: ["Send 'Attrition Cost Calculator' — plug in their numbers","Share industry benchmarks vs METTLE program benchmarks","Ask: 'Would you be open to a free retention audit of your program?'","Follow up with specific retention data from a comparable program"]
+  },
+  trust: {
+    name: "Trust",
+    color: "#fdcb6e",
+    keywords: ["trust","proven","reference","track record","how long","new","startup","reliable","guarantee","risk","safe","reviews","testimonial","case study","evidence","proof","show me","demonstrate"],
+    reframe: "Trust objections are the most honest objections. They're saying: 'I'm interested, but I need more evidence before I risk my program on your product.' Give them evidence, not promises.",
+    empathy: "That's a smart question. You're responsible for your athletes and your program's reputation — you should absolutely vet any tool before committing.",
+    proofPoint: "METTLE is active in 50+ swim programs representing 8,000+ athletes. Our NPS is 72 (industry average for SaaS is 31). We can connect you with three coaches at programs similar to yours — they'll tell you the unfiltered truth.",
+    closingQuestion: "Would it help if I connected you directly with a coach at a program similar to yours? No sales pitch — just a peer conversation about their experience.",
+    talkTrack: "I never ask anyone to trust a pitch. I ask them to trust the coaches who are already using it. I've got three programs your size who'd be happy to take a 10-minute call. They'll tell you what works, what doesn't, and whether it was worth it. Fair?",
+    followUp: ["Arrange a peer reference call with a similar program","Send 3 case studies (different program sizes)","Offer extended trial: 'Use it for 30 days, full support, cancel anytime'","Follow up: 'Coach [Name] at [Program] said they'd love to chat — want me to connect you?'"]
+  },
+  complexity: {
+    name: "Complexity",
+    color: "#e17055",
+    keywords: ["complicated","complex","hard","difficult","technical","setup","implementation","training","learn","onboarding","time","staff","capacity","overwhelm","simple","easy","integration"],
+    reframe: "Complexity objections come from people who've been burned by bad implementations before. They're not questioning your product — they're questioning whether the pain of adoption is worth the outcome.",
+    empathy: "I hear you. The last thing a busy coaching staff needs is another tool that creates more work instead of reducing it. Your time is already stretched thin.",
+    proofPoint: "Average METTLE onboarding takes 47 minutes for the head coach and zero minutes for athletes (they get a code, download the app, done). We handle the setup. You handle the coaching. Claremont's head coach said: 'I spent less time setting up METTLE than I spend on a single practice plan.'",
+    closingQuestion: "What if I told you we do the setup FOR you — you just show up to a 30-minute walkthrough and your team is live by end of week? Would that change the equation?",
+    talkTrack: "Here's our promise: if setup takes more than an hour of YOUR time, we've failed. We import your roster, configure your groups, set up your gamification — you just approve it. Your athletes download an app and enter a code. That's it. The tool that's supposed to save you time shouldn't cost you time to start.",
+    followUp: ["Send 'Setup in 47 Minutes' walkthrough video","Offer white-glove onboarding: 'We do everything, you just approve'","Share implementation timeline: Day 1 → setup, Day 3 → athlete onboarding, Day 7 → first insights","Follow up: 'I blocked out Thursday at 3pm to set you up — just need your roster CSV'"]
+  },
+  "status-quo": {
+    name: "Status Quo",
+    color: "#6c5ce7",
+    keywords: ["fine","working","okay","good enough","no problem","happy","satisfied","change","different","why fix","not broken","always","tradition","way we do","been doing","comfortable"],
+    reframe: "The status quo is the most dangerous competitor because it requires zero effort. Your job is to show the hidden cost of 'good enough' — the athletes lost, the potential unrealized, the slow decline masked as stability.",
+    empathy: "If things are working, I respect that. Nobody should fix what isn't broken. But can I share something I've noticed across 50+ programs?",
+    proofPoint: "Programs that describe themselves as 'doing fine' typically have a 20% annual attrition rate they've normalized. At 150 athletes and $1,200/year per swimmer, that's $36,000 in annual revenue erosion that feels normal because it's gradual. METTLE programs cut that in half.",
+    closingQuestion: "What would it mean for your program if you retained just 10 more athletes next year? Not 50 — just 10. What's that worth in fees, in team culture, in meet performance?",
+    talkTrack: "'Good enough' is the enemy of great programs. I've worked with coaches who thought they were fine until they saw what engagement data actually looked like. The swimmers weren't unhappy — they were just quietly disengaging. By the time they quit, the decision was already made 3 months ago. METTLE catches that signal before it's too late.",
+    followUp: ["Send 'Hidden Cost of Good Enough' one-pager with industry attrition data","Share before/after metrics from a program that thought they were 'fine'","Propose: 'Let me run a free engagement audit — if your numbers are great, I'll shake your hand and walk away'","Follow up: 'I ran some numbers based on your program size — the gap might surprise you'"]
+  }
+};
+
+const EXAMPLE_OBJECTIONS = [
+  "We already use TeamUnify and honestly it would be a pain to switch everything over.",
+  "It's just too expensive for our budget right now. We're a small club.",
+  "I'd need to run this by our board of directors before committing to anything.",
+  "Honestly I'm not sure we even need something like this. Our program runs fine.",
+  "Can you send me some info? I'll look at it when things slow down after the season.",
+  "How do I know this actually works? Do you have any proof?",
+  "We're too busy mid-season to add another tool. Maybe next year.",
+  "Our coaches are not tech-savvy. This seems too complicated for our staff.",
+  "What makes you different from SwimTopia or Swimmingly?",
+  "I appreciate the pitch but we're happy with how things are. Not looking to change.",
+  "That sounds nice but where's the ROI? I can't justify $349 a month.",
+  "Let me think about it and get back to you.",
+  "Our treasurer would never approve this kind of expense.",
+  "We've tried software before and the coaches never adopted it."
+];
+
+const DRILL_OBJECTIONS = [
+  {text:"We've been using TeamUnify for 5 years. Why would we switch?",cat:"competitor"},
+  {text:"$349/month is way too much for a swim club our size.",cat:"price"},
+  {text:"I need to present this to our board next month.",cat:"authority"},
+  {text:"We're mid-season right now. Bad timing.",cat:"timing"},
+  {text:"What do you mean by 'athlete engagement'? Our kids seem fine.",cat:"need"},
+  {text:"I've never heard of METTLE. How do I know you'll be around next year?",cat:"trust"},
+  {text:"Our coaches can barely use email. This won't work for us.",cat:"complexity"},
+  {text:"Our program is doing great. We don't need another tool.",cat:"status-quo"},
+  {text:"Can you just send me a PDF? I'll review when I have time.",cat:"timing"},
+  {text:"We had a bad experience with SwimTopia. Not eager to try another platform.",cat:"trust"},
+  {text:"The parents would never go for this. They already pay enough.",cat:"price"},
+  {text:"I like what I see but I can't make this decision alone.",cat:"authority"},
+  {text:"We only have 40 swimmers. Doesn't seem worth it at our scale.",cat:"need"},
+  {text:"Seems like a lot of setup work for my already-overloaded staff.",cat:"complexity"},
+  {text:"We've always done things on paper and it works fine.",cat:"status-quo"},
+  {text:"What's your guarantee? Can we get a refund if it doesn't work?",cat:"trust"},
+  {text:"Our fiscal year budget is already allocated. Try us in January.",cat:"timing"},
+  {text:"How is this different from just using a shared Google Sheet?",cat:"competitor"},
+  {text:"I appreciate the demo but I need to see hard numbers on retention improvement.",cat:"trust"},
+  {text:"We're a summer-only league. Four months doesn't justify the cost.",cat:"price"}
+];
+
+// ===== STATE =====
+let history = JSON.parse(localStorage.getItem('mettleObjections') || '[]');
+let drillResults = JSON.parse(localStorage.getItem('mettleDrills') || '[]');
+let drillActive = false;
+let drillTimer = null;
+let drillSeconds = 0;
+let currentDrill = null;
+
+// ===== CLASSIFIER =====
+function classifyObjection(text) {
+  const lower = text.toLowerCase();
+  const scores = {};
+  for (const [cat, data] of Object.entries(CATEGORIES)) {
+    scores[cat] = 0;
+    for (const kw of data.keywords) {
+      if (lower.includes(kw)) {
+        scores[cat] += (kw.length > 5 ? 2 : 1); // longer keywords weighted higher
+      }
+    }
+  }
+  const sorted = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  if (sorted[0][1] === 0) {
+    // Default to status-quo if no keywords match
+    return "status-quo";
+  }
+  return sorted[0][0];
+}
+
+// ===== ANALYZER =====
+function analyzeObjection() {
+  const text = document.getElementById('objectionInput').value.trim();
+  if (!text) return;
+
+  const cat = classifyObjection(text);
+  const data = CATEGORIES[cat];
+  const id = Date.now();
+
+  const entry = { id, text, category: cat, timestamp: new Date().toISOString(), confidence: 0 };
+  history.unshift(entry);
+  saveHistory();
+
+  const html = `
+    <div class="result cat-${cat}" id="result-${id}">
+      <div class="result-header">
+        <span class="cat-badge">${data.name}</span>
+        <span class="objection-text">"${escapeHtml(text)}"</span>
+      </div>
+      <div class="result-body">
+        <div class="response-section">
+          <h4>🔄 Reframe</h4>
+          <p>${data.reframe}</p>
+        </div>
+        <div class="response-section">
+          <h4>💛 Empathy Statement</h4>
+          <p>${data.empathy}</p>
+        </div>
+        <div class="response-section">
+          <h4>📊 Proof Point</h4>
+          <p>${data.proofPoint}</p>
+        </div>
+        <div class="response-section">
+          <h4>🎤 Talk Track</h4>
+          <div class="talk-track">${data.talkTrack}</div>
+        </div>
+        <div class="response-section">
+          <h4>❓ Closing Question</h4>
+          <p><strong>${data.closingQuestion}</strong></p>
+        </div>
+        <div class="response-section">
+          <h4>📋 Follow-Up Sequence</h4>
+          <div class="follow-up">
+            <ol style="padding-left:0">${data.followUp.map(f => `<li>${f}</li>`).join('')}</ol>
+          </div>
+        </div>
+      </div>
+      <div class="confidence-row">
+        <span>How confident do you feel with this response?</span>
+        <div class="stars">
+          ${[1,2,3,4,5].map(n => `<div class="star" onclick="rateConfidence(${id},${n})">${n}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('resultArea').innerHTML = html + document.getElementById('resultArea').innerHTML;
+  document.getElementById('objectionInput').value = '';
+  updateStats();
+}
+
+function rateConfidence(id, rating) {
+  const entry = history.find(h => h.id === id);
+  if (entry) {
+    entry.confidence = rating;
+    saveHistory();
+    const resultEl = document.getElementById(`result-${id}`);
+    if (resultEl) {
+      const stars = resultEl.querySelectorAll('.star');
+      stars.forEach((s, i) => {
+        s.classList.toggle('filled', i < rating);
+      });
+    }
+    updateStats();
+  }
+}
+
+function loadExample() {
+  const idx = Math.floor(Math.random() * EXAMPLE_OBJECTIONS.length);
+  document.getElementById('objectionInput').value = EXAMPLE_OBJECTIONS[idx];
+}
+
+// ===== DRILL MODE =====
+function startDrill() {
+  drillActive = true;
+  drillSeconds = 0;
+  currentDrill = DRILL_OBJECTIONS[Math.floor(Math.random() * DRILL_OBJECTIONS.length)];
+
+  document.getElementById('drillState').innerHTML = `
+    <div class="drill-category">${CATEGORIES[currentDrill.cat].name} Objection</div>
+    <div class="drill-objection">"${currentDrill.text}"</div>
+    <div class="drill-timer" id="drillClock">0.0s</div>
+    <div class="drill-input">
+      <textarea id="drillResponse" placeholder="Type your response... (how would you handle this?)"></textarea>
+      <div class="btn-row" style="justify-content:center;margin-top:14px">
+        <button class="btn btn-primary" onclick="submitDrill()">Submit Response</button>
+        <button class="btn btn-secondary" onclick="skipDrill()">Skip</button>
+        <button class="btn btn-danger" onclick="endDrill()">End Drill</button>
+      </div>
+    </div>
+    <div id="drillFeedback"></div>
+  `;
+
+  document.getElementById('drillResponse').focus();
+  drillTimer = setInterval(() => {
+    drillSeconds += 0.1;
+    const el = document.getElementById('drillClock');
+    if (el) el.textContent = drillSeconds.toFixed(1) + 's';
+  }, 100);
+}
+
+function submitDrill() {
+  clearInterval(drillTimer);
+  const response = document.getElementById('drillResponse').value.trim();
+  if (!response) return;
+
+  const data = CATEGORIES[currentDrill.cat];
+  const time = drillSeconds;
+
+  // Score based on keyword coverage and response length
+  const responseWords = response.toLowerCase();
+  let score = 0;
+  const checks = [];
+
+  // Check for empathy (acknowledgment words)
+  const empathyWords = ["understand","hear","respect","fair","get it","makes sense","appreciate","totally","completely"];
+  const hasEmpathy = empathyWords.some(w => responseWords.includes(w));
+  if (hasEmpathy) { score += 25; checks.push("✅ Empathy/acknowledgment"); }
+  else checks.push("❌ Missing empathy — acknowledge their concern first");
+
+  // Check for reframe (question or redirect)
+  const reframeWords = ["what if","how about","consider","actually","here's","imagine","instead","real question","think about"];
+  const hasReframe = reframeWords.some(w => responseWords.includes(w));
+  if (hasReframe) { score += 25; checks.push("✅ Reframe/redirect"); }
+  else checks.push("❌ Missing reframe — pivot the conversation");
+
+  // Check for proof (numbers, names, data)
+  const proofPattern = /\d+%|\d+x|\$\d|athletes?|program|retention|roi|saint andrew|claremont/i;
+  const hasProof = proofPattern.test(response);
+  if (hasProof) { score += 25; checks.push("✅ Proof point / data"); }
+  else checks.push("❌ Missing proof — back it up with numbers or stories");
+
+  // Check for closing question
+  const hasQuestion = response.includes('?');
+  if (hasQuestion) { score += 25; checks.push("✅ Closing question"); }
+  else checks.push("❌ Missing closing question — always end with a question");
+
+  // Time bonus/penalty
+  let timeGrade = '';
+  if (time < 15) timeGrade = '🔥 Lightning fast';
+  else if (time < 30) timeGrade = '⚡ Good pace';
+  else if (time < 60) timeGrade = '🐢 A bit slow — aim for <30s';
+  else timeGrade = '🧊 Too slow — practice this category more';
+
+  let gradeClass, gradeText;
+  if (score >= 75) { gradeClass = 'grade-great'; gradeText = `${score}/100 — Excellent`; }
+  else if (score >= 50) { gradeClass = 'grade-good'; gradeText = `${score}/100 — Good`; }
+  else { gradeClass = 'grade-needs-work'; gradeText = `${score}/100 — Needs Work`; }
+
+  const drillEntry = {
+    objection: currentDrill.text,
+    category: currentDrill.cat,
+    response,
+    score,
+    time,
+    timestamp: new Date().toISOString()
+  };
+  drillResults.push(drillEntry);
+  localStorage.setItem('mettleDrills', JSON.stringify(drillResults));
+
+  document.getElementById('drillFeedback').innerHTML = `
+    <div class="drill-result">
+      <div class="grade ${gradeClass}">${gradeText}</div>
+      <div style="margin-bottom:12px;font-size:.85rem;text-align:center">${timeGrade} (${time.toFixed(1)}s)</div>
+      <div style="background:var(--bg);border-radius:8px;padding:14px;margin-bottom:16px">
+        <h4 style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent2);margin-bottom:8px">Scorecard</h4>
+        ${checks.map(c => `<div style="margin-bottom:6px;font-size:.9rem">${c}</div>`).join('')}
+      </div>
+      <div style="background:var(--bg);border-radius:8px;padding:14px">
+        <h4 style="font-size:.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--accent2);margin-bottom:8px">Model Response</h4>
+        <div class="talk-track">${data.talkTrack}</div>
+      </div>
+      <div class="btn-row" style="justify-content:center;margin-top:18px">
+        <button class="btn btn-primary" onclick="startDrill()">Next Objection</button>
+        <button class="btn btn-secondary" onclick="endDrill()">End Drill</button>
+      </div>
+    </div>
+  `;
+
+  updateStats();
+}
+
+function skipDrill() {
+  clearInterval(drillTimer);
+  startDrill();
+}
+
+function endDrill() {
+  clearInterval(drillTimer);
+  drillActive = false;
+  const total = drillResults.length;
+  const avgScore = total > 0 ? (drillResults.reduce((s, d) => s + d.score, 0) / total).toFixed(0) : 0;
+  const avgTime = total > 0 ? (drillResults.reduce((s, d) => s + d.time, 0) / total).toFixed(1) : 0;
+
+  document.getElementById('drillState').innerHTML = `
+    <div class="empty-state">
+      <div class="icon">🎯</div>
+      <p>Drill Complete</p>
+      <div class="drill-stats">
+        <div class="stat"><div class="num">${total}</div><div class="label">Total Drills</div></div>
+        <div class="stat"><div class="num">${avgScore}</div><div class="label">Avg Score</div></div>
+        <div class="stat"><div class="num">${avgTime}s</div><div class="label">Avg Time</div></div>
+      </div>
+      <button class="btn btn-primary" onclick="startDrill()" style="margin-top:24px">New Drill</button>
+    </div>
+  `;
+}
+
+// ===== HISTORY =====
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!history.length) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📋</div><p>No objections analyzed yet</p></div>';
+    return;
+  }
+  list.innerHTML = history.map(h => {
+    const data = CATEGORIES[h.category];
+    const date = new Date(h.timestamp);
+    const dateStr = date.toLocaleDateString('en-US', {month:'short',day:'numeric'}) + ' ' + date.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
+    const confStr = h.confidence > 0 ? `${'●'.repeat(h.confidence)}${'○'.repeat(5-h.confidence)}` : '—';
+    return `
+      <div class="history-item cat-${h.category}">
+        <div class="cat-dot"></div>
+        <div class="h-text">"${escapeHtml(h.text.substring(0, 80))}${h.text.length > 80 ? '...' : ''}"</div>
+        <div class="h-conf">${confStr}</div>
+        <div class="h-date">${dateStr}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function clearHistory() {
+  if (confirm('Clear all objection history?')) {
+    history = [];
+    drillResults = [];
+    saveHistory();
+    localStorage.setItem('mettleDrills', '[]');
+    renderHistory();
+    updateStats();
+  }
+}
+
+// ===== HEATMAP =====
+function renderHeatmap() {
+  const counts = {};
+  for (const cat of Object.keys(CATEGORIES)) counts[cat] = 0;
+  for (const h of history) counts[h.category] = (counts[h.category] || 0) + 1;
+  const max = Math.max(1, ...Object.values(counts));
+
+  const grid = document.getElementById('heatmapGrid');
+  grid.innerHTML = Object.entries(CATEGORIES).map(([cat, data]) => {
+    const count = counts[cat] || 0;
+    const pct = (count / max * 100).toFixed(0);
+    return `
+      <div class="heat-card">
+        <div class="h-count" style="color:${data.color}">${count}</div>
+        <div class="h-name">${data.name}</div>
+        <div class="h-bar"><div class="h-bar-fill" style="width:${pct}%;background:${data.color}"></div></div>
+      </div>
+    `;
+  }).join('');
+
+  // Insights
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const topCat = sorted[0][1] > 0 ? CATEGORIES[sorted[0][0]].name : 'N/A';
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const rated = history.filter(h => h.confidence > 0);
+  const weakest = rated.length > 0 ?
+    Object.entries(
+      rated.reduce((acc, h) => {
+        if (!acc[h.category]) acc[h.category] = {sum: 0, count: 0};
+        acc[h.category].sum += h.confidence;
+        acc[h.category].count++;
+        return acc;
+      }, {})
+    ).map(([cat, d]) => ({cat, avg: d.sum / d.count})).sort((a, b) => a.avg - b.avg)[0] : null;
+
+  document.getElementById('heatInsights').innerHTML = `
+    <h4 style="font-size:.75rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent2);margin-bottom:12px">Insights</h4>
+    <p style="font-size:.9rem;line-height:1.6">
+      ${total === 0 ? 'Start analyzing objections to see insights here.' :
+        `<strong>${topCat}</strong> is your most common objection category (${sorted[0][1]} of ${total}).
+        ${weakest ? ` Your lowest confidence area is <strong>${CATEGORIES[weakest.cat].name}</strong> (avg ${weakest.avg.toFixed(1)}/5) — focus drill practice here.` : ' Rate your confidence on responses to unlock weakness analysis.'}
+        ${total >= 5 ? ` You've handled ${total} objections — keep building that muscle memory.` : ''}
+        `}
+    </p>
+  `;
+}
+
+// ===== UTILITIES =====
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function saveHistory() {
+  localStorage.setItem('mettleObjections', JSON.stringify(history));
+}
+
+function updateStats() {
+  document.getElementById('totalHandled').textContent = history.length;
+  const rated = history.filter(h => h.confidence > 0);
+  document.getElementById('avgConfidence').textContent = rated.length > 0 ?
+    (rated.reduce((s, h) => s + h.confidence, 0) / rated.length).toFixed(1) + '/5' : '—';
+
+  const counts = {};
+  for (const h of history) counts[h.category] = (counts[h.category] || 0) + 1;
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  document.getElementById('topCategory').textContent = sorted.length > 0 && sorted[0][1] > 0 ?
+    CATEGORIES[sorted[0][0]].name : '—';
+
+  document.getElementById('drillScore').textContent = drillResults.length > 0 ?
+    (drillResults.reduce((s, d) => s + d.score, 0) / drillResults.length).toFixed(0) + '/100' : '—';
+}
+
+// ===== TABS =====
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    if (tab.dataset.tab === 'history') renderHistory();
+    if (tab.dataset.tab === 'heatmap') renderHeatmap();
+  });
+});
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.ctrlKey) {
+    if (drillActive) submitDrill();
+    else analyzeObjection();
+  }
+});
+
+// ===== INIT =====
+updateStats();
+</script>
+</body>
+</html>

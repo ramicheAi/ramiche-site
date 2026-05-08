@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Load Balancer Simulator — RAMICHE OS</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a3a;
+    --text: #e0e0e8;
+    --dim: #7a7a8a;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --orange: #f97316;
+    --creative: #a855f7;
+    --infra: #3b82f6;
+    --business: #22c55e;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'SF Mono','Fira Code',monospace; font-size:13px; overflow-x:hidden; }
+
+  .header { padding:16px 24px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+  .header h1 { font-size:16px; font-weight:600; letter-spacing:0.5px; }
+  .header h1 span { color:var(--accent); }
+  .header .meta { color:var(--dim); font-size:11px; }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; padding:16px 24px; }
+  .lane-card { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; position:relative; overflow:hidden; }
+  .lane-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; }
+  .lane-card.creative::before { background:var(--creative); }
+  .lane-card.infra::before { background:var(--infra); }
+  .lane-card.business::before { background:var(--business); }
+
+  .lane-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+  .lane-name { font-size:14px; font-weight:600; text-transform:uppercase; letter-spacing:1px; }
+  .lane-card.creative .lane-name { color:var(--creative); }
+  .lane-card.infra .lane-name { color:var(--infra); }
+  .lane-card.business .lane-name { color:var(--business); }
+  .lane-slots { font-size:11px; color:var(--dim); }
+
+  .agent-list { display:flex; flex-direction:column; gap:6px; min-height:120px; }
+  .agent-row { display:flex; align-items:center; gap:8px; padding:6px 8px; background:var(--surface2); border-radius:4px; transition:all 0.3s; }
+  .agent-row.busy { border-left:2px solid var(--yellow); }
+  .agent-row.idle { border-left:2px solid var(--green); opacity:0.7; }
+  .agent-row.overloaded { border-left:2px solid var(--red); animation:pulse 1.5s infinite; }
+  .agent-name { font-size:12px; font-weight:500; flex:1; }
+  .agent-load { font-size:11px; font-weight:600; min-width:36px; text-align:right; }
+  .load-bar { flex:1; height:4px; background:var(--border); border-radius:2px; overflow:hidden; max-width:80px; }
+  .load-fill { height:100%; border-radius:2px; transition:width 0.5s ease; }
+
+  @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+  .metrics-row { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; padding:0 24px 16px; }
+  .metric { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; text-align:center; }
+  .metric-val { font-size:22px; font-weight:700; color:var(--accent); }
+  .metric-label { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:0.5px; margin-top:4px; }
+
+  .controls { padding:8px 24px 16px; display:flex; gap:8px; flex-wrap:wrap; }
+  .btn { padding:6px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:4px; color:var(--text); cursor:pointer; font-size:11px; font-family:inherit; transition:all 0.2s; }
+  .btn:hover { background:var(--accent); border-color:var(--accent); }
+  .btn.active { background:var(--accent); border-color:var(--accent); }
+  .btn.danger { color:var(--red); }
+  .btn.danger:hover { background:var(--red); color:white; }
+
+  .timeline { padding:0 24px 16px; }
+  .timeline-header { font-size:12px; font-weight:600; margin-bottom:8px; color:var(--dim); }
+  .timeline-canvas { width:100%; height:140px; background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+
+  .log { padding:0 24px 24px; }
+  .log-header { font-size:12px; font-weight:600; margin-bottom:8px; color:var(--dim); display:flex; justify-content:space-between; }
+  .log-area { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px; height:160px; overflow-y:auto; font-size:11px; line-height:1.6; }
+  .log-entry { opacity:0; animation:fadeIn 0.3s forwards; }
+  .log-entry.warn { color:var(--yellow); }
+  .log-entry.error { color:var(--red); }
+  .log-entry.info { color:var(--blue); }
+  .log-entry.rebalance { color:var(--purple); }
+  @keyframes fadeIn { to { opacity:1; } }
+
+  .hotspot-overlay { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:var(--surface); border:2px solid var(--red); border-radius:12px; padding:24px; z-index:100; display:none; min-width:360px; }
+  .hotspot-overlay.visible { display:block; animation:scaleIn 0.2s ease; }
+  .hotspot-title { color:var(--red); font-size:14px; font-weight:700; margin-bottom:12px; }
+  .hotspot-detail { font-size:12px; line-height:1.6; margin-bottom:16px; }
+  .hotspot-actions { display:flex; gap:8px; }
+  @keyframes scaleIn { from { transform:translate(-50%,-50%) scale(0.9); opacity:0; } to { transform:translate(-50%,-50%) scale(1); opacity:1; } }
+
+  .backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99; display:none; }
+  .backdrop.visible { display:block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚡ Agent <span>Load Balancer</span> Simulator</h1>
+  <div class="meta">RAMICHE OS — 3-Lane Architecture | <span id="clock"></span></div>
+</div>
+
+<div class="metrics-row">
+  <div class="metric"><div class="metric-val" id="m-total">20</div><div class="metric-label">Total Agents</div></div>
+  <div class="metric"><div class="metric-val" id="m-active">0</div><div class="metric-label">Active</div></div>
+  <div class="metric"><div class="metric-val" id="m-hotspots" style="color:var(--red)">0</div><div class="metric-label">Hotspots</div></div>
+  <div class="metric"><div class="metric-val" id="m-rebalances" style="color:var(--purple)">0</div><div class="metric-label">Rebalances</div></div>
+  <div class="metric"><div class="metric-val" id="m-throughput" style="color:var(--green)">0</div><div class="metric-label">Tasks/min</div></div>
+</div>
+
+<div class="controls">
+  <button class="btn active" onclick="toggleSim(this)">▶ Running</button>
+  <button class="btn" onclick="injectSpike('creative')">🎨 Creative Spike</button>
+  <button class="btn" onclick="injectSpike('infra')">🔧 Infra Spike</button>
+  <button class="btn" onclick="injectSpike('business')">📊 Business Spike</button>
+  <button class="btn" onclick="injectChaos()">💥 Chaos Event</button>
+  <button class="btn" onclick="toggleAutoRebalance(this)">🔄 Auto-Rebalance: ON</button>
+  <button class="btn danger" onclick="resetSim()">↻ Reset</button>
+  <span style="flex:1"></span>
+  <select id="strategy" class="btn" onchange="changeStrategy()">
+    <option value="round-robin">Round Robin</option>
+    <option value="least-loaded" selected>Least Loaded</option>
+    <option value="priority-weighted">Priority Weighted</option>
+    <option value="random">Random</option>
+  </select>
+</div>
+
+<div class="grid">
+  <div class="lane-card creative" id="lane-creative">
+    <div class="lane-header">
+      <div class="lane-name">🎨 Creative</div>
+      <div class="lane-slots" id="slots-creative">0/4 slots</div>
+    </div>
+    <div class="agent-list" id="agents-creative"></div>
+  </div>
+  <div class="lane-card infra" id="lane-infra">
+    <div class="lane-header">
+      <div class="lane-name">🔧 Infra</div>
+      <div class="lane-slots" id="slots-infra">0/4 slots</div>
+    </div>
+    <div class="agent-list" id="agents-infra"></div>
+  </div>
+  <div class="lane-card business" id="lane-business">
+    <div class="lane-header">
+      <div class="lane-name">📊 Business</div>
+      <div class="lane-slots" id="slots-business">0/4 slots</div>
+    </div>
+    <div class="agent-list" id="agents-business"></div>
+  </div>
+</div>
+
+<div class="timeline">
+  <div class="timeline-header">LANE UTILIZATION OVER TIME</div>
+  <canvas id="chart" class="timeline-canvas"></canvas>
+</div>
+
+<div class="log">
+  <div class="log-header">
+    <span>EVENT LOG</span>
+    <span id="log-count">0 events</span>
+  </div>
+  <div class="log-area" id="log-area"></div>
+</div>
+
+<div class="backdrop" id="backdrop" onclick="closeHotspot()"></div>
+<div class="hotspot-overlay" id="hotspot-overlay">
+  <div class="hotspot-title">⚠ HOTSPOT DETECTED</div>
+  <div class="hotspot-detail" id="hotspot-detail"></div>
+  <div class="hotspot-actions">
+    <button class="btn" onclick="applyRebalance()">Apply Rebalance</button>
+    <button class="btn" onclick="closeHotspot()">Dismiss</button>
+  </div>
+</div>
+
+<script>
+// --- Agent Definitions (from AGENTS.md routing table) ---
+const AGENTS = [
+  { name:'Atlas', lane:'infra', basePriority:10 },
+  { name:'Proximon', lane:'infra', basePriority:8 },
+  { name:'Widow', lane:'infra', basePriority:7 },
+  { name:'TRIAGE', lane:'infra', basePriority:6 },
+  { name:'Aetherion', lane:'creative', basePriority:9 },
+  { name:'Shuri', lane:'creative', basePriority:9 },
+  { name:'TheMAESTRO', lane:'creative', basePriority:6 },
+  { name:'Vee', lane:'creative', basePriority:7 },
+  { name:'INK', lane:'creative', basePriority:6 },
+  { name:'NOVA', lane:'creative', basePriority:5 },
+  { name:'Simons', lane:'business', basePriority:8 },
+  { name:'Mercury', lane:'business', basePriority:8 },
+  { name:'ECHO', lane:'business', basePriority:7 },
+  { name:'THEMIS', lane:'business', basePriority:6 },
+  { name:'KIYOSAKI', lane:'business', basePriority:6 },
+  { name:'SELAH', lane:'business', basePriority:4 },
+  { name:'Dr. Strange', lane:'business', basePriority:5 },
+  { name:'Prophets', lane:'business', basePriority:3 },
+  { name:'MICHAEL', lane:'business', basePriority:3 },
+  { name:'HAVEN', lane:'business', basePriority:5 },
+];
+
+const LANE_MAX_CONCURRENT = { creative:4, infra:4, business:4 };
+const LANE_COLORS = { creative:'#a855f7', infra:'#3b82f6', business:'#22c55e' };
+
+let state = {
+  running: true,
+  autoRebalance: true,
+  strategy: 'least-loaded',
+  rebalanceCount: 0,
+  hotspotCount: 0,
+  totalTasks: 0,
+  startTime: Date.now(),
+  agents: AGENTS.map(a => ({
+    ...a,
+    load: 0,
+    taskQueue: 0,
+    tasksCompleted: 0,
+    status: 'idle', // idle, busy, overloaded
+    currentTask: null,
+  })),
+  history: { creative:[], infra:[], business:[] },
+  pendingHotspot: null,
+  logEntries: [],
+};
+
+let simInterval, chartInterval;
+
+// --- Strategies ---
+function pickAgent(lane, agents) {
+  const available = agents.filter(a => a.lane === lane);
+  if (!available.length) return null;
+  switch(state.strategy) {
+    case 'round-robin':
+      const sorted = available.sort((a,b) => a.tasksCompleted - b.tasksCompleted);
+      return sorted[0];
+    case 'least-loaded':
+      return available.reduce((min,a) => a.load < min.load ? a : min);
+    case 'priority-weighted':
+      const weighted = available.map(a => ({ ...a, score: a.basePriority / (1 + a.load) }));
+      return weighted.reduce((max,a) => a.score > max.score ? a : max);
+    case 'random':
+      return available[Math.floor(Math.random()*available.length)];
+    default:
+      return available[0];
+  }
+}
+
+// --- Task Generation ---
+function generateTask() {
+  const lanes = ['creative','infra','business'];
+  const weights = [0.4, 0.3, 0.3]; // creative slightly hotter
+  const r = Math.random();
+  let lane;
+  if (r < weights[0]) lane = 'creative';
+  else if (r < weights[0]+weights[1]) lane = 'infra';
+  else lane = 'business';
+
+  const taskTypes = {
+    creative: ['UI Component','Brand Asset','Image Gen','Video Edit','Design Review','Content Draft'],
+    infra: ['Deploy','Health Check','Session Cleanup','Config Update','Security Scan','Perf Test'],
+    business: ['Lead Qualify','Report Gen','Email Campaign','Deal Analysis','Forecast Update','Compliance Check'],
+  };
+  const types = taskTypes[lane];
+  const taskName = types[Math.floor(Math.random()*types.length)];
+  const duration = 3 + Math.floor(Math.random()*8); // 3-10 ticks
+
+  return { lane, taskName, duration, remaining: duration };
+}
+
+function assignTask(task) {
+  const agent = pickAgent(task.lane, state.agents);
+  if (!agent) return false;
+
+  agent.taskQueue++;
+  agent.load = Math.min(100, agent.load + (100 / task.duration) * 2);
+
+  if (agent.load < 60) agent.status = 'busy';
+  else if (agent.load < 85) agent.status = 'busy';
+  else agent.status = 'overloaded';
+
+  if (!agent.currentTask) {
+    agent.currentTask = task;
+  }
+
+  state.totalTasks++;
+  addLog(`Task "${task.taskName}" → ${agent.name} (${task.lane})`, 'info');
+  return true;
+}
+
+// --- Simulation Tick ---
+function tick() {
+  if (!state.running) return;
+
+  // Generate 1-3 tasks per tick
+  const numTasks = 1 + Math.floor(Math.random()*2);
+  for (let i = 0; i < numTasks; i++) {
+    const task = generateTask();
+    assignTask(task);
+  }
+
+  // Process agents
+  state.agents.forEach(agent => {
+    if (agent.currentTask) {
+      agent.currentTask.remaining--;
+      if (agent.currentTask.remaining <= 0) {
+        agent.tasksCompleted++;
+        agent.taskQueue = Math.max(0, agent.taskQueue - 1);
+        agent.load = Math.max(0, agent.load - 20 - Math.random()*15);
+        agent.currentTask = null;
+        if (agent.load < 10) agent.status = 'idle';
+        else agent.status = 'busy';
+      }
+    } else {
+      // Decay load naturally
+      agent.load = Math.max(0, agent.load - 5);
+      if (agent.load < 10) agent.status = 'idle';
+    }
+
+    // Clamp
+    agent.load = Math.max(0, Math.min(100, agent.load));
+  });
+
+  // Detect hotspots
+  detectHotspots();
+
+  // Auto-rebalance
+  if (state.autoRebalance) autoRebalance();
+
+  // Record history
+  ['creative','infra','business'].forEach(lane => {
+    const agents = state.agents.filter(a => a.lane === lane);
+    const avgLoad = agents.reduce((s,a) => s + a.load, 0) / agents.length;
+    state.history[lane].push(avgLoad);
+    if (state.history[lane].length > 120) state.history[lane].shift();
+  });
+
+  render();
+}
+
+function detectHotspots() {
+  ['creative','infra','business'].forEach(lane => {
+    const agents = state.agents.filter(a => a.lane === lane);
+    const avgLoad = agents.reduce((s,a) => s + a.load, 0) / agents.length;
+    const overloaded = agents.filter(a => a.load > 85);
+
+    if (avgLoad > 80 || overloaded.length >= 2) {
+      state.hotspotCount++;
+      if (!state.autoRebalance) {
+        showHotspot(lane, avgLoad, overloaded);
+      }
+      addLog(`HOTSPOT: ${lane} lane avg ${avgLoad.toFixed(0)}% — ${overloaded.length} agents overloaded`, 'warn');
+    }
+  });
+}
+
+function autoRebalance() {
+  const laneLoads = {};
+  ['creative','infra','business'].forEach(lane => {
+    const agents = state.agents.filter(a => a.lane === lane);
+    laneLoads[lane] = agents.reduce((s,a) => s + a.load, 0) / agents.length;
+  });
+
+  // Find most/least loaded lanes
+  const lanes = Object.entries(laneLoads).sort((a,b) => b[1] - a[1]);
+  const hotLane = lanes[0];
+  const coldLane = lanes[lanes.length-1];
+
+  if (hotLane[1] - coldLane[1] > 40) {
+    // Shed load: reduce hottest agent in hot lane
+    const hotAgents = state.agents.filter(a => a.lane === hotLane[0]).sort((a,b) => b.load - a.load);
+    if (hotAgents.length && hotAgents[0].load > 70) {
+      hotAgents[0].load -= 20;
+      hotAgents[0].status = hotAgents[0].load > 60 ? 'busy' : 'idle';
+      state.rebalanceCount++;
+      addLog(`REBALANCE: Shed 20% from ${hotAgents[0].name} (${hotLane[0]} → ${hotAgents[0].load.toFixed(0)}%)`, 'rebalance');
+    }
+  }
+}
+
+// --- Spikes & Chaos ---
+function injectSpike(lane) {
+  addLog(`SPIKE: Injecting 8 tasks into ${lane} lane`, 'warn');
+  for (let i = 0; i < 8; i++) {
+    const types = {
+      creative:['Urgent UI Fix','Brand Redesign','Batch Render','Video Rush'],
+      infra:['Emergency Deploy','DDoS Response','DB Migration','Cert Renewal'],
+      business:['Board Deck','Due Diligence','Audit Prep','Investor Update'],
+    };
+    const names = types[lane];
+    assignTask({
+      lane,
+      taskName: names[Math.floor(Math.random()*names.length)],
+      duration: 4 + Math.floor(Math.random()*6),
+      remaining: 4 + Math.floor(Math.random()*6),
+    });
+  }
+}
+
+function injectChaos() {
+  const events = [
+    () => {
+      const victim = state.agents[Math.floor(Math.random()*state.agents.length)];
+      victim.load = 100;
+      victim.status = 'overloaded';
+      victim.taskQueue += 5;
+      addLog(`CHAOS: ${victim.name} hit 100% — task queue overflow`, 'error');
+    },
+    () => {
+      const lane = ['creative','infra','business'][Math.floor(Math.random()*3)];
+      state.agents.filter(a => a.lane === lane).forEach(a => { a.load = Math.min(100, a.load + 40); a.status = 'overloaded'; });
+      addLog(`CHAOS: Entire ${lane} lane surged +40%`, 'error');
+    },
+    () => {
+      const victim = state.agents.filter(a => a.status === 'busy')[0];
+      if (victim) {
+        victim.load = 0; victim.status = 'idle'; victim.currentTask = null; victim.taskQueue = 0;
+        addLog(`CHAOS: ${victim.name} crashed — all tasks lost`, 'error');
+      }
+    },
+  ];
+  events[Math.floor(Math.random()*events.length)]();
+}
+
+// --- UI ---
+function render() {
+  // Metrics
+  const active = state.agents.filter(a => a.status !== 'idle').length;
+  const elapsed = (Date.now() - state.startTime) / 60000;
+  document.getElementById('m-active').textContent = active;
+  document.getElementById('m-hotspots').textContent = state.hotspotCount;
+  document.getElementById('m-rebalances').textContent = state.rebalanceCount;
+  document.getElementById('m-throughput').textContent = elapsed > 0 ? (state.totalTasks / elapsed).toFixed(1) : '0';
+
+  // Lane cards
+  ['creative','infra','business'].forEach(lane => {
+    const agents = state.agents.filter(a => a.lane === lane);
+    const busyCount = agents.filter(a => a.status !== 'idle').length;
+    document.getElementById(`slots-${lane}`).textContent = `${busyCount}/${LANE_MAX_CONCURRENT[lane]} slots`;
+
+    const container = document.getElementById(`agents-${lane}`);
+    container.innerHTML = agents.map(a => {
+      const loadColor = a.load < 40 ? 'var(--green)' : a.load < 70 ? 'var(--yellow)' : 'var(--red)';
+      return `<div class="agent-row ${a.status}">
+        <span class="agent-name">${a.name}</span>
+        <div class="load-bar"><div class="load-fill" style="width:${a.load}%;background:${loadColor}"></div></div>
+        <span class="agent-load" style="color:${loadColor}">${a.load.toFixed(0)}%</span>
+      </div>`;
+    }).join('');
+  });
+
+  // Log
+  document.getElementById('log-count').textContent = `${state.logEntries.length} events`;
+}
+
+function drawChart() {
+  const canvas = document.getElementById('chart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = canvas.offsetHeight * 2;
+  ctx.scale(2,2);
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+
+  ctx.clearRect(0,0,w,h);
+
+  // Grid lines
+  ctx.strokeStyle = '#1a1a28';
+  ctx.lineWidth = 1;
+  for (let y = 0; y <= 100; y += 25) {
+    const py = h - (y/100)*h;
+    ctx.beginPath(); ctx.moveTo(0,py); ctx.lineTo(w,py); ctx.stroke();
+  }
+
+  // Danger zone
+  ctx.fillStyle = 'rgba(239,68,68,0.05)';
+  ctx.fillRect(0, 0, w, h*0.2);
+
+  // Draw lanes
+  ['creative','infra','business'].forEach(lane => {
+    const data = state.history[lane];
+    if (data.length < 2) return;
+    ctx.beginPath();
+    ctx.strokeStyle = LANE_COLORS[lane];
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.8;
+    data.forEach((v,i) => {
+      const x = (i/(data.length-1))*w;
+      const y = h - (v/100)*h;
+      i === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+
+    // Fill
+    ctx.globalAlpha = 0.08;
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.fillStyle = LANE_COLORS[lane];
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  });
+
+  // Labels
+  ctx.font = '10px SF Mono, monospace';
+  ctx.fillStyle = '#7a7a8a';
+  ctx.fillText('100%', 4, 14);
+  ctx.fillText('50%', 4, h/2 + 4);
+  ctx.fillText('0%', 4, h - 4);
+
+  // Legend
+  const legendX = w - 200;
+  [['Creative','#a855f7'],['Infra','#3b82f6'],['Business','#22c55e']].forEach(([label,color],i) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(legendX + i*65, 6, 8, 8);
+    ctx.fillStyle = '#7a7a8a';
+    ctx.fillText(label, legendX + i*65 + 12, 14);
+  });
+}
+
+function addLog(msg, type='info') {
+  const time = new Date().toLocaleTimeString('en-US',{hour12:false});
+  const entry = `<div class="log-entry ${type}">[${time}] ${msg}</div>`;
+  const area = document.getElementById('log-area');
+  area.insertAdjacentHTML('afterbegin', entry);
+  state.logEntries.push(msg);
+  if (area.children.length > 200) area.removeChild(area.lastChild);
+}
+
+function showHotspot(lane, avgLoad, agents) {
+  if (state.pendingHotspot) return;
+  state.pendingHotspot = { lane, avgLoad, agents };
+  document.getElementById('hotspot-detail').innerHTML = `
+    <strong>Lane:</strong> ${lane.toUpperCase()}<br>
+    <strong>Avg Load:</strong> ${avgLoad.toFixed(1)}%<br>
+    <strong>Overloaded Agents:</strong> ${agents.map(a=>a.name).join(', ')}<br><br>
+    <strong>Recommendation:</strong> Shed tasks from highest-loaded agent, redistribute to ${lane === 'creative' ? 'business' : 'creative'} lane cross-trained agents.
+  `;
+  document.getElementById('hotspot-overlay').classList.add('visible');
+  document.getElementById('backdrop').classList.add('visible');
+}
+
+function closeHotspot() {
+  state.pendingHotspot = null;
+  document.getElementById('hotspot-overlay').classList.remove('visible');
+  document.getElementById('backdrop').classList.remove('visible');
+}
+
+function applyRebalance() {
+  if (state.pendingHotspot) {
+    const { agents } = state.pendingHotspot;
+    agents.forEach(a => { a.load = Math.max(30, a.load - 30); a.status = 'busy'; });
+    state.rebalanceCount++;
+    addLog(`MANUAL REBALANCE: Shed 30% from ${agents.map(a=>a.name).join(', ')}`, 'rebalance');
+  }
+  closeHotspot();
+}
+
+// --- Controls ---
+function toggleSim(btn) {
+  state.running = !state.running;
+  btn.textContent = state.running ? '▶ Running' : '⏸ Paused';
+  btn.classList.toggle('active', state.running);
+}
+
+function toggleAutoRebalance(btn) {
+  state.autoRebalance = !state.autoRebalance;
+  btn.textContent = `🔄 Auto-Rebalance: ${state.autoRebalance ? 'ON' : 'OFF'}`;
+}
+
+function changeStrategy() {
+  state.strategy = document.getElementById('strategy').value;
+  addLog(`Strategy changed to: ${state.strategy}`, 'info');
+}
+
+function resetSim() {
+  state.agents.forEach(a => { a.load = 0; a.taskQueue = 0; a.tasksCompleted = 0; a.status = 'idle'; a.currentTask = null; });
+  state.hotspotCount = 0;
+  state.rebalanceCount = 0;
+  state.totalTasks = 0;
+  state.startTime = Date.now();
+  state.history = { creative:[], infra:[], business:[] };
+  state.logEntries = [];
+  document.getElementById('log-area').innerHTML = '';
+  addLog('Simulation reset', 'info');
+  render();
+}
+
+// --- Clock ---
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+}
+
+// --- Init ---
+updateClock();
+setInterval(updateClock, 1000);
+simInterval = setInterval(tick, 1200);
+chartInterval = setInterval(drawChart, 1500);
+addLog('Agent Load Balancer Simulator initialized — 3-lane architecture active', 'info');
+addLog(`Strategy: ${state.strategy} | Auto-rebalance: ${state.autoRebalance ? 'ON' : 'OFF'}`, 'info');
+render();
+</script>
+</body>
+</html>

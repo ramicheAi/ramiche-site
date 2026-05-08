@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIMONS — Portfolio Risk Dashboard</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--dim:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--cyan:#39d5ff;--orange:#f0883e}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;padding:16px}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600}
+.header h1 span{color:var(--blue);font-weight:400;font-size:14px;margin-left:8px}
+.header .meta{color:var(--dim);font-size:12px;text-align:right}
+.disclaimer{background:#1c1206;border:1px solid #5a3e00;border-radius:6px;padding:8px 12px;margin-bottom:16px;font-size:11px;color:var(--yellow)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.card h2{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px}
+.kpi-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.kpi{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;flex:1;min-width:120px}
+.kpi .label{font-size:11px;color:var(--dim);text-transform:uppercase}
+.kpi .value{font-size:22px;font-weight:700;margin-top:2px}
+.kpi .sub{font-size:11px;color:var(--dim);margin-top:2px}
+.pos-table{width:100%;border-collapse:collapse;font-size:13px}
+.pos-table th{text-align:left;color:var(--dim);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--border);font-size:11px;text-transform:uppercase}
+.pos-table td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.pos-table tr:last-child td{border-bottom:none}
+.long{color:var(--green)}.short{color:var(--red)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.badge-green{background:#1a3a1a;color:var(--green)}.badge-red{background:#3a1a1a;color:var(--red)}.badge-yellow{background:#3a2a0a;color:var(--yellow)}.badge-blue{background:#1a2a3a;color:var(--blue)}
+canvas{display:block;width:100%;border-radius:4px;margin-top:8px}
+.corr-grid{display:grid;gap:1px;margin-top:8px}
+.corr-cell{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;border-radius:2px}
+.corr-label{font-size:10px;color:var(--dim);text-align:center;padding:2px}
+.signal-bar{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.signal-bar .name{width:100px;font-size:12px;color:var(--dim)}
+.signal-bar .bar-bg{flex:1;height:16px;background:var(--bg);border-radius:3px;overflow:hidden;position:relative}
+.signal-bar .bar-fill{height:100%;border-radius:3px;transition:width 0.3s}
+.signal-bar .bar-value{position:absolute;right:4px;top:0;height:100%;display:flex;align-items:center;font-size:10px;font-weight:600}
+.signal-bar .status{width:60px;font-size:11px;font-weight:600;text-align:right}
+.mc-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:13px}
+.mc-row:last-child{border-bottom:none}
+.mc-row .label{color:var(--dim)}
+.ab-bar{display:flex;gap:2px;margin-top:8px}
+.ab-bar div{height:24px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600}
+.breaker-indicator{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;font-size:13px;font-weight:600}
+.breaker-green{background:#0d1f0d;border:1px solid var(--green);color:var(--green)}
+.breaker-yellow{background:#1f1a0d;border:1px solid var(--yellow);color:var(--yellow)}
+.breaker-red{background:#1f0d0d;border:1px solid var(--red);color:var(--red)}
+.full-width{grid-column:1/-1}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.kpi .value{font-size:18px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>SIMONS <span>Portfolio Risk Dashboard</span></h1>
+  <div class="meta">
+    <div>Pipeline v1.8.0</div>
+    <div id="timestamp">Loading...</div>
+  </div>
+</div>
+
+<div class="disclaimer">AI-generated quantitative analysis for educational purposes only. Not financial advice. All trading involves risk of loss. Past performance does not guarantee future results.</div>
+
+<div class="kpi-row">
+  <div class="kpi"><div class="label">Equity</div><div class="value" id="kpi-equity">—</div><div class="sub" id="kpi-return">—</div></div>
+  <div class="kpi"><div class="label">Positions</div><div class="value" id="kpi-positions">—</div><div class="sub" id="kpi-lscount">—</div></div>
+  <div class="kpi"><div class="label">Win Rate</div><div class="value" id="kpi-winrate">—</div><div class="sub" id="kpi-trades">—</div></div>
+  <div class="kpi"><div class="label">Drawdown</div><div class="value" id="kpi-dd">—</div><div class="sub" id="kpi-breaker">—</div></div>
+  <div class="kpi"><div class="label">Sharpe (1w)</div><div class="value" id="kpi-sharpe">—</div><div class="sub" id="kpi-vol">—</div></div>
+  <div class="kpi"><div class="label">A/B Alpha</div><div class="value" id="kpi-alpha">—</div><div class="sub" id="kpi-abdays">—</div></div>
+</div>
+
+<div class="grid">
+
+  <!-- Equity Curve -->
+  <div class="card full-width">
+    <h2>Equity Curve</h2>
+    <canvas id="equityChart" height="180"></canvas>
+  </div>
+
+  <!-- Position Table -->
+  <div class="card">
+    <h2>Open Positions</h2>
+    <table class="pos-table">
+      <thead><tr><th>Ticker</th><th>Dir</th><th>Shares</th><th>Entry</th><th>Score</th></tr></thead>
+      <tbody id="pos-body"></tbody>
+    </table>
+  </div>
+
+  <!-- Correlation Heatmap -->
+  <div class="card">
+    <h2>Correlation Matrix <span style="font-size:11px;color:var(--dim)">(43d rolling)</span></h2>
+    <div id="corr-container"></div>
+  </div>
+
+  <!-- Signal Health -->
+  <div class="card">
+    <h2>Signal Component Health</h2>
+    <div id="signal-health"></div>
+  </div>
+
+  <!-- Monte Carlo Cone -->
+  <div class="card">
+    <h2>Monte Carlo Forward Projection</h2>
+    <canvas id="mcChart" height="200"></canvas>
+    <div id="mc-stats" style="margin-top:8px"></div>
+  </div>
+
+  <!-- Circuit Breaker -->
+  <div class="card">
+    <h2>Circuit Breaker</h2>
+    <div id="breaker-status"></div>
+    <div style="margin-top:12px">
+      <div style="font-size:12px;color:var(--dim);margin-bottom:4px">Drawdown Levels</div>
+      <canvas id="breakerChart" height="60"></canvas>
+    </div>
+  </div>
+
+  <!-- A/B Test -->
+  <div class="card">
+    <h2>A/B Test — Forward Walk</h2>
+    <div id="ab-summary"></div>
+    <canvas id="abChart" height="160" style="margin-top:8px"></canvas>
+  </div>
+
+</div>
+
+<script>
+// ========== REAL DATA FROM PIPELINE ==========
+
+const PORTFOLIO = {
+  equity: 149020.94,
+  capital: 100000,
+  cash: 149659.47,
+  totalReturn: 49.02,
+  winRate: 50.0,
+  tradeCount: 52,
+  winCount: 11,
+  lossCount: 11,
+  realizedPnl: -32.2,
+  positions: [
+    {t:"MU",s:2.096,d:"long",ep:322.12,sc:28.6},
+    {t:"CVX",s:12.421,d:"long",ep:205.36,sc:20.0},
+    {t:"ACN",s:6.709,d:"long",ep:198.05,sc:16.0},
+    {t:"SPG",s:16.924,d:"long",ep:186.19,sc:-9.2},
+    {t:"TSLA",s:-5.030,d:"short",ep:354.92,sc:-32.2},
+    {t:"NKE",s:-50.078,d:"short",ep:52.93,sc:-29.4},
+    {t:"BTC-USD",s:-0.035,d:"short",ep:67661.82,sc:-11.2},
+    {t:"AAPL",s:-5.982,d:"short",ep:253.43,sc:-2.0}
+  ],
+  equityHistory: [
+    {d:"Mar 23",v:101407},
+    {d:"Mar 24",v:107827},
+    {d:"Mar 25",v:124149},
+    {d:"Mar 26",v:128782},
+    {d:"Mar 27",v:138346},
+    {d:"Mar 30",v:141964},
+    {d:"Mar 31",v:141733},
+    {d:"Apr 2",v:149556}
+  ]
+};
+
+const CORRELATION = {
+  tickers: ["NKE","CVX","TSLA","MU","AAPL","SPG","BTC-USD","ACN"],
+  matrix: [
+    [1,.326,.058,-.184,.281,.302,.199,.214],
+    [.326,1,-.239,-.347,-.203,-.276,-.128,-.018],
+    [.058,-.239,1,.544,.317,.141,.559,-.033],
+    [-.184,-.347,.544,1,.171,.068,.270,-.145],
+    [.281,-.203,.317,.171,1,.348,.176,.036],
+    [.302,-.276,.141,.068,.348,1,.146,.266],
+    [.199,-.128,.559,.270,.176,.146,1,.227],
+    [.214,-.018,-.033,-.145,.036,.266,.227,1]
+  ],
+  avgAbs: 0.222,
+  maxAbs: 0.559,
+  status: "GREEN"
+};
+
+const SIGNAL_HEALTH = [
+  {name:"Valuation",score:82.9,status:"HEALTHY",hitRate:64.3,ic:0.252},
+  {name:"Mean Rev",score:78.1,status:"HEALTHY",hitRate:62.7,ic:0.458},
+  {name:"Regime",score:12.4,status:"DECAYING",hitRate:41.7,ic:0.062},
+  {name:"Trend",score:0,status:"DEAD",hitRate:50.0,ic:-0.194},
+  {name:"Momentum",score:0,status:"DEAD",hitRate:37.5,ic:-0.302},
+  {name:"Volume",score:0,status:"DEAD",hitRate:44.9,ic:-0.087},
+  {name:"Sentiment",score:0,status:"DEAD",hitRate:44.4,ic:-0.119},
+  {name:"Fundmntl",score:0,status:"DEAD",hitRate:50.0,ic:-0.030},
+  {name:"Macro",score:0,status:"DEAD",hitRate:40.6,ic:-0.379}
+];
+
+const MONTE_CARLO = {
+  horizons: {
+    "1 week": {p5:148741,p25:148956,median:149133,p75:149412,p95:149834,sharpe:1.051,probLoss:35.1,avgDD:0.13},
+    "2 weeks": {p5:148699,p25:149029,median:149334,p75:149700,p95:150228,sharpe:0,probLoss:24.5,avgDD:0},
+    "1 month": {p5:148578,p25:149174,median:149776,p75:150466,p95:151050,sharpe:0,probLoss:17.0,avgDD:0},
+    "3 months": {p5:148087,p25:149649,median:151041,p75:152569,p95:153831,sharpe:0,probLoss:8.0,avgDD:0}
+  },
+  equity: 149021
+};
+
+const BREAKER = {
+  level: "GREEN",
+  drawdownPct: 0.0,
+  peakEquity: 149556,
+  currentEquity: 149550,
+  newTradesAllowed: true,
+  sizeMultiplier: 1.0
+};
+
+const AB_TEST = {
+  days: 12,
+  alpha: 23.72,
+  A: {returnPct:-5.02,sharpe:-9.95,maxDD:5.11,vol:21.44},
+  B: {returnPct:18.70,sharpe:11.97,maxDD:0.21,vol:62.56},
+  leader: "B (Regime-Adaptive)",
+  dailyLog: [
+    {d:"Mar 24",a:99665,b:107708},
+    {d:"Mar 25",a:99750,b:107485},
+    {d:"Mar 26",a:98773,b:128782},
+    {d:"Mar 27",a:99051,b:138346},
+    {d:"Mar 30",a:97802,b:141964},
+    {d:"Mar 31",a:96764,b:141733},
+    {d:"Apr 2",a:94984,b:149556}
+  ]
+};
+
+// ========== RENDER ==========
+
+function $(id){return document.getElementById(id)}
+function fmt(n,d=0){return n.toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d})}
+function fmtPct(n){return (n>=0?'+':'')+n.toFixed(2)+'%'}
+function scoreColor(s){return s>=50?'var(--green)':s>=30?'var(--blue)':s>0?'var(--yellow)':'var(--red)'}
+
+// Timestamp
+$('timestamp').textContent = 'Data: Apr 2, 2026 09:38 ET';
+
+// KPIs
+$('kpi-equity').textContent = '$'+fmt(PORTFOLIO.equity);
+$('kpi-equity').style.color = PORTFOLIO.totalReturn>=0?'var(--green)':'var(--red)';
+$('kpi-return').textContent = fmtPct(PORTFOLIO.totalReturn)+' total';
+$('kpi-positions').textContent = PORTFOLIO.positions.length;
+$('kpi-lscount').textContent = '4L / 4S';
+$('kpi-winrate').textContent = PORTFOLIO.winRate+'%';
+$('kpi-trades').textContent = PORTFOLIO.tradeCount+' trades ('+PORTFOLIO.winCount+'W/'+PORTFOLIO.lossCount+'L)';
+$('kpi-dd').textContent = fmtPct(-BREAKER.drawdownPct);
+$('kpi-dd').style.color = BREAKER.level==='GREEN'?'var(--green)':BREAKER.level==='YELLOW'?'var(--yellow)':'var(--red)';
+$('kpi-breaker').textContent = 'Breaker: '+BREAKER.level;
+const mc1w = MONTE_CARLO.horizons["1 week"];
+$('kpi-sharpe').textContent = mc1w.sharpe.toFixed(2);
+$('kpi-sharpe').style.color = mc1w.sharpe>1?'var(--green)':mc1w.sharpe>0?'var(--yellow)':'var(--red)';
+$('kpi-vol').textContent = 'P(loss 1w): '+mc1w.probLoss+'%';
+$('kpi-alpha').textContent = fmtPct(AB_TEST.alpha);
+$('kpi-alpha').style.color = AB_TEST.alpha>0?'var(--green)':'var(--red)';
+$('kpi-abdays').textContent = AB_TEST.days+' days fwd test';
+
+// Position Table
+const tbody = $('pos-body');
+PORTFOLIO.positions.sort((a,b)=>Math.abs(b.sc)-Math.abs(a.sc)).forEach(p=>{
+  const tr = document.createElement('tr');
+  const dirClass = p.d==='long'?'long':'short';
+  const scoreBg = p.sc>20?'badge-green':p.sc>0?'badge-blue':p.sc>-20?'badge-yellow':'badge-red';
+  tr.innerHTML = `<td><strong>${p.t}</strong></td><td class="${dirClass}">${p.d.toUpperCase()}</td><td>${Math.abs(p.s).toFixed(2)}</td><td>$${fmt(p.ep,2)}</td><td><span class="badge ${scoreBg}">${p.sc>0?'+':''}${p.sc}</span></td>`;
+  tbody.appendChild(tr);
+});
+
+// Equity Chart
+function drawEquityChart(){
+  const c = $('equityChart');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  c.width = c.offsetWidth*dpr;
+  c.height = 180*dpr;
+  ctx.scale(dpr,dpr);
+  const W = c.offsetWidth, H = 180;
+  const data = PORTFOLIO.equityHistory;
+  const vals = data.map(d=>d.v);
+  const min = Math.min(...vals)*0.998;
+  const max = Math.max(...vals)*1.002;
+  const pad = {t:20,b:30,l:60,r:20};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+
+  // Grid
+  ctx.strokeStyle = '#21262d';ctx.lineWidth=1;
+  for(let i=0;i<5;i++){
+    const y = pad.t + (ch/4)*i;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(W-pad.r,y);ctx.stroke();
+    const val = max-(max-min)*(i/4);
+    ctx.fillStyle='#8b949e';ctx.font='11px -apple-system';ctx.textAlign='right';
+    ctx.fillText('$'+fmt(val),pad.l-8,y+4);
+  }
+
+  // X labels
+  ctx.textAlign='center';
+  data.forEach((d,i)=>{
+    const x = pad.l + (cw/(data.length-1))*i;
+    ctx.fillStyle='#8b949e';ctx.fillText(d.d,x,H-8);
+  });
+
+  // Area fill
+  const grad = ctx.createLinearGradient(0,pad.t,0,H-pad.b);
+  grad.addColorStop(0,'rgba(63,185,80,0.25)');
+  grad.addColorStop(1,'rgba(63,185,80,0.02)');
+  ctx.beginPath();
+  data.forEach((d,i)=>{
+    const x = pad.l + (cw/(data.length-1))*i;
+    const y = pad.t + ch*(1-(d.v-min)/(max-min));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.l+cw,H-pad.b);ctx.lineTo(pad.l,H-pad.b);ctx.closePath();
+  ctx.fillStyle=grad;ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  data.forEach((d,i)=>{
+    const x = pad.l + (cw/(data.length-1))*i;
+    const y = pad.t + ch*(1-(d.v-min)/(max-min));
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.strokeStyle='var(--green)';ctx.lineWidth=2.5;ctx.stroke();
+
+  // Dots
+  data.forEach((d,i)=>{
+    const x = pad.l + (cw/(data.length-1))*i;
+    const y = pad.t + ch*(1-(d.v-min)/(max-min));
+    ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='var(--green)';ctx.fill();
+    ctx.strokeStyle='var(--bg)';ctx.lineWidth=2;ctx.stroke();
+  });
+
+  // Capital line
+  const capY = pad.t + ch*(1-(PORTFOLIO.capital-min)/(max-min));
+  ctx.setLineDash([4,4]);ctx.beginPath();ctx.moveTo(pad.l,capY);ctx.lineTo(W-pad.r,capY);
+  ctx.strokeStyle='#8b949e';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='#8b949e';ctx.textAlign='left';ctx.fillText('$100k start',pad.l+4,capY-6);
+}
+
+// Correlation Heatmap
+function drawCorrelation(){
+  const container = $('corr-container');
+  const tickers = CORRELATION.tickers.map(t=>t.length>4?t.substring(0,4):t);
+  const n = tickers.length;
+  const grid = document.createElement('div');
+  grid.style.display='grid';
+  grid.style.gridTemplateColumns=`40px repeat(${n},1fr)`;
+  grid.style.gap='2px';
+
+  // Header row
+  grid.innerHTML = '<div></div>' + tickers.map(t=>`<div class="corr-label">${t}</div>`).join('');
+
+  CORRELATION.matrix.forEach((row,i)=>{
+    grid.innerHTML += `<div class="corr-label" style="display:flex;align-items:center;justify-content:flex-end;padding-right:4px">${tickers[i]}</div>`;
+    row.forEach((v,j)=>{
+      const abs = Math.abs(v);
+      const hue = v>0?142:0; // green vs red
+      const sat = i===j?0:70;
+      const light = i===j?20:15+abs*35;
+      const alpha = i===j?0.3:0.15+abs*0.65;
+      grid.innerHTML += `<div class="corr-cell" style="background:hsla(${hue},${sat}%,${light}%,${alpha});color:${abs>0.3?'var(--text)':'var(--dim)'}">${i===j?'':v.toFixed(2)}</div>`;
+    });
+  });
+
+  container.appendChild(grid);
+  container.innerHTML += `<div style="margin-top:8px;font-size:11px;color:var(--dim)">Avg |ρ|: ${CORRELATION.avgAbs.toFixed(3)} · Max |ρ|: ${CORRELATION.maxAbs.toFixed(3)} · Status: <span style="color:var(--green)">${CORRELATION.status}</span></div>`;
+}
+
+// Signal Health Bars
+function drawSignalHealth(){
+  const container = $('signal-health');
+  SIGNAL_HEALTH.forEach(s=>{
+    const color = s.status==='HEALTHY'?'var(--green)':s.status==='DECAYING'?'var(--yellow)':'var(--red)';
+    const statusClass = s.status==='HEALTHY'?'badge-green':s.status==='DECAYING'?'badge-yellow':'badge-red';
+    container.innerHTML += `
+      <div class="signal-bar">
+        <div class="name">${s.name}</div>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width:${Math.max(s.score,2)}%;background:${color}"></div>
+          <div class="bar-value" style="color:${s.score>50?'var(--bg)':'var(--dim)'}"></div>
+        </div>
+        <div class="status" style="color:${color}">${s.score.toFixed(0)}</div>
+      </div>`;
+  });
+  container.innerHTML += `<div style="margin-top:8px;font-size:11px;color:var(--dim)">Hit Rate = directional accuracy · IC = information coefficient (predictive power)</div>`;
+  container.innerHTML += `<div style="margin-top:4px;font-size:11px;color:var(--yellow)">⚠ 7 of 9 components DEAD — ensemble relying on Valuation + Mean Reversion</div>`;
+}
+
+// Monte Carlo Chart
+function drawMonteCarloChart(){
+  const c = $('mcChart');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  c.width = c.offsetWidth*dpr;
+  c.height = 200*dpr;
+  ctx.scale(dpr,dpr);
+  const W = c.offsetWidth, H = 200;
+  const pad = {t:20,b:30,l:60,r:20};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+
+  const labels = ["Now","1w","2w","1mo","3mo"];
+  const horizons = Object.values(MONTE_CARLO.horizons);
+  const allVals = [MONTE_CARLO.equity,...horizons.flatMap(h=>[h.p5,h.p95])];
+  const min = Math.min(...allVals)*0.999;
+  const max = Math.max(...allVals)*1.001;
+
+  function x(i){return pad.l+(cw/(labels.length-1))*i}
+  function y(v){return pad.t+ch*(1-(v-min)/(max-min))}
+
+  // Grid
+  ctx.strokeStyle='#21262d';ctx.lineWidth=1;
+  for(let i=0;i<5;i++){
+    const yy=pad.t+(ch/4)*i;
+    ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(W-pad.r,yy);ctx.stroke();
+    ctx.fillStyle='#8b949e';ctx.font='11px -apple-system';ctx.textAlign='right';
+    ctx.fillText('$'+fmt(max-(max-min)*(i/4)),pad.l-8,yy+4);
+  }
+  ctx.textAlign='center';
+  labels.forEach((l,i)=>{ctx.fillStyle='#8b949e';ctx.fillText(l,x(i),H-8)});
+
+  // P5-P95 cone
+  const p5pts = [MONTE_CARLO.equity,...horizons.map(h=>h.p5)];
+  const p95pts = [MONTE_CARLO.equity,...horizons.map(h=>h.p95)];
+  const p25pts = [MONTE_CARLO.equity,...horizons.map(h=>h.p25)];
+  const p75pts = [MONTE_CARLO.equity,...horizons.map(h=>h.p75)];
+  const medpts = [MONTE_CARLO.equity,...horizons.map(h=>h.median)];
+
+  // P5-P95 fill
+  ctx.beginPath();
+  p5pts.forEach((v,i)=>{i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v))});
+  for(let i=p95pts.length-1;i>=0;i--) ctx.lineTo(x(i),y(p95pts[i]));
+  ctx.closePath();ctx.fillStyle='rgba(88,166,255,0.1)';ctx.fill();
+
+  // P25-P75 fill
+  ctx.beginPath();
+  p25pts.forEach((v,i)=>{i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v))});
+  for(let i=p75pts.length-1;i>=0;i--) ctx.lineTo(x(i),y(p75pts[i]));
+  ctx.closePath();ctx.fillStyle='rgba(88,166,255,0.2)';ctx.fill();
+
+  // Median line
+  ctx.beginPath();
+  medpts.forEach((v,i)=>{i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v))});
+  ctx.strokeStyle='var(--blue)';ctx.lineWidth=2.5;ctx.stroke();
+
+  // P5/P95 dashed
+  [p5pts,p95pts].forEach(pts=>{
+    ctx.beginPath();ctx.setLineDash([3,3]);
+    pts.forEach((v,i)=>{i===0?ctx.moveTo(x(i),y(v)):ctx.lineTo(x(i),y(v))});
+    ctx.strokeStyle='rgba(88,166,255,0.4)';ctx.lineWidth=1;ctx.stroke();ctx.setLineDash([]);
+  });
+
+  // Current dot
+  ctx.beginPath();ctx.arc(x(0),y(MONTE_CARLO.equity),5,0,Math.PI*2);
+  ctx.fillStyle='var(--blue)';ctx.fill();
+
+  // Stats
+  const stats = $('mc-stats');
+  stats.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:12px">
+      ${Object.entries(MONTE_CARLO.horizons).map(([k,h])=>`
+        <div style="text-align:center">
+          <div style="color:var(--dim);font-size:11px">${k}</div>
+          <div style="color:var(--blue);font-weight:600">$${fmt(h.median)}</div>
+          <div style="color:var(--dim)">P(loss): ${h.probLoss}%</div>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
+// Circuit Breaker
+function drawBreaker(){
+  const container = $('breaker-status');
+  const cls = BREAKER.level==='GREEN'?'breaker-green':BREAKER.level==='YELLOW'?'breaker-yellow':'breaker-red';
+  const icon = BREAKER.level==='GREEN'?'●':'⚠';
+  container.innerHTML = `
+    <div class="${cls} breaker-indicator">${icon} Level: ${BREAKER.level} — Drawdown ${BREAKER.drawdownPct.toFixed(2)}%</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px;font-size:12px">
+      <div><span style="color:var(--dim)">Peak:</span> $${fmt(BREAKER.peakEquity)}</div>
+      <div><span style="color:var(--dim)">Size mult:</span> ${BREAKER.sizeMultiplier}x</div>
+      <div><span style="color:var(--dim)">New trades:</span> <span style="color:var(--green)">${BREAKER.newTradesAllowed?'Yes':'No'}</span></div>
+    </div>`;
+
+  // Breaker levels bar
+  const bc = $('breakerChart');
+  const bctx = bc.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  bc.width = bc.offsetWidth*dpr;
+  bc.height = 60*dpr;
+  bctx.scale(dpr,dpr);
+  const W = bc.offsetWidth;
+
+  const levels = [{pct:5,label:'L1 (5%)',color:'var(--yellow)'},{pct:10,label:'L2 (10%)',color:'var(--orange)'},{pct:20,label:'L3 (20%)',color:'var(--red)'}];
+
+  // Background bar
+  bctx.fillStyle='#21262d';bctx.fillRect(20,15,W-40,20);
+
+  // Current position
+  const maxPct = 25;
+  const curX = 20 + (BREAKER.drawdownPct/maxPct)*(W-40);
+  bctx.fillStyle='var(--green)';bctx.fillRect(20,15,Math.max(curX-20,2),20);
+
+  // Level markers
+  levels.forEach(l=>{
+    const lx = 20+(l.pct/maxPct)*(W-40);
+    bctx.strokeStyle=l.color;bctx.lineWidth=2;
+    bctx.beginPath();bctx.moveTo(lx,10);bctx.lineTo(lx,40);bctx.stroke();
+    bctx.fillStyle='#8b949e';bctx.font='10px -apple-system';bctx.textAlign='center';
+    bctx.fillText(l.label,lx,52);
+  });
+
+  // Current marker
+  bctx.beginPath();bctx.arc(Math.max(curX,22),25,6,0,Math.PI*2);
+  bctx.fillStyle='var(--green)';bctx.fill();bctx.strokeStyle='var(--bg)';bctx.lineWidth=2;bctx.stroke();
+}
+
+// A/B Test
+function drawABTest(){
+  const container = $('ab-summary');
+  container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="padding:8px;background:var(--bg);border-radius:6px;border:1px solid var(--border)">
+        <div style="font-size:11px;color:var(--dim)">A: Buy & Hold</div>
+        <div style="font-size:18px;font-weight:700;color:var(--red)">${fmtPct(AB_TEST.A.returnPct)}</div>
+        <div style="font-size:11px;color:var(--dim)">Sharpe: ${AB_TEST.A.sharpe.toFixed(2)} · MaxDD: ${AB_TEST.A.maxDD.toFixed(1)}%</div>
+      </div>
+      <div style="padding:8px;background:var(--bg);border-radius:6px;border:1px solid var(--green)">
+        <div style="font-size:11px;color:var(--dim)">B: Regime-Adaptive</div>
+        <div style="font-size:18px;font-weight:700;color:var(--green)">${fmtPct(AB_TEST.B.returnPct)}</div>
+        <div style="font-size:11px;color:var(--dim)">Sharpe: ${AB_TEST.B.sharpe.toFixed(2)} · MaxDD: ${AB_TEST.B.maxDD.toFixed(1)}%</div>
+      </div>
+    </div>
+    <div style="margin-top:8px;font-size:12px;text-align:center;color:var(--green)">Alpha: ${fmtPct(AB_TEST.alpha)} over ${AB_TEST.days} days · Leader: ${AB_TEST.leader}</div>
+    <div style="margin-top:4px;font-size:11px;text-align:center;color:var(--dim)">Need 30+ days for statistical significance — ${30-AB_TEST.days} days remaining</div>`;
+
+  // A/B equity chart
+  const c = $('abChart');
+  const ctx = c.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  c.width = c.offsetWidth*dpr;
+  c.height = 160*dpr;
+  ctx.scale(dpr,dpr);
+  const W = c.offsetWidth, H = 160;
+  const pad = {t:15,b:25,l:55,r:20};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  const log = AB_TEST.dailyLog;
+  const allV = log.flatMap(d=>[d.a,d.b]);
+  const min = Math.min(...allV)*0.998;
+  const max = Math.max(...allV)*1.002;
+
+  function xp(i){return pad.l+(cw/(log.length-1))*i}
+  function yp(v){return pad.t+ch*(1-(v-min)/(max-min))}
+
+  ctx.strokeStyle='#21262d';ctx.lineWidth=1;
+  for(let i=0;i<4;i++){
+    const yy=pad.t+(ch/3)*i;
+    ctx.beginPath();ctx.moveTo(pad.l,yy);ctx.lineTo(W-pad.r,yy);ctx.stroke();
+    ctx.fillStyle='#8b949e';ctx.font='10px -apple-system';ctx.textAlign='right';
+    ctx.fillText('$'+fmt(max-(max-min)*(i/3)),pad.l-6,yy+4);
+  }
+
+  // A line (red)
+  ctx.beginPath();
+  log.forEach((d,i)=>{i===0?ctx.moveTo(xp(i),yp(d.a)):ctx.lineTo(xp(i),yp(d.a))});
+  ctx.strokeStyle='var(--red)';ctx.lineWidth=2;ctx.stroke();
+
+  // B line (green)
+  ctx.beginPath();
+  log.forEach((d,i)=>{i===0?ctx.moveTo(xp(i),yp(d.b)):ctx.lineTo(xp(i),yp(d.b))});
+  ctx.strokeStyle='var(--green)';ctx.lineWidth=2;ctx.stroke();
+
+  // Labels
+  ctx.textAlign='center';
+  log.forEach((d,i)=>{ctx.fillStyle='#8b949e';ctx.font='10px -apple-system';ctx.fillText(d.d,xp(i),H-6)});
+
+  // Legend
+  ctx.textAlign='left';
+  ctx.fillStyle='var(--red)';ctx.fillRect(pad.l,2,12,3);ctx.fillText('A (B&H)',pad.l+16,8);
+  ctx.fillStyle='var(--green)';ctx.fillRect(pad.l+80,2,12,3);ctx.fillText('B (Regime)',pad.l+96,8);
+}
+
+// Init all
+drawEquityChart();
+drawCorrelation();
+drawSignalHealth();
+drawMonteCarloChart();
+drawBreaker();
+drawABTest();
+
+// Responsive resize
+window.addEventListener('resize',()=>{drawEquityChart();drawMonteCarloChart();drawBreaker();drawABTest()});
+</script>
+</body>
+</html>

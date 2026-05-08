@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DR STRANGE — Market Scenario Simulator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0d1117;--card:#161b22;--border:#30363d;--text:#e6edf3;--dim:#8b949e;--green:#3fb950;--red:#f85149;--yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--cyan:#39d5ff;--orange:#f0883e}
+body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;font-size:14px;line-height:1.5;padding:16px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600}
+.header h1 span{color:var(--purple);font-weight:400;font-size:14px;margin-left:8px}
+.header .meta{color:var(--dim);font-size:12px;text-align:right}
+.disclaimer{background:#1c1206;border:1px solid #5a3e00;border-radius:6px;padding:8px 12px;margin-bottom:16px;font-size:11px;color:var(--yellow)}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px}
+.card h2{font-size:14px;font-weight:600;margin-bottom:12px;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px}
+.full-width{grid-column:1/-1}
+
+/* Event Selector */
+.event-panel{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.event-panel select,.event-panel input{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:6px;font-size:13px;font-family:inherit}
+.event-panel select{min-width:220px}
+.event-panel input[type="text"]{flex:1;min-width:200px}
+.event-panel input[type="range"]{width:160px;accent-color:var(--purple)}
+.event-panel label{font-size:11px;color:var(--dim);text-transform:uppercase;display:block;margin-bottom:4px}
+.event-panel .field{display:flex;flex-direction:column}
+.btn{background:var(--purple);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:0.3px;transition:opacity 0.2s}
+.btn:hover{opacity:0.85}
+.severity-display{font-size:13px;color:var(--purple);font-weight:600;min-width:30px;text-align:center;align-self:flex-end;padding-bottom:8px}
+
+/* Sector Heatmap */
+.heatmap{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.hm-cell{padding:12px 8px;border-radius:6px;text-align:center;transition:all 0.5s ease}
+.hm-cell .sector-name{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;opacity:0.9}
+.hm-cell .sector-impact{font-size:20px;font-weight:700;margin-top:4px}
+.hm-cell .sector-detail{font-size:10px;margin-top:2px;opacity:0.7}
+
+/* Cascade Timeline */
+.cascade{margin-top:8px}
+.cascade-order{margin-bottom:16px}
+.cascade-order h3{font-size:12px;color:var(--dim);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;display:flex;align-items:center;gap:8px}
+.cascade-order h3::before{content:'';display:block;width:8px;height:8px;border-radius:50%}
+.order-1 h3::before{background:var(--red)}
+.order-2 h3::before{background:var(--orange)}
+.order-3 h3::before{background:var(--yellow)}
+.cascade-items{display:flex;flex-wrap:wrap;gap:6px}
+.cascade-item{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:12px;transition:all 0.3s;opacity:0;transform:translateY(8px)}
+.cascade-item.visible{opacity:1;transform:translateY(0)}
+.cascade-item .effect{font-weight:600}
+.cascade-item .timing{color:var(--dim);font-size:10px;margin-left:6px}
+
+/* Monte Carlo */
+canvas{display:block;width:100%;border-radius:4px;margin-top:8px}
+
+/* KPI Cards */
+.kpi-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+.kpi{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;flex:1;min-width:120px}
+.kpi .label{font-size:11px;color:var(--dim);text-transform:uppercase}
+.kpi .value{font-size:22px;font-weight:700;margin-top:2px}
+.kpi .sub{font-size:11px;color:var(--dim);margin-top:2px}
+
+/* Scenario History */
+.history-list{max-height:200px;overflow-y:auto;margin-top:8px}
+.history-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.history-item:last-child{border-bottom:none}
+.history-item .name{color:var(--text);font-weight:500}
+.history-item .detail{color:var(--dim)}
+
+/* Empty state */
+.empty-state{text-align:center;padding:40px 20px;color:var(--dim)}
+.empty-state .icon{font-size:48px;margin-bottom:12px;opacity:0.5}
+.empty-state .msg{font-size:14px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔮 Market Scenario Simulator <span>DR STRANGE</span></h1>
+  <div class="meta">RAMICHE OS • Scenario Modeling<br><span id="timestamp"></span></div>
+</div>
+
+<div class="disclaimer">⚠️ Simulation only — not financial advice. Models use simplified sector correlations and Monte Carlo projections with fat-tail distributions. Do not make investment decisions based solely on these outputs.</div>
+
+<div class="grid">
+
+  <!-- Event Selector -->
+  <div class="card full-width">
+    <h2>⚡ Scenario Input</h2>
+    <div class="event-panel">
+      <div class="field">
+        <label>Preset Scenario</label>
+        <select id="presetSelect" onchange="handlePresetChange()">
+          <option value="">— Select a scenario —</option>
+          <option value="fed_hike">Fed Rate Hike (+50bp)</option>
+          <option value="fed_cut">Fed Rate Cut (-50bp)</option>
+          <option value="oil_shock">Oil Price Shock (+40%)</option>
+          <option value="tech_crash">Tech Earnings Miss (FAANG -15%)</option>
+          <option value="pandemic">Pandemic Outbreak</option>
+          <option value="trade_war">US-China Trade War Escalation</option>
+          <option value="bank_crisis">Regional Banking Crisis</option>
+          <option value="ai_bubble">AI Bubble Burst</option>
+          <option value="inflation_surge">Inflation Surge (CPI +8%)</option>
+          <option value="recession">US Recession Signal (Yield Curve)</option>
+          <option value="custom">Custom Event...</option>
+        </select>
+      </div>
+      <div class="field" id="customField" style="display:none">
+        <label>Custom Event Description</label>
+        <input type="text" id="customEvent" placeholder="e.g., China invades Taiwan">
+      </div>
+      <div class="field">
+        <label>Severity (1-10)</label>
+        <input type="range" id="severity" min="1" max="10" value="5" oninput="updateSeverity()">
+      </div>
+      <div class="severity-display" id="sevDisplay">5</div>
+      <button class="btn" onclick="runSimulation()">Run Simulation</button>
+    </div>
+  </div>
+
+  <!-- Sector Impact Heatmap -->
+  <div class="card">
+    <h2>🗺️ Sector Impact Heatmap</h2>
+    <div id="heatmapContainer">
+      <div class="empty-state"><div class="icon">🌐</div><div class="msg">Run a scenario to see sector impacts</div></div>
+    </div>
+  </div>
+
+  <!-- Cascade Timeline -->
+  <div class="card">
+    <h2>🌊 Cascade Effects</h2>
+    <div id="cascadeContainer">
+      <div class="empty-state"><div class="icon">⛓️</div><div class="msg">Cascading effects will appear here</div></div>
+    </div>
+  </div>
+
+  <!-- Monte Carlo Projection -->
+  <div class="card full-width">
+    <h2>📊 Monte Carlo Projection (1000 paths)</h2>
+    <canvas id="mcCanvas" height="280"></canvas>
+    <div class="kpi-row" id="mcKpis" style="display:none">
+      <div class="kpi"><div class="label">6M Median</div><div class="value" id="mc6m">—</div><div class="sub">50th percentile</div></div>
+      <div class="kpi"><div class="label">12M Median</div><div class="value" id="mc12m">—</div><div class="sub">50th percentile</div></div>
+      <div class="kpi"><div class="label">18M Median</div><div class="value" id="mc18m">—</div><div class="sub">50th percentile</div></div>
+      <div class="kpi"><div class="label">Max Drawdown</div><div class="value" id="mcDD">—</div><div class="sub">95th percentile worst</div></div>
+      <div class="kpi"><div class="label">Recovery Time</div><div class="value" id="mcRec">—</div><div class="sub">Median months</div></div>
+      <div class="kpi"><div class="label">Tail Risk (5%)</div><div class="value" id="mcTail">—</div><div class="sub">VaR at 18M</div></div>
+    </div>
+  </div>
+
+  <!-- Risk Summary -->
+  <div class="card">
+    <h2>🎯 Risk Assessment</h2>
+    <div id="riskContainer">
+      <div class="empty-state"><div class="icon">📋</div><div class="msg">Risk metrics populate after simulation</div></div>
+    </div>
+  </div>
+
+  <!-- Scenario History -->
+  <div class="card">
+    <h2>📜 Session History</h2>
+    <div class="history-list" id="historyList">
+      <div class="empty-state"><div class="icon">🕐</div><div class="msg">No scenarios run yet</div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Timestamp
+document.getElementById('timestamp').textContent = new Date().toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});
+
+// Sectors (GICS-based)
+const SECTORS = [
+  {id:'tech',name:'Technology',color:'#58a6ff'},
+  {id:'health',name:'Healthcare',color:'#3fb950'},
+  {id:'finance',name:'Financials',color:'#d29922'},
+  {id:'energy',name:'Energy',color:'#f0883e'},
+  {id:'consumer_d',name:'Consumer Disc.',color:'#bc8cff'},
+  {id:'consumer_s',name:'Consumer Staples',color:'#39d5ff'},
+  {id:'industrial',name:'Industrials',color:'#8b949e'},
+  {id:'materials',name:'Materials',color:'#f778ba'},
+  {id:'real_estate',name:'Real Estate',color:'#db61a2'},
+  {id:'utilities',name:'Utilities',color:'#7ee787'},
+  {id:'comm',name:'Communication',color:'#79c0ff'}
+];
+
+// Correlation matrix (simplified — higher = more correlated)
+const CORR = {
+  tech:{tech:1,health:0.3,finance:0.5,energy:0.1,consumer_d:0.7,consumer_s:0.1,industrial:0.4,materials:0.2,real_estate:0.3,utilities:0.05,comm:0.8},
+  health:{tech:0.3,health:1,finance:0.3,energy:0.1,consumer_d:0.2,consumer_s:0.5,industrial:0.2,materials:0.15,real_estate:0.2,utilities:0.3,comm:0.2},
+  finance:{tech:0.5,health:0.3,finance:1,energy:0.4,consumer_d:0.5,consumer_s:0.3,industrial:0.5,materials:0.4,real_estate:0.7,utilities:0.4,comm:0.4},
+  energy:{tech:0.1,health:0.1,finance:0.4,energy:1,consumer_d:0.2,consumer_s:0.15,industrial:0.6,materials:0.7,real_estate:0.2,utilities:0.5,comm:0.1},
+  consumer_d:{tech:0.7,health:0.2,finance:0.5,energy:0.2,consumer_d:1,consumer_s:0.3,industrial:0.4,materials:0.2,real_estate:0.3,utilities:0.1,comm:0.6},
+  consumer_s:{tech:0.1,health:0.5,finance:0.3,energy:0.15,consumer_d:0.3,consumer_s:1,industrial:0.2,materials:0.2,real_estate:0.3,utilities:0.5,comm:0.15},
+  industrial:{tech:0.4,health:0.2,finance:0.5,energy:0.6,consumer_d:0.4,consumer_s:0.2,industrial:1,materials:0.7,real_estate:0.4,utilities:0.3,comm:0.3},
+  materials:{tech:0.2,health:0.15,finance:0.4,energy:0.7,consumer_d:0.2,consumer_s:0.2,industrial:0.7,materials:1,real_estate:0.3,utilities:0.3,comm:0.15},
+  real_estate:{tech:0.3,health:0.2,finance:0.7,energy:0.2,consumer_d:0.3,consumer_s:0.3,industrial:0.4,materials:0.3,real_estate:1,utilities:0.4,comm:0.2},
+  utilities:{tech:0.05,health:0.3,finance:0.4,energy:0.5,consumer_d:0.1,consumer_s:0.5,industrial:0.3,materials:0.3,real_estate:0.4,utilities:1,comm:0.1},
+  comm:{tech:0.8,health:0.2,finance:0.4,energy:0.1,consumer_d:0.6,consumer_s:0.15,industrial:0.3,materials:0.15,real_estate:0.2,utilities:0.1,comm:1}
+};
+
+// Scenario definitions: primary impacts + cascade effects
+const SCENARIOS = {
+  fed_hike:{
+    name:'Fed Rate Hike (+50bp)',
+    primary:{tech:-0.08,health:-0.02,finance:0.04,energy:-0.03,consumer_d:-0.06,consumer_s:-0.01,industrial:-0.04,materials:-0.03,real_estate:-0.09,utilities:-0.05,comm:-0.06},
+    cascades:[
+      {order:1,effects:[{sector:'real_estate',text:'Mortgage rates spike → housing demand drops',timing:'Immediate'},{sector:'finance',text:'Bank NIM expands → lending tightens',timing:'1-2 weeks'},{sector:'tech',text:'Growth stock multiples compress',timing:'1-3 days'}]},
+      {order:2,effects:[{sector:'consumer_d',text:'Consumer spending pullback on big-ticket items',timing:'1-3 months'},{sector:'industrial',text:'Construction activity slows',timing:'2-4 months'},{sector:'materials',text:'Building materials demand drops',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'comm',text:'Ad spending cuts as budgets tighten',timing:'3-6 months'},{sector:'utilities',text:'Yield competition from Treasuries',timing:'1-3 months'}]}
+    ],
+    drift:-0.04,vol:0.18
+  },
+  fed_cut:{
+    name:'Fed Rate Cut (-50bp)',
+    primary:{tech:0.07,health:0.02,finance:-0.03,energy:0.02,consumer_d:0.06,consumer_s:0.01,industrial:0.04,materials:0.03,real_estate:0.08,utilities:0.04,comm:0.05},
+    cascades:[
+      {order:1,effects:[{sector:'real_estate',text:'Mortgage rates drop → housing demand surges',timing:'Immediate'},{sector:'tech',text:'Growth valuations expand',timing:'1-3 days'},{sector:'utilities',text:'Yield stocks become more attractive',timing:'1 week'}]},
+      {order:2,effects:[{sector:'consumer_d',text:'Consumer confidence rises, spending up',timing:'1-3 months'},{sector:'industrial',text:'Capital expenditure plans accelerate',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'finance',text:'NIM compression offsets loan volume gains',timing:'3-6 months'},{sector:'energy',text:'Demand-led energy price recovery',timing:'4-8 months'}]}
+    ],
+    drift:0.06,vol:0.14
+  },
+  oil_shock:{
+    name:'Oil Price Shock (+40%)',
+    primary:{tech:-0.03,health:-0.02,finance:-0.02,energy:0.12,consumer_d:-0.07,consumer_s:-0.04,industrial:-0.06,materials:0.03,real_estate:-0.02,utilities:-0.04,comm:-0.03},
+    cascades:[
+      {order:1,effects:[{sector:'energy',text:'E&P companies surge, refiners mixed',timing:'Immediate'},{sector:'consumer_d',text:'Gas prices hit consumer wallets',timing:'1-2 weeks'},{sector:'industrial',text:'Transportation costs spike',timing:'1-2 weeks'}]},
+      {order:2,effects:[{sector:'consumer_s',text:'Food prices rise on transport costs',timing:'1-3 months'},{sector:'materials',text:'Petrochemical input costs surge',timing:'1-2 months'},{sector:'utilities',text:'Natural gas/electricity costs follow',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'tech',text:'Inflation fears trigger risk-off rotation',timing:'2-4 months'},{sector:'finance',text:'Credit stress in energy-dependent regions',timing:'4-8 months'}]}
+    ],
+    drift:-0.03,vol:0.22
+  },
+  tech_crash:{
+    name:'Tech Earnings Miss (FAANG -15%)',
+    primary:{tech:-0.15,health:0.02,finance:-0.04,energy:0.01,consumer_d:-0.08,consumer_s:0.03,industrial:-0.02,materials:-0.01,real_estate:0.01,utilities:0.03,comm:-0.12},
+    cascades:[
+      {order:1,effects:[{sector:'tech',text:'Mega-cap selloff cascades to small-cap tech',timing:'Immediate'},{sector:'comm',text:'Ad-dependent companies tank with FAANG',timing:'Same day'},{sector:'consumer_d',text:'E-commerce and streaming hit hard',timing:'1-3 days'}]},
+      {order:2,effects:[{sector:'finance',text:'VC funding freezes, IPO window shuts',timing:'2-6 weeks'},{sector:'industrial',text:'Data center build-out plans paused',timing:'1-3 months'}]},
+      {order:3,effects:[{sector:'consumer_s',text:'Rotation to safety, staples outperform',timing:'1-3 months'},{sector:'utilities',text:'Defensive rotation drives inflows',timing:'1-3 months'}]}
+    ],
+    drift:-0.06,vol:0.25
+  },
+  pandemic:{
+    name:'Pandemic Outbreak',
+    primary:{tech:0.05,health:0.08,finance:-0.08,energy:-0.15,consumer_d:-0.12,consumer_s:0.06,industrial:-0.1,materials:-0.06,real_estate:-0.09,utilities:-0.03,comm:-0.04},
+    cascades:[
+      {order:1,effects:[{sector:'energy',text:'Travel halt → oil demand collapses',timing:'Immediate'},{sector:'consumer_d',text:'Retail, travel, hospitality shut down',timing:'1-2 weeks'},{sector:'health',text:'Pharma and biotech surge on treatment race',timing:'Immediate'}]},
+      {order:2,effects:[{sector:'tech',text:'Remote work drives cloud/SaaS demand',timing:'2-4 weeks'},{sector:'industrial',text:'Supply chains disrupted globally',timing:'1-3 months'},{sector:'real_estate',text:'Office/retail REIT valuations crater',timing:'1-3 months'}]},
+      {order:3,effects:[{sector:'finance',text:'Loan losses mount, credit tightens',timing:'3-6 months'},{sector:'consumer_s',text:'Pantry stocking normalizes, margins improve',timing:'3-6 months'}]}
+    ],
+    drift:-0.08,vol:0.32
+  },
+  trade_war:{
+    name:'US-China Trade War Escalation',
+    primary:{tech:-0.1,health:-0.03,finance:-0.05,energy:-0.04,consumer_d:-0.07,consumer_s:-0.03,industrial:-0.08,materials:-0.06,real_estate:-0.02,utilities:0.01,comm:-0.05},
+    cascades:[
+      {order:1,effects:[{sector:'tech',text:'Semiconductor supply chain disrupted',timing:'Immediate'},{sector:'industrial',text:'Tariff costs hit manufacturing margins',timing:'1-2 weeks'},{sector:'materials',text:'Rare earth supply concerns',timing:'1-2 weeks'}]},
+      {order:2,effects:[{sector:'consumer_d',text:'Imported goods prices rise',timing:'1-3 months'},{sector:'energy',text:'LNG trade flows redirected',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'finance',text:'Global trade finance volumes drop',timing:'3-6 months'},{sector:'health',text:'Drug ingredient sourcing at risk',timing:'4-8 months'}]}
+    ],
+    drift:-0.05,vol:0.2
+  },
+  bank_crisis:{
+    name:'Regional Banking Crisis',
+    primary:{tech:-0.04,health:-0.01,finance:-0.14,energy:-0.02,consumer_d:-0.05,consumer_s:0.02,industrial:-0.04,materials:-0.03,real_estate:-0.1,utilities:0.02,comm:-0.03},
+    cascades:[
+      {order:1,effects:[{sector:'finance',text:'Bank runs, deposit flight to big banks',timing:'Immediate'},{sector:'real_estate',text:'CRE lending freezes',timing:'1-2 weeks'}]},
+      {order:2,effects:[{sector:'consumer_d',text:'Credit tightening slows consumer spending',timing:'1-3 months'},{sector:'industrial',text:'Small business lending dries up',timing:'2-4 months'},{sector:'tech',text:'Startup funding crunch',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'utilities',text:'Safe haven bid, outperformance',timing:'1-3 months'},{sector:'consumer_s',text:'Defensive rotation inflows',timing:'1-3 months'}]}
+    ],
+    drift:-0.05,vol:0.24
+  },
+  ai_bubble:{
+    name:'AI Bubble Burst',
+    primary:{tech:-0.18,health:0.01,finance:-0.05,energy:-0.03,consumer_d:-0.06,consumer_s:0.02,industrial:-0.04,materials:-0.02,real_estate:0,utilities:0.03,comm:-0.1},
+    cascades:[
+      {order:1,effects:[{sector:'tech',text:'AI chip makers crash, GPU demand evaporates',timing:'Immediate'},{sector:'comm',text:'AI-hype cloud companies revalued down',timing:'1-3 days'},{sector:'industrial',text:'Data center construction paused',timing:'1-2 weeks'}]},
+      {order:2,effects:[{sector:'energy',text:'Data center power demand growth stalls',timing:'1-3 months'},{sector:'finance',text:'AI-focused VC/PE writedowns',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'consumer_s',text:'Rotation to value/defensive',timing:'1-3 months'},{sector:'utilities',text:'Defensive bid + reduced capex pressure',timing:'2-4 months'}]}
+    ],
+    drift:-0.07,vol:0.28
+  },
+  inflation_surge:{
+    name:'Inflation Surge (CPI +8%)',
+    primary:{tech:-0.09,health:-0.03,finance:0.02,energy:0.06,consumer_d:-0.08,consumer_s:-0.02,industrial:-0.03,materials:0.04,real_estate:-0.06,utilities:-0.03,comm:-0.06},
+    cascades:[
+      {order:1,effects:[{sector:'energy',text:'Commodities rally on inflation hedge',timing:'Immediate'},{sector:'tech',text:'Duration-sensitive growth crushed',timing:'1-3 days'},{sector:'materials',text:'Hard assets outperform',timing:'1 week'}]},
+      {order:2,effects:[{sector:'consumer_d',text:'Real wages decline, spending drops',timing:'1-3 months'},{sector:'real_estate',text:'Rate hike expectations crush REITs',timing:'1-2 months'}]},
+      {order:3,effects:[{sector:'finance',text:'NIM expands but credit risk rises',timing:'3-6 months'},{sector:'industrial',text:'Input cost margin squeeze',timing:'3-6 months'}]}
+    ],
+    drift:-0.04,vol:0.2
+  },
+  recession:{
+    name:'US Recession Signal (Yield Curve)',
+    primary:{tech:-0.06,health:0.01,finance:-0.08,energy:-0.07,consumer_d:-0.09,consumer_s:0.03,industrial:-0.08,materials:-0.06,real_estate:-0.05,utilities:0.04,comm:-0.05},
+    cascades:[
+      {order:1,effects:[{sector:'finance',text:'Yield curve inverts, bank stocks drop',timing:'Immediate'},{sector:'consumer_d',text:'Consumer confidence plunges',timing:'1-2 weeks'},{sector:'utilities',text:'Flight to safety, yield stocks bid up',timing:'1 week'}]},
+      {order:2,effects:[{sector:'industrial',text:'Capex plans frozen, orders decline',timing:'1-3 months'},{sector:'energy',text:'Demand destruction fears',timing:'2-4 months'},{sector:'materials',text:'Commodity demand pullback',timing:'2-4 months'}]},
+      {order:3,effects:[{sector:'tech',text:'Cloud spending deceleration',timing:'3-6 months'},{sector:'health',text:'Defensive outperformance continues',timing:'3-6 months'}]}
+    ],
+    drift:-0.06,vol:0.22
+  }
+};
+
+// State
+let history = [];
+
+// UI helpers
+function handlePresetChange(){
+  const v = document.getElementById('presetSelect').value;
+  document.getElementById('customField').style.display = v === 'custom' ? 'flex' : 'none';
+}
+
+function updateSeverity(){
+  document.getElementById('sevDisplay').textContent = document.getElementById('severity').value;
+}
+
+// Student-t random (df=5 for fat tails)
+function randStudentT(df){
+  // Box-Muller for normal, then scale by chi-squared
+  const u1 = Math.random(), u2 = Math.random();
+  const z = Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+  let chi2 = 0;
+  for(let i=0;i<df;i++){const n=Math.sqrt(-2*Math.log(Math.random()))*Math.cos(2*Math.PI*Math.random());chi2+=n*n;}
+  return z / Math.sqrt(chi2/df);
+}
+
+// Monte Carlo simulation
+function runMonteCarlo(drift, vol, severity, months=18){
+  const paths = 1000;
+  const steps = months;
+  const sevMult = severity / 5; // normalize around 1
+  const adjDrift = drift * sevMult;
+  const adjVol = vol * sevMult;
+  const dt = 1/12;
+
+  const allPaths = [];
+  for(let p=0;p<paths;p++){
+    const path = [100]; // start at 100
+    for(let t=1;t<=steps;t++){
+      const shock = randStudentT(5);
+      const ret = adjDrift*dt + adjVol*Math.sqrt(dt)*shock;
+      path.push(path[t-1] * (1 + ret));
+    }
+    allPaths.push(path);
+  }
+
+  // Calculate percentiles at each step
+  const percentiles = {p5:[],p25:[],p50:[],p75:[],p95:[]};
+  for(let t=0;t<=steps;t++){
+    const vals = allPaths.map(p=>p[t]).sort((a,b)=>a-b);
+    percentiles.p5.push(vals[Math.floor(paths*0.05)]);
+    percentiles.p25.push(vals[Math.floor(paths*0.25)]);
+    percentiles.p50.push(vals[Math.floor(paths*0.50)]);
+    percentiles.p75.push(vals[Math.floor(paths*0.75)]);
+    percentiles.p95.push(vals[Math.floor(paths*0.95)]);
+  }
+
+  // Max drawdown from median path
+  let maxDD = 0, peak = percentiles.p50[0];
+  for(const v of percentiles.p50){
+    if(v > peak) peak = v;
+    const dd = (peak - v) / peak;
+    if(dd > maxDD) maxDD = dd;
+  }
+
+  // Recovery: months until median crosses 100 again
+  let recovery = steps;
+  for(let t=1;t<=steps;t++){
+    if(percentiles.p50[t] >= 100){recovery = t; break;}
+  }
+
+  return {allPaths, percentiles, maxDD, recovery};
+}
+
+// Draw Monte Carlo chart
+function drawMC(percentiles){
+  const canvas = document.getElementById('mcCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 280 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth, H = 280;
+  const pad = {top:20,right:20,bottom:30,left:50};
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Find range
+  const allVals = [...percentiles.p5,...percentiles.p95];
+  const minV = Math.min(...allVals)*0.95;
+  const maxV = Math.max(...allVals)*1.05;
+  const steps = percentiles.p50.length - 1;
+
+  const x = (i) => pad.left + (i/steps)*cW;
+  const y = (v) => pad.top + (1 - (v-minV)/(maxV-minV))*cH;
+
+  // Grid
+  ctx.strokeStyle = '#30363d';
+  ctx.lineWidth = 0.5;
+  for(let i=0;i<=4;i++){
+    const gy = pad.top + (i/4)*cH;
+    ctx.beginPath();ctx.moveTo(pad.left,gy);ctx.lineTo(W-pad.right,gy);ctx.stroke();
+    const val = maxV - (i/4)*(maxV-minV);
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px -apple-system,sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toFixed(1),pad.left-6,gy+3);
+  }
+
+  // X-axis labels
+  ctx.textAlign = 'center';
+  for(let m=0;m<=steps;m+=3){
+    ctx.fillStyle = '#8b949e';
+    ctx.fillText(m+'M',x(m),H-8);
+  }
+
+  // 5-95 band
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++) ctx.lineTo(x(i),y(percentiles.p95[i]));
+  for(let i=steps;i>=0;i--) ctx.lineTo(x(i),y(percentiles.p5[i]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(188,140,255,0.08)';
+  ctx.fill();
+
+  // 25-75 band
+  ctx.beginPath();
+  for(let i=0;i<=steps;i++) ctx.lineTo(x(i),y(percentiles.p75[i]));
+  for(let i=steps;i>=0;i--) ctx.lineTo(x(i),y(percentiles.p25[i]));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(188,140,255,0.18)';
+  ctx.fill();
+
+  // Median line
+  ctx.beginPath();
+  ctx.strokeStyle = '#bc8cff';
+  ctx.lineWidth = 2;
+  for(let i=0;i<=steps;i++){
+    if(i===0) ctx.moveTo(x(i),y(percentiles.p50[i]));
+    else ctx.lineTo(x(i),y(percentiles.p50[i]));
+  }
+  ctx.stroke();
+
+  // 100 baseline
+  if(minV < 100 && maxV > 100){
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(139,148,158,0.4)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4,4]);
+    ctx.moveTo(pad.left,y(100));
+    ctx.lineTo(W-pad.right,y(100));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8b949e';
+    ctx.textAlign = 'left';
+    ctx.fillText('Baseline',W-pad.right+4,y(100)+3);
+  }
+
+  // Legend
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px -apple-system,sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillRect(pad.left+10,pad.top+4,20,8);ctx.fillStyle='rgba(188,140,255,0.18)';ctx.fillRect(pad.left+10,pad.top+4,20,8);
+  ctx.fillStyle='#8b949e';ctx.fillText('25th-75th',pad.left+34,pad.top+12);
+  ctx.fillStyle='rgba(188,140,255,0.08)';ctx.fillRect(pad.left+100,pad.top+4,20,8);
+  ctx.fillStyle='#8b949e';ctx.fillText('5th-95th',pad.left+124,pad.top+12);
+  ctx.strokeStyle='#bc8cff';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(pad.left+190,pad.top+8);ctx.lineTo(pad.left+210,pad.top+8);ctx.stroke();
+  ctx.fillStyle='#8b949e';ctx.fillText('Median',pad.left+214,pad.top+12);
+}
+
+// Color for impact value
+function impactColor(val){
+  if(val > 0.06) return {bg:'#0d2818',text:'#3fb950'};
+  if(val > 0.02) return {bg:'#0d2215',text:'#56d364'};
+  if(val > -0.02) return {bg:'#1a1e23',text:'#8b949e'};
+  if(val > -0.06) return {bg:'#2a1215',text:'#f0883e'};
+  return {bg:'#2d0d0d',text:'#f85149'};
+}
+
+// Run simulation
+function runSimulation(){
+  const presetKey = document.getElementById('presetSelect').value;
+  if(!presetKey){return;}
+
+  const severity = parseInt(document.getElementById('severity').value);
+  let scenario;
+
+  if(presetKey === 'custom'){
+    const desc = document.getElementById('customEvent').value.trim();
+    if(!desc) return;
+    // Generate a generic negative scenario for custom
+    scenario = {
+      name: desc,
+      primary:{tech:-0.05,health:-0.02,finance:-0.04,energy:-0.03,consumer_d:-0.05,consumer_s:-0.01,industrial:-0.04,materials:-0.03,real_estate:-0.03,utilities:0.01,comm:-0.04},
+      cascades:[
+        {order:1,effects:[{sector:'finance',text:'Market uncertainty → risk-off sentiment',timing:'Immediate'},{sector:'tech',text:'Growth stocks sell off first',timing:'1-3 days'}]},
+        {order:2,effects:[{sector:'consumer_d',text:'Consumer confidence drops',timing:'1-3 months'},{sector:'industrial',text:'Business investment paused',timing:'2-4 months'}]},
+        {order:3,effects:[{sector:'utilities',text:'Defensive rotation',timing:'2-4 months'}]}
+      ],
+      drift:-0.04,vol:0.2
+    };
+  } else {
+    scenario = SCENARIOS[presetKey];
+  }
+
+  const sevMult = severity / 5;
+
+  // Render Heatmap
+  const heatmap = document.getElementById('heatmapContainer');
+  let hmHtml = '<div class="heatmap">';
+  SECTORS.forEach(s => {
+    const rawImpact = scenario.primary[s.id] * sevMult;
+    const c = impactColor(rawImpact);
+    const pct = (rawImpact * 100).toFixed(1);
+    const sign = rawImpact >= 0 ? '+' : '';
+    hmHtml += `<div class="hm-cell" style="background:${c.bg};color:${c.text}">
+      <div class="sector-name">${s.name}</div>
+      <div class="sector-impact">${sign}${pct}%</div>
+      <div class="sector-detail">${rawImpact > 0 ? 'Outperform' : rawImpact < -0.05*sevMult ? 'High Risk' : 'Underperform'}</div>
+    </div>`;
+  });
+  hmHtml += '</div>';
+  heatmapContainer.innerHTML = hmHtml;
+
+  // Render Cascades with animation
+  const cascadeContainer = document.getElementById('cascadeContainer');
+  let ccHtml = '<div class="cascade">';
+  scenario.cascades.forEach(order => {
+    ccHtml += `<div class="cascade-order order-${order.order}"><h3>${order.order === 1 ? '1st Order (Direct)' : order.order === 2 ? '2nd Order (Ripple)' : '3rd Order (Systemic)'}</h3><div class="cascade-items">`;
+    order.effects.forEach(e => {
+      const s = SECTORS.find(s => s.id === e.sector);
+      ccHtml += `<div class="cascade-item"><span class="effect" style="color:${s ? s.color : 'var(--text)'}">${s ? s.name : e.sector}:</span> ${e.text}<span class="timing">${e.timing}</span></div>`;
+    });
+    ccHtml += '</div></div>';
+  });
+  ccHtml += '</div>';
+  cascadeContainer.innerHTML = ccHtml;
+
+  // Animate cascade items
+  setTimeout(() => {
+    const items = cascadeContainer.querySelectorAll('.cascade-item');
+    items.forEach((item, i) => {
+      setTimeout(() => item.classList.add('visible'), i * 120);
+    });
+  }, 50);
+
+  // Run Monte Carlo
+  const mc = runMonteCarlo(scenario.drift, scenario.vol, severity);
+  drawMC(mc.percentiles);
+
+  // KPIs
+  document.getElementById('mcKpis').style.display = 'flex';
+  const fmt = (v) => (v >= 100 ? '+' : '') + (v - 100).toFixed(1) + '%';
+  const clr = (v) => v >= 100 ? 'var(--green)' : 'var(--red)';
+  document.getElementById('mc6m').innerHTML = `<span style="color:${clr(mc.percentiles.p50[6])}">${fmt(mc.percentiles.p50[6])}</span>`;
+  document.getElementById('mc12m').innerHTML = `<span style="color:${clr(mc.percentiles.p50[12])}">${fmt(mc.percentiles.p50[12])}</span>`;
+  document.getElementById('mc18m').innerHTML = `<span style="color:${clr(mc.percentiles.p50[18])}">${fmt(mc.percentiles.p50[18])}</span>`;
+  document.getElementById('mcDD').innerHTML = `<span style="color:var(--red)">-${(mc.maxDD*100).toFixed(1)}%</span>`;
+  document.getElementById('mcRec').innerHTML = `<span style="color:var(--yellow)">${mc.recovery}M</span>`;
+  document.getElementById('mcTail').innerHTML = `<span style="color:var(--red)">${fmt(mc.percentiles.p5[18])}</span>`;
+
+  // Risk Assessment
+  const riskContainer = document.getElementById('riskContainer');
+  const overallRisk = Math.abs(Object.values(scenario.primary).reduce((a,b)=>a+b,0) / SECTORS.length * sevMult);
+  const riskLevel = overallRisk > 0.06 ? {label:'CRITICAL',color:'var(--red)',bg:'#2d0d0d'} : overallRisk > 0.03 ? {label:'HIGH',color:'var(--orange)',bg:'#2a1a0d'} : overallRisk > 0.015 ? {label:'MODERATE',color:'var(--yellow)',bg:'#2a250d'} : {label:'LOW',color:'var(--green)',bg:'#0d2818'};
+  const worstSector = SECTORS.reduce((worst, s) => {
+    const impact = scenario.primary[s.id] * sevMult;
+    return impact < worst.impact ? {name:s.name,impact} : worst;
+  },{name:'',impact:0});
+  const bestSector = SECTORS.reduce((best, s) => {
+    const impact = scenario.primary[s.id] * sevMult;
+    return impact > best.impact ? {name:s.name,impact} : best;
+  },{name:'',impact:-999});
+
+  riskContainer.innerHTML = `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;border-radius:6px;background:${riskLevel.bg};border:1px solid ${riskLevel.color};margin-bottom:12px">
+      <div style="font-size:24px;font-weight:700;color:${riskLevel.color}">${riskLevel.label}</div>
+      <div style="color:var(--dim);font-size:12px">Overall market risk assessment for this scenario at severity ${severity}/10</div>
+    </div>
+    <div style="display:grid;gap:8px">
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--dim)">Most Vulnerable</span>
+        <span style="color:var(--red);font-weight:600">${worstSector.name} (${(worstSector.impact*100).toFixed(1)}%)</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--dim)">Best Positioned</span>
+        <span style="color:var(--green);font-weight:600">${bestSector.name} (+${(bestSector.impact*100).toFixed(1)}%)</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--dim)">Cascade Depth</span>
+        <span style="font-weight:600">${scenario.cascades.length} orders</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+        <span style="color:var(--dim)">Volatility Regime</span>
+        <span style="font-weight:600;color:${scenario.vol*sevMult/5>0.04?'var(--red)':scenario.vol*sevMult/5>0.025?'var(--yellow)':'var(--green)'}">${(scenario.vol*sevMult*100).toFixed(0)}% annualized</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px">
+        <span style="color:var(--dim)">Projected Drift</span>
+        <span style="font-weight:600;color:${scenario.drift<0?'var(--red)':'var(--green)'}">${scenario.drift>0?'+':''}${(scenario.drift*sevMult*100).toFixed(1)}% annual</span>
+      </div>
+    </div>
+  `;
+
+  // Add to history
+  history.unshift({name:scenario.name, severity, time:new Date().toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}), median18m:fmt(mc.percentiles.p50[18]), risk:riskLevel.label});
+  const historyList = document.getElementById('historyList');
+  historyList.innerHTML = history.map(h => `
+    <div class="history-item">
+      <span class="name">${h.name} (${h.severity}/10)</span>
+      <span class="detail">${h.median18m} · ${h.risk} · ${h.time}</span>
+    </div>
+  `).join('');
+}
+
+// Resize handler for MC canvas
+window.addEventListener('resize', () => {
+  // Redraw if we have data — skip if no simulation run yet
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Health Monitor — RAMICHE Ecosystem</title>
+<style>
+:root {
+  --bg: #0a0e17;
+  --surface: #111827;
+  --surface2: #1a2332;
+  --border: #1e293b;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --accent: #3b82f6;
+  --green: #10b981;
+  --yellow: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --cyan: #06b6d4;
+  --orange: #f97316;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.header h1 span { color: var(--accent); }
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.pulse {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+/* Top metrics bar */
+.metrics-bar {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.metric-card .label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.metric-card .value {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.metric-card .delta {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.delta.up { color: var(--green); }
+.delta.down { color: var(--red); }
+.delta.neutral { color: var(--text-dim); }
+
+/* Main grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  padding: 16px 24px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.panel.full-width { grid-column: 1 / -1; }
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.panel-header h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.panel-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent);
+}
+
+.panel-body { padding: 16px; }
+
+/* Agent grid */
+.agent-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.agent-tile {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.agent-tile:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.agent-tile .agent-name {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.agent-tile .status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.active { background: var(--green); }
+.status-dot.idle { background: var(--yellow); }
+.status-dot.error { background: var(--red); }
+.status-dot.offline { background: var(--text-dim); }
+
+.agent-tile .agent-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.agent-tile .mini-chart {
+  margin-top: 6px;
+  height: 20px;
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.mini-chart .bar {
+  flex: 1;
+  background: var(--accent);
+  border-radius: 1px 1px 0 0;
+  min-height: 2px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.agent-tile:hover .mini-chart .bar { opacity: 1; }
+
+.agent-tile .lane-tag {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 8px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lane-tag.infra { background: rgba(59, 130, 246, 0.2); color: var(--accent); }
+.lane-tag.creative { background: rgba(139, 92, 246, 0.2); color: var(--purple); }
+.lane-tag.business { background: rgba(6, 182, 212, 0.2); color: var(--cyan); }
+
+/* Timeline / uptime chart */
+.uptime-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.uptime-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.uptime-label {
+  width: 80px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.uptime-blocks {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.uptime-block {
+  flex: 1;
+  height: 14px;
+  border-radius: 2px;
+  transition: opacity 0.2s;
+  cursor: pointer;
+}
+
+.uptime-block:hover { opacity: 0.8 !important; }
+.uptime-block.up { background: var(--green); opacity: 0.7; }
+.uptime-block.degraded { background: var(--yellow); opacity: 0.7; }
+.uptime-block.down { background: var(--red); opacity: 0.7; }
+.uptime-block.inactive { background: var(--border); opacity: 0.5; }
+
+.uptime-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.uptime-legend span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.uptime-legend .dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+}
+
+/* Error log */
+.error-log {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.error-entry {
+  display: flex;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--surface2);
+  border-radius: 4px;
+  border-left: 3px solid;
+  font-size: 11px;
+}
+
+.error-entry.critical { border-left-color: var(--red); }
+.error-entry.warning { border-left-color: var(--yellow); }
+.error-entry.info { border-left-color: var(--accent); }
+
+.error-entry .timestamp {
+  color: var(--text-dim);
+  white-space: nowrap;
+  font-size: 10px;
+}
+
+.error-entry .agent-tag {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.error-entry .message {
+  color: var(--text-dim);
+  flex: 1;
+}
+
+/* Performance chart (canvas) */
+.chart-container {
+  position: relative;
+  height: 200px;
+  width: 100%;
+}
+
+.chart-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Lane throughput */
+.lane-meters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lane-meter {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lane-meter .lane-name {
+  width: 70px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.lane-meter .meter-track {
+  flex: 1;
+  height: 20px;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.lane-meter .meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 1s ease;
+  position: relative;
+}
+
+.lane-meter .meter-fill::after {
+  content: attr(data-value);
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+}
+
+.lane-meter.infra .meter-fill { background: linear-gradient(90deg, var(--accent), #60a5fa); }
+.lane-meter.creative .meter-fill { background: linear-gradient(90deg, var(--purple), #a78bfa); }
+.lane-meter.business .meter-fill { background: linear-gradient(90deg, var(--cyan), #67e8f9); }
+
+.lane-meter .stats {
+  width: 100px;
+  font-size: 10px;
+  color: var(--text-dim);
+  text-align: right;
+}
+
+/* Task flow sankey-like */
+.task-flow {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  height: 160px;
+  position: relative;
+}
+
+.flow-column {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 120px;
+}
+
+.flow-column .col-header {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.flow-item {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 10px;
+  text-align: center;
+}
+
+/* Session timeline */
+.session-timeline {
+  position: relative;
+  padding-left: 20px;
+}
+
+.session-timeline::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.timeline-event {
+  position: relative;
+  padding: 6px 0 12px 16px;
+  font-size: 11px;
+}
+
+.timeline-event::before {
+  content: '';
+  position: absolute;
+  left: -17px;
+  top: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: var(--bg);
+}
+
+.timeline-event.success::before { border-color: var(--green); }
+.timeline-event.fail::before { border-color: var(--red); }
+.timeline-event.warning::before { border-color: var(--yellow); }
+
+.timeline-event .event-time {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+.timeline-event .event-text {
+  margin-top: 2px;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .metrics-bar { grid-template-columns: repeat(3, 1fr); }
+  .main-grid { grid-template-columns: 1fr; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* Tooltip */
+.tooltip {
+  position: fixed;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 10px;
+  pointer-events: none;
+  z-index: 100;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1><span>▣</span> AGENT HEALTH MONITOR — RAMICHE ECOSYSTEM</h1>
+  <div class="header-right">
+    <span id="clock"></span>
+    <div class="pulse"></div>
+    <span>LIVE</span>
+  </div>
+</div>
+
+<div class="metrics-bar" id="metrics-bar"></div>
+
+<div class="main-grid">
+  <!-- Agent Status Grid -->
+  <div class="panel full-width">
+    <div class="panel-header">
+      <h2>Agent Fleet Status</h2>
+      <span class="panel-badge" id="agent-count"></span>
+    </div>
+    <div class="panel-body">
+      <div class="agent-grid" id="agent-grid"></div>
+    </div>
+  </div>
+
+  <!-- Uptime Heatmap -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>24hr Uptime Heatmap</h2>
+      <span class="panel-badge">Last 24 Hours</span>
+    </div>
+    <div class="panel-body">
+      <div class="uptime-grid" id="uptime-grid"></div>
+      <div class="uptime-legend">
+        <span><div class="dot" style="background:var(--green)"></div> Healthy</span>
+        <span><div class="dot" style="background:var(--yellow)"></div> Degraded</span>
+        <span><div class="dot" style="background:var(--red)"></div> Down</span>
+        <span><div class="dot" style="background:var(--border)"></div> Inactive</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lane Throughput -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Lane Throughput</h2>
+      <span class="panel-badge">Messages/hr</span>
+    </div>
+    <div class="panel-body">
+      <div class="lane-meters" id="lane-meters"></div>
+    </div>
+  </div>
+
+  <!-- Response Time Chart -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Response Latency (p50 / p95)</h2>
+      <span class="panel-badge">Last 6 Hours</span>
+    </div>
+    <div class="panel-body">
+      <div class="chart-container">
+        <canvas id="latency-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Log -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Error & Alert Feed</h2>
+      <span class="panel-badge" id="error-count"></span>
+    </div>
+    <div class="panel-body">
+      <div class="error-log" id="error-log"></div>
+    </div>
+  </div>
+
+  <!-- Session Timeline -->
+  <div class="panel full-width">
+    <div class="panel-header">
+      <h2>Session Activity Timeline</h2>
+      <span class="panel-badge">Today</span>
+    </div>
+    <div class="panel-body">
+      <div class="session-timeline" id="session-timeline"></div>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ============================================================
+// AGENT HEALTH MONITOR — Simulated real-time data engine
+// ============================================================
+
+const AGENTS = [
+  { id: 'atlas', name: 'Atlas', lane: 'infra', role: 'Main Coordinator' },
+  { id: 'proximon', name: 'Proximon', lane: 'infra', role: 'R&D Architect' },
+  { id: 'shuri', name: 'Shuri', lane: 'creative', role: 'Frontend Engineer' },
+  { id: 'aetherion', name: 'Aetherion', lane: 'creative', role: 'Creative Director' },
+  { id: 'vee', name: 'Vee', lane: 'creative', role: 'Marketing Lead' },
+  { id: 'ink', name: 'INK', lane: 'creative', role: 'Content Writer' },
+  { id: 'mercury', name: 'Mercury', lane: 'business', role: 'Sales Ops' },
+  { id: 'simons', name: 'Simons', lane: 'business', role: 'Data Analyst' },
+  { id: 'echo', name: 'ECHO', lane: 'business', role: 'Community' },
+  { id: 'widow', name: 'Widow', lane: 'infra', role: 'Security' },
+  { id: 'triage', name: 'TRIAGE', lane: 'infra', role: 'Debugging' },
+  { id: 'haven', name: 'HAVEN', lane: 'business', role: 'Support' },
+  { id: 'nova', name: 'NOVA', lane: 'creative', role: 'Fabrication' },
+  { id: 'themis', name: 'THEMIS', lane: 'business', role: 'Legal' },
+  { id: 'kiyosaki', name: 'KIYOSAKI', lane: 'business', role: 'Finance' },
+  { id: 'selah', name: 'SELAH', lane: 'business', role: 'Wellness' },
+  { id: 'drstrange', name: 'Dr. Strange', lane: 'business', role: 'Forecasting' },
+  { id: 'prophets', name: 'Prophets', lane: 'business', role: 'Spiritual' },
+  { id: 'michael', name: 'MICHAEL', lane: 'business', role: 'Swim Coach' },
+  { id: 'maestro', name: 'TheMAESTRO', lane: 'creative', role: 'Music' },
+];
+
+const STATUSES = ['active', 'idle', 'error', 'offline'];
+const STATUS_WEIGHTS = [0.3, 0.4, 0.05, 0.25]; // probability weights
+
+function weightedRandom(items, weights) {
+  let r = Math.random(), cum = 0;
+  for (let i = 0; i < items.length; i++) {
+    cum += weights[i];
+    if (r <= cum) return items[i];
+  }
+  return items[items.length - 1];
+}
+
+function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+// State
+let agentStates = {};
+AGENTS.forEach(a => {
+  agentStates[a.id] = {
+    status: weightedRandom(STATUSES, STATUS_WEIGHTS),
+    sessions: rand(0, 24),
+    errors: rand(0, 5),
+    avgLatency: rand(80, 3200),
+    uptime: rand(85, 100),
+    lastSeen: Date.now() - rand(0, 3600000),
+    sparkline: Array.from({length: 12}, () => rand(5, 100)),
+  };
+});
+// Force some key agents active
+['atlas', 'proximon', 'shuri'].forEach(id => agentStates[id].status = 'active');
+
+// ---- Render Functions ----
+
+function renderClock() {
+  const el = document.getElementById('clock');
+  const now = new Date();
+  el.textContent = now.toLocaleTimeString('en-US', { hour12: false }) + ' ET';
+}
+
+function renderMetrics() {
+  const container = document.getElementById('metrics-bar');
+  const active = Object.values(agentStates).filter(s => s.status === 'active').length;
+  const idle = Object.values(agentStates).filter(s => s.status === 'idle').length;
+  const errored = Object.values(agentStates).filter(s => s.status === 'error').length;
+  const totalSessions = Object.values(agentStates).reduce((s, a) => s + a.sessions, 0);
+  const totalErrors = Object.values(agentStates).reduce((s, a) => s + a.errors, 0);
+  const avgUptime = (Object.values(agentStates).reduce((s, a) => s + a.uptime, 0) / AGENTS.length).toFixed(1);
+
+  const metrics = [
+    { label: 'Active', value: active, delta: '+2', dir: 'up' },
+    { label: 'Idle', value: idle, delta: '0', dir: 'neutral' },
+    { label: 'Errored', value: errored, delta: errored > 0 ? '+' + errored : '0', dir: errored > 0 ? 'down' : 'neutral' },
+    { label: 'Sessions (24h)', value: totalSessions, delta: '+12', dir: 'up' },
+    { label: 'Errors (24h)', value: totalErrors, delta: totalErrors > 3 ? '↑' : '↓', dir: totalErrors > 3 ? 'down' : 'up' },
+    { label: 'Avg Uptime', value: avgUptime + '%', delta: '', dir: 'neutral' },
+  ];
+
+  container.innerHTML = metrics.map(m => `
+    <div class="metric-card">
+      <div class="label">${m.label}</div>
+      <div class="value" style="color: ${m.dir === 'down' ? 'var(--red)' : m.dir === 'up' ? 'var(--green)' : 'var(--text)'}">${m.value}</div>
+      <div class="delta ${m.dir}">${m.delta}</div>
+    </div>
+  `).join('');
+}
+
+function renderAgentGrid() {
+  const grid = document.getElementById('agent-grid');
+  const countEl = document.getElementById('agent-count');
+  countEl.textContent = `${AGENTS.length} agents`;
+
+  grid.innerHTML = AGENTS.map(a => {
+    const s = agentStates[a.id];
+    const bars = s.sparkline.map(v => `<div class="bar" style="height:${v}%"></div>`).join('');
+    const ago = Math.floor((Date.now() - s.lastSeen) / 60000);
+    return `
+      <div class="agent-tile" data-agent="${a.id}">
+        <span class="lane-tag ${a.lane}">${a.lane}</span>
+        <div class="agent-name">
+          <div class="status-dot ${s.status}"></div>
+          ${a.name}
+        </div>
+        <div class="agent-stats">
+          <span>${s.sessions} sess</span>
+          <span>${s.avgLatency}ms</span>
+          <span>${ago}m ago</span>
+        </div>
+        <div class="mini-chart">${bars}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderUptimeHeatmap() {
+  const container = document.getElementById('uptime-grid');
+  const coreAgents = AGENTS.slice(0, 8);
+  const hours = 24;
+
+  container.innerHTML = coreAgents.map(a => {
+    const blocks = Array.from({length: hours}, (_, i) => {
+      const r = Math.random();
+      let cls = 'inactive';
+      if (agentStates[a.id].status === 'offline' && i > 18) cls = 'inactive';
+      else if (r < 0.65) cls = 'up';
+      else if (r < 0.85) cls = 'degraded';
+      else if (r < 0.92) cls = 'down';
+      return `<div class="uptime-block ${cls}" title="${a.name} — ${23-i}:00"></div>`;
+    }).join('');
+
+    return `
+      <div class="uptime-row">
+        <div class="uptime-label">${a.name}</div>
+        <div class="uptime-blocks">${blocks}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLaneThroughput() {
+  const container = document.getElementById('lane-meters');
+  const lanes = [
+    { name: 'Infra', cls: 'infra', msgs: rand(42, 128), cap: 160, agents: AGENTS.filter(a => a.lane === 'infra').length },
+    { name: 'Creative', cls: 'creative', msgs: rand(28, 96), cap: 120, agents: AGENTS.filter(a => a.lane === 'creative').length },
+    { name: 'Business', cls: 'business', msgs: rand(35, 110), cap: 140, agents: AGENTS.filter(a => a.lane === 'business').length },
+  ];
+
+  container.innerHTML = lanes.map(l => {
+    const pct = Math.min(100, (l.msgs / l.cap * 100)).toFixed(0);
+    return `
+      <div class="lane-meter ${l.cls}">
+        <div class="lane-name" style="color: var(--${l.cls === 'infra' ? 'accent' : l.cls === 'creative' ? 'purple' : 'cyan'})">${l.name}</div>
+        <div class="meter-track">
+          <div class="meter-fill" style="width:${pct}%" data-value="${l.msgs}/hr"></div>
+        </div>
+        <div class="stats">${l.agents} agents · ${pct}%</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderLatencyChart() {
+  const canvas = document.getElementById('latency-chart');
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * 2;
+  canvas.height = rect.height * 2;
+  ctx.scale(2, 2);
+  const W = rect.width, H = rect.height;
+
+  // Generate data
+  const points = 36; // 6 hours, 10-min intervals
+  const p50 = Array.from({length: points}, () => rand(120, 600));
+  const p95 = p50.map(v => v + rand(200, 1500));
+
+  const maxVal = Math.max(...p95) * 1.1;
+  const padL = 40, padR = 10, padT = 10, padB = 24;
+  const chartW = W - padL - padR;
+  const chartH = H - padT - padB;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(30,41,59,0.5)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= 4; i++) {
+    const y = padT + (chartH / 4) * i;
+    ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(maxVal - (maxVal / 4) * i) + 'ms', padL - 4, y + 3);
+  }
+
+  // X labels
+  ctx.fillStyle = '#94a3b8';
+  ctx.textAlign = 'center';
+  for (let i = 0; i < points; i += 6) {
+    const x = padL + (chartW / (points - 1)) * i;
+    ctx.fillText(`-${(points - i) * 10}m`, x, H - 4);
+  }
+
+  function drawLine(data, color, alpha) {
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = alpha;
+    data.forEach((v, i) => {
+      const x = padL + (chartW / (points - 1)) * i;
+      const y = padT + chartH - (v / maxVal) * chartH;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Area fill for p95
+  ctx.beginPath();
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#ef4444';
+  p95.forEach((v, i) => {
+    const x = padL + (chartW / (points - 1)) * i;
+    const y = padT + chartH - (v / maxVal) * chartH;
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  for (let i = points - 1; i >= 0; i--) {
+    const x = padL + (chartW / (points - 1)) * i;
+    const y = padT + chartH - (p50[i] / maxVal) * chartH;
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  drawLine(p95, '#ef4444', 0.7);
+  drawLine(p50, '#10b981', 1);
+
+  // Legend
+  ctx.font = '10px monospace';
+  ctx.fillStyle = '#10b981';
+  ctx.fillText('● p50', W - 80, padT + 12);
+  ctx.fillStyle = '#ef4444';
+  ctx.fillText('● p95', W - 40, padT + 12);
+}
+
+function renderErrorLog() {
+  const container = document.getElementById('error-log');
+  const countEl = document.getElementById('error-count');
+
+  const errors = [
+    { time: '00:28', agent: 'TRIAGE', level: 'warning', msg: 'Session retry threshold reached (3/3) — escalating to Atlas' },
+    { time: '00:22', agent: 'Widow', level: 'critical', msg: 'TLS cert expiry warning: ramiche-site.vercel.app (14 days remaining)' },
+    { time: '00:18', agent: 'ECHO', level: 'info', msg: 'Discord webhook rate limit hit — backing off 30s' },
+    { time: '00:14', agent: 'Shuri', level: 'warning', msg: 'Build timeout on ramiche-site (vercel deploy exceeded 120s)' },
+    { time: '00:09', agent: 'Mercury', level: 'info', msg: 'CRM sync completed — 3 new leads imported from Stripe' },
+    { time: '00:05', agent: 'Atlas', level: 'warning', msg: 'Lane queue depth > 8 on business lane — consider scaling' },
+    { time: '00:02', agent: 'Proximon', level: 'info', msg: 'Nightly YOLO build triggered — Agent Health Monitor' },
+    { time: '23:58', agent: 'Aetherion', level: 'critical', msg: 'Gemini 3 Pro Image API 503 — fallback to DALL-E 3' },
+    { time: '23:51', agent: 'INK', level: 'info', msg: 'Blog post draft #47 submitted to content pipeline' },
+    { time: '23:44', agent: 'Simons', level: 'warning', msg: 'Anomaly detected: session count spike (+340%) in last 15min' },
+  ];
+
+  countEl.textContent = `${errors.length} events`;
+
+  container.innerHTML = errors.map(e => `
+    <div class="error-entry ${e.level}">
+      <span class="timestamp">${e.time}</span>
+      <span class="agent-tag">${e.agent}</span>
+      <span class="message">${e.msg}</span>
+    </div>
+  `).join('');
+}
+
+function renderSessionTimeline() {
+  const container = document.getElementById('session-timeline');
+
+  const events = [
+    { time: '00:30', text: 'Proximon → Agent Health Monitor build started', cls: 'success' },
+    { time: '00:22', text: 'Widow → Security scan completed. 1 warning (TLS cert)', cls: 'warning' },
+    { time: '00:15', text: 'Atlas → Nightly task queue dispatched (4 agents)', cls: 'success' },
+    { time: '00:09', text: 'Mercury → CRM pipeline sync (3 new leads)', cls: 'success' },
+    { time: '00:05', text: 'ECHO → Discord community digest posted', cls: 'success' },
+    { time: '23:58', text: 'Aetherion → Image generation failed (Gemini 503). Fallback activated.', cls: 'fail' },
+    { time: '23:50', text: 'Shuri → Frontend deploy timeout. Retrying...', cls: 'warning' },
+    { time: '23:45', text: 'Simons → Session spike anomaly flagged to Atlas', cls: 'warning' },
+    { time: '23:30', text: 'Gateway → Session cleanup cron executed (12 sessions pruned)', cls: 'success' },
+    { time: '23:15', text: 'INK → Content pipeline: 2 posts queued for review', cls: 'success' },
+  ];
+
+  container.innerHTML = events.map(e => `
+    <div class="timeline-event ${e.cls}">
+      <div class="event-time">${e.time}</div>
+      <div class="event-text">${e.text}</div>
+    </div>
+  `).join('');
+}
+
+// ---- Live simulation ----
+
+function simulateUpdates() {
+  // Randomly shift agent states
+  AGENTS.forEach(a => {
+    const s = agentStates[a.id];
+    if (Math.random() < 0.15) {
+      s.status = weightedRandom(STATUSES, STATUS_WEIGHTS);
+    }
+    // Keep core agents mostly active
+    if (['atlas', 'proximon'].includes(a.id) && s.status === 'offline') s.status = 'active';
+
+    if (Math.random() < 0.3) {
+      s.sparkline.shift();
+      s.sparkline.push(rand(5, 100));
+    }
+    if (Math.random() < 0.2) {
+      s.avgLatency = Math.max(60, s.avgLatency + rand(-200, 200));
+    }
+    s.lastSeen = s.status === 'active' ? Date.now() : s.lastSeen;
+  });
+
+  renderMetrics();
+  renderAgentGrid();
+}
+
+// ---- Init ----
+
+function init() {
+  renderClock();
+  renderMetrics();
+  renderAgentGrid();
+  renderUptimeHeatmap();
+  renderLaneThroughput();
+  renderLatencyChart();
+  renderErrorLog();
+  renderSessionTimeline();
+
+  setInterval(renderClock, 1000);
+  setInterval(simulateUpdates, 4000);
+  setInterval(renderLaneThroughput, 8000);
+
+  // Resize chart on window resize
+  window.addEventListener('resize', () => {
+    setTimeout(renderLatencyChart, 100);
+  });
+}
+
+init();
+</script>
+</body>
+</html>

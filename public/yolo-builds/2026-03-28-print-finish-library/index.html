@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Finish Library — Surface Finishing Guide | Ramiche Studio</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--card:#1a1a2e;--border:#2a2a3e;--accent:#ff6b35;--accent2:#7c3aed;--text:#e2e8f0;--muted:#94a3b8;--green:#10b981;--gold:#f59e0b}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.header{text-align:center;padding:3rem 1.5rem 2rem;position:relative}
+.header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:120px;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.logo{font-size:.75rem;letter-spacing:4px;color:var(--accent);text-transform:uppercase;margin-bottom:.5rem}
+.title{font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#fff,var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:.5rem}
+.subtitle{color:var(--muted);font-size:.95rem;max-width:520px;margin:0 auto}
+
+.container{max-width:900px;margin:2rem auto;padding:0 1.5rem 3rem}
+
+/* Recommender */
+.recommender{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:1.5rem;margin-bottom:2rem}
+.rec-title{font-size:.7rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:1rem}
+.rec-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem}
+.rec-chip{padding:.6rem .5rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:.8rem;text-align:center;cursor:pointer;transition:all .2s}
+.rec-chip:hover{border-color:var(--accent)}
+.rec-chip.active{border-color:var(--accent);background:rgba(255,107,53,.1);color:var(--accent)}
+.rec-result{margin-top:1rem;padding:1rem;background:var(--surface);border-radius:10px;display:none;border-left:3px solid var(--accent)}
+.rec-result.visible{display:block;animation:fadeIn .4s ease}
+.rec-result h4{margin-bottom:.25rem}
+.rec-result p{font-size:.85rem;color:var(--muted);line-height:1.5}
+
+/* Finish Cards */
+.finish-card{background:var(--card);border:1px solid var(--border);border-radius:16px;margin-bottom:1.5rem;overflow:hidden;transition:all .3s}
+.finish-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+
+.finish-header{display:flex;align-items:center;gap:1rem;padding:1.25rem 1.5rem;cursor:pointer}
+.finish-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0}
+.finish-info{flex:1}
+.finish-name{font-weight:700;font-size:1.1rem;margin-bottom:.15rem}
+.finish-tagline{font-size:.8rem;color:var(--muted)}
+.finish-badges{display:flex;gap:.4rem;flex-wrap:wrap}
+.badge{font-size:.65rem;padding:.2rem .5rem;border-radius:6px;background:var(--surface);color:var(--muted);border:1px solid var(--border)}
+.badge.easy{border-color:var(--green);color:var(--green)}
+.badge.medium{border-color:var(--gold);color:var(--gold)}
+.badge.hard{border-color:#ef4444;color:#ef4444}
+.finish-toggle{color:var(--muted);font-size:1.2rem;transition:transform .3s}
+.finish-card.open .finish-toggle{transform:rotate(180deg)}
+
+.finish-body{display:none;padding:0 1.5rem 1.5rem}
+.finish-card.open .finish-body{display:block;animation:fadeIn .3s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Texture Preview */
+.texture-row{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.texture-box{height:80px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.75rem;color:rgba(255,255,255,.7);font-weight:600;letter-spacing:1px;text-transform:uppercase;position:relative;overflow:hidden}
+.texture-label{position:absolute;bottom:6px;left:8px;font-size:.6rem;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1px}
+
+/* Meters */
+.meters{display:grid;grid-template-columns:repeat(2,1fr);gap:.75rem;margin-bottom:1rem}
+.meter{background:var(--surface);border-radius:8px;padding:.6rem .75rem}
+.meter-label{font-size:.7rem;color:var(--muted);margin-bottom:.35rem;display:flex;justify-content:space-between}
+.meter-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.meter-fill{height:100%;border-radius:3px;transition:width .8s ease}
+
+/* Steps */
+.steps-title{font-size:.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:.75rem}
+.step{display:flex;gap:.75rem;margin-bottom:.75rem;padding:.75rem;background:var(--surface);border-radius:8px}
+.step-num{width:24px;height:24px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;margin-top:.1rem}
+.step-text{font-size:.85rem;line-height:1.5}
+.step-text strong{color:var(--accent)}
+
+/* Compat */
+.compat-title{font-size:.75rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:.75rem 0}
+.compat-grid{display:flex;flex-wrap:wrap;gap:.4rem}
+.compat-tag{font-size:.7rem;padding:.25rem .6rem;border-radius:6px;background:var(--surface);border:1px solid var(--border)}
+.compat-tag.yes{border-color:var(--green);color:var(--green)}
+.compat-tag.partial{border-color:var(--gold);color:var(--gold)}
+.compat-tag.no{border-color:#ef4444;color:#ef4444}
+
+/* Pro tip */
+.pro-tip{margin-top:.75rem;padding:.75rem;background:rgba(255,107,53,.05);border:1px solid rgba(255,107,53,.15);border-radius:8px;font-size:.8rem;line-height:1.5}
+.pro-tip strong{color:var(--accent)}
+
+/* Comparison Table */
+.compare{margin-top:2rem;overflow-x:auto}
+.compare table{width:100%;border-collapse:collapse;font-size:.8rem}
+.compare th{background:var(--card);padding:.6rem .75rem;text-align:left;font-weight:600;border-bottom:1px solid var(--border);position:sticky;top:0}
+.compare td{padding:.5rem .75rem;border-bottom:1px solid var(--border)}
+.compare tr:hover td{background:rgba(255,255,255,.02)}
+
+.footer{text-align:center;padding:2rem;color:var(--muted);font-size:.75rem;border-top:1px solid var(--border)}
+
+@media(max-width:768px){
+  .rec-grid{grid-template-columns:repeat(2,1fr)}
+  .texture-row{grid-template-columns:1fr}
+  .meters{grid-template-columns:1fr}
+  .title{font-size:1.8rem}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">Ramiche Studio</div>
+  <h1 class="title">Print Finish Library</h1>
+  <p class="subtitle">The definitive guide to FDM surface finishing. 8 techniques, compatibility data, step-by-step processes, and pro tips from real production runs.</p>
+</div>
+
+<div class="container">
+  <!-- Use Case Recommender -->
+  <div class="recommender">
+    <div class="rec-title">What do you need?</div>
+    <div class="rec-grid" id="recGrid">
+      <div class="rec-chip" data-use="smooth" onclick="recommend(this)">Ultra Smooth</div>
+      <div class="rec-chip" data-use="painted" onclick="recommend(this)">Painted Look</div>
+      <div class="rec-chip" data-use="tough" onclick="recommend(this)">Tough Coating</div>
+      <div class="rec-chip" data-use="outdoor" onclick="recommend(this)">Outdoor Use</div>
+      <div class="rec-chip" data-use="food" onclick="recommend(this)">Food Safe</div>
+      <div class="rec-chip" data-use="gift" onclick="recommend(this)">Gift Quality</div>
+      <div class="rec-chip" data-use="cheap" onclick="recommend(this)">Cheapest</div>
+      <div class="rec-chip" data-use="fastest" onclick="recommend(this)">Fastest</div>
+    </div>
+    <div class="rec-result" id="recResult"></div>
+  </div>
+
+  <!-- Finish Cards -->
+  <div id="finishes"></div>
+
+  <!-- Comparison Table -->
+  <div class="compare">
+    <table id="compareTable"></table>
+  </div>
+</div>
+
+<div class="footer">Print Finish Library by Ramiche Studio — NOVA Fabrication Division</div>
+
+<script>
+const FINISHES = [
+  {
+    id: 'raw', name: 'Raw (As-Printed)', icon: '🖨️', tagline: 'Straight off the bed. No post-processing.', difficulty: 'easy',
+    color1: '#333340', color2: '#44445a', texture1: 'repeating-linear-gradient(0deg,#333 0px,#333 1px,#3a3a4a 1px,#3a3a4a 3px)', texture2: 'repeating-linear-gradient(0deg,#333 0px,#333 0.5px,#3a3a4a 0.5px,#3a3a4a 1.5px)',
+    cost: 1, time: 1, skill: 1, durability: 5,
+    steps: [
+      { text: '<strong>Remove from bed.</strong> Wait for cooldown to 30°C. PEI/textured plates release on their own.' },
+      { text: '<strong>Remove supports</strong> with flush cutters. Trim nibs with a hobby knife.' },
+      { text: '<strong>Clean up</strong> any stringing with a heat gun at lowest setting (2 sec passes) or tweezers.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'yes', ABS: 'yes', ASA: 'yes', TPU: 'yes', 'PLA Silk': 'yes', 'PA-CF': 'yes' },
+    tip: 'For the cleanest raw finish, use matte PLA — it naturally hides layer lines without any post-processing.',
+    tags: ['cheapest', 'fastest']
+  },
+  {
+    id: 'sanded', name: 'Sanded', icon: '🪵', tagline: 'Smooth the layers. Simple, effective, physical.', difficulty: 'easy',
+    color1: '#3d3530', color2: '#4a4035', texture1: 'linear-gradient(135deg,#3d3530 25%,#453d35 50%,#3d3530 75%)', texture2: 'linear-gradient(135deg,#4a4035 25%,#524a40 50%,#4a4035 75%)',
+    cost: 2, time: 4, skill: 2, durability: 6,
+    steps: [
+      { text: '<strong>Start with 120-grit</strong> sandpaper. Sand in one direction, not circles. Remove visible layer lines.' },
+      { text: '<strong>Move to 240-grit.</strong> Smooth out the 120-grit scratches. Wipe with damp cloth between grits.' },
+      { text: '<strong>Finish with 400-grit</strong> (or 600 for gloss prep). Wet sand for best results.' },
+      { text: '<strong>Rinse and dry.</strong> Inspect under angled light — layer lines should be invisible.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'partial', ABS: 'yes', ASA: 'yes', TPU: 'no', 'PLA Silk': 'partial', 'PA-CF': 'partial' },
+    tip: 'PETG gums up sandpaper fast — use wet sanding exclusively. TPU is too flexible to sand. PLA sands like butter.',
+    tags: ['cheap']
+  },
+  {
+    id: 'primed', name: 'Primed & Filled', icon: '🎯', tagline: 'Filler primer fills gaps. Sanding reveals smooth.', difficulty: 'medium',
+    color1: '#4a4a4a', color2: '#5a5a5a', texture1: 'linear-gradient(180deg,#4a4a4a,#555)', texture2: 'linear-gradient(180deg,#5a5a5a,#666)',
+    cost: 4, time: 6, skill: 3, durability: 7,
+    steps: [
+      { text: '<strong>Sand to 240-grit first.</strong> Primer needs something to grip.' },
+      { text: '<strong>Apply filler primer</strong> (Rust-Oleum 2-in-1 or similar). 2-3 light coats, 15 min between coats. 12" distance.' },
+      { text: '<strong>Wet sand with 400-grit</strong> after fully cured (2+ hours). This levels the primer.' },
+      { text: '<strong>Spot fill</strong> any remaining divots with spot putty. Sand again.' },
+      { text: '<strong>Final primer coat.</strong> One light, even coat. Ready for paint.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'yes', ABS: 'yes', ASA: 'yes', TPU: 'no', 'PLA Silk': 'yes', 'PA-CF': 'yes' },
+    tip: 'The secret to a perfect painted finish is the primer stage. Rush this, and every flaw shows through the paint.',
+    tags: ['painted']
+  },
+  {
+    id: 'painted', name: 'Painted', icon: '🎨', tagline: 'Full color. Spray or brush. Professional results.', difficulty: 'medium',
+    color1: '#2563eb', color2: '#3b82f6', texture1: 'linear-gradient(180deg,#2563eb,#3b82f6)', texture2: 'linear-gradient(180deg,#7c3aed,#a855f7)',
+    cost: 6, time: 8, skill: 4, durability: 7,
+    steps: [
+      { text: '<strong>Prime first</strong> (see Primed & Filled). Never paint directly on raw prints.' },
+      { text: '<strong>Base coat:</strong> 2-3 light coats of spray paint. 10-15 min between coats. Hold can 12" away, sweeping motion.' },
+      { text: '<strong>Detail work:</strong> Use acrylic brushes for fine details, masking tape for clean lines.' },
+      { text: '<strong>Clear coat:</strong> 2 coats of clear (matte, satin, or gloss). Protects paint and adds finish.' },
+      { text: '<strong>Cure 24-48 hours</strong> before handling. Full hardness takes 7 days.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'yes', ABS: 'yes', ASA: 'yes', TPU: 'partial', 'PLA Silk': 'yes', 'PA-CF': 'yes' },
+    tip: 'Temperature matters — paint between 60-80°F, low humidity. Cold paint on PLA can cause adhesion failures.',
+    tags: ['painted', 'gift']
+  },
+  {
+    id: 'vapor', name: 'Vapor Smoothed', icon: '💨', tagline: 'Chemical vapor melts the surface smooth. ABS/ASA only.', difficulty: 'hard',
+    color1: '#1e293b', color2: '#334155', texture1: 'radial-gradient(circle at 30% 40%,#334155,#1e293b)', texture2: 'radial-gradient(circle at 70% 60%,#475569,#334155)',
+    cost: 3, time: 5, skill: 5, durability: 8,
+    steps: [
+      { text: '<strong>ABS/ASA ONLY.</strong> This uses acetone vapor — does NOT work on PLA or PETG.' },
+      { text: '<strong>Setup:</strong> Glass container with lid. Paper towels soaked in acetone lining the sides. Part on a raised platform (not touching acetone).' },
+      { text: '<strong>Seal and wait 15-45 minutes.</strong> Check every 10 min. Surface should look glossy and wet.' },
+      { text: '<strong>Remove and air dry 24 hours.</strong> Do NOT touch while tacky — fingerprints are permanent.' },
+      { text: '<strong>Safety: well-ventilated area only.</strong> Acetone is flammable and the vapor is harmful. No sparks, no flames.' }
+    ],
+    compat: { PLA: 'no', 'PLA+': 'no', PETG: 'no', ABS: 'yes', ASA: 'yes', TPU: 'no', 'PLA Silk': 'no', 'PA-CF': 'no' },
+    tip: 'Start with SHORT exposures (15 min) and add time. Over-exposure melts details and rounds corners permanently.',
+    tags: ['smooth']
+  },
+  {
+    id: 'epoxy', name: 'Epoxy Coated', icon: '💎', tagline: 'Liquid glass finish. Fills layers, seals everything.', difficulty: 'medium',
+    color1: '#0f172a', color2: '#1e293b', texture1: 'linear-gradient(135deg,rgba(59,130,246,.2),rgba(124,58,237,.2),rgba(59,130,246,.1))', texture2: 'linear-gradient(135deg,rgba(16,185,129,.2),rgba(59,130,246,.2),rgba(16,185,129,.1))',
+    cost: 5, time: 7, skill: 3, durability: 9,
+    steps: [
+      { text: '<strong>Light sand to 240-grit.</strong> Epoxy needs texture to grip.' },
+      { text: '<strong>Mix epoxy</strong> per instructions (usually 1:1 or 2:1). Mix thoroughly for 2 full minutes.' },
+      { text: '<strong>Apply thin coat</strong> with a foam brush. Rotate part to prevent drips and pooling.' },
+      { text: '<strong>Pop bubbles</strong> with a heat gun or lighter (quick passes, 2 sec max — PLA melts at 60°C!).' },
+      { text: '<strong>Cure 24 hours</strong> in a dust-free area. Apply second coat if needed.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'yes', ABS: 'yes', ASA: 'yes', TPU: 'partial', 'PLA Silk': 'yes', 'PA-CF': 'yes' },
+    tip: 'XTC-3D by Smooth-On is made for 3D prints — self-leveling, thin enough to not hide detail, and sands easily.',
+    tags: ['smooth', 'tough', 'outdoor', 'gift']
+  },
+  {
+    id: 'hydro', name: 'Hydro Dipped', icon: '🌊', tagline: 'Film transfer. Wild patterns. Carbon fiber, camo, wood grain.', difficulty: 'hard',
+    color1: '#1a1a2e', color2: '#16213e', texture1: 'repeating-conic-gradient(#2a2a3e 0%,#1a1a2e 5%,#333 10%)', texture2: 'repeating-conic-gradient(#2e1a2e 0%,#1a2e1e 5%,#2a332e 10%)',
+    cost: 7, time: 8, skill: 5, durability: 7,
+    steps: [
+      { text: '<strong>Prime and base coat</strong> the part white or light gray. Pattern needs a clean backdrop.' },
+      { text: '<strong>Cut hydrographic film</strong> slightly larger than your part. Float on warm water (30°C).' },
+      { text: '<strong>Apply activator spray</strong> to the film. Wait 10 seconds — film should liquefy and stretch.' },
+      { text: '<strong>Dip part slowly</strong> at a 45° angle. Smooth, steady motion. Don\'t stop halfway.' },
+      { text: '<strong>Rinse under running water</strong> to remove PVA residue. Dry completely.' },
+      { text: '<strong>Clear coat with 2-3 layers</strong> of automotive clear. This seals and protects the pattern.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'yes', ABS: 'yes', ASA: 'yes', TPU: 'no', 'PLA Silk': 'partial', 'PA-CF': 'yes' },
+    tip: 'Water temperature is critical — too cold and the film wrinkles, too hot and it dissolves. Use a thermometer.',
+    tags: ['gift']
+  },
+  {
+    id: 'electroplated', name: 'Electroplated', icon: '⚡', tagline: 'Real metal coating on plastic. Chrome, copper, nickel.', difficulty: 'hard',
+    color1: '#78716c', color2: '#a8a29e', texture1: 'linear-gradient(135deg,#78716c 0%,#d6d3d1 30%,#78716c 50%,#a8a29e 80%,#78716c 100%)', texture2: 'linear-gradient(135deg,#b45309 0%,#f59e0b 30%,#b45309 50%,#d97706 80%,#b45309 100%)',
+    cost: 9, time: 10, skill: 5, durability: 8,
+    steps: [
+      { text: '<strong>Sand and prime</strong> the part smooth. Any surface imperfection will show through the metal.' },
+      { text: '<strong>Apply conductive paint</strong> (graphite or copper-based). 2-3 even coats. This makes plastic electrically conductive.' },
+      { text: '<strong>Setup electroplating bath:</strong> copper sulfate solution, copper anode, DC power supply at 1-3V.' },
+      { text: '<strong>Submerge part</strong> (connected to cathode). Plate for 2-6 hours depending on desired thickness.' },
+      { text: '<strong>Rinse, dry, and polish</strong> with metal polish. Optional: plate additional metals (nickel, chrome) over copper base.' }
+    ],
+    compat: { PLA: 'yes', 'PLA+': 'yes', PETG: 'yes', ABS: 'yes', ASA: 'yes', TPU: 'no', 'PLA Silk': 'no', 'PA-CF': 'partial' },
+    tip: 'Start with copper plating — it\'s the easiest and most forgiving. Chrome requires nickel underlayer and is hazardous.',
+    tags: ['gift']
+  }
+];
+
+const RECOMMENDATIONS = {
+  smooth: { finish: 'vapor', alt: 'epoxy', text: 'For ABS/ASA → Vapor Smoothing gives glass-smooth results with zero layer lines. For PLA/PETG → Epoxy coating (XTC-3D) fills layers while preserving detail.' },
+  painted: { finish: 'painted', alt: 'primed', text: 'Prime first with filler primer, sand to 400, then spray paint + clear coat. The prime/fill stage makes or breaks the final result.' },
+  tough: { finish: 'epoxy', alt: 'painted', text: 'Epoxy coating adds a hard, chemical-resistant shell. For outdoor parts, follow with UV-resistant clear coat.' },
+  outdoor: { finish: 'epoxy', alt: 'painted', text: 'Epoxy + UV clear coat is the most durable outdoor finish. Use ASA as base material for maximum weather resistance.' },
+  food: { finish: 'epoxy', alt: 'raw', text: 'Food-grade epoxy (FDA-approved) is the only reliable way to make FDM prints food-safe. Raw PETG is theoretically safe but layer lines trap bacteria.' },
+  gift: { finish: 'painted', alt: 'hydro', text: 'For premium gift quality: prime → paint → clear coat. For WOW factor: hydro dipping with carbon fiber or wood grain pattern.' },
+  cheap: { finish: 'raw', alt: 'sanded', text: 'Raw matte PLA hides layer lines naturally — $0 post-processing. If you need smoother, sanding costs nothing but time and sandpaper.' },
+  fastest: { finish: 'raw', alt: 'sanded', text: 'Nothing beats raw — pull it off the bed and ship it. For a quick upgrade, 5 minutes with 240-grit sandpaper on visible faces.' }
+};
+
+function recommend(el) {
+  document.querySelectorAll('.rec-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const rec = RECOMMENDATIONS[el.dataset.use];
+  const f = FINISHES.find(f => f.id === rec.finish);
+  const result = document.getElementById('recResult');
+  result.innerHTML = `<h4>Recommended: ${f.name}</h4><p>${rec.text}</p>`;
+  result.classList.add('visible');
+}
+
+function renderFinishes() {
+  const container = document.getElementById('finishes');
+  container.innerHTML = FINISHES.map(f => {
+    const diffLabel = { easy: 'Beginner', medium: 'Intermediate', hard: 'Advanced' };
+    const stepsHTML = f.steps.map((s, i) => `<div class="step"><div class="step-num">${i + 1}</div><div class="step-text">${s.text}</div></div>`).join('');
+    const compatHTML = Object.entries(f.compat).map(([mat, status]) => `<span class="compat-tag ${status}">${mat}</span>`).join('');
+    const meterColor = v => v <= 3 ? 'var(--green)' : v <= 6 ? 'var(--gold)' : 'var(--accent)';
+    return `
+    <div class="finish-card" onclick="this.classList.toggle('open')">
+      <div class="finish-header">
+        <div class="finish-icon" style="background:var(--surface)">${f.icon}</div>
+        <div class="finish-info">
+          <div class="finish-name">${f.name}</div>
+          <div class="finish-tagline">${f.tagline}</div>
+        </div>
+        <div class="finish-badges">
+          <span class="badge ${f.difficulty}">${diffLabel[f.difficulty]}</span>
+        </div>
+        <div class="finish-toggle">▼</div>
+      </div>
+      <div class="finish-body">
+        <div class="texture-row">
+          <div class="texture-box" style="background:${f.texture1}"><span class="texture-label">Before</span>Raw Layer Lines</div>
+          <div class="texture-box" style="background:${f.texture2}"><span class="texture-label">After</span>Finished Surface</div>
+        </div>
+        <div class="meters">
+          <div class="meter"><div class="meter-label"><span>Cost</span><span>${f.cost}/10</span></div><div class="meter-bar"><div class="meter-fill" style="width:${f.cost*10}%;background:${meterColor(f.cost)}"></div></div></div>
+          <div class="meter"><div class="meter-label"><span>Time</span><span>${f.time}/10</span></div><div class="meter-bar"><div class="meter-fill" style="width:${f.time*10}%;background:${meterColor(f.time)}"></div></div></div>
+          <div class="meter"><div class="meter-label"><span>Skill Required</span><span>${f.skill}/5</span></div><div class="meter-bar"><div class="meter-fill" style="width:${f.skill*20}%;background:${meterColor(f.skill)}"></div></div></div>
+          <div class="meter"><div class="meter-label"><span>Durability</span><span>${f.durability}/10</span></div><div class="meter-bar"><div class="meter-fill" style="width:${f.durability*10}%;background:${meterColor(10-f.durability)}"></div></div></div>
+        </div>
+        <div class="steps-title">Process — Step by Step</div>
+        ${stepsHTML}
+        <div class="compat-title">Material Compatibility</div>
+        <div class="compat-grid">${compatHTML}</div>
+        <div class="pro-tip"><strong>Pro Tip:</strong> ${f.tip}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderComparisonTable() {
+  const table = document.getElementById('compareTable');
+  table.innerHTML = `
+    <thead><tr>
+      <th>Finish</th><th>Cost</th><th>Time</th><th>Skill</th><th>Durability</th><th>Best For</th>
+    </tr></thead>
+    <tbody>${FINISHES.map(f => `
+      <tr>
+        <td><strong>${f.icon} ${f.name}</strong></td>
+        <td>${'$'.repeat(Math.ceil(f.cost/2))}</td>
+        <td>${f.time <= 3 ? 'Minutes' : f.time <= 6 ? 'Hours' : 'Day+'}</td>
+        <td>${{1:'Beginner',2:'Beginner',3:'Intermediate',4:'Intermediate',5:'Advanced'}[f.skill]}</td>
+        <td>${f.durability}/10</td>
+        <td style="font-size:.75rem;color:var(--muted)">${f.tags.join(', ')}</td>
+      </tr>
+    `).join('')}</tbody>
+  `;
+}
+
+renderFinishes();
+renderComparisonTable();
+</script>
+
+</body>
+</html>

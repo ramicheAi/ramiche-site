@@ -1,0 +1,1002 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA Print Queue Command Center</title>
+<style>
+  :root {
+    --bg-primary: #0a0a0f;
+    --bg-secondary: #12121a;
+    --bg-card: #1a1a26;
+    --bg-card-hover: #22222e;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108, 92, 231, 0.3);
+    --accent-light: #a29bfe;
+    --success: #00cec9;
+    --warning: #fdcb6e;
+    --danger: #ff6b6b;
+    --text-primary: #e8e8f0;
+    --text-secondary: #8888a0;
+    --text-muted: #55556a;
+    --border: #2a2a3a;
+    --printing: #00b894;
+    --queued: #6c5ce7;
+    --paused: #fdcb6e;
+    --failed: #ff6b6b;
+    --completed: #00cec9;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === HEADER === */
+  .header {
+    padding: 40px 32px 24px;
+    max-width: 800px;
+    margin: 0 auto;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(108, 92, 231, 0.12);
+    border: 1px solid rgba(108, 92, 231, 0.25);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent-light);
+    margin-bottom: 16px;
+  }
+  .header-badge .dot {
+    width: 6px; height: 6px;
+    background: var(--printing);
+    border-radius: 50%;
+    animation: pulse-dot 2s infinite;
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .header p {
+    color: var(--text-secondary);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  /* === STATS BAR === */
+  .stats-bar {
+    max-width: 800px;
+    margin: 24px auto;
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
+  .stat-printing .stat-value { color: var(--printing); }
+  .stat-queued .stat-value { color: var(--queued); }
+  .stat-completed .stat-value { color: var(--completed); }
+  .stat-eta .stat-value { color: var(--warning); }
+
+  /* === CONTROLS === */
+  .controls {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 16px 32px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: var(--bg-card-hover); border-color: var(--accent); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover { background: #5a4bd4; }
+  .btn-danger { border-color: var(--danger); color: var(--danger); }
+  .btn-danger:hover { background: rgba(255, 107, 107, 0.1); }
+
+  .filter-group {
+    margin-left: auto;
+    display: flex;
+    gap: 4px;
+  }
+  .filter-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { color: var(--text-primary); }
+  .filter-btn.active {
+    background: var(--bg-card);
+    color: var(--accent-light);
+    border: 1px solid rgba(108, 92, 231, 0.3);
+  }
+
+  /* === QUEUE LIST === */
+  .queue-container {
+    max-width: 800px;
+    margin: 8px auto;
+    padding: 0 32px 60px;
+  }
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin: 24px 0 12px;
+  }
+
+  .job-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 10px;
+    cursor: grab;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .job-card:hover {
+    border-color: rgba(108, 92, 231, 0.4);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+  .job-card.dragging {
+    opacity: 0.5;
+    transform: scale(0.98);
+  }
+  .job-card.drag-over {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+
+  .job-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .job-card.status-printing::before { background: var(--printing); }
+  .job-card.status-queued::before { background: var(--queued); }
+  .job-card.status-paused::before { background: var(--paused); }
+  .job-card.status-failed::before { background: var(--failed); }
+  .job-card.status-completed::before { background: var(--completed); }
+
+  .job-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .job-name {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+  .job-file {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+  }
+  .job-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex-shrink: 0;
+  }
+  .job-status .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+  }
+  .status-printing { background: rgba(0, 184, 148, 0.12); color: var(--printing); }
+  .status-printing .status-dot { background: var(--printing); animation: pulse-dot 1.5s infinite; }
+  .status-queued { background: rgba(108, 92, 231, 0.12); color: var(--queued); }
+  .status-queued .status-dot { background: var(--queued); }
+  .status-paused { background: rgba(253, 203, 110, 0.12); color: var(--paused); }
+  .status-paused .status-dot { background: var(--paused); }
+  .status-failed { background: rgba(255, 107, 107, 0.12); color: var(--failed); }
+  .status-failed .status-dot { background: var(--failed); }
+  .status-completed { background: rgba(0, 206, 201, 0.12); color: var(--completed); }
+  .status-completed .status-dot { background: var(--completed); }
+
+  .job-meta {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .meta-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
+  .meta-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+  }
+
+  /* Progress bar */
+  .progress-container {
+    margin-top: 4px;
+  }
+  .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+    position: relative;
+  }
+  .progress-fill.printing { background: linear-gradient(90deg, var(--printing), #55efc4); }
+  .progress-fill.completed { background: var(--completed); }
+  .progress-fill.paused { background: var(--paused); }
+  .progress-fill.failed { background: var(--danger); }
+  .progress-info {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  .job-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .job-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .job-btn:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  .job-btn.pause { border-color: var(--paused); color: var(--paused); }
+  .job-btn.resume { border-color: var(--printing); color: var(--printing); }
+  .job-btn.cancel { border-color: var(--danger); color: var(--danger); }
+  .job-btn.retry { border-color: var(--accent); color: var(--accent); }
+
+  /* === ADD JOB MODAL === */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    justify-content: center;
+    align-items: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+  .modal h2 {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+  .form-group input, .form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus {
+    border-color: var(--accent);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 24px;
+  }
+
+  /* === FILAMENT GAUGE === */
+  .filament-section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+  .filament-gauges {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .filament-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .filament-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .filament-name {
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .filament-amount {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .filament-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .filament-fill {
+    height: 100%;
+    border-radius: 6px;
+    transition: width 0.5s;
+  }
+  .filament-color {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* === DRAG HANDLE === */
+  .drag-handle {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px;
+    cursor: grab;
+    opacity: 0.3;
+    transition: opacity 0.15s;
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+  .drag-handle:hover { opacity: 0.7; }
+  .drag-handle span {
+    display: block;
+    width: 14px; height: 2px;
+    background: var(--text-muted);
+    border-radius: 1px;
+  }
+
+  /* === TIMELINE === */
+  .timeline-section {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 0 32px 32px;
+  }
+  .timeline-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .timeline-track {
+    display: flex;
+    gap: 2px;
+    height: 32px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .timeline-block {
+    height: 100%;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+    min-width: 40px;
+    position: relative;
+    cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .timeline-block:hover { filter: brightness(1.2); }
+  .timeline-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--text-muted);
+  }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 600px) {
+    .header { padding: 24px 16px 20px; }
+    .stats-bar { grid-template-columns: repeat(2, 1fr); padding: 0 16px; }
+    .controls { padding: 12px 16px; }
+    .queue-container { padding: 0 16px 40px; }
+    .filament-section { padding: 0 16px; }
+    .timeline-section { padding: 0 16px 24px; }
+    .job-meta { grid-template-columns: repeat(2, 1fr); }
+    .header h1 { font-size: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-badge"><span class="dot"></span> Live Queue</div>
+  <h1>Print Queue Command Center</h1>
+  <p>Manage, prioritize, and monitor every job on the Bambu Lab A1. Drag to reorder. Click to control.</p>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-card stat-printing">
+    <div class="stat-value" id="stat-printing">1</div>
+    <div class="stat-label">Printing</div>
+  </div>
+  <div class="stat-card stat-queued">
+    <div class="stat-value" id="stat-queued">4</div>
+    <div class="stat-label">In Queue</div>
+  </div>
+  <div class="stat-card stat-completed">
+    <div class="stat-value" id="stat-completed">12</div>
+    <div class="stat-label">Completed</div>
+  </div>
+  <div class="stat-card stat-eta">
+    <div class="stat-value" id="stat-eta">14h</div>
+    <div class="stat-label">Queue ETA</div>
+  </div>
+</div>
+
+<div class="filament-section">
+  <div class="section-label">Filament Stock</div>
+  <div class="filament-gauges" id="filament-gauges"></div>
+</div>
+
+<div class="timeline-section">
+  <div class="section-label">Timeline Forecast</div>
+  <div class="timeline-bar">
+    <div class="timeline-track" id="timeline-track"></div>
+    <div class="timeline-labels">
+      <span>Now</span>
+      <span id="timeline-end">+14h</span>
+    </div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="btn btn-primary" onclick="openAddModal()">+ Add Job</button>
+  <button class="btn" onclick="clearCompleted()">Clear Completed</button>
+  <button class="btn btn-danger" onclick="cancelAll()">Cancel All Queued</button>
+  <div class="filter-group">
+    <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">All</button>
+    <button class="filter-btn" data-filter="active" onclick="setFilter('active', this)">Active</button>
+    <button class="filter-btn" data-filter="completed" onclick="setFilter('completed', this)">Done</button>
+    <button class="filter-btn" data-filter="failed" onclick="setFilter('failed', this)">Failed</button>
+  </div>
+</div>
+
+<div class="queue-container" id="queue-container"></div>
+
+<!-- Add Job Modal -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <h2>Add Print Job</h2>
+    <div class="form-group">
+      <label>Job Name</label>
+      <input type="text" id="job-name" placeholder="e.g. Rozi Head v10" />
+    </div>
+    <div class="form-group">
+      <label>File</label>
+      <input type="text" id="job-file" placeholder="e.g. rozi_head_v10.3mf" />
+    </div>
+    <div class="form-group">
+      <label>Material</label>
+      <select id="job-material">
+        <option value="PLA">PLA</option>
+        <option value="PLA+">PLA+</option>
+        <option value="PETG">PETG</option>
+        <option value="ASA">ASA</option>
+        <option value="TPU">TPU</option>
+        <option value="ABS">ABS</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Estimated Print Time (hours)</label>
+      <input type="number" id="job-hours" value="3" min="0.1" step="0.1" />
+    </div>
+    <div class="form-group">
+      <label>Filament Usage (grams)</label>
+      <input type="number" id="job-grams" value="45" min="1" />
+    </div>
+    <div class="form-group">
+      <label>Priority</label>
+      <select id="job-priority">
+        <option value="normal">Normal</option>
+        <option value="high">High</option>
+        <option value="rush">Rush</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeAddModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="addJob()">Add to Queue</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// === DATA ===
+const FILAMENT_STOCK = [
+  { name: 'PLA White', color: '#f0f0f0', remaining: 780, total: 1000 },
+  { name: 'PLA Black', color: '#2d2d2d', remaining: 420, total: 1000 },
+  { name: 'PETG Clear', color: '#87ceeb', remaining: 650, total: 1000 },
+  { name: 'PLA+ Red', color: '#ff4444', remaining: 190, total: 1000 },
+  { name: 'ASA Grey', color: '#888888', remaining: 900, total: 1000 },
+  { name: 'TPU Black', color: '#1a1a1a', remaining: 340, total: 500 },
+];
+
+let jobs = [
+  {
+    id: 1, name: 'Rozi Torso v10', file: 'rozi_torso_v10_repaired.3mf',
+    status: 'printing', material: 'PLA', filament: 82, hours: 6.5,
+    progress: 47, layer: 212, totalLayers: 450, priority: 'high',
+    startTime: Date.now() - 3 * 3600 * 1000,
+    temp: { nozzle: 220, bed: 60 }
+  },
+  {
+    id: 2, name: 'Rozi Head v10', file: 'rozi_head_v10_repaired.3mf',
+    status: 'queued', material: 'PLA', filament: 34, hours: 3.2,
+    progress: 0, layer: 0, totalLayers: 280, priority: 'high',
+    startTime: null, temp: null
+  },
+  {
+    id: 3, name: 'Custom Phone Stand', file: 'phone_stand_v2.3mf',
+    status: 'queued', material: 'PETG', filament: 55, hours: 2.1,
+    progress: 0, layer: 0, totalLayers: 180, priority: 'normal',
+    startTime: null, temp: null
+  },
+  {
+    id: 4, name: 'Snap-Fit Box Lid', file: 'box_lid_final.3mf',
+    status: 'queued', material: 'PLA+', filament: 28, hours: 1.5,
+    progress: 0, layer: 0, totalLayers: 120, priority: 'normal',
+    startTime: null, temp: null
+  },
+  {
+    id: 5, name: 'Rozi Left Arm v10', file: 'rozi_left_arm_v10.3mf',
+    status: 'paused', material: 'PLA', filament: 18, hours: 1.8,
+    progress: 33, layer: 62, totalLayers: 190, priority: 'normal',
+    startTime: Date.now() - 5 * 3600 * 1000, temp: { nozzle: 0, bed: 0 }
+  },
+  {
+    id: 6, name: 'Bambu Cal Cube', file: 'calibration_cube.3mf',
+    status: 'failed', material: 'PLA', filament: 5, hours: 0.5,
+    progress: 68, layer: 45, totalLayers: 66, priority: 'normal',
+    startTime: Date.now() - 8 * 3600 * 1000, temp: null,
+    error: 'Layer adhesion failure at layer 45 — partial clog detected'
+  },
+  {
+    id: 7, name: 'Cable Clip Set (x12)', file: 'cable_clips_x12.3mf',
+    status: 'completed', material: 'PLA', filament: 15, hours: 1.2,
+    progress: 100, layer: 95, totalLayers: 95, priority: 'normal',
+    startTime: Date.now() - 14 * 3600 * 1000, temp: null
+  },
+  {
+    id: 8, name: 'Desk Organizer Base', file: 'desk_organizer.3mf',
+    status: 'completed', material: 'PETG', filament: 120, hours: 8.5,
+    progress: 100, layer: 680, totalLayers: 680, priority: 'normal',
+    startTime: Date.now() - 24 * 3600 * 1000, temp: null
+  },
+];
+
+let currentFilter = 'all';
+let draggedId = null;
+let nextId = 9;
+
+// === RENDERING ===
+function renderFilament() {
+  const el = document.getElementById('filament-gauges');
+  el.innerHTML = FILAMENT_STOCK.map(f => {
+    const pct = Math.round((f.remaining / f.total) * 100);
+    const barColor = pct < 20 ? 'var(--danger)' : pct < 40 ? 'var(--warning)' : 'var(--success)';
+    return `<div class="filament-card">
+      <div class="filament-header">
+        <span class="filament-name"><span class="filament-color" style="background:${f.color}"></span>${f.name}</span>
+        <span class="filament-amount">${f.remaining}g</span>
+      </div>
+      <div class="filament-bar"><div class="filament-fill" style="width:${pct}%;background:${barColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTimeline() {
+  const activeJobs = jobs.filter(j => j.status === 'printing' || j.status === 'queued');
+  const totalHours = activeJobs.reduce((s, j) => s + j.hours, 0);
+  const track = document.getElementById('timeline-track');
+  const colors = { PLA: '#6c5ce7', 'PLA+': '#ff4444', PETG: '#87ceeb', ASA: '#888888', TPU: '#1a1a1a', ABS: '#fd9644' };
+
+  track.innerHTML = activeJobs.map(j => {
+    const widthPct = totalHours > 0 ? (j.hours / totalHours * 100) : 0;
+    const bg = colors[j.material] || '#6c5ce7';
+    return `<div class="timeline-block" style="width:${widthPct}%;background:${bg}" title="${j.name} — ${j.hours}h">
+      ${j.hours >= 1.5 ? j.name.substring(0, 12) : ''}
+    </div>`;
+  }).join('');
+
+  document.getElementById('timeline-end').textContent = `+${totalHours.toFixed(1)}h`;
+}
+
+function filteredJobs() {
+  switch (currentFilter) {
+    case 'active': return jobs.filter(j => ['printing', 'queued', 'paused'].includes(j.status));
+    case 'completed': return jobs.filter(j => j.status === 'completed');
+    case 'failed': return jobs.filter(j => j.status === 'failed');
+    default: return jobs;
+  }
+}
+
+function renderQueue() {
+  const container = document.getElementById('queue-container');
+  const visible = filteredJobs();
+
+  const groups = {
+    printing: visible.filter(j => j.status === 'printing'),
+    queued: visible.filter(j => j.status === 'queued'),
+    paused: visible.filter(j => j.status === 'paused'),
+    failed: visible.filter(j => j.status === 'failed'),
+    completed: visible.filter(j => j.status === 'completed'),
+  };
+
+  let html = '';
+
+  for (const [status, items] of Object.entries(groups)) {
+    if (items.length === 0) continue;
+    const labels = { printing: 'Now Printing', queued: 'Up Next', paused: 'Paused', failed: 'Failed', completed: 'Completed' };
+    html += `<div class="section-label">${labels[status]} (${items.length})</div>`;
+    items.forEach(j => html += renderJobCard(j));
+  }
+
+  if (visible.length === 0) {
+    html = `<div style="text-align:center;padding:60px 0;color:var(--text-muted);">
+      <div style="font-size:40px;margin-bottom:12px;">🖨️</div>
+      <div>No jobs matching this filter</div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+  updateStats();
+}
+
+function renderJobCard(j) {
+  const elapsed = j.startTime ? formatDuration(Date.now() - j.startTime) : '—';
+  const remaining = j.status === 'printing' ? formatDuration((j.hours * 3600 * 1000) * (1 - j.progress / 100)) : '—';
+  const priorityBadge = j.priority === 'rush' ? ' 🔴' : j.priority === 'high' ? ' 🟡' : '';
+
+  let progressClass = j.status;
+  let actions = '';
+
+  if (j.status === 'printing') {
+    actions = `<button class="job-btn pause" onclick="pauseJob(${j.id})">⏸ Pause</button>
+               <button class="job-btn cancel" onclick="cancelJob(${j.id})">✕ Cancel</button>`;
+  } else if (j.status === 'queued') {
+    actions = `<button class="job-btn" onclick="promoteJob(${j.id})">⬆ Move Up</button>
+               <button class="job-btn cancel" onclick="removeJob(${j.id})">✕ Remove</button>`;
+  } else if (j.status === 'paused') {
+    actions = `<button class="job-btn resume" onclick="resumeJob(${j.id})">▶ Resume</button>
+               <button class="job-btn cancel" onclick="cancelJob(${j.id})">✕ Cancel</button>`;
+  } else if (j.status === 'failed') {
+    actions = `<button class="job-btn retry" onclick="retryJob(${j.id})">↻ Retry</button>
+               <button class="job-btn cancel" onclick="removeJob(${j.id})">✕ Remove</button>`;
+  } else if (j.status === 'completed') {
+    actions = `<button class="job-btn" onclick="reprintJob(${j.id})">🔄 Reprint</button>
+               <button class="job-btn cancel" onclick="removeJob(${j.id})">✕ Remove</button>`;
+  }
+
+  const draggable = j.status === 'queued' ? 'draggable="true"' : '';
+
+  return `<div class="job-card status-${j.status}" ${draggable} data-id="${j.id}"
+    ondragstart="onDragStart(event, ${j.id})" ondragover="onDragOver(event)"
+    ondragleave="onDragLeave(event)" ondrop="onDrop(event, ${j.id})" ondragend="onDragEnd(event)">
+    ${j.status === 'queued' ? '<div class="drag-handle"><span></span><span></span><span></span></div>' : ''}
+    <div class="job-top">
+      <div>
+        <div class="job-name">${j.name}${priorityBadge}</div>
+        <div class="job-file">${j.file}</div>
+      </div>
+      <div class="job-status status-${j.status}">
+        <span class="status-dot"></span>
+        ${j.status}
+      </div>
+    </div>
+    <div class="job-meta">
+      <div class="meta-item"><span class="meta-label">Material</span><span class="meta-value">${j.material}</span></div>
+      <div class="meta-item"><span class="meta-label">Filament</span><span class="meta-value">${j.filament}g</span></div>
+      <div class="meta-item"><span class="meta-label">Est. Time</span><span class="meta-value">${j.hours}h</span></div>
+      ${j.status === 'printing' ? `<div class="meta-item"><span class="meta-label">Layer</span><span class="meta-value">${j.layer}/${j.totalLayers}</span></div>` : ''}
+      ${j.temp && j.status === 'printing' ? `<div class="meta-item"><span class="meta-label">Nozzle</span><span class="meta-value">${j.temp.nozzle}°C</span></div>` : ''}
+    </div>
+    ${j.error ? `<div style="font-size:12px;color:var(--danger);margin-bottom:8px;padding:8px 12px;background:rgba(255,107,107,0.08);border-radius:8px;">⚠ ${j.error}</div>` : ''}
+    <div class="progress-container">
+      <div class="progress-bar"><div class="progress-fill ${progressClass}" style="width:${j.progress}%"></div></div>
+      <div class="progress-info">
+        <span>${j.progress}% complete</span>
+        <span>${j.status === 'printing' ? `~${remaining} remaining` : j.status === 'completed' ? `Finished in ${elapsed}` : ''}</span>
+      </div>
+    </div>
+    <div class="job-actions">${actions}</div>
+  </div>`;
+}
+
+function updateStats() {
+  document.getElementById('stat-printing').textContent = jobs.filter(j => j.status === 'printing').length;
+  document.getElementById('stat-queued').textContent = jobs.filter(j => j.status === 'queued').length;
+  document.getElementById('stat-completed').textContent = jobs.filter(j => j.status === 'completed').length;
+  const totalEta = jobs.filter(j => j.status === 'printing' || j.status === 'queued')
+    .reduce((s, j) => s + j.hours * (1 - j.progress / 100), 0);
+  document.getElementById('stat-eta').textContent = totalEta > 0 ? `${totalEta.toFixed(1)}h` : '—';
+}
+
+// === JOB ACTIONS ===
+function pauseJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (j) { j.status = 'paused'; render(); }
+}
+function resumeJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (j) { j.status = 'printing'; j.startTime = Date.now(); render(); }
+}
+function cancelJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (j) { j.status = 'failed'; j.error = 'Cancelled by operator'; render(); }
+}
+function removeJob(id) {
+  jobs = jobs.filter(x => x.id !== id);
+  render();
+}
+function retryJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (j) { j.status = 'queued'; j.progress = 0; j.layer = 0; j.error = null; render(); }
+}
+function reprintJob(id) {
+  const j = jobs.find(x => x.id === id);
+  if (j) {
+    const copy = { ...j, id: nextId++, status: 'queued', progress: 0, layer: 0, startTime: null };
+    jobs.splice(jobs.indexOf(j) + 1, 0, copy);
+    render();
+  }
+}
+function promoteJob(id) {
+  const idx = jobs.findIndex(x => x.id === id);
+  if (idx > 0) {
+    const prev = idx - 1;
+    [jobs[idx], jobs[prev]] = [jobs[prev], jobs[idx]];
+    render();
+  }
+}
+function clearCompleted() {
+  jobs = jobs.filter(j => j.status !== 'completed');
+  render();
+}
+function cancelAll() {
+  jobs.forEach(j => { if (j.status === 'queued') { j.status = 'failed'; j.error = 'Batch cancelled'; } });
+  render();
+}
+
+// === DRAG & DROP ===
+function onDragStart(e, id) {
+  draggedId = id;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) {
+  e.preventDefault();
+  const card = e.target.closest('.job-card');
+  if (card) card.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  const card = e.target.closest('.job-card');
+  if (card) card.classList.remove('drag-over');
+}
+function onDrop(e, targetId) {
+  e.preventDefault();
+  const card = e.target.closest('.job-card');
+  if (card) card.classList.remove('drag-over');
+  if (draggedId === null || draggedId === targetId) return;
+  const fromIdx = jobs.findIndex(j => j.id === draggedId);
+  const toIdx = jobs.findIndex(j => j.id === targetId);
+  if (fromIdx === -1 || toIdx === -1) return;
+  const [moved] = jobs.splice(fromIdx, 1);
+  jobs.splice(toIdx, 0, moved);
+  render();
+}
+function onDragEnd(e) {
+  draggedId = null;
+  document.querySelectorAll('.dragging').forEach(el => el.classList.remove('dragging'));
+  document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+}
+
+// === FILTER ===
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderQueue();
+}
+
+// === MODAL ===
+function openAddModal() { document.getElementById('add-modal').classList.add('active'); }
+function closeAddModal() { document.getElementById('add-modal').classList.remove('active'); }
+function addJob() {
+  const name = document.getElementById('job-name').value.trim();
+  const file = document.getElementById('job-file').value.trim();
+  const material = document.getElementById('job-material').value;
+  const hours = parseFloat(document.getElementById('job-hours').value) || 3;
+  const grams = parseInt(document.getElementById('job-grams').value) || 45;
+  const priority = document.getElementById('job-priority').value;
+  if (!name) return;
+
+  jobs.push({
+    id: nextId++, name, file: file || 'untitled.3mf',
+    status: 'queued', material, filament: grams, hours,
+    progress: 0, layer: 0, totalLayers: Math.round(hours * 70),
+    priority, startTime: null, temp: null
+  });
+
+  document.getElementById('job-name').value = '';
+  document.getElementById('job-file').value = '';
+  closeAddModal();
+  render();
+}
+
+// === HELPERS ===
+function formatDuration(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
+
+// === SIMULATION ===
+function simulate() {
+  jobs.forEach(j => {
+    if (j.status === 'printing' && j.progress < 100) {
+      j.progress = Math.min(100, j.progress + 0.15);
+      j.layer = Math.round(j.totalLayers * j.progress / 100);
+      if (j.progress >= 100) {
+        j.status = 'completed';
+        // Auto-start next queued job
+        const next = jobs.find(x => x.status === 'queued');
+        if (next) {
+          next.status = 'printing';
+          next.startTime = Date.now();
+          next.temp = { nozzle: 220, bed: 60 };
+        }
+      }
+    }
+  });
+  renderQueue();
+  renderTimeline();
+}
+
+// === RENDER ALL ===
+function render() {
+  renderFilament();
+  renderTimeline();
+  renderQueue();
+}
+
+// Init
+render();
+setInterval(simulate, 3000);
+
+// Close modal on backdrop click
+document.getElementById('add-modal').addEventListener('click', (e) => {
+  if (e.target.classList.contains('modal-overlay')) closeAddModal();
+});
+</script>
+</body>
+</html>

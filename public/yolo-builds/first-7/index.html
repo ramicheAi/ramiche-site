@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FIRST-7 | New Member Journey</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@200;300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d0d12;
+      --bg-secondary: #15151c;
+      --accent-orange: #ff6b35;
+      --accent-teal: #08d9d6;
+      --accent-purple: #6c5ce7;
+      --accent-pink: #fd79a8;
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.6);
+      --text-muted: rgba(255, 255, 255, 0.35);
+      --glass: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.06);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Diagonal grid pattern */
+    .bg-pattern {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-image: 
+        repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,107,53,0.015) 35px, rgba(255,107,53,0.015) 70px),
+        repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(8,217,214,0.015) 35px, rgba(8,217,214,0.015) 70px);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 2.5rem 3rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .brand-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      position: relative;
+    }
+
+    .brand-icon::after {
+      content: '7';
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      font-size: 1.75rem;
+      color: white;
+    }
+
+    .brand-text h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.85rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text span {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    main {
+      position: relative;
+      z-index: 10;
+      padding: 3rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Timeline Container */
+    .timeline-container {
+      position: relative;
+      padding: 2rem 0;
+    }
+
+    .timeline-line {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--accent-orange), var(--accent-teal), var(--accent-purple));
+      transform: translateX(-50%);
+    }
+
+    .day-card {
+      display: flex;
+      align-items: center;
+      margin-bottom: 3rem;
+      position: relative;
+    }
+
+    .day-card:nth-child(odd) {
+      flex-direction: row-reverse;
+    }
+
+    .day-content {
+      width: 45%;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2rem;
+      transition: all 0.4s ease;
+    }
+
+    .day-content:hover {
+      background: rgba(255, 255, 255, 0.06);
+      transform: scale(1.02);
+    }
+
+    .day-marker {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      background: var(--bg-secondary);
+      border: 3px solid;
+      z-index: 5;
+    }
+
+    .day-marker.day-1 { border-color: var(--accent-orange); color: var(--accent-orange); }
+    .day-marker.day-2 { border-color: #ff8c42; color: #ff8c42; }
+    .day-marker.day-3 { border-color: #ffb347; color: #ffb347; }
+    .day-marker.day-4 { border-color: var(--accent-teal); color: var(--accent-teal); }
+    .day-marker.day-5 { border-color: #4ecdc4; color: #4ecdc4; }
+    .day-marker.day-6 { border-color: var(--accent-purple); color: var(--accent-purple); }
+    .day-marker.day-7 { border-color: var(--accent-pink); color: var(--accent-pink); box-shadow: 0 0 30px rgba(253, 121, 168, 0.3); }
+
+    .day-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .day-emoji {
+      font-size: 1.5rem;
+    }
+
+    .day-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+    }
+
+    .day-goal {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+
+    .action-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+    }
+
+    .action-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 12px;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .action-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .action-item.completed {
+      background: rgba(8, 217, 214, 0.08);
+    }
+
+    .action-check {
+      width: 20px;
+      height: 20px;
+      border-radius: 6px;
+      border: 2px solid var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      transition: all 0.2s ease;
+    }
+
+    .action-item.completed .action-check {
+      background: var(--accent-teal);
+      border-color: var(--accent-teal);
+      color: var(--bg-primary);
+    }
+
+    .progress-section {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2.5rem;
+      margin-top: 2rem;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .progress-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.35rem;
+      font-weight: 600;
+    }
+
+    .overall-score {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-orange), var(--accent-teal), var(--accent-purple));
+      border-radius: 4px;
+      transition: width 0.5s ease;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+    }
+
+    .metric-box {
+      text-align: center;
+      padding: 1.25rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 16px;
+    }
+
+    .metric-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .metric-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .pulse-footer {
+      margin-top: 3rem;
+      padding: 1.5rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .pulse-dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      background: var(--accent-teal);
+      border-radius: 50%;
+      margin-right: 0.5rem;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    @media (max-width: 900px) {
+      .timeline-line { left: 30px; }
+      .day-card { flex-direction: column !important; align-items: flex-start; padding-left: 80px; }
+      .day-content { width: 100%; }
+      .day-marker { left: 30px; transform: none; }
+      .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-pattern"></div>
+
+  <header>
+    <div class="brand">
+      <div class="brand-icon"></div>
+      <div class="brand-text">
+        <h1>FIRST-7</h1>
+        <span>New Member Journey Tracker</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="timeline-container">
+      <div class="timeline-line"></div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">👋</span>
+            <h3 class="day-title">Day 1: The Welcome</h3>
+          </div>
+          <p class="day-goal">First impressions matter. Make them feel seen within 24 hours of joining.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check">✓</div>
+              <span>Send personalized welcome DM</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Tag them in relevant intro thread</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Share 3 must-see channels</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-1">1</div>
+      </div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">🎯</span>
+            <h3 class="day-title">Day 2: The Hook</h3>
+          </div>
+          <p class="day-goal">Give them a reason to return. Surface value specific to their interests.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Send resource based on their intro</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Introduce them to 1 relevant member</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Invite to live event or voice chat</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-2">2</div>
+      </div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">💬</span>
+            <h3 class="day-title">Day 3: The Conversation</h3>
+          </div>
+          <p class="day-goal">Get them talking. First contribution is the hardest—make it easy.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Ask an open question in their DM</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>React thoughtfully to their first post</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Share their contribution in public channel</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-3">3</div>
+      </div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">🔗</span>
+            <h3 class="day-title">Day 4: The Connection</h3>
+          </div>
+          <p class="day-goal">Community is relationships, not numbers. Facilitate genuine bonds.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Connect them with peers (same interests)</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Tag them in discussion they'd love</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Celebrate something they shared</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-4">4</div>
+      </div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">⭐</span>
+            <h3 class="day-title">Day 5: The Contribution</h3>
+          </div>
+          <p class="day-goal">They've consumed—now help them create. Ownership creates retention.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Ask for their perspective on a topic</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Invite to share a win or challenge</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Feature their insight publicly</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-5">5</div>
+      </div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">🚀</span>
+            <h3 class="day-title">Day 6: The Momentum</h3>
+          </div>
+          <p class="day-goal">Keep the streak alive. Missing a day now means losing them forever.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Check in: "How's your week going?"</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Share upcoming events they'd enjoy</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Encourage them to bring a friend</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-6">6</div>
+      </div>
+
+      <div class="day-card">
+        <div class="day-content">
+          <div class="day-header">
+            <span class="day-emoji">🏆</span>
+            <h3 class="day-title">Day 7: The Commitment</h3>
+          </div>
+          <p class="day-goal">Seven days of engagement = they're a member, not a visitor.</p>
+          <div class="action-list">
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Send "first week" celebration message</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Invite to deeper community layer</span>
+            </div>
+            <div class="action-item" onclick="toggleComplete(this)">
+              <div class="action-check"></div>
+              <span>Set expectation: "See you next week"</span>
+            </div>
+          </div>
+        </div>
+        <div class="day-marker day-7">7</div>
+      </div>
+    </div>
+
+    <div class="progress-section">
+      <div class="progress-header">
+        <h3 class="progress-title">Member Journey Health</h3>
+        <div class="overall-score" id="overallScore">0%</div>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div class="metric-value" style="color: var(--accent-orange)">24h</div>
+          <div class="metric-label">Avg First Response</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" style="color: var(--accent-teal)">68%</div>
+          <div class="metric-label">7-Day Retention</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" style="color: var(--accent-purple)">4.2</div>
+          <div class="metric-label">Avg Touchpoints</div>
+        </div>
+        <div class="metric-box">
+          <div class="metric-value" style="color: var(--accent-pink)">+156</div>
+          <div class="metric-label">New This Week</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pulse-footer">
+      <span class="pulse-dot"></span>
+      Tracking member journeys in real-time
+    </div>
+  </main>
+
+  <script>
+    function toggleComplete(el) {
+      el.classList.toggle('completed');
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const totalActions = document.querySelectorAll('.action-item').length;
+      const completedActions = document.querySelectorAll('.action-item.completed').length;
+      const percentage = Math.round((completedActions / totalActions) * 100);
+      
+      document.getElementById('overallScore').textContent = percentage + '%';
+      document.getElementById('progressFill').style.width = percentage + '%';
+    }
+
+    // Animate on load
+    window.addEventListener('load', () => {
+      document.querySelectorAll('.day-card').forEach((card, i) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        setTimeout(() => {
+          card.style.transition = 'all 0.6s ease';
+          card.style.opacity = '1';
+          card.style.transform = 'translateY(0)';
+        }, i * 100);
+      });
+    });
+
+    // Simulate live updates
+    setInterval(() => {
+      const metrics = document.querySelectorAll('.metric-value');
+      metrics.forEach(metric => {
+        if (Math.random() > 0.7) {
+          metric.style.opacity = '0.5';
+          setTimeout(() => metric.style.opacity = '1', 200);
+        }
+      });
+    }, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tariff Impact Engine — DR STRANGE</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a25;--border:#2a2a3a;--text:#e0e0e8;--dim:#8888a0;--accent:#7b5cff;--accent2:#00e5a0;--danger:#ff4466;--warn:#ffaa00;--info:#44aaff}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono',Menlo,Monaco,'Courier New',monospace;font-size:13px;min-height:100vh;overflow-x:hidden}
+.header{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px}
+.header h1{font-size:18px;font-weight:700;letter-spacing:1px}
+.header .badge{background:var(--accent);color:#fff;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:700}
+.header .lane{color:var(--dim);font-size:11px;margin-left:auto}
+.main{display:grid;grid-template-columns:320px 1fr;min-height:calc(100vh - 61px)}
+.sidebar{border-right:1px solid var(--border);padding:16px;overflow-y:auto;max-height:calc(100vh - 61px)}
+.content{padding:16px;overflow-y:auto;max-height:calc(100vh - 61px)}
+.section{margin-bottom:20px}
+.section-title{font-size:11px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+label{display:block;font-size:11px;color:var(--dim);margin-bottom:4px;margin-top:10px}
+select,input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:4px;font-family:inherit;font-size:12px}
+select:focus,input:focus{outline:none;border-color:var(--accent)}
+.slider-row{display:flex;align-items:center;gap:10px}
+.slider-row input[type=range]{flex:1;-webkit-appearance:none;background:var(--surface2);height:4px;border-radius:2px;border:none}
+.slider-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;background:var(--accent);border-radius:50%;cursor:pointer}
+.slider-val{min-width:30px;text-align:right;font-weight:700;color:var(--accent)}
+.btn{width:100%;padding:10px;background:var(--accent);color:#fff;border:none;border-radius:4px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;text-transform:uppercase;margin-top:16px}
+.btn:hover{opacity:0.9}
+.btn:active{transform:scale(0.98)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:16px}
+.card-title{font-size:11px;font-weight:700;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.metric{font-size:28px;font-weight:700;line-height:1.1}
+.metric-label{font-size:10px;color:var(--dim);margin-top:4px}
+.positive{color:var(--accent2)}
+.negative{color:var(--danger)}
+.neutral{color:var(--warn)}
+canvas{width:100%;border-radius:4px}
+.chain-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border)}
+.chain-item:last-child{border-bottom:none}
+.chain-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.chain-name{flex:1;font-size:12px}
+.chain-val{font-weight:700;font-size:12px}
+.cascade-row{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;opacity:0;transform:translateY(10px);transition:all 0.4s ease}
+.cascade-row.visible{opacity:1;transform:translateY(0)}
+.cascade-order{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;flex-shrink:0}
+.order-1{background:var(--danger);color:#fff}
+.order-2{background:var(--warn);color:#000}
+.order-3{background:var(--info);color:#fff}
+.cascade-text{font-size:12px;line-height:1.5}
+.cascade-text strong{color:var(--text)}
+.cascade-text span{color:var(--dim)}
+.timeline-bar{height:3px;border-radius:2px;margin-top:6px}
+.heatmap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:4px}
+.heatmap-cell{padding:8px 6px;border-radius:4px;text-align:center;font-size:10px;font-weight:700;line-height:1.3}
+.history-item{padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;font-size:11px;display:flex;justify-content:space-between}
+.history-item:hover{background:var(--surface2)}
+.tag{display:inline-block;padding:1px 6px;border-radius:2px;font-size:9px;font-weight:700;margin-left:4px}
+.disclaimer{color:var(--dim);font-size:9px;padding:16px;border-top:1px solid var(--border);margin-top:20px;line-height:1.5}
+.tab-bar{display:flex;gap:2px;margin-bottom:16px}
+.tab{padding:8px 16px;font-size:11px;font-weight:700;cursor:pointer;border-radius:4px 4px 0 0;color:var(--dim);text-transform:uppercase;letter-spacing:1px}
+.tab.active{background:var(--surface);color:var(--accent);border:1px solid var(--border);border-bottom-color:var(--surface)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.empty{text-align:center;padding:40px;color:var(--dim)}
+.chip-row{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{padding:3px 8px;border-radius:3px;font-size:10px;cursor:pointer;border:1px solid var(--border);color:var(--dim)}
+.chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(123,92,255,0.1)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>TARIFF IMPACT ENGINE</h1>
+  <span class="badge">DR STRANGE</span>
+  <span class="lane">Scenario Modeling • YOLO Build • 2026-04-13</span>
+</div>
+
+<div class="main">
+  <div class="sidebar">
+    <div class="section">
+      <div class="section-title">Scenario Config</div>
+
+      <label>Tariff Event</label>
+      <select id="scenario">
+        <option value="us-china-25">US-China Tariff +25% (Broad)</option>
+        <option value="us-china-60">US-China Tariff +60% (Aggressive)</option>
+        <option value="us-eu-auto">US-EU Auto Tariff +25%</option>
+        <option value="us-eu-broad">US-EU Broad Tariff +20%</option>
+        <option value="steel-aluminum">Steel & Aluminum Tariff +25%</option>
+        <option value="tech-export">Tech Export Controls (Chips/AI)</option>
+        <option value="ag-retaliation">Agricultural Retaliation Tariff</option>
+        <option value="pharma-tariff">Pharma Import Tariff +15%</option>
+        <option value="rare-earth">Rare Earth Export Restrictions</option>
+        <option value="universal-10">Universal Baseline Tariff +10%</option>
+        <option value="custom">Custom Tariff Scenario</option>
+      </select>
+
+      <div id="customFields" style="display:none">
+        <label>Target Sector</label>
+        <input type="text" id="customSector" placeholder="e.g., Semiconductors">
+        <label>Tariff Rate (%)</label>
+        <input type="number" id="customRate" value="20" min="1" max="200">
+        <label>Affected Trade Volume ($B)</label>
+        <input type="number" id="customVolume" value="100" min="1" max="5000">
+      </div>
+
+      <label>Severity (1-10)</label>
+      <div class="slider-row">
+        <input type="range" id="severity" min="1" max="10" value="5">
+        <span class="slider-val" id="sevVal">5</span>
+      </div>
+
+      <label>Retaliation Probability</label>
+      <div class="slider-row">
+        <input type="range" id="retaliation" min="0" max="100" value="60">
+        <span class="slider-val" id="retVal">60%</span>
+      </div>
+
+      <label>Time Horizon (months)</label>
+      <div class="slider-row">
+        <input type="range" id="horizon" min="3" max="36" value="18">
+        <span class="slider-val" id="horVal">18</span>
+      </div>
+
+      <label>Supply Chain Flexibility</label>
+      <select id="flexibility">
+        <option value="low">Low (Concentrated sourcing)</option>
+        <option value="medium" selected>Medium (Some diversification)</option>
+        <option value="high">High (Multi-sourced)</option>
+      </select>
+
+      <label>Consumer Price Passthrough</label>
+      <div class="slider-row">
+        <input type="range" id="passthrough" min="0" max="100" value="65">
+        <span class="slider-val" id="passVal">65%</span>
+      </div>
+
+      <button class="btn" onclick="runSimulation()">⚡ RUN SCENARIO</button>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Session History</div>
+      <div id="history"><div class="empty">No scenarios run yet</div></div>
+    </div>
+  </div>
+
+  <div class="content" id="contentArea">
+    <div class="empty" id="placeholder">
+      <div style="font-size:48px;margin-bottom:16px">🔮</div>
+      <div style="font-size:14px;margin-bottom:8px">Configure a tariff scenario and run</div>
+      <div style="font-size:11px;color:var(--dim)">Models cascading effects on supply chains, margins, sectors, and consumer prices</div>
+    </div>
+
+    <div id="results" style="display:none">
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchTab('overview')">Overview</div>
+        <div class="tab" onclick="switchTab('cascade')">Cascade Effects</div>
+        <div class="tab" onclick="switchTab('sectors')">Sector Impact</div>
+        <div class="tab" onclick="switchTab('supply')">Supply Chain</div>
+        <div class="tab" onclick="switchTab('monte')">Monte Carlo</div>
+      </div>
+
+      <div id="tab-overview" class="tab-content active">
+        <div class="grid3" id="topMetrics"></div>
+        <div style="height:16px"></div>
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">Risk Assessment</div>
+            <div id="riskAssessment"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Key Signals</div>
+            <div id="keySignals"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-cascade" class="tab-content">
+        <div class="card">
+          <div class="card-title">Cascade Timeline</div>
+          <div id="cascadeTimeline"></div>
+        </div>
+      </div>
+
+      <div id="tab-sectors" class="tab-content">
+        <div class="card">
+          <div class="card-title">Sector Impact Heatmap</div>
+          <div class="heatmap-grid" id="sectorHeatmap"></div>
+        </div>
+        <div style="height:16px"></div>
+        <div class="card">
+          <div class="card-title">Sector Detail</div>
+          <canvas id="sectorChart" height="280"></canvas>
+        </div>
+      </div>
+
+      <div id="tab-supply" class="tab-content">
+        <div class="grid2">
+          <div class="card">
+            <div class="card-title">Supply Chain Disruption Index</div>
+            <canvas id="supplyChart" height="260"></canvas>
+          </div>
+          <div class="card">
+            <div class="card-title">Cost Passthrough Chain</div>
+            <div id="passthroughChain"></div>
+          </div>
+        </div>
+        <div style="height:16px"></div>
+        <div class="card">
+          <div class="card-title">Margin Compression by Industry</div>
+          <canvas id="marginChart" height="240"></canvas>
+        </div>
+      </div>
+
+      <div id="tab-monte" class="tab-content">
+        <div class="card">
+          <div class="card-title">Monte Carlo GDP Impact Projections (1000 paths)</div>
+          <canvas id="monteChart" height="320"></canvas>
+        </div>
+        <div style="height:16px"></div>
+        <div class="grid3" id="monteStats"></div>
+      </div>
+
+      <div class="disclaimer">
+        ⚠️ DISCLAIMER: This is a scenario modeling tool for educational and analytical purposes only.
+        Projections use simplified models and should not be used as the sole basis for investment or business decisions.
+        Past tariff outcomes do not guarantee future results. Consult qualified professionals for financial advice.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SCENARIOS = {
+  'us-china-25': {
+    name: 'US-China +25%',
+    rate: 25, volume: 370, target: 'China',
+    sectors: { Tech: -0.18, ConsDisc: -0.14, Industrials: -0.12, Materials: -0.10, Energy: -0.05, Healthcare: -0.04, Financials: -0.08, Utilities: -0.02, RealEstate: -0.03, CommSvc: -0.06, ConsStaples: -0.07 },
+    supplyChain: ['Raw Materials', 'Components', 'Assembly', 'Logistics', 'Distribution', 'Retail'],
+    supplyImpact: [0.15, 0.22, 0.30, 0.12, 0.08, 0.06],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Import costs rise {rate}% on ${vol}B in goods. Immediate inventory cost increase for importers.', impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'Supply chain rerouting begins. Vietnam, Mexico, India see order increases. Lead times extend 2-6 weeks.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Consumer prices rise {pass}% as retailers pass through {ptr}% of tariff costs. Demand elasticity kicks in.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'Retaliatory tariffs ({ret}% probability) hit US agricultural and tech exports. Farm income drops.', impact: 'high' },
+      { order: 3, time: '9-18mo', text: 'Reshoring investment accelerates but takes 18-36 months to materialize. Gap period creates shortages.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'GDP impact of -{gdp}% as trade friction compounds. Fed considers rate adjustments.', impact: 'high' }
+    ]
+  },
+  'us-china-60': {
+    name: 'US-China +60%',
+    rate: 60, volume: 370, target: 'China',
+    sectors: { Tech: -0.28, ConsDisc: -0.22, Industrials: -0.18, Materials: -0.15, Energy: -0.08, Healthcare: -0.06, Financials: -0.14, Utilities: -0.03, RealEstate: -0.05, CommSvc: -0.10, ConsStaples: -0.12 },
+    supplyChain: ['Raw Materials', 'Components', 'Assembly', 'Logistics', 'Distribution', 'Retail'],
+    supplyImpact: [0.25, 0.38, 0.50, 0.20, 0.14, 0.10],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Severe import cost shock. Many products become economically unviable to import. Panic buying of existing inventory.', impact: 'critical' },
+      { order: 1, time: '0-3mo', text: 'Emergency supply chain diversification. Some categories face near-total disruption (electronics, toys, furniture).', impact: 'critical' },
+      { order: 2, time: '3-9mo', text: 'Consumer price inflation of {pass}%. Low-income households disproportionately impacted. Retail sales decline.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Near-certain retaliation ({ret}% prob). US agriculture and aircraft exports face countervailing duties.', impact: 'critical' },
+      { order: 3, time: '9-18mo', text: 'Recession risk elevates to {recProb}%. Manufacturing PMI contracts. Job losses in trade-exposed sectors.', impact: 'critical' },
+      { order: 3, time: '9-18mo', text: 'Global trade realignment. New bilateral agreements emerge but full adjustment takes 3-5 years.', impact: 'high' }
+    ]
+  },
+  'us-eu-auto': {
+    name: 'US-EU Auto +25%',
+    rate: 25, volume: 60, target: 'EU',
+    sectors: { Tech: -0.03, ConsDisc: -0.20, Industrials: -0.15, Materials: -0.08, Energy: -0.02, Healthcare: -0.01, Financials: -0.06, Utilities: -0.01, RealEstate: -0.02, CommSvc: -0.02, ConsStaples: -0.03 },
+    supplyChain: ['Steel/Aluminum', 'Auto Parts', 'Engines/Trans', 'Assembly', 'Dealers', 'Consumers'],
+    supplyImpact: [0.10, 0.25, 0.30, 0.35, 0.15, 0.08],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'EU vehicle prices in US rise $5,000-$12,000. BMW, Mercedes, VW most exposed. US dealer inventory adjustments.', impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'US auto parts exports to EU face retaliatory duties. Cross-border supply chains disrupted.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'US auto prices rise via competitive pricing umbrella. Detroit raises prices even without tariff exposure.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'EU retaliates on US agriculture, bourbon, tech. Estimated ${retVol}B in counter-tariffs.', impact: 'high' },
+      { order: 3, time: '9-18mo', text: 'Auto plant location decisions shift. Some EU OEMs accelerate US plant investment. 24-36mo to online.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Consumer auto loan costs compound with higher prices. Used car market inflates further.', impact: 'medium' }
+    ]
+  },
+  'us-eu-broad': {
+    name: 'US-EU Broad +20%',
+    rate: 20, volume: 550, target: 'EU',
+    sectors: { Tech: -0.10, ConsDisc: -0.16, Industrials: -0.14, Materials: -0.12, Energy: -0.06, Healthcare: -0.08, Financials: -0.10, Utilities: -0.03, RealEstate: -0.04, CommSvc: -0.05, ConsStaples: -0.09 },
+    supplyChain: ['Raw Inputs', 'Manufacturing', 'Logistics', 'Wholesale', 'Retail', 'Services'],
+    supplyImpact: [0.18, 0.28, 0.15, 0.12, 0.08, 0.05],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Transatlantic trade volume drops 15-25%. Pharmaceuticals, machinery, chemicals most impacted.', impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'European luxury goods prices surge in US. Wine, cheese, fashion face sharp demand elasticity.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'EU counter-tariffs target US tech, agriculture, energy. NATO alliance strain complicates negotiations.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Pharma costs rise as generic drug imports slow. Healthcare spending increases by est. {pharmaImpact}%.', impact: 'high' },
+      { order: 3, time: '9-18mo', text: 'Global GDP impact of -{gdp}% as the two largest trading blocs decouple. Third-party beneficiaries emerge.', impact: 'critical' },
+      { order: 3, time: '9-18mo', text: 'Currency markets react. EUR/USD volatility spikes. Capital flows shift to safe havens.', impact: 'high' }
+    ]
+  },
+  'steel-aluminum': {
+    name: 'Steel & Aluminum +25%',
+    rate: 25, volume: 35, target: 'Global',
+    sectors: { Tech: -0.02, ConsDisc: -0.08, Industrials: -0.18, Materials: -0.22, Energy: -0.06, Healthcare: -0.01, Financials: -0.04, Utilities: -0.05, RealEstate: -0.07, CommSvc: -0.01, ConsStaples: -0.04 },
+    supplyChain: ['Mining/Smelting', 'Primary Metals', 'Fabrication', 'Manufacturing', 'Construction', 'End Products'],
+    supplyImpact: [0.08, 0.25, 0.30, 0.20, 0.22, 0.12],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Domestic steel prices rise 15-30%. Construction and auto manufacturing costs increase immediately.', impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'Can manufacturers face aluminum cost spikes. Beverage and food packaging costs rise.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'Downstream manufacturers (appliances, autos, machinery) raise prices. Competitiveness vs imports from non-tariffed countries declines.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'Infrastructure projects see 8-15% cost overruns. Some projects delayed or cancelled.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Net job impact ambiguous. Steel jobs gained (~{steelJobs}K) vs downstream jobs lost (~{downJobs}K).', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Domestic capacity slowly ramps. Full substitution takes 2-4 years. Quality gaps in specialty steel persist.', impact: 'medium' }
+    ]
+  },
+  'tech-export': {
+    name: 'Tech Export Controls',
+    rate: 0, volume: 180, target: 'China',
+    sectors: { Tech: -0.25, ConsDisc: -0.05, Industrials: -0.08, Materials: -0.06, Energy: -0.02, Healthcare: -0.03, Financials: -0.08, Utilities: -0.01, RealEstate: -0.02, CommSvc: -0.12, ConsStaples: -0.02 },
+    supplyChain: ['Chip Design', 'Fab Equipment', 'Foundry', 'Packaging/Test', 'System Integrators', 'End Devices'],
+    supplyImpact: [0.15, 0.35, 0.40, 0.25, 0.18, 0.10],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'US semiconductor equipment makers lose ${vol}B in China revenue. ASML, Applied Materials, Lam Research exposed.', impact: 'critical' },
+      { order: 1, time: '0-3mo', text: 'China accelerates domestic chip development. $50B+ in state subsidies redirected. AI training hardware hoarding.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Global chip supply bifurcates. Two separate technology ecosystems begin forming.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Consumer electronics prices rise as supply chains rewire. Lead times for advanced chips extend.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'AI development velocity diverges. US maintains edge but China closes gap with alternative architectures.', impact: 'high' },
+      { order: 3, time: '9-18mo', text: 'Allied nations forced to choose sides. Japan, Netherlands, South Korea face diplomatic pressure.', impact: 'high' }
+    ]
+  },
+  'ag-retaliation': {
+    name: 'Agricultural Retaliation',
+    rate: 25, volume: 80, target: 'Multiple',
+    sectors: { Tech: -0.02, ConsDisc: -0.03, Industrials: -0.04, Materials: -0.05, Energy: -0.03, Healthcare: -0.01, Financials: -0.06, Utilities: -0.02, RealEstate: -0.04, CommSvc: -0.01, ConsStaples: -0.15 },
+    supplyChain: ['Farms', 'Processing', 'Storage/Transport', 'Export Terminals', 'Foreign Markets', 'Alternatives'],
+    supplyImpact: [0.30, 0.15, 0.10, 0.20, 0.35, 0.25],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Soybean, corn, wheat exports face {rate}% retaliatory tariffs. Farm income drops 15-25% in affected states.', impact: 'critical' },
+      { order: 1, time: '0-3mo', text: 'Commodity futures crash. Soybean prices drop 20%+. Farmer bankruptcies spike in Midwest.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Government farm subsidies expand by $15-30B to offset losses. Budget deficit increases.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Brazil and Argentina capture displaced export demand. Market share loss becomes structural.', impact: 'critical' },
+      { order: 3, time: '9-18mo', text: 'Rural bank stress. Agricultural loan delinquencies rise. Community banks in farm states under pressure.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Permanent demand destruction. Foreign buyers diversify away from US ag. Recovery takes 3-5 years even after tariff removal.', impact: 'high' }
+    ]
+  },
+  'pharma-tariff': {
+    name: 'Pharma Import +15%',
+    rate: 15, volume: 200, target: 'Global',
+    sectors: { Tech: -0.01, ConsDisc: -0.02, Industrials: -0.03, Materials: -0.04, Energy: -0.01, Healthcare: -0.20, Financials: -0.05, Utilities: -0.01, RealEstate: -0.01, CommSvc: -0.01, ConsStaples: -0.03 },
+    supplyChain: ['API Manufacturing', 'Formulation', 'Packaging', 'Distribution', 'Pharmacy', 'Patient'],
+    supplyImpact: [0.30, 0.20, 0.08, 0.10, 0.12, 0.25],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Generic drug costs rise 10-20%. India and China supply 80% of API ingredients. Immediate cost pressure on PBMs.', impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'Hospitals face supply uncertainty. Critical drug shortages possible for low-margin generics.', impact: 'critical' },
+      { order: 2, time: '3-9mo', text: 'Insurance premiums rise to absorb increased drug costs. Out-of-pocket costs for patients increase {pass}%.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Domestic pharma production investment announced but FDA approval timelines are 2-5 years.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Healthcare spending as % of GDP increases by 0.3-0.5%. Political backlash intensifies.', impact: 'high' },
+      { order: 3, time: '9-18mo', text: 'Medication non-adherence rises among uninsured. Public health outcomes deteriorate in underserved areas.', impact: 'critical' }
+    ]
+  },
+  'rare-earth': {
+    name: 'Rare Earth Restrictions',
+    rate: 0, volume: 8, target: 'China',
+    sectors: { Tech: -0.22, ConsDisc: -0.10, Industrials: -0.15, Materials: -0.18, Energy: -0.12, Healthcare: -0.04, Financials: -0.06, Utilities: -0.08, RealEstate: -0.02, CommSvc: -0.05, ConsStaples: -0.02 },
+    supplyChain: ['Mining', 'Refining', 'Magnet Production', 'Motor/Electronics Mfg', 'Defense/EV/Wind', 'End Products'],
+    supplyImpact: [0.35, 0.45, 0.50, 0.30, 0.25, 0.15],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'China controls 60-70% of rare earth production and 90% of refining. Export restrictions create immediate bottleneck.', impact: 'critical' },
+      { order: 1, time: '0-3mo', text: 'Neodymium magnet prices spike 200-400%. EV motor and wind turbine production halted or delayed.', impact: 'critical' },
+      { order: 2, time: '3-9mo', text: 'Defense supply chains disrupted. F-35, guided missiles, night vision require rare earths. National security emergency declared.', impact: 'critical' },
+      { order: 2, time: '3-9mo', text: 'EV production slows 30-50%. Tesla, GM, Ford reduce output. Clean energy transition delayed 2-3 years.', impact: 'high' },
+      { order: 3, time: '9-18mo', text: 'Emergency mining permits in Australia, Canada, US. But 5-10 year timeline to production. Recycling programs launched.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'R&D into rare-earth alternatives accelerates. Iron-nitride magnets and other substitutes get massive funding.', impact: 'medium' }
+    ]
+  },
+  'universal-10': {
+    name: 'Universal Baseline +10%',
+    rate: 10, volume: 3200, target: 'All Partners',
+    sectors: { Tech: -0.10, ConsDisc: -0.12, Industrials: -0.10, Materials: -0.08, Energy: -0.04, Healthcare: -0.06, Financials: -0.08, Utilities: -0.02, RealEstate: -0.03, CommSvc: -0.04, ConsStaples: -0.08 },
+    supplyChain: ['Global Sourcing', 'Manufacturing', 'Shipping/Freight', 'Customs/Duties', 'Distribution', 'Retail/Consumer'],
+    supplyImpact: [0.15, 0.20, 0.18, 0.25, 0.10, 0.08],
+    cascades: [
+      { order: 1, time: '0-3mo', text: 'Universal 10% tariff on $3.2T in imports. Every imported product affected. Customs processing overwhelmed.', impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'WTO challenge filed by multiple nations simultaneously. Diplomatic isolation risk.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'CPI rises 1.5-3.0%. Effective tax increase of $2,000-4,000 per household annually. Consumer spending contracts.', impact: 'high' },
+      { order: 2, time: '3-9mo', text: 'Coordinated retaliation from all major trading partners. US exports face collective counter-tariffs.', impact: 'critical' },
+      { order: 3, time: '9-18mo', text: 'Global trade volume contracts 5-10%. WTO-based trading system effectively collapses. Bilateral deals emerge.', impact: 'critical' },
+      { order: 3, time: '9-18mo', text: 'GDP impact of -{gdp}%. Recession probability rises to {recProb}%. Fed forced into emergency rate cuts.', impact: 'critical' }
+    ]
+  }
+};
+
+let sessionHistory = [];
+let currentResult = null;
+
+// Setup
+document.getElementById('scenario').addEventListener('change', e => {
+  document.getElementById('customFields').style.display = e.target.value === 'custom' ? 'block' : 'none';
+});
+document.getElementById('severity').addEventListener('input', e => {
+  document.getElementById('sevVal').textContent = e.target.value;
+});
+document.getElementById('retaliation').addEventListener('input', e => {
+  document.getElementById('retVal').textContent = e.target.value + '%';
+});
+document.getElementById('horizon').addEventListener('input', e => {
+  document.getElementById('horVal').textContent = e.target.value;
+});
+document.getElementById('passthrough').addEventListener('input', e => {
+  document.getElementById('passVal').textContent = e.target.value + '%';
+});
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+function runSimulation() {
+  const scenarioKey = document.getElementById('scenario').value;
+  const severity = parseInt(document.getElementById('severity').value);
+  const retProb = parseInt(document.getElementById('retaliation').value);
+  const horizon = parseInt(document.getElementById('horizon').value);
+  const flexibility = document.getElementById('flexibility').value;
+  const passthrough = parseInt(document.getElementById('passthrough').value);
+
+  let sc;
+  if (scenarioKey === 'custom') {
+    const sector = document.getElementById('customSector').value || 'General';
+    const rate = parseInt(document.getElementById('customRate').value) || 20;
+    const vol = parseInt(document.getElementById('customVolume').value) || 100;
+    sc = buildCustomScenario(sector, rate, vol);
+  } else {
+    sc = JSON.parse(JSON.stringify(SCENARIOS[scenarioKey]));
+  }
+
+  // Scale by severity
+  const sevScale = severity / 5;
+  const flexMod = { low: 1.3, medium: 1.0, high: 0.7 }[flexibility];
+
+  // Calculate derived metrics
+  const gdpImpact = (sc.volume / 1000) * (sc.rate / 100) * sevScale * flexMod * 0.15;
+  const cpiImpact = (passthrough / 100) * (sc.rate / 100) * sevScale * 0.4;
+  const recessionProb = Math.min(95, Math.round(20 + gdpImpact * 30 + (retProb / 100) * 15 * sevScale));
+  const tradeVolDrop = Math.round(sc.volume * (sc.rate / 100) * sevScale * 0.3);
+  const jobsAtRisk = Math.round(sc.volume * sevScale * 0.8);
+  const costPerHousehold = Math.round(cpiImpact * 60000);
+  const marginCompression = Object.values(sc.sectors).reduce((a, b) => a + b, 0) / Object.keys(sc.sectors).length * sevScale * 100;
+
+  // Scale sector impacts
+  for (let k in sc.sectors) {
+    sc.sectors[k] *= sevScale * flexMod;
+  }
+  sc.supplyImpact = sc.supplyImpact.map(v => Math.min(0.95, v * sevScale * flexMod));
+
+  const result = {
+    scenario: sc,
+    scenarioKey,
+    severity,
+    retProb,
+    horizon,
+    flexibility,
+    passthrough,
+    gdpImpact: gdpImpact.toFixed(2),
+    cpiImpact: (cpiImpact * 100).toFixed(1),
+    recessionProb,
+    tradeVolDrop,
+    jobsAtRisk,
+    costPerHousehold,
+    marginCompression: marginCompression.toFixed(1),
+    timestamp: new Date().toLocaleTimeString()
+  };
+
+  currentResult = result;
+  renderResults(result);
+
+  // Add to history
+  sessionHistory.unshift(result);
+  renderHistory();
+}
+
+function buildCustomScenario(sector, rate, volume) {
+  const baseSectors = { Tech: -0.08, ConsDisc: -0.08, Industrials: -0.08, Materials: -0.08, Energy: -0.04, Healthcare: -0.04, Financials: -0.06, Utilities: -0.02, RealEstate: -0.03, CommSvc: -0.04, ConsStaples: -0.06 };
+  return {
+    name: `Custom: ${sector} +${rate}%`,
+    rate, volume, target: 'Custom',
+    sectors: baseSectors,
+    supplyChain: ['Sourcing', 'Processing', 'Manufacturing', 'Logistics', 'Distribution', 'End Market'],
+    supplyImpact: [0.15, 0.22, 0.25, 0.12, 0.08, 0.06],
+    cascades: [
+      { order: 1, time: '0-3mo', text: `${rate}% tariff imposed on $${volume}B in ${sector} imports. Immediate cost shock to importers.`, impact: 'high' },
+      { order: 1, time: '0-3mo', text: 'Supply chain rerouting begins. Alternative sourcing explored but limited near-term options.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'Consumer prices rise as costs pass through. Demand adjusts to new price levels.', impact: 'medium' },
+      { order: 2, time: '3-9mo', text: 'Retaliatory measures target US exports in equivalent sectors. Trade deficit may actually widen.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Market adjustments settle. Winners and losers emerge in restructured supply chains.', impact: 'medium' },
+      { order: 3, time: '9-18mo', text: 'Long-term competitiveness impact becomes clear. Some domestic capacity develops.', impact: 'medium' }
+    ]
+  };
+}
+
+function renderResults(r) {
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('results').style.display = 'block';
+
+  // Top Metrics
+  const riskColor = r.recessionProb > 60 ? 'negative' : r.recessionProb > 35 ? 'neutral' : 'positive';
+  document.getElementById('topMetrics').innerHTML = `
+    <div class="card">
+      <div class="card-title">GDP Impact</div>
+      <div class="metric negative">-${r.gdpImpact}%</div>
+      <div class="metric-label">Estimated annual GDP drag</div>
+    </div>
+    <div class="card">
+      <div class="card-title">CPI Impact</div>
+      <div class="metric negative">+${r.cpiImpact}%</div>
+      <div class="metric-label">Consumer price increase</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recession Probability</div>
+      <div class="metric ${riskColor}">${r.recessionProb}%</div>
+      <div class="metric-label">18-month recession risk</div>
+    </div>
+  `;
+
+  // Risk Assessment
+  const riskLevel = r.recessionProb > 60 ? 'CRITICAL' : r.recessionProb > 40 ? 'ELEVATED' : r.recessionProb > 20 ? 'MODERATE' : 'LOW';
+  const riskBg = { CRITICAL: 'var(--danger)', ELEVATED: 'var(--warn)', MODERATE: 'var(--info)', LOW: 'var(--accent2)' }[riskLevel];
+  document.getElementById('riskAssessment').innerHTML = `
+    <div style="display:inline-block;padding:4px 12px;background:${riskBg};color:${riskLevel==='ELEVATED'?'#000':'#fff'};border-radius:3px;font-weight:700;font-size:14px;margin-bottom:12px">${riskLevel}</div>
+    <div style="font-size:12px;color:var(--dim);line-height:1.6">
+      <div>• Trade volume reduction: <strong style="color:var(--text)">-$${r.tradeVolDrop}B</strong></div>
+      <div>• Jobs at risk: <strong style="color:var(--text)">${(r.jobsAtRisk/1000).toFixed(0)}K</strong></div>
+      <div>• Cost per household: <strong style="color:var(--text)">+$${r.costPerHousehold.toLocaleString()}/yr</strong></div>
+      <div>• Avg margin compression: <strong style="color:var(--text)">${r.marginCompression}%</strong></div>
+      <div>• Retaliation probability: <strong style="color:var(--text)">${r.retProb}%</strong></div>
+    </div>
+  `;
+
+  // Key Signals
+  const signals = [];
+  if (r.recessionProb > 50) signals.push({ type: 'danger', text: 'Recession risk above 50% — monitor PMI and employment weekly' });
+  if (r.retProb > 70) signals.push({ type: 'danger', text: 'High retaliation probability — US exporters should hedge' });
+  if (parseFloat(r.cpiImpact) > 2) signals.push({ type: 'warn', text: 'Significant consumer price impact — demand destruction likely' });
+  if (parseFloat(r.gdpImpact) > 1) signals.push({ type: 'warn', text: 'GDP drag exceeds 1% — broad market correction expected' });
+  if (r.flexibility === 'low') signals.push({ type: 'warn', text: 'Low supply chain flexibility amplifies disruption duration' });
+  if (r.jobsAtRisk > 200000) signals.push({ type: 'info', text: 'Large-scale employment effects — political reversal probability increases' });
+  signals.push({ type: 'info', text: `Scenario: ${r.scenario.name} | Severity: ${r.severity}/10 | Horizon: ${r.horizon}mo` });
+
+  document.getElementById('keySignals').innerHTML = signals.map(s => {
+    const colors = { danger: 'var(--danger)', warn: 'var(--warn)', info: 'var(--info)' };
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:11px">
+      <div style="width:6px;height:6px;border-radius:50%;background:${colors[s.type]};flex-shrink:0"></div>
+      <span style="color:var(--dim)">${s.text}</span>
+    </div>`;
+  }).join('');
+
+  // Cascade Timeline
+  renderCascade(r);
+
+  // Sector Heatmap & Chart
+  renderSectors(r);
+
+  // Supply Chain
+  renderSupplyChain(r);
+
+  // Monte Carlo
+  renderMonteCarlo(r);
+
+  // Reset to overview tab
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+  document.querySelectorAll('.tab-content').forEach((t, i) => t.classList.toggle('active', i === 0));
+}
+
+function renderCascade(r) {
+  const sc = r.scenario;
+  const html = sc.cascades.map((c, i) => {
+    const text = c.text
+      .replace('{rate}', sc.rate)
+      .replace('{vol}', sc.volume)
+      .replace('{pass}', r.cpiImpact)
+      .replace('{ptr}', r.passthrough)
+      .replace('{ret}', r.retProb)
+      .replace('{gdp}', r.gdpImpact)
+      .replace('{recProb}', r.recessionProb)
+      .replace('{retVol}', Math.round(sc.volume * 0.3))
+      .replace('{pharmaImpact}', (parseFloat(r.cpiImpact) * 1.5).toFixed(1))
+      .replace('{steelJobs}', Math.round(r.severity * 1.5))
+      .replace('{downJobs}', Math.round(r.severity * 5));
+
+    const impactColors = { critical: 'var(--danger)', high: 'var(--warn)', medium: 'var(--info)' };
+    const barWidth = { critical: '100%', high: '70%', medium: '45%' };
+    const barColor = impactColors[c.impact] || 'var(--dim)';
+
+    return `<div class="cascade-row" style="transition-delay:${i * 150}ms" id="cascade-${i}">
+      <div class="cascade-order order-${c.order}">${c.order}</div>
+      <div style="flex:1">
+        <div class="cascade-text"><strong>${c.time}</strong> <span>${text}</span></div>
+        <div class="timeline-bar" style="background:${barColor};width:${barWidth[c.impact]}"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('cascadeTimeline').innerHTML = html;
+  setTimeout(() => {
+    sc.cascades.forEach((_, i) => {
+      setTimeout(() => {
+        const el = document.getElementById('cascade-' + i);
+        if (el) el.classList.add('visible');
+      }, i * 150);
+    });
+  }, 100);
+}
+
+function renderSectors(r) {
+  const sectors = r.scenario.sectors;
+
+  // Heatmap
+  const heatmapHtml = Object.entries(sectors).sort((a, b) => a[1] - b[1]).map(([name, val]) => {
+    const pct = (val * 100).toFixed(1);
+    const intensity = Math.min(1, Math.abs(val) / 0.3);
+    const bg = val < -0.15 ? `rgba(255,68,102,${0.3 + intensity * 0.5})` :
+               val < -0.08 ? `rgba(255,170,0,${0.3 + intensity * 0.4})` :
+               `rgba(68,170,255,${0.2 + intensity * 0.3})`;
+    const displayName = name.replace('ConsDisc', 'Cons. Disc.').replace('ConsStaples', 'Cons. Staples').replace('CommSvc', 'Comm. Svc.');
+    return `<div class="heatmap-cell" style="background:${bg}">${displayName}<br>${pct}%</div>`;
+  }).join('');
+  document.getElementById('sectorHeatmap').innerHTML = heatmapHtml;
+
+  // Bar chart
+  const canvas = document.getElementById('sectorChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 280 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth, h = 280;
+
+  const sorted = Object.entries(sectors).sort((a, b) => a[1] - b[1]);
+  const maxAbs = Math.max(0.01, ...sorted.map(([_, v]) => Math.abs(v)));
+  const barH = Math.min(20, (h - 40) / sorted.length - 4);
+  const midX = w * 0.55;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#1a1a25';
+  ctx.fillRect(0, 0, w, h);
+
+  sorted.forEach(([name, val], i) => {
+    const y = 20 + i * (barH + 4);
+    const barW = (val / maxAbs) * (midX - 120);
+    const displayName = name.replace('ConsDisc', 'Cons. Disc.').replace('ConsStaples', 'Cons. Staples').replace('CommSvc', 'Comm. Svc.');
+
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '11px SF Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(displayName, midX - 10, y + barH / 2 + 4);
+
+    const color = val < -0.15 ? '#ff4466' : val < -0.08 ? '#ffaa00' : '#44aaff';
+    ctx.fillStyle = color;
+    ctx.fillRect(midX, y, barW, barH);
+
+    ctx.fillStyle = '#e0e0e8';
+    ctx.textAlign = 'left';
+    ctx.fillText((val * 100).toFixed(1) + '%', midX + barW + (barW < 0 ? -40 : 6), y + barH / 2 + 4);
+  });
+}
+
+function renderSupplyChain(r) {
+  const sc = r.scenario;
+
+  // Supply disruption chart
+  const canvas = document.getElementById('supplyChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 260 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth, h = 260;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#1a1a25';
+  ctx.fillRect(0, 0, w, h);
+
+  const barW = Math.min(50, (w - 60) / sc.supplyChain.length - 10);
+  const maxH = h - 60;
+
+  sc.supplyChain.forEach((name, i) => {
+    const x = 30 + i * ((w - 60) / sc.supplyChain.length);
+    const val = sc.supplyImpact[i];
+    const bH = val * maxH;
+    const y = h - 30 - bH;
+
+    const color = val > 0.3 ? '#ff4466' : val > 0.15 ? '#ffaa00' : '#44aaff';
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, barW, bH);
+
+    ctx.fillStyle = '#e0e0e8';
+    ctx.font = '10px SF Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText((val * 100).toFixed(0) + '%', x + barW / 2, y - 6);
+
+    ctx.fillStyle = '#8888a0';
+    ctx.save();
+    ctx.translate(x + barW / 2, h - 8);
+    ctx.rotate(-Math.PI / 6);
+    ctx.textAlign = 'right';
+    ctx.fillText(name, 0, 0);
+    ctx.restore();
+  });
+
+  // Passthrough chain
+  const stages = sc.supplyChain;
+  const chainHtml = stages.map((s, i) => {
+    const pct = Math.round((sc.supplyImpact[i] || 0) * r.passthrough);
+    const dotColor = pct > 25 ? 'var(--danger)' : pct > 12 ? 'var(--warn)' : 'var(--info)';
+    return `<div class="chain-item">
+      <div class="chain-dot" style="background:${dotColor}"></div>
+      <div class="chain-name">${s}</div>
+      <div class="chain-val" style="color:${dotColor}">+${pct}%</div>
+    </div>`;
+  }).join('');
+  document.getElementById('passthroughChain').innerHTML = `
+    <div style="font-size:10px;color:var(--dim);margin-bottom:8px">Cost increase at each stage (passthrough: ${r.passthrough}%)</div>
+    ${chainHtml}
+  `;
+
+  // Margin compression chart
+  renderMarginChart(r);
+}
+
+function renderMarginChart(r) {
+  const canvas = document.getElementById('marginChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 240 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth, h = 240;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#1a1a25';
+  ctx.fillRect(0, 0, w, h);
+
+  const industries = [
+    { name: 'Electronics', base: 22, compressed: 22 * (1 + r.scenario.sectors.Tech * 1.5) },
+    { name: 'Auto', base: 8, compressed: 8 * (1 + r.scenario.sectors.ConsDisc * 1.8) },
+    { name: 'Retail', base: 4, compressed: 4 * (1 + r.scenario.sectors.ConsStaples * 2) },
+    { name: 'Industrial', base: 12, compressed: 12 * (1 + r.scenario.sectors.Industrials * 1.5) },
+    { name: 'Agriculture', base: 6, compressed: 6 * (1 + r.scenario.sectors.ConsStaples * 2.5) },
+    { name: 'Pharma', base: 18, compressed: 18 * (1 + r.scenario.sectors.Healthcare * 1.3) },
+    { name: 'Energy', base: 10, compressed: 10 * (1 + r.scenario.sectors.Energy * 1.5) }
+  ];
+
+  const barH = 22;
+  const startY = 15;
+  const maxMargin = 25;
+  const chartLeft = 90;
+  const chartW = w - chartLeft - 30;
+
+  industries.forEach((ind, i) => {
+    const y = startY + i * (barH + 8);
+
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '10px SF Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(ind.name, chartLeft - 8, y + barH / 2 + 3);
+
+    // Base margin bar
+    const baseW = (ind.base / maxMargin) * chartW;
+    ctx.fillStyle = 'rgba(123,92,255,0.3)';
+    ctx.fillRect(chartLeft, y, baseW, barH);
+
+    // Compressed margin bar
+    const compW = (Math.max(0, ind.compressed) / maxMargin) * chartW;
+    ctx.fillStyle = ind.compressed < ind.base * 0.7 ? 'rgba(255,68,102,0.7)' : 'rgba(255,170,0,0.6)';
+    ctx.fillRect(chartLeft, y, compW, barH);
+
+    // Labels
+    ctx.fillStyle = '#e0e0e8';
+    ctx.font = '9px SF Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${ind.base.toFixed(1)}% → ${ind.compressed.toFixed(1)}%`, chartLeft + Math.max(baseW, compW) + 6, y + barH / 2 + 3);
+  });
+
+  // Legend
+  ctx.fillStyle = 'rgba(123,92,255,0.3)';
+  ctx.fillRect(chartLeft, h - 18, 12, 10);
+  ctx.fillStyle = '#8888a0';
+  ctx.font = '9px SF Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Pre-tariff margin', chartLeft + 16, h - 10);
+
+  ctx.fillStyle = 'rgba(255,170,0,0.6)';
+  ctx.fillRect(chartLeft + 130, h - 18, 12, 10);
+  ctx.fillStyle = '#8888a0';
+  ctx.fillText('Post-tariff margin', chartLeft + 146, h - 10);
+}
+
+function renderMonteCarlo(r) {
+  const canvas = document.getElementById('monteChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 320 * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth, h = 320;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#1a1a25';
+  ctx.fillRect(0, 0, w, h);
+
+  const months = r.horizon;
+  const nPaths = 1000;
+  const drift = -parseFloat(r.gdpImpact) / 100 / 12;
+  const vol = 0.015 * (r.severity / 5);
+  const df = 5; // Student-t degrees of freedom
+
+  // Generate Student-t samples using Box-Muller approximation
+  function studentT() {
+    let u1 = Math.random(), u2 = Math.random();
+    let z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    let chi2 = 0;
+    for (let i = 0; i < df; i++) {
+      let n = Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random());
+      chi2 += n * n;
+    }
+    return z / Math.sqrt(chi2 / df);
+  }
+
+  // Run simulation
+  const paths = [];
+  for (let p = 0; p < nPaths; p++) {
+    const path = [0];
+    for (let m = 1; m <= months; m++) {
+      const shock = drift + vol * studentT();
+      path.push(path[m - 1] + shock * 100);
+    }
+    paths.push(path);
+  }
+
+  // Calculate percentiles
+  const percentiles = [5, 25, 50, 75, 95];
+  const bands = percentiles.map(() => []);
+  for (let m = 0; m <= months; m++) {
+    const vals = paths.map(p => p[m]).sort((a, b) => a - b);
+    percentiles.forEach((pct, i) => {
+      bands[i].push(vals[Math.floor(pct / 100 * nPaths)]);
+    });
+  }
+
+  // Chart dimensions
+  const padL = 50, padR = 20, padT = 20, padB = 40;
+  const chartW = w - padL - padR;
+  const chartH = h - padT - padB;
+
+  const allVals = bands.flat();
+  const minVal = Math.min(...allVals, -0.5);
+  const maxVal = Math.max(...allVals, 0.5);
+
+  function toX(m) { return padL + (m / months) * chartW; }
+  function toY(v) { return padT + (1 - (v - minVal) / (maxVal - minVal)) * chartH; }
+
+  // Draw bands
+  const bandColors = ['rgba(255,68,102,0.15)', 'rgba(255,170,0,0.2)', 'rgba(123,92,255,0.1)', 'rgba(255,170,0,0.2)', 'rgba(255,68,102,0.15)'];
+
+  // 5-95 band
+  ctx.fillStyle = 'rgba(123,92,255,0.08)';
+  ctx.beginPath();
+  for (let m = 0; m <= months; m++) ctx.lineTo(toX(m), toY(bands[4][m]));
+  for (let m = months; m >= 0; m--) ctx.lineTo(toX(m), toY(bands[0][m]));
+  ctx.closePath();
+  ctx.fill();
+
+  // 25-75 band
+  ctx.fillStyle = 'rgba(123,92,255,0.15)';
+  ctx.beginPath();
+  for (let m = 0; m <= months; m++) ctx.lineTo(toX(m), toY(bands[3][m]));
+  for (let m = months; m >= 0; m--) ctx.lineTo(toX(m), toY(bands[1][m]));
+  ctx.closePath();
+  ctx.fill();
+
+  // Percentile lines
+  const lineColors = ['#ff4466', '#ffaa00', '#7b5cff', '#ffaa00', '#ff4466'];
+  const lineWidths = [0.5, 1, 2, 1, 0.5];
+  const dashes = [[4,4], [2,2], [], [2,2], [4,4]];
+
+  bands.forEach((band, i) => {
+    ctx.strokeStyle = lineColors[i];
+    ctx.lineWidth = lineWidths[i];
+    ctx.setLineDash(dashes[i]);
+    ctx.beginPath();
+    band.forEach((v, m) => {
+      if (m === 0) ctx.moveTo(toX(m), toY(v));
+      else ctx.lineTo(toX(m), toY(v));
+    });
+    ctx.stroke();
+  });
+  ctx.setLineDash([]);
+
+  // Zero line
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, toY(0));
+  ctx.lineTo(w - padR, toY(0));
+  ctx.stroke();
+
+  // Axes
+  ctx.fillStyle = '#8888a0';
+  ctx.font = '9px SF Mono, monospace';
+  ctx.textAlign = 'right';
+
+  const ySteps = 6;
+  for (let i = 0; i <= ySteps; i++) {
+    const val = minVal + (maxVal - minVal) * (1 - i / ySteps);
+    const y = padT + (i / ySteps) * chartH;
+    ctx.fillText(val.toFixed(1) + '%', padL - 6, y + 3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(w - padR, y);
+    ctx.stroke();
+  }
+
+  ctx.textAlign = 'center';
+  for (let m = 0; m <= months; m += Math.max(1, Math.round(months / 6))) {
+    ctx.fillText(m + 'mo', toX(m), h - padB + 16);
+  }
+
+  // Legend
+  const labels = ['P5', 'P25', 'Median', 'P75', 'P95'];
+  let lx = padL + 10;
+  labels.forEach((label, i) => {
+    ctx.strokeStyle = lineColors[i];
+    ctx.lineWidth = lineWidths[i];
+    ctx.setLineDash(dashes[i]);
+    ctx.beginPath();
+    ctx.moveTo(lx, padT + 8);
+    ctx.lineTo(lx + 20, padT + 8);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#8888a0';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, lx + 24, padT + 11);
+    lx += 65;
+  });
+
+  // Monte Carlo stats
+  const finalVals = paths.map(p => p[months]).sort((a, b) => a - b);
+  const mean = finalVals.reduce((a, b) => a + b) / nPaths;
+  const std = Math.sqrt(finalVals.reduce((a, b) => a + (b - mean) ** 2, 0) / nPaths);
+  const var95 = finalVals[Math.floor(0.05 * nPaths)];
+
+  document.getElementById('monteStats').innerHTML = `
+    <div class="card">
+      <div class="card-title">Mean GDP Impact</div>
+      <div class="metric negative">${mean.toFixed(2)}%</div>
+      <div class="metric-label">${months}-month mean across ${nPaths} paths</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Volatility (σ)</div>
+      <div class="metric neutral">${std.toFixed(2)}%</div>
+      <div class="metric-label">Standard deviation of outcomes</div>
+    </div>
+    <div class="card">
+      <div class="card-title">Value at Risk (5%)</div>
+      <div class="metric negative">${var95.toFixed(2)}%</div>
+      <div class="metric-label">Worst 5% of outcomes</div>
+    </div>
+  `;
+}
+
+function renderHistory() {
+  const el = document.getElementById('history');
+  if (sessionHistory.length === 0) {
+    el.innerHTML = '<div class="empty">No scenarios run yet</div>';
+    return;
+  }
+  el.innerHTML = sessionHistory.map((r, i) => {
+    const riskColor = r.recessionProb > 60 ? 'var(--danger)' : r.recessionProb > 35 ? 'var(--warn)' : 'var(--accent2)';
+    return `<div class="history-item" onclick="reloadResult(${i})">
+      <span>${r.scenario.name}</span>
+      <span style="color:${riskColor}">${r.recessionProb}%</span>
+    </div>`;
+  }).join('');
+}
+
+function reloadResult(idx) {
+  renderResults(sessionHistory[idx]);
+}
+</script>
+</body>
+</html>

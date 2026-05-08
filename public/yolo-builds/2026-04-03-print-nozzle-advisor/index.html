@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nozzle Wear Advisor — NOVA PrintHub</title>
+<style>
+:root {
+  --bg: #06090f;
+  --surface: #0d1117;
+  --surface2: #161b22;
+  --surface3: #1c2333;
+  --border: #21262d;
+  --border-focus: #388bfd;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --text-muted: #484f58;
+  --accent: #58a6ff;
+  --accent-dim: #1f6feb;
+  --green: #3fb950;
+  --green-dim: #238636;
+  --yellow: #d29922;
+  --yellow-bg: #2d2006;
+  --red: #f85149;
+  --red-dim: #da3633;
+  --red-bg: #2d0709;
+  --orange: #db6d28;
+  --purple: #bc8cff;
+  --cyan: #39d2c0;
+  --gradient-start: #58a6ff;
+  --gradient-end: #bc8cff;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+.container {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+}
+
+/* Header */
+.header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+
+.header-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 32px;
+}
+
+.header h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--gradient-start), var(--gradient-end));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header p {
+  color: var(--text-dim);
+  font-size: 15px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Section */
+.section {
+  margin-bottom: 40px;
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  padding-left: 2px;
+}
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+/* Form elements */
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-row.single {
+  grid-template-columns: 1fr;
+}
+
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.form-group select,
+.form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form-group select:focus,
+.form-group input:focus {
+  border-color: var(--border-focus);
+}
+
+.form-group select option {
+  background: var(--surface2);
+}
+
+/* Nozzle visual */
+.nozzle-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 0;
+  margin-bottom: 24px;
+}
+
+.nozzle-svg {
+  width: 140px;
+  height: 180px;
+}
+
+.nozzle-info {
+  margin-left: 32px;
+  text-align: left;
+}
+
+.nozzle-info .health-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.nozzle-info .health-value {
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.nozzle-info .health-status {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Progress bar */
+.wear-bar-container {
+  margin-bottom: 24px;
+}
+
+.wear-bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.wear-bar {
+  height: 8px;
+  background: var(--surface3);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.wear-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease, background 0.3s;
+}
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+.stat-cell {
+  background: var(--surface);
+  padding: 16px;
+  text-align: center;
+}
+
+.stat-cell .stat-value {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 2px;
+}
+
+.stat-cell .stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Wear timeline */
+.timeline {
+  position: relative;
+}
+
+.timeline-canvas {
+  width: 100%;
+  height: 160px;
+  border-radius: 8px;
+}
+
+/* Material log */
+.material-log {
+  list-style: none;
+}
+
+.material-log li {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+
+.material-log li:last-child {
+  border-bottom: none;
+}
+
+.material-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.material-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.material-hours {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-right: 12px;
+}
+
+.material-abrasion {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.abrasion-low { color: var(--green); background: rgba(63,185,80,0.1); }
+.abrasion-medium { color: var(--yellow); background: rgba(210,153,34,0.1); }
+.abrasion-high { color: var(--orange); background: rgba(219,109,40,0.1); }
+.abrasion-extreme { color: var(--red); background: rgba(248,81,73,0.1); }
+
+/* Recommendation */
+.recommendation {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.recommendation.good {
+  background: rgba(63,185,80,0.08);
+  border: 1px solid rgba(63,185,80,0.2);
+  color: var(--green);
+}
+
+.recommendation.warn {
+  background: var(--yellow-bg);
+  border: 1px solid rgba(210,153,34,0.3);
+  color: var(--yellow);
+}
+
+.recommendation.critical {
+  background: var(--red-bg);
+  border: 1px solid rgba(248,81,73,0.3);
+  color: var(--red);
+}
+
+.recommendation-icon {
+  font-size: 18px;
+  margin-right: 12px;
+  flex-shrink: 0;
+  line-height: 1.5;
+}
+
+/* Log entry button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary {
+  background: var(--accent-dim);
+  color: #fff;
+  width: 100%;
+}
+
+.btn-primary:hover {
+  background: var(--accent);
+}
+
+.btn-outline {
+  background: transparent;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+}
+
+.btn-outline:hover {
+  border-color: var(--text-dim);
+  color: var(--text);
+}
+
+/* Log history */
+.log-entry {
+  display: flex;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+
+.log-entry:last-child { border-bottom: none; }
+
+.log-date {
+  color: var(--text-muted);
+  width: 90px;
+  flex-shrink: 0;
+  font-family: 'SF Mono', monospace;
+  font-size: 12px;
+}
+
+.log-material {
+  flex: 1;
+  font-weight: 500;
+}
+
+.log-hours {
+  color: var(--text-dim);
+  width: 60px;
+  text-align: right;
+}
+
+/* Nozzle type cards */
+.nozzle-types {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.nozzle-type-card {
+  padding: 16px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.nozzle-type-card:hover {
+  border-color: var(--accent-dim);
+}
+
+.nozzle-type-card.active {
+  border-color: var(--accent);
+  background: rgba(88,166,255,0.05);
+}
+
+.nozzle-type-name {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.nozzle-type-life {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Footer */
+.footer {
+  text-align: center;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+@media (max-width: 600px) {
+  .container { padding: 32px 16px 64px; }
+  .form-row { grid-template-columns: 1fr; }
+  .nozzle-visual { flex-direction: column; text-align: center; }
+  .nozzle-info { margin-left: 0; margin-top: 20px; text-align: center; }
+  .stats-grid { grid-template-columns: 1fr; }
+  .nozzle-types { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-icon">🔩</div>
+    <h1>Nozzle Wear Advisor</h1>
+    <p>Track nozzle health, predict replacement timing, and optimize print quality based on material abrasiveness and usage patterns.</p>
+  </div>
+
+  <!-- Nozzle Setup -->
+  <div class="section">
+    <div class="section-label">Nozzle Configuration</div>
+    <div class="card">
+      <div class="nozzle-types" id="nozzleTypes">
+        <div class="nozzle-type-card active" data-type="brass" onclick="selectNozzle('brass')">
+          <div class="nozzle-type-name">Brass</div>
+          <div class="nozzle-type-life">~500 hrs PLA · Budget standard</div>
+        </div>
+        <div class="nozzle-type-card" data-type="hardened" onclick="selectNozzle('hardened')">
+          <div class="nozzle-type-name">Hardened Steel</div>
+          <div class="nozzle-type-life">~2000 hrs · Abrasive-ready</div>
+        </div>
+        <div class="nozzle-type-card" data-type="ruby" onclick="selectNozzle('ruby')">
+          <div class="nozzle-type-name">Ruby Tip</div>
+          <div class="nozzle-type-life">~5000 hrs · Premium longevity</div>
+        </div>
+        <div class="nozzle-type-card" data-type="tungsten" onclick="selectNozzle('tungsten')">
+          <div class="nozzle-type-name">Tungsten Carbide</div>
+          <div class="nozzle-type-life">~3000 hrs · Industrial grade</div>
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:16px;">
+        <div class="form-group">
+          <label>Nozzle Diameter</label>
+          <select id="nozzleDiameter" onchange="recalculate()">
+            <option value="0.2">0.2 mm</option>
+            <option value="0.4" selected>0.4 mm</option>
+            <option value="0.6">0.6 mm</option>
+            <option value="0.8">0.8 mm</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Install Date</label>
+          <input type="date" id="installDate" onchange="recalculate()">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Health Overview -->
+  <div class="section">
+    <div class="section-label">Nozzle Health</div>
+    <div class="card">
+      <div class="nozzle-visual">
+        <svg class="nozzle-svg" viewBox="0 0 140 180" id="nozzleSvg">
+          <!-- Heat block -->
+          <rect x="20" y="10" width="100" height="50" rx="4" fill="#2d333b" stroke="#444c56" stroke-width="1"/>
+          <rect x="25" y="15" width="90" height="8" rx="2" fill="#383f47"/>
+          <rect x="25" y="28" width="90" height="8" rx="2" fill="#383f47"/>
+          <rect x="25" y="41" width="90" height="8" rx="2" fill="#383f47"/>
+          <!-- Nozzle body -->
+          <path d="M40,60 L100,60 L85,120 L55,120 Z" fill="#2d333b" stroke="#444c56" stroke-width="1"/>
+          <!-- Nozzle tip -->
+          <path d="M55,120 L85,120 L78,145 Q70,155 62,145 Z" id="nozzleTip" fill="#58a6ff" stroke="#388bfd" stroke-width="1"/>
+          <!-- Wear indicator ring -->
+          <ellipse cx="70" cy="148" rx="12" ry="4" fill="none" stroke="#58a6ff" stroke-width="1.5" opacity="0.4" id="wearRing"/>
+          <!-- Temperature lines -->
+          <line x1="8" y1="25" x2="18" y2="30" stroke="#f85149" stroke-width="1" opacity="0.5"/>
+          <line x1="8" y1="35" x2="18" y2="35" stroke="#f85149" stroke-width="1" opacity="0.4"/>
+          <line x1="8" y1="45" x2="18" y2="40" stroke="#f85149" stroke-width="1" opacity="0.3"/>
+          <line x1="122" y1="25" x2="132" y2="30" stroke="#f85149" stroke-width="1" opacity="0.5"/>
+          <line x1="122" y1="35" x2="132" y2="35" stroke="#f85149" stroke-width="1" opacity="0.4"/>
+          <line x1="122" y1="45" x2="132" y2="40" stroke="#f85149" stroke-width="1" opacity="0.3"/>
+          <!-- Drip effect -->
+          <circle cx="70" cy="162" r="3" fill="#58a6ff" opacity="0.6" id="drip">
+            <animate attributeName="cy" values="162;175" dur="2s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+        <div class="nozzle-info">
+          <div class="health-label">Remaining Life</div>
+          <div class="health-value" id="healthPercent">100%</div>
+          <div class="health-status" id="healthStatus" style="color:var(--green);">● Excellent</div>
+        </div>
+      </div>
+
+      <div class="wear-bar-container">
+        <div class="wear-bar-label">
+          <span>New</span>
+          <span id="wearHours">0 hrs used</span>
+          <span>Replace</span>
+        </div>
+        <div class="wear-bar">
+          <div class="wear-bar-fill" id="wearBarFill" style="width:0%;background:var(--green);"></div>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-cell">
+          <div class="stat-value" id="statTotalHours">0</div>
+          <div class="stat-label">Print Hours</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value" id="statEffectiveWear">0</div>
+          <div class="stat-label">Effective Wear Hrs</div>
+        </div>
+        <div class="stat-cell">
+          <div class="stat-value" id="statRemainingHours">500</div>
+          <div class="stat-label">Hours Left</div>
+        </div>
+      </div>
+
+      <div id="recommendation" class="recommendation good">
+        <span class="recommendation-icon">✓</span>
+        <span>Nozzle is in excellent condition. No action needed. Add print sessions below to track wear over time.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Wear Projection -->
+  <div class="section">
+    <div class="section-label">Wear Projection</div>
+    <div class="card">
+      <canvas class="timeline-canvas" id="wearChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Log Print Session -->
+  <div class="section">
+    <div class="section-label">Log Print Session</div>
+    <div class="card">
+      <div class="form-row">
+        <div class="form-group">
+          <label>Material</label>
+          <select id="logMaterial">
+            <option value="PLA">PLA</option>
+            <option value="PLA+">PLA+</option>
+            <option value="PETG">PETG</option>
+            <option value="ABS">ABS</option>
+            <option value="ASA">ASA</option>
+            <option value="TPU">TPU</option>
+            <option value="Nylon">Nylon</option>
+            <option value="PC">Polycarbonate</option>
+            <option value="CF-PLA">Carbon Fiber PLA</option>
+            <option value="CF-PETG">Carbon Fiber PETG</option>
+            <option value="CF-Nylon">Carbon Fiber Nylon</option>
+            <option value="GF-Nylon">Glass Fiber Nylon</option>
+            <option value="Wood-PLA">Wood Fill PLA</option>
+            <option value="Metal-PLA">Metal Fill PLA</option>
+            <option value="Glow-PLA">Glow-in-Dark PLA</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Print Hours</label>
+          <input type="number" id="logHours" placeholder="e.g. 8.5" min="0.1" step="0.1">
+        </div>
+      </div>
+      <div class="form-row single">
+        <div class="form-group">
+          <label>Temperature (°C)</label>
+          <input type="number" id="logTemp" placeholder="e.g. 210" min="170" max="320">
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="logSession()">Log Session</button>
+    </div>
+  </div>
+
+  <!-- Material Wear Impact -->
+  <div class="section">
+    <div class="section-label">Material Abrasion Reference</div>
+    <div class="card">
+      <ul class="material-log" id="materialRef">
+        <!-- populated by JS -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- Session History -->
+  <div class="section" id="historySection" style="display:none;">
+    <div class="section-label">Session History</div>
+    <div class="card">
+      <div id="historyList"></div>
+      <div style="margin-top:12px;display:flex;gap:8px;">
+        <button class="btn btn-outline" onclick="exportData()" style="flex:1;">Export JSON</button>
+        <button class="btn btn-outline" onclick="clearHistory()" style="flex:1;color:var(--red);border-color:var(--red-dim);">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    NOVA PrintHub &middot; Nozzle Wear Advisor v1.0<br>
+    Built by <a href="#">NOVA</a> for the RAMICHE ecosystem
+  </div>
+</div>
+
+<script>
+// Material database: abrasion multiplier + color + category
+const MATERIALS = {
+  'PLA':       { abrasion: 1.0,  color: '#3fb950', category: 'low',     label: 'PLA' },
+  'PLA+':      { abrasion: 1.0,  color: '#56d364', category: 'low',     label: 'PLA+' },
+  'PETG':      { abrasion: 1.1,  color: '#58a6ff', category: 'low',     label: 'PETG' },
+  'ABS':       { abrasion: 1.05, color: '#bc8cff', category: 'low',     label: 'ABS' },
+  'ASA':       { abrasion: 1.1,  color: '#d2a8ff', category: 'low',     label: 'ASA' },
+  'TPU':       { abrasion: 1.2,  color: '#39d2c0', category: 'low',     label: 'TPU' },
+  'Nylon':     { abrasion: 1.5,  color: '#d29922', category: 'medium',  label: 'Nylon' },
+  'PC':        { abrasion: 1.4,  color: '#db6d28', category: 'medium',  label: 'Polycarbonate' },
+  'CF-PLA':    { abrasion: 5.0,  color: '#f85149', category: 'high',    label: 'Carbon Fiber PLA' },
+  'CF-PETG':   { abrasion: 6.0,  color: '#ff7b72', category: 'high',    label: 'Carbon Fiber PETG' },
+  'CF-Nylon':  { abrasion: 8.0,  color: '#ffa198', category: 'extreme', label: 'Carbon Fiber Nylon' },
+  'GF-Nylon':  { abrasion: 7.0,  color: '#f0883e', category: 'extreme', label: 'Glass Fiber Nylon' },
+  'Wood-PLA':  { abrasion: 2.5,  color: '#d29922', category: 'medium',  label: 'Wood Fill PLA' },
+  'Metal-PLA': { abrasion: 4.0,  color: '#8b949e', category: 'high',    label: 'Metal Fill PLA' },
+  'Glow-PLA':  { abrasion: 3.5,  color: '#3fb950', category: 'high',    label: 'Glow-in-Dark PLA' },
+};
+
+// Nozzle types: base life in hours (at 1.0 abrasion), temp sensitivity
+const NOZZLE_TYPES = {
+  brass:     { life: 500,  tempFactor: 1.0, name: 'Brass' },
+  hardened:  { life: 2000, tempFactor: 0.7, name: 'Hardened Steel' },
+  ruby:      { life: 5000, tempFactor: 0.3, name: 'Ruby Tip' },
+  tungsten:  { life: 3000, tempFactor: 0.5, name: 'Tungsten Carbide' },
+};
+
+// Diameter wear multiplier (smaller = faster wear per hour)
+const DIAMETER_FACTORS = { '0.2': 1.5, '0.4': 1.0, '0.6': 0.85, '0.8': 0.7 };
+
+let state = {
+  nozzleType: 'brass',
+  diameter: '0.4',
+  installDate: new Date().toISOString().slice(0, 10),
+  sessions: [],
+};
+
+function loadState() {
+  try {
+    const saved = localStorage.getItem('nova-nozzle-advisor');
+    if (saved) {
+      state = JSON.parse(saved);
+      document.getElementById('installDate').value = state.installDate;
+      document.getElementById('nozzleDiameter').value = state.diameter;
+      // highlight correct nozzle type
+      document.querySelectorAll('.nozzle-type-card').forEach(c => {
+        c.classList.toggle('active', c.dataset.type === state.nozzleType);
+      });
+    } else {
+      document.getElementById('installDate').value = state.installDate;
+    }
+  } catch(e) {
+    document.getElementById('installDate').value = state.installDate;
+  }
+}
+
+function saveState() {
+  localStorage.setItem('nova-nozzle-advisor', JSON.stringify(state));
+}
+
+function selectNozzle(type) {
+  state.nozzleType = type;
+  document.querySelectorAll('.nozzle-type-card').forEach(c => {
+    c.classList.toggle('active', c.dataset.type === type);
+  });
+  saveState();
+  recalculate();
+}
+
+function getEffectiveWear() {
+  let totalReal = 0;
+  let totalEffective = 0;
+  const diamFactor = DIAMETER_FACTORS[state.diameter] || 1.0;
+  const nozzle = NOZZLE_TYPES[state.nozzleType];
+
+  state.sessions.forEach(s => {
+    const mat = MATERIALS[s.material] || MATERIALS['PLA'];
+    let wear = s.hours * mat.abrasion * diamFactor;
+    // Temperature factor: above 250°C accelerates wear
+    if (s.temp && s.temp > 250) {
+      wear *= 1 + (s.temp - 250) * 0.005 * nozzle.tempFactor;
+    }
+    totalReal += s.hours;
+    totalEffective += wear;
+  });
+
+  return { totalReal, totalEffective, maxLife: nozzle.life };
+}
+
+function recalculate() {
+  state.diameter = document.getElementById('nozzleDiameter').value;
+  state.installDate = document.getElementById('installDate').value;
+  saveState();
+
+  const { totalReal, totalEffective, maxLife } = getEffectiveWear();
+  const remaining = Math.max(0, maxLife - totalEffective);
+  const percent = Math.max(0, Math.min(100, ((maxLife - totalEffective) / maxLife) * 100));
+  const wearPercent = 100 - percent;
+
+  // Update health display
+  document.getElementById('healthPercent').textContent = Math.round(percent) + '%';
+  document.getElementById('statTotalHours').textContent = totalReal.toFixed(1);
+  document.getElementById('statEffectiveWear').textContent = totalEffective.toFixed(1);
+  document.getElementById('statRemainingHours').textContent = remaining.toFixed(0);
+  document.getElementById('wearHours').textContent = totalEffective.toFixed(1) + ' effective hrs';
+
+  // Color coding
+  let color, statusText, statusColor;
+  if (percent > 60) {
+    color = 'var(--green)';
+    statusText = '● Excellent';
+    statusColor = 'var(--green)';
+  } else if (percent > 30) {
+    color = 'var(--yellow)';
+    statusText = '● Monitor';
+    statusColor = 'var(--yellow)';
+  } else if (percent > 10) {
+    color = 'var(--orange)';
+    statusText = '● Worn';
+    statusColor = 'var(--orange)';
+  } else {
+    color = 'var(--red)';
+    statusText = '● Replace Now';
+    statusColor = 'var(--red)';
+  }
+
+  document.getElementById('healthStatus').textContent = statusText;
+  document.getElementById('healthStatus').style.color = statusColor;
+  document.getElementById('wearBarFill').style.width = wearPercent + '%';
+  document.getElementById('wearBarFill').style.background = color;
+
+  // Update nozzle SVG
+  document.getElementById('nozzleTip').setAttribute('fill', color);
+  document.getElementById('nozzleTip').setAttribute('stroke', color);
+  document.getElementById('wearRing').setAttribute('stroke', color);
+  document.getElementById('drip').setAttribute('fill', color);
+
+  // Recommendation
+  const rec = document.getElementById('recommendation');
+  if (percent > 60) {
+    rec.className = 'recommendation good';
+    rec.innerHTML = '<span class="recommendation-icon">✓</span><span>Nozzle is in great condition. ' +
+      remaining.toFixed(0) + ' effective hours remaining before replacement is recommended.</span>';
+  } else if (percent > 30) {
+    rec.className = 'recommendation warn';
+    const avgWearPerSession = state.sessions.length > 0 ? totalEffective / state.sessions.length : 0;
+    const sessionsLeft = avgWearPerSession > 0 ? Math.floor(remaining / avgWearPerSession) : '∞';
+    rec.innerHTML = '<span class="recommendation-icon">⚠</span><span>Nozzle showing wear. ~' +
+      sessionsLeft + ' sessions remaining at current usage. Consider ordering a replacement. ' +
+      'Watch for minor dimensional inaccuracies in prints.</span>';
+  } else if (percent > 10) {
+    rec.className = 'recommendation warn';
+    rec.innerHTML = '<span class="recommendation-icon">⚠</span><span>Nozzle significantly worn. ' +
+      'Print quality may be degraded — expect under-extrusion, poor overhangs, and inconsistent line width. ' +
+      'Replace soon for precision work.</span>';
+  } else {
+    rec.className = 'recommendation critical';
+    rec.innerHTML = '<span class="recommendation-icon">✕</span><span>Nozzle past recommended service life. ' +
+      'Replace immediately. Continued use risks: clogging, stringing, dimensional errors exceeding ±0.3mm, ' +
+      'and potential hot-end damage from back-pressure.</span>';
+  }
+
+  renderChart();
+  renderHistory();
+}
+
+function logSession() {
+  const material = document.getElementById('logMaterial').value;
+  const hours = parseFloat(document.getElementById('logHours').value);
+  const temp = parseInt(document.getElementById('logTemp').value) || null;
+
+  if (!hours || hours <= 0) return;
+
+  state.sessions.push({
+    date: new Date().toISOString().slice(0, 10),
+    material,
+    hours,
+    temp,
+  });
+
+  saveState();
+  document.getElementById('logHours').value = '';
+  document.getElementById('logTemp').value = '';
+  recalculate();
+}
+
+function renderChart() {
+  const canvas = document.getElementById('wearChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  ctx.scale(dpr, dpr);
+  const w = rect.width;
+  const h = rect.height;
+  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const nozzle = NOZZLE_TYPES[state.nozzleType];
+  const maxLife = nozzle.life;
+  const { totalEffective } = getEffectiveWear();
+
+  // Build cumulative wear data
+  let cumulative = [0];
+  const diamFactor = DIAMETER_FACTORS[state.diameter] || 1.0;
+  let runningWear = 0;
+  state.sessions.forEach(s => {
+    const mat = MATERIALS[s.material] || MATERIALS['PLA'];
+    let wear = s.hours * mat.abrasion * diamFactor;
+    if (s.temp && s.temp > 250) {
+      wear *= 1 + (s.temp - 250) * 0.005 * nozzle.tempFactor;
+    }
+    runningWear += wear;
+    cumulative.push(runningWear);
+  });
+
+  // Project future wear (extrapolate avg rate)
+  const avgRate = state.sessions.length > 0 ? totalEffective / state.sessions.length : 10;
+  const projectedSessions = Math.ceil((maxLife - totalEffective) / Math.max(avgRate, 1));
+  const totalPoints = cumulative.length + Math.min(projectedSessions, 50);
+  const xMax = Math.max(totalPoints, 10);
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + (ch / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(pad.left + cw, y);
+    ctx.stroke();
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = '#484f58';
+  ctx.font = '11px -apple-system, sans-serif';
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const val = maxLife - (maxLife / 4) * i;
+    const y = pad.top + (ch / 4) * i;
+    ctx.fillText(val.toFixed(0), pad.left - 8, y + 4);
+  }
+
+  // X-axis label
+  ctx.textAlign = 'center';
+  ctx.fillText('Sessions', pad.left + cw / 2, h - 4);
+
+  // Replace threshold line
+  const threshY = pad.top + ch * 0.9;
+  ctx.strokeStyle = 'rgba(248,81,73,0.3)';
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(pad.left, threshY);
+  ctx.lineTo(pad.left + cw, threshY);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#f85149';
+  ctx.font = '10px -apple-system, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Replace threshold', pad.left + 4, threshY - 6);
+
+  // Actual wear line
+  if (cumulative.length > 1) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#58a6ff';
+    ctx.lineWidth = 2;
+    cumulative.forEach((val, i) => {
+      const x = pad.left + (i / xMax) * cw;
+      const y = pad.top + ch - (val / maxLife) * ch;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Fill under actual
+    ctx.beginPath();
+    cumulative.forEach((val, i) => {
+      const x = pad.left + (i / xMax) * cw;
+      const y = pad.top + ch - (val / maxLife) * ch;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.lineTo(pad.left + ((cumulative.length - 1) / xMax) * cw, pad.top + ch);
+    ctx.lineTo(pad.left, pad.top + ch);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, pad.top, 0, pad.top + ch);
+    grad.addColorStop(0, 'rgba(88,166,255,0.15)');
+    grad.addColorStop(1, 'rgba(88,166,255,0.02)');
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // Projected wear (dashed)
+  if (state.sessions.length > 0) {
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(188,140,255,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([6, 4]);
+    const startIdx = cumulative.length - 1;
+    const startVal = cumulative[startIdx];
+    for (let i = 0; i <= Math.min(projectedSessions, 50); i++) {
+      const x = pad.left + ((startIdx + i) / xMax) * cw;
+      const val = Math.min(startVal + avgRate * i, maxLife);
+      const y = pad.top + ch - (val / maxLife) * ch;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Projected label
+    ctx.fillStyle = '#bc8cff';
+    ctx.font = '10px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    const labelX = pad.left + cw - 4;
+    ctx.fillText('Projected', labelX, pad.top + 14);
+  }
+
+  // Data points
+  cumulative.forEach((val, i) => {
+    if (i === 0) return;
+    const x = pad.left + (i / xMax) * cw;
+    const y = pad.top + ch - (val / maxLife) * ch;
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fillStyle = '#58a6ff';
+    ctx.fill();
+  });
+}
+
+function renderHistory() {
+  const section = document.getElementById('historySection');
+  const list = document.getElementById('historyList');
+
+  if (state.sessions.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = state.sessions.map((s, i) => {
+    const mat = MATERIALS[s.material] || MATERIALS['PLA'];
+    return `<div class="log-entry">
+      <span class="log-date">${s.date}</span>
+      <span class="material-dot" style="background:${mat.color}"></span>
+      <span class="log-material">${mat.label}</span>
+      <span class="log-hours">${s.hours}h</span>
+    </div>`;
+  }).reverse().join('');
+}
+
+function renderMaterialRef() {
+  const list = document.getElementById('materialRef');
+  list.innerHTML = Object.entries(MATERIALS).map(([key, m]) => {
+    return `<li>
+      <span class="material-dot" style="background:${m.color}"></span>
+      <span class="material-name">${m.label}</span>
+      <span class="material-hours">${m.abrasion}× wear</span>
+      <span class="material-abrasion abrasion-${m.category}">${m.category}</span>
+    </li>`;
+  }).join('');
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `nozzle-wear-${state.installDate}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearHistory() {
+  if (!confirm('Clear all session history? This cannot be undone.')) return;
+  state.sessions = [];
+  saveState();
+  recalculate();
+}
+
+// Init
+loadState();
+renderMaterialRef();
+recalculate();
+
+// Resize handler
+window.addEventListener('resize', () => renderChart());
+</script>
+</body>
+</html>

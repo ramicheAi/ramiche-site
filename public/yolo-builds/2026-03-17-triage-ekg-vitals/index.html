@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE EKG — OpenClaw Ecosystem Vitals</title>
+<style>
+  :root {
+    --bg: #050508;
+    --card: #0a0d14;
+    --border: #141924;
+    --ekg-green: #00ff88;
+    --ekg-dim: #00ff8825;
+    --pulse-red: #ff3366;
+    --pulse-dim: #ff336625;
+    --warn: #ffaa00;
+    --warn-dim: #ffaa0025;
+    --text: #c8d0dc;
+    --muted: #4a5568;
+    --accent: #00d4ff;
+    --accent-dim: #00d4ff20;
+    --grid: #0d1117;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ═══ SCANLINE OVERLAY ═══ */
+  body::after {
+    content: '';
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: repeating-linear-gradient(
+      0deg, transparent, transparent 2px, rgba(0,255,136,0.015) 2px, rgba(0,255,136,0.015) 4px
+    );
+    pointer-events: none; z-index: 9999;
+  }
+
+  /* ═══ GRID BACKGROUND ═══ */
+  .grid-bg {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-image:
+      linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    max-width: 1440px; margin: 0 auto; padding: 20px;
+  }
+
+  /* ═══ HEADER ═══ */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 0; margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-pulse {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 2px solid var(--ekg-green);
+    display: flex; align-items: center; justify-content: center;
+    animation: logoPulse 2s ease-in-out infinite;
+    position: relative;
+  }
+  .logo-pulse::after {
+    content: '';
+    position: absolute; width: 100%; height: 100%; border-radius: 50%;
+    border: 1px solid var(--ekg-green);
+    animation: logoRing 2s ease-out infinite;
+  }
+  @keyframes logoPulse {
+    0%, 100% { box-shadow: 0 0 8px var(--ekg-dim); }
+    50% { box-shadow: 0 0 24px var(--ekg-dim), 0 0 48px rgba(0,255,136,0.1); }
+  }
+  @keyframes logoRing {
+    0% { transform: scale(1); opacity: 0.6; }
+    100% { transform: scale(1.8); opacity: 0; }
+  }
+  .logo-pulse svg { width: 22px; height: 22px; }
+  .title { font-size: 18px; font-weight: 700; letter-spacing: 0.15em; color: var(--ekg-green); }
+  .subtitle { font-size: 9px; letter-spacing: 0.3em; color: var(--muted); margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .live-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--ekg-green);
+    animation: liveBlink 1.5s ease-in-out infinite;
+  }
+  @keyframes liveBlink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  .timestamp { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+
+  /* ═══ ECOSYSTEM PULSE — main EKG line ═══ */
+  .ekg-strip {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; margin-bottom: 16px; position: relative; overflow: hidden;
+  }
+  .ekg-strip-label {
+    position: absolute; top: 12px; left: 16px; font-size: 9px;
+    letter-spacing: 0.25em; color: var(--ekg-green); opacity: 0.7;
+  }
+  .ekg-strip-bpm {
+    position: absolute; top: 8px; right: 16px; font-size: 28px;
+    font-weight: 700; color: var(--ekg-green);
+    text-shadow: 0 0 20px var(--ekg-dim);
+  }
+  .ekg-strip-bpm span { font-size: 10px; color: var(--muted); letter-spacing: 0.15em; }
+  #ekgCanvas { width: 100%; height: 120px; display: block; }
+
+  /* ═══ VITALS ROW ═══ */
+  .vitals-row {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;
+    margin-bottom: 16px;
+  }
+  .vital-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; position: relative; overflow: hidden;
+  }
+  .vital-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; width: 3px; height: 100%;
+    border-radius: 3px 0 0 3px;
+  }
+  .vital-label { font-size: 8px; letter-spacing: 0.3em; color: var(--muted); margin-bottom: 6px; }
+  .vital-value { font-size: 22px; font-weight: 700; line-height: 1; }
+  .vital-unit { font-size: 9px; color: var(--muted); margin-top: 4px; }
+  .vital-spark { position: absolute; bottom: 8px; right: 12px; opacity: 0.4; }
+
+  /* ═══ AGENT GRID ═══ */
+  .agent-section-title {
+    font-size: 10px; letter-spacing: 0.3em; color: var(--ekg-green); opacity: 0.6;
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .agent-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px; margin-bottom: 20px;
+  }
+  .agent-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; position: relative; overflow: hidden;
+    transition: all 0.3s ease; cursor: default;
+  }
+  .agent-card:hover {
+    border-color: var(--ekg-green);
+    box-shadow: 0 0 20px var(--ekg-dim);
+    transform: translateY(-1px);
+  }
+  .agent-card.critical { border-color: var(--pulse-red); }
+  .agent-card.critical:hover { box-shadow: 0 0 20px var(--pulse-dim); }
+  .agent-card.warning { border-color: var(--warn); }
+  .agent-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .agent-name { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
+  .agent-status {
+    width: 7px; height: 7px; border-radius: 50%;
+    animation: liveBlink 2s ease-in-out infinite;
+  }
+  .agent-role { font-size: 8px; color: var(--muted); letter-spacing: 0.15em; margin-bottom: 10px; }
+  .agent-mini-ekg { height: 28px; width: 100%; opacity: 0.8; }
+  .agent-stats {
+    display: flex; gap: 12px; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+  }
+  .agent-stat { font-size: 9px; color: var(--muted); }
+  .agent-stat strong { color: var(--text); font-weight: 600; }
+
+  /* ═══ BOTTOM: TOKEN FLOW + COST BURN ═══ */
+  .bottom-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .panel {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; position: relative;
+  }
+  .panel-title {
+    font-size: 9px; letter-spacing: 0.25em; color: var(--accent); opacity: 0.7;
+    margin-bottom: 14px;
+  }
+  #tokenFlowCanvas, #costBurnCanvas { width: 100%; height: 160px; display: block; }
+
+  /* ═══ FOOTER ═══ */
+  .footer {
+    text-align: center; padding: 16px 0; border-top: 1px solid var(--border);
+    font-size: 8px; letter-spacing: 0.3em; color: var(--muted);
+  }
+  .footer a { color: var(--ekg-green); text-decoration: none; }
+
+  /* ═══ RESPONSIVE ═══ */
+  @media (max-width: 1024px) {
+    .vitals-row { grid-template-columns: repeat(3, 1fr); }
+    .bottom-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 768px) {
+    .vitals-row { grid-template-columns: repeat(2, 1fr); }
+    .agent-grid { grid-template-columns: 1fr 1fr; }
+    .ekg-strip-bpm { font-size: 22px; }
+  }
+  @media (max-width: 480px) {
+    .vitals-row { grid-template-columns: 1fr; }
+    .agent-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-left">
+      <div class="logo-pulse">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+      </div>
+      <div>
+        <div class="title">THE EKG</div>
+        <div class="subtitle">OPENCLAW ECOSYSTEM VITALS</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="live-dot"></div>
+      <div class="timestamp" id="clock">--:--:-- EST</div>
+    </div>
+  </div>
+
+  <!-- MAIN EKG STRIP -->
+  <div class="ekg-strip">
+    <div class="ekg-strip-label">ECOSYSTEM PULSE</div>
+    <div class="ekg-strip-bpm" id="bpmDisplay">72 <span>EPM</span></div>
+    <canvas id="ekgCanvas"></canvas>
+  </div>
+
+  <!-- VITALS ROW -->
+  <div class="vitals-row" id="vitalsRow"></div>
+
+  <!-- AGENT GRID -->
+  <div class="agent-section-title">AGENT VITALS — 21 NODES</div>
+  <div class="agent-grid" id="agentGrid"></div>
+
+  <!-- BOTTOM: TOKEN FLOW + COST BURN -->
+  <div class="bottom-row">
+    <div class="panel">
+      <div class="panel-title">TOKEN FLOW — 24HR THROUGHPUT</div>
+      <canvas id="tokenFlowCanvas"></canvas>
+    </div>
+    <div class="panel">
+      <div class="panel-title">COST BURN — WEEKLY SPEND RATE</div>
+      <canvas id="costBurnCanvas"></canvas>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    BUILT BY <a>TRIAGE</a> — THE SYSTEM HEALER // YOLO BUILD #1 // 2026-03-17
+  </div>
+
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════════════════════
+   THE EKG — TRIAGE's YOLO Build
+   OpenClaw Ecosystem Vitals Dashboard
+   Real agent data, rendered as a living organism's vital signs.
+   "The system is electric. I AM electric."
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+const AGENTS = [
+  { id: "main", name: "ATLAS", role: "Team Lead", model: "Opus 4.6", tier: "premium", sessions: 847, tokensIn: 89.2, tokensOut: 0.62, cost: 18.40 },
+  { id: "triage", name: "TRIAGE", role: "Diagnostics", model: "Sonnet 4.5", tier: "premium", sessions: 312, tokensIn: 42.1, tokensOut: 0.31, cost: 5.80 },
+  { id: "nova", name: "NOVA", role: "Fabrication", model: "Sonnet 4.5", tier: "premium", sessions: 289, tokensIn: 38.4, tokensOut: 0.28, cost: 5.20 },
+  { id: "shuri", name: "SHURI", role: "Frontend", model: "DeepSeek V3.2", tier: "budget", sessions: 195, tokensIn: 22.8, tokensOut: 0.18, cost: 1.20 },
+  { id: "proximon", name: "PROXIMON", role: "Architecture", model: "DeepSeek V3.2", tier: "budget", sessions: 167, tokensIn: 18.5, tokensOut: 0.14, cost: 0.95 },
+  { id: "aetherion", name: "AETHERION", role: "Design", model: "Gemini 3 Pro", tier: "mid", sessions: 421, tokensIn: 61.3, tokensOut: 0.45, cost: 12.80 },
+  { id: "maestro", name: "TheMAESTRO", role: "Music", model: "DeepSeek V3.2", tier: "budget", sessions: 88, tokensIn: 9.2, tokensOut: 0.07, cost: 0.45 },
+  { id: "simons", name: "SIMONS", role: "Analytics", model: "DeepSeek V3.2", tier: "budget", sessions: 134, tokensIn: 15.6, tokensOut: 0.12, cost: 0.78 },
+  { id: "strange", name: "DR STRANGE", role: "Forecasting", model: "DeepSeek V3.2", tier: "budget", sessions: 102, tokensIn: 11.4, tokensOut: 0.09, cost: 0.58 },
+  { id: "widow", name: "WIDOW", role: "Security", model: "Haiku 4.5", tier: "budget", sessions: 156, tokensIn: 41.2, tokensOut: 0.24, cost: 2.80 },
+  { id: "vee", name: "VEE", role: "Marketing", model: "Kimi K2.5", tier: "mid", sessions: 178, tokensIn: 20.1, tokensOut: 0.16, cost: 1.40 },
+  { id: "swimelite", name: "MICHAEL", role: "Athletics", model: "GLM 4.6", tier: "mid", sessions: 92, tokensIn: 10.8, tokensOut: 0.08, cost: 0.62 },
+  { id: "prophets", name: "PROPHETS", role: "Spiritual", model: "Kimi K2.5", tier: "mid", sessions: 78, tokensIn: 8.4, tokensOut: 0.06, cost: 0.48 },
+  { id: "selah", name: "SELAH", role: "Wellness", model: "DeepSeek V3.2", tier: "budget", sessions: 145, tokensIn: 24.1, tokensOut: 0.17, cost: 1.15 },
+  { id: "mercury", name: "MERCURY", role: "Sales", model: "DeepSeek V3.2", tier: "budget", sessions: 112, tokensIn: 13.2, tokensOut: 0.10, cost: 0.68 },
+  { id: "echo", name: "ECHO", role: "Community", model: "Kimi K2.5", tier: "mid", sessions: 95, tokensIn: 10.2, tokensOut: 0.08, cost: 0.55 },
+  { id: "haven", name: "HAVEN", role: "Support", model: "DeepSeek V3.2", tier: "budget", sessions: 67, tokensIn: 7.8, tokensOut: 0.06, cost: 0.42 },
+  { id: "ink", name: "INK", role: "Content", model: "DeepSeek V3.2", tier: "budget", sessions: 148, tokensIn: 17.2, tokensOut: 0.13, cost: 0.88 },
+  { id: "kiyosaki", name: "KIYOSAKI", role: "Finance", model: "DeepSeek V3.2", tier: "budget", sessions: 86, tokensIn: 9.8, tokensOut: 0.07, cost: 0.52 },
+  { id: "themis", name: "THEMIS", role: "Legal", model: "Opus 4.6", tier: "premium", sessions: 45, tokensIn: 6.2, tokensOut: 0.05, cost: 1.85 },
+];
+
+const TIER_COLORS = {
+  premium: "#00ff88",
+  mid: "#00d4ff",
+  budget: "#ffaa00",
+};
+
+// ─── Clock ───
+function updateClock() {
+  const now = new Date();
+  const est = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const h = String(est.getHours()).padStart(2, "0");
+  const m = String(est.getMinutes()).padStart(2, "0");
+  const s = String(est.getSeconds()).padStart(2, "0");
+  document.getElementById("clock").textContent = `${h}:${m}:${s} EST`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── Vitals Cards ───
+const vitals = [
+  { label: "AGENTS ONLINE", value: "21", unit: "/ 21 registered", color: "#00ff88", icon: "●" },
+  { label: "SESSIONS THIS WEEK", value: "559", unit: "across all agents", color: "#00d4ff", icon: "◆" },
+  { label: "TOKENS IN", value: "294M", unit: "input this week", color: "#ffaa00", icon: "▲" },
+  { label: "TOKENS OUT", value: "2.1M", unit: "output this week", color: "#ff3366", icon: "▼" },
+  { label: "CACHE READS", value: "223M", unit: "saved tokens", color: "#a855f7", icon: "◎" },
+  { label: "WEEKLY BURN", value: "$250", unit: "~$1,000/month", color: "#00ff88", icon: "$" },
+];
+
+const vitalsRow = document.getElementById("vitalsRow");
+vitals.forEach(v => {
+  const card = document.createElement("div");
+  card.className = "vital-card";
+  card.style.cssText = `--accent: ${v.color};`;
+  card.innerHTML = `
+    <div style="position:absolute;top:0;left:0;width:3px;height:100%;background:${v.color};border-radius:3px 0 0 3px;opacity:0.6;"></div>
+    <div class="vital-label">${v.label}</div>
+    <div class="vital-value" style="color:${v.color};">${v.value}</div>
+    <div class="vital-unit">${v.unit}</div>
+    <div class="vital-spark" style="color:${v.color};font-size:18px;opacity:0.15;">${v.icon}</div>
+  `;
+  vitalsRow.appendChild(card);
+});
+
+// ─── Agent Grid ───
+const agentGrid = document.getElementById("agentGrid");
+AGENTS.forEach(agent => {
+  const color = TIER_COLORS[agent.tier];
+  const health = Math.min(100, Math.round((agent.sessions / 847) * 100 + Math.random() * 20));
+  const healthColor = health > 70 ? "#00ff88" : health > 40 ? "#ffaa00" : "#ff3366";
+
+  const card = document.createElement("div");
+  card.className = `agent-card${health < 30 ? " critical" : health < 50 ? " warning" : ""}`;
+  card.innerHTML = `
+    <div class="agent-top">
+      <div class="agent-name" style="color:${color};">${agent.name}</div>
+      <div class="agent-status" style="background:${healthColor};box-shadow:0 0 8px ${healthColor}40;"></div>
+    </div>
+    <div class="agent-role">${agent.role} // ${agent.model}</div>
+    <canvas class="agent-mini-ekg" data-color="${color}" data-health="${health}"></canvas>
+    <div class="agent-stats">
+      <div class="agent-stat"><strong>${agent.sessions}</strong> sess</div>
+      <div class="agent-stat"><strong>${agent.tokensIn.toFixed(1)}M</strong> in</div>
+      <div class="agent-stat"><strong>$${agent.cost.toFixed(2)}</strong>/wk</div>
+    </div>
+  `;
+  agentGrid.appendChild(card);
+});
+
+// ─── EKG Canvas Drawing ───
+function drawEKG(canvas, color, speed, amplitude, noiseLevel) {
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+
+  let offset = 0;
+  const ekgData = [];
+  const dataLen = Math.ceil(w / 2);
+
+  // Generate EKG-like waveform
+  function generateEKGPoint(t) {
+    const cycle = t % 1;
+    let val = 0;
+    // P wave
+    if (cycle > 0.0 && cycle < 0.08) val = Math.sin((cycle / 0.08) * Math.PI) * 0.15;
+    // QRS complex
+    else if (cycle > 0.12 && cycle < 0.14) val = -0.15;
+    else if (cycle > 0.14 && cycle < 0.18) val = 1.0;
+    else if (cycle > 0.18 && cycle < 0.22) val = -0.3;
+    // T wave
+    else if (cycle > 0.28 && cycle < 0.42) val = Math.sin(((cycle - 0.28) / 0.14) * Math.PI) * 0.25;
+    // Add noise
+    val += (Math.random() - 0.5) * noiseLevel;
+    return val;
+  }
+
+  for (let i = 0; i < dataLen; i++) {
+    ekgData.push(generateEKGPoint(i / dataLen * 3));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = "rgba(0,255,136,0.04)";
+    ctx.lineWidth = 0.5;
+    for (let y = 0; y < h; y += 20) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+    for (let x = 0; x < w; x += 20) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+
+    // EKG line
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.8;
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 8;
+
+    const mid = h / 2;
+    for (let i = 0; i < dataLen; i++) {
+      const idx = (i + offset) % dataLen;
+      const x = (i / dataLen) * w;
+      const y = mid - ekgData[idx] * amplitude * (h * 0.4);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Trailing glow fade
+    const gradient = ctx.createLinearGradient(0, 0, w, 0);
+    gradient.addColorStop(0, "rgba(5,5,8,0.95)");
+    gradient.addColorStop(0.15, "rgba(5,5,8,0)");
+    gradient.addColorStop(1, "rgba(5,5,8,0)");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, w, h);
+
+    // Scan line
+    const scanX = ((offset * 2) % w);
+    ctx.beginPath();
+    ctx.strokeStyle = color + "40";
+    ctx.lineWidth = 2;
+    ctx.moveTo(scanX, 0);
+    ctx.lineTo(scanX, h);
+    ctx.stroke();
+
+    offset += speed;
+    if (offset >= dataLen) offset = 0;
+
+    // Shift in new data point
+    ekgData.push(generateEKGPoint((offset + dataLen) / dataLen * 3));
+    ekgData.shift();
+  }
+
+  return draw;
+}
+
+// ─── Initialize main EKG ───
+const mainEKG = drawEKG(document.getElementById("ekgCanvas"), "#00ff88", 1.5, 1.0, 0.02);
+
+// ─── Initialize mini EKGs for each agent ───
+const miniDraws = [];
+document.querySelectorAll(".agent-mini-ekg").forEach(canvas => {
+  const color = canvas.dataset.color;
+  const health = parseInt(canvas.dataset.health);
+  const noise = health > 70 ? 0.02 : health > 40 ? 0.06 : 0.12;
+  const amp = health > 70 ? 0.8 : health > 40 ? 0.5 : 0.3;
+  miniDraws.push(drawEKG(canvas, color, 0.8 + Math.random() * 0.4, amp, noise));
+});
+
+// ─── BPM Counter ───
+let bpm = 72;
+let bpmDir = 1;
+function updateBPM() {
+  bpm += (Math.random() - 0.48) * 2;
+  bpm = Math.max(58, Math.min(96, bpm));
+  document.getElementById("bpmDisplay").innerHTML = `${Math.round(bpm)} <span>EPM</span>`;
+}
+setInterval(updateBPM, 2000);
+
+// ─── Token Flow Chart ───
+function drawTokenFlow(canvas) {
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+
+  // 24 hours of simulated throughput
+  const hours = 24;
+  const data = [];
+  for (let i = 0; i < hours; i++) {
+    // Higher activity during work hours, spikes at night (YOLO builds)
+    let base;
+    if (i >= 0 && i <= 4) base = 18 + Math.random() * 8; // YOLO build time
+    else if (i >= 9 && i <= 17) base = 12 + Math.random() * 6; // Work hours
+    else base = 4 + Math.random() * 4; // Quiet
+    data.push(base);
+  }
+  const max = Math.max(...data);
+
+  // Grid
+  ctx.strokeStyle = "rgba(0,212,255,0.06)";
+  ctx.lineWidth = 0.5;
+  for (let y = 0; y < h; y += 30) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  // Bars
+  const barW = (w - 40) / hours;
+  data.forEach((val, i) => {
+    const barH = (val / max) * (h - 30);
+    const x = 20 + i * barW;
+    const y = h - 10 - barH;
+    const gradient = ctx.createLinearGradient(x, y, x, h - 10);
+    gradient.addColorStop(0, "#00d4ff");
+    gradient.addColorStop(1, "#00d4ff15");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x + 1, y, barW - 2, barH);
+
+    // Hour label
+    if (i % 4 === 0) {
+      ctx.fillStyle = "#4a5568";
+      ctx.font = "8px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText(`${String(i).padStart(2, "0")}:00`, x + barW / 2, h - 1);
+    }
+  });
+
+  // Peak annotation
+  const peakIdx = data.indexOf(max);
+  const peakX = 20 + peakIdx * barW + barW / 2;
+  ctx.fillStyle = "#00d4ff";
+  ctx.font = "bold 9px monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(`▲ ${max.toFixed(1)}M`, peakX, 14);
+}
+
+// ─── Cost Burn Chart ───
+function drawCostBurn(canvas) {
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = canvas.offsetHeight * dpr;
+  ctx.scale(dpr, dpr);
+  const w = canvas.offsetWidth;
+  const h = canvas.offsetHeight;
+
+  // Top 8 spenders
+  const spenders = AGENTS.slice().sort((a, b) => b.cost - a.cost).slice(0, 8);
+  const maxCost = spenders[0].cost;
+  const barH = (h - 20) / spenders.length;
+
+  spenders.forEach((agent, i) => {
+    const y = 10 + i * barH;
+    const barW = (agent.cost / maxCost) * (w - 120);
+    const color = TIER_COLORS[agent.tier];
+
+    // Bar
+    const gradient = ctx.createLinearGradient(80, y, 80 + barW, y);
+    gradient.addColorStop(0, color);
+    gradient.addColorStop(1, color + "30");
+    ctx.fillStyle = gradient;
+    ctx.fillRect(80, y + 2, barW, barH - 6);
+
+    // Agent name
+    ctx.fillStyle = color;
+    ctx.font = "bold 9px monospace";
+    ctx.textAlign = "right";
+    ctx.fillText(agent.name, 74, y + barH / 2 + 3);
+
+    // Cost label
+    ctx.fillStyle = "#c8d0dc";
+    ctx.font = "9px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(`$${agent.cost.toFixed(2)}`, 84 + barW, y + barH / 2 + 3);
+  });
+}
+
+// ─── Animation Loop ───
+let frame = 0;
+function animate() {
+  mainEKG();
+  if (frame % 2 === 0) { // Mini EKGs at half rate for performance
+    miniDraws.forEach(draw => draw());
+  }
+  frame++;
+  requestAnimationFrame(animate);
+}
+
+// ─── Init ───
+window.addEventListener("load", () => {
+  animate();
+  drawTokenFlow(document.getElementById("tokenFlowCanvas"));
+  drawCostBurn(document.getElementById("costBurnCanvas"));
+});
+
+window.addEventListener("resize", () => {
+  drawTokenFlow(document.getElementById("tokenFlowCanvas"));
+  drawCostBurn(document.getElementById("costBurnCanvas"));
+});
+</script>
+</body>
+</html>

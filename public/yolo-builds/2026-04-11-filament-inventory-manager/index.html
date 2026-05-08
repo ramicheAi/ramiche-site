@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Filament Inventory Manager — NOVA</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#0a0c10;--surface:#12161e;--surface2:#181d28;--surface3:#1e2536;
+--border:#252d3d;--text:#e2e8f0;--muted:#6b7a8d;--accent:#58a6ff;
+--green:#3fb950;--yellow:#d29922;--red:#f85149;--purple:#bc8cff;
+--cyan:#39d2c0;--orange:#f0883e;--pink:#f778ba;
+--radius:10px;
+}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;min-height:100vh}
+
+/* LAYOUT */
+.container{max-width:860px;margin:0 auto;padding:32px 20px 80px}
+
+/* HEADER */
+.page-header{text-align:center;margin-bottom:40px;padding-bottom:32px;border-bottom:1px solid var(--border)}
+.page-header h1{font-size:28px;font-weight:700;letter-spacing:-.5px;margin-bottom:6px}
+.page-header h1 span{color:var(--accent)}
+.page-header p{color:var(--muted);font-size:14px}
+
+/* STATS ROW */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px}
+.stat-label{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:4px}
+.stat-value{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:11px;color:var(--muted);margin-top:2px}
+.stat-value.green{color:var(--green)}
+.stat-value.yellow{color:var(--yellow)}
+.stat-value.red{color:var(--red)}
+.stat-value.accent{color:var(--accent)}
+
+/* TOOLBAR */
+.toolbar{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+.search-box{flex:1;min-width:200px;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;outline:none;transition:border .2s}
+.search-box:focus{border-color:var(--accent)}
+.search-box::placeholder{color:var(--muted)}
+.filter-pills{display:flex;gap:4px}
+.pill{padding:6px 14px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap}
+.pill:hover{border-color:var(--accent);color:var(--text)}
+.pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn{padding:8px 18px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.btn:hover{opacity:.85}
+.btn.outline{background:transparent;color:var(--accent)}
+.btn.outline:hover{background:rgba(88,166,255,.08)}
+.btn.danger{background:var(--red);border-color:var(--red)}
+.btn.sm{padding:5px 12px;font-size:11px}
+
+/* SPOOL LIST */
+.spool-list{display:flex;flex-direction:column;gap:12px}
+.spool-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:all .2s}
+.spool-card:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.spool-card.low-stock{border-left:3px solid var(--yellow)}
+.spool-card.empty{border-left:3px solid var(--red);opacity:.7}
+.spool-main{display:flex;align-items:center;gap:16px;padding:16px 20px;cursor:pointer}
+.spool-color{width:40px;height:40px;border-radius:50%;flex-shrink:0;border:2px solid var(--border);box-shadow:inset 0 2px 8px rgba(0,0,0,.3)}
+.spool-info{flex:1;min-width:0}
+.spool-name{font-size:15px;font-weight:600;margin-bottom:2px;display:flex;align-items:center;gap:8px}
+.spool-name .tag{font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.tag-pla{background:rgba(63,185,80,.15);color:var(--green)}
+.tag-petg{background:rgba(88,166,255,.15);color:var(--accent)}
+.tag-abs{background:rgba(248,81,73,.15);color:var(--red)}
+.tag-tpu{background:rgba(188,140,255,.15);color:var(--purple)}
+.tag-asa{background:rgba(240,136,62,.15);color:var(--orange)}
+.tag-silk{background:rgba(247,120,186,.15);color:var(--pink)}
+.tag-cf{background:rgba(57,210,192,.15);color:var(--cyan)}
+.spool-meta{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+.spool-meta span{white-space:nowrap}
+.spool-gauge{width:140px;flex-shrink:0;text-align:right}
+.gauge-bar{height:8px;background:var(--surface3);border-radius:4px;overflow:hidden;margin-bottom:4px}
+.gauge-fill{height:100%;border-radius:4px;transition:width .5s}
+.gauge-label{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+/* EXPANDED DETAILS */
+.spool-details{max-height:0;overflow:hidden;transition:max-height .35s ease;background:var(--surface2)}
+.spool-card.expanded .spool-details{max-height:500px}
+.detail-inner{padding:16px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.detail-section h4{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:8px}
+.detail-row{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-row .dlabel{color:var(--muted)}
+.detail-row .dvalue{font-weight:600;font-variant-numeric:tabular-nums}
+.detail-actions{grid-column:1/-1;display:flex;gap:8px;padding-top:8px;border-top:1px solid var(--border)}
+.temp-range{display:flex;align-items:center;gap:6px;font-size:12px}
+.temp-bar{flex:1;height:6px;background:var(--surface3);border-radius:3px;position:relative;overflow:hidden}
+.temp-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--orange))}
+
+/* ADD SPOOL MODAL */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:100;display:none;align-items:center;justify-content:center}
+.modal-overlay.show{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;width:460px;max-width:95%;max-height:90vh;overflow-y:auto;padding:28px}
+.modal h2{font-size:18px;font-weight:700;margin-bottom:20px}
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.form-group input,.form-group select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;outline:none}
+.form-group input:focus,.form-group select:focus{border-color:var(--accent)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.color-picker-row{display:flex;gap:8px;flex-wrap:wrap}
+.color-swatch{width:32px;height:32px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .15s}
+.color-swatch:hover,.color-swatch.selected{border-color:var(--accent);transform:scale(1.15)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:24px}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state .icon{font-size:48px;margin-bottom:16px}
+.empty-state p{font-size:14px;margin-bottom:20px}
+
+/* RESPONSIVE */
+@media(max-width:700px){
+  .stats-row{grid-template-columns:repeat(2,1fr)}
+  .detail-inner{grid-template-columns:1fr}
+  .spool-main{flex-wrap:wrap}
+  .spool-gauge{width:100%;text-align:left;margin-top:8px}
+}
+@media(max-width:480px){
+  .stats-row{grid-template-columns:1fr}
+  .toolbar{flex-direction:column}
+  .filter-pills{width:100%;overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="page-header">
+    <h1>Filament <span>Inventory</span></h1>
+    <p>Track your spool stock, material properties, and print readiness — NOVA Fabrication</p>
+  </div>
+
+  <div class="stats-row" id="statsRow"></div>
+
+  <div class="toolbar">
+    <input type="text" class="search-box" id="searchBox" placeholder="Search by name, brand, material...">
+    <div class="filter-pills" id="filterPills"></div>
+    <button class="btn" id="addBtn">+ Add Spool</button>
+    <button class="btn outline" id="exportBtn">Export CSV</button>
+  </div>
+
+  <div class="spool-list" id="spoolList"></div>
+</div>
+
+<!-- ADD SPOOL MODAL -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">Add New Spool</h2>
+    <div class="form-group">
+      <label>Spool Name</label>
+      <input type="text" id="fName" placeholder="e.g. Galaxy Black PLA+">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Material</label>
+        <select id="fMaterial">
+          <option value="PLA">PLA</option>
+          <option value="PLA+">PLA+</option>
+          <option value="PETG">PETG</option>
+          <option value="ABS">ABS</option>
+          <option value="TPU">TPU</option>
+          <option value="ASA">ASA</option>
+          <option value="Silk PLA">Silk PLA</option>
+          <option value="CF-PLA">CF-PLA</option>
+          <option value="CF-PETG">CF-PETG</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Brand</label>
+        <input type="text" id="fBrand" placeholder="e.g. Bambu Lab, Hatchbox">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Net Weight (g)</label>
+        <input type="number" id="fNetWeight" value="1000" min="100" max="5000">
+      </div>
+      <div class="form-group">
+        <label>Remaining (g)</label>
+        <input type="number" id="fRemaining" value="1000" min="0" max="5000">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Price ($)</label>
+        <input type="number" id="fPrice" value="25" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>Diameter (mm)</label>
+        <select id="fDiameter">
+          <option value="1.75">1.75</option>
+          <option value="2.85">2.85</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nozzle Temp (°C)</label>
+        <input type="text" id="fNozzleTemp" placeholder="200-220">
+      </div>
+      <div class="form-group">
+        <label>Bed Temp (°C)</label>
+        <input type="text" id="fBedTemp" placeholder="55-65">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Color</label>
+      <div class="color-picker-row" id="colorPicker"></div>
+    </div>
+    <div class="form-group">
+      <label>Notes</label>
+      <input type="text" id="fNotes" placeholder="Optional notes...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn outline" id="cancelBtn">Cancel</button>
+      <button class="btn" id="saveBtn">Save Spool</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== SEED DATA ==========
+const MATERIAL_PROPS = {
+  'PLA':     { density:1.24, nozzle:'190-220', bed:'55-65', tags:['tag-pla'], strengths:['Easy to print','Biodegradable','Low warp'], weaknesses:['Heat sensitive (55°C)','Brittle'] },
+  'PLA+':    { density:1.24, nozzle:'200-230', bed:'55-65', tags:['tag-pla'], strengths:['Stronger than PLA','Easy to print','Good layer adhesion'], weaknesses:['Heat sensitive (60°C)'] },
+  'PETG':    { density:1.27, nozzle:'220-250', bed:'70-85', tags:['tag-petg'], strengths:['Chemical resistant','Flexible','FDA food safe'], weaknesses:['Stringing','Hygroscopic'] },
+  'ABS':     { density:1.04, nozzle:'230-260', bed:'95-110', tags:['tag-abs'], strengths:['Heat resistant (100°C)','Impact resistant','Acetone smoothing'], weaknesses:['Warps heavily','Toxic fumes','Needs enclosure'] },
+  'TPU':     { density:1.21, nozzle:'210-230', bed:'40-60', tags:['tag-tpu'], strengths:['Flexible','Abrasion resistant','Shock absorption'], weaknesses:['Slow print speed','Stringing','Hard to retract'] },
+  'ASA':     { density:1.07, nozzle:'240-260', bed:'95-110', tags:['tag-asa'], strengths:['UV resistant','Heat resistant','Outdoor use'], weaknesses:['Fumes','Needs enclosure','Harder to print'] },
+  'Silk PLA':{ density:1.24, nozzle:'200-220', bed:'55-65', tags:['tag-silk'], strengths:['Glossy finish','Easy to print','Beautiful aesthetics'], weaknesses:['Weaker than PLA','Heat sensitive'] },
+  'CF-PLA':  { density:1.30, nozzle:'210-230', bed:'55-65', tags:['tag-cf'], strengths:['Rigid','Dimensional accuracy','Professional look'], weaknesses:['Abrasive (needs hardened nozzle)','Brittle'] },
+  'CF-PETG': { density:1.35, nozzle:'230-260', bed:'70-85', tags:['tag-cf'], strengths:['Strong','Heat resistant','Rigid'], weaknesses:['Abrasive','Hygroscopic','Expensive'] },
+};
+
+const SWATCH_COLORS = [
+  '#1a1a1a','#f5f5f5','#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce',
+  '#805ad5','#d53f8c','#2b6cb0','#718096','#c4b5fd','#fbbf24','#34d399',
+  '#f87171','#60a5fa','#a78bfa','#fb923c','#4ade80','#f472b6'
+];
+
+const SEED_SPOOLS = [
+  { id:1, name:'Galaxy Black PLA+', material:'PLA+', brand:'Bambu Lab', color:'#1a1a1a', netWeight:1000, remaining:720, price:27.99, diameter:1.75, nozzleTemp:'210-220', bedTemp:'55-65', notes:'Go-to for prototypes. Excellent layer adhesion.', dateAdded:'2026-01-15' },
+  { id:2, name:'Arctic White PLA', material:'PLA', brand:'Hatchbox', color:'#f5f5f5', netWeight:1000, remaining:340, price:22.99, diameter:1.75, nozzleTemp:'200-215', bedTemp:'55-60', notes:'Clean white, slight yellow tint at high temps.', dateAdded:'2026-01-22' },
+  { id:3, name:'Translucent Blue PETG', material:'PETG', brand:'Overture', color:'#3182ce', netWeight:1000, remaining:890, price:19.99, diameter:1.75, nozzleTemp:'230-245', bedTemp:'75-80', notes:'Great for functional parts. Dry before use.', dateAdded:'2026-02-10' },
+  { id:4, name:'Fire Engine Red PLA', material:'PLA', brand:'Bambu Lab', color:'#e53e3e', netWeight:1000, remaining:55, price:27.99, diameter:1.75, nozzleTemp:'200-215', bedTemp:'55-65', notes:'Almost empty — reorder soon.', dateAdded:'2026-01-28' },
+  { id:5, name:'Silk Gold PLA', material:'Silk PLA', brand:'TTYT3D', color:'#d69e2e', netWeight:1000, remaining:650, price:24.99, diameter:1.75, nozzleTemp:'205-215', bedTemp:'55-60', notes:'Beautiful metallic sheen. Print slow for best finish.', dateAdded:'2026-02-05' },
+  { id:6, name:'Carbon Fiber PLA', material:'CF-PLA', brand:'Protopasta', color:'#718096', netWeight:500, remaining:420, price:38.99, diameter:1.75, nozzleTemp:'215-230', bedTemp:'55-65', notes:'Hardened nozzle REQUIRED. Amazing rigidity.', dateAdded:'2026-02-18' },
+  { id:7, name:'Safety Orange ASA', material:'ASA', brand:'Polymaker', color:'#dd6b20', netWeight:1000, remaining:950, price:31.99, diameter:1.75, nozzleTemp:'245-255', bedTemp:'100-105', notes:'For outdoor enclosures. Needs enclosure to print.', dateAdded:'2026-03-01' },
+  { id:8, name:'Shore 95A TPU Clear', material:'TPU', brand:'NinjaTek', color:'#c4b5fd', netWeight:500, remaining:280, price:45.99, diameter:1.75, nozzleTemp:'215-225', bedTemp:'45-55', notes:'Flexible phone cases, grips. Print at 20mm/s.', dateAdded:'2026-03-10' },
+  { id:9, name:'Midnight Purple PLA+', material:'PLA+', brand:'eSUN', color:'#805ad5', netWeight:1000, remaining:0, price:21.99, diameter:1.75, nozzleTemp:'205-225', bedTemp:'55-65', notes:'Empty. Was great color — reorder.', dateAdded:'2026-02-01' },
+  { id:10, name:'Mint Green PETG', material:'PETG', brand:'Bambu Lab', color:'#34d399', netWeight:1000, remaining:510, price:27.99, diameter:1.75, nozzleTemp:'230-250', bedTemp:'70-80', notes:'Rozi character body color candidate.', dateAdded:'2026-03-15' },
+  { id:11, name:'Matte Black ABS', material:'ABS', brand:'Hatchbox', color:'#2d2d2d', netWeight:1000, remaining:780, price:24.99, diameter:1.75, nozzleTemp:'235-255', bedTemp:'100-110', notes:'Enclosure only. Good for heat-resistant parts.', dateAdded:'2026-03-20' },
+  { id:12, name:'Neon Pink Silk PLA', material:'Silk PLA', brand:'ERYONE', color:'#d53f8c', netWeight:1000, remaining:920, price:23.99, diameter:1.75, nozzleTemp:'200-220', bedTemp:'55-60', notes:'Vivid color, incredible sheen. Great for display models.', dateAdded:'2026-03-25' },
+];
+
+// ========== STATE ==========
+let spools = JSON.parse(localStorage.getItem('nova-filament-inv') || 'null') || [...SEED_SPOOLS];
+let searchTerm = '';
+let materialFilter = 'all';
+let expandedId = null;
+let editingId = null;
+
+function save() { localStorage.setItem('nova-filament-inv', JSON.stringify(spools)); }
+function nextId() { return spools.length ? Math.max(...spools.map(s => s.id)) + 1 : 1; }
+
+// ========== STATS ==========
+function renderStats() {
+  const total = spools.length;
+  const totalWeight = spools.reduce((s, sp) => s + sp.remaining, 0);
+  const totalValue = spools.reduce((s, sp) => s + (sp.remaining / sp.netWeight) * sp.price, 0);
+  const lowStock = spools.filter(sp => sp.remaining > 0 && sp.remaining / sp.netWeight < 0.15).length;
+  const empty = spools.filter(sp => sp.remaining === 0).length;
+  const materials = [...new Set(spools.map(s => s.material))].length;
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total Spools</div>
+      <div class="stat-value accent">${total}</div>
+      <div class="stat-sub">${materials} material types</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Filament on Hand</div>
+      <div class="stat-value green">${(totalWeight/1000).toFixed(1)} kg</div>
+      <div class="stat-sub">~$${totalValue.toFixed(2)} value</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Low Stock</div>
+      <div class="stat-value ${lowStock > 0 ? 'yellow' : 'green'}">${lowStock}</div>
+      <div class="stat-sub">Below 15% remaining</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Empty Spools</div>
+      <div class="stat-value ${empty > 0 ? 'red' : 'green'}">${empty}</div>
+      <div class="stat-sub">${empty > 0 ? 'Need replacement' : 'All stocked'}</div>
+    </div>
+  `;
+}
+
+// ========== FILTER PILLS ==========
+function renderFilterPills() {
+  const materials = ['all', ...new Set(spools.map(s => s.material))].sort((a,b) => a === 'all' ? -1 : a.localeCompare(b));
+  document.getElementById('filterPills').innerHTML = materials.map(m =>
+    `<button class="pill ${materialFilter === m ? 'active' : ''}" data-mat="${m}">${m === 'all' ? 'All' : m}</button>`
+  ).join('');
+  document.querySelectorAll('.pill[data-mat]').forEach(btn => {
+    btn.addEventListener('click', () => { materialFilter = btn.dataset.mat; renderFilterPills(); renderList(); });
+  });
+}
+
+// ========== SPOOL LIST ==========
+function getTagClass(mat) {
+  const m = mat.toLowerCase();
+  if (m.includes('cf-') || m.includes('carbon')) return 'tag-cf';
+  if (m.includes('silk')) return 'tag-silk';
+  if (m.includes('pla')) return 'tag-pla';
+  if (m.includes('petg')) return 'tag-petg';
+  if (m.includes('abs')) return 'tag-abs';
+  if (m.includes('tpu')) return 'tag-tpu';
+  if (m.includes('asa')) return 'tag-asa';
+  return 'tag-pla';
+}
+
+function renderList() {
+  let filtered = [...spools];
+  if (materialFilter !== 'all') filtered = filtered.filter(s => s.material === materialFilter);
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase();
+    filtered = filtered.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      s.brand.toLowerCase().includes(q) ||
+      s.material.toLowerCase().includes(q) ||
+      (s.notes || '').toLowerCase().includes(q)
+    );
+  }
+
+  const list = document.getElementById('spoolList');
+  if (!filtered.length) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">🧵</div><p>No spools match your search.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(sp => {
+    const pct = sp.netWeight > 0 ? sp.remaining / sp.netWeight : 0;
+    const pctDisplay = Math.round(pct * 100);
+    const costPerG = sp.netWeight > 0 ? (sp.price / sp.netWeight) : 0;
+    const barColor = pct >= 0.5 ? 'var(--green)' : pct >= 0.15 ? 'var(--yellow)' : pct > 0 ? 'var(--red)' : 'var(--muted)';
+    const stockClass = sp.remaining === 0 ? 'empty' : pct < 0.15 ? 'low-stock' : '';
+    const isExpanded = expandedId === sp.id;
+    const props = MATERIAL_PROPS[sp.material] || MATERIAL_PROPS['PLA'];
+
+    let detailHtml = '';
+    if (isExpanded) {
+      detailHtml = `<div class="detail-inner">
+        <div class="detail-section">
+          <h4>Spool Details</h4>
+          <div class="detail-row"><span class="dlabel">Brand</span><span class="dvalue">${sp.brand}</span></div>
+          <div class="detail-row"><span class="dlabel">Net Weight</span><span class="dvalue">${sp.netWeight}g</span></div>
+          <div class="detail-row"><span class="dlabel">Remaining</span><span class="dvalue">${sp.remaining}g (${pctDisplay}%)</span></div>
+          <div class="detail-row"><span class="dlabel">Diameter</span><span class="dvalue">${sp.diameter}mm</span></div>
+          <div class="detail-row"><span class="dlabel">Price</span><span class="dvalue">$${sp.price.toFixed(2)}</span></div>
+          <div class="detail-row"><span class="dlabel">Cost/gram</span><span class="dvalue">$${costPerG.toFixed(3)}</span></div>
+          <div class="detail-row"><span class="dlabel">Density</span><span class="dvalue">${props.density} g/cm³</span></div>
+          <div class="detail-row"><span class="dlabel">Date Added</span><span class="dvalue">${sp.dateAdded || '—'}</span></div>
+        </div>
+        <div class="detail-section">
+          <h4>Print Settings</h4>
+          <div class="detail-row"><span class="dlabel">Nozzle Temp</span><span class="dvalue">${sp.nozzleTemp || props.nozzle}</span></div>
+          <div class="detail-row"><span class="dlabel">Bed Temp</span><span class="dvalue">${sp.bedTemp || props.bed}</span></div>
+          <h4 style="margin-top:12px">Material Strengths</h4>
+          ${props.strengths.map(s => `<div class="detail-row"><span class="dvalue" style="color:var(--green);font-size:12px">✓ ${s}</span></div>`).join('')}
+          <h4 style="margin-top:8px">Watch Out For</h4>
+          ${props.weaknesses.map(w => `<div class="detail-row"><span class="dvalue" style="color:var(--yellow);font-size:12px">⚠ ${w}</span></div>`).join('')}
+        </div>
+        <div class="detail-actions">
+          <button class="btn sm" onclick="editSpool(${sp.id})">Edit</button>
+          <button class="btn sm outline" onclick="adjustWeight(${sp.id})">Adjust Weight</button>
+          <button class="btn sm danger" onclick="deleteSpool(${sp.id})">Delete</button>
+          ${sp.notes ? `<span style="flex:1;font-size:11px;color:var(--muted);text-align:right">📝 ${sp.notes}</span>` : ''}
+        </div>
+      </div>`;
+    }
+
+    return `
+      <div class="spool-card ${stockClass} ${isExpanded ? 'expanded' : ''}" data-id="${sp.id}">
+        <div class="spool-main" onclick="toggleExpand(${sp.id})">
+          <div class="spool-color" style="background:${sp.color}"></div>
+          <div class="spool-info">
+            <div class="spool-name">${sp.name} <span class="tag ${getTagClass(sp.material)}">${sp.material}</span></div>
+            <div class="spool-meta">
+              <span>${sp.brand}</span>
+              <span>${sp.remaining}g / ${sp.netWeight}g</span>
+              <span>$${costPerG.toFixed(3)}/g</span>
+              <span>${sp.diameter}mm</span>
+            </div>
+          </div>
+          <div class="spool-gauge">
+            <div class="gauge-bar"><div class="gauge-fill" style="width:${pctDisplay}%;background:${barColor}"></div></div>
+            <div class="gauge-label">${pctDisplay}% remaining</div>
+          </div>
+        </div>
+        <div class="spool-details">${detailHtml}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function toggleExpand(id) {
+  expandedId = expandedId === id ? null : id;
+  renderList();
+}
+
+// ========== MODAL ==========
+function openModal(spool) {
+  editingId = spool ? spool.id : null;
+  document.getElementById('modalTitle').textContent = spool ? 'Edit Spool' : 'Add New Spool';
+  document.getElementById('fName').value = spool ? spool.name : '';
+  document.getElementById('fMaterial').value = spool ? spool.material : 'PLA';
+  document.getElementById('fBrand').value = spool ? spool.brand : '';
+  document.getElementById('fNetWeight').value = spool ? spool.netWeight : 1000;
+  document.getElementById('fRemaining').value = spool ? spool.remaining : 1000;
+  document.getElementById('fPrice').value = spool ? spool.price : 25;
+  document.getElementById('fDiameter').value = spool ? spool.diameter : '1.75';
+  document.getElementById('fNozzleTemp').value = spool ? (spool.nozzleTemp || '') : '';
+  document.getElementById('fBedTemp').value = spool ? (spool.bedTemp || '') : '';
+  document.getElementById('fNotes').value = spool ? (spool.notes || '') : '';
+  renderColorPicker(spool ? spool.color : '#1a1a1a');
+  document.getElementById('modalOverlay').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+  editingId = null;
+}
+
+let selectedColor = '#1a1a1a';
+function renderColorPicker(current) {
+  selectedColor = current;
+  document.getElementById('colorPicker').innerHTML = SWATCH_COLORS.map(c =>
+    `<div class="color-swatch ${c === current ? 'selected' : ''}" style="background:${c}" data-color="${c}"></div>`
+  ).join('');
+  document.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      selectedColor = sw.dataset.color;
+      renderColorPicker(selectedColor);
+    });
+  });
+}
+
+function saveSpool() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) return;
+  const data = {
+    name,
+    material: document.getElementById('fMaterial').value,
+    brand: document.getElementById('fBrand').value.trim() || 'Unknown',
+    netWeight: parseInt(document.getElementById('fNetWeight').value) || 1000,
+    remaining: parseInt(document.getElementById('fRemaining').value) || 0,
+    price: parseFloat(document.getElementById('fPrice').value) || 0,
+    diameter: parseFloat(document.getElementById('fDiameter').value) || 1.75,
+    nozzleTemp: document.getElementById('fNozzleTemp').value.trim(),
+    bedTemp: document.getElementById('fBedTemp').value.trim(),
+    notes: document.getElementById('fNotes').value.trim(),
+    color: selectedColor,
+  };
+  if (editingId) {
+    const idx = spools.findIndex(s => s.id === editingId);
+    if (idx >= 0) spools[idx] = { ...spools[idx], ...data };
+  } else {
+    spools.push({ id: nextId(), ...data, dateAdded: new Date().toISOString().slice(0, 10) });
+  }
+  save();
+  closeModal();
+  renderAll();
+}
+
+function editSpool(id) {
+  const sp = spools.find(s => s.id === id);
+  if (sp) openModal(sp);
+}
+
+function adjustWeight(id) {
+  const sp = spools.find(s => s.id === id);
+  if (!sp) return;
+  const val = prompt(`Current remaining: ${sp.remaining}g\nEnter new weight in grams:`, sp.remaining);
+  if (val === null) return;
+  const g = parseInt(val);
+  if (isNaN(g) || g < 0) return;
+  sp.remaining = Math.min(g, sp.netWeight);
+  save();
+  renderAll();
+}
+
+function deleteSpool(id) {
+  if (!confirm('Delete this spool from inventory?')) return;
+  spools = spools.filter(s => s.id !== id);
+  expandedId = null;
+  save();
+  renderAll();
+}
+
+// ========== EXPORT ==========
+function exportCSV() {
+  const headers = ['Name','Material','Brand','Color','Net Weight (g)','Remaining (g)','% Left','Price ($)','Cost/g ($)','Diameter (mm)','Nozzle Temp','Bed Temp','Date Added','Notes'];
+  const rows = spools.map(sp => [
+    sp.name, sp.material, sp.brand, sp.color, sp.netWeight, sp.remaining,
+    Math.round((sp.remaining/sp.netWeight)*100),
+    sp.price.toFixed(2), (sp.price/sp.netWeight).toFixed(3),
+    sp.diameter, sp.nozzleTemp||'', sp.bedTemp||'', sp.dateAdded||'', (sp.notes||'').replace(/,/g,';')
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type:'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `filament-inventory-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+// ========== RENDER ALL ==========
+function renderAll() {
+  renderStats();
+  renderFilterPills();
+  renderList();
+}
+
+// ========== EVENTS ==========
+document.getElementById('addBtn').addEventListener('click', () => openModal(null));
+document.getElementById('cancelBtn').addEventListener('click', closeModal);
+document.getElementById('saveBtn').addEventListener('click', saveSpool);
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+document.getElementById('searchBox').addEventListener('input', e => { searchTerm = e.target.value; renderList(); });
+
+// ========== INIT ==========
+renderAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Dependency Graph — RAMICHE OS</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e0e0e8;
+    --muted: #6b6b80;
+    --accent: #7c5cfc;
+    --accent2: #3ecfcf;
+    --warn: #f5a623;
+    --danger: #e84855;
+    --creative: #e066ff;
+    --infra: #3ecfcf;
+    --business: #f5a623;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter','SF Pro Display',system-ui,sans-serif; overflow:hidden; height:100vh; }
+
+  .app { display:grid; grid-template-columns:280px 1fr 300px; grid-template-rows:56px 1fr; height:100vh; }
+
+  /* Header */
+  .header { grid-column:1/-1; background:var(--surface); border-bottom:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:16px; }
+  .header h1 { font-size:16px; font-weight:600; letter-spacing:-0.3px; }
+  .header h1 span { color:var(--accent); }
+  .header .controls { margin-left:auto; display:flex; gap:8px; }
+  .header button { background:var(--border); border:none; color:var(--text); padding:6px 14px; border-radius:6px; font-size:12px; cursor:pointer; transition:all 0.15s; }
+  .header button:hover { background:var(--accent); }
+  .header button.active { background:var(--accent); }
+
+  /* Sidebar */
+  .sidebar { background:var(--surface); border-right:1px solid var(--border); overflow-y:auto; padding:16px; }
+  .sidebar h3 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
+  .agent-list { list-style:none; }
+  .agent-item { padding:8px 10px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:8px; font-size:13px; transition:all 0.15s; margin-bottom:2px; }
+  .agent-item:hover { background:rgba(124,92,252,0.1); }
+  .agent-item.selected { background:rgba(124,92,252,0.15); border-left:2px solid var(--accent); }
+  .agent-item .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .agent-item .lane-tag { font-size:9px; padding:2px 6px; border-radius:3px; margin-left:auto; text-transform:uppercase; letter-spacing:0.5px; }
+  .lane-infra { background:rgba(62,207,207,0.15); color:var(--infra); }
+  .lane-creative { background:rgba(224,102,255,0.15); color:var(--creative); }
+  .lane-business { background:rgba(245,166,35,0.15); color:var(--business); }
+
+  /* Canvas */
+  .canvas-wrap { position:relative; overflow:hidden; background:var(--bg); }
+  .canvas-wrap canvas { display:block; }
+  .zoom-controls { position:absolute; bottom:16px; left:16px; display:flex; gap:4px; flex-direction:column; }
+  .zoom-controls button { width:32px; height:32px; background:var(--surface); border:1px solid var(--border); color:var(--text); border-radius:6px; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+  .zoom-controls button:hover { background:var(--border); }
+
+  /* Detail Panel */
+  .detail { background:var(--surface); border-left:1px solid var(--border); overflow-y:auto; padding:16px; }
+  .detail h3 { font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
+  .detail-card { background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:12px; }
+  .detail-card h4 { font-size:14px; font-weight:600; margin-bottom:8px; }
+  .detail-card .stat { display:flex; justify-content:space-between; font-size:12px; padding:4px 0; border-bottom:1px solid var(--border); }
+  .detail-card .stat:last-child { border-bottom:none; }
+  .detail-card .stat .label { color:var(--muted); }
+  .detail-card .stat .value { font-weight:500; }
+
+  .metric-bar { height:4px; background:var(--border); border-radius:2px; margin-top:4px; overflow:hidden; }
+  .metric-bar .fill { height:100%; border-radius:2px; transition:width 0.5s ease; }
+
+  .dep-list { list-style:none; }
+  .dep-list li { font-size:12px; padding:4px 0; display:flex; align-items:center; gap:6px; }
+  .dep-list li .arrow { color:var(--accent); font-size:10px; }
+
+  .bottleneck-badge { display:inline-block; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+  .bottleneck-high { background:rgba(232,72,85,0.15); color:var(--danger); }
+  .bottleneck-med { background:rgba(245,166,35,0.15); color:var(--warn); }
+  .bottleneck-low { background:rgba(62,207,207,0.15); color:var(--infra); }
+
+  /* Legend */
+  .legend { position:absolute; top:16px; left:16px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:11px; }
+  .legend-item { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .legend-item:last-child { margin-bottom:0; }
+  .legend-line { width:20px; height:2px; border-radius:1px; }
+
+  /* Tooltip */
+  .tooltip { position:absolute; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:8px 12px; font-size:12px; pointer-events:none; opacity:0; transition:opacity 0.15s; z-index:100; max-width:200px; }
+  .tooltip.visible { opacity:1; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1><span>&#x25C8;</span> Agent Dependency Graph</h1>
+    <div class="controls">
+      <button id="btn-all" class="active">All Lanes</button>
+      <button id="btn-infra">Infra</button>
+      <button id="btn-creative">Creative</button>
+      <button id="btn-business">Business</button>
+      <button id="btn-bottleneck">Bottlenecks</button>
+      <button id="btn-simulate">Simulate Failure</button>
+    </div>
+  </div>
+  <div class="sidebar">
+    <h3>Agents (20)</h3>
+    <ul class="agent-list" id="agentList"></ul>
+  </div>
+  <div class="canvas-wrap" id="canvasWrap">
+    <canvas id="graph"></canvas>
+    <div class="legend" id="legend">
+      <div class="legend-item"><div class="legend-line" style="background:var(--infra)"></div> Infra Lane</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--creative)"></div> Creative Lane</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--business)"></div> Business Lane</div>
+      <div class="legend-item"><div class="legend-line" style="background:rgba(232,72,85,0.6);height:3px"></div> Bottleneck</div>
+    </div>
+    <div class="zoom-controls">
+      <button id="zoomIn">+</button>
+      <button id="zoomOut">-</button>
+      <button id="zoomFit">&#x2B1A;</button>
+    </div>
+    <div class="tooltip" id="tooltip"></div>
+  </div>
+  <div class="detail" id="detailPanel">
+    <h3>Overview</h3>
+    <div class="detail-card">
+      <h4>Ecosystem Health</h4>
+      <div class="stat"><span class="label">Total Agents</span><span class="value">20</span></div>
+      <div class="stat"><span class="label">Active Lanes</span><span class="value">3</span></div>
+      <div class="stat"><span class="label">Dependencies</span><span class="value" id="depCount">—</span></div>
+      <div class="stat"><span class="label">Bottlenecks</span><span class="value" id="bottleneckCount">—</span></div>
+      <div class="stat"><span class="label">Single Points of Failure</span><span class="value" id="spofCount">—</span></div>
+    </div>
+    <div class="detail-card" id="selectedDetail" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+const AGENTS = [
+  { id:'atlas', name:'Atlas', lane:'infra', role:'Orchestrator', deps:[], skills:['delegation','coordination'], criticality:10 },
+  { id:'proximon', name:'Proximon', lane:'infra', role:'R&D Architect', deps:['atlas'], skills:['experiments','optimization'], criticality:8 },
+  { id:'shuri', name:'Shuri', lane:'creative', role:'Frontend Engineer', deps:['atlas','proximon'], skills:['ui-ux-pro-max','coding-agent'], criticality:8 },
+  { id:'aetherion', name:'Aetherion', lane:'creative', role:'Design Lead', deps:['atlas'], skills:['nano-banana-pro','brand-cog','ai-product-photography'], criticality:7 },
+  { id:'vee', name:'Vee', lane:'creative', role:'Marketing & Comms', deps:['atlas','aetherion','ink'], skills:['marketing-mode','brand-analyzer'], criticality:6 },
+  { id:'ink', name:'INK', lane:'creative', role:'Content Writer', deps:['atlas','aetherion'], skills:['agent-content-pipeline','nano-banana-pro'], criticality:5 },
+  { id:'echo', name:'ECHO', lane:'business', role:'Community Manager', deps:['atlas','vee'], skills:['linkedin-automator','agent-content-pipeline'], criticality:5 },
+  { id:'mercury', name:'Mercury', lane:'business', role:'Sales & Revenue', deps:['atlas','simons'], skills:['sales-ops'], criticality:7 },
+  { id:'simons', name:'Simons', lane:'business', role:'Data & Analytics', deps:['atlas'], skills:['analytics','pricing'], criticality:7 },
+  { id:'widow', name:'Widow', lane:'infra', role:'Security', deps:['atlas'], skills:['security-audit','vulnerability-scan'], criticality:9 },
+  { id:'themis', name:'THEMIS', lane:'business', role:'Legal & Compliance', deps:['atlas'], skills:['legal-review','contracts'], criticality:6 },
+  { id:'kiyosaki', name:'KIYOSAKI', lane:'business', role:'Finance & Investments', deps:['atlas','simons'], skills:['finance','roi-modeling'], criticality:6 },
+  { id:'selah', name:'SELAH', lane:'business', role:'Wellness & Mindset', deps:['atlas'], skills:['wellness'], criticality:3 },
+  { id:'drstrange', name:'Dr. Strange', lane:'business', role:'Forecasting', deps:['atlas','simons'], skills:['scenario-planning','forecasting'], criticality:5 },
+  { id:'prophets', name:'Prophets', lane:'business', role:'Spiritual Guidance', deps:['atlas'], skills:['spiritual'], criticality:2 },
+  { id:'michael', name:'MICHAEL', lane:'business', role:'Swim Coaching', deps:['atlas'], skills:['coaching'], criticality:4 },
+  { id:'triage', name:'TRIAGE', lane:'infra', role:'System Debugging', deps:['atlas','proximon','widow'], skills:['debugging','diagnostics'], criticality:8 },
+  { id:'haven', name:'HAVEN', lane:'business', role:'Customer Support', deps:['atlas','echo'], skills:['email','ui-ux-pro-max'], criticality:5 },
+  { id:'nova', name:'NOVA', lane:'creative', role:'3D Fabrication', deps:['atlas','aetherion'], skills:['coding-agent','nano-banana-pro'], criticality:4 },
+  { id:'maestro', name:'TheMAESTRO', lane:'creative', role:'Music Production', deps:['atlas'], skills:['audio','music'], criticality:3 },
+];
+
+const LANE_COLORS = { infra:'#3ecfcf', creative:'#e066ff', business:'#f5a623' };
+const LANE_BG = { infra:'rgba(62,207,207,0.12)', creative:'rgba(224,102,255,0.12)', business:'rgba(245,166,35,0.12)' };
+
+// Build edges
+let edges = [];
+AGENTS.forEach(a => {
+  a.deps.forEach(depId => {
+    edges.push({ from:depId, to:a.id });
+  });
+});
+
+// Compute metrics
+function computeMetrics() {
+  const inDeg = {}, outDeg = {}, dependents = {};
+  AGENTS.forEach(a => { inDeg[a.id]=0; outDeg[a.id]=0; dependents[a.id]=[]; });
+  edges.forEach(e => { outDeg[e.from]++; inDeg[e.to]++; dependents[e.from].push(e.to); });
+
+  // Transitive dependents (BFS)
+  const transitive = {};
+  AGENTS.forEach(a => {
+    const visited = new Set();
+    const queue = [a.id];
+    while(queue.length) {
+      const cur = queue.shift();
+      dependents[cur]?.forEach(d => {
+        if(!visited.has(d)) { visited.add(d); queue.push(d); }
+      });
+    }
+    transitive[a.id] = visited.size;
+  });
+
+  // Bottleneck score = outDeg * criticality * (transitive deps + 1)
+  AGENTS.forEach(a => {
+    a.inDeg = inDeg[a.id];
+    a.outDeg = outDeg[a.id];
+    a.transitiveDeps = transitive[a.id];
+    a.bottleneckScore = a.outDeg * a.criticality * (a.transitiveDeps + 1);
+    a.isSPOF = a.transitiveDeps >= 5 && a.inDeg <= 1;
+  });
+
+  return { inDeg, outDeg, dependents, transitive };
+}
+const metrics = computeMetrics();
+
+// Layout — force-directed (simple)
+let nodes = {};
+const W = 800, H = 600;
+const cx = W/2, cy = H/2;
+
+// Initial placement: circular by lane
+const laneGroups = { infra:[], creative:[], business:[] };
+AGENTS.forEach(a => laneGroups[a.lane].push(a));
+const laneAngles = { infra: -Math.PI/2, creative: Math.PI/6, business: 5*Math.PI/6 };
+
+Object.entries(laneGroups).forEach(([lane, agents]) => {
+  const baseAngle = laneAngles[lane];
+  const spread = Math.PI * 0.55;
+  const radius = 180;
+  agents.forEach((a, i) => {
+    const angle = baseAngle - spread/2 + (spread/(agents.length))*(i+0.5);
+    const r = a.id === 'atlas' ? 0 : radius + (i%2)*40;
+    nodes[a.id] = {
+      x: cx + Math.cos(angle)*r,
+      y: cy + Math.sin(angle)*r,
+      vx:0, vy:0
+    };
+  });
+});
+// Atlas at center
+nodes['atlas'] = { x:cx, y:cy, vx:0, vy:0 };
+
+// Run force simulation
+function simulate(iterations) {
+  for(let iter=0; iter<iterations; iter++) {
+    // Repulsion
+    const agentIds = AGENTS.map(a=>a.id);
+    for(let i=0; i<agentIds.length; i++) {
+      for(let j=i+1; j<agentIds.length; j++) {
+        const a = nodes[agentIds[i]], b = nodes[agentIds[j]];
+        let dx = b.x-a.x, dy = b.y-a.y;
+        let dist = Math.sqrt(dx*dx+dy*dy) || 1;
+        let force = 8000 / (dist*dist);
+        let fx = (dx/dist)*force, fy = (dy/dist)*force;
+        a.vx -= fx; a.vy -= fy;
+        b.vx += fx; b.vy += fy;
+      }
+    }
+    // Attraction along edges
+    edges.forEach(e => {
+      const a = nodes[e.from], b = nodes[e.to];
+      let dx = b.x-a.x, dy = b.y-a.y;
+      let dist = Math.sqrt(dx*dx+dy*dy) || 1;
+      let force = (dist - 120) * 0.02;
+      let fx = (dx/dist)*force, fy = (dy/dist)*force;
+      a.vx += fx; a.vy += fy;
+      b.vx -= fx; b.vy -= fy;
+    });
+    // Center gravity
+    agentIds.forEach(id => {
+      const n = nodes[id];
+      n.vx += (cx - n.x) * 0.003;
+      n.vy += (cy - n.y) * 0.003;
+    });
+    // Apply + damping
+    agentIds.forEach(id => {
+      const n = nodes[id];
+      n.vx *= 0.85; n.vy *= 0.85;
+      n.x += n.vx; n.y += n.vy;
+      n.x = Math.max(60, Math.min(W-60, n.x));
+      n.y = Math.max(60, Math.min(H-60, n.y));
+    });
+    // Pin atlas
+    nodes['atlas'].x = cx; nodes['atlas'].y = cy;
+    nodes['atlas'].vx = 0; nodes['atlas'].vy = 0;
+  }
+}
+simulate(300);
+
+// Canvas rendering
+const canvas = document.getElementById('graph');
+const ctx = canvas.getContext('2d');
+const wrap = document.getElementById('canvasWrap');
+let zoom = 1, panX = 0, panY = 0;
+let selectedAgent = null;
+let filterLane = null;
+let showBottlenecks = false;
+let simulateFailure = false;
+let failedAgent = null;
+
+function resize() {
+  const r = wrap.getBoundingClientRect();
+  canvas.width = r.width * devicePixelRatio;
+  canvas.height = r.height * devicePixelRatio;
+  canvas.style.width = r.width + 'px';
+  canvas.style.height = r.height + 'px';
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+}
+resize();
+window.addEventListener('resize', () => { resize(); draw(); });
+
+function worldToScreen(x,y) {
+  const cw = canvas.width/devicePixelRatio, ch = canvas.height/devicePixelRatio;
+  const sx = (x - cx)*zoom + cw/2 + panX;
+  const sy = (y - cy)*zoom + ch/2 + panY;
+  return [sx, sy];
+}
+
+function screenToWorld(sx, sy) {
+  const cw = canvas.width/devicePixelRatio, ch = canvas.height/devicePixelRatio;
+  const x = (sx - cw/2 - panX)/zoom + cx;
+  const y = (sy - ch/2 - panY)/zoom + cy;
+  return [x, y];
+}
+
+function draw() {
+  const cw = canvas.width/devicePixelRatio, ch = canvas.height/devicePixelRatio;
+  ctx.clearRect(0,0,cw,ch);
+
+  // Grid dots
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  const step = 30*zoom;
+  for(let x = (panX % step + step) % step; x < cw; x += step) {
+    for(let y = (panY % step + step) % step; y < ch; y += step) {
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+
+  // Draw edges
+  edges.forEach(e => {
+    const fromAgent = AGENTS.find(a=>a.id===e.from);
+    const toAgent = AGENTS.find(a=>a.id===e.to);
+    if(filterLane && fromAgent.lane !== filterLane && toAgent.lane !== filterLane) return;
+
+    const [x1,y1] = worldToScreen(nodes[e.from].x, nodes[e.from].y);
+    const [x2,y2] = worldToScreen(nodes[e.to].x, nodes[e.to].y);
+
+    const isBottleneck = fromAgent.bottleneckScore > 100;
+    const isAffected = simulateFailure && failedAgent && (e.from === failedAgent || e.to === failedAgent);
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+
+    if(isAffected) {
+      ctx.strokeStyle = 'rgba(232,72,85,0.7)';
+      ctx.lineWidth = 2.5*zoom;
+      ctx.setLineDash([6,4]);
+    } else if(showBottlenecks && isBottleneck) {
+      ctx.strokeStyle = 'rgba(232,72,85,0.5)';
+      ctx.lineWidth = 2*zoom;
+      ctx.setLineDash([]);
+    } else {
+      const color = LANE_COLORS[fromAgent.lane];
+      ctx.strokeStyle = (selectedAgent && e.from !== selectedAgent && e.to !== selectedAgent)
+        ? 'rgba(255,255,255,0.04)' : color + '40';
+      ctx.lineWidth = 1.2*zoom;
+      ctx.setLineDash([]);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrow
+    const angle = Math.atan2(y2-y1, x2-x1);
+    const aLen = 8*zoom;
+    const midX = (x1+x2)/2, midY = (y1+y2)/2;
+    ctx.beginPath();
+    ctx.moveTo(midX + Math.cos(angle)*aLen, midY + Math.sin(angle)*aLen);
+    ctx.lineTo(midX + Math.cos(angle+2.5)*aLen*0.5, midY + Math.sin(angle+2.5)*aLen*0.5);
+    ctx.lineTo(midX + Math.cos(angle-2.5)*aLen*0.5, midY + Math.sin(angle-2.5)*aLen*0.5);
+    ctx.closePath();
+    ctx.fillStyle = isAffected ? 'rgba(232,72,85,0.7)' : 'rgba(255,255,255,0.15)';
+    ctx.fill();
+  });
+
+  // Draw nodes
+  AGENTS.forEach(a => {
+    if(filterLane && a.lane !== filterLane) return;
+
+    const [sx, sy] = worldToScreen(nodes[a.id].x, nodes[a.id].y);
+    const r = (a.id === 'atlas' ? 24 : 14 + Math.min(a.bottleneckScore/30, 8)) * zoom;
+    const isSelected = selectedAgent === a.id;
+    const isFailed = simulateFailure && failedAgent === a.id;
+    const isImpacted = simulateFailure && failedAgent && a.deps.includes(failedAgent);
+
+    // Glow
+    if(isSelected || (showBottlenecks && a.bottleneckScore > 100)) {
+      const grad = ctx.createRadialGradient(sx,sy,r*0.5,sx,sy,r*2.5);
+      const glowColor = isFailed ? 'rgba(232,72,85,' : isSelected ? 'rgba(124,92,252,' : 'rgba(232,72,85,';
+      grad.addColorStop(0, glowColor + '0.3)');
+      grad.addColorStop(1, glowColor + '0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(sx-r*3, sy-r*3, r*6, r*6);
+    }
+
+    // Node circle
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI*2);
+    if(isFailed) {
+      ctx.fillStyle = 'rgba(232,72,85,0.3)';
+      ctx.strokeStyle = '#e84855';
+      ctx.lineWidth = 2.5*zoom;
+    } else if(isImpacted) {
+      ctx.fillStyle = 'rgba(245,166,35,0.2)';
+      ctx.strokeStyle = '#f5a623';
+      ctx.lineWidth = 2*zoom;
+    } else {
+      ctx.fillStyle = isSelected ? LANE_COLORS[a.lane]+'25' : LANE_BG[a.lane];
+      ctx.strokeStyle = LANE_COLORS[a.lane];
+      ctx.lineWidth = (isSelected ? 2.5 : 1.5)*zoom;
+    }
+    ctx.fill();
+    ctx.stroke();
+
+    // Criticality ring (inner)
+    if(a.criticality >= 8) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, r*0.6, 0, Math.PI*2);
+      ctx.strokeStyle = LANE_COLORS[a.lane] + '40';
+      ctx.lineWidth = 1*zoom;
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.font = `${(isSelected?12:10)*zoom}px Inter, system-ui, sans-serif`;
+    ctx.fillStyle = isFailed ? '#e84855' : isImpacted ? '#f5a623' : (isSelected ? '#fff' : var(--text));
+    ctx.fillStyle = isFailed ? '#e84855' : isImpacted ? '#f5a623' : (isSelected ? '#fff' : '#e0e0e8');
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(a.name, sx, sy + r + 4*zoom);
+
+    // SPOF badge
+    if(a.isSPOF && showBottlenecks) {
+      ctx.font = `bold ${8*zoom}px Inter, system-ui, sans-serif`;
+      ctx.fillStyle = '#e84855';
+      ctx.fillText('SPOF', sx, sy - r - 12*zoom);
+    }
+  });
+}
+
+// Sidebar
+function renderSidebar() {
+  const list = document.getElementById('agentList');
+  list.innerHTML = '';
+  const sorted = [...AGENTS].sort((a,b) => b.bottleneckScore - a.bottleneckScore);
+  sorted.forEach(a => {
+    if(filterLane && a.lane !== filterLane) return;
+    const li = document.createElement('li');
+    li.className = 'agent-item' + (selectedAgent===a.id?' selected':'');
+    li.innerHTML = `
+      <div class="dot" style="background:${LANE_COLORS[a.lane]}"></div>
+      <span>${a.name}</span>
+      <span class="lane-tag lane-${a.lane}">${a.lane}</span>
+    `;
+    li.onclick = () => { selectAgent(a.id); };
+    list.appendChild(li);
+  });
+}
+
+function selectAgent(id) {
+  selectedAgent = selectedAgent === id ? null : id;
+  if(simulateFailure) failedAgent = selectedAgent;
+  renderSidebar();
+  renderDetail();
+  draw();
+}
+
+function renderDetail() {
+  const panel = document.getElementById('selectedDetail');
+  if(!selectedAgent) {
+    panel.style.display = 'none';
+    // Update overview
+    const bottlenecks = AGENTS.filter(a => a.bottleneckScore > 100).length;
+    const spofs = AGENTS.filter(a => a.isSPOF).length;
+    document.getElementById('depCount').textContent = edges.length;
+    document.getElementById('bottleneckCount').textContent = bottlenecks;
+    document.getElementById('spofCount').textContent = spofs;
+    return;
+  }
+
+  const a = AGENTS.find(ag => ag.id === selectedAgent);
+  const dependents = AGENTS.filter(ag => ag.deps.includes(a.id));
+  const maxScore = Math.max(...AGENTS.map(ag => ag.bottleneckScore));
+  const scorePercent = Math.round((a.bottleneckScore / maxScore) * 100);
+  const bottleneckLevel = a.bottleneckScore > 200 ? 'high' : a.bottleneckScore > 80 ? 'med' : 'low';
+
+  let impactHtml = '';
+  if(simulateFailure && failedAgent === a.id) {
+    const impacted = AGENTS.filter(ag => ag.deps.includes(a.id));
+    // Transitive
+    const allImpacted = new Set();
+    const queue = [a.id];
+    while(queue.length) {
+      const cur = queue.shift();
+      AGENTS.filter(ag => ag.deps.includes(cur)).forEach(ag => {
+        if(!allImpacted.has(ag.id)) { allImpacted.add(ag.id); queue.push(ag.id); }
+      });
+    }
+    impactHtml = `
+      <div class="detail-card">
+        <h4 style="color:#e84855">Failure Impact</h4>
+        <div class="stat"><span class="label">Direct</span><span class="value" style="color:#e84855">${impacted.length} agents</span></div>
+        <div class="stat"><span class="label">Transitive</span><span class="value" style="color:#e84855">${allImpacted.size} agents</span></div>
+        <div class="stat"><span class="label">% Ecosystem</span><span class="value" style="color:#e84855">${Math.round(allImpacted.size/AGENTS.length*100)}%</span></div>
+        <ul class="dep-list" style="margin-top:8px">
+          ${[...allImpacted].map(id => {
+            const ag = AGENTS.find(x=>x.id===id);
+            return `<li><span class="arrow">&#x26A0;</span> ${ag.name} (${ag.role})</li>`;
+          }).join('')}
+        </ul>
+      </div>
+    `;
+  }
+
+  panel.style.display = 'block';
+  panel.innerHTML = `
+    <h4>${a.name} <span class="bottleneck-badge bottleneck-${bottleneckLevel}">${bottleneckLevel} risk</span></h4>
+    <div style="font-size:12px;color:var(--muted);margin:4px 0 12px">${a.role} &mdash; ${a.lane} lane</div>
+    <div class="stat"><span class="label">Criticality</span><span class="value">${a.criticality}/10</span></div>
+    <div class="metric-bar"><div class="fill" style="width:${a.criticality*10}%;background:${LANE_COLORS[a.lane]}"></div></div>
+    <div class="stat" style="margin-top:8px"><span class="label">Bottleneck Score</span><span class="value">${a.bottleneckScore}</span></div>
+    <div class="metric-bar"><div class="fill" style="width:${scorePercent}%;background:${bottleneckLevel==='high'?'#e84855':bottleneckLevel==='med'?'#f5a623':'#3ecfcf'}"></div></div>
+    <div class="stat" style="margin-top:8px"><span class="label">In-degree</span><span class="value">${a.inDeg}</span></div>
+    <div class="stat"><span class="label">Out-degree</span><span class="value">${a.outDeg}</span></div>
+    <div class="stat"><span class="label">Transitive Dependents</span><span class="value">${a.transitiveDeps}</span></div>
+    <div class="stat"><span class="label">SPOF</span><span class="value">${a.isSPOF ? 'YES' : 'No'}</span></div>
+
+    <h4 style="margin-top:16px">Dependencies (${a.deps.length})</h4>
+    <ul class="dep-list">
+      ${a.deps.map(d => {
+        const dep = AGENTS.find(x=>x.id===d);
+        return `<li><span class="arrow">&#x2190;</span> ${dep.name} (${dep.role})</li>`;
+      }).join('') || '<li style="color:var(--muted)">None (root)</li>'}
+    </ul>
+
+    <h4 style="margin-top:16px">Dependents (${dependents.length})</h4>
+    <ul class="dep-list">
+      ${dependents.map(d => `<li><span class="arrow">&#x2192;</span> ${d.name} (${d.role})</li>`).join('') || '<li style="color:var(--muted)">None (leaf)</li>'}
+    </ul>
+
+    <h4 style="margin-top:16px">Skills</h4>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+      ${a.skills.map(s => `<span style="font-size:10px;background:var(--border);padding:2px 8px;border-radius:4px">${s}</span>`).join('')}
+    </div>
+
+    ${impactHtml}
+  `;
+}
+
+// Filter buttons
+document.getElementById('btn-all').onclick = () => { filterLane=null; setActiveBtn('btn-all'); renderSidebar(); draw(); };
+document.getElementById('btn-infra').onclick = () => { filterLane='infra'; setActiveBtn('btn-infra'); renderSidebar(); draw(); };
+document.getElementById('btn-creative').onclick = () => { filterLane='creative'; setActiveBtn('btn-creative'); renderSidebar(); draw(); };
+document.getElementById('btn-business').onclick = () => { filterLane='business'; setActiveBtn('btn-business'); renderSidebar(); draw(); };
+document.getElementById('btn-bottleneck').onclick = () => {
+  showBottlenecks=!showBottlenecks;
+  document.getElementById('btn-bottleneck').classList.toggle('active', showBottlenecks);
+  draw();
+};
+document.getElementById('btn-simulate').onclick = () => {
+  simulateFailure=!simulateFailure;
+  document.getElementById('btn-simulate').classList.toggle('active', simulateFailure);
+  if(!simulateFailure) failedAgent = null;
+  else failedAgent = selectedAgent;
+  renderDetail();
+  draw();
+};
+
+function setActiveBtn(id) {
+  ['btn-all','btn-infra','btn-creative','btn-business'].forEach(b => {
+    document.getElementById(b).classList.toggle('active', b===id);
+  });
+}
+
+// Zoom
+document.getElementById('zoomIn').onclick = () => { zoom = Math.min(zoom*1.25, 4); draw(); };
+document.getElementById('zoomOut').onclick = () => { zoom = Math.max(zoom/1.25, 0.3); draw(); };
+document.getElementById('zoomFit').onclick = () => { zoom=1; panX=0; panY=0; draw(); };
+
+// Pan
+let dragging = false, lastX, lastY;
+canvas.addEventListener('mousedown', e => {
+  // Check if click on node
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const [wx, wy] = screenToWorld(mx, my);
+  let hit = null;
+  AGENTS.forEach(a => {
+    const dx = nodes[a.id].x - wx, dy = nodes[a.id].y - wy;
+    const r = a.id === 'atlas' ? 24 : 14 + Math.min(a.bottleneckScore/30, 8);
+    if(Math.sqrt(dx*dx+dy*dy) < r + 5) hit = a.id;
+  });
+  if(hit) { selectAgent(hit); return; }
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+});
+canvas.addEventListener('mousemove', e => {
+  if(dragging) {
+    panX += e.clientX - lastX;
+    panY += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    draw();
+  }
+  // Tooltip
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const [wx, wy] = screenToWorld(mx, my);
+  let hoveredAgent = null;
+  AGENTS.forEach(a => {
+    const dx = nodes[a.id].x - wx, dy = nodes[a.id].y - wy;
+    const r = a.id === 'atlas' ? 24 : 14 + Math.min(a.bottleneckScore/30, 8);
+    if(Math.sqrt(dx*dx+dy*dy) < r + 5) hoveredAgent = a;
+  });
+  const tooltip = document.getElementById('tooltip');
+  if(hoveredAgent && !dragging) {
+    tooltip.classList.add('visible');
+    tooltip.style.left = (e.clientX - wrap.getBoundingClientRect().left + 12) + 'px';
+    tooltip.style.top = (e.clientY - wrap.getBoundingClientRect().top - 10) + 'px';
+    tooltip.innerHTML = `<strong>${hoveredAgent.name}</strong><br>${hoveredAgent.role}<br><span style="color:var(--muted)">Score: ${hoveredAgent.bottleneckScore} | Deps: ${hoveredAgent.transitiveDeps}</span>`;
+  } else {
+    tooltip.classList.remove('visible');
+  }
+});
+canvas.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.92 : 1.08;
+  zoom = Math.max(0.3, Math.min(4, zoom * factor));
+  draw();
+}, { passive: false });
+
+// Init
+renderSidebar();
+renderDetail();
+draw();
+</script>
+</body>
+</html>

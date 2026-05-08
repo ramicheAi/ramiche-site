@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Battlecard Generator — MERCURY</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;--text:#e0e0e8;--muted:#8888a0;--accent:#6c5ce7;--green:#00d2a0;--red:#ff6b6b;--orange:#ffa726;--blue:#42a5f5;--cyan:#26c6da;--pink:#ec407a;--gold:#ffd700}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600;letter-spacing:-0.5px}
+.header .badge{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;font-weight:500}
+.header .sub{color:var(--muted);font-size:12px;margin-left:auto}
+.grid{display:grid;grid-template-columns:280px 1fr;gap:20px;height:calc(100vh - 100px)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-y:auto}
+.panel h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px}
+.section{margin-bottom:20px}
+.section h3{font-size:12px;color:var(--accent);margin-bottom:8px;font-weight:500}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+select,input[type="text"]{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px}
+textarea{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:11px;resize:vertical;min-height:60px}
+.btn{padding:8px 14px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s}
+.btn:hover{border-color:var(--accent);background:#1e1e30}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#5a4bd6}
+.btn.active{border-color:var(--accent);background:#1e1e30}
+.btn.danger{border-color:var(--red);color:var(--red)}
+.btn.danger:hover{background:#2a1520}
+.right-panel{display:flex;flex-direction:column;gap:16px;overflow-y:auto}
+.competitor-list{display:flex;flex-direction:column;gap:4px}
+.comp-item{display:flex;align-items:center;gap:8px;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:12px;transition:all .15s}
+.comp-item:hover,.comp-item.active{border-color:var(--accent);background:#1e1e30}
+.comp-item .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.comp-item .name{flex:1}
+.comp-item .threat{font-size:10px;padding:2px 6px;border-radius:3px;font-weight:600}
+.threat-high{background:rgba(255,107,107,0.15);color:var(--red)}
+.threat-medium{background:rgba(255,167,38,0.15);color:var(--orange)}
+.threat-low{background:rgba(0,210,160,0.15);color:var(--green)}
+.battlecard{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px}
+.battlecard-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.battlecard-header .logo{width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700}
+.battlecard-header .info h3{font-size:16px;font-weight:600}
+.battlecard-header .info .tagline{font-size:11px;color:var(--muted);margin-top:2px}
+.battlecard-header .actions{margin-left:auto;display:flex;gap:6px}
+.card-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.card-section{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:14px}
+.card-section h4{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.card-section.full{grid-column:1/-1}
+.feature-matrix{width:100%;border-collapse:collapse;font-size:11px}
+.feature-matrix th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--muted);font-weight:500;font-size:10px;text-transform:uppercase}
+.feature-matrix td{padding:6px 8px;border-bottom:1px solid var(--border)}
+.feature-matrix tr:last-child td{border:none}
+.check{color:var(--green);font-weight:700}
+.cross{color:var(--red);font-weight:700}
+.partial{color:var(--orange);font-weight:700}
+.objection-row{display:flex;flex-direction:column;gap:4px;padding:8px 0;border-bottom:1px solid var(--border)}
+.objection-row:last-child{border:none}
+.objection-q{font-size:11px;color:var(--red);font-weight:600}
+.objection-a{font-size:11px;color:var(--green);line-height:1.5;margin-top:2px}
+.talking-point{display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5}
+.talking-point:last-child{border:none}
+.tp-icon{color:var(--accent);flex-shrink:0;margin-top:1px}
+.landmine{display:flex;align-items:flex-start;gap:6px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;line-height:1.5}
+.landmine:last-child{border:none}
+.lm-icon{color:var(--red);flex-shrink:0;margin-top:1px}
+.win-rate{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.win-bar{flex:1;height:20px;background:var(--surface);border-radius:4px;overflow:hidden;display:flex}
+.win-seg{height:100%;transition:width .3s}
+.win-label{font-size:11px;display:flex;align-items:center;gap:4px}
+.strength-meter{height:6px;border-radius:3px;margin-top:4px;margin-bottom:8px}
+.pricing-compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.price-card{padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:4px;text-align:center}
+.price-card .who{font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:4px}
+.price-card .price{font-size:18px;font-weight:700}
+.price-card .note{font-size:9px;color:var(--muted);margin-top:2px}
+.price-card.ours{border-color:var(--green)}
+.price-card.ours .price{color:var(--green)}
+.no-card{text-align:center;padding:60px 20px;color:var(--muted);font-size:13px}
+.tab-row{display:flex;gap:4px;margin-bottom:12px}
+.tab{padding:6px 12px;font-size:11px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);border-radius:4px;cursor:pointer;font-family:inherit}
+.tab.active{border-color:var(--accent);color:var(--text);background:#1e1e30}
+.add-form{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;margin-top:8px}
+.add-form .row{display:flex;gap:6px}
+.add-form .row>*{flex:1}
+.score-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600}
+.summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center}
+.summary-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.summary-card .value{font-size:20px;font-weight:700}
+.export-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;display:none}
+.export-modal.show{display:flex}
+.export-content{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:24px;max-width:600px;width:90%;max-height:80vh;overflow-y:auto}
+.export-content h3{margin-bottom:12px;font-size:14px}
+.export-content pre{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:12px;font-size:11px;white-space:pre-wrap;max-height:400px;overflow-y:auto}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Sales Battlecard Generator</h1>
+  <span class="badge">MERCURY</span>
+  <span class="sub">Competitive intelligence • Win more deals</span>
+</div>
+
+<div class="summary-bar" id="summaryBar"></div>
+
+<div class="grid">
+  <div class="panel" id="sidebar">
+    <h2>Competitors</h2>
+    <div class="section">
+      <div class="competitor-list" id="compList"></div>
+      <button class="btn" onclick="toggleAddForm()" style="width:100%;margin-top:8px" id="addBtn">+ Add Competitor</button>
+      <div class="add-form" id="addForm" style="display:none">
+        <div>
+          <label>Company Name</label>
+          <input type="text" id="newName" placeholder="e.g. TeamUnify">
+        </div>
+        <div>
+          <label>Tagline / Market Position</label>
+          <input type="text" id="newTag" placeholder="e.g. Legacy swim management">
+        </div>
+        <div class="row">
+          <div>
+            <label>Threat Level</label>
+            <select id="newThreat">
+              <option value="high">High</option>
+              <option value="medium" selected>Medium</option>
+              <option value="low">Low</option>
+            </select>
+          </div>
+          <div>
+            <label>Their Price</label>
+            <input type="text" id="newPrice" placeholder="$199/mo">
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn primary" onclick="addCompetitor()">Add</button>
+          <button class="btn" onclick="toggleAddForm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Quick Stats</h3>
+      <div id="quickStats" style="font-size:11px;line-height:2"></div>
+    </div>
+
+    <div class="section">
+      <h3>Export</h3>
+      <button class="btn" onclick="exportMarkdown()" style="width:100%;margin-bottom:6px">Export Markdown</button>
+      <button class="btn" onclick="exportAll()" style="width:100%">Export All Cards</button>
+    </div>
+  </div>
+
+  <div class="right-panel" id="mainPanel">
+    <div class="no-card" id="emptyState">Select a competitor to view their battlecard</div>
+  </div>
+</div>
+
+<div class="export-modal" id="exportModal">
+  <div class="export-content">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <h3 id="exportTitle">Export</h3>
+      <button class="btn" onclick="closeExport()">Close</button>
+    </div>
+    <pre id="exportText"></pre>
+    <button class="btn primary" onclick="copyExport()" style="width:100%;margin-top:12px">Copy to Clipboard</button>
+  </div>
+</div>
+
+<script>
+const METTLE_TIERS = {
+  starter: { name: 'Starter', price: 149, athletes: 50 },
+  growth: { name: 'Growth', price: 349, athletes: 150 },
+  platinum: { name: 'Platinum', price: 549, athletes: 500 },
+  enterprise: { name: 'Enterprise', price: null, athletes: null }
+};
+
+const FEATURES = [
+  { id: 'gamification', name: 'Athlete Gamification', category: 'engagement' },
+  { id: 'adaptive', name: 'Adaptive Training Plans', category: 'coaching' },
+  { id: 'parentPortal', name: 'Parent Dashboard', category: 'engagement' },
+  { id: 'billing', name: 'Integrated Billing', category: 'operations' },
+  { id: 'meetMgmt', name: 'Meet Management', category: 'operations' },
+  { id: 'analytics', name: 'Performance Analytics', category: 'coaching' },
+  { id: 'retention', name: 'Retention Tracking', category: 'engagement' },
+  { id: 'teamComms', name: 'Team Communication', category: 'operations' },
+  { id: 'goalSetting', name: 'Goal Setting System', category: 'coaching' },
+  { id: 'onboarding', name: 'Automated Onboarding', category: 'operations' },
+  { id: 'api', name: 'Open API', category: 'technical' },
+  { id: 'mobile', name: 'Native Mobile App', category: 'technical' },
+  { id: 'video', name: 'Video Analysis', category: 'coaching' },
+  { id: 'leaderboards', name: 'Leaderboards', category: 'engagement' }
+];
+
+// METTLE always has full marks
+const METTLE_FEATURES = {};
+FEATURES.forEach(f => METTLE_FEATURES[f.id] = 'full');
+
+const DEFAULT_COMPETITORS = [
+  {
+    id: 'teamunify',
+    name: 'TeamUnify',
+    tagline: 'Legacy swim team management & billing',
+    color: '#42a5f5',
+    threat: 'high',
+    price: '$99-249/mo',
+    priceNote: 'Per-swimmer pricing, scales fast',
+    strengths: ['Entrenched in market (20+ years)', 'Meet management is solid', 'Large existing user base', 'SwimOffice integration'],
+    weaknesses: ['Zero gamification', 'No adaptive training', 'Dated UI/UX (2010s feel)', 'Parent experience is basic', 'No retention analytics'],
+    features: { gamification:'none', adaptive:'none', parentPortal:'partial', billing:'full', meetMgmt:'full', analytics:'partial', retention:'none', teamComms:'partial', goalSetting:'none', onboarding:'none', api:'partial', mobile:'partial', video:'none', leaderboards:'none' },
+    objections: [
+      { q: "We already use TeamUnify for everything.", a: "TeamUnify runs your office. METTLE transforms your athletes. They're complementary — TeamUnify handles billing and meet entries, METTLE handles the part that keeps swimmers showing up and improving. Many of our best teams run both." },
+      { q: "Switching costs are too high.", a: "You don't switch. You add. METTLE sits alongside TeamUnify. Zero migration, zero disruption. Your admin workflow stays the same — you just add an engagement layer your athletes actually want to open." },
+      { q: "TeamUnify is cheaper.", a: "Per swimmer, TeamUnify looks cheaper. Per swimmer who STAYS, METTLE pays for itself in month 2. If you lose 5 swimmers a quarter at $150/mo each, that's $9,000/year in lost revenue. METTLE's retention tools cost a fraction of that." }
+    ],
+    talkingPoints: [
+      "TeamUnify handles administration. METTLE handles athlete transformation. Different jobs.",
+      "Ask them about their swimmer retention rate — if they can't answer, that's the point.",
+      "Their mobile app has a 2.8 star rating. Ours has 4.7. Athletes live on their phones.",
+      "We have 3 case studies of teams running both TU + METTLE with 20%+ retention improvement."
+    ],
+    landmines: [
+      "Don't trash TeamUnify — many coaches have emotional attachment. Position as complementary.",
+      "If the decision-maker is the treasurer (not coach), lead with ROI not features.",
+      "TeamUnify's contract auto-renews. Check their renewal date — time your pitch accordingly.",
+      "Some teams get bulk TeamUnify pricing through LSCs. Know their actual cost before comparing."
+    ],
+    winRate: 68,
+    dealsClosed: 14,
+    dealsLost: 7
+  },
+  {
+    id: 'swimtopia',
+    name: 'SwimTopia',
+    tagline: 'Affordable team management for summer/rec leagues',
+    color: '#00d2a0',
+    threat: 'medium',
+    price: '$50-150/mo',
+    priceNote: 'Very affordable, feature-limited',
+    strengths: ['Low price point', 'Good for small rec teams', 'Easy setup', 'Volunteer management'],
+    weaknesses: ['Not built for competitive teams', 'No training tools', 'Limited analytics', 'No gamification', 'Scales poorly past 100 swimmers'],
+    features: { gamification:'none', adaptive:'none', parentPortal:'partial', billing:'full', meetMgmt:'partial', analytics:'none', retention:'none', teamComms:'full', goalSetting:'none', onboarding:'partial', api:'none', mobile:'partial', video:'none', leaderboards:'none' },
+    objections: [
+      { q: "SwimTopia is way cheaper.", a: "SwimTopia is built for summer rec leagues. If you're running a competitive program with year-round athletes, you need tools that match your ambition. The question isn't what it costs — it's what it costs you to NOT have retention and training tools." },
+      { q: "We're a small team, we don't need all that.", a: "Small teams that want to grow need METTLE most. Gamification and parent engagement are what turn a 40-swimmer team into an 80-swimmer team. SwimTopia manages what you have. METTLE grows what you could have." }
+    ],
+    talkingPoints: [
+      "SwimTopia is a website builder with billing. METTLE is a coaching platform.",
+      "If their goal is competitive excellence, SwimTopia doesn't have the tools.",
+      "Our Starter tier at $149/mo gives 10x the capability for only $50-100 more.",
+      "Position this as 'graduating' from SwimTopia — growth signal, not switching cost."
+    ],
+    landmines: [
+      "Don't oversell to a true rec-only summer league — they genuinely don't need METTLE.",
+      "If they have <30 swimmers and no competitive program, this isn't our customer. Walk away.",
+      "Some SwimTopia teams are volunteer-run with zero budget. Qualify hard on budget authority."
+    ],
+    winRate: 82,
+    dealsClosed: 9,
+    dealsLost: 2
+  },
+  {
+    id: 'deckpass',
+    name: 'USA Swimming Deck Pass',
+    tagline: 'National governing body digital platform',
+    color: '#ffa726',
+    threat: 'medium',
+    price: 'Free (member benefit)',
+    priceNote: 'Included with USA Swimming membership',
+    strengths: ['Free / included', 'Official times database', 'National recognition', 'Standards tracking'],
+    weaknesses: ['Not a team management tool', 'No billing', 'No gamification', 'Minimal engagement features', 'One-size-fits-all'],
+    features: { gamification:'none', adaptive:'none', parentPortal:'partial', billing:'none', meetMgmt:'none', analytics:'partial', retention:'none', teamComms:'none', goalSetting:'partial', onboarding:'none', api:'none', mobile:'full', video:'none', leaderboards:'partial' },
+    objections: [
+      { q: "Deck Pass is free, why would we pay?", a: "Deck Pass tracks times. METTLE transforms behavior. Deck Pass tells a swimmer they went a 28.5 in the 50 free. METTLE tells them they're 0.3 seconds from their goal, shows them the training path, and gamifies the journey. Tracking ≠ engagement." },
+      { q: "USA Swimming is building more features.", a: "They're a governing body, not a software company. Their roadmap moves at committee speed. We ship weekly. By the time they add gamification, your athletes will have aged out." }
+    ],
+    talkingPoints: [
+      "Deck Pass is a records database. METTLE is a coaching platform. Apples and oranges.",
+      "We integrate WITH Deck Pass times — we make their data actionable.",
+      "Free is the most expensive option when it doesn't move the needle on retention.",
+      "'Free' also means no support, no customization, no roadmap influence."
+    ],
+    landmines: [
+      "Never position against USA Swimming as an organization — coaches are loyal to it.",
+      "Frame as 'Deck Pass AND METTLE' not 'Deck Pass OR METTLE'.",
+      "Some coaches serve on USA Swimming committees. Know your audience."
+    ],
+    winRate: 75,
+    dealsClosed: 6,
+    dealsLost: 2
+  },
+  {
+    id: 'ondeckapp',
+    name: 'OnDeck',
+    tagline: 'Workout planning and practice management',
+    color: '#ec407a',
+    threat: 'low',
+    price: '$30-80/mo',
+    priceNote: 'Per-coach pricing',
+    strengths: ['Solid workout builder', 'Practice planning tools', 'Low price', 'Coach-focused'],
+    weaknesses: ['Coach-only tool (no athlete/parent side)', 'No gamification', 'No billing', 'No team management', 'Small company'],
+    features: { gamification:'none', adaptive:'partial', parentPortal:'none', billing:'none', meetMgmt:'none', analytics:'partial', retention:'none', teamComms:'none', goalSetting:'partial', onboarding:'none', api:'none', mobile:'partial', video:'none', leaderboards:'none' },
+    objections: [
+      { q: "Our coaches love OnDeck for workouts.", a: "Great — keep using it for workout planning if the coaches are attached. METTLE handles the other 80% of running a swim program: athlete engagement, parent communication, retention, and growth. OnDeck is a coach's notepad. METTLE is the full platform." }
+    ],
+    talkingPoints: [
+      "OnDeck solves one problem (workout planning) well. METTLE solves the whole program.",
+      "The decision-maker here is the program director, not the assistant coach who uses OnDeck.",
+      "OnDeck has no parent-facing features. Parents write the checks.",
+      "At $30-80/mo it's a rounding error — many teams keep both."
+    ],
+    landmines: [
+      "Coaches who built years of workouts in OnDeck will resist. Don't ask them to switch — add.",
+      "OnDeck's founder is active in the swim community. Don't badmouth the product."
+    ],
+    winRate: 91,
+    dealsClosed: 10,
+    dealsLost: 1
+  }
+];
+
+let state = {
+  competitors: JSON.parse(JSON.stringify(DEFAULT_COMPETITORS)),
+  selectedId: null
+};
+
+function getThreatClass(t) { return 'threat-' + t; }
+function getThreatColor(t) { return t === 'high' ? 'var(--red)' : t === 'medium' ? 'var(--orange)' : 'var(--green)'; }
+
+function renderSidebar() {
+  const list = document.getElementById('compList');
+  list.innerHTML = '';
+  state.competitors.forEach(c => {
+    const el = document.createElement('div');
+    el.className = 'comp-item' + (state.selectedId === c.id ? ' active' : '');
+    el.onclick = () => selectCompetitor(c.id);
+    el.innerHTML = `
+      <div class="dot" style="background:${c.color}"></div>
+      <div class="name">${c.name}</div>
+      <span class="threat ${getThreatClass(c.threat)}">${c.threat.toUpperCase()}</span>
+    `;
+    list.appendChild(el);
+  });
+
+  // Quick stats
+  const stats = document.getElementById('quickStats');
+  const total = state.competitors.length;
+  const high = state.competitors.filter(c => c.threat === 'high').length;
+  const avgWin = state.competitors.reduce((s, c) => s + c.winRate, 0) / total;
+  const totalDeals = state.competitors.reduce((s, c) => s + c.dealsClosed + c.dealsLost, 0);
+  stats.innerHTML = `
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Tracked:</span><span>${total} competitors</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">High threat:</span><span style="color:var(--red)">${high}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Avg win rate:</span><span style="color:var(--green)">${avgWin.toFixed(0)}%</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Total deals:</span><span>${totalDeals}</span></div>
+  `;
+}
+
+function renderSummary() {
+  const bar = document.getElementById('summaryBar');
+  const totalWins = state.competitors.reduce((s, c) => s + c.dealsClosed, 0);
+  const totalLosses = state.competitors.reduce((s, c) => s + c.dealsLost, 0);
+  const avgWin = state.competitors.reduce((s, c) => s + c.winRate, 0) / state.competitors.length;
+  const topThreat = state.competitors.filter(c => c.threat === 'high').map(c => c.name).join(', ') || 'None';
+
+  bar.innerHTML = `
+    <div class="summary-card"><div class="label">Competitive Win Rate</div><div class="value" style="color:var(--green)">${avgWin.toFixed(0)}%</div></div>
+    <div class="summary-card"><div class="label">Deals Won</div><div class="value" style="color:var(--cyan)">${totalWins}</div></div>
+    <div class="summary-card"><div class="label">Deals Lost</div><div class="value" style="color:var(--red)">${totalLosses}</div></div>
+    <div class="summary-card"><div class="label">Top Threat</div><div class="value" style="font-size:14px;color:var(--orange)">${topThreat}</div></div>
+  `;
+}
+
+function selectCompetitor(id) {
+  state.selectedId = id;
+  renderSidebar();
+  renderBattlecard();
+}
+
+function featureIcon(status) {
+  if (status === 'full') return '<span class="check">&#10003;</span>';
+  if (status === 'partial') return '<span class="partial">~</span>';
+  return '<span class="cross">&#10007;</span>';
+}
+
+function renderBattlecard() {
+  const panel = document.getElementById('mainPanel');
+  const comp = state.competitors.find(c => c.id === state.selectedId);
+  if (!comp) {
+    panel.innerHTML = '<div class="no-card">Select a competitor to view their battlecard</div>';
+    return;
+  }
+
+  const winPct = comp.winRate;
+  const lossPct = 100 - winPct;
+
+  let html = `
+    <div class="battlecard">
+      <div class="battlecard-header">
+        <div class="logo" style="background:${comp.color}22;color:${comp.color}">${comp.name.charAt(0)}</div>
+        <div class="info">
+          <h3>${comp.name}</h3>
+          <div class="tagline">${comp.tagline}</div>
+        </div>
+        <div class="actions">
+          <span class="score-badge" style="background:${getThreatColor(comp.threat)}22;color:${getThreatColor(comp.threat)}">THREAT: ${comp.threat.toUpperCase()}</span>
+          <button class="btn" onclick="exportMarkdown('${comp.id}')">Export</button>
+        </div>
+      </div>
+
+      <div class="card-grid">
+        <!-- Win Rate -->
+        <div class="card-section">
+          <h4>📊 Win/Loss Record</h4>
+          <div class="win-rate">
+            <div class="win-label"><span style="color:var(--green);font-weight:700">${comp.dealsClosed}W</span></div>
+            <div class="win-bar">
+              <div class="win-seg" style="width:${winPct}%;background:var(--green)"></div>
+              <div class="win-seg" style="width:${lossPct}%;background:var(--red)"></div>
+            </div>
+            <div class="win-label"><span style="color:var(--red);font-weight:700">${comp.dealsLost}L</span></div>
+          </div>
+          <div style="text-align:center;font-size:20px;font-weight:700;color:var(--green)">${winPct}% Win Rate</div>
+        </div>
+
+        <!-- Pricing -->
+        <div class="card-section">
+          <h4>💰 Pricing Comparison</h4>
+          <div class="pricing-compare">
+            <div class="price-card ours">
+              <div class="who">METTLE</div>
+              <div class="price">$149-549</div>
+              <div class="note">Per team/month, all athletes included</div>
+            </div>
+            <div class="price-card">
+              <div class="who">${comp.name}</div>
+              <div class="price">${comp.price}</div>
+              <div class="note">${comp.priceNote}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Strengths -->
+        <div class="card-section">
+          <h4>💪 Their Strengths</h4>
+          ${comp.strengths.map(s => `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:6px"><span style="color:var(--orange)">▸</span>${s}</div>`).join('')}
+        </div>
+
+        <!-- Weaknesses -->
+        <div class="card-section">
+          <h4>🎯 Their Weaknesses</h4>
+          ${comp.weaknesses.map(w => `<div style="font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);display:flex;gap:6px"><span style="color:var(--green)">▸</span>${w}</div>`).join('')}
+        </div>
+
+        <!-- Feature Matrix -->
+        <div class="card-section full">
+          <h4>⚡ Feature Comparison Matrix</h4>
+          <table class="feature-matrix">
+            <thead><tr><th>Feature</th><th>METTLE</th><th>${comp.name}</th><th>Delta</th></tr></thead>
+            <tbody>
+              ${FEATURES.map(f => {
+                const ours = 'full';
+                const theirs = comp.features[f.id] || 'none';
+                let delta = '';
+                if (ours === 'full' && theirs === 'none') delta = '<span style="color:var(--green);font-weight:600">+++ Our Advantage</span>';
+                else if (ours === 'full' && theirs === 'partial') delta = '<span style="color:var(--cyan);font-weight:600">++ Edge</span>';
+                else if (ours === theirs) delta = '<span style="color:var(--muted)">= Parity</span>';
+                else delta = '<span style="color:var(--red);font-weight:600">- Gap</span>';
+                return `<tr><td>${f.name}</td><td>${featureIcon(ours)}</td><td>${featureIcon(theirs)}</td><td>${delta}</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Objection Handles -->
+        <div class="card-section full">
+          <h4>🛡️ Objection Handles</h4>
+          ${comp.objections.map(o => `
+            <div class="objection-row">
+              <div class="objection-q">"${o.q}"</div>
+              <div class="objection-a">→ ${o.a}</div>
+            </div>
+          `).join('')}
+        </div>
+
+        <!-- Talking Points -->
+        <div class="card-section">
+          <h4>💬 Talking Points</h4>
+          ${comp.talkingPoints.map(t => `<div class="talking-point"><span class="tp-icon">▸</span><span>${t}</span></div>`).join('')}
+        </div>
+
+        <!-- Landmines -->
+        <div class="card-section">
+          <h4>💣 Landmines (Avoid)</h4>
+          ${comp.landmines.map(l => `<div class="landmine"><span class="lm-icon">⚠</span><span>${l}</span></div>`).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+
+  panel.innerHTML = html;
+}
+
+function toggleAddForm() {
+  const form = document.getElementById('addForm');
+  form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+}
+
+function addCompetitor() {
+  const name = document.getElementById('newName').value.trim();
+  const tagline = document.getElementById('newTag').value.trim();
+  const threat = document.getElementById('newThreat').value;
+  const price = document.getElementById('newPrice').value.trim();
+  if (!name) return;
+
+  const colors = ['#42a5f5','#00d2a0','#ffa726','#ec407a','#6c5ce7','#26c6da','#ab47bc','#78909c'];
+  const features = {};
+  FEATURES.forEach(f => features[f.id] = 'none');
+
+  state.competitors.push({
+    id: name.toLowerCase().replace(/\s+/g, '-'),
+    name,
+    tagline: tagline || 'New competitor',
+    color: colors[state.competitors.length % colors.length],
+    threat,
+    price: price || 'Unknown',
+    priceNote: 'Pricing TBD',
+    strengths: ['Research needed'],
+    weaknesses: ['Research needed'],
+    features,
+    objections: [{ q: "Why not " + name + "?", a: "Response TBD — research their positioning." }],
+    talkingPoints: ['Key differentiators TBD'],
+    landmines: ['Research their community presence before engaging'],
+    winRate: 50,
+    dealsClosed: 0,
+    dealsLost: 0
+  });
+
+  document.getElementById('newName').value = '';
+  document.getElementById('newTag').value = '';
+  document.getElementById('newPrice').value = '';
+  toggleAddForm();
+  renderSidebar();
+  renderSummary();
+}
+
+function exportMarkdown(compId) {
+  const comp = compId
+    ? state.competitors.find(c => c.id === compId)
+    : state.competitors.find(c => c.id === state.selectedId);
+  if (!comp) return;
+
+  let md = `# Battlecard: ${comp.name}\n`;
+  md += `**Threat:** ${comp.threat.toUpperCase()} | **Win Rate:** ${comp.winRate}% (${comp.dealsClosed}W / ${comp.dealsLost}L)\n`;
+  md += `**Pricing:** ${comp.price} — ${comp.priceNote}\n\n`;
+
+  md += `## Strengths\n${comp.strengths.map(s => '- ' + s).join('\n')}\n\n`;
+  md += `## Weaknesses\n${comp.weaknesses.map(w => '- ' + w).join('\n')}\n\n`;
+
+  md += `## Feature Comparison\n| Feature | METTLE | ${comp.name} |\n|---------|--------|${'---'.padEnd(comp.name.length + 2, '-')}|\n`;
+  FEATURES.forEach(f => {
+    const ours = '✓';
+    const theirs = comp.features[f.id] === 'full' ? '✓' : comp.features[f.id] === 'partial' ? '~' : '✗';
+    md += `| ${f.name} | ${ours} | ${theirs} |\n`;
+  });
+  md += '\n';
+
+  md += `## Objection Handles\n`;
+  comp.objections.forEach(o => { md += `**"${o.q}"**\n→ ${o.a}\n\n`; });
+
+  md += `## Talking Points\n${comp.talkingPoints.map(t => '- ' + t).join('\n')}\n\n`;
+  md += `## Landmines\n${comp.landmines.map(l => '- ⚠️ ' + l).join('\n')}\n`;
+
+  showExport(`Battlecard: ${comp.name}`, md);
+}
+
+function exportAll() {
+  let md = `# METTLE Sales Battlecards\n_Generated ${new Date().toISOString().split('T')[0]}_\n\n---\n\n`;
+  state.competitors.forEach(comp => {
+    md += `# ${comp.name} (${comp.threat.toUpperCase()} THREAT)\n`;
+    md += `Win Rate: ${comp.winRate}% | Pricing: ${comp.price}\n\n`;
+    md += `**Strengths:** ${comp.strengths.join(' · ')}\n`;
+    md += `**Weaknesses:** ${comp.weaknesses.join(' · ')}\n\n`;
+    md += `### Objection Handles\n`;
+    comp.objections.forEach(o => { md += `> "${o.q}"\n→ ${o.a}\n\n`; });
+    md += `### Key Talking Points\n${comp.talkingPoints.map(t => '- ' + t).join('\n')}\n\n`;
+    md += `### Landmines\n${comp.landmines.map(l => '- ⚠️ ' + l).join('\n')}\n\n---\n\n`;
+  });
+
+  showExport('All Battlecards', md);
+}
+
+function showExport(title, text) {
+  document.getElementById('exportTitle').textContent = title;
+  document.getElementById('exportText').textContent = text;
+  document.getElementById('exportModal').classList.add('show');
+}
+
+function closeExport() {
+  document.getElementById('exportModal').classList.remove('show');
+}
+
+function copyExport() {
+  const text = document.getElementById('exportText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('#exportModal .btn.primary');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to Clipboard', 1500);
+  });
+}
+
+// Init
+renderSidebar();
+renderSummary();
+</script>
+</body>
+</html>

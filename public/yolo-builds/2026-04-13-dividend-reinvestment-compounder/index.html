@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dividend Reinvestment Compounder — SIMONS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;--text:#e0e0e8;--muted:#8888a0;--accent:#6c5ce7;--green:#00d2a0;--red:#ff6b6b;--orange:#ffa726;--blue:#42a5f5;--cyan:#26c6da;--chart-bg:#16161f;--yellow:#ffd54f}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600;letter-spacing:-0.5px}
+.header .badge{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;font-weight:500}
+.header .sub{color:var(--muted);font-size:12px;margin-left:auto}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:20px;min-height:calc(100vh - 100px)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-y:auto;max-height:calc(100vh - 100px)}
+.panel h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px}
+.section{margin-bottom:20px}
+.section h3{font-size:12px;color:var(--accent);margin-bottom:8px;font-weight:500}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;margin-top:10px}
+input[type="number"],select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px}
+input[type="range"]{width:100%;accent-color:var(--accent);margin:4px 0}
+.val{font-size:12px;color:var(--text);font-weight:600;float:right}
+.row{display:flex;gap:8px}
+.row>div{flex:1}
+.btn{padding:8px 14px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s;width:100%;margin-top:8px}
+.btn:hover{border-color:var(--accent);background:#1e1e30}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#5a4bd6}
+.btn.preset{padding:5px 10px;width:auto;margin-top:0;font-size:10px}
+.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.right-panel{display:flex;flex-direction:column;gap:16px;overflow-y:auto;max-height:calc(100vh - 100px)}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.metric-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.metric-card .value{font-size:20px;font-weight:700}
+.metric-card .detail{font-size:10px;color:var(--muted);margin-top:2px}
+.delta.pos{color:var(--green)}.delta.neg{color:var(--red)}.delta.warn{color:var(--orange)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column}
+.chart-box.full{grid-column:1/-1}
+.chart-box h3{font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:500}
+canvas{flex:1;width:100%;min-height:220px}
+.table-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-x:auto}
+.table-box h3{font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.data-table{width:100%;border-collapse:collapse;font-size:11px}
+.data-table th{text-align:right;color:var(--muted);font-weight:500;padding:6px 8px;border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.data-table th:first-child{text-align:left}
+.data-table td{padding:6px 8px;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums}
+.data-table td:first-child{text-align:left;color:var(--muted)}
+.data-table tr:last-child td{border:none}
+.data-table tr:hover{background:var(--surface2)}
+.insights{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.insights h3{font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.insight-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5}
+.insight-item:last-child{border:none}
+.insight-icon{font-size:14px;flex-shrink:0;margin-top:1px}
+.disclaimer{font-size:9px;color:var(--muted);margin-top:16px;padding:10px;border:1px solid var(--border);border-radius:6px;line-height:1.6;background:var(--surface)}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.metrics-row{grid-template-columns:repeat(2,1fr)}.charts-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Dividend Reinvestment Compounder</h1>
+  <span class="badge">SIMONS</span>
+  <span class="sub">DRIP modeling · Yield-on-cost · Tax drag analysis</span>
+</div>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Configuration</h2>
+
+    <div class="section">
+      <h3>Quick Presets</h3>
+      <div class="preset-row">
+        <button class="btn preset" onclick="loadPreset('CVX')">CVX</button>
+        <button class="btn preset" onclick="loadPreset('SPG')">SPG</button>
+        <button class="btn preset" onclick="loadPreset('AAPL')">AAPL</button>
+        <button class="btn preset" onclick="loadPreset('KO')">KO</button>
+        <button class="btn preset" onclick="loadPreset('SCHD')">SCHD</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Position</h3>
+      <label>Ticker / Name</label>
+      <input type="text" id="ticker" value="CVX" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px" oninput="recalc()">
+      <div class="row">
+        <div>
+          <label>Shares</label>
+          <input type="number" id="shares" value="10" step="0.01" min="0.01" onchange="recalc()">
+        </div>
+        <div>
+          <label>Current Price ($)</label>
+          <input type="number" id="price" value="155" step="0.01" min="0.01" onchange="recalc()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Annual Div/Share ($)</label>
+          <input type="number" id="divPerShare" value="6.52" step="0.01" min="0" onchange="recalc()">
+        </div>
+        <div>
+          <label>Div Frequency</label>
+          <select id="frequency" onchange="recalc()">
+            <option value="4">Quarterly</option>
+            <option value="12">Monthly</option>
+            <option value="1">Annual</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h3>Growth Assumptions</h3>
+      <label>Dividend Growth Rate (%/yr) <span class="val" id="divGrowthVal">5.0%</span></label>
+      <input type="range" id="divGrowth" min="0" max="15" step="0.5" value="5" oninput="updSlider('divGrowth');recalc()">
+      <label>Price Appreciation (%/yr) <span class="val" id="priceGrowthVal">6.0%</span></label>
+      <input type="range" id="priceGrowth" min="-10" max="20" step="0.5" value="6" oninput="updSlider('priceGrowth');recalc()">
+      <label>Time Horizon (years) <span class="val" id="horizonVal">20</span></label>
+      <input type="range" id="horizon" min="1" max="40" step="1" value="20" oninput="updSlider('horizon');recalc()">
+    </div>
+
+    <div class="section">
+      <h3>Tax & Strategy</h3>
+      <div class="row">
+        <div>
+          <label>Tax Rate (%)</label>
+          <input type="number" id="taxRate" value="15" step="0.5" min="0" max="50" onchange="recalc()">
+        </div>
+        <div>
+          <label>Strategy</label>
+          <select id="strategy" onchange="recalc()">
+            <option value="drip">Full DRIP</option>
+            <option value="partial50">50% Reinvest</option>
+            <option value="cash">All Cash</option>
+          </select>
+        </div>
+      </div>
+      <label>Additional Annual Investment ($)</label>
+      <input type="number" id="annualAdd" value="0" step="100" min="0" onchange="recalc()">
+    </div>
+
+    <button class="btn primary" onclick="recalc()">Recalculate</button>
+  </div>
+
+  <div class="right-panel">
+    <div class="metrics-row" id="metrics"></div>
+    <div class="charts-grid">
+      <div class="chart-box full">
+        <h3>Portfolio Value: DRIP vs. Cash Payout</h3>
+        <canvas id="chartGrowth"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Yield on Cost (%)</h3>
+        <canvas id="chartYOC"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Annual Dividend Income ($)</h3>
+        <canvas id="chartIncome"></canvas>
+      </div>
+    </div>
+    <div class="table-box">
+      <h3>Year-by-Year Projection</h3>
+      <div id="tableContainer"></div>
+    </div>
+    <div class="insights" id="insights"></div>
+    <div class="disclaimer">
+      This tool is for educational and analytical purposes only. It is not financial advice. All projections are based on user-supplied assumptions and do not account for market volatility, dividend cuts, tax law changes, or other real-world factors. Past dividend performance does not guarantee future payments. Consult a qualified financial advisor before making investment decisions. All trading and investing involves risk of loss.
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS = {
+  CVX: { ticker:'CVX', shares:0.42, price:155, divPerShare:6.52, divGrowth:5, priceGrowth:6, frequency:4, taxRate:15 },
+  SPG: { ticker:'SPG', shares:3.64, price:160, divPerShare:8.40, divGrowth:4, priceGrowth:5, frequency:4, taxRate:15 },
+  AAPL: { ticker:'AAPL', shares:5.54, price:195, divPerShare:1.00, divGrowth:7, priceGrowth:8, frequency:4, taxRate:15 },
+  KO: { ticker:'KO', shares:10, price:62, divPerShare:1.94, divGrowth:3, priceGrowth:5, frequency:4, taxRate:15 },
+  SCHD: { ticker:'SCHD', shares:10, price:80, divPerShare:2.70, divGrowth:8, priceGrowth:7, frequency:4, taxRate:15 }
+};
+
+function loadPreset(name) {
+  const p = PRESETS[name];
+  document.getElementById('ticker').value = p.ticker;
+  document.getElementById('shares').value = p.shares;
+  document.getElementById('price').value = p.price;
+  document.getElementById('divPerShare').value = p.divPerShare;
+  document.getElementById('divGrowth').value = p.divGrowth;
+  document.getElementById('priceGrowth').value = p.priceGrowth;
+  document.getElementById('frequency').value = p.frequency;
+  document.getElementById('taxRate').value = p.taxRate;
+  updSlider('divGrowth'); updSlider('priceGrowth');
+  recalc();
+}
+
+function updSlider(id) {
+  const v = document.getElementById(id).value;
+  const el = document.getElementById(id + 'Val');
+  if (id === 'horizon') el.textContent = v;
+  else el.textContent = v + '%';
+}
+
+function getInputs() {
+  return {
+    ticker: document.getElementById('ticker').value || '???',
+    shares: parseFloat(document.getElementById('shares').value) || 0,
+    price: parseFloat(document.getElementById('price').value) || 0,
+    divPerShare: parseFloat(document.getElementById('divPerShare').value) || 0,
+    divGrowth: parseFloat(document.getElementById('divGrowth').value) / 100,
+    priceGrowth: parseFloat(document.getElementById('priceGrowth').value) / 100,
+    horizon: parseInt(document.getElementById('horizon').value) || 1,
+    frequency: parseInt(document.getElementById('frequency').value) || 4,
+    taxRate: parseFloat(document.getElementById('taxRate').value) / 100,
+    strategy: document.getElementById('strategy').value,
+    annualAdd: parseFloat(document.getElementById('annualAdd').value) || 0
+  };
+}
+
+function simulate(inp) {
+  const reinvestPct = inp.strategy === 'drip' ? 1 : inp.strategy === 'partial50' ? 0.5 : 0;
+  const years = inp.horizon;
+  const costBasis = inp.shares * inp.price;
+
+  // DRIP scenario
+  let dShares = inp.shares, dCash = 0, dTotalTax = 0, dTotalDiv = 0;
+  let dripData = [{ year:0, shares:dShares, price:inp.price, divPerShare:inp.divPerShare, annualDiv:0, taxPaid:0, reinvested:0, cashTaken:0, portfolioValue:costBasis, yoc:((inp.divPerShare*dShares)/costBasis)*100, totalDiv:0, totalTax:0 }];
+
+  // Cash scenario
+  let cShares = inp.shares, cCash = 0, cTotalTax = 0, cTotalDiv = 0;
+  let cashData = [{ year:0, shares:cShares, price:inp.price, portfolioValue:costBasis, cashAccum:0 }];
+
+  let curDiv = inp.divPerShare;
+  let curPrice = inp.price;
+
+  for (let y = 1; y <= years; y++) {
+    curDiv *= (1 + inp.divGrowth);
+    curPrice *= (1 + inp.priceGrowth);
+
+    // Additional annual investment (buy shares at new price)
+    if (inp.annualAdd > 0) {
+      const addShares = inp.annualAdd / curPrice;
+      dShares += addShares;
+      cShares += addShares;
+    }
+
+    // DRIP path
+    const dAnnualDivGross = dShares * curDiv;
+    const dTax = dAnnualDivGross * inp.taxRate;
+    const dNet = dAnnualDivGross - dTax;
+    const dReinvest = dNet * reinvestPct;
+    const dCashOut = dNet - dReinvest;
+    // Reinvest: buy fractional shares spread across periods
+    const dNewShares = dReinvest / curPrice;
+    dShares += dNewShares;
+    dCash += dCashOut;
+    dTotalTax += dTax;
+    dTotalDiv += dAnnualDivGross;
+
+    const dPortVal = dShares * curPrice + dCash;
+    const dYoc = costBasis > 0 ? ((curDiv * dShares) / (costBasis + inp.annualAdd * y)) * 100 : 0;
+
+    dripData.push({ year:y, shares:dShares, price:curPrice, divPerShare:curDiv, annualDiv:dAnnualDivGross, taxPaid:dTax, reinvested:dReinvest, cashTaken:dCashOut, portfolioValue:dPortVal, yoc:dYoc, totalDiv:dTotalDiv, totalTax:dTotalTax });
+
+    // Cash path (no reinvestment)
+    const cAnnualDivGross = cShares * curDiv;
+    const cTax = cAnnualDivGross * inp.taxRate;
+    const cNet = cAnnualDivGross - cTax;
+    cCash += cNet;
+    cTotalTax += cTax;
+    cTotalDiv += cAnnualDivGross;
+
+    cashData.push({ year:y, shares:cShares, price:curPrice, portfolioValue:cShares * curPrice + cCash, cashAccum:cCash });
+  }
+
+  return { dripData, cashData, costBasis };
+}
+
+function fmt(n, d=2) { return n.toLocaleString('en-US', { minimumFractionDigits:d, maximumFractionDigits:d }); }
+function fmtD(n) { return '$' + fmt(n); }
+
+function renderMetrics(drip, cash, costBasis) {
+  const last = drip[drip.length-1];
+  const cLast = cash[cash.length-1];
+  const advantage = last.portfolioValue - cLast.portfolioValue;
+  const totalReturn = costBasis > 0 ? ((last.portfolioValue - costBasis) / costBasis * 100) : 0;
+  const cagr = costBasis > 0 ? ((Math.pow(last.portfolioValue / costBasis, 1/last.year) - 1) * 100) : 0;
+
+  document.getElementById('metrics').innerHTML = `
+    <div class="metric-card">
+      <div class="label">DRIP Final Value</div>
+      <div class="value" style="color:var(--green)">${fmtD(last.portfolioValue)}</div>
+      <div class="detail">${fmt(last.shares,2)} shares @ ${fmtD(last.price)}</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">Cash Payout Value</div>
+      <div class="value" style="color:var(--blue)">${fmtD(cLast.portfolioValue)}</div>
+      <div class="detail">${fmt(cLast.shares,2)} shares + ${fmtD(cLast.cashAccum)} cash</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">DRIP Advantage</div>
+      <div class="value ${advantage >= 0 ? 'delta pos' : 'delta neg'}">${advantage >= 0 ? '+' : ''}${fmtD(advantage)}</div>
+      <div class="detail">${costBasis > 0 ? fmt(advantage / costBasis * 100,1) : '0.0'}% of cost basis</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">DRIP CAGR</div>
+      <div class="value" style="color:var(--cyan)">${fmt(cagr,1)}%</div>
+      <div class="detail">Total return: ${fmt(totalReturn,1)}%</div>
+    </div>
+  `;
+}
+
+function drawLine(ctx, w, h, datasets, xLabels, opts={}) {
+  const pad = { top:20, right:20, bottom:30, left:60 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim();
+  ctx.fillRect(0, 0, w, h);
+
+  // Find range
+  let minV = Infinity, maxV = -Infinity;
+  datasets.forEach(ds => ds.data.forEach(v => { if (v < minV) minV = v; if (v > maxV) maxV = v; }));
+  if (minV === maxV) { minV -= 1; maxV += 1; }
+  const rangeV = maxV - minV;
+  const padV = rangeV * 0.08;
+  minV -= padV; maxV += padV;
+
+  // Grid lines
+  ctx.strokeStyle = '#1e1e2e';
+  ctx.lineWidth = 1;
+  const gridN = 5;
+  for (let i = 0; i <= gridN; i++) {
+    const y = pad.top + ch - (i / gridN) * ch;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    const val = minV + (i / gridN) * (maxV - minV);
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '10px SF Mono, Monaco, monospace';
+    ctx.textAlign = 'right';
+    const label = opts.pct ? fmt(val,1) + '%' : (val >= 1000 ? '$' + (val/1000).toFixed(1) + 'k' : '$' + fmt(val,0));
+    ctx.fillText(label, pad.left - 6, y + 3);
+  }
+
+  // X labels
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(xLabels.length / 10));
+  for (let i = 0; i < xLabels.length; i += step) {
+    const x = pad.left + (i / (xLabels.length - 1)) * cw;
+    ctx.fillStyle = '#8888a0';
+    ctx.fillText(xLabels[i], x, h - 8);
+  }
+
+  // Lines
+  datasets.forEach(ds => {
+    ctx.strokeStyle = ds.color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ds.data.forEach((v, i) => {
+      const x = pad.left + (i / (ds.data.length - 1)) * cw;
+      const y = pad.top + ch - ((v - minV) / (maxV - minV)) * ch;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Fill area
+    if (ds.fill) {
+      ctx.globalAlpha = 0.08;
+      ctx.fillStyle = ds.color;
+      const lastX = pad.left + cw;
+      ctx.lineTo(lastX, pad.top + ch);
+      ctx.lineTo(pad.left, pad.top + ch);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  });
+
+  // Legend
+  let lx = pad.left + 8;
+  datasets.forEach(ds => {
+    ctx.fillStyle = ds.color;
+    ctx.fillRect(lx, pad.top + 4, 12, 3);
+    ctx.fillStyle = '#e0e0e8';
+    ctx.font = '10px SF Mono, Monaco, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(ds.label, lx + 16, pad.top + 10);
+    lx += ctx.measureText(ds.label).width + 34;
+  });
+}
+
+function drawBars(ctx, w, h, data, labels, color, opts={}) {
+  const pad = { top:20, right:20, bottom:30, left:60 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--chart-bg').trim();
+  ctx.fillRect(0, 0, w, h);
+
+  let maxV = Math.max(...data) * 1.1;
+  if (maxV <= 0) maxV = 1;
+
+  const barW = Math.max(2, (cw / data.length) * 0.6);
+  const gap = (cw / data.length) * 0.4;
+
+  // Grid
+  ctx.strokeStyle = '#1e1e2e';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.top + ch - (i / 4) * ch;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(pad.left + cw, y); ctx.stroke();
+    const val = (i / 4) * maxV;
+    ctx.fillStyle = '#8888a0';
+    ctx.font = '10px SF Mono, Monaco, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(opts.pct ? fmt(val,1)+'%' : '$'+fmt(val,0), pad.left - 6, y + 3);
+  }
+
+  // Bars
+  data.forEach((v, i) => {
+    const x = pad.left + (i / data.length) * cw + gap / 2;
+    const bh = (v / maxV) * ch;
+    const y = pad.top + ch - bh;
+
+    const grad = ctx.createLinearGradient(x, y, x, pad.top + ch);
+    grad.addColorStop(0, color);
+    grad.addColorStop(1, color + '33');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, barW, bh);
+  });
+
+  // X labels
+  ctx.fillStyle = '#8888a0';
+  ctx.font = '10px SF Mono, Monaco, monospace';
+  ctx.textAlign = 'center';
+  const step = Math.max(1, Math.floor(labels.length / 10));
+  for (let i = 0; i < labels.length; i += step) {
+    const x = pad.left + (i / data.length) * cw + barW / 2 + gap / 2;
+    ctx.fillText(labels[i], x, h - 8);
+  }
+}
+
+function renderTable(drip) {
+  let html = '<table class="data-table"><thead><tr>';
+  html += '<th>Year</th><th>Shares</th><th>Price</th><th>Div/Share</th><th>Annual Div</th><th>Tax</th><th>Reinvested</th><th>Cash</th><th>Portfolio</th><th>YOC</th>';
+  html += '</tr></thead><tbody>';
+  drip.forEach(r => {
+    if (r.year === 0) return;
+    html += `<tr>
+      <td>Yr ${r.year}</td>
+      <td>${fmt(r.shares,2)}</td>
+      <td>${fmtD(r.price)}</td>
+      <td>${fmtD(r.divPerShare)}</td>
+      <td style="color:var(--green)">${fmtD(r.annualDiv)}</td>
+      <td style="color:var(--red)">${fmtD(r.taxPaid)}</td>
+      <td style="color:var(--cyan)">${fmtD(r.reinvested)}</td>
+      <td>${fmtD(r.cashTaken)}</td>
+      <td style="color:var(--green);font-weight:600">${fmtD(r.portfolioValue)}</td>
+      <td style="color:var(--yellow)">${fmt(r.yoc,2)}%</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  document.getElementById('tableContainer').innerHTML = html;
+}
+
+function renderInsights(drip, cash, inp) {
+  const last = drip[drip.length-1];
+  const cLast = cash[cash.length-1];
+  const items = [];
+
+  // Doubling time
+  const doublingYear = drip.find(r => r.portfolioValue >= inp.shares * inp.price * 2);
+  if (doublingYear) items.push({ icon:'&#x23F1;', text:`DRIP doubles initial investment in Year ${doublingYear.year}` });
+  else items.push({ icon:'&#x23F1;', text:`Investment does not double within ${inp.horizon} years — consider longer horizon or higher growth assumptions` });
+
+  // YOC milestone
+  const yoc10 = drip.find(r => r.yoc >= 10);
+  if (yoc10) items.push({ icon:'&#x1F4C8;', text:`Yield-on-cost reaches 10% in Year ${yoc10.year} — your cost basis is earning a 10% dividend yield` });
+
+  // Tax drag
+  const totalTaxDrip = last.totalTax;
+  items.push({ icon:'&#x1F4B8;', text:`Total tax paid over ${inp.horizon} years: ${fmtD(totalTaxDrip)} (${fmt(totalTaxDrip / last.totalDiv * 100, 1)}% of gross dividends)` });
+
+  // DRIP advantage
+  const adv = last.portfolioValue - cLast.portfolioValue;
+  if (adv > 0) items.push({ icon:'&#x2705;', text:`DRIP outperforms cash payout by ${fmtD(adv)} — compounding reinvested dividends at rising prices creates exponential separation` });
+  else if (adv < 0) items.push({ icon:'&#x26A0;', text:`Cash payout outperforms DRIP by ${fmtD(Math.abs(adv))} — possible in negative price appreciation scenarios` });
+
+  // Share count growth
+  const shareGrowth = ((last.shares - inp.shares) / inp.shares * 100);
+  if (shareGrowth > 0) items.push({ icon:'&#x1F4CA;', text:`Share count grew ${fmt(shareGrowth,1)}%: ${fmt(inp.shares,2)} → ${fmt(last.shares,2)} shares through reinvestment` });
+
+  // Final income
+  items.push({ icon:'&#x1F4B0;', text:`Year ${inp.horizon} annual dividend income: ${fmtD(last.annualDiv)} gross (${fmtD(last.annualDiv * (1 - inp.taxRate))} after tax)` });
+
+  let html = '<h3>Signal Analysis</h3>';
+  items.forEach(i => { html += `<div class="insight-item"><span class="insight-icon">${i.icon}</span><span>${i.text}</span></div>`; });
+  document.getElementById('insights').innerHTML = html;
+}
+
+function recalc() {
+  const inp = getInputs();
+  const { dripData, cashData, costBasis } = simulate(inp);
+
+  renderMetrics(dripData, cashData, costBasis);
+
+  // Growth chart
+  const c1 = document.getElementById('chartGrowth');
+  c1.width = c1.parentElement.clientWidth - 32;
+  c1.height = 280;
+  const labels = dripData.map(r => 'Yr ' + r.year);
+  drawLine(c1.getContext('2d'), c1.width, c1.height, [
+    { label: 'DRIP', data: dripData.map(r => r.portfolioValue), color: '#00d2a0', fill: true },
+    { label: 'Cash Payout', data: cashData.map(r => r.portfolioValue), color: '#42a5f5', fill: false }
+  ], labels);
+
+  // YOC chart
+  const c2 = document.getElementById('chartYOC');
+  c2.width = c2.parentElement.clientWidth - 32;
+  c2.height = 220;
+  const yocData = dripData.slice(1).map(r => r.yoc);
+  const yocLabels = dripData.slice(1).map(r => 'Yr ' + r.year);
+  drawBars(c2.getContext('2d'), c2.width, c2.height, yocData, yocLabels, '#ffd54f', { pct: true });
+
+  // Income chart
+  const c3 = document.getElementById('chartIncome');
+  c3.width = c3.parentElement.clientWidth - 32;
+  c3.height = 220;
+  const incData = dripData.slice(1).map(r => r.annualDiv);
+  const incLabels = dripData.slice(1).map(r => 'Yr ' + r.year);
+  drawBars(c3.getContext('2d'), c3.width, c3.height, incData, incLabels, '#00d2a0');
+
+  renderTable(dripData);
+  renderInsights(dripData, cashData, inp);
+}
+
+// Init
+updSlider('divGrowth');
+updSlider('priceGrowth');
+updSlider('horizon');
+recalc();
+window.addEventListener('resize', recalc);
+</script>
+</body>
+</html>

@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VIBE-SYNC | Community Pulse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@200;300;400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: rgba(18, 18, 26, 0.8);
+      --accent-cyan: #00f5d4;
+      --accent-magenta: #ff006e;
+      --accent-yellow: #ffb703;
+      --accent-lavender: #9b5de5;
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.6);
+      --text-muted: rgba(255, 255, 255, 0.3);
+      --glass: rgba(255, 255, 255, 0.03);
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* Animated Background Grid */
+    .bg-grid {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(155, 93, 229, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(155, 93, 229, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Floating Orbs */
+    .orb {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.4;
+      animation: float 20s ease-in-out infinite;
+      z-index: 0;
+    }
+    .orb-1 { width: 400px; height: 400px; background: var(--accent-cyan); top: 10%; left: -5%; animation-delay: 0s; }
+    .orb-2 { width: 300px; height: 300px; background: var(--accent-magenta); top: 60%; right: -5%; animation-delay: -7s; }
+    .orb-3 { width: 250px; height: 250px; background: var(--accent-lavender); bottom: 10%; left: 30%; animation-delay: -14s; }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      25% { transform: translate(30px, -30px) scale(1.1); }
+      50% { transform: translate(-20px, 40px) scale(0.9); }
+      75% { transform: translate(40px, 20px) scale(1.05); }
+    }
+
+    /* Header */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 2rem 3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-lavender));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .logo::before {
+      content: '';
+      position: absolute;
+      inset: 2px;
+      background: var(--bg-secondary);
+      border-radius: 10px;
+    }
+
+    .logo::after {
+      content: '◉';
+      font-size: 20px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-lavender));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      position: relative;
+      z-index: 1;
+    }
+
+    .brand-text h1 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text span {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 1.25rem;
+      background: rgba(0, 245, 212, 0.1);
+      border: 1px solid rgba(0, 245, 212, 0.2);
+      border-radius: 50px;
+      font-size: 0.875rem;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent-cyan);
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.2); }
+    }
+
+    /* Ultra Linear Main Layout */
+    main {
+      position: relative;
+      z-index: 10;
+      padding: 2rem 3rem;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Hero Section - The Pulse */
+    .pulse-container {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 3rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pulse-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 2rem;
+    }
+
+    .pulse-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .pulse-subtitle {
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+    }
+
+    .vibe-score {
+      text-align: right;
+    }
+
+    .vibe-number {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 4rem;
+      font-weight: 700;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .vibe-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    /* Wave Visualization */
+    .wave-container {
+      height: 200px;
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      padding: 1rem 0;
+    }
+
+    .wave-bar {
+      flex: 1;
+      background: linear-gradient(to top, var(--accent-cyan), transparent);
+      border-radius: 4px 4px 0 0;
+      transition: height 0.3s ease;
+      opacity: 0.7;
+      min-height: 2px;
+    }
+
+    .wave-bar:nth-child(3n) {
+      background: linear-gradient(to top, var(--accent-magenta), transparent);
+    }
+
+    .wave-bar:nth-child(5n) {
+      background: linear-gradient(to top, var(--accent-lavender), transparent);
+    }
+
+    /* Stats Row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+    }
+
+    .stat-card {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.75rem;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .stat-card:nth-child(1) .stat-icon { background: rgba(0, 245, 212, 0.1); }
+    .stat-card:nth-child(2) .stat-icon { background: rgba(255, 0, 110, 0.1); }
+    .stat-card:nth-child(3) .stat-icon { background: rgba(255, 183, 3, 0.1); }
+    .stat-card:nth-child(4) .stat-icon { background: rgba(155, 93, 229, 0.1); }
+
+    .stat-card:nth-child(1) .stat-icon { color: var(--accent-cyan); }
+    .stat-card:nth-child(2) .stat-icon { color: var(--accent-magenta); }
+    .stat-card:nth-child(3) .stat-icon { color: var(--accent-yellow); }
+    .stat-card:nth-child(4) .stat-icon { color: var(--accent-lavender); }
+
+    .stat-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+    }
+
+    .stat-change {
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+    }
+
+    .stat-change.positive { color: var(--accent-cyan); }
+    .stat-change.negative { color: var(--accent-magenta); }
+
+    /* Sentiment Flow */
+    .flow-section {
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 2.5rem;
+      position: relative;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .section-title {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .flow-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .flow-item {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 1.25rem 1.5rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 16px;
+      border-left: 3px solid transparent;
+      transition: all 0.3s ease;
+    }
+
+    .flow-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .flow-item.sentiment-excited { border-left-color: var(--accent-cyan); }
+    .flow-item.sentiment-concerned { border-left-color: var(--accent-yellow); }
+    .flow-item.sentiment-confused { border-left-color: var(--accent-magenta); }
+
+    .flow-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent-lavender), var(--accent-magenta));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .flow-content {
+      flex: 1;
+    }
+
+    .flow-message {
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+      line-height: 1.5;
+    }
+
+    .flow-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .flow-sentiment {
+      padding: 0.375rem 0.875rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .sentiment-excited .flow-sentiment {
+      background: rgba(0, 245, 212, 0.1);
+      color: var(--accent-cyan);
+    }
+    .sentiment-concerned .flow-sentiment {
+      background: rgba(255, 183, 3, 0.1);
+      color: var(--accent-yellow);
+    }
+    .sentiment-confused .flow-sentiment {
+      background: rgba(255, 0, 110, 0.1);
+      color: var(--accent-magenta);
+    }
+
+    /* Action Bar */
+    .action-bar {
+      display: flex;
+      gap: 1rem;
+      padding: 1.5rem;
+      background: var(--glass);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+    }
+
+    .action-btn {
+      flex: 1;
+      padding: 1rem 1.5rem;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-primary);
+      font-family: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.15);
+      transform: translateY(-2px);
+    }
+
+    .action-btn.primary {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-lavender));
+      border-color: transparent;
+      font-weight: 500;
+    }
+
+    .action-btn.primary:hover {
+      opacity: 0.9;
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .stats-row {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      header {
+        padding: 1.5rem;
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+      }
+
+      main {
+        padding: 1.5rem;
+      }
+
+      .pulse-container {
+        padding: 1.5rem;
+      }
+
+      .pulse-header {
+        flex-direction: column;
+        gap: 1.5rem;
+      }
+
+      .vibe-score {
+        text-align: left;
+      }
+
+      .stats-row {
+        grid-template-columns: 1fr;
+      }
+
+      .vibe-number {
+        font-size: 3rem;
+      }
+
+      .flow-item {
+        flex-wrap: wrap;
+      }
+    }
+
+    /* Glitch effect on hover for brand */
+    .brand:hover .logo::after {
+      animation: glitch 0.3s ease-in-out;
+    }
+
+    @keyframes glitch {
+      0% { transform: translate(0); }
+      20% { transform: translate(-2px, 2px); }
+      40% { transform: translate(-2px, -2px); }
+      60% { transform: translate(2px, 2px); }
+      80% { transform: translate(2px, -2px); }
+      100% { transform: translate(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div class="brand-text">
+        <h1>VIBE-SYNC</h1>
+        <span>Community Pulse Monitor</span>
+      </div>
+    </div>
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      <span>LIVE</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Pulse Section -->
+    <section class="pulse-container">
+      <div class="pulse-header">
+        <div>
+          <h2 class="pulse-title">Community Vibe</h2>
+          <p class="pulse-subtitle">Real-time sentiment from Telegram, Discord, LinkedIn</p>
+        </div>
+        <div class="vibe-score">
+          <div class="vibe-number" id="vibeScore">87</div>
+          <div class="vibe-label">Vibe Score</div>
+        </div>
+      </div>
+      <div class="wave-container" id="waveContainer">
+        <!-- Wave bars generated by JS -->
+      </div>
+    </section>
+
+    <!-- Stats Row -->
+    <section class="stats-row">
+      <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div class="stat-value" id="activeMembers">2,847</div>
+        <div class="stat-label">Active Members</div>
+        <span class="stat-change positive">↑ 12% vs last week</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">💬</div>
+        <div class="stat-value" id="messagesToday">14.2K</div>
+        <div class="stat-label">Messages Today</div>
+        <span class="stat-change positive">↑ 8% vs yesterday</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⭐</div>
+        <div class="stat-value" id="newJoins">+156</div>
+        <div class="stat-label">New Joins (7d)</div>
+        <span class="stat-change positive">↑ 23% vs last week</span>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon">⚡</div>
+        <div class="stat-value" id="responseTime">42s</div>
+        <div class="stat-label">Avg Response Time</div>
+        <span class="stat-change positive">↓ 18% vs last week</span>
+      </div>
+    </section>
+
+    <!-- Sentiment Flow -->
+    <section class="flow-section">
+      <div class="section-header">
+        <h2 class="section-title">Live Sentiment Flow</h2>
+      </div>
+      <div class="flow-list" id="sentimentFlow">
+        <!-- Populated by JS -->
+      </div>
+    </section>
+
+    <!-- Action Bar -->
+    <section class="action-bar">
+      <button class="action-btn primary" onclick="triggerPulse()">📡 Capture Pulse Snapshot</button>
+      <button class="action-btn" onclick="showInsights()">📊 View Insights</button>
+      <button class="action-btn" onclick="exportReport()">📥 Export Report</button>
+    </section>
+  </main>
+
+  <script>
+    // Wave bar generation
+    const waveContainer = document.getElementById('waveContainer');
+    const barCount = 60;
+    const bars = [];
+
+    for (let i = 0; i < barCount; i++) {
+      const bar = document.createElement('div');
+      bar.className = 'wave-bar';
+      bar.style.height = Math.random() * 30 + 5 + '%';
+      waveContainer.appendChild(bar);
+      bars.push(bar);
+    }
+
+    // Animate waves
+    function animateWaves() {
+      bars.forEach((bar, i) => {
+        const time = Date.now() * 0.002;
+        const height = 20 + Math.sin(time + i * 0.3) * 15 + Math.random() * 10;
+        bar.style.height = Math.max(5, Math.min(95, height)) + '%';
+      });
+    }
+
+    setInterval(animateWaves, 100);
+
+    // Generate sentiment items
+    const sentimentData = [
+      { emoji: '🎉', message: 'Just shipped my first YOLO build! The community here is incredible!', platform: 'Discord #general', sentiment: 'excited', time: '2m ago' },
+      { emoji: '💡', message: 'Would love to see more resources on community engagement strategies', platform: 'Telegram RAMICHE HQ', sentiment: 'concerned', time: '5m ago' },
+      { emoji: '🚀', message: 'This sentiment dashboard is exactly what we needed!', platform: 'Discord #showcase', sentiment: 'excited', time: '8m ago' },
+      { emoji: '🤔', message: 'Question about the new automation workflow...', platform: 'Discord #help', sentiment: 'confused', time: '12m ago' },
+      { emoji: '🔥', message: '13 YOLO builds in one night? Nova is legendary!', platform: 'Telegram RAMICHE HQ', sentiment: 'excited', time: '15m ago' },
+    ];
+
+    const flowContainer = document.getElementById('sentimentFlow');
+
+    function renderSentimentFlow() {
+      flowContainer.innerHTML = sentimentData.map(item => `
+        <div class="flow-item sentiment-${item.sentiment}">
+          <div class="flow-avatar">${item.emoji}</div>
+          <div class="flow-content">
+            <div class="flow-message">${item.message}</div>
+            <div class="flow-meta">${item.platform} • ${item.time}</div>
+          </div>
+          <span class="flow-sentiment">${item.sentiment}</span>
+        </div>
+      `).join('');
+    }
+
+    renderSentimentFlow();
+
+    // Vibe score animation
+    function updateVibeScore() {
+      const scoreEl = document.getElementById('vibeScore');
+      const baseScore = 87;
+      const variance = Math.floor(Math.random() * 5) - 2;
+      const newScore = Math.max(70, Math.min(100, baseScore + variance));
+      scoreEl.textContent = newScore;
+    }
+
+    setInterval(updateVibeScore, 3000);
+
+    // Stat counters animation
+    function animateCounter(elementId, target) {
+      const el = document.getElementById(elementId);
+      const num = parseFloat(target.replace(/[^0-9.]/g, ''));
+      const suffix = target.replace(/[0-9.]/g, '');
+      let current = 0;
+      const increment = num / 30;
+      
+      const timer = setInterval(() => {
+        current += increment;
+        if (current >= num) {
+          el.textContent = target;
+          clearInterval(timer);
+        } else {
+          el.textContent = Math.floor(current) + suffix;
+        }
+      }, 50);
+    }
+
+    // Trigger pulse snapshot
+    function triggerPulse() {
+      const btn = document.querySelector('.action-btn.primary');
+      const originalText = btn.innerHTML;
+      btn.innerHTML = '✓ Snapshot Captured!';
+      btn.style.opacity = '0.8';
+      
+      setTimeout(() => {
+        btn.innerHTML = originalText;
+        btn.style.opacity = '1';
+      }, 2000);
+
+      // Add new sentiment item
+      const newItem = {
+        emoji: '📸',
+        message: 'Pulse snapshot captured - community health report generated!',
+        platform: 'VIBE-SYNC System',
+        sentiment: 'excited',
+        time: 'Just now'
+      };
+      sentimentData.unshift(newItem);
+      if (sentimentData.length > 5) sentimentData.pop();
+      renderSentimentFlow();
+    }
+
+    function showInsights() {
+      const btn = event.target;
+      btn.innerHTML = 'Opening insights...';
+      setTimeout(() => {
+        btn.innerHTML = '📊 View Insights';
+        alert('Insights dashboard would open here with detailed analytics!');
+      }, 800);
+    }
+
+    function exportReport() {
+      const btn = event.target;
+      btn.innerHTML = 'Generating...';
+      setTimeout(() => {
+        btn.innerHTML = '✓ Downloaded!';
+        setTimeout(() => {
+          btn.innerHTML = '📥 Export Report';
+        }, 1500);
+      }, 1000);
+    }
+
+    // Add subtle parallax on mouse move
+    document.addEventListener('mousemove', (e) => {
+      const orbs = document.querySelectorAll('.orb');
+      const x = e.clientX / window.innerWidth;
+      const y = e.clientY / window.innerHeight;
+      
+      orbs.forEach((orb, i) => {
+        const speed = (i + 1) * 10;
+        orb.style.transform = `translate(${x * speed}px, ${y * speed}px)`;
+      });
+    });
+
+    // Random sentiment updates
+    setInterval(() => {
+      if (Math.random() > 0.7) {
+        const emotions = ['excited', 'concerned', 'confused'];
+        const messages = [
+          { emoji: '💬', text: 'Loving the new community vibes today!' },
+          { emoji: '🚀', text: 'Another build shipped! Progress feels good.' },
+          { emoji: '✨', text: 'The team here is so supportive, thank you!' },
+          { emoji: '🎯', text: 'Need feedback on my latest YOLO idea...' },
+        ];
+        const platforms = ['Discord #general', 'Telegram RAMICHE HQ', 'Discord #showcase'];
+        
+        const msg = messages[Math.floor(Math.random() * messages.length)];
+        const newItem = {
+          emoji: msg.emoji,
+          message: msg.text,
+          platform: platforms[Math.floor(Math.random() * platforms.length)],
+          sentiment: emotions[Math.floor(Math.random() * 2)], // favor excited/concerned
+          time: 'Just now'
+        };
+        
+        sentimentData.unshift(newItem);
+        if (sentimentData.length > 5) sentimentData.pop();
+        renderSentimentFlow();
+      }
+    }, 8000);
+  </script>
+</body>
+</html>

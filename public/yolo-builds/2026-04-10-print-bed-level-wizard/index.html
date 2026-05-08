@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA Print Bed Level Wizard</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--card:#1a1a2e;--border:#2a2a3e;
+  --text:#e0e0e8;--dim:#888;--accent:#00d4aa;--accent2:#7c5cfc;
+  --warn:#ff6b4a;--good:#00e676;--mid:#ffd54f;
+  --glow:0 0 20px rgba(0,212,170,0.15);
+}
+body{font-family:'SF Mono',ui-monospace,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.app{max-width:960px;margin:0 auto;padding:24px 20px 80px}
+header{text-align:center;margin-bottom:32px}
+header h1{font-size:1.6rem;font-weight:700;letter-spacing:-0.5px;color:var(--accent)}
+header p{color:var(--dim);font-size:0.8rem;margin-top:6px}
+
+.step-indicator{display:flex;justify-content:center;gap:8px;margin-bottom:32px}
+.step-dot{width:10px;height:10px;border-radius:50%;background:var(--border);transition:all 0.3s}
+.step-dot.active{background:var(--accent);box-shadow:0 0 8px rgba(0,212,170,0.5)}
+.step-dot.done{background:var(--good)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;box-shadow:var(--glow)}
+.card h2{font-size:1.1rem;margin-bottom:12px;color:var(--accent)}
+.card h3{font-size:0.95rem;margin-bottom:8px;color:var(--text)}
+.card p{color:var(--dim);font-size:0.82rem;line-height:1.6}
+
+/* 3D Bed Visualization */
+.bed-container{position:relative;width:100%;max-width:500px;margin:20px auto;aspect-ratio:1;perspective:800px}
+.bed-3d{width:100%;height:100%;transform-style:preserve-3d;transform:rotateX(55deg) rotateZ(-20deg);transition:transform 0.5s}
+.bed-surface{position:absolute;width:80%;height:80%;left:10%;top:10%;background:linear-gradient(135deg,#1e1e3a,#2a2a4e);border:2px solid var(--border);border-radius:4px;transform-style:preserve-3d}
+.bed-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(5,1fr);grid-template-rows:repeat(5,1fr);gap:1px}
+.grid-cell{border:1px solid rgba(255,255,255,0.05);border-radius:2px;transition:all 0.4s}
+
+/* Corner Points */
+.corner-point{position:absolute;width:28px;height:28px;border-radius:50%;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:0.6rem;font-weight:700;cursor:pointer;transition:all 0.3s;z-index:10;background:var(--card)}
+.corner-point:hover{transform:scale(1.2);box-shadow:0 0 12px rgba(0,212,170,0.4)}
+.corner-point.selected{border-color:var(--accent2);background:var(--accent2);color:#fff}
+.corner-point.level-good{border-color:var(--good);color:var(--good)}
+.corner-point.level-warn{border-color:var(--mid);color:var(--mid)}
+.corner-point.level-bad{border-color:var(--warn);color:var(--warn)}
+.cp-fl{top:5%;left:5%}.cp-fr{top:5%;right:5%}
+.cp-bl{bottom:5%;left:5%}.cp-br{bottom:5%;right:5%}
+.cp-center{top:50%;left:50%;transform:translate(-50%,-50%)}
+
+/* Mesh Grid Viz */
+.mesh-viz{position:relative;width:100%;max-width:420px;margin:16px auto;aspect-ratio:1}
+.mesh-canvas{width:100%;height:100%;border-radius:8px;background:var(--surface)}
+
+/* Controls */
+.controls{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.btn{padding:10px 20px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:0.8rem;cursor:pointer;transition:all 0.2s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{background:#00e6b8}
+.btn:disabled{opacity:0.4;cursor:not-allowed}
+
+/* Adjustment Panel */
+.adjust-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.adjust-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;text-align:center}
+.adjust-card .label{font-size:0.7rem;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.adjust-card .value{font-size:1.6rem;font-weight:700;font-variant-numeric:tabular-nums}
+.adjust-card .unit{font-size:0.7rem;color:var(--dim);margin-left:2px}
+.adjust-card .direction{font-size:0.75rem;margin-top:6px;font-weight:600}
+.val-good{color:var(--good)}.val-warn{color:var(--mid)}.val-bad{color:var(--warn)}
+
+/* Slider */
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:var(--border);outline:none;margin:12px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);cursor:pointer}
+
+/* Progress Bar */
+.progress-bar{width:100%;height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin:12px 0}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width 0.4s}
+
+/* Stats Row */
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.stat{text-align:center;padding:12px;background:var(--surface);border-radius:8px;border:1px solid var(--border)}
+.stat .num{font-size:1.3rem;font-weight:700;color:var(--accent)}
+.stat .lbl{font-size:0.65rem;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
+
+/* Tilt Compass */
+.compass{position:relative;width:140px;height:140px;margin:16px auto;border-radius:50%;border:2px solid var(--border);background:var(--surface)}
+.compass-needle{position:absolute;width:4px;height:50px;left:50%;bottom:50%;transform-origin:bottom center;background:linear-gradient(to top,var(--warn),var(--accent));border-radius:2px;transition:transform 0.5s}
+.compass-center{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--accent);top:50%;left:50%;transform:translate(-50%,-50%)}
+.compass-label{position:absolute;font-size:0.6rem;color:var(--dim)}
+.cl-n{top:6px;left:50%;transform:translateX(-50%)}
+.cl-s{bottom:6px;left:50%;transform:translateX(-50%)}
+.cl-e{right:6px;top:50%;transform:translateY(-50%)}
+.cl-w{left:6px;top:50%;transform:translateY(-50%)}
+
+/* Heatmap Legend */
+.legend{display:flex;align-items:center;justify-content:center;gap:8px;margin:12px 0;font-size:0.7rem;color:var(--dim)}
+.legend-bar{width:120px;height:8px;border-radius:4px;background:linear-gradient(90deg,#00e676,#ffd54f,#ff6b4a)}
+
+/* Step Content */
+.step{display:none}.step.active{display:block}
+
+/* Animations */
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+.pulsing{animation:pulse 1.5s infinite}
+
+/* Mobile */
+@media(max-width:600px){
+  .adjust-panel{grid-template-columns:1fr}
+  .stats-row{grid-template-columns:1fr}
+  header h1{font-size:1.3rem}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>NOVA Print Bed Level Wizard</h1>
+    <p>Interactive bed leveling guide with mesh visualization</p>
+  </header>
+
+  <div class="step-indicator" id="stepIndicator"></div>
+
+  <!-- Step 1: Overview -->
+  <div class="step active" id="step-0">
+    <div class="card">
+      <h2>Before You Start</h2>
+      <p>This wizard guides you through manual bed leveling with real-time mesh visualization. Works with any FDM printer — Bambu Lab, Creality, Prusa, or custom builds.</p>
+      <br>
+      <h3>What You'll Need</h3>
+      <p>• A sheet of standard printer paper (0.1mm thickness)<br>
+         • Access to your printer's corner adjustment knobs<br>
+         • 5-10 minutes of patience</p>
+      <br>
+      <h3>How It Works</h3>
+      <p>You'll measure the nozzle-to-bed gap at 5 points (4 corners + center). The wizard calculates tilt, generates a mesh deviation map, and tells you exactly which knobs to turn and by how much.</p>
+      <div class="controls" style="margin-top:20px">
+        <button class="btn primary" onclick="nextStep()">Start Leveling →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 2: Measure Points -->
+  <div class="step" id="step-1">
+    <div class="card">
+      <h2>Measure Corner Heights</h2>
+      <p>Slide the paper under the nozzle at each point. Use the slider to record how tight the paper feels — from loose (gap too big) to tight (nozzle too close).</p>
+
+      <div class="bed-container">
+        <div class="bed-3d" id="bed3d">
+          <div class="bed-surface" id="bedSurface">
+            <div class="bed-grid" id="bedGrid"></div>
+          </div>
+          <div class="corner-point cp-fl" onclick="selectPoint(0)" id="cp0">FL</div>
+          <div class="corner-point cp-fr" onclick="selectPoint(1)" id="cp1">FR</div>
+          <div class="corner-point cp-bl" onclick="selectPoint(2)" id="cp2">BL</div>
+          <div class="corner-point cp-br" onclick="selectPoint(3)" id="cp3">BR</div>
+          <div class="corner-point cp-center" onclick="selectPoint(4)" id="cp4">C</div>
+        </div>
+      </div>
+
+      <div id="measurePanel" style="display:none">
+        <div class="card" style="border-color:var(--accent2)">
+          <h3 id="measureTitle">Front-Left Corner</h3>
+          <p id="measureDesc">Slide paper under nozzle. Rate the friction:</p>
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--dim);margin-top:8px">
+            <span>Too Loose</span><span>Perfect</span><span>Too Tight</span>
+          </div>
+          <input type="range" min="-0.3" max="0.3" step="0.01" value="0" id="heightSlider" oninput="updateMeasurement()">
+          <div style="text-align:center">
+            <span id="measureValue" style="font-size:1.4rem;font-weight:700;color:var(--accent)">0.00</span>
+            <span class="unit">mm offset</span>
+          </div>
+          <div class="controls">
+            <button class="btn" onclick="confirmMeasurement()">Confirm & Next Point →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-bar"><div class="progress-fill" id="measureProgress" style="width:0%"></div></div>
+      <p style="text-align:center;font-size:0.75rem;color:var(--dim)"><span id="pointsDone">0</span>/5 points measured</p>
+
+      <div class="controls">
+        <button class="btn" onclick="prevStep()">← Back</button>
+        <button class="btn primary" id="toAnalysis" onclick="nextStep()" disabled>Analyze Mesh →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 3: Mesh Analysis -->
+  <div class="step" id="step-2">
+    <div class="card">
+      <h2>Mesh Deviation Analysis</h2>
+      <p>Interpolated bed mesh from your 5 measurements. Colors show deviation from ideal plane.</p>
+
+      <div class="legend">
+        <span>Low (close)</span>
+        <div class="legend-bar"></div>
+        <span>High (far)</span>
+      </div>
+
+      <canvas class="mesh-canvas" id="meshCanvas" width="400" height="400"></canvas>
+
+      <div class="stats-row">
+        <div class="stat">
+          <div class="num" id="statMax">—</div>
+          <div class="lbl">Max Deviation</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="statRange">—</div>
+          <div class="lbl">Total Range</div>
+        </div>
+        <div class="stat">
+          <div class="num" id="statScore">—</div>
+          <div class="lbl">Level Score</div>
+        </div>
+      </div>
+
+      <h3 style="margin-top:20px">Bed Tilt Direction</h3>
+      <div class="compass">
+        <span class="compass-label cl-n">N</span>
+        <span class="compass-label cl-s">S</span>
+        <span class="compass-label cl-e">E</span>
+        <span class="compass-label cl-w">W</span>
+        <div class="compass-needle" id="tiltNeedle"></div>
+        <div class="compass-center"></div>
+      </div>
+      <p style="text-align:center;font-size:0.8rem;color:var(--dim)" id="tiltDesc">Calculating...</p>
+
+      <div class="controls">
+        <button class="btn" onclick="prevStep()">← Back</button>
+        <button class="btn primary" onclick="nextStep()">Get Adjustments →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 4: Adjustment Guide -->
+  <div class="step" id="step-3">
+    <div class="card">
+      <h2>Adjustment Instructions</h2>
+      <p>Turn the leveling knobs as indicated below. Quarter-turn ≈ 0.1mm on most printers.</p>
+
+      <div class="adjust-panel" id="adjustPanel"></div>
+
+      <div class="card" style="margin-top:16px;border-color:var(--accent)">
+        <h3>Re-Level Recommendation</h3>
+        <p id="relevelText">Calculating...</p>
+      </div>
+
+      <div class="controls">
+        <button class="btn" onclick="prevStep()">← Back</button>
+        <button class="btn" onclick="resetWizard()">Start Over</button>
+        <button class="btn primary" onclick="nextStep()">Summary →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Step 5: Summary -->
+  <div class="step" id="step-4">
+    <div class="card">
+      <h2>Leveling Complete</h2>
+      <div id="summaryContent"></div>
+      <div class="controls" style="margin-top:20px">
+        <button class="btn" onclick="resetWizard()">Level Again</button>
+        <button class="btn primary" onclick="exportReport()">Export Report</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STEPS = 5;
+const POINT_NAMES = ['Front-Left','Front-Right','Back-Left','Back-Right','Center'];
+const POINT_DESCS = [
+  'Move nozzle to the front-left corner. Slide paper underneath and rate the friction.',
+  'Move nozzle to the front-right corner. Slide paper underneath and rate the friction.',
+  'Move nozzle to the back-left corner. Slide paper underneath and rate the friction.',
+  'Move nozzle to the back-right corner. Slide paper underneath and rate the friction.',
+  'Move nozzle to the center of the bed. Slide paper underneath and rate the friction.'
+];
+
+let currentStep = 0;
+let currentPoint = -1;
+let measurements = [null, null, null, null, null];
+let pointsDone = 0;
+
+// Initialize step indicator
+function initSteps() {
+  const ind = document.getElementById('stepIndicator');
+  for (let i = 0; i < STEPS; i++) {
+    const dot = document.createElement('div');
+    dot.className = 'step-dot' + (i === 0 ? ' active' : '');
+    dot.id = 'dot-' + i;
+    ind.appendChild(dot);
+  }
+  // Init bed grid
+  const grid = document.getElementById('bedGrid');
+  for (let i = 0; i < 25; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'grid-cell';
+    cell.id = 'gc-' + i;
+    grid.appendChild(cell);
+  }
+}
+
+function showStep(n) {
+  document.querySelectorAll('.step').forEach((s, i) => {
+    s.classList.toggle('active', i === n);
+  });
+  document.querySelectorAll('.step-dot').forEach((d, i) => {
+    d.classList.remove('active', 'done');
+    if (i < n) d.classList.add('done');
+    if (i === n) d.classList.add('active');
+  });
+  if (n === 2) renderMesh();
+  if (n === 3) renderAdjustments();
+  if (n === 4) renderSummary();
+}
+
+function nextStep() {
+  if (currentStep < STEPS - 1) { currentStep++; showStep(currentStep); }
+}
+function prevStep() {
+  if (currentStep > 0) { currentStep--; showStep(currentStep); }
+}
+
+function selectPoint(idx) {
+  currentPoint = idx;
+  document.querySelectorAll('.corner-point').forEach((p, i) => {
+    p.classList.toggle('selected', i === idx);
+  });
+  document.getElementById('measurePanel').style.display = 'block';
+  document.getElementById('measureTitle').textContent = POINT_NAMES[idx] + ' Corner';
+  document.getElementById('measureDesc').textContent = POINT_DESCS[idx];
+  const slider = document.getElementById('heightSlider');
+  slider.value = measurements[idx] !== null ? measurements[idx] : 0;
+  updateMeasurement();
+}
+
+function updateMeasurement() {
+  const val = parseFloat(document.getElementById('heightSlider').value);
+  const display = document.getElementById('measureValue');
+  display.textContent = (val >= 0 ? '+' : '') + val.toFixed(2);
+  if (Math.abs(val) < 0.05) { display.style.color = 'var(--good)'; }
+  else if (Math.abs(val) < 0.15) { display.style.color = 'var(--mid)'; }
+  else { display.style.color = 'var(--warn)'; }
+}
+
+function confirmMeasurement() {
+  if (currentPoint < 0) return;
+  const val = parseFloat(document.getElementById('heightSlider').value);
+  const wasNull = measurements[currentPoint] === null;
+  measurements[currentPoint] = val;
+
+  // Update corner point visual
+  const cp = document.getElementById('cp' + currentPoint);
+  cp.classList.remove('level-good', 'level-warn', 'level-bad');
+  if (Math.abs(val) < 0.05) cp.classList.add('level-good');
+  else if (Math.abs(val) < 0.15) cp.classList.add('level-warn');
+  else cp.classList.add('level-bad');
+
+  if (wasNull) pointsDone++;
+  document.getElementById('pointsDone').textContent = pointsDone;
+  document.getElementById('measureProgress').style.width = (pointsDone / 5 * 100) + '%';
+
+  if (pointsDone >= 5) {
+    document.getElementById('toAnalysis').disabled = false;
+  }
+
+  // Auto-advance to next unmeasured point
+  let nextPt = -1;
+  for (let i = 0; i < 5; i++) {
+    const ni = (currentPoint + 1 + i) % 5;
+    if (measurements[ni] === null) { nextPt = ni; break; }
+  }
+  if (nextPt >= 0) {
+    selectPoint(nextPt);
+  } else {
+    document.getElementById('measurePanel').style.display = 'none';
+    document.querySelectorAll('.corner-point').forEach(p => p.classList.remove('selected'));
+  }
+
+  updateBedGrid();
+}
+
+function updateBedGrid() {
+  // Interpolate 5x5 grid from 5 measurement points
+  const m = measurements.map(v => v || 0);
+  // FL=0, FR=1, BL=2, BR=3, C=4
+  for (let row = 0; row < 5; row++) {
+    for (let col = 0; col < 5; col++) {
+      const idx = row * 5 + col;
+      const u = col / 4; // 0=left, 1=right
+      const v2 = row / 4; // 0=front, 1=back
+
+      // Bilinear interpolation of corners + center influence
+      const bilinear = m[0]*(1-u)*(1-v2) + m[1]*u*(1-v2) + m[2]*(1-u)*v2 + m[3]*u*v2;
+      const cx = 2 - Math.abs(col - 2);
+      const cy = 2 - Math.abs(row - 2);
+      const cw = (cx * cy) / 4; // center weight (0-1)
+      const interp = bilinear * (1 - cw * 0.5) + m[4] * cw * 0.5;
+
+      const cell = document.getElementById('gc-' + idx);
+      cell.style.background = deviationColor(interp);
+    }
+  }
+}
+
+function deviationColor(val) {
+  // Green (0) → Yellow (0.1) → Red (0.3)
+  const abs = Math.abs(val);
+  if (abs < 0.05) return `rgba(0,230,118,${0.3 + abs * 4})`;
+  if (abs < 0.15) {
+    const t = (abs - 0.05) / 0.1;
+    const r = Math.round(255 * t + 0 * (1-t));
+    const g = Math.round(213 * t + 230 * (1-t));
+    const b = Math.round(79 * t + 118 * (1-t));
+    return `rgba(${r},${g},${b},0.6)`;
+  }
+  const t = Math.min((abs - 0.15) / 0.15, 1);
+  return `rgba(255,${Math.round(107 - 40*t)},${Math.round(74 - 30*t)},0.7)`;
+}
+
+function renderMesh() {
+  const canvas = document.getElementById('meshCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  const m = measurements.map(v => v || 0);
+  const res = 20;
+  const cellW = w / res, cellH = h / res;
+
+  // Draw heatmap
+  for (let row = 0; row < res; row++) {
+    for (let col = 0; col < res; col++) {
+      const u = col / (res - 1);
+      const v2 = row / (res - 1);
+      const bilinear = m[0]*(1-u)*(1-v2) + m[1]*u*(1-v2) + m[2]*(1-u)*v2 + m[3]*u*v2;
+      const cx = (res/2 - 1) - Math.abs(col - (res/2 - 1));
+      const cy = (res/2 - 1) - Math.abs(row - (res/2 - 1));
+      const maxC = (res/2 - 1);
+      const cw = (cx * cy) / (maxC * maxC);
+      const interp = bilinear * (1 - cw * 0.5) + m[4] * cw * 0.5;
+
+      ctx.fillStyle = deviationColor(interp);
+      ctx.fillRect(col * cellW, row * cellH, cellW + 1, cellH + 1);
+    }
+  }
+
+  // Draw grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 0.5;
+  for (let i = 0; i <= res; i++) {
+    ctx.beginPath(); ctx.moveTo(i * cellW, 0); ctx.lineTo(i * cellW, h); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i * cellH); ctx.lineTo(w, i * cellH); ctx.stroke();
+  }
+
+  // Draw measurement points
+  const pts = [[0,0],[1,0],[0,1],[1,1],[0.5,0.5]];
+  ctx.font = '11px monospace';
+  pts.forEach((p, i) => {
+    const x = p[0] * (w - 40) + 20;
+    const y = p[1] * (h - 40) + 20;
+    ctx.beginPath();
+    ctx.arc(x, y, 8, 0, Math.PI * 2);
+    ctx.fillStyle = Math.abs(m[i]) < 0.05 ? '#00e676' : Math.abs(m[i]) < 0.15 ? '#ffd54f' : '#ff6b4a';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.textAlign = 'center';
+    ctx.fillText((m[i] >= 0 ? '+' : '') + m[i].toFixed(2), x, y + 22);
+  });
+
+  // Stats
+  const allVals = m;
+  const maxDev = Math.max(...allVals.map(Math.abs));
+  const range = Math.max(...allVals) - Math.min(...allVals);
+  const score = Math.max(0, 100 - range * 500);
+
+  document.getElementById('statMax').textContent = maxDev.toFixed(2) + 'mm';
+  document.getElementById('statMax').className = 'num ' + (maxDev < 0.05 ? 'val-good' : maxDev < 0.15 ? 'val-warn' : 'val-bad');
+  document.getElementById('statRange').textContent = range.toFixed(2) + 'mm';
+  document.getElementById('statRange').className = 'num ' + (range < 0.1 ? 'val-good' : range < 0.2 ? 'val-warn' : 'val-bad');
+  document.getElementById('statScore').textContent = score.toFixed(0) + '%';
+  document.getElementById('statScore').className = 'num ' + (score > 80 ? 'val-good' : score > 50 ? 'val-warn' : 'val-bad');
+
+  // Tilt compass
+  const tiltX = (m[1] + m[3]) / 2 - (m[0] + m[2]) / 2; // right vs left
+  const tiltY = (m[2] + m[3]) / 2 - (m[0] + m[1]) / 2; // back vs front
+  const angle = Math.atan2(tiltX, -tiltY) * (180 / Math.PI);
+  const magnitude = Math.sqrt(tiltX * tiltX + tiltY * tiltY);
+  document.getElementById('tiltNeedle').style.transform = `translateX(-50%) rotate(${angle}deg)`;
+
+  let tiltText = '';
+  if (magnitude < 0.03) {
+    tiltText = 'Bed is nearly level — minimal tilt detected.';
+  } else {
+    const dir = angle >= -22.5 && angle < 22.5 ? 'front' :
+                angle >= 22.5 && angle < 67.5 ? 'front-right' :
+                angle >= 67.5 && angle < 112.5 ? 'right' :
+                angle >= 112.5 && angle < 157.5 ? 'back-right' :
+                (angle >= 157.5 || angle < -157.5) ? 'back' :
+                angle >= -157.5 && angle < -112.5 ? 'back-left' :
+                angle >= -112.5 && angle < -67.5 ? 'left' : 'front-left';
+    tiltText = `Bed tilts toward ${dir} by ~${(magnitude).toFixed(2)}mm. Raise the ${dir} side.`;
+  }
+  document.getElementById('tiltDesc').textContent = tiltText;
+}
+
+function renderAdjustments() {
+  const panel = document.getElementById('adjustPanel');
+  panel.innerHTML = '';
+  const m = measurements.map(v => v || 0);
+  const corners = ['Front-Left','Front-Right','Back-Left','Back-Right'];
+
+  corners.forEach((name, i) => {
+    const val = m[i];
+    const turns = val / 0.1; // quarter turns
+    const absVal = Math.abs(val);
+    const cls = absVal < 0.05 ? 'val-good' : absVal < 0.15 ? 'val-warn' : 'val-bad';
+    let direction = '';
+    if (absVal < 0.03) {
+      direction = '✓ No adjustment needed';
+    } else if (val > 0) {
+      direction = `↻ Turn knob ${Math.abs(turns).toFixed(1)} quarter-turns clockwise (raise bed)`;
+    } else {
+      direction = `↺ Turn knob ${Math.abs(turns).toFixed(1)} quarter-turns counter-clockwise (lower bed)`;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'adjust-card';
+    card.innerHTML = `
+      <div class="label">${name}</div>
+      <div class="value ${cls}">${(val >= 0 ? '+' : '')}${val.toFixed(2)}<span class="unit">mm</span></div>
+      <div class="direction" style="color:var(${absVal < 0.05 ? '--good' : absVal < 0.15 ? '--mid' : '--warn'})">${direction}</div>
+    `;
+    panel.appendChild(card);
+  });
+
+  // Re-level recommendation
+  const range = Math.max(...m) - Math.min(...m);
+  const relevel = document.getElementById('relevelText');
+  if (range < 0.1) {
+    relevel.textContent = 'Your bed is well-leveled. Print a test pattern to confirm first layer quality.';
+  } else if (range < 0.2) {
+    relevel.textContent = 'Moderate deviation detected. Make the adjustments above, then run this wizard again to verify.';
+  } else {
+    relevel.textContent = 'Significant deviation detected. Make adjustments carefully — one corner at a time. Re-level twice for best results.';
+  }
+}
+
+function renderSummary() {
+  const m = measurements.map(v => v || 0);
+  const range = Math.max(...m) - Math.min(...m);
+  const maxDev = Math.max(...m.map(Math.abs));
+  const score = Math.max(0, 100 - range * 500);
+  const grade = score > 90 ? 'A' : score > 75 ? 'B' : score > 50 ? 'C' : 'D';
+  const gradeColor = score > 75 ? 'var(--good)' : score > 50 ? 'var(--mid)' : 'var(--warn)';
+
+  document.getElementById('summaryContent').innerHTML = `
+    <div style="text-align:center;margin:20px 0">
+      <div style="font-size:3rem;font-weight:800;color:${gradeColor}">${grade}</div>
+      <div style="font-size:0.8rem;color:var(--dim)">Level Grade</div>
+    </div>
+    <div class="stats-row">
+      <div class="stat"><div class="num">${score.toFixed(0)}%</div><div class="lbl">Score</div></div>
+      <div class="stat"><div class="num">${range.toFixed(2)}mm</div><div class="lbl">Range</div></div>
+      <div class="stat"><div class="num">${maxDev.toFixed(2)}mm</div><div class="lbl">Max Dev</div></div>
+    </div>
+    <div style="margin-top:20px">
+      <h3 style="margin-bottom:8px">Measurements</h3>
+      <table style="width:100%;font-size:0.8rem;border-collapse:collapse">
+        ${POINT_NAMES.map((n, i) => `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:8px;color:var(--dim)">${n}</td>
+            <td style="padding:8px;text-align:right;font-weight:600;color:${Math.abs(m[i]) < 0.05 ? 'var(--good)' : Math.abs(m[i]) < 0.15 ? 'var(--mid)' : 'var(--warn)'}">${(m[i] >= 0 ? '+' : '')}${m[i].toFixed(2)}mm</td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+    <div style="margin-top:16px">
+      <h3 style="margin-bottom:8px">Next Steps</h3>
+      <p style="color:var(--dim);font-size:0.82rem;line-height:1.6">
+        ${score > 80
+          ? '1. Print a first-layer test pattern (single layer square)<br>2. Check for consistent squish across the bed<br>3. Fine-tune Z-offset if needed (+/- 0.02mm)'
+          : '1. Apply the adjustments from the previous step<br>2. Run this wizard again to verify improvement<br>3. Repeat until score exceeds 80%<br>4. Then print a first-layer test pattern'}
+      </p>
+    </div>
+  `;
+}
+
+function resetWizard() {
+  currentStep = 0;
+  currentPoint = -1;
+  measurements = [null, null, null, null, null];
+  pointsDone = 0;
+  document.getElementById('pointsDone').textContent = '0';
+  document.getElementById('measureProgress').style.width = '0%';
+  document.getElementById('toAnalysis').disabled = true;
+  document.getElementById('measurePanel').style.display = 'none';
+  document.querySelectorAll('.corner-point').forEach(p => {
+    p.classList.remove('selected', 'level-good', 'level-warn', 'level-bad');
+  });
+  document.querySelectorAll('.grid-cell').forEach(c => c.style.background = '');
+  showStep(0);
+}
+
+function exportReport() {
+  const m = measurements.map(v => v || 0);
+  const range = Math.max(...m) - Math.min(...m);
+  const score = Math.max(0, 100 - range * 500);
+  const now = new Date().toISOString().split('T')[0];
+
+  let report = `NOVA Bed Level Report — ${now}\n`;
+  report += '═'.repeat(40) + '\n\n';
+  report += `Score: ${score.toFixed(0)}%  |  Range: ${range.toFixed(2)}mm\n\n`;
+  report += 'Measurements:\n';
+  POINT_NAMES.forEach((n, i) => {
+    report += `  ${n.padEnd(14)} ${(m[i] >= 0 ? '+' : '')}${m[i].toFixed(2)}mm\n`;
+  });
+  report += '\nAdjustments:\n';
+  ['Front-Left','Front-Right','Back-Left','Back-Right'].forEach((n, i) => {
+    const turns = Math.abs(m[i] / 0.1);
+    if (Math.abs(m[i]) < 0.03) {
+      report += `  ${n.padEnd(14)} OK\n`;
+    } else {
+      const dir = m[i] > 0 ? 'CW (raise)' : 'CCW (lower)';
+      report += `  ${n.padEnd(14)} ${turns.toFixed(1)} quarter-turns ${dir}\n`;
+    }
+  });
+
+  const blob = new Blob([report], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `bed-level-report-${now}.txt`;
+  a.click();
+}
+
+initSteps();
+</script>
+</body>
+</html>

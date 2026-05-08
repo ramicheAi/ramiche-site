@@ -1,0 +1,13 @@
+{
+  "name": "command-center-bridge",
+  "version": "1.0.0",
+  "description": "Local bridge service: OpenClaw → Firestore → Command Center UI",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js",
+    "sync-once": "node bridge.js --once"
+  },
+  "dependencies": {
+    "firebase": "^11.0.0"
+  }
+}

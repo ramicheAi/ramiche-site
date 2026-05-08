@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Price Elasticity Simulator — SIMONS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;--border:#2a2a3a;--text:#e0e0e8;--muted:#8888a0;--accent:#6c5ce7;--green:#00d2a0;--red:#ff6b6b;--orange:#ffa726;--blue:#42a5f5;--chart-bg:#16161f}
+body{font-family:'SF Mono',Monaco,'Cascadia Code',monospace;background:var(--bg);color:var(--text);min-height:100vh;padding:20px}
+.header{display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:16px;border-bottom:1px solid var(--border)}
+.header h1{font-size:20px;font-weight:600;letter-spacing:-0.5px}
+.header .badge{font-size:11px;padding:3px 8px;border-radius:4px;background:var(--accent);color:#fff;font-weight:500}
+.header .sub{color:var(--muted);font-size:12px;margin-left:auto}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:20px;height:calc(100vh - 100px)}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;overflow-y:auto}
+.panel h2{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:14px}
+.section{margin-bottom:20px}
+.section h3{font-size:12px;color:var(--accent);margin-bottom:8px;font-weight:500}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+input[type="range"]{width:100%;accent-color:var(--accent);margin:4px 0}
+input[type="number"],select{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:4px;font-family:inherit;font-size:12px}
+.val{font-size:12px;color:var(--text);font-weight:600;float:right}
+.row{display:flex;gap:8px;margin-bottom:8px}
+.row>div{flex:1}
+.product-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.product-chip{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all .15s}
+.product-chip:hover,.product-chip.active{border-color:var(--accent);background:#1e1e30}
+.product-chip .dot{width:8px;height:8px;border-radius:50%}
+.product-chip .name{font-size:12px;flex:1}
+.product-chip .price{font-size:11px;color:var(--muted)}
+.btn{padding:8px 14px;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:5px;cursor:pointer;font-size:11px;font-family:inherit;transition:all .15s}
+.btn:hover{border-color:var(--accent);background:#1e1e30}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:#5a4bd6}
+.right-panel{display:flex;flex-direction:column;gap:16px}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.metric-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px}
+.metric-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px}
+.metric-card .value{font-size:22px;font-weight:700}
+.metric-card .delta{font-size:11px;margin-top:2px}
+.delta.pos{color:var(--green)}.delta.neg{color:var(--red)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1}
+.chart-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px;display:flex;flex-direction:column}
+.chart-box h3{font-size:12px;color:var(--muted);margin-bottom:12px;font-weight:500}
+canvas{flex:1;width:100%}
+.insights{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:16px}
+.insights h3{font-size:12px;color:var(--muted);margin-bottom:10px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.insight-item{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;line-height:1.5}
+.insight-item:last-child{border:none}
+.insight-icon{font-size:14px;margin-top:1px}
+.elasticity-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.elastic{background:rgba(0,210,160,.15);color:var(--green)}
+.inelastic{background:rgba(255,107,107,.15);color:var(--red)}
+.unitary{background:rgba(255,167,38,.15);color:var(--orange)}
+.preset-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.tooltip{position:absolute;background:#222;color:#fff;padding:6px 10px;border-radius:4px;font-size:11px;pointer-events:none;z-index:100;display:none}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Price Elasticity Simulator</h1>
+  <span class="badge">SIMONS</span>
+  <span class="sub">Interactive demand modeling • Data & Analytics</span>
+</div>
+<div class="grid">
+  <div class="panel" id="controls">
+    <h2>Products</h2>
+    <div class="preset-row">
+      <button class="btn" onclick="loadPreset('ga')">GA Collection</button>
+      <button class="btn" onclick="loadPreset('ramiche')">RAMICHE</button>
+      <button class="btn" onclick="loadPreset('custom')">Custom</button>
+    </div>
+    <div class="product-list" id="productList"></div>
+    <button class="btn" onclick="addProduct()" style="width:100%;margin-bottom:16px">+ Add Product</button>
+
+    <div class="section" id="productEditor" style="display:none">
+      <h3>Edit Product</h3>
+      <div style="margin-bottom:8px">
+        <label>Name</label>
+        <input type="text" id="pName" onchange="updateProduct()">
+      </div>
+      <div class="row">
+        <div>
+          <label>Base Price ($)</label>
+          <input type="number" id="pPrice" min="0" step="0.01" onchange="updateProduct()">
+        </div>
+        <div>
+          <label>COGS ($)</label>
+          <input type="number" id="pCogs" min="0" step="0.01" onchange="updateProduct()">
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label>Monthly Volume</label>
+          <input type="number" id="pVolume" min="0" onchange="updateProduct()">
+        </div>
+        <div>
+          <label>Elasticity (ε)</label>
+          <input type="number" id="pElasticity" min="0" max="5" step="0.1" onchange="updateProduct()">
+        </div>
+      </div>
+      <div style="margin-top:8px">
+        <label>Price Change <span class="val" id="priceChangeVal">0%</span></label>
+        <input type="range" id="priceChange" min="-50" max="100" value="0" oninput="onPriceSlider()">
+      </div>
+      <div style="margin-top:8px">
+        <label>Elasticity Model</label>
+        <select id="pModel" onchange="updateProduct()">
+          <option value="linear">Linear</option>
+          <option value="loglinear">Log-Linear (Constant ε)</option>
+          <option value="kinked">Kinked (Asymmetric)</option>
+        </select>
+      </div>
+      <div id="kinkedOpts" style="display:none;margin-top:8px">
+        <label>Upside ε (price increase sensitivity)</label>
+        <input type="number" id="pElasticityUp" min="0" max="5" step="0.1" value="2.0" onchange="updateProduct()">
+      </div>
+      <button class="btn" onclick="removeProduct()" style="margin-top:10px;color:var(--red);border-color:var(--red)">Remove Product</button>
+    </div>
+
+    <div class="section">
+      <h3>Simulation</h3>
+      <div style="margin-bottom:8px">
+        <label>Price Step (%)</label>
+        <select id="priceStep" onchange="recalcAll()">
+          <option value="1">1%</option>
+          <option value="2">2%</option>
+          <option value="5" selected>5%</option>
+          <option value="10">10%</option>
+        </select>
+      </div>
+      <div>
+        <label>Range (± %)</label>
+        <select id="priceRange" onchange="recalcAll()">
+          <option value="25">±25%</option>
+          <option value="50" selected>±50%</option>
+          <option value="75">±75%</option>
+          <option value="100">±100%</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+    <div class="metrics-row" id="metricsRow">
+      <div class="metric-card"><div class="label">Revenue / mo</div><div class="value" id="mRevenue">$0</div><div class="delta" id="mRevenueDelta"></div></div>
+      <div class="metric-card"><div class="label">Profit / mo</div><div class="value" id="mProfit">$0</div><div class="delta" id="mProfitDelta"></div></div>
+      <div class="metric-card"><div class="label">Total Volume</div><div class="value" id="mVolume">0</div><div class="delta" id="mVolumeDelta"></div></div>
+      <div class="metric-card"><div class="label">Avg Margin</div><div class="value" id="mMargin">0%</div><div class="delta" id="mMarginDelta"></div></div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-box">
+        <h3>Revenue vs Price Change</h3>
+        <canvas id="chartRevenue"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Profit vs Price Change</h3>
+        <canvas id="chartProfit"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Demand Curve</h3>
+        <canvas id="chartDemand"></canvas>
+      </div>
+      <div class="chart-box">
+        <h3>Elasticity Regions</h3>
+        <canvas id="chartElasticity"></canvas>
+      </div>
+    </div>
+    <div class="insights" id="insightsPanel">
+      <h3>Quantitative Insights</h3>
+      <div id="insightsList"></div>
+    </div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const COLORS = ['#6c5ce7','#00d2a0','#ff6b6b','#ffa726','#42a5f5','#ab47bc','#26c6da','#ec407a'];
+let products = [];
+let activeIdx = -1;
+
+const presets = {
+  ga: [
+    {name:'iPhone Case',price:29.99,cogs:8.50,volume:200,elasticity:1.8,model:'loglinear',elasticityUp:2.2,change:0,color:COLORS[0]},
+    {name:'Framed Poster',price:49.99,cogs:15.00,volume:80,elasticity:1.2,model:'loglinear',elasticityUp:1.6,change:0,color:COLORS[1]},
+    {name:'T-Shirt',price:34.99,cogs:12.00,volume:150,elasticity:2.0,model:'kinked',elasticityUp:2.5,change:0,color:COLORS[2]},
+    {name:'Sticker Pack',price:9.99,cogs:2.00,volume:400,elasticity:0.8,model:'linear',elasticityUp:1.0,change:0,color:COLORS[3]},
+    {name:'Sealed Capsule',price:79.99,cogs:25.00,volume:50,elasticity:0.5,model:'loglinear',elasticityUp:0.7,change:0,color:COLORS[4]}
+  ],
+  ramiche: [
+    {name:'Vinyl LP',price:34.99,cogs:10.00,volume:120,elasticity:1.0,model:'loglinear',elasticityUp:1.3,change:0,color:COLORS[0]},
+    {name:'Digital Album',price:9.99,cogs:0.50,volume:500,elasticity:2.5,model:'linear',elasticityUp:2.5,change:0,color:COLORS[1]},
+    {name:'Merch Bundle',price:59.99,cogs:22.00,volume:60,elasticity:1.5,model:'kinked',elasticityUp:2.0,change:0,color:COLORS[2]},
+    {name:'Concert Ticket',price:45.00,cogs:15.00,volume:200,elasticity:0.7,model:'loglinear',elasticityUp:0.9,change:0,color:COLORS[3]}
+  ],
+  custom: [
+    {name:'Product A',price:25.00,cogs:10.00,volume:100,elasticity:1.5,model:'loglinear',elasticityUp:1.8,change:0,color:COLORS[0]}
+  ]
+};
+
+function loadPreset(key) {
+  products = JSON.parse(JSON.stringify(presets[key]));
+  activeIdx = 0;
+  renderAll();
+}
+
+function addProduct() {
+  const i = products.length;
+  products.push({name:'New Product',price:20,cogs:8,volume:100,elasticity:1.5,model:'loglinear',elasticityUp:1.8,change:0,color:COLORS[i%COLORS.length]});
+  activeIdx = i;
+  renderAll();
+}
+
+function removeProduct() {
+  if(products.length<=1) return;
+  products.splice(activeIdx,1);
+  activeIdx = Math.min(activeIdx, products.length-1);
+  renderAll();
+}
+
+function selectProduct(i) {
+  activeIdx = i;
+  renderAll();
+}
+
+function renderProductList() {
+  const el = document.getElementById('productList');
+  el.innerHTML = products.map((p,i) => `
+    <div class="product-chip ${i===activeIdx?'active':''}" onclick="selectProduct(${i})">
+      <div class="dot" style="background:${p.color}"></div>
+      <div class="name">${p.name}</div>
+      <div class="price">$${p.price.toFixed(2)}</div>
+    </div>
+  `).join('');
+}
+
+function renderEditor() {
+  const ed = document.getElementById('productEditor');
+  if(activeIdx<0){ed.style.display='none';return;}
+  ed.style.display='block';
+  const p = products[activeIdx];
+  document.getElementById('pName').value = p.name;
+  document.getElementById('pPrice').value = p.price;
+  document.getElementById('pCogs').value = p.cogs;
+  document.getElementById('pVolume').value = p.volume;
+  document.getElementById('pElasticity').value = p.elasticity;
+  document.getElementById('pModel').value = p.model;
+  document.getElementById('priceChange').value = p.change;
+  document.getElementById('priceChangeVal').textContent = (p.change>=0?'+':'')+p.change+'%';
+  document.getElementById('pElasticityUp').value = p.elasticityUp;
+  document.getElementById('kinkedOpts').style.display = p.model==='kinked'?'block':'none';
+}
+
+function updateProduct() {
+  if(activeIdx<0) return;
+  const p = products[activeIdx];
+  p.name = document.getElementById('pName').value;
+  p.price = parseFloat(document.getElementById('pPrice').value)||0;
+  p.cogs = parseFloat(document.getElementById('pCogs').value)||0;
+  p.volume = parseInt(document.getElementById('pVolume').value)||0;
+  p.elasticity = parseFloat(document.getElementById('pElasticity').value)||1;
+  p.model = document.getElementById('pModel').value;
+  p.elasticityUp = parseFloat(document.getElementById('pElasticityUp').value)||1.5;
+  document.getElementById('kinkedOpts').style.display = p.model==='kinked'?'block':'none';
+  renderAll();
+}
+
+function onPriceSlider() {
+  if(activeIdx<0) return;
+  const v = parseInt(document.getElementById('priceChange').value);
+  products[activeIdx].change = v;
+  document.getElementById('priceChangeVal').textContent = (v>=0?'+':'')+v+'%';
+  recalcAll();
+}
+
+function calcDemand(p, pctChange) {
+  const priceMult = 1 + pctChange/100;
+  if(priceMult <= 0) return 0;
+  let e = p.elasticity;
+  if(p.model === 'kinked' && pctChange > 0) e = p.elasticityUp;
+
+  let demandMult;
+  if(p.model === 'loglinear') {
+    demandMult = Math.pow(priceMult, -e);
+  } else {
+    demandMult = 1 - e * (pctChange/100);
+  }
+  return Math.max(0, Math.round(p.volume * demandMult));
+}
+
+function calcMetrics(p, pctChange) {
+  const newPrice = p.price * (1 + pctChange/100);
+  const newVol = calcDemand(p, pctChange);
+  const revenue = newPrice * newVol;
+  const profit = (newPrice - p.cogs) * newVol;
+  const margin = newPrice > 0 ? (newPrice - p.cogs)/newPrice * 100 : 0;
+  return {price:newPrice, volume:newVol, revenue, profit, margin};
+}
+
+function recalcAll() {
+  // Metrics
+  let baseRev=0, basePro=0, baseVol=0, newRev=0, newPro=0, newVol=0, totalCogs=0, totalNewPrice=0;
+  products.forEach(p => {
+    const base = calcMetrics(p, 0);
+    const cur = calcMetrics(p, p.change);
+    baseRev += base.revenue; basePro += base.profit; baseVol += base.volume;
+    newRev += cur.revenue; newPro += cur.profit; newVol += cur.volume;
+    totalCogs += p.cogs * cur.volume;
+    totalNewPrice += cur.price * cur.volume;
+  });
+  const avgMargin = totalNewPrice > 0 ? (totalNewPrice - totalCogs)/totalNewPrice * 100 : 0;
+  const baseMargin = baseRev > 0 ? (baseRev - products.reduce((s,p)=>s+p.cogs*p.volume,0))/baseRev * 100 : 0;
+
+  document.getElementById('mRevenue').textContent = '$'+fmt(newRev);
+  document.getElementById('mProfit').textContent = '$'+fmt(newPro);
+  document.getElementById('mVolume').textContent = fmtInt(newVol);
+  document.getElementById('mMargin').textContent = avgMargin.toFixed(1)+'%';
+
+  setDelta('mRevenueDelta', newRev-baseRev, true);
+  setDelta('mProfitDelta', newPro-basePro, true);
+  setDelta('mVolumeDelta', newVol-baseVol, false);
+  setDelta('mMarginDelta', avgMargin-baseMargin, false, true);
+
+  drawCharts();
+  generateInsights();
+}
+
+function setDelta(id, val, isCurrency, isPct) {
+  const el = document.getElementById(id);
+  const sign = val >= 0 ? '+' : '';
+  let txt;
+  if(isCurrency) txt = sign+'$'+fmt(Math.abs(val));
+  else if(isPct) txt = sign+val.toFixed(1)+'pp';
+  else txt = sign+fmtInt(val);
+  el.textContent = txt;
+  el.className = 'delta '+(val>=0?'pos':'neg');
+}
+
+function fmt(n) { return Math.abs(n)>=1000?(n/1000).toFixed(1)+'k':n.toFixed(0); }
+function fmtInt(n) { return n.toLocaleString(); }
+
+// Charts
+function drawCharts() {
+  const step = parseInt(document.getElementById('priceStep').value);
+  const range = parseInt(document.getElementById('priceRange').value);
+  const pcts = [];
+  for(let p = -range; p <= range; p += step) pcts.push(p);
+
+  drawRevenueChart(pcts);
+  drawProfitChart(pcts);
+  drawDemandChart(pcts);
+  drawElasticityChart(pcts);
+}
+
+function setupCanvas(id) {
+  const canvas = document.getElementById(id);
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+  return {ctx, w:rect.width, h:rect.height};
+}
+
+function drawAxes(ctx, w, h, pad, xLabels, yMin, yMax, yFmt) {
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#666';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+
+  // Y grid
+  const ySteps = 5;
+  for(let i = 0; i <= ySteps; i++) {
+    const y = pad.top + (h - pad.top - pad.bottom) * (1 - i/ySteps);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w-pad.right, y); ctx.stroke();
+    const val = yMin + (yMax-yMin)*i/ySteps;
+    ctx.textAlign = 'right';
+    ctx.fillText(yFmt(val), pad.left-6, y+3);
+  }
+
+  // X labels
+  ctx.textAlign = 'center';
+  const plotW = w - pad.left - pad.right;
+  const step = Math.max(1, Math.floor(xLabels.length / 8));
+  xLabels.forEach((l,i) => {
+    if(i % step !== 0 && i !== xLabels.length-1) return;
+    const x = pad.left + plotW * i / (xLabels.length-1);
+    ctx.fillText(l, x, h-pad.bottom+14);
+  });
+
+  // Zero line
+  if(xLabels.includes('0%')) {
+    const zi = xLabels.indexOf('0%');
+    const x = pad.left + plotW * zi / (xLabels.length-1);
+    ctx.strokeStyle = '#444';
+    ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(x, pad.top); ctx.lineTo(x, h-pad.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  return {plotW, plotH: h-pad.top-pad.bottom, pad};
+}
+
+function drawLine(ctx, points, color, w, h, pad, yMin, yMax, lineWidth) {
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth || 2;
+  ctx.beginPath();
+  points.forEach((v, i) => {
+    const x = pad.left + plotW * i / (points.length-1);
+    const y = pad.top + plotH * (1 - (v-yMin)/(yMax-yMin));
+    if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+}
+
+function drawDot(ctx, idx, total, val, color, w, h, pad, yMin, yMax) {
+  const plotW = w - pad.left - pad.right;
+  const plotH = h - pad.top - pad.bottom;
+  const x = pad.left + plotW * idx / (total-1);
+  const y = pad.top + plotH * (1 - (val-yMin)/(yMax-yMin));
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(x,y,4,0,Math.PI*2); ctx.fill();
+}
+
+function drawRevenueChart(pcts) {
+  const {ctx,w,h} = setupCanvas('chartRevenue');
+  const pad = {top:10,right:10,bottom:24,left:50};
+  const xLabels = pcts.map(p => (p>=0?'+':'')+p+'%');
+
+  let allRevs = [];
+  const series = products.map(p => {
+    const revs = pcts.map(pct => calcMetrics(p,pct).revenue);
+    allRevs.push(...revs);
+    return revs;
+  });
+  // Portfolio total
+  const totalRevs = pcts.map((_,i) => series.reduce((s,sr)=>s+sr[i],0));
+  allRevs.push(...totalRevs);
+
+  const yMin = Math.min(0,...allRevs)*0.95;
+  const yMax = Math.max(...allRevs)*1.05;
+
+  drawAxes(ctx,w,h,pad,xLabels,yMin,yMax,v=>'$'+fmt(v));
+
+  // Total (thick)
+  drawLine(ctx, totalRevs, '#fff', w,h,pad,yMin,yMax,3);
+  // Per product
+  series.forEach((s,i) => drawLine(ctx,s,products[i].color,w,h,pad,yMin,yMax,1.5));
+
+  // Current position dots
+  products.forEach((p,i) => {
+    const ci = pcts.indexOf(p.change) >= 0 ? pcts.indexOf(p.change) : pcts.findIndex(x=>x>=p.change);
+    if(ci>=0) drawDot(ctx,ci,pcts.length,calcMetrics(p,p.change).revenue,p.color,w,h,pad,yMin,yMax);
+  });
+
+  // Optimal marker for total
+  const optIdx = totalRevs.indexOf(Math.max(...totalRevs));
+  if(optIdx>=0) {
+    const plotW = w-pad.left-pad.right; const plotH = h-pad.top-pad.bottom;
+    const ox = pad.left+plotW*optIdx/(pcts.length-1);
+    const oy = pad.top+plotH*(1-(totalRevs[optIdx]-yMin)/(yMax-yMin));
+    ctx.strokeStyle = 'var(--green)'; ctx.lineWidth = 1;
+    ctx.setLineDash([2,2]);
+    ctx.beginPath(); ctx.moveTo(ox,pad.top); ctx.lineTo(ox,h-pad.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00d2a0'; ctx.font = '10px monospace';
+    ctx.fillText('OPT '+xLabels[optIdx], ox, pad.top-2);
+  }
+}
+
+function drawProfitChart(pcts) {
+  const {ctx,w,h} = setupCanvas('chartProfit');
+  const pad = {top:10,right:10,bottom:24,left:50};
+  const xLabels = pcts.map(p => (p>=0?'+':'')+p+'%');
+
+  let allPros = [];
+  const series = products.map(p => {
+    const pros = pcts.map(pct => calcMetrics(p,pct).profit);
+    allPros.push(...pros);
+    return pros;
+  });
+  const totalPros = pcts.map((_,i) => series.reduce((s,sr)=>s+sr[i],0));
+  allPros.push(...totalPros);
+
+  const yMin = Math.min(0,...allPros)*1.05;
+  const yMax = Math.max(...allPros)*1.05;
+
+  drawAxes(ctx,w,h,pad,xLabels,yMin,yMax,v=>'$'+fmt(v));
+  drawLine(ctx, totalPros, '#fff', w,h,pad,yMin,yMax,3);
+  series.forEach((s,i) => drawLine(ctx,s,products[i].color,w,h,pad,yMin,yMax,1.5));
+
+  // Profit-maximizing price
+  const optIdx = totalPros.indexOf(Math.max(...totalPros));
+  if(optIdx>=0) {
+    const plotW = w-pad.left-pad.right;
+    const ox = pad.left+plotW*optIdx/(pcts.length-1);
+    ctx.strokeStyle = '#00d2a0'; ctx.setLineDash([2,2]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(ox,pad.top); ctx.lineTo(ox,h-pad.bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#00d2a0'; ctx.font = '10px monospace';
+    ctx.fillText('MAX $'+fmt(totalPros[optIdx]), ox, pad.top-2);
+  }
+
+  // Zero profit line
+  if(yMin < 0) {
+    const plotH = h-pad.top-pad.bottom;
+    const zy = pad.top + plotH*(1-(0-yMin)/(yMax-yMin));
+    ctx.strokeStyle = '#ff6b6b55'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.left,zy); ctx.lineTo(w-pad.right,zy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+function drawDemandChart(pcts) {
+  const {ctx,w,h} = setupCanvas('chartDemand');
+  const pad = {top:10,right:10,bottom:24,left:50};
+  const xLabels = pcts.map(p => (p>=0?'+':'')+p+'%');
+
+  let allVols = [];
+  const series = products.map(p => {
+    const vols = pcts.map(pct => calcDemand(p,pct));
+    allVols.push(...vols);
+    return vols;
+  });
+
+  const yMin = 0;
+  const yMax = Math.max(...allVols)*1.1;
+
+  drawAxes(ctx,w,h,pad,xLabels,yMin,yMax,v=>fmtInt(Math.round(v)));
+  series.forEach((s,i) => drawLine(ctx,s,products[i].color,w,h,pad,yMin,yMax,2));
+
+  // Current dots
+  products.forEach((p,i) => {
+    const ci = pcts.findIndex(x=>x>=p.change);
+    if(ci>=0) drawDot(ctx,ci,pcts.length,calcDemand(p,p.change),p.color,w,h,pad,yMin,yMax);
+  });
+}
+
+function drawElasticityChart(pcts) {
+  const {ctx,w,h} = setupCanvas('chartElasticity');
+  const pad = {top:10,right:10,bottom:24,left:50};
+
+  // Show point elasticity across price range for active product
+  if(activeIdx<0) return;
+  const p = products[activeIdx];
+  const xLabels = pcts.map(pc => (pc>=0?'+':'')+pc+'%');
+
+  const elasticities = pcts.map(pct => {
+    const d1 = calcDemand(p, pct);
+    const d2 = calcDemand(p, pct+1);
+    const p1 = p.price*(1+pct/100);
+    const p2 = p.price*(1+(pct+1)/100);
+    if(p1===0||d1===0) return 0;
+    return Math.abs(((d2-d1)/d1)/((p2-p1)/p1));
+  });
+
+  const yMin = 0;
+  const yMax = Math.max(3, ...elasticities)*1.1;
+
+  drawAxes(ctx,w,h,pad,xLabels,yMin,yMax,v=>v.toFixed(1));
+
+  // Fill regions
+  const plotW = w-pad.left-pad.right;
+  const plotH = h-pad.top-pad.bottom;
+
+  // ε=1 line (unitary)
+  const uy = pad.top + plotH*(1-(1-yMin)/(yMax-yMin));
+  ctx.fillStyle = 'rgba(0,210,160,0.06)';
+  ctx.fillRect(pad.left, pad.top, plotW, uy-pad.top); // elastic zone
+  ctx.fillStyle = 'rgba(255,107,107,0.06)';
+  ctx.fillRect(pad.left, uy, plotW, h-pad.bottom-uy); // inelastic zone
+
+  ctx.strokeStyle = '#ffa726'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(pad.left,uy); ctx.lineTo(w-pad.right,uy); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#ffa726'; ctx.font = '10px monospace'; ctx.textAlign = 'left';
+  ctx.fillText('ε=1 (unitary)', pad.left+4, uy-4);
+  ctx.fillStyle = '#00d2a088'; ctx.fillText('ELASTIC', pad.left+4, pad.top+14);
+  ctx.fillStyle = '#ff6b6b88'; ctx.fillText('INELASTIC', pad.left+4, h-pad.bottom-6);
+
+  drawLine(ctx, elasticities, p.color, w,h,pad,yMin,yMax,2.5);
+}
+
+function generateInsights() {
+  const el = document.getElementById('insightsList');
+  const insights = [];
+
+  products.forEach(p => {
+    const base = calcMetrics(p, 0);
+    const cur = calcMetrics(p, p.change);
+
+    // Elasticity classification
+    const eClass = p.elasticity > 1.2 ? 'elastic' : p.elasticity < 0.8 ? 'inelastic' : 'unitary';
+    const eLabel = eClass === 'elastic' ? 'Elastic' : eClass === 'inelastic' ? 'Inelastic' : 'Unitary';
+
+    if(p.change !== 0) {
+      const revDelta = ((cur.revenue/base.revenue)-1)*100;
+      const proDelta = ((cur.profit/base.profit)-1)*100;
+      insights.push(`<span class="elasticity-badge ${eClass}">${eLabel} ε=${p.elasticity}</span> <b>${p.name}</b>: ${p.change>0?'+':''}${p.change}% price → revenue ${revDelta>=0?'+':''}${revDelta.toFixed(1)}%, profit ${proDelta>=0?'+':''}${proDelta.toFixed(1)}%`);
+    }
+
+    // Find profit-maximizing price
+    let bestPct = 0, bestProfit = base.profit;
+    for(let pct = -50; pct <= 100; pct += 1) {
+      const m = calcMetrics(p, pct);
+      if(m.profit > bestProfit) { bestProfit = m.profit; bestPct = pct; }
+    }
+    if(Math.abs(bestPct) > 2) {
+      insights.push(`📊 <b>${p.name}</b> profit-maximizing price: $${(p.price*(1+bestPct/100)).toFixed(2)} (${bestPct>0?'+':''}${bestPct}%) → $${fmt(bestProfit)}/mo profit`);
+    }
+  });
+
+  // Portfolio-level
+  if(products.length > 1) {
+    const elastic = products.filter(p => p.elasticity > 1.5);
+    const inelastic = products.filter(p => p.elasticity < 0.8);
+    if(elastic.length) insights.push(`⚡ High-elasticity products (price-sensitive): ${elastic.map(p=>p.name).join(', ')} — small price increases cause outsized volume drops`);
+    if(inelastic.length) insights.push(`🛡️ Pricing power (low elasticity): ${inelastic.map(p=>p.name).join(', ')} — can raise prices with minimal volume loss`);
+
+    // Total profit optimization
+    let bestTotal = -Infinity, bestCombo = {};
+    // Simplified: optimize each independently
+    products.forEach(p => {
+      let best = 0, bestP = calcMetrics(p,0).profit;
+      for(let pct=-50;pct<=100;pct++) {
+        const m = calcMetrics(p,pct);
+        if(m.profit>bestP){bestP=m.profit;best=pct;}
+      }
+      bestCombo[p.name] = best;
+    });
+    const anyNonZero = Object.values(bestCombo).some(v=>Math.abs(v)>2);
+    if(anyNonZero) {
+      const recs = Object.entries(bestCombo).filter(([,v])=>Math.abs(v)>2).map(([k,v])=>`${k}: ${v>0?'+':''}${v}%`);
+      insights.push(`🎯 Optimal price adjustments: ${recs.join(' • ')}`);
+    }
+  }
+
+  if(insights.length === 0) insights.push('Adjust price sliders to see impact analysis.');
+
+  el.innerHTML = insights.map(i => `<div class="insight-item"><div>${i}</div></div>`).join('');
+}
+
+function renderAll() {
+  renderProductList();
+  renderEditor();
+  recalcAll();
+}
+
+// Init
+loadPreset('ga');
+
+// Resize handler
+window.addEventListener('resize', () => { drawCharts(); });
+</script>
+</body>
+</html>

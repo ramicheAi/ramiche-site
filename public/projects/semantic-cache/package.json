@@ -1,0 +1,24 @@
+{
+  "name": "@openclaw/semantic-cache",
+  "version": "1.0.0",
+  "description": "Semantic cache system for OpenClaw AI agent cost optimization",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "generate-sample-data": "node sample-data.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "openclaw",
+    "semantic-cache",
+    "llm",
+    "cost-optimization",
+    "ai-agents"
+  ],
+  "author": "OpenClaw Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "uuid": "^9.0.0"
+  }
+}

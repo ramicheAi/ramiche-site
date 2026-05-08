@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE Acquisition Channel ROI Analyzer</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,system-ui,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a1a;color:#e0e0e0;min-height:100vh}
+.header{padding:24px;border-bottom:2px solid #1a1a3a}
+.header h1{font-size:24px;font-weight:700;color:#fff}
+.header p{font-size:14px;color:#888;margin-top:4px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:24px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.card{background:#111128;border:2px solid #1a1a3a;border-radius:12px;padding:20px}
+.card h2{font-size:16px;font-weight:600;color:#a78bfa;margin-bottom:16px}
+.channel-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:8px 12px;background:#0d0d20;border-radius:8px;border:1px solid #1a1a3a}
+.channel-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.channel-name{flex:1;font-size:13px;font-weight:500;min-width:90px}
+.channel-input{display:flex;flex-direction:column;gap:2px}
+.channel-input label{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:0.5px}
+.channel-input input{width:80px;background:#0a0a1a;border:1px solid #2a2a4a;border-radius:4px;color:#fff;padding:4px 8px;font-size:13px;text-align:right}
+.channel-input input:focus{outline:none;border-color:#a78bfa}
+.slider-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.slider-row label{font-size:12px;color:#888;min-width:110px}
+.slider-row input[type=range]{flex:1;accent-color:#a78bfa}
+.slider-row .val{font-size:13px;font-weight:600;color:#a78bfa;min-width:50px;text-align:right}
+canvas{width:100%;height:auto;display:block;border-radius:8px}
+.metric-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.metric{background:#0d0d20;border-radius:8px;padding:12px;text-align:center;border:1px solid #1a1a3a}
+.metric .label{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:0.5px}
+.metric .value{font-size:20px;font-weight:700;color:#fff;margin-top:4px}
+.metric .sub{font-size:11px;color:#888;margin-top:2px}
+.insight{background:#0d0d20;border-left:3px solid #a78bfa;padding:12px 16px;margin-top:12px;border-radius:0 8px 8px 0;font-size:13px;line-height:1.5}
+.insight strong{color:#a78bfa}
+.bar-chart{display:flex;flex-direction:column;gap:8px}
+.bar-row{display:flex;align-items:center;gap:8px}
+.bar-label{font-size:11px;min-width:90px;color:#888}
+.bar-track{flex:1;height:24px;background:#0d0d20;border-radius:4px;position:relative;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 0.3s;display:flex;align-items:center;justify-content:flex-end;padding-right:8px;font-size:11px;font-weight:600;color:#fff}
+.bar-value{font-size:12px;min-width:60px;text-align:right;font-weight:600}
+.tab-bar{display:flex;gap:4px;margin-bottom:16px}
+.tab{padding:6px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;background:#0d0d20;border:1px solid #1a1a3a;color:#888;transition:all 0.2s}
+.tab.active{background:#a78bfa;color:#fff;border-color:#a78bfa}
+.tab:hover:not(.active){border-color:#a78bfa;color:#a78bfa}
+.preset-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.preset{padding:4px 12px;border-radius:16px;font-size:11px;cursor:pointer;background:#0d0d20;border:1px solid #2a2a4a;color:#888;transition:all 0.2s}
+.preset:hover{border-color:#a78bfa;color:#a78bfa}
+.alloc-table{width:100%;border-collapse:collapse;font-size:12px}
+.alloc-table th{text-align:left;padding:8px;border-bottom:2px solid #1a1a3a;color:#888;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;font-size:10px}
+.alloc-table td{padding:8px;border-bottom:1px solid #1a1a3a}
+.alloc-table tr:hover{background:#0d0d20}
+.optimal-badge{background:#10b981;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.diminishing-badge{background:#f59e0b;color:#000;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.saturated-badge{background:#ef4444;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700}
+.full-width{grid-column:1/-1}
+.disclaimer{padding:16px 24px;font-size:11px;color:#555;border-top:1px solid #1a1a3a;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="header">
+<h1>METTLE Acquisition Channel ROI Analyzer</h1>
+<p>Model CAC, conversion funnels, and channel ROI. Find where the next dollar should go.</p>
+</div>
+
+<div style="padding:16px 24px 0">
+<div class="preset-bar">
+<span style="font-size:11px;color:#666;line-height:28px">Presets:</span>
+<div class="preset" onclick="loadPreset('bootstrap')">Bootstrap ($2K/mo)</div>
+<div class="preset" onclick="loadPreset('growth')">Growth ($8K/mo)</div>
+<div class="preset" onclick="loadPreset('scale')">Scale ($20K/mo)</div>
+<div class="preset" onclick="loadPreset('enterprise')">Enterprise ($50K/mo)</div>
+</div>
+</div>
+
+<div class="grid">
+
+<!-- Channel Inputs -->
+<div class="card">
+<h2>Channel Configuration</h2>
+<div id="channelInputs"></div>
+</div>
+
+<!-- Summary Metrics -->
+<div class="card">
+<h2>Portfolio Summary</h2>
+<div class="metric-grid" id="summaryMetrics"></div>
+<div id="topInsight"></div>
+</div>
+
+<!-- CAC Comparison -->
+<div class="card">
+<h2>Blended CAC by Channel</h2>
+<div class="bar-chart" id="cacBars"></div>
+</div>
+
+<!-- ROI Comparison -->
+<div class="card">
+<h2>12-Month ROI by Channel</h2>
+<div class="bar-chart" id="roiBars"></div>
+</div>
+
+<!-- Marginal CAC Chart -->
+<div class="card full-width">
+<h2>Marginal CAC Curve (Next Dollar Efficiency)</h2>
+<div class="tab-bar">
+<div class="tab active" onclick="setView('marginal',this)">Marginal CAC</div>
+<div class="tab" onclick="setView('cumulative',this)">Cumulative ROI</div>
+<div class="tab" onclick="setView('funnel',this)">Funnel Efficiency</div>
+</div>
+<canvas id="mainChart" width="1200" height="400"></canvas>
+</div>
+
+<!-- Optimal Allocation Table -->
+<div class="card full-width">
+<h2>Optimal Budget Allocation (Constrained Optimization)</h2>
+<div class="slider-row">
+<label>Total Budget:</label>
+<input type="range" id="totalBudget" min="1000" max="100000" step="500" value="8000" oninput="updateAll()">
+<span class="val" id="budgetVal">$8,000</span>
+</div>
+<div class="slider-row">
+<label>Target LTV:</label>
+<input type="range" id="targetLTV" min="500" max="10000" step="100" value="3000" oninput="updateAll()">
+<span class="val" id="ltvVal">$3,000</span>
+</div>
+<div class="slider-row">
+<label>Churn Rate:</label>
+<input type="range" id="churnRate" min="1" max="30" step="0.5" value="5" oninput="updateAll()">
+<span class="val" id="churnVal">5.0%</span>
+</div>
+<table class="alloc-table" id="allocTable">
+<thead><tr>
+<th>Channel</th><th>Budget</th><th>%</th><th>Est. Customers</th><th>Marginal CAC</th><th>12mo ROI</th><th>Status</th>
+</tr></thead>
+<tbody id="allocBody"></tbody>
+</table>
+<div id="allocInsight"></div>
+</div>
+
+</div>
+
+<div class="disclaimer">
+SIMONS — Quantitative Intelligence Agent | AI-generated analysis for educational purposes only. Not financial advice. Past performance does not guarantee future results.
+</div>
+
+<script>
+// Channel definitions with realistic METTLE swim team SaaS parameters
+const CHANNELS = [
+  { id: 'referral', name: 'Referral', color: '#10b981',
+    baseCac: 45, convRate: 0.18, decayRate: 0.08, maxSpend: 3000,
+    desc: 'Coach-to-coach word of mouth + incentive program' },
+  { id: 'outbound', name: 'Outbound', color: '#3b82f6',
+    baseCac: 280, convRate: 0.04, decayRate: 0.12, maxSpend: 25000,
+    desc: 'Cold email sequences to swim club directors' },
+  { id: 'paid_social', name: 'Paid Social', color: '#f59e0b',
+    baseCac: 190, convRate: 0.025, decayRate: 0.18, maxSpend: 40000,
+    desc: 'Facebook/Instagram ads targeting swim parents' },
+  { id: 'organic', name: 'Organic', color: '#8b5cf6',
+    baseCac: 120, convRate: 0.06, decayRate: 0.04, maxSpend: 8000,
+    desc: 'Blog content, SEO, swim community engagement' },
+  { id: 'partnerships', name: 'Partnerships', color: '#ec4899',
+    baseCac: 85, convRate: 0.12, decayRate: 0.06, maxSpend: 15000,
+    desc: 'USA Swimming affiliates, league integrations' },
+  { id: 'events', name: 'Events', color: '#06b6d4',
+    baseCac: 350, convRate: 0.15, decayRate: 0.25, maxSpend: 20000,
+    desc: 'Swim meets, coaching clinics, conference booths' }
+];
+
+let currentView = 'marginal';
+let channelSpends = {};
+
+// Initialize
+CHANNELS.forEach(c => { channelSpends[c.id] = Math.round(c.maxSpend * 0.2); });
+
+function marginalCAC(channel, spend) {
+  // CAC increases with spend due to diminishing returns
+  // Formula: baseCac * (1 + decayRate * (spend / 1000)^1.5)
+  const scale = Math.pow(spend / 1000, 1.5);
+  return channel.baseCac * (1 + channel.decayRate * scale);
+}
+
+function estimateCustomers(channel, spend) {
+  if (spend <= 0) return 0;
+  // Integrate marginal curve: approximate with 20 steps
+  const steps = 20;
+  const stepSize = spend / steps;
+  let total = 0;
+  for (let i = 0; i < steps; i++) {
+    const s = stepSize * (i + 0.5);
+    const cac = marginalCAC(channel, s);
+    total += stepSize / cac;
+  }
+  return total;
+}
+
+function channelROI(channel, spend, ltv) {
+  const customers = estimateCustomers(channel, spend);
+  const revenue = customers * ltv;
+  if (spend <= 0) return 0;
+  return ((revenue - spend) / spend) * 100;
+}
+
+function blendedCAC(channel, spend) {
+  const customers = estimateCustomers(channel, spend);
+  if (customers <= 0) return Infinity;
+  return spend / customers;
+}
+
+function renderChannelInputs() {
+  const container = document.getElementById('channelInputs');
+  container.innerHTML = CHANNELS.map(c => `
+    <div class="channel-row">
+      <div class="channel-dot" style="background:${c.color}"></div>
+      <div class="channel-name">${c.name}</div>
+      <div class="channel-input">
+        <label>Monthly $</label>
+        <input type="number" id="spend_${c.id}" value="${channelSpends[c.id]}" min="0" max="${c.maxSpend}" step="50" oninput="updateSpend('${c.id}',this.value)">
+      </div>
+      <div class="channel-input">
+        <label>Base CAC</label>
+        <input type="number" value="${c.baseCac}" style="color:#888" disabled>
+      </div>
+      <div class="channel-input">
+        <label>Conv %</label>
+        <input type="number" value="${(c.convRate*100).toFixed(1)}" style="color:#888" disabled>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateSpend(id, val) {
+  channelSpends[id] = Math.max(0, parseInt(val) || 0);
+  updateAll();
+}
+
+function updateAll() {
+  const ltv = parseFloat(document.getElementById('targetLTV').value);
+  const churn = parseFloat(document.getElementById('churnRate').value) / 100;
+  const totalBudget = parseFloat(document.getElementById('totalBudget').value);
+
+  document.getElementById('budgetVal').textContent = '$' + totalBudget.toLocaleString();
+  document.getElementById('ltvVal').textContent = '$' + ltv.toLocaleString();
+  document.getElementById('churnVal').textContent = churn * 100 + '%';
+
+  // Summary metrics
+  const totalSpend = Object.values(channelSpends).reduce((a, b) => a + b, 0);
+  let totalCustomers = 0;
+  CHANNELS.forEach(c => { totalCustomers += estimateCustomers(c, channelSpends[c.id]); });
+  const blendCAC = totalCustomers > 0 ? totalSpend / totalCustomers : 0;
+  const totalRevenue = totalCustomers * ltv;
+  const portfolioROI = totalSpend > 0 ? ((totalRevenue - totalSpend) / totalSpend * 100) : 0;
+  const ltv_cac = blendCAC > 0 ? ltv / blendCAC : 0;
+
+  document.getElementById('summaryMetrics').innerHTML = `
+    <div class="metric"><div class="label">Total Spend</div><div class="value">$${totalSpend.toLocaleString()}</div><div class="sub">/month</div></div>
+    <div class="metric"><div class="label">Est. Customers</div><div class="value">${totalCustomers.toFixed(1)}</div><div class="sub">/month</div></div>
+    <div class="metric"><div class="label">Blended CAC</div><div class="value">$${blendCAC.toFixed(0)}</div><div class="sub">${ltv_cac >= 3 ? '✅' : ltv_cac >= 2 ? '⚠️' : '❌'} LTV:CAC = ${ltv_cac.toFixed(1)}x</div></div>
+    <div class="metric"><div class="label">12mo Revenue</div><div class="value">$${(totalRevenue/1000).toFixed(0)}K</div><div class="sub">at ${churn*100}% churn</div></div>
+    <div class="metric"><div class="label">Portfolio ROI</div><div class="value" style="color:${portfolioROI>0?'#10b981':'#ef4444'}">${portfolioROI.toFixed(0)}%</div><div class="sub">12-month</div></div>
+    <div class="metric"><div class="label">Payback</div><div class="value">${blendCAC > 0 ? (blendCAC / (ltv / 12)).toFixed(1) : '—'}</div><div class="sub">months</div></div>
+  `;
+
+  // Insight
+  const channelData = CHANNELS.map(c => ({
+    ...c,
+    spend: channelSpends[c.id],
+    customers: estimateCustomers(c, channelSpends[c.id]),
+    blendedCac: blendedCAC(c, channelSpends[c.id]),
+    margCac: marginalCAC(c, channelSpends[c.id]),
+    roi: channelROI(c, channelSpends[c.id], ltv)
+  })).filter(c => c.spend > 0);
+
+  const bestROI = channelData.reduce((best, c) => c.roi > best.roi ? c : best, { roi: -Infinity });
+  const worstROI = channelData.reduce((worst, c) => c.roi < worst.roi ? c : worst, { roi: Infinity });
+  const bestMarginal = CHANNELS.reduce((best, c) => marginalCAC(c, channelSpends[c.id]) < marginalCAC(best, channelSpends[best.id]) ? c : best);
+
+  document.getElementById('topInsight').innerHTML = `
+    <div class="insight">
+      <strong>Signal:</strong> Best marginal dollar goes to <strong>${bestMarginal.name}</strong> ($${marginalCAC(bestMarginal, channelSpends[bestMarginal.id]).toFixed(0)} marginal CAC).
+      ${bestROI.name ? `Highest ROI channel: <strong>${bestROI.name}</strong> at ${bestROI.roi.toFixed(0)}%.` : ''}
+      ${worstROI.name && worstROI.roi < 50 ? ` Consider reducing <strong>${worstROI.name}</strong> spend (${worstROI.roi.toFixed(0)}% ROI).` : ''}
+      LTV:CAC ratio ${ltv_cac >= 3 ? 'is healthy (≥3x) — growth-stage ready.' : ltv_cac >= 2 ? 'is moderate (2-3x) — optimize before scaling.' : 'is below 2x — unit economics unsustainable at current CAC.'}
+    </div>
+  `;
+
+  // CAC bars
+  const maxCac = Math.max(...channelData.map(c => c.blendedCac), 1);
+  document.getElementById('cacBars').innerHTML = channelData.sort((a, b) => a.blendedCac - b.blendedCac).map(c => `
+    <div class="bar-row">
+      <div class="bar-label">${c.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(c.blendedCac/maxCac*100).toFixed(1)}%;background:${c.color}">${c.blendedCac < maxCac*0.3 ? '' : '$'+c.blendedCac.toFixed(0)}</div></div>
+      <div class="bar-value" style="color:${c.color}">$${c.blendedCac.toFixed(0)}</div>
+    </div>
+  `).join('');
+
+  // ROI bars
+  const maxROI = Math.max(...channelData.map(c => Math.abs(c.roi)), 1);
+  document.getElementById('roiBars').innerHTML = channelData.sort((a, b) => b.roi - a.roi).map(c => `
+    <div class="bar-row">
+      <div class="bar-label">${c.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(Math.abs(c.roi)/maxROI*100).toFixed(1)}%;background:${c.roi >= 0 ? c.color : '#ef4444'}">${Math.abs(c.roi)>maxROI*0.3 ? c.roi.toFixed(0)+'%' : ''}</div></div>
+      <div class="bar-value" style="color:${c.roi >= 0 ? c.color : '#ef4444'}">${c.roi.toFixed(0)}%</div>
+    </div>
+  `).join('');
+
+  // Optimal allocation
+  computeOptimalAllocation(totalBudget, ltv);
+
+  // Chart
+  renderChart(ltv);
+}
+
+function computeOptimalAllocation(budget, ltv) {
+  // Greedy marginal CAC allocation: assign each $50 increment to the channel with lowest marginal CAC
+  const alloc = {};
+  CHANNELS.forEach(c => { alloc[c.id] = 0; });
+  const step = 50;
+  let remaining = budget;
+
+  while (remaining >= step) {
+    let bestChannel = null;
+    let bestMargCac = Infinity;
+
+    CHANNELS.forEach(c => {
+      if (alloc[c.id] + step > c.maxSpend) return;
+      const mcac = marginalCAC(c, alloc[c.id] + step);
+      if (mcac < bestMargCac) {
+        bestMargCac = mcac;
+        bestChannel = c;
+      }
+    });
+
+    if (!bestChannel) break;
+    alloc[bestChannel.id] += step;
+    remaining -= step;
+  }
+
+  const tbody = document.getElementById('allocBody');
+  let totalCust = 0;
+  const rows = CHANNELS.map(c => {
+    const spend = alloc[c.id];
+    const pct = budget > 0 ? (spend / budget * 100) : 0;
+    const cust = estimateCustomers(c, spend);
+    totalCust += cust;
+    const mcac = marginalCAC(c, spend);
+    const roi = channelROI(c, spend, ltv);
+    const saturation = spend / c.maxSpend;
+    let status, badge;
+    if (saturation < 0.5) { status = 'optimal'; badge = '<span class="optimal-badge">OPTIMAL</span>'; }
+    else if (saturation < 0.85) { status = 'diminishing'; badge = '<span class="diminishing-badge">DIMINISHING</span>'; }
+    else { status = 'saturated'; badge = '<span class="saturated-badge">SATURATED</span>'; }
+
+    return `<tr>
+      <td><span style="color:${c.color}">●</span> ${c.name}</td>
+      <td>$${spend.toLocaleString()}</td>
+      <td>${pct.toFixed(1)}%</td>
+      <td>${cust.toFixed(1)}</td>
+      <td>$${mcac.toFixed(0)}</td>
+      <td style="color:${roi>=0?'#10b981':'#ef4444'}">${roi.toFixed(0)}%</td>
+      <td>${badge}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = rows.join('') + `<tr style="font-weight:700;border-top:2px solid #a78bfa">
+    <td>TOTAL</td><td>$${(budget-remaining).toLocaleString()}</td><td>100%</td>
+    <td>${totalCust.toFixed(1)}</td><td>$${totalCust>0?((budget-remaining)/totalCust).toFixed(0):'—'}</td>
+    <td style="color:#10b981">${(budget-remaining)>0?((totalCust*ltv-(budget-remaining))/(budget-remaining)*100).toFixed(0):'0'}%</td><td></td>
+  </tr>`;
+
+  // Compare with current allocation
+  const currentTotal = Object.values(channelSpends).reduce((a, b) => a + b, 0);
+  let currentCust = 0;
+  CHANNELS.forEach(c => { currentCust += estimateCustomers(c, channelSpends[c.id]); });
+  const optCust = totalCust;
+  const improvement = currentCust > 0 ? ((optCust - currentCust) / currentCust * 100) : 0;
+
+  document.getElementById('allocInsight').innerHTML = `
+    <div class="insight" style="margin-top:16px">
+      <strong>Optimization Result:</strong> At $${budget.toLocaleString()}/mo budget, optimal allocation yields
+      <strong>${optCust.toFixed(1)} customers/mo</strong> (blended CAC $${optCust>0?((budget-remaining)/optCust).toFixed(0):'—'}).
+      ${currentTotal > 0 ? `vs current allocation: ${currentCust.toFixed(1)} customers at $${currentCust>0?(currentTotal/currentCust).toFixed(0):'—'} CAC.
+      ${improvement > 0 ? `<strong>+${improvement.toFixed(0)}% improvement</strong> by reallocating.` : 'Current allocation is near-optimal.'}` : ''}
+    </div>
+  `;
+}
+
+function renderChart(ltv) {
+  const canvas = document.getElementById('mainChart');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.offsetWidth * dpr;
+  canvas.height = 400 * dpr;
+  ctx.scale(dpr, dpr);
+  const W = canvas.offsetWidth;
+  const H = 400;
+  const pad = { t: 30, r: 20, b: 50, l: 65 };
+  const plotW = W - pad.l - pad.r;
+  const plotH = H - pad.t - pad.b;
+
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  if (currentView === 'marginal') {
+    // Marginal CAC curves
+    const maxSpend = Math.max(...CHANNELS.map(c => c.maxSpend));
+    const maxCAC = 800;
+    const steps = 100;
+
+    // Grid
+    ctx.strokeStyle = '#1a1a3a';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.t + plotH * i / 5;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+      ctx.fillStyle = '#666'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+      ctx.fillText('$' + Math.round(maxCAC * (1 - i/5)), pad.l - 8, y + 4);
+    }
+    for (let i = 0; i <= 5; i++) {
+      const x = pad.l + plotW * i / 5;
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + plotH); ctx.stroke();
+      ctx.fillStyle = '#666'; ctx.textAlign = 'center';
+      ctx.fillText('$' + (maxSpend * i / 5 / 1000).toFixed(0) + 'K', x, H - pad.b + 20);
+    }
+
+    // Lines
+    CHANNELS.forEach(c => {
+      ctx.strokeStyle = c.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = 0; i <= steps; i++) {
+        const spend = (i / steps) * maxSpend;
+        const cac = marginalCAC(c, spend);
+        const x = pad.l + (spend / maxSpend) * plotW;
+        const y = pad.t + plotH * (1 - cac / maxCAC);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Current spend marker
+      const curSpend = channelSpends[c.id];
+      const curCAC = marginalCAC(c, curSpend);
+      const mx = pad.l + (curSpend / maxSpend) * plotW;
+      const my = pad.t + plotH * (1 - curCAC / maxCAC);
+      ctx.fillStyle = c.color;
+      ctx.beginPath(); ctx.arc(mx, my, 5, 0, Math.PI * 2); ctx.fill();
+    });
+
+    // Axis labels
+    ctx.fillStyle = '#888'; ctx.font = '12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText('Monthly Spend per Channel', pad.l + plotW/2, H - 8);
+    ctx.save(); ctx.translate(15, pad.t + plotH/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('Marginal CAC ($)', 0, 0); ctx.restore();
+
+    // Legend
+    let lx = pad.l + 10;
+    CHANNELS.forEach(c => {
+      ctx.fillStyle = c.color;
+      ctx.fillRect(lx, pad.t + 5, 10, 10);
+      ctx.fillStyle = '#888'; ctx.font = '10px system-ui'; ctx.textAlign = 'left';
+      ctx.fillText(c.name, lx + 14, pad.t + 14);
+      lx += ctx.measureText(c.name).width + 28;
+    });
+
+  } else if (currentView === 'cumulative') {
+    // Cumulative ROI chart
+    const maxSpend = Math.max(...CHANNELS.map(c => c.maxSpend));
+    let maxROI = 100;
+    CHANNELS.forEach(c => {
+      for (let s = 0; s <= c.maxSpend; s += c.maxSpend/50) {
+        const r = channelROI(c, Math.max(s, 1), ltv);
+        if (r > maxROI) maxROI = r;
+      }
+    });
+    maxROI = Math.ceil(maxROI / 100) * 100;
+
+    // Grid
+    ctx.strokeStyle = '#1a1a3a'; ctx.lineWidth = 1;
+    for (let i = 0; i <= 5; i++) {
+      const y = pad.t + plotH * i / 5;
+      ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+      ctx.fillStyle = '#666'; ctx.font = '11px system-ui'; ctx.textAlign = 'right';
+      ctx.fillText(Math.round(maxROI * (1 - i/5)) + '%', pad.l - 8, y + 4);
+    }
+    for (let i = 0; i <= 5; i++) {
+      const x = pad.l + plotW * i / 5;
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, pad.t + plotH); ctx.stroke();
+      ctx.fillStyle = '#666'; ctx.textAlign = 'center';
+      ctx.fillText('$' + (maxSpend * i / 5 / 1000).toFixed(0) + 'K', x, H - pad.b + 20);
+    }
+
+    // Lines
+    CHANNELS.forEach(c => {
+      ctx.strokeStyle = c.color; ctx.lineWidth = 2;
+      ctx.beginPath();
+      const steps = 80;
+      for (let i = 1; i <= steps; i++) {
+        const spend = (i / steps) * c.maxSpend;
+        const roi = channelROI(c, spend, ltv);
+        const x = pad.l + (spend / maxSpend) * plotW;
+        const y = pad.t + plotH * (1 - Math.max(0, roi) / maxROI);
+        if (i === 1) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    });
+
+    ctx.fillStyle = '#888'; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Monthly Spend per Channel', pad.l + plotW/2, H - 8);
+    ctx.save(); ctx.translate(15, pad.t + plotH/2); ctx.rotate(-Math.PI/2);
+    ctx.fillText('12-Month ROI (%)', 0, 0); ctx.restore();
+
+  } else if (currentView === 'funnel') {
+    // Funnel efficiency: stacked bar chart showing impressions → leads → customers per channel
+    const barW = plotW / (CHANNELS.length * 2 + 1);
+    const activeChannels = CHANNELS.filter(c => channelSpends[c.id] > 0);
+    if (activeChannels.length === 0) {
+      ctx.fillStyle = '#666'; ctx.font = '14px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText('No active channels — set spend > $0', W/2, H/2);
+      return;
+    }
+    const bw = plotW / (activeChannels.length * 2);
+
+    // For each channel: impressions (spend / CPM), leads (impressions * CTR), customers (leads * convRate)
+    const funnelData = activeChannels.map(c => {
+      const spend = channelSpends[c.id];
+      const cpm = c.baseCac * 0.08; // rough CPM estimate from CAC
+      const impressions = spend / Math.max(cpm, 1) * 1000;
+      const ctr = c.convRate * 3; // CTR ~ 3x conversion
+      const leads = impressions * ctr;
+      const customers = estimateCustomers(c, spend);
+      return { ...c, spend, impressions, leads, customers };
+    });
+
+    const maxImpressions = Math.max(...funnelData.map(d => d.impressions));
+
+    funnelData.forEach((d, i) => {
+      const x = pad.l + (i * 2 + 0.5) * bw;
+
+      // Impressions bar
+      const impH = (d.impressions / maxImpressions) * plotH * 0.95;
+      ctx.fillStyle = d.color + '33';
+      ctx.fillRect(x, pad.t + plotH - impH, bw * 0.8, impH);
+
+      // Leads bar
+      const leadH = (d.leads / maxImpressions) * plotH * 0.95;
+      ctx.fillStyle = d.color + '77';
+      ctx.fillRect(x, pad.t + plotH - leadH, bw * 0.8, leadH);
+
+      // Customers bar
+      const custH = Math.max((d.customers / maxImpressions) * plotH * 0.95, 3);
+      ctx.fillStyle = d.color;
+      ctx.fillRect(x, pad.t + plotH - custH, bw * 0.8, custH);
+
+      // Label
+      ctx.fillStyle = '#888'; ctx.font = '11px system-ui'; ctx.textAlign = 'center';
+      ctx.fillText(d.name, x + bw * 0.4, H - pad.b + 16);
+      ctx.fillStyle = '#fff'; ctx.font = '10px system-ui';
+      ctx.fillText(d.customers.toFixed(1) + ' cust', x + bw * 0.4, pad.t + plotH - custH - 6);
+    });
+
+    ctx.fillStyle = '#888'; ctx.font = '12px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('Funnel: Impressions (faint) → Leads (medium) → Customers (solid)', pad.l + plotW/2, H - 4);
+  }
+}
+
+function setView(view, el) {
+  currentView = view;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  updateAll();
+}
+
+function loadPreset(name) {
+  const presets = {
+    bootstrap: { referral: 800, outbound: 200, paid_social: 0, organic: 600, partnerships: 400, events: 0 },
+    growth: { referral: 1500, outbound: 2000, paid_social: 1500, organic: 1200, partnerships: 1000, events: 800 },
+    scale: { referral: 2500, outbound: 5000, paid_social: 5000, organic: 3000, partnerships: 2500, events: 2000 },
+    enterprise: { referral: 3000, outbound: 15000, paid_social: 12000, organic: 6000, partnerships: 8000, events: 6000 }
+  };
+  const p = presets[name];
+  if (!p) return;
+  Object.keys(p).forEach(k => {
+    channelSpends[k] = p[k];
+    const el = document.getElementById('spend_' + k);
+    if (el) el.value = p[k];
+  });
+  // Match budget slider to preset total
+  const total = Object.values(p).reduce((a, b) => a + b, 0);
+  document.getElementById('totalBudget').value = Math.min(total, 100000);
+  updateAll();
+}
+
+// Init
+renderChannelInputs();
+updateAll();
+
+// Responsive chart resize
+window.addEventListener('resize', () => updateAll());
+</script>
+</body>
+</html>

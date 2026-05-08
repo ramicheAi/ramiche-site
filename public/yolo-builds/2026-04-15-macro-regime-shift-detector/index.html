@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Macro Regime Shift Detector — DR STRANGE</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e17;--card:#111827;--border:#1e293b;--text:#e2e8f0;--dim:#64748b;
+  --accent:#8b5cf6;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--blue:#3b82f6;
+  --cyan:#06b6d4;
+}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono',Monaco,'Cascadia Code',monospace;min-height:100vh;padding:0}
+h1{font-size:1.1rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+h2{font-size:.85rem;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);margin-bottom:12px}
+h3{font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+
+.header{display:flex;align-items:center;justify-content:space-between;padding:20px 28px;border-bottom:1px solid var(--border)}
+.header-left{display:flex;align-items:center;gap:16px}
+.header .badge{font-size:.65rem;padding:3px 10px;border-radius:12px;background:var(--accent);color:#fff;letter-spacing:.06em;text-transform:uppercase}
+.header .time{font-size:.7rem;color:var(--dim)}
+
+.layout{display:grid;grid-template-columns:280px 1fr;grid-template-rows:auto 1fr;height:calc(100vh - 65px)}
+
+/* Left panel */
+.left-panel{grid-row:1/3;border-right:1px solid var(--border);padding:20px;overflow-y:auto}
+.regime-selector{margin-bottom:24px}
+.regime-btn{display:block;width:100%;text-align:left;padding:12px 14px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);cursor:pointer;font-family:inherit;font-size:.75rem;transition:all .15s}
+.regime-btn:hover{border-color:var(--accent)}
+.regime-btn.active{border-color:var(--accent);background:rgba(139,92,246,.1)}
+.regime-btn .label{font-weight:600;margin-bottom:2px}
+.regime-btn .sub{color:var(--dim);font-size:.65rem}
+
+.indicator-list{margin-top:16px}
+.indicator{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.7rem}
+.indicator .name{color:var(--dim)}
+.indicator .val{font-weight:600}
+.indicator .val.up{color:var(--green)}
+.indicator .val.down{color:var(--red)}
+.indicator .val.neutral{color:var(--amber)}
+
+/* Top bar */
+.top-bar{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid var(--border)}
+.regime-badge{padding:6px 16px;border-radius:20px;font-size:.75rem;font-weight:700;letter-spacing:.04em}
+.regime-badge.growth{background:rgba(16,185,129,.15);color:var(--green);border:1px solid rgba(16,185,129,.3)}
+.regime-badge.inflation{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.regime-badge.recession{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.regime-badge.transition{background:rgba(139,92,246,.15);color:var(--accent);border:1px solid rgba(139,92,246,.3)}
+.regime-badge.deflation{background:rgba(6,182,212,.15);color:var(--cyan);border:1px solid rgba(6,182,212,.3)}
+.confidence-bar{flex:1;max-width:200px}
+.confidence-bar .track{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.confidence-bar .fill{height:100%;border-radius:3px;transition:width .6s}
+.confidence-bar .lbl{font-size:.6rem;color:var(--dim);margin-top:3px;display:flex;justify-content:space-between}
+.shift-alert{margin-left:auto;font-size:.7rem;padding:5px 12px;border-radius:6px}
+.shift-alert.warning{background:rgba(245,158,11,.15);color:var(--amber);border:1px solid rgba(245,158,11,.3)}
+.shift-alert.danger{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+.shift-alert.stable{background:rgba(16,185,129,.1);color:var(--green);border:1px solid rgba(16,185,129,.2)}
+
+/* Main content */
+.main{padding:20px 24px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto auto;gap:16px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px}
+.card.full{grid-column:1/3}
+.card canvas{width:100%!important;max-height:260px}
+
+/* Transition matrix */
+.matrix{width:100%;border-collapse:collapse;font-size:.65rem;margin-top:8px}
+.matrix th,.matrix td{padding:6px 8px;text-align:center;border:1px solid var(--border)}
+.matrix th{color:var(--dim);font-weight:600;background:rgba(255,255,255,.02)}
+.matrix td{font-weight:600}
+.matrix .highlight{background:rgba(139,92,246,.15);color:var(--accent)}
+
+/* Asset allocation */
+.alloc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px}
+.alloc-item{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center}
+.alloc-item .asset{font-size:.65rem;color:var(--dim);margin-bottom:4px}
+.alloc-item .weight{font-size:1.1rem;font-weight:700}
+.alloc-item .change{font-size:.6rem;margin-top:2px}
+.alloc-item .change.pos{color:var(--green)}
+.alloc-item .change.neg{color:var(--red)}
+
+/* Signal timeline */
+.timeline{margin-top:8px}
+.tl-item{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.7rem}
+.tl-dot{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.tl-item .tl-time{color:var(--dim);width:60px;flex-shrink:0;font-size:.6rem}
+.tl-item .tl-text{flex:1}
+
+/* Responsive */
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
+  .left-panel{grid-row:auto;border-right:none;border-bottom:1px solid var(--border)}
+  .main{grid-template-columns:1fr}
+  .card.full{grid-column:1}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <h1>Macro Regime Shift Detector</h1>
+    <span class="badge">DR STRANGE</span>
+  </div>
+  <span class="time" id="clock"></span>
+</div>
+
+<div class="layout">
+  <div class="left-panel">
+    <div class="regime-selector">
+      <h2>Scenario Presets</h2>
+      <div id="scenarioList"></div>
+    </div>
+    <div>
+      <h2>Leading Indicators</h2>
+      <div class="indicator-list" id="indicatorList"></div>
+    </div>
+  </div>
+
+  <div class="top-bar">
+    <div>
+      <h3>Current Regime</h3>
+      <span class="regime-badge" id="regimeBadge"></span>
+    </div>
+    <div class="confidence-bar">
+      <h3>Confidence</h3>
+      <div class="track"><div class="fill" id="confFill"></div></div>
+      <div class="lbl"><span id="confPct"></span><span>100%</span></div>
+    </div>
+    <div id="shiftAlert"></div>
+  </div>
+
+  <div class="main">
+    <div class="card">
+      <h2>Regime Probability Over Time</h2>
+      <canvas id="probChart"></canvas>
+    </div>
+    <div class="card">
+      <h2>Transition Matrix</h2>
+      <div id="matrixContainer"></div>
+    </div>
+    <div class="card">
+      <h2>Recommended Asset Allocation</h2>
+      <div class="alloc-grid" id="allocGrid"></div>
+    </div>
+    <div class="card">
+      <h2>Signal Timeline</h2>
+      <div class="timeline" id="signalTimeline"></div>
+    </div>
+    <div class="card full">
+      <h2>Indicator Composite Index</h2>
+      <canvas id="compositeChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+// === DATA MODEL ===
+
+const REGIMES = {
+  growth: { label: 'Expansion', color: '#10b981', class: 'growth' },
+  inflation: { label: 'Inflationary', color: '#f59e0b', class: 'inflation' },
+  recession: { label: 'Recession', color: '#ef4444', class: 'recession' },
+  transition: { label: 'Transition', color: '#8b5cf6', class: 'transition' },
+  deflation: { label: 'Deflation', color: '#06b6d4', class: 'deflation' }
+};
+
+const SCENARIOS = [
+  {
+    id: 'current',
+    label: 'Current Baseline',
+    sub: 'Real-time indicator snapshot',
+    regime: 'growth',
+    confidence: 72,
+    shiftRisk: 'moderate',
+    indicators: {
+      'Yield Curve (10Y-2Y)': { val: '+0.42%', dir: 'up' },
+      'ISM Manufacturing': { val: '52.1', dir: 'up' },
+      'Core PCE YoY': { val: '2.6%', dir: 'neutral' },
+      'Unemployment Rate': { val: '4.1%', dir: 'neutral' },
+      'Fed Funds Rate': { val: '4.25%', dir: 'down' },
+      'Credit Spreads (HY)': { val: '345bp', dir: 'neutral' },
+      'LEI 6m Change': { val: '+1.2%', dir: 'up' },
+      'M2 YoY Growth': { val: '3.8%', dir: 'up' },
+      'Consumer Confidence': { val: '104.2', dir: 'up' },
+      'VIX': { val: '16.8', dir: 'down' }
+    },
+    probs: { growth: .52, inflation: .18, recession: .12, transition: .14, deflation: .04 },
+    allocation: [
+      { asset: 'US Equities', weight: 45, change: +5 },
+      { asset: 'Intl Equities', weight: 15, change: +2 },
+      { asset: 'IG Bonds', weight: 15, change: -3 },
+      { asset: 'HY Bonds', weight: 5, change: +1 },
+      { asset: 'Treasuries', weight: 10, change: -4 },
+      { asset: 'Gold', weight: 5, change: 0 },
+      { asset: 'REITs', weight: 3, change: +1 },
+      { asset: 'Cash', weight: 2, change: -2 }
+    ],
+    signals: [
+      { time: '-2w', text: 'Yield curve re-steepened past +40bp — historically bullish signal', color: '#10b981' },
+      { time: '-1w', text: 'ISM Manufacturing crossed above 50 for 2nd consecutive month', color: '#10b981' },
+      { time: '-5d', text: 'Core PCE sticky at 2.6% — Fed likely holds through Q2', color: '#f59e0b' },
+      { time: '-3d', text: 'Credit spreads tightened 15bp — risk appetite improving', color: '#10b981' },
+      { time: '-1d', text: 'LEI turned positive after 18 months — regime shift signal', color: '#8b5cf6' },
+      { time: 'Now', text: 'Composite index at 0.64 — solidly in expansion territory', color: '#10b981' }
+    ],
+    matrix: [
+      [.72, .12, .06, .08, .02],
+      [.15, .55, .10, .15, .05],
+      [.08, .08, .60, .18, .06],
+      [.20, .18, .15, .40, .07],
+      [.10, .05, .15, .12, .58]
+    ]
+  },
+  {
+    id: 'fed-pivot',
+    label: 'Fed Pivot to Easing',
+    sub: 'Rate cuts begin — growth re-acceleration',
+    regime: 'transition',
+    confidence: 65,
+    shiftRisk: 'high',
+    indicators: {
+      'Yield Curve (10Y-2Y)': { val: '+0.85%', dir: 'up' },
+      'ISM Manufacturing': { val: '49.8', dir: 'neutral' },
+      'Core PCE YoY': { val: '2.3%', dir: 'down' },
+      'Unemployment Rate': { val: '4.4%', dir: 'up' },
+      'Fed Funds Rate': { val: '3.50%', dir: 'down' },
+      'Credit Spreads (HY)': { val: '380bp', dir: 'up' },
+      'LEI 6m Change': { val: '-0.4%', dir: 'down' },
+      'M2 YoY Growth': { val: '5.2%', dir: 'up' },
+      'Consumer Confidence': { val: '96.5', dir: 'down' },
+      'VIX': { val: '22.4', dir: 'up' }
+    },
+    probs: { growth: .28, inflation: .10, recession: .22, transition: .35, deflation: .05 },
+    allocation: [
+      { asset: 'US Equities', weight: 35, change: -5 },
+      { asset: 'Intl Equities', weight: 12, change: -1 },
+      { asset: 'IG Bonds', weight: 20, change: +7 },
+      { asset: 'HY Bonds', weight: 3, change: -2 },
+      { asset: 'Treasuries', weight: 18, change: +8 },
+      { asset: 'Gold', weight: 7, change: +2 },
+      { asset: 'REITs', weight: 2, change: -1 },
+      { asset: 'Cash', weight: 3, change: +1 }
+    ],
+    signals: [
+      { time: '-4w', text: 'Fed signals pause — dot plot shifts dovish', color: '#8b5cf6' },
+      { time: '-3w', text: 'Jobs miss: +95K vs +175K expected — labor cooling', color: '#f59e0b' },
+      { time: '-2w', text: 'First 25bp cut — markets rally then reverse', color: '#8b5cf6' },
+      { time: '-1w', text: 'Long-duration bonds surge — 10Y yield drops to 3.6%', color: '#10b981' },
+      { time: '-3d', text: 'HY spreads widen 20bp despite cut — risk repricing', color: '#ef4444' },
+      { time: 'Now', text: 'Transition regime dominant — direction unclear for 2-3 months', color: '#8b5cf6' }
+    ],
+    matrix: [
+      [.55, .10, .12, .18, .05],
+      [.12, .45, .12, .25, .06],
+      [.10, .05, .50, .28, .07],
+      [.25, .12, .18, .38, .07],
+      [.08, .04, .18, .15, .55]
+    ]
+  },
+  {
+    id: 'stagflation',
+    label: 'Stagflation Shock',
+    sub: 'Growth stalls + inflation re-accelerates',
+    regime: 'inflation',
+    confidence: 78,
+    shiftRisk: 'critical',
+    indicators: {
+      'Yield Curve (10Y-2Y)': { val: '-0.15%', dir: 'down' },
+      'ISM Manufacturing': { val: '46.2', dir: 'down' },
+      'Core PCE YoY': { val: '4.1%', dir: 'up' },
+      'Unemployment Rate': { val: '4.8%', dir: 'up' },
+      'Fed Funds Rate': { val: '5.50%', dir: 'up' },
+      'Credit Spreads (HY)': { val: '520bp', dir: 'up' },
+      'LEI 6m Change': { val: '-3.2%', dir: 'down' },
+      'M2 YoY Growth': { val: '1.1%', dir: 'down' },
+      'Consumer Confidence': { val: '78.3', dir: 'down' },
+      'VIX': { val: '32.5', dir: 'up' }
+    },
+    probs: { growth: .08, inflation: .48, recession: .28, transition: .12, deflation: .04 },
+    allocation: [
+      { asset: 'US Equities', weight: 18, change: -22 },
+      { asset: 'Intl Equities', weight: 5, change: -8 },
+      { asset: 'IG Bonds', weight: 8, change: -10 },
+      { asset: 'HY Bonds', weight: 0, change: -5 },
+      { asset: 'Treasuries', weight: 15, change: +5 },
+      { asset: 'Gold', weight: 18, change: +13 },
+      { asset: 'Commodities', weight: 15, change: +15 },
+      { asset: 'TIPS', weight: 12, change: +12 },
+      { asset: 'Cash', weight: 9, change: +7 }
+    ],
+    signals: [
+      { time: '-6w', text: 'Oil spikes to $105 — supply disruption in Middle East', color: '#ef4444' },
+      { time: '-4w', text: 'Core CPI prints 0.5% MoM — re-acceleration confirmed', color: '#ef4444' },
+      { time: '-3w', text: 'ISM drops below 47 — manufacturing contraction deepens', color: '#ef4444' },
+      { time: '-2w', text: 'Fed forced to hike 25bp despite weak growth — policy trap', color: '#f59e0b' },
+      { time: '-1w', text: 'Gold breaks $2,800 — inflation hedge demand surges', color: '#f59e0b' },
+      { time: 'Now', text: '1970s playbook active — stagflation regime probability at 48%', color: '#ef4444' }
+    ],
+    matrix: [
+      [.40, .25, .15, .15, .05],
+      [.08, .58, .18, .12, .04],
+      [.05, .20, .55, .15, .05],
+      [.12, .22, .20, .38, .08],
+      [.06, .08, .20, .10, .56]
+    ]
+  },
+  {
+    id: 'hard-landing',
+    label: 'Hard Landing',
+    sub: 'Recession confirmed — earnings collapse',
+    regime: 'recession',
+    confidence: 82,
+    shiftRisk: 'critical',
+    indicators: {
+      'Yield Curve (10Y-2Y)': { val: '+1.20%', dir: 'up' },
+      'ISM Manufacturing': { val: '42.8', dir: 'down' },
+      'Core PCE YoY': { val: '1.8%', dir: 'down' },
+      'Unemployment Rate': { val: '5.6%', dir: 'up' },
+      'Fed Funds Rate': { val: '2.75%', dir: 'down' },
+      'Credit Spreads (HY)': { val: '680bp', dir: 'up' },
+      'LEI 6m Change': { val: '-5.8%', dir: 'down' },
+      'M2 YoY Growth': { val: '0.2%', dir: 'down' },
+      'Consumer Confidence': { val: '62.1', dir: 'down' },
+      'VIX': { val: '38.2', dir: 'up' }
+    },
+    probs: { growth: .05, inflation: .04, recession: .72, transition: .14, deflation: .05 },
+    allocation: [
+      { asset: 'US Equities', weight: 10, change: -30 },
+      { asset: 'Intl Equities', weight: 3, change: -10 },
+      { asset: 'IG Bonds', weight: 12, change: -6 },
+      { asset: 'HY Bonds', weight: 0, change: -5 },
+      { asset: 'Treasuries', weight: 35, change: +25 },
+      { asset: 'Gold', weight: 12, change: +7 },
+      { asset: 'TIPS', weight: 3, change: +3 },
+      { asset: 'Cash', weight: 25, change: +23 }
+    ],
+    signals: [
+      { time: '-8w', text: 'Sahm Rule triggered — unemployment rate rose 0.6% from trough', color: '#ef4444' },
+      { time: '-6w', text: 'NBER-tracked indicators confirm contraction began', color: '#ef4444' },
+      { time: '-4w', text: 'S&P 500 earnings: -18% YoY — worst since 2020', color: '#ef4444' },
+      { time: '-2w', text: 'Fed emergency 50bp cut — panic response', color: '#f59e0b' },
+      { time: '-1w', text: 'HY default rate hits 4.2% — credit cycle turning', color: '#ef4444' },
+      { time: 'Now', text: 'Full recession regime — defensive positioning imperative', color: '#ef4444' }
+    ],
+    matrix: [
+      [.35, .08, .25, .25, .07],
+      [.10, .40, .22, .20, .08],
+      [.05, .05, .65, .18, .07],
+      [.15, .10, .25, .40, .10],
+      [.08, .04, .22, .14, .52]
+    ]
+  },
+  {
+    id: 'goldilocks',
+    label: 'Goldilocks (Soft Landing)',
+    sub: 'Inflation cools + growth holds — ideal',
+    regime: 'growth',
+    confidence: 88,
+    shiftRisk: 'low',
+    indicators: {
+      'Yield Curve (10Y-2Y)': { val: '+0.65%', dir: 'up' },
+      'ISM Manufacturing': { val: '54.3', dir: 'up' },
+      'Core PCE YoY': { val: '2.1%', dir: 'down' },
+      'Unemployment Rate': { val: '3.9%', dir: 'down' },
+      'Fed Funds Rate': { val: '3.75%', dir: 'down' },
+      'Credit Spreads (HY)': { val: '280bp', dir: 'down' },
+      'LEI 6m Change': { val: '+2.8%', dir: 'up' },
+      'M2 YoY Growth': { val: '4.5%', dir: 'up' },
+      'Consumer Confidence': { val: '112.6', dir: 'up' },
+      'VIX': { val: '13.2', dir: 'down' }
+    },
+    probs: { growth: .68, inflation: .08, recession: .06, transition: .15, deflation: .03 },
+    allocation: [
+      { asset: 'US Equities', weight: 50, change: +10 },
+      { asset: 'Intl Equities', weight: 18, change: +5 },
+      { asset: 'IG Bonds', weight: 12, change: -6 },
+      { asset: 'HY Bonds', weight: 7, change: +2 },
+      { asset: 'Treasuries', weight: 5, change: -5 },
+      { asset: 'Gold', weight: 3, change: -2 },
+      { asset: 'REITs', weight: 4, change: +2 },
+      { asset: 'Cash', weight: 1, change: -1 }
+    ],
+    signals: [
+      { time: '-6w', text: 'CPI prints 2.1% — target achieved without recession', color: '#10b981' },
+      { time: '-4w', text: 'GDP +3.2% annualized — broad-based strength', color: '#10b981' },
+      { time: '-3w', text: 'Wage growth moderates to 3.5% — no spiral risk', color: '#10b981' },
+      { time: '-2w', text: 'Fed guidance: gradual easing ahead — markets cheer', color: '#10b981' },
+      { time: '-1w', text: 'S&P hits new ATH — earnings beat rate at 78%', color: '#10b981' },
+      { time: 'Now', text: 'Goldilocks confirmed — maximum risk-on positioning justified', color: '#10b981' }
+    ],
+    matrix: [
+      [.78, .08, .04, .08, .02],
+      [.18, .50, .08, .18, .06],
+      [.12, .06, .55, .20, .07],
+      [.28, .14, .12, .38, .08],
+      [.15, .05, .12, .12, .56]
+    ]
+  }
+];
+
+// === RENDERING ===
+
+let activeScenario = SCENARIOS[0];
+let probChart, compositeChart;
+
+function init() {
+  renderScenarioList();
+  selectScenario('current');
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+function updateClock() {
+  document.getElementById('clock').textContent = new Date().toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit'
+  });
+}
+
+function renderScenarioList() {
+  const el = document.getElementById('scenarioList');
+  el.innerHTML = SCENARIOS.map(s => `
+    <button class="regime-btn" data-id="${s.id}" onclick="selectScenario('${s.id}')">
+      <div class="label">${s.label}</div>
+      <div class="sub">${s.sub}</div>
+    </button>
+  `).join('');
+}
+
+function selectScenario(id) {
+  activeScenario = SCENARIOS.find(s => s.id === id);
+  document.querySelectorAll('.regime-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.id === id);
+  });
+  renderAll();
+}
+
+function renderAll() {
+  const s = activeScenario;
+  const r = REGIMES[s.regime];
+
+  // Regime badge
+  const badge = document.getElementById('regimeBadge');
+  badge.textContent = r.label;
+  badge.className = 'regime-badge ' + r.class;
+
+  // Confidence
+  const fill = document.getElementById('confFill');
+  fill.style.width = s.confidence + '%';
+  fill.style.background = s.confidence > 75 ? '#10b981' : s.confidence > 50 ? '#f59e0b' : '#ef4444';
+  document.getElementById('confPct').textContent = s.confidence + '%';
+
+  // Shift alert
+  const alert = document.getElementById('shiftAlert');
+  if (s.shiftRisk === 'critical') {
+    alert.innerHTML = '<span class="shift-alert danger">⚠ REGIME SHIFT IMMINENT</span>';
+  } else if (s.shiftRisk === 'high') {
+    alert.innerHTML = '<span class="shift-alert warning">◈ ELEVATED SHIFT RISK</span>';
+  } else if (s.shiftRisk === 'moderate') {
+    alert.innerHTML = '<span class="shift-alert warning">◇ MODERATE SHIFT RISK</span>';
+  } else {
+    alert.innerHTML = '<span class="shift-alert stable">● STABLE</span>';
+  }
+
+  renderIndicators();
+  renderProbChart();
+  renderMatrix();
+  renderAllocation();
+  renderTimeline();
+  renderCompositeChart();
+}
+
+function renderIndicators() {
+  const el = document.getElementById('indicatorList');
+  const inds = activeScenario.indicators;
+  el.innerHTML = Object.entries(inds).map(([name, d]) => `
+    <div class="indicator">
+      <span class="name">${name}</span>
+      <span class="val ${d.dir}">${d.dir === 'up' ? '▲' : d.dir === 'down' ? '▼' : '●'} ${d.val}</span>
+    </div>
+  `).join('');
+}
+
+function renderProbChart() {
+  const ctx = document.getElementById('probChart').getContext('2d');
+  if (probChart) probChart.destroy();
+
+  const p = activeScenario.probs;
+  // Generate 12-month trajectory with regime as dominant
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const datasets = Object.entries(REGIMES).map(([key, r]) => {
+    const base = p[key];
+    const data = months.map((_, i) => {
+      const noise = (Math.sin(i * 1.3 + key.length) * 0.08) + (Math.cos(i * 0.7) * 0.04);
+      return Math.max(0.01, Math.min(0.95, base + noise * (1 - base)));
+    });
+    return {
+      label: r.label,
+      data,
+      borderColor: r.color,
+      backgroundColor: r.color + '20',
+      fill: true,
+      tension: 0.4,
+      pointRadius: 2,
+      borderWidth: 2
+    };
+  });
+
+  probChart = new Chart(ctx, {
+    type: 'line',
+    data: { labels: months, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      scales: {
+        x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } },
+        y: {
+          grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 },
+            callback: v => (v * 100).toFixed(0) + '%'
+          },
+          min: 0, max: 1
+        }
+      },
+      plugins: {
+        legend: { display: true, labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } },
+        tooltip: {
+          callbacks: { label: ctx => `${ctx.dataset.label}: ${(ctx.raw * 100).toFixed(1)}%` }
+        }
+      }
+    }
+  });
+}
+
+function renderMatrix() {
+  const el = document.getElementById('matrixContainer');
+  const m = activeScenario.matrix;
+  const labels = Object.values(REGIMES).map(r => r.label);
+  const currentIdx = Object.keys(REGIMES).indexOf(activeScenario.regime);
+
+  let html = '<table class="matrix"><tr><th>From \\ To</th>';
+  labels.forEach(l => html += `<th>${l.slice(0,6)}</th>`);
+  html += '</tr>';
+
+  m.forEach((row, i) => {
+    html += `<tr><th>${labels[i].slice(0,6)}</th>`;
+    row.forEach((v, j) => {
+      const isHighlight = i === currentIdx;
+      const intensity = Math.round(v * 255);
+      const color = v > 0.3 ? `rgba(139,92,246,${v * 0.6})` : `rgba(255,255,255,${v * 0.15})`;
+      html += `<td style="background:${color}" class="${isHighlight ? 'highlight' : ''}">${(v * 100).toFixed(0)}%</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function renderAllocation() {
+  const el = document.getElementById('allocGrid');
+  el.innerHTML = activeScenario.allocation.map(a => `
+    <div class="alloc-item">
+      <div class="asset">${a.asset}</div>
+      <div class="weight" style="color:${a.weight > 20 ? '#10b981' : a.weight > 10 ? '#e2e8f0' : '#64748b'}">${a.weight}%</div>
+      <div class="change ${a.change > 0 ? 'pos' : a.change < 0 ? 'neg' : ''}">${a.change > 0 ? '+' : ''}${a.change}%</div>
+    </div>
+  `).join('');
+}
+
+function renderTimeline() {
+  const el = document.getElementById('signalTimeline');
+  el.innerHTML = activeScenario.signals.map(s => `
+    <div class="tl-item">
+      <div class="tl-dot" style="background:${s.color}"></div>
+      <div class="tl-time">${s.time}</div>
+      <div class="tl-text">${s.text}</div>
+    </div>
+  `).join('');
+}
+
+function renderCompositeChart() {
+  const ctx = document.getElementById('compositeChart').getContext('2d');
+  if (compositeChart) compositeChart.destroy();
+
+  // Generate composite index from indicators
+  const p = activeScenario.probs;
+  const composite = p.growth * 1.0 + p.inflation * (-0.3) + p.recession * (-1.0) + p.transition * 0.0 + p.deflation * (-0.5);
+
+  const months = [];
+  const values = [];
+  const thresholds = [];
+  for (let i = -11; i <= 0; i++) {
+    const d = new Date();
+    d.setMonth(d.getMonth() + i);
+    months.push(d.toLocaleString('en-US', { month: 'short', year: '2-digit' }));
+    const noise = Math.sin(i * 0.8) * 0.15 + Math.cos(i * 1.2) * 0.1;
+    values.push(composite + noise + (i * 0.01));
+    thresholds.push(0);
+  }
+
+  compositeChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [
+        {
+          label: 'Composite Index',
+          data: values,
+          borderColor: '#8b5cf6',
+          backgroundColor: values.map(v => v > 0 ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'),
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          borderWidth: 2.5
+        },
+        {
+          label: 'Zero Line',
+          data: thresholds,
+          borderColor: '#64748b',
+          borderDash: [5, 5],
+          borderWidth: 1,
+          pointRadius: 0,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } },
+        y: { grid: { color: '#1e293b' }, ticks: { color: '#64748b', font: { size: 10 } } }
+      },
+      plugins: {
+        legend: { display: true, labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12 } },
+        annotation: {}
+      }
+    }
+  });
+}
+
+init();
+</script>
+</body>
+</html>

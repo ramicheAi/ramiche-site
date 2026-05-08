@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA Filament Spool Tracker</title>
+<style>
+  :root {
+    --bg-primary: #08080e;
+    --bg-secondary: #10101a;
+    --bg-card: #181825;
+    --bg-card-hover: #1e1e30;
+    --bg-input: #12121e;
+    --accent: #e056a0;
+    --accent-glow: rgba(224, 86, 160, 0.25);
+    --accent-light: #f092c4;
+    --success: #2dd4a8;
+    --warning: #f0c040;
+    --danger: #f05656;
+    --info: #56a0f0;
+    --text-primary: #eaeaf2;
+    --text-secondary: #8888a4;
+    --text-muted: #505068;
+    --border: #282840;
+    --border-focus: #e056a0;
+    --pla: #56a0f0;
+    --petg: #2dd4a8;
+    --abs: #f0c040;
+    --tpu: #e056a0;
+    --asa: #f09050;
+    --nylon: #a070e0;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* === LAYOUT === */
+  .app {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 20px 80px;
+  }
+
+  /* === HEADER === */
+  .header {
+    padding: 48px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .header-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(224, 86, 160, 0.1);
+    border: 1px solid rgba(224, 86, 160, 0.2);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+  .header p {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* === STATS BAR === */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent-light);
+    margin-bottom: 2px;
+  }
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+  }
+
+  /* === SECTION TITLES === */
+  .section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title .count {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  /* === ADD SPOOL FORM === */
+  .add-form {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+  .form-row.triple {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .form-row.full {
+    grid-template-columns: 1fr;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .form-group label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+  }
+  .form-group input,
+  .form-group select {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus {
+    border-color: var(--border-focus);
+  }
+  .form-group input[type="color"] {
+    height: 40px;
+    padding: 4px;
+    cursor: pointer;
+  }
+  .color-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .color-dot-large {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    width: 100%;
+    margin-top: 4px;
+  }
+  .btn-primary:hover {
+    background: #c84890;
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+  .btn-danger {
+    background: rgba(240, 86, 86, 0.1);
+    color: var(--danger);
+    border: 1px solid rgba(240, 86, 86, 0.2);
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+  .btn-danger:hover {
+    background: rgba(240, 86, 86, 0.2);
+  }
+  .btn-sm {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  /* === SPOOL LIST === */
+  .spool-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+  .spool-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .spool-card:hover {
+    border-color: rgba(224, 86, 160, 0.3);
+    transform: translateY(-1px);
+  }
+  .spool-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .spool-identity {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .color-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.08);
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+  }
+  .color-swatch::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: 12px;
+    height: 12px;
+    background: rgba(255,255,255,0.15);
+    border-radius: 50%;
+  }
+  .spool-name {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .spool-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .material-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+  .material-pla { background: rgba(86, 160, 240, 0.15); color: var(--pla); }
+  .material-petg { background: rgba(45, 212, 168, 0.15); color: var(--petg); }
+  .material-abs { background: rgba(240, 192, 64, 0.15); color: var(--abs); }
+  .material-tpu { background: rgba(224, 86, 160, 0.15); color: var(--tpu); }
+  .material-asa { background: rgba(240, 144, 80, 0.15); color: var(--asa); }
+  .material-nylon { background: rgba(160, 112, 224, 0.15); color: var(--nylon); }
+  .brand-text {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .spool-actions {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+
+  /* === WEIGHT BAR === */
+  .weight-section {
+    margin-bottom: 12px;
+  }
+  .weight-bar-bg {
+    width: 100%;
+    height: 8px;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .weight-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .weight-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+  }
+  .weight-remaining {
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+  .weight-total {
+    color: var(--text-muted);
+  }
+
+  /* === SPOOL DETAILS === */
+  .spool-details {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .detail-item {
+    background: var(--bg-primary);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .detail-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .detail-label {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-top: 1px;
+  }
+
+  /* === USE WEIGHT MODAL === */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.active {
+    display: flex;
+  }
+  .modal {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 90%;
+    max-width: 360px;
+  }
+  .modal h3 {
+    font-size: 16px;
+    margin-bottom: 16px;
+  }
+  .modal input {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-primary);
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  .modal input:focus {
+    border-color: var(--border-focus);
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .modal-actions .btn { flex: 1; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover {
+    background: var(--bg-card-hover);
+  }
+
+  /* === COST BREAKDOWN === */
+  .cost-section {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .cost-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .cost-item {
+    background: var(--bg-primary);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .cost-item-value {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .cost-item-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* === ALERTS === */
+  .alerts {
+    margin-bottom: 24px;
+  }
+  .alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 8px;
+  }
+  .alert-warning {
+    background: rgba(240, 192, 64, 0.08);
+    border: 1px solid rgba(240, 192, 64, 0.2);
+    color: var(--warning);
+  }
+  .alert-danger {
+    background: rgba(240, 86, 86, 0.08);
+    border: 1px solid rgba(240, 86, 86, 0.2);
+    color: var(--danger);
+  }
+  .alert-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  /* === MATERIAL GUIDE === */
+  .guide-section {
+    margin-bottom: 32px;
+  }
+  .guide-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .guide-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .guide-material-name {
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .guide-info {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+  .guide-temps {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* === EMPTY STATE === */
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-muted);
+  }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; }
+
+  /* === RESPONSIVE === */
+  @media (max-width: 600px) {
+    .stats-bar { grid-template-columns: repeat(2, 1fr); }
+    .form-row { grid-template-columns: 1fr; }
+    .form-row.triple { grid-template-columns: 1fr 1fr; }
+    .spool-details { grid-template-columns: repeat(2, 1fr); }
+    .cost-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 22px; }
+  }
+
+  /* === EXPORT/IMPORT === */
+  .toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    font-size: 12px;
+  }
+  .btn-outline:hover {
+    background: var(--bg-card);
+    color: var(--text-primary);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-badge">NOVA FABRICATION</div>
+    <h1>Filament Spool Tracker</h1>
+    <p>Track inventory, monitor usage, estimate costs. All spools, one view.</p>
+  </div>
+
+  <!-- ALERTS -->
+  <div class="alerts" id="alerts"></div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar" id="statsBar">
+    <div class="stat-card"><div class="stat-value" id="statTotal">0</div><div class="stat-label">Spools</div></div>
+    <div class="stat-card"><div class="stat-value" id="statWeight">0g</div><div class="stat-label">Total Weight</div></div>
+    <div class="stat-card"><div class="stat-value" id="statValue">$0</div><div class="stat-label">Inventory Value</div></div>
+    <div class="stat-card"><div class="stat-value" id="statCostPerG">--</div><div class="stat-label">Avg $/g</div></div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <button class="btn btn-outline" onclick="exportData()">Export JSON</button>
+    <button class="btn btn-outline" onclick="document.getElementById('importFile').click()">Import JSON</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    <button class="btn btn-outline" onclick="loadDemoData()">Load Demo</button>
+  </div>
+
+  <!-- ADD SPOOL FORM -->
+  <div class="section-title">Add New Spool</div>
+  <div class="add-form">
+    <div class="form-row">
+      <div class="form-group">
+        <label>Color Name</label>
+        <input type="text" id="fName" placeholder="e.g. Galaxy Black">
+      </div>
+      <div class="form-group">
+        <label>Color</label>
+        <div class="color-preview">
+          <input type="color" id="fColor" value="#2d2d2d" style="flex:1">
+          <div class="color-dot-large" id="colorPreview" style="background:#2d2d2d"></div>
+        </div>
+      </div>
+    </div>
+    <div class="form-row triple">
+      <div class="form-group">
+        <label>Material</label>
+        <select id="fMaterial">
+          <option value="PLA">PLA</option>
+          <option value="PLA+">PLA+</option>
+          <option value="PETG">PETG</option>
+          <option value="ABS">ABS</option>
+          <option value="TPU">TPU</option>
+          <option value="ASA">ASA</option>
+          <option value="Nylon">Nylon</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Brand</label>
+        <input type="text" id="fBrand" placeholder="e.g. Bambu Lab">
+      </div>
+      <div class="form-group">
+        <label>Diameter</label>
+        <select id="fDiameter">
+          <option value="1.75">1.75mm</option>
+          <option value="2.85">2.85mm</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row triple">
+      <div class="form-group">
+        <label>Spool Weight (g)</label>
+        <input type="number" id="fTotal" value="1000" min="1">
+      </div>
+      <div class="form-group">
+        <label>Remaining (g)</label>
+        <input type="number" id="fRemaining" value="1000" min="0">
+      </div>
+      <div class="form-group">
+        <label>Price ($)</label>
+        <input type="number" id="fPrice" step="0.01" placeholder="24.99">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Nozzle Temp (°C)</label>
+        <input type="number" id="fNozzle" placeholder="210">
+      </div>
+      <div class="form-group">
+        <label>Bed Temp (°C)</label>
+        <input type="number" id="fBed" placeholder="60">
+      </div>
+    </div>
+    <button class="btn btn-primary" onclick="addSpool()">+ Add Spool</button>
+  </div>
+
+  <!-- SPOOL LIST -->
+  <div class="section-title">Inventory <span class="count" id="spoolCount">0</span></div>
+  <div class="spool-list" id="spoolList">
+    <div class="empty-state">
+      <div class="icon">🧵</div>
+      <p>No spools yet. Add your first spool above or load demo data.</p>
+    </div>
+  </div>
+
+  <!-- COST BREAKDOWN -->
+  <div class="section-title">Cost Analysis</div>
+  <div class="cost-section">
+    <div class="cost-grid" id="costGrid">
+      <div class="cost-item"><div class="cost-item-value" id="costTotal">$0.00</div><div class="cost-item-label">Total Invested</div></div>
+      <div class="cost-item"><div class="cost-item-value" id="costUsed">$0.00</div><div class="cost-item-label">Value Used</div></div>
+      <div class="cost-item"><div class="cost-item-value" id="costRemaining">$0.00</div><div class="cost-item-label">Value Remaining</div></div>
+      <div class="cost-item"><div class="cost-item-value" id="costAvgSpool">$0.00</div><div class="cost-item-label">Avg Spool Cost</div></div>
+    </div>
+  </div>
+
+  <!-- MATERIAL GUIDE -->
+  <div class="section-title">Material Quick Reference</div>
+  <div class="guide-section">
+    <div class="guide-cards">
+      <div class="guide-card">
+        <div class="guide-material-name" style="color:var(--pla)">PLA</div>
+        <div>
+          <div class="guide-info">Easiest to print. Biodegradable. Low warp. Brittle under stress. Not heat-resistant (softens ~55°C).</div>
+          <div class="guide-temps">Nozzle: 190-220°C &bull; Bed: 50-65°C &bull; Enclosure: No</div>
+        </div>
+      </div>
+      <div class="guide-card">
+        <div class="guide-material-name" style="color:var(--petg)">PETG</div>
+        <div>
+          <div class="guide-info">Strong, flexible, chemical-resistant. Good layer adhesion. Strings more than PLA. Heat-resistant to ~80°C.</div>
+          <div class="guide-temps">Nozzle: 220-250°C &bull; Bed: 70-85°C &bull; Enclosure: Optional</div>
+        </div>
+      </div>
+      <div class="guide-card">
+        <div class="guide-material-name" style="color:var(--abs)">ABS</div>
+        <div>
+          <div class="guide-info">Strong, heat-resistant (~100°C). Warps heavily — enclosure required. Fumes — ventilate. Acetone-smoothable.</div>
+          <div class="guide-temps">Nozzle: 230-260°C &bull; Bed: 90-110°C &bull; Enclosure: Required</div>
+        </div>
+      </div>
+      <div class="guide-card">
+        <div class="guide-material-name" style="color:var(--tpu)">TPU</div>
+        <div>
+          <div class="guide-info">Flexible, rubber-like. Great for grips, cases, seals. Slow print speeds required. Direct drive extruder preferred.</div>
+          <div class="guide-temps">Nozzle: 210-230°C &bull; Bed: 40-60°C &bull; Enclosure: No</div>
+        </div>
+      </div>
+      <div class="guide-card">
+        <div class="guide-material-name" style="color:var(--asa)">ASA</div>
+        <div>
+          <div class="guide-info">UV-resistant ABS alternative. Outdoor-ready. Less warp than ABS but still needs enclosure. Tough and durable.</div>
+          <div class="guide-temps">Nozzle: 240-260°C &bull; Bed: 90-110°C &bull; Enclosure: Required</div>
+        </div>
+      </div>
+      <div class="guide-card">
+        <div class="guide-material-name" style="color:var(--nylon)">Nylon</div>
+        <div>
+          <div class="guide-info">Extremely strong, wear-resistant. Absorbs moisture — dry before use. High warp. Excellent for functional parts.</div>
+          <div class="guide-temps">Nozzle: 240-270°C &bull; Bed: 70-90°C &bull; Enclosure: Required</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="text-align:center; color:var(--text-muted); font-size:11px; padding:24px 0; border-top:1px solid var(--border);">
+    NOVA Filament Spool Tracker &bull; Data stored in browser localStorage &bull; Built by NOVA @ RAMICHE OS
+  </div>
+
+</div>
+
+<!-- USE WEIGHT MODAL -->
+<div class="modal-overlay" id="useModal">
+  <div class="modal">
+    <h3>Log Filament Usage</h3>
+    <p style="font-size:12px; color:var(--text-secondary); margin-bottom:12px;" id="useModalInfo"></p>
+    <input type="number" id="useAmount" placeholder="Grams used (e.g. 45)" min="0">
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeUseModal()">Cancel</button>
+      <button class="btn btn-primary" style="width:auto" onclick="confirmUse()">Subtract</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'nova-spool-tracker';
+let spools = [];
+let useTargetId = null;
+
+// Init
+function init() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (saved) {
+    try { spools = JSON.parse(saved); } catch(e) { spools = []; }
+  }
+  document.getElementById('fColor').addEventListener('input', (e) => {
+    document.getElementById('colorPreview').style.background = e.target.value;
+  });
+  render();
+}
+
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(spools));
+}
+
+function generateId() {
+  return 'sp_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+}
+
+function getMaterialClass(mat) {
+  const m = mat.toLowerCase().replace('+', '');
+  if (['pla'].includes(m)) return 'pla';
+  if (['petg'].includes(m)) return 'petg';
+  if (['abs'].includes(m)) return 'abs';
+  if (['tpu'].includes(m)) return 'tpu';
+  if (['asa'].includes(m)) return 'asa';
+  if (['nylon'].includes(m)) return 'nylon';
+  return 'pla';
+}
+
+function getBarColor(pct) {
+  if (pct > 50) return 'var(--success)';
+  if (pct > 20) return 'var(--warning)';
+  return 'var(--danger)';
+}
+
+function addSpool() {
+  const name = document.getElementById('fName').value.trim();
+  if (!name) { alert('Enter a color name'); return; }
+
+  const spool = {
+    id: generateId(),
+    name: name,
+    color: document.getElementById('fColor').value,
+    material: document.getElementById('fMaterial').value,
+    brand: document.getElementById('fBrand').value.trim() || 'Unknown',
+    diameter: parseFloat(document.getElementById('fDiameter').value),
+    totalWeight: parseInt(document.getElementById('fTotal').value) || 1000,
+    remaining: parseInt(document.getElementById('fRemaining').value) || 1000,
+    price: parseFloat(document.getElementById('fPrice').value) || 0,
+    nozzleTemp: parseInt(document.getElementById('fNozzle').value) || 0,
+    bedTemp: parseInt(document.getElementById('fBed').value) || 0,
+    addedDate: new Date().toISOString(),
+    usageLog: []
+  };
+
+  spools.push(spool);
+  save();
+  render();
+
+  // Reset form
+  document.getElementById('fName').value = '';
+  document.getElementById('fBrand').value = '';
+  document.getElementById('fPrice').value = '';
+  document.getElementById('fNozzle').value = '';
+  document.getElementById('fBed').value = '';
+  document.getElementById('fRemaining').value = '1000';
+}
+
+function deleteSpool(id) {
+  if (!confirm('Remove this spool from inventory?')) return;
+  spools = spools.filter(s => s.id !== id);
+  save();
+  render();
+}
+
+function openUseModal(id) {
+  useTargetId = id;
+  const spool = spools.find(s => s.id === id);
+  document.getElementById('useModalInfo').textContent = `${spool.name} (${spool.material}) — ${spool.remaining}g remaining`;
+  document.getElementById('useAmount').value = '';
+  document.getElementById('useModal').classList.add('active');
+  document.getElementById('useAmount').focus();
+}
+
+function closeUseModal() {
+  document.getElementById('useModal').classList.remove('active');
+  useTargetId = null;
+}
+
+function confirmUse() {
+  const amount = parseInt(document.getElementById('useAmount').value);
+  if (!amount || amount <= 0) return;
+
+  const spool = spools.find(s => s.id === useTargetId);
+  if (!spool) return;
+
+  const actual = Math.min(amount, spool.remaining);
+  spool.remaining -= actual;
+  spool.usageLog.push({ date: new Date().toISOString(), grams: actual });
+
+  save();
+  closeUseModal();
+  render();
+}
+
+function render() {
+  const list = document.getElementById('spoolList');
+  const alerts = document.getElementById('alerts');
+
+  // Alerts
+  const lowSpools = spools.filter(s => (s.remaining / s.totalWeight) <= 0.15 && s.remaining > 0);
+  const emptySpools = spools.filter(s => s.remaining <= 0);
+  let alertHTML = '';
+  emptySpools.forEach(s => {
+    alertHTML += `<div class="alert alert-danger"><span class="alert-icon">&#x26A0;</span>${s.name} (${s.material}) is empty — reorder or remove</div>`;
+  });
+  lowSpools.forEach(s => {
+    alertHTML += `<div class="alert alert-warning"><span class="alert-icon">&#x26A0;</span>${s.name} (${s.material}) is low — ${s.remaining}g remaining (${Math.round(s.remaining/s.totalWeight*100)}%)</div>`;
+  });
+  alerts.innerHTML = alertHTML;
+
+  // Stats
+  const totalWeight = spools.reduce((a, s) => a + s.remaining, 0);
+  const totalValue = spools.reduce((a, s) => a + s.price, 0);
+  const avgCostPerG = totalWeight > 0 ? (totalValue / spools.reduce((a, s) => a + s.totalWeight, 0)) : 0;
+
+  document.getElementById('statTotal').textContent = spools.length;
+  document.getElementById('statWeight').textContent = totalWeight >= 1000 ? (totalWeight / 1000).toFixed(1) + 'kg' : totalWeight + 'g';
+  document.getElementById('statValue').textContent = '$' + totalValue.toFixed(0);
+  document.getElementById('statCostPerG').textContent = avgCostPerG > 0 ? '$' + avgCostPerG.toFixed(3) : '--';
+  document.getElementById('spoolCount').textContent = spools.length;
+
+  // Spool list
+  if (spools.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">🧵</div><p>No spools yet. Add your first spool above or load demo data.</p></div>';
+  } else {
+    list.innerHTML = spools.map(s => {
+      const pct = Math.round((s.remaining / s.totalWeight) * 100);
+      const costPerG = s.price > 0 ? (s.price / s.totalWeight) : 0;
+      const valueRemaining = costPerG * s.remaining;
+      const matClass = getMaterialClass(s.material);
+
+      return `
+        <div class="spool-card">
+          <div class="spool-top">
+            <div class="spool-identity">
+              <div class="color-swatch" style="background:${s.color}"></div>
+              <div>
+                <div class="spool-name">${s.name}</div>
+                <div class="spool-meta">
+                  <span class="material-badge material-${matClass}">${s.material}</span>
+                  <span class="brand-text">${s.brand} &bull; ${s.diameter}mm</span>
+                </div>
+              </div>
+            </div>
+            <div class="spool-actions">
+              <button class="btn btn-outline btn-sm" onclick="openUseModal('${s.id}')">Use</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteSpool('${s.id}')">✕</button>
+            </div>
+          </div>
+          <div class="weight-section">
+            <div class="weight-bar-bg">
+              <div class="weight-bar-fill" style="width:${pct}%; background:${getBarColor(pct)}"></div>
+            </div>
+            <div class="weight-labels">
+              <span class="weight-remaining">${s.remaining}g remaining (${pct}%)</span>
+              <span class="weight-total">of ${s.totalWeight}g</span>
+            </div>
+          </div>
+          <div class="spool-details">
+            <div class="detail-item">
+              <div class="detail-value">${costPerG > 0 ? '$' + costPerG.toFixed(3) : '--'}</div>
+              <div class="detail-label">Cost / gram</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-value">${s.price > 0 ? '$' + valueRemaining.toFixed(2) : '--'}</div>
+              <div class="detail-label">Value Left</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-value">${s.nozzleTemp > 0 ? s.nozzleTemp + '°' : '--'} / ${s.bedTemp > 0 ? s.bedTemp + '°' : '--'}</div>
+              <div class="detail-label">Nozzle / Bed</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Cost analysis
+  const totalInvested = spools.reduce((a, s) => a + s.price, 0);
+  const totalOrigWeight = spools.reduce((a, s) => a + s.totalWeight, 0);
+  const totalRemWeight = spools.reduce((a, s) => a + s.remaining, 0);
+  const usedWeight = totalOrigWeight - totalRemWeight;
+  const avgPrice = spools.length > 0 ? totalInvested / spools.length : 0;
+  const valueUsed = totalOrigWeight > 0 ? (usedWeight / totalOrigWeight) * totalInvested : 0;
+  const valueRemaining = totalInvested - valueUsed;
+
+  document.getElementById('costTotal').textContent = '$' + totalInvested.toFixed(2);
+  document.getElementById('costUsed').textContent = '$' + valueUsed.toFixed(2);
+  document.getElementById('costRemaining').textContent = '$' + valueRemaining.toFixed(2);
+  document.getElementById('costAvgSpool').textContent = '$' + avgPrice.toFixed(2);
+}
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(spools, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `nova-spools-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (Array.isArray(data)) {
+        spools = data;
+        save();
+        render();
+      }
+    } catch(err) {
+      alert('Invalid JSON file');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function loadDemoData() {
+  if (spools.length > 0 && !confirm('This will replace your current inventory. Continue?')) return;
+
+  spools = [
+    {
+      id: generateId(), name: 'Galaxy Black', color: '#1a1a2e', material: 'PLA+',
+      brand: 'Bambu Lab', diameter: 1.75, totalWeight: 1000, remaining: 720,
+      price: 21.99, nozzleTemp: 220, bedTemp: 60, addedDate: '2026-03-01T00:00:00Z',
+      usageLog: [{ date: '2026-03-15T00:00:00Z', grams: 180 }, { date: '2026-04-02T00:00:00Z', grams: 100 }]
+    },
+    {
+      id: generateId(), name: 'Arctic White', color: '#f0f0f5', material: 'PLA',
+      brand: 'Bambu Lab', diameter: 1.75, totalWeight: 1000, remaining: 445,
+      price: 19.99, nozzleTemp: 210, bedTemp: 55, addedDate: '2026-02-20T00:00:00Z',
+      usageLog: [{ date: '2026-03-10T00:00:00Z', grams: 320 }, { date: '2026-03-28T00:00:00Z', grams: 235 }]
+    },
+    {
+      id: generateId(), name: 'Crimson Red', color: '#c0392b', material: 'PETG',
+      brand: 'Polymaker', diameter: 1.75, totalWeight: 1000, remaining: 130,
+      price: 27.99, nozzleTemp: 240, bedTemp: 80, addedDate: '2026-01-15T00:00:00Z',
+      usageLog: [{ date: '2026-02-01T00:00:00Z', grams: 500 }, { date: '2026-03-20T00:00:00Z', grams: 370 }]
+    },
+    {
+      id: generateId(), name: 'Ocean Blue', color: '#2980b9', material: 'PLA',
+      brand: 'eSUN', diameter: 1.75, totalWeight: 1000, remaining: 950,
+      price: 18.49, nozzleTemp: 205, bedTemp: 55, addedDate: '2026-04-10T00:00:00Z',
+      usageLog: [{ date: '2026-04-12T00:00:00Z', grams: 50 }]
+    },
+    {
+      id: generateId(), name: 'Flex Black', color: '#2d2d2d', material: 'TPU',
+      brand: 'NinjaTek', diameter: 1.75, totalWeight: 500, remaining: 380,
+      price: 44.99, nozzleTemp: 225, bedTemp: 50, addedDate: '2026-03-10T00:00:00Z',
+      usageLog: [{ date: '2026-03-22T00:00:00Z', grams: 120 }]
+    },
+    {
+      id: generateId(), name: 'Sunrise Orange', color: '#e67e22', material: 'ASA',
+      brand: 'Prusament', diameter: 1.75, totalWeight: 850, remaining: 0,
+      price: 32.99, nozzleTemp: 250, bedTemp: 100, addedDate: '2026-01-01T00:00:00Z',
+      usageLog: [{ date: '2026-01-20T00:00:00Z', grams: 400 }, { date: '2026-02-28T00:00:00Z', grams: 450 }]
+    }
+  ];
+
+  save();
+  render();
+}
+
+// Keyboard shortcut for modal
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeUseModal();
+  if (e.key === 'Enter' && useTargetId) confirmUse();
+});
+
+init();
+</script>
+
+</body>
+</html>

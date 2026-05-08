@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Unit Economics Calculator — SIMONS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--card:#1a1a28;--border:#2a2a3a;
+  --text:#e0e0e8;--muted:#7a7a8a;--accent:#4fc3f7;--green:#4caf50;
+  --red:#ef5350;--amber:#ffb74d;--purple:#b388ff;
+  --font:'SF Mono',Monaco,'Cascadia Code',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;overflow-x:hidden}
+.header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:16px;font-weight:600;color:var(--accent)}
+.header span{color:var(--muted);font-size:11px}
+.layout{display:grid;grid-template-columns:340px 1fr;height:calc(100vh - 53px)}
+.sidebar{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px}
+.main{overflow-y:auto;padding:20px}
+.section{margin-bottom:16px}
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;margin-top:10px}
+label:first-child{margin-top:0}
+input,select{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:4px;font-family:var(--font);font-size:12px}
+input:focus,select:focus{outline:none;border-color:var(--accent)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn{background:var(--accent);color:#000;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:12px;font-weight:600;width:100%;margin-top:12px}
+.btn:hover{opacity:0.85}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.presets{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.preset{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:3px 8px;border-radius:12px;cursor:pointer;font-size:10px;font-family:var(--font)}
+.preset:hover,.preset.active{border-color:var(--accent);color:var(--accent)}
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:center}
+.kpi-value{font-size:20px;font-weight:700;margin:4px 0}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px}
+.kpi-value.positive{color:var(--green)}
+.kpi-value.negative{color:var(--red)}
+.kpi-value.neutral{color:var(--accent)}
+.charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px}
+.chart-card.full{grid-column:1/-1}
+.chart-title{font-size:12px;font-weight:600;margin-bottom:12px;color:var(--text)}
+canvas{width:100%;height:auto;display:block}
+.waterfall-bar{display:flex;align-items:center;margin-bottom:6px;font-size:11px}
+.waterfall-bar .label{width:130px;color:var(--muted);text-align:right;padding-right:10px;flex-shrink:0}
+.waterfall-bar .bar-wrap{flex:1;height:22px;position:relative}
+.waterfall-bar .bar{height:100%;border-radius:3px;position:absolute;top:0;transition:width 0.4s}
+.waterfall-bar .val{position:absolute;right:6px;top:2px;font-size:10px;font-weight:600;color:#fff}
+.bar-green{background:linear-gradient(90deg,#2e7d32,#4caf50)}
+.bar-red{background:linear-gradient(90deg,#c62828,#ef5350)}
+.bar-amber{background:linear-gradient(90deg,#e65100,#ffb74d)}
+.bar-accent{background:linear-gradient(90deg,#0277bd,#4fc3f7)}
+.bar-purple{background:linear-gradient(90deg,#6a1b9a,#b388ff)}
+.compare-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.compare-col{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px}
+.compare-col h3{font-size:12px;color:var(--accent);margin-bottom:10px;text-align:center}
+.compare-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}
+.compare-row:last-child{border:none}
+.compare-row .clabel{color:var(--muted)}
+.ltv-table{width:100%;border-collapse:collapse;font-size:11px}
+.ltv-table th,.ltv-table td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border)}
+.ltv-table th{color:var(--muted);font-weight:500;text-transform:uppercase;font-size:10px}
+.ltv-table td:first-child,.ltv-table th:first-child{text-align:left}
+.scenarios-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.scenarios-header h2{font-size:14px;font-weight:600}
+.tag{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.tag-green{background:rgba(76,175,80,0.15);color:var(--green)}
+.tag-red{background:rgba(239,83,80,0.15);color:var(--red)}
+.tag-amber{background:rgba(255,183,77,0.15);color:var(--amber)}
+.slider-wrap{display:flex;align-items:center;gap:8px}
+.slider-wrap input[type=range]{flex:1;-webkit-appearance:none;background:var(--border);height:4px;border-radius:2px;border:none;padding:0}
+.slider-wrap input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer}
+.slider-val{font-size:12px;font-weight:600;color:var(--accent);min-width:50px;text-align:right}
+.elasticity-note{font-size:10px;color:var(--muted);margin-top:8px;font-style:italic}
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Unit Economics Calculator</h1>
+  <span>SIMONS — Data & Analytics | RAMICHE OS</span>
+</div>
+<div class="layout">
+  <div class="sidebar">
+    <div class="section">
+      <div class="section-title">Product Presets</div>
+      <div class="presets" id="presets"></div>
+    </div>
+    <div class="section">
+      <div class="section-title">Product Configuration</div>
+      <label>Product Name</label>
+      <input type="text" id="productName" value="GA iPhone Case">
+      <label>Brand</label>
+      <select id="brand">
+        <option value="GA">GA (Collectibles)</option>
+        <option value="RAMICHE">RAMICHE (Music)</option>
+        <option value="Parallax">Parallax (Label)</option>
+        <option value="Studio">Ramiche Studio (Services)</option>
+      </select>
+      <div class="row">
+        <div><label>Retail Price ($)</label><input type="number" id="retailPrice" value="29.99" step="0.01"></div>
+        <div><label>COGS ($)</label><input type="number" id="cogs" value="11.50" step="0.01"></div>
+      </div>
+      <div class="row">
+        <div><label>Shipping Cost ($)</label><input type="number" id="shipping" value="4.50" step="0.01"></div>
+        <div><label>Packaging ($)</label><input type="number" id="packaging" value="0.50" step="0.01"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Platform & Fees</div>
+      <label>Sales Platform</label>
+      <select id="platform" onchange="updatePlatformFees()">
+        <option value="shopify">Shopify (2.9% + $0.30)</option>
+        <option value="kickstarter">Kickstarter (5% + 3.5%)</option>
+        <option value="etsy">Etsy (6.5% + 3% + $0.25)</option>
+        <option value="direct">Direct / No Fees</option>
+      </select>
+      <div class="row">
+        <div><label>Platform Fee (%)</label><input type="number" id="platformPct" value="2.9" step="0.1"></div>
+        <div><label>Fixed Fee ($)</label><input type="number" id="platformFixed" value="0.30" step="0.01"></div>
+      </div>
+      <div class="row">
+        <div><label>Processing (%)</label><input type="number" id="processingPct" value="0" step="0.1"></div>
+        <div><label>Marketing CPA ($)</label><input type="number" id="cpa" value="5.00" step="0.01"></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">Volume & LTV</div>
+      <div class="row">
+        <div><label>Monthly Fixed Costs ($)</label><input type="number" id="fixedCosts" value="50" step="1"></div>
+        <div><label>Expected Monthly Units</label><input type="number" id="monthlyUnits" value="100" step="1"></div>
+      </div>
+      <div class="row">
+        <div><label>Repeat Rate (%)</label><input type="number" id="repeatRate" value="25" step="1"></div>
+        <div><label>Avg Orders/Yr</label><input type="number" id="ordersPerYear" value="2.5" step="0.1"></div>
+      </div>
+      <label>Cohort Decay Rate (monthly %)</label>
+      <input type="number" id="decayRate" value="15" step="1">
+    </div>
+    <button class="btn" onclick="calculate()">Calculate</button>
+    <button class="btn btn-outline" onclick="addToCompare()">Add to Compare</button>
+    <button class="btn btn-outline" onclick="clearCompare()">Clear Compare</button>
+  </div>
+  <div class="main">
+    <div class="kpi-strip" id="kpiStrip"></div>
+    <div class="charts-grid">
+      <div class="chart-card full">
+        <div class="chart-title">Margin Waterfall — Price to Net Profit</div>
+        <div id="waterfall"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Breakeven Analysis</div>
+        <canvas id="breakevenChart" height="220"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">Price Sensitivity — Elasticity Model</div>
+        <div class="slider-wrap">
+          <span style="color:var(--muted);font-size:11px">Elasticity (e):</span>
+          <input type="range" id="elasticitySlider" min="0.5" max="3" step="0.1" value="1.2" oninput="updateElasticity()">
+          <span class="slider-val" id="elasticityVal">-1.2</span>
+        </div>
+        <canvas id="elasticityChart" height="200"></canvas>
+        <div class="elasticity-note">Constant-elasticity demand: Q = Q₀ × (P/P₀)^(-e). Higher |e| = more price-sensitive.</div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-title">Customer LTV Projection (12 Months)</div>
+        <canvas id="ltvChart" height="180"></canvas>
+        <table class="ltv-table" id="ltvTable"></table>
+      </div>
+    </div>
+    <div class="scenarios-header">
+      <h2>Scenario Comparison</h2>
+      <span style="color:var(--muted);font-size:11px">Add products via sidebar → "Add to Compare"</span>
+    </div>
+    <div class="compare-grid" id="compareGrid"></div>
+  </div>
+</div>
+
+<script>
+const PRESETS = [
+  {name:'GA iPhone Case', brand:'GA', retail:29.99, cogs:11.50, ship:4.50, pkg:0.50, platform:'shopify', cpa:5},
+  {name:'GA Framed Poster', brand:'GA', retail:49.99, cogs:18.75, ship:7.50, pkg:1.00, platform:'shopify', cpa:8},
+  {name:'GA T-Shirt', brand:'GA', retail:34.99, cogs:13.25, ship:4.00, pkg:0.50, platform:'shopify', cpa:6},
+  {name:'GA Hoodie', brand:'GA', retail:54.99, cogs:25.50, ship:5.50, pkg:0.75, platform:'shopify', cpa:7},
+  {name:'GA Mug', brand:'GA', retail:19.99, cogs:8.25, ship:5.00, pkg:0.75, platform:'shopify', cpa:4},
+  {name:'Kickstarter Tier', brand:'GA', retail:39.99, cogs:15.00, ship:5.00, pkg:1.00, platform:'kickstarter', cpa:0},
+  {name:'RAMICHE Vinyl', brand:'RAMICHE', retail:34.99, cogs:8.50, ship:4.50, pkg:1.50, platform:'shopify', cpa:5},
+  {name:'Studio Hourly', brand:'Studio', retail:150.00, cogs:0, ship:0, pkg:0, platform:'direct', cpa:25},
+];
+
+const PLATFORMS = {
+  shopify: {pct:2.9, fixed:0.30, proc:0},
+  kickstarter: {pct:5.0, fixed:0, proc:3.5},
+  etsy: {pct:6.5, fixed:0.25, proc:3.0},
+  direct: {pct:0, fixed:0, proc:0}
+};
+
+let scenarios = [];
+
+// Init presets
+const presetsEl = document.getElementById('presets');
+PRESETS.forEach((p,i) => {
+  const el = document.createElement('div');
+  el.className = 'preset';
+  el.textContent = p.name;
+  el.onclick = () => loadPreset(i);
+  presetsEl.appendChild(el);
+});
+
+function loadPreset(i) {
+  const p = PRESETS[i];
+  document.getElementById('productName').value = p.name;
+  document.getElementById('brand').value = p.brand;
+  document.getElementById('retailPrice').value = p.retail;
+  document.getElementById('cogs').value = p.cogs;
+  document.getElementById('shipping').value = p.ship;
+  document.getElementById('packaging').value = p.pkg;
+  document.getElementById('platform').value = p.platform;
+  document.getElementById('cpa').value = p.cpa;
+  updatePlatformFees();
+  document.querySelectorAll('.preset').forEach((el,j) => el.classList.toggle('active', j===i));
+  calculate();
+}
+
+function updatePlatformFees() {
+  const p = PLATFORMS[document.getElementById('platform').value];
+  document.getElementById('platformPct').value = p.pct;
+  document.getElementById('platformFixed').value = p.fixed;
+  document.getElementById('processingPct').value = p.proc;
+}
+
+function getInputs() {
+  return {
+    name: document.getElementById('productName').value,
+    brand: document.getElementById('brand').value,
+    retail: +document.getElementById('retailPrice').value,
+    cogs: +document.getElementById('cogs').value,
+    shipping: +document.getElementById('shipping').value,
+    packaging: +document.getElementById('packaging').value,
+    platformPct: +document.getElementById('platformPct').value / 100,
+    platformFixed: +document.getElementById('platformFixed').value,
+    processingPct: +document.getElementById('processingPct').value / 100,
+    cpa: +document.getElementById('cpa').value,
+    fixedCosts: +document.getElementById('fixedCosts').value,
+    monthlyUnits: +document.getElementById('monthlyUnits').value,
+    repeatRate: +document.getElementById('repeatRate').value / 100,
+    ordersPerYear: +document.getElementById('ordersPerYear').value,
+    decayRate: +document.getElementById('decayRate').value / 100
+  };
+}
+
+function computeEconomics(d) {
+  const platformFee = d.retail * d.platformPct + d.platformFixed;
+  const processingFee = d.retail * d.processingPct;
+  const totalFees = platformFee + processingFee;
+  const totalVariableCost = d.cogs + d.shipping + d.packaging + totalFees + d.cpa;
+  const contributionMargin = d.retail - totalVariableCost;
+  const marginPct = contributionMargin / d.retail;
+  const breakeven = d.fixedCosts > 0 ? Math.ceil(d.fixedCosts / contributionMargin) : 0;
+  const monthlyRevenue = d.retail * d.monthlyUnits;
+  const monthlyProfit = contributionMargin * d.monthlyUnits - d.fixedCosts;
+  // LTV
+  const avgOrderValue = d.retail;
+  const ltv12 = computeLTV(d, 12);
+  return {
+    ...d, platformFee, processingFee, totalFees, totalVariableCost,
+    contributionMargin, marginPct, breakeven, monthlyRevenue, monthlyProfit, ltv12
+  };
+}
+
+function computeLTV(d, months) {
+  let cumulative = d.retail; // first purchase
+  let retained = 1.0;
+  for (let m = 1; m < months; m++) {
+    retained *= (1 - d.decayRate);
+    const purchaseProb = d.repeatRate * retained * (d.ordersPerYear / 12);
+    cumulative += d.retail * purchaseProb;
+  }
+  return cumulative;
+}
+
+function computeLTVSeries(d, months) {
+  const series = [{month:0, revenue: d.retail, retained: 1.0, cumLTV: d.retail}];
+  let cumulative = d.retail;
+  let retained = 1.0;
+  for (let m = 1; m <= months; m++) {
+    retained *= (1 - d.decayRate);
+    const purchaseProb = d.repeatRate * retained * (d.ordersPerYear / 12);
+    const rev = d.retail * purchaseProb;
+    cumulative += rev;
+    series.push({month: m, revenue: rev, retained, cumLTV: cumulative});
+  }
+  return series;
+}
+
+let currentEcon = null;
+
+function calculate() {
+  const d = getInputs();
+  const e = computeEconomics(d);
+  currentEcon = e;
+  renderKPIs(e);
+  renderWaterfall(e);
+  renderBreakeven(e);
+  renderElasticity(e);
+  renderLTV(e);
+}
+
+function renderKPIs(e) {
+  const strip = document.getElementById('kpiStrip');
+  const kpis = [
+    {label:'Retail Price', value:'$'+e.retail.toFixed(2), cls:'neutral'},
+    {label:'Contrib. Margin', value:'$'+e.contributionMargin.toFixed(2), cls: e.contributionMargin>0?'positive':'negative'},
+    {label:'Margin %', value:(e.marginPct*100).toFixed(1)+'%', cls: e.marginPct>0.3?'positive':e.marginPct>0.15?'neutral':'negative'},
+    {label:'Breakeven Units', value: e.breakeven>0?e.breakeven:'N/A', cls:'neutral'},
+    {label:'Monthly Profit', value:'$'+e.monthlyProfit.toFixed(0), cls: e.monthlyProfit>0?'positive':'negative'},
+    {label:'12-Mo LTV', value:'$'+e.ltv12.toFixed(2), cls:'neutral'}
+  ];
+  strip.innerHTML = kpis.map(k => `
+    <div class="kpi">
+      <div class="kpi-label">${k.label}</div>
+      <div class="kpi-value ${k.cls}">${k.value}</div>
+    </div>`).join('');
+}
+
+function renderWaterfall(e) {
+  const el = document.getElementById('waterfall');
+  const maxVal = e.retail;
+  const items = [
+    {label:'Retail Price', value:e.retail, color:'bar-accent', cumStart:0},
+    {label:'COGS', value:-e.cogs, color:'bar-red'},
+    {label:'Shipping', value:-e.shipping, color:'bar-red'},
+    {label:'Packaging', value:-e.packaging, color:'bar-red'},
+    {label:'Platform Fees', value:-e.totalFees, color:'bar-amber'},
+    {label:'Marketing CPA', value:-e.cpa, color:'bar-purple'},
+    {label:'Net Margin', value:e.contributionMargin, color: e.contributionMargin>0?'bar-green':'bar-red'}
+  ];
+
+  let running = e.retail;
+  el.innerHTML = items.map((item, i) => {
+    let left, width;
+    if (i === 0) {
+      left = 0;
+      width = (item.value / maxVal) * 100;
+    } else if (i === items.length - 1) {
+      left = 0;
+      width = Math.max(0, (item.value / maxVal) * 100);
+    } else {
+      running += item.value;
+      left = (running / maxVal) * 100;
+      width = (Math.abs(item.value) / maxVal) * 100;
+    }
+    const dispVal = i === 0 || i === items.length-1
+      ? '$'+Math.abs(item.value).toFixed(2)
+      : '-$'+Math.abs(item.value).toFixed(2);
+    return `<div class="waterfall-bar">
+      <div class="label">${item.label}</div>
+      <div class="bar-wrap">
+        <div class="bar ${item.color}" style="left:${Math.max(0,left)}%;width:${Math.min(100,width)}%">
+          <span class="val">${dispVal}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderBreakeven(e) {
+  const canvas = document.getElementById('breakevenChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth * 2;
+  const H = canvas.height = 440;
+  ctx.scale(1,1);
+  ctx.clearRect(0,0,W,H);
+
+  const pad = {t:30,r:40,b:50,l:70};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  const maxUnits = Math.max(e.breakeven * 2.5, e.monthlyUnits * 1.5, 50);
+  const maxRev = e.retail * maxUnits;
+  const maxCost = e.fixedCosts + e.totalVariableCost * maxUnits;
+  const maxY = Math.max(maxRev, maxCost) * 1.1;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  for (let i=0; i<=5; i++) {
+    const y = pad.t + ch - (i/5)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l+cw, y); ctx.stroke();
+    ctx.fillStyle = '#7a7a8a'; ctx.font = '18px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('$'+(maxY*i/5/1000).toFixed(1)+'k', pad.l-8, y+5);
+  }
+  for (let i=0; i<=5; i++) {
+    const x = pad.l + (i/5)*cw;
+    ctx.fillStyle = '#7a7a8a'; ctx.font = '18px monospace'; ctx.textAlign = 'center';
+    ctx.fillText(Math.round(maxUnits*i/5), x, H-pad.b+25);
+  }
+  ctx.fillText('Units Sold', pad.l+cw/2, H-8);
+
+  // Revenue line
+  ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let u=0; u<=maxUnits; u+=maxUnits/100) {
+    const x = pad.l + (u/maxUnits)*cw;
+    const y = pad.t + ch - (e.retail*u/maxY)*ch;
+    u===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // Total cost line
+  ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let u=0; u<=maxUnits; u+=maxUnits/100) {
+    const x = pad.l + (u/maxUnits)*cw;
+    const totalCost = e.fixedCosts + e.totalVariableCost * u;
+    const y = pad.t + ch - (totalCost/maxY)*ch;
+    u===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+
+  // Breakeven point
+  if (e.breakeven > 0 && e.breakeven < maxUnits) {
+    const bx = pad.l + (e.breakeven/maxUnits)*cw;
+    const by = pad.t + ch - (e.retail*e.breakeven/maxY)*ch;
+    ctx.strokeStyle = '#4caf50'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(bx, pad.t); ctx.lineTo(bx, pad.t+ch); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#4caf50'; ctx.beginPath(); ctx.arc(bx, by, 7, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px monospace'; ctx.textAlign = 'center';
+    ctx.fillText('BE: '+e.breakeven+' units', bx, by-16);
+  }
+
+  // Legend
+  ctx.font = '18px monospace';
+  ctx.fillStyle = '#4fc3f7'; ctx.fillRect(pad.l+10, pad.t+8, 20, 3);
+  ctx.fillText('Revenue', pad.l+38, pad.t+14);
+  ctx.fillStyle = '#ef5350'; ctx.fillRect(pad.l+130, pad.t+8, 20, 3);
+  ctx.fillText('Total Cost', pad.l+158, pad.t+14);
+}
+
+function renderElasticity(e) {
+  const canvas = document.getElementById('elasticityChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth * 2;
+  const H = canvas.height = 400;
+  ctx.clearRect(0,0,W,H);
+
+  const elast = +document.getElementById('elasticitySlider').value;
+  const pad = {t:20,r:30,b:50,l:70};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+
+  const basePrice = e.retail;
+  const baseUnits = e.monthlyUnits;
+  const baseProfit = e.contributionMargin * baseUnits;
+  const prices = [];
+  const minP = basePrice * 0.5, maxP = basePrice * 2;
+
+  let maxProfit = 0;
+  let optPrice = basePrice, optProfit = baseProfit;
+
+  for (let p = minP; p <= maxP; p += (maxP-minP)/100) {
+    const q = baseUnits * Math.pow(p / basePrice, -elast);
+    const varCost = e.totalVariableCost - (e.totalFees) + (p * e.platformPct + e.platformFixed + p * e.processingPct);
+    const margin = p - varCost;
+    const profit = margin * q - e.fixedCosts;
+    prices.push({p, q, profit});
+    if (profit > maxProfit) { maxProfit = profit; optPrice = p; optProfit = profit; }
+  }
+
+  const minProfit = Math.min(...prices.map(x=>x.profit));
+  const yRange = maxProfit - Math.min(minProfit, 0);
+  const yMin = Math.min(minProfit, 0) - yRange*0.1;
+  const yMax = maxProfit + yRange*0.1;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a3a'; ctx.lineWidth = 1;
+  for (let i=0;i<=4;i++){
+    const y = pad.t + ch - (i/4)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cw,y); ctx.stroke();
+    ctx.fillStyle='#7a7a8a';ctx.font='18px monospace';ctx.textAlign='right';
+    const val = yMin + (i/4)*(yMax-yMin);
+    ctx.fillText('$'+val.toFixed(0), pad.l-8, y+5);
+  }
+  ctx.fillStyle='#7a7a8a';ctx.font='18px monospace';ctx.textAlign='center';
+  for(let i=0;i<=4;i++){
+    const x=pad.l+(i/4)*cw;
+    const pv=minP+(i/4)*(maxP-minP);
+    ctx.fillText('$'+pv.toFixed(0),x,H-pad.b+25);
+  }
+  ctx.fillText('Price',pad.l+cw/2,H-8);
+
+  // Zero line
+  if (yMin < 0) {
+    const zy = pad.t + ch - ((0-yMin)/(yMax-yMin))*ch;
+    ctx.strokeStyle='#ef5350';ctx.lineWidth=1;ctx.setLineDash([4,4]);
+    ctx.beginPath();ctx.moveTo(pad.l,zy);ctx.lineTo(pad.l+cw,zy);ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Profit curve
+  ctx.strokeStyle='#b388ff';ctx.lineWidth=3;
+  ctx.beginPath();
+  prices.forEach((pt,i) => {
+    const x = pad.l + ((pt.p-minP)/(maxP-minP))*cw;
+    const y = pad.t + ch - ((pt.profit-yMin)/(yMax-yMin))*ch;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Fill positive area
+  ctx.fillStyle='rgba(179,136,255,0.1)';
+  ctx.beginPath();
+  const zy = pad.t + ch - ((0-yMin)/(yMax-yMin))*ch;
+  prices.forEach((pt,i) => {
+    const x = pad.l + ((pt.p-minP)/(maxP-minP))*cw;
+    const y = pad.t + ch - ((Math.max(0,pt.profit)-yMin)/(yMax-yMin))*ch;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.l+cw, zy); ctx.lineTo(pad.l, zy); ctx.closePath(); ctx.fill();
+
+  // Optimal price marker
+  const ox = pad.l + ((optPrice-minP)/(maxP-minP))*cw;
+  const oy = pad.t + ch - ((optProfit-yMin)/(yMax-yMin))*ch;
+  ctx.fillStyle='#4caf50';ctx.beginPath();ctx.arc(ox,oy,7,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#fff';ctx.font='bold 18px monospace';ctx.textAlign='center';
+  ctx.fillText('Optimal: $'+optPrice.toFixed(2)+' → $'+optProfit.toFixed(0)+'/mo', ox, oy-16);
+
+  // Current price marker
+  const cx = pad.l + ((basePrice-minP)/(maxP-minP))*cw;
+  const cy = pad.t + ch - ((baseProfit-yMin)/(yMax-yMin))*ch;
+  ctx.fillStyle='#4fc3f7';ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='#4fc3f7';ctx.font='16px monospace';
+  ctx.fillText('Current', cx, cy+22);
+}
+
+function updateElasticity() {
+  document.getElementById('elasticityVal').textContent = '-'+document.getElementById('elasticitySlider').value;
+  if (currentEcon) renderElasticity(currentEcon);
+}
+
+function renderLTV(e) {
+  const series = computeLTVSeries(e, 12);
+  const canvas = document.getElementById('ltvChart');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width = canvas.offsetWidth * 2;
+  const H = canvas.height = 360;
+  ctx.clearRect(0,0,W,H);
+
+  const pad = {t:20,r:30,b:50,l:70};
+  const cw = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  const maxLTV = series[series.length-1].cumLTV * 1.15;
+
+  // Grid
+  ctx.strokeStyle='#2a2a3a';ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){
+    const y=pad.t+ch-(i/4)*ch;
+    ctx.beginPath();ctx.moveTo(pad.l,y);ctx.lineTo(pad.l+cw,y);ctx.stroke();
+    ctx.fillStyle='#7a7a8a';ctx.font='18px monospace';ctx.textAlign='right';
+    ctx.fillText('$'+(maxLTV*i/4).toFixed(0),pad.l-8,y+5);
+  }
+  for(let m=0;m<=12;m+=2){
+    const x=pad.l+(m/12)*cw;
+    ctx.fillStyle='#7a7a8a';ctx.font='18px monospace';ctx.textAlign='center';
+    ctx.fillText('M'+m,x,H-pad.b+25);
+  }
+
+  // Area fill
+  ctx.fillStyle='rgba(79,195,247,0.12)';
+  ctx.beginPath();
+  series.forEach((pt,i) => {
+    const x=pad.l+(pt.month/12)*cw;
+    const y=pad.t+ch-(pt.cumLTV/maxLTV)*ch;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.l+cw,pad.t+ch);ctx.lineTo(pad.l,pad.t+ch);ctx.closePath();ctx.fill();
+
+  // Line
+  ctx.strokeStyle='#4fc3f7';ctx.lineWidth=3;
+  ctx.beginPath();
+  series.forEach((pt,i) => {
+    const x=pad.l+(pt.month/12)*cw;
+    const y=pad.t+ch-(pt.cumLTV/maxLTV)*ch;
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Dots
+  series.forEach(pt => {
+    const x=pad.l+(pt.month/12)*cw;
+    const y=pad.t+ch-(pt.cumLTV/maxLTV)*ch;
+    ctx.fillStyle='#4fc3f7';ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+  });
+
+  // CPA line
+  if (e.cpa > 0) {
+    const cpaY = pad.t + ch - (e.cpa/maxLTV)*ch;
+    ctx.strokeStyle='#ef5350';ctx.lineWidth=1;ctx.setLineDash([6,4]);
+    ctx.beginPath();ctx.moveTo(pad.l,cpaY);ctx.lineTo(pad.l+cw,cpaY);ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#ef5350';ctx.font='16px monospace';ctx.textAlign='left';
+    ctx.fillText('CPA: $'+e.cpa.toFixed(2), pad.l+8, cpaY-8);
+  }
+
+  // LTV:CPA ratio label
+  if (e.cpa > 0) {
+    const ratio = e.ltv12 / e.cpa;
+    ctx.fillStyle = ratio >= 3 ? '#4caf50' : ratio >= 2 ? '#ffb74d' : '#ef5350';
+    ctx.font = 'bold 22px monospace'; ctx.textAlign = 'right';
+    ctx.fillText('LTV:CPA = '+ratio.toFixed(1)+'x', pad.l+cw-10, pad.t+20);
+  }
+
+  // Table
+  const table = document.getElementById('ltvTable');
+  const milestones = [0,1,3,6,9,12];
+  let html = '<tr><th>Month</th><th>Retention</th><th>Period Rev</th><th>Cumulative LTV</th><th>LTV:CPA</th></tr>';
+  milestones.forEach(m => {
+    const pt = series[m];
+    if (!pt) return;
+    const ratio = e.cpa > 0 ? (pt.cumLTV / e.cpa).toFixed(1)+'x' : '—';
+    const rClass = e.cpa > 0 && pt.cumLTV/e.cpa >= 3 ? 'positive' : e.cpa > 0 && pt.cumLTV/e.cpa >= 2 ? '' : 'negative';
+    html += `<tr>
+      <td>M${m}</td>
+      <td>${(pt.retained*100).toFixed(1)}%</td>
+      <td>$${pt.revenue.toFixed(2)}</td>
+      <td>$${pt.cumLTV.toFixed(2)}</td>
+      <td class="kpi-value ${rClass}" style="font-size:11px">${ratio}</td>
+    </tr>`;
+  });
+  table.innerHTML = html;
+}
+
+function addToCompare() {
+  if (!currentEcon) { calculate(); }
+  if (scenarios.length >= 3) { scenarios.shift(); }
+  scenarios.push({...currentEcon});
+  renderCompare();
+}
+
+function clearCompare() {
+  scenarios = [];
+  document.getElementById('compareGrid').innerHTML = '<div style="color:var(--muted);font-size:12px;grid-column:1/-1;text-align:center;padding:40px">No scenarios added yet. Configure a product and click "Add to Compare".</div>';
+}
+
+function renderCompare() {
+  const grid = document.getElementById('compareGrid');
+  if (scenarios.length === 0) { clearCompare(); return; }
+  grid.innerHTML = scenarios.map(s => {
+    const marginTag = s.marginPct > 0.3 ? 'tag-green' : s.marginPct > 0.15 ? 'tag-amber' : 'tag-red';
+    return `<div class="compare-col">
+      <h3>${s.name}</h3>
+      <div class="compare-row"><span class="clabel">Brand</span><span>${s.brand}</span></div>
+      <div class="compare-row"><span class="clabel">Retail</span><span>$${s.retail.toFixed(2)}</span></div>
+      <div class="compare-row"><span class="clabel">COGS</span><span>$${s.cogs.toFixed(2)}</span></div>
+      <div class="compare-row"><span class="clabel">All-In Variable</span><span>$${s.totalVariableCost.toFixed(2)}</span></div>
+      <div class="compare-row"><span class="clabel">Contribution</span><span>$${s.contributionMargin.toFixed(2)}</span></div>
+      <div class="compare-row"><span class="clabel">Margin</span><span class="tag ${marginTag}">${(s.marginPct*100).toFixed(1)}%</span></div>
+      <div class="compare-row"><span class="clabel">Breakeven</span><span>${s.breakeven} units</span></div>
+      <div class="compare-row"><span class="clabel">Mo. Profit</span><span style="color:${s.monthlyProfit>0?'var(--green)':'var(--red)'}">$${s.monthlyProfit.toFixed(0)}</span></div>
+      <div class="compare-row"><span class="clabel">12-Mo LTV</span><span>$${s.ltv12.toFixed(2)}</span></div>
+      <div class="compare-row"><span class="clabel">LTV:CPA</span><span>${s.cpa>0?(s.ltv12/s.cpa).toFixed(1)+'x':'—'}</span></div>
+    </div>`;
+  }).join('');
+}
+
+// Init
+calculate();
+clearCompare();
+</script>
+</body>
+</html>

@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DR STRANGE — Competitive Threat Radar</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a12;--surface:#11111b;--card:#1a1a2e;--border:#2a2a40;
+  --text:#e0e0ee;--dim:#6a6a80;--green:#3fb950;--red:#f85149;
+  --yellow:#d29922;--blue:#58a6ff;--purple:#bc8cff;--cyan:#39d5ff;
+  --orange:#f0883e;--magenta:#f778ba;
+  --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;min-height:100vh}
+.app{display:grid;grid-template-columns:300px 1fr;grid-template-rows:auto 1fr;height:100vh}
+.header{grid-column:1/-1;padding:12px 20px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)}
+.header h1{font-size:18px;font-weight:600;display:flex;align-items:center;gap:8px}
+.header h1 .tag{font-size:11px;color:var(--purple);font-weight:400;background:rgba(188,140,255,0.1);padding:2px 8px;border-radius:10px}
+.header .meta{color:var(--dim);font-size:11px;text-align:right}
+
+.sidebar{background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;padding:16px}
+.sb-section{margin-bottom:18px}
+.sb-title{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+label{display:block;font-size:11px;color:var(--dim);margin-bottom:3px;margin-top:8px}
+label:first-child{margin-top:0}
+select,input[type=number],input[type=text]{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);padding:6px 8px;border-radius:5px;font-family:var(--font);font-size:12px}
+select:focus,input:focus{outline:none;border-color:var(--purple)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+input[type=range]{width:100%;accent-color:var(--purple);margin-top:2px}
+.range-row{display:flex;align-items:center;gap:8px}
+.range-val{font-size:12px;color:var(--purple);font-weight:600;min-width:30px;text-align:right}
+.btn{background:linear-gradient(135deg,var(--purple),#8b5cf6);color:#fff;border:none;padding:9px 16px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;width:100%;margin-top:10px;letter-spacing:0.3px;transition:opacity 0.2s}
+.btn:hover{opacity:0.88}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--dim);font-weight:400}
+.btn-outline:hover{border-color:var(--purple);color:var(--purple)}
+.preset-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.chip{background:var(--card);border:1px solid var(--border);color:var(--dim);padding:3px 8px;border-radius:12px;cursor:pointer;font-size:10px;transition:all 0.2s}
+.chip:hover,.chip.active{border-color:var(--purple);color:var(--purple);background:rgba(188,140,255,0.08)}
+.disclaimer{background:rgba(210,153,34,0.08);border:1px solid rgba(210,153,34,0.3);border-radius:5px;padding:6px 10px;font-size:10px;color:var(--yellow);margin-bottom:10px}
+
+.main{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px}
+
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:10px;text-align:center;position:relative;overflow:hidden}
+.kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.kpi.green::before{background:var(--green)}.kpi.red::before{background:var(--red)}.kpi.yellow::before{background:var(--yellow)}.kpi.blue::before{background:var(--blue)}.kpi.purple::before{background:var(--purple)}
+.kpi .val{font-size:20px;font-weight:700;margin:3px 0}
+.kpi .lbl{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:0.8px}
+.kpi .delta{font-size:11px;margin-top:2px}
+.delta.pos{color:var(--green)}.delta.neg{color:var(--red)}
+
+.chart-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:14px}
+.chart-card.full{grid-column:1/-1}
+.chart-card h3{font-size:12px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.chart-card h3 .dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+canvas{display:block;width:100%}
+
+.comp-table{width:100%;border-collapse:collapse;font-size:12px}
+.comp-table th{text-align:left;color:var(--dim);font-size:10px;text-transform:uppercase;letter-spacing:0.5px;padding:6px 8px;border-bottom:1px solid var(--border)}
+.comp-table td{padding:6px 8px;border-bottom:1px solid rgba(42,42,64,0.5)}
+.comp-table tr:hover td{background:rgba(188,140,255,0.04)}
+.pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;font-weight:600}
+.pill.green{background:rgba(63,185,80,0.15);color:var(--green)}
+.pill.red{background:rgba(248,81,73,0.15);color:var(--red)}
+.pill.yellow{background:rgba(210,153,34,0.15);color:var(--yellow)}
+.pill.blue{background:rgba(88,166,255,0.15);color:var(--blue)}
+
+.threat-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin-top:3px}
+.threat-fill{height:100%;border-radius:3px;transition:width 0.3s}
+
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>🎯 Competitive Threat Radar <span class="tag">DR STRANGE</span></h1>
+    <div class="meta">RAMICHE OS • Scenario Modeling<br><span id="ts"></span></div>
+  </div>
+
+  <div class="sidebar">
+    <div class="disclaimer">⚠️ Competitive models use estimated data. Validate assumptions before strategic decisions.</div>
+
+    <div class="sb-section">
+      <div class="sb-title">Market Presets</div>
+      <div class="preset-chips">
+        <div class="chip" onclick="loadPreset('swim_saas')">Swim Team SaaS</div>
+        <div class="chip" onclick="loadPreset('agent_rental')">Agent Rental</div>
+        <div class="chip" onclick="loadPreset('ai_studio')">AI Studio</div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Your Position</div>
+      <label>Product</label>
+      <input type="text" id="yourName" value="METTLE">
+      <div class="row2">
+        <div><label>Market Share %</label><input type="number" id="yourShare" value="5" min="0" max="100" step="1"></div>
+        <div><label>MRR ($)</label><input type="number" id="yourMRR" value="12000" step="1000"></div>
+      </div>
+      <label>Strength Scores (1-10)</label>
+      <div class="row3">
+        <div><label>Price</label><input type="number" id="s_price" value="8" min="1" max="10"></div>
+        <div><label>Features</label><input type="number" id="s_features" value="7" min="1" max="10"></div>
+        <div><label>UX</label><input type="number" id="s_ux" value="9" min="1" max="10"></div>
+      </div>
+      <div class="row3">
+        <div><label>Brand</label><input type="number" id="s_brand" value="4" min="1" max="10"></div>
+        <div><label>Speed</label><input type="number" id="s_speed" value="8" min="1" max="10"></div>
+        <div><label>Support</label><input type="number" id="s_support" value="7" min="1" max="10"></div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Competitor Actions (What-If)</div>
+      <label>Competitor Price Cut</label>
+      <div class="range-row">
+        <input type="range" id="compPriceCut" min="0" max="50" value="0" oninput="this.nextElementSibling.textContent=this.value+'%'">
+        <span class="range-val">0%</span>
+      </div>
+      <label>New Feature Launch (impact 0-10)</label>
+      <div class="range-row">
+        <input type="range" id="compFeature" min="0" max="10" value="0" oninput="this.nextElementSibling.textContent=this.value">
+        <span class="range-val">0</span>
+      </div>
+      <label>New Market Entrant</label>
+      <select id="newEntrant">
+        <option value="none">None</option>
+        <option value="startup">Funded Startup</option>
+        <option value="bigtech">Big Tech Player</option>
+        <option value="adjacent">Adjacent Market Pivot</option>
+      </select>
+      <label>Funding Event</label>
+      <select id="fundingEvent">
+        <option value="none">None</option>
+        <option value="seed">Competitor raises Seed</option>
+        <option value="seriesA">Competitor raises Series A</option>
+        <option value="seriesB">Competitor raises Series B+</option>
+      </select>
+      <label>Your Response</label>
+      <select id="yourResponse">
+        <option value="none">No change</option>
+        <option value="moat">Build moat feature</option>
+        <option value="price_match">Price match</option>
+        <option value="pivot_niche">Niche down</option>
+        <option value="enterprise">Go enterprise</option>
+      </select>
+    </div>
+
+    <button class="btn" onclick="runAnalysis()">🎯 Run Threat Analysis</button>
+    <button class="btn btn-outline" onclick="resetAll()" style="margin-top:6px">Reset</button>
+  </div>
+
+  <div class="main" id="mainContent">
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);flex-direction:column;gap:12px" id="emptyState">
+      <div style="font-size:56px;opacity:0.3">🎯</div>
+      <div style="font-size:15px">Select a market preset and run analysis</div>
+      <div style="font-size:12px;opacity:0.6">Model competitive threats and simulate market shifts</div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('ts').textContent = new Date().toLocaleString('en-US',{dateStyle:'medium',timeStyle:'short'});
+
+// ============ COMPETITOR DATABASE ============
+const COMPETITORS = {
+  swim_saas: {
+    market: 'Swim Team Management SaaS',
+    tam: 50000000,
+    you: {name:'METTLE',share:5,mrr:12000,scores:{price:8,features:7,ux:9,brand:4,speed:8,support:7}},
+    comps: [
+      {name:'TeamUnify',share:35,mrr:800000,scores:{price:5,features:8,ux:5,brand:9,speed:4,support:6},color:'#f85149',momentum:3},
+      {name:'SwimTopia',share:20,mrr:400000,scores:{price:7,features:6,ux:7,brand:7,speed:5,support:7},color:'#58a6ff',momentum:5},
+      {name:'TeamSnap',share:15,mrr:350000,scores:{price:6,features:7,ux:6,brand:8,speed:5,support:5},color:'#d29922',momentum:4},
+      {name:'Active Network',share:10,mrr:250000,scores:{price:4,features:9,ux:4,brand:8,speed:3,support:4},color:'#f0883e',momentum:2},
+      {name:'Custom/Excel',share:15,mrr:0,scores:{price:10,features:2,ux:2,brand:1,speed:2,support:1},color:'#6a6a80',momentum:-2}
+    ]
+  },
+  agent_rental: {
+    market: 'AI Agent Rental / Managed AI Services',
+    tam: 200000000,
+    you: {name:'Verified Agents',share:1,mrr:5000,scores:{price:7,features:6,ux:7,brand:3,speed:9,support:8}},
+    comps: [
+      {name:'Lindy.ai',share:12,mrr:1500000,scores:{price:5,features:8,ux:8,brand:7,speed:7,support:6},color:'#f85149',momentum:8},
+      {name:'Relevance AI',share:8,mrr:900000,scores:{price:6,features:7,ux:7,brand:6,speed:6,support:7},color:'#58a6ff',momentum:7},
+      {name:'Agency Swarm',share:5,mrr:400000,scores:{price:8,features:5,ux:5,brand:4,speed:7,support:5},color:'#d29922',momentum:6},
+      {name:'Custom Dev Shops',share:30,mrr:0,scores:{price:3,features:9,ux:4,brand:5,speed:3,support:6},color:'#f0883e',momentum:3},
+      {name:'DIY (ChatGPT etc)',share:44,mrr:0,scores:{price:9,features:4,ux:6,brand:10,speed:8,support:2},color:'#6a6a80',momentum:5}
+    ]
+  },
+  ai_studio: {
+    market: 'AI Creative Studio Services',
+    tam: 80000000,
+    you: {name:'Ramiche Studio',share:0.5,mrr:3000,scores:{price:6,features:8,ux:8,brand:5,speed:9,support:9}},
+    comps: [
+      {name:'Jasper',share:15,mrr:5000000,scores:{price:4,features:8,ux:7,brand:9,speed:6,support:5},color:'#f85149',momentum:3},
+      {name:'Copy.ai',share:10,mrr:3000000,scores:{price:5,features:7,ux:8,brand:7,speed:7,support:5},color:'#58a6ff',momentum:4},
+      {name:'Freelance Studios',share:25,mrr:0,scores:{price:3,features:9,ux:6,brand:5,speed:4,support:8},color:'#d29922',momentum:1},
+      {name:'Canva + AI',share:20,mrr:0,scores:{price:8,features:7,ux:9,brand:10,speed:8,support:4},color:'#f0883e',momentum:6},
+      {name:'DIY Tools',share:29.5,mrr:0,scores:{price:10,features:3,ux:5,brand:3,speed:6,support:1},color:'#6a6a80',momentum:2}
+    ]
+  }
+};
+
+let activeMarket = null;
+
+function loadPreset(key) {
+  activeMarket = key;
+  const m = COMPETITORS[key];
+  document.getElementById('yourName').value = m.you.name;
+  document.getElementById('yourShare').value = m.you.share;
+  document.getElementById('yourMRR').value = m.you.mrr;
+  document.getElementById('s_price').value = m.you.scores.price;
+  document.getElementById('s_features').value = m.you.scores.features;
+  document.getElementById('s_ux').value = m.you.scores.ux;
+  document.getElementById('s_brand').value = m.you.scores.brand;
+  document.getElementById('s_speed').value = m.you.scores.speed;
+  document.getElementById('s_support').value = m.you.scores.support;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  event.target.classList.add('active');
+  // Reset scenario sliders
+  document.getElementById('compPriceCut').value=0;
+  document.getElementById('compFeature').value=0;
+  document.getElementById('newEntrant').value='none';
+  document.getElementById('fundingEvent').value='none';
+  document.getElementById('yourResponse').value='none';
+  document.querySelectorAll('.range-val').forEach((el,i)=>el.textContent=i===0?'0%':'0');
+}
+
+function getYourScores(){
+  return {
+    price:+document.getElementById('s_price').value,
+    features:+document.getElementById('s_features').value,
+    ux:+document.getElementById('s_ux').value,
+    brand:+document.getElementById('s_brand').value,
+    speed:+document.getElementById('s_speed').value,
+    support:+document.getElementById('s_support').value
+  };
+}
+
+function getScenario(){
+  return {
+    priceCut:+document.getElementById('compPriceCut').value/100,
+    featureLaunch:+document.getElementById('compFeature').value,
+    newEntrant:document.getElementById('newEntrant').value,
+    fundingEvent:document.getElementById('fundingEvent').value,
+    yourResponse:document.getElementById('yourResponse').value
+  };
+}
+
+// ============ THREAT SCORING ============
+function computeThreatScore(comp, you, scenario) {
+  const dims = ['price','features','ux','brand','speed','support'];
+  let threat = 0;
+
+  // Base threat: how much they beat you in each dimension
+  for(const d of dims){
+    if(comp.scores[d] > you[d]) threat += (comp.scores[d] - you[d]) * 1.5;
+  }
+
+  // Market share weight
+  threat += comp.share * 0.3;
+
+  // Momentum
+  threat += (comp.momentum || 0) * 2;
+
+  // Scenario modifiers
+  if(scenario.priceCut > 0) threat += scenario.priceCut * 20;
+  if(scenario.featureLaunch > 0) threat += scenario.featureLaunch * 2;
+  if(scenario.fundingEvent !== 'none'){
+    const fundingBoost = {seed:5,seriesA:12,seriesB:20};
+    threat += fundingBoost[scenario.fundingEvent] || 0;
+  }
+
+  // Your response reduces threat
+  if(scenario.yourResponse === 'moat') threat *= 0.7;
+  if(scenario.yourResponse === 'price_match') threat *= 0.8;
+  if(scenario.yourResponse === 'pivot_niche') threat *= 0.6;
+  if(scenario.yourResponse === 'enterprise') threat *= 0.75;
+
+  return Math.min(100, Math.max(0, threat));
+}
+
+// ============ MARKET SHARE SIMULATION (12mo) ============
+function simulateMarketShare(market, you, scenario) {
+  const months = [];
+  const comps = market.comps.map(c=>({...c,shareNow:c.share}));
+  let yourShare = +document.getElementById('yourShare').value;
+
+  for(let m = 1; m <= 12; m++){
+    // Competitor growth based on momentum
+    for(const c of comps){
+      const momGrowth = (c.momentum || 0) * 0.15;
+      c.shareNow = Math.max(0, c.shareNow + momGrowth * (1 + Math.random()*0.3 - 0.15));
+    }
+
+    // Scenario impacts
+    if(scenario.priceCut > 0 && m >= 2){
+      // Top competitor gains share from price cut
+      comps[0].shareNow += scenario.priceCut * 8;
+      yourShare -= scenario.priceCut * 2;
+    }
+
+    if(scenario.featureLaunch > 0 && m >= 3){
+      comps[0].shareNow += scenario.featureLaunch * 0.3;
+      yourShare -= scenario.featureLaunch * 0.08;
+    }
+
+    // New entrant impact
+    if(scenario.newEntrant !== 'none' && m >= 4){
+      const entrantGrab = {startup:0.3,bigtech:1.2,adjacent:0.5}[scenario.newEntrant];
+      // Takes from everyone proportionally
+      for(const c of comps) c.shareNow *= (1 - entrantGrab * 0.01);
+      yourShare *= (1 - entrantGrab * 0.02);
+    }
+
+    // Funding accelerates top competitor
+    if(scenario.fundingEvent !== 'none' && m >= 2){
+      const fundAccel = {seed:0.2,seriesA:0.5,seriesB:1.0}[scenario.fundingEvent];
+      comps[0].shareNow += fundAccel;
+    }
+
+    // Your response
+    if(scenario.yourResponse === 'moat' && m >= 4) yourShare += 0.4;
+    if(scenario.yourResponse === 'price_match' && m >= 2) yourShare += 0.2;
+    if(scenario.yourResponse === 'pivot_niche' && m >= 3) yourShare += 0.6;
+    if(scenario.yourResponse === 'enterprise' && m >= 5) yourShare += 0.5;
+
+    // Organic growth for you (early stage)
+    yourShare += 0.3 * (1 + Math.random()*0.2);
+
+    // Normalize
+    const total = comps.reduce((s,c)=>s+c.shareNow,0) + yourShare;
+    const scale = 100 / total;
+    const normalized = comps.map(c=>c.shareNow * scale);
+    const yourNorm = yourShare * scale;
+
+    months.push({
+      month: m,
+      you: yourNorm,
+      comps: normalized.map((s,i)=>({name:comps[i].name,share:s,color:comps[i].color}))
+    });
+
+    // Update for next iteration
+    yourShare = yourNorm;
+    comps.forEach((c,i)=>c.shareNow=normalized[i]);
+  }
+  return months;
+}
+
+// ============ STRATEGIC RECOMMENDATIONS ============
+function getRecommendations(threats, you, scenario) {
+  const recs = [];
+  const topThreat = threats.sort((a,b)=>b.score-a.score)[0];
+
+  // Analyze weaknesses
+  const dims = ['price','features','ux','brand','speed','support'];
+  const weakest = dims.reduce((min,d)=> you[d] < you[min] ? d : min, dims[0]);
+  const strongest = dims.reduce((max,d)=> you[d] > you[max] ? d : max, dims[0]);
+
+  recs.push({
+    priority: 'P0',
+    action: `Shore up ${weakest} (score: ${you[weakest]}/10)`,
+    why: `Biggest vulnerability — ${topThreat.name} scores ${topThreat.scores[weakest]}/10 here`,
+    type: 'defend'
+  });
+
+  recs.push({
+    priority: 'P1',
+    action: `Double down on ${strongest} as differentiator`,
+    why: `Your ${strongest} (${you[strongest]}/10) is your competitive moat`,
+    type: 'attack'
+  });
+
+  if(topThreat.score > 60){
+    recs.push({
+      priority: 'P0',
+      action: `Counter ${topThreat.name} with targeted campaign`,
+      why: `Threat level ${topThreat.score.toFixed(0)}/100 — requires immediate response`,
+      type: 'urgent'
+    });
+  }
+
+  if(scenario.newEntrant !== 'none'){
+    recs.push({
+      priority: 'P1',
+      action: 'Accelerate feature roadmap to establish position before entrant gains traction',
+      why: `New ${scenario.newEntrant} entrant will compress window for differentiation`,
+      type: 'attack'
+    });
+  }
+
+  if(scenario.fundingEvent !== 'none' && scenario.fundingEvent !== 'seed'){
+    recs.push({
+      priority: 'P0',
+      action: 'Focus on unit economics and retention — funded competitor will outspend on acquisition',
+      why: 'Cannot compete on CAC; win on product stickiness and LTV',
+      type: 'defend'
+    });
+  }
+
+  // Market-specific
+  if(you.brand < 5){
+    recs.push({
+      priority: 'P1',
+      action: 'Invest in brand building: case studies, community, social proof',
+      why: `Brand score ${you.brand}/10 limits organic growth and pricing power`,
+      type: 'build'
+    });
+  }
+
+  return recs;
+}
+
+// ============ RENDERING ============
+function runAnalysis(){
+  if(!activeMarket) { alert('Select a market preset first'); return; }
+
+  const market = COMPETITORS[activeMarket];
+  const you = getYourScores();
+  const scenario = getScenario();
+  const yourName = document.getElementById('yourName').value;
+  const yourMRR = +document.getElementById('yourMRR').value;
+
+  // Compute threats
+  const threats = market.comps.map(c => ({
+    ...c,
+    score: computeThreatScore(c, you, scenario)
+  }));
+
+  // Simulate market share
+  const shareData = simulateMarketShare(market, you, scenario);
+
+  // Get recommendations
+  const recs = getRecommendations(threats, you, scenario);
+
+  // Avg threat
+  const avgThreat = threats.reduce((s,t)=>s+t.score,0)/threats.length;
+  const maxThreat = Math.max(...threats.map(t=>t.score));
+  const m12Share = shareData[11].you;
+  const m12ShareDelta = m12Share - (+document.getElementById('yourShare').value);
+  const vulnerableCount = threats.filter(t=>t.score>50).length;
+
+  document.getElementById('emptyState')?.remove();
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '';
+
+  // KPI Strip
+  main.innerHTML += `
+  <div class="kpi-strip">
+    <div class="kpi ${avgThreat<30?'green':avgThreat<60?'yellow':'red'}">
+      <div class="lbl">Avg Threat</div>
+      <div class="val" style="color:${avgThreat<30?'var(--green)':avgThreat<60?'var(--yellow)':'var(--red)'}">${avgThreat.toFixed(0)}</div>
+      <div class="delta" style="color:var(--dim)">/100</div>
+    </div>
+    <div class="kpi ${maxThreat<40?'green':maxThreat<70?'yellow':'red'}">
+      <div class="lbl">Peak Threat</div>
+      <div class="val" style="color:${maxThreat<40?'var(--green)':maxThreat<70?'var(--yellow)':'var(--red)'}">${maxThreat.toFixed(0)}</div>
+      <div class="delta" style="color:var(--dim)">from ${threats.sort((a,b)=>b.score-a.score)[0].name}</div>
+    </div>
+    <div class="kpi ${m12ShareDelta>0?'green':'red'}">
+      <div class="lbl">12M Share</div>
+      <div class="val" style="color:${m12ShareDelta>0?'var(--green)':'var(--red)'}">${m12Share.toFixed(1)}%</div>
+      <div class="delta ${m12ShareDelta>0?'pos':'neg'}">${m12ShareDelta>0?'+':''}${m12ShareDelta.toFixed(1)}pp</div>
+    </div>
+    <div class="kpi ${vulnerableCount===0?'green':vulnerableCount<3?'yellow':'red'}">
+      <div class="lbl">High Threats</div>
+      <div class="val" style="color:${vulnerableCount===0?'var(--green)':vulnerableCount<3?'var(--yellow)':'var(--red)'}">${vulnerableCount}</div>
+      <div class="delta" style="color:var(--dim)">score >50</div>
+    </div>
+    <div class="kpi blue">
+      <div class="lbl">Market</div>
+      <div class="val" style="color:var(--cyan);font-size:14px">${market.market.split(' ').slice(0,2).join(' ')}</div>
+      <div class="delta" style="color:var(--dim)">TAM $${(market.tam/1e6).toFixed(0)}M</div>
+    </div>
+  </div>`;
+
+  // Charts
+  main.innerHTML += `
+  <div class="chart-grid">
+    <div class="chart-card">
+      <h3><span class="dot" style="background:var(--purple)"></span>Competitive Radar</h3>
+      <canvas id="radarChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><span class="dot" style="background:var(--red)"></span>Threat Heatmap</h3>
+      <div id="threatList"></div>
+    </div>
+    <div class="chart-card full">
+      <h3><span class="dot" style="background:var(--cyan)"></span>Market Share Projection (12 Months)</h3>
+      <canvas id="shareChart"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3><span class="dot" style="background:var(--green)"></span>Strategic Recommendations</h3>
+      <div id="recsPanel"></div>
+    </div>
+    <div class="chart-card">
+      <h3><span class="dot" style="background:var(--orange)"></span>Competitor Comparison</h3>
+      <table class="comp-table">
+        <tr><th>Competitor</th><th>Share</th><th>Threat</th><th>Momentum</th><th>Status</th></tr>
+        ${threats.sort((a,b)=>b.score-a.score).map(t=>`
+          <tr>
+            <td style="font-weight:600;color:${t.color}">${t.name}</td>
+            <td>${t.share.toFixed(1)}%</td>
+            <td>${t.score.toFixed(0)}/100</td>
+            <td>${t.momentum>0?'+':''}${t.momentum}</td>
+            <td><span class="pill ${t.score>60?'red':t.score>35?'yellow':'green'}">${t.score>60?'Danger':t.score>35?'Watch':'Low'}</span></td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+  </div>`;
+
+  // Render components
+  requestAnimationFrame(()=>{
+    drawRadar('radarChart', you, threats, yourName);
+    drawShareChart('shareChart', shareData, yourName, market);
+    renderThreatList(threats);
+    renderRecs(recs);
+  });
+}
+
+// ============ RADAR CHART ============
+function drawRadar(canvasId, you, threats, yourName){
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const size = Math.min(canvas.offsetWidth, 340);
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.height = size + 'px';
+  ctx.scale(dpr, dpr);
+
+  const cx = size/2, cy = size/2;
+  const r = size * 0.35;
+  const dims = ['price','features','ux','brand','speed','support'];
+  const labels = ['Price','Features','UX','Brand','Speed','Support'];
+  const n = dims.length;
+
+  ctx.clearRect(0,0,size,size);
+
+  // Grid rings
+  for(let ring = 1; ring <= 5; ring++){
+    const rr = r * ring/5;
+    ctx.strokeStyle = 'rgba(42,42,64,0.6)';
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    for(let i = 0; i <= n; i++){
+      const a = (Math.PI*2/n)*i - Math.PI/2;
+      const px = cx + Math.cos(a)*rr;
+      const py = cy + Math.sin(a)*rr;
+      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+  }
+
+  // Axis lines + labels
+  for(let i = 0; i < n; i++){
+    const a = (Math.PI*2/n)*i - Math.PI/2;
+    ctx.strokeStyle = 'rgba(42,42,64,0.4)';
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);
+    ctx.stroke();
+
+    const lx = cx + Math.cos(a)*(r+18);
+    const ly = cy + Math.sin(a)*(r+18);
+    ctx.fillStyle = '#6a6a80';
+    ctx.font = '10px -apple-system,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(labels[i],lx,ly);
+  }
+
+  // Draw competitor polygons (top 3)
+  const topComps = threats.sort((a,b)=>b.score-a.score).slice(0,3);
+  for(const comp of topComps){
+    ctx.strokeStyle = comp.color;
+    ctx.lineWidth = 1.5;
+    ctx.globalAlpha = 0.5;
+    ctx.beginPath();
+    for(let i = 0; i <= n; i++){
+      const idx = i % n;
+      const a = (Math.PI*2/n)*idx - Math.PI/2;
+      const val = comp.scores[dims[idx]]/10;
+      const px = cx + Math.cos(a)*r*val;
+      const py = cy + Math.sin(a)*r*val;
+      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    ctx.fillStyle = comp.color;
+    ctx.globalAlpha = 0.06;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Draw your polygon
+  ctx.strokeStyle = '#bc8cff';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  for(let i = 0; i <= n; i++){
+    const idx = i % n;
+    const a = (Math.PI*2/n)*idx - Math.PI/2;
+    const val = you[dims[idx]]/10;
+    const px = cx + Math.cos(a)*r*val;
+    const py = cy + Math.sin(a)*r*val;
+    i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+  }
+  ctx.stroke();
+  ctx.fillStyle = '#bc8cff';
+  ctx.globalAlpha = 0.12;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // Dots on your vertices
+  for(let i = 0; i < n; i++){
+    const a = (Math.PI*2/n)*i - Math.PI/2;
+    const val = you[dims[i]]/10;
+    ctx.beginPath();
+    ctx.arc(cx+Math.cos(a)*r*val, cy+Math.sin(a)*r*val, 3, 0, Math.PI*2);
+    ctx.fillStyle = '#bc8cff';
+    ctx.fill();
+  }
+
+  // Legend
+  const legendY = size - 16;
+  ctx.font = '9px -apple-system,sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#bc8cff';
+  ctx.fillRect(10, legendY-3, 10, 3);
+  ctx.fillText(yourName, 24, legendY);
+  let lx = 24 + ctx.measureText(yourName).width + 12;
+  for(const comp of topComps){
+    ctx.fillStyle = comp.color;
+    ctx.fillRect(lx, legendY-3, 10, 3);
+    ctx.fillText(comp.name, lx+14, legendY);
+    lx += 14 + ctx.measureText(comp.name).width + 12;
+  }
+}
+
+// ============ MARKET SHARE CHART ============
+function drawShareChart(canvasId, data, yourName, market){
+  const canvas = document.getElementById(canvasId);
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.offsetWidth;
+  const H = 220;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.height = H + 'px';
+  ctx.scale(dpr, dpr);
+
+  const pad = {top:16,right:16,bottom:28,left:44};
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Stacked area
+  const months = data.length;
+  const xStep = cW / (months - 1);
+
+  // Build stacked arrays
+  const compNames = data[0].comps.map(c=>c.name);
+  const compColors = data[0].comps.map(c=>c.color);
+  const stacked = []; // [compIdx][monthIdx] = cumulative share
+  for(let m = 0; m < months; m++){
+    let cum = data[m].you;
+    if(!stacked[0]) stacked[0] = [];
+    stacked[0][m] = cum;
+    for(let c = 0; c < compNames.length; c++){
+      cum += data[m].comps[c].share;
+      if(!stacked[c+1]) stacked[c+1] = [];
+      stacked[c+1][m] = cum;
+    }
+  }
+
+  const toX = i => pad.left + i * xStep;
+  const toY = v => pad.top + cH - (v/100)*cH;
+
+  // Grid
+  ctx.strokeStyle = '#2a2a40';
+  ctx.lineWidth = 0.5;
+  for(let i=0;i<=4;i++){
+    const y = pad.top + (i/4)*cH;
+    ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(W-pad.right,y);ctx.stroke();
+    ctx.fillStyle='#6a6a80';ctx.font='10px -apple-system,sans-serif';ctx.textAlign='right';
+    ctx.fillText(Math.round(100-(i/4)*100)+'%',pad.left-5,y+3);
+  }
+
+  // X labels
+  ctx.textAlign='center';
+  for(let m=0;m<months;m+=2){
+    ctx.fillStyle='#6a6a80';
+    ctx.fillText('M'+(m+1),toX(m),H-6);
+  }
+
+  // Draw areas top-down
+  for(let c = compNames.length; c >= 0; c--){
+    const top = stacked[c];
+    const bot = c > 0 ? stacked[c-1] : data.map(()=>0);
+    const color = c === 0 ? '#bc8cff' : compColors[c-1];
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    for(let m = 0; m < months; m++) ctx.lineTo(toX(m), toY(top[m]));
+    for(let m = months-1; m >= 0; m--) ctx.lineTo(toX(m), toY(bot[m]));
+    ctx.closePath();
+    ctx.fill();
+
+    // Line
+    ctx.globalAlpha = 0.8;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = c===0 ? 2 : 1;
+    ctx.beginPath();
+    for(let m = 0; m < months; m++){
+      const y = toY(top[m]);
+      m===0?ctx.moveTo(toX(m),y):ctx.lineTo(toX(m),y);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  // Your line label
+  const lastYou = data[months-1].you;
+  ctx.fillStyle = '#bc8cff';
+  ctx.font = 'bold 10px -apple-system,sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(yourName+' '+lastYou.toFixed(1)+'%', toX(months-1)+4, toY(lastYou/2));
+}
+
+// ============ THREAT LIST ============
+function renderThreatList(threats){
+  const el = document.getElementById('threatList');
+  el.innerHTML = threats.sort((a,b)=>b.score-a.score).map(t=>{
+    const color = t.score>60?'var(--red)':t.score>35?'var(--yellow)':'var(--green)';
+    return `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600;color:${t.color}">${t.name}</span>
+          <span style="font-size:16px;font-weight:700;color:${color}">${t.score.toFixed(0)}</span>
+        </div>
+        <div class="threat-bar">
+          <div class="threat-fill" style="width:${t.score}%;background:${color}"></div>
+        </div>
+        <div style="font-size:10px;color:var(--dim);margin-top:2px">
+          Share: ${t.share.toFixed(1)}% · Momentum: ${t.momentum>0?'+':''}${t.momentum} · Key strength: ${Object.entries(t.scores).sort((a,b)=>b[1]-a[1])[0][0]}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ============ RECOMMENDATIONS ============
+function renderRecs(recs){
+  const el = document.getElementById('recsPanel');
+  const typeColors = {urgent:'var(--red)',defend:'var(--yellow)',attack:'var(--green)',build:'var(--blue)'};
+  el.innerHTML = recs.map(r=>`
+    <div style="margin-bottom:12px;padding:8px;background:var(--bg);border-radius:4px;border-left:3px solid ${typeColors[r.type]}">
+      <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+        <span class="pill ${r.type==='urgent'?'red':r.type==='defend'?'yellow':'green'}">${r.priority}</span>
+        <span style="font-size:9px;color:var(--dim);text-transform:uppercase">${r.type}</span>
+      </div>
+      <div style="font-size:12px;font-weight:600;margin:4px 0">${r.action}</div>
+      <div style="font-size:11px;color:var(--dim)">${r.why}</div>
+    </div>
+  `).join('');
+}
+
+function resetAll(){
+  activeMarket = null;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  const main = document.getElementById('mainContent');
+  main.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--dim);flex-direction:column;gap:12px" id="emptyState">
+      <div style="font-size:56px;opacity:0.3">🎯</div>
+      <div style="font-size:15px">Select a market preset and run analysis</div>
+      <div style="font-size:12px;opacity:0.6">Model competitive threats and simulate market shifts</div>
+    </div>`;
+}
+</script>
+</body>
+</html>

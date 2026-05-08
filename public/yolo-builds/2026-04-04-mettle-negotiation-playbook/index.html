@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>METTLE Negotiation Playbook</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a0f;--card:#12121a;--border:#1e1e2e;--accent:#6366f1;--accent2:#8b5cf6;--green:#10b981;--red:#ef4444;--amber:#f59e0b;--text:#e2e8f0;--muted:#64748b;--surface:#1a1a2e}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+.container{max-width:1200px;margin:0 auto;padding:24px}
+h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:14px;margin-bottom:32px}
+.brand{font-size:11px;text-transform:uppercase;letter-spacing:3px;color:var(--accent);margin-bottom:8px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
+@media(max-width:768px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+.card h2{font-size:16px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card h2 span{font-size:18px}
+label{display:block;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;margin-top:14px}
+label:first-of-type{margin-top:0}
+input,select,textarea{width:100%;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border .2s}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{resize:vertical;min-height:80px}
+select{cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s,transform .1s;margin-top:20px}
+.btn:hover{opacity:.9;transform:translateY(-1px)}
+.btn:active{transform:translateY(0)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.full-width{grid-column:1/-1}
+.output{display:none}
+.output.active{display:block}
+.section{margin-bottom:28px}
+.section h3{font-size:15px;font-weight:700;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.tag{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.tag-green{background:rgba(16,185,129,.15);color:var(--green)}
+.tag-red{background:rgba(239,68,68,.15);color:var(--red)}
+.tag-amber{background:rgba(245,158,11,.15);color:var(--amber)}
+.tag-purple{background:rgba(139,92,246,.15);color:var(--accent2)}
+.meter{height:8px;background:var(--surface);border-radius:4px;overflow:hidden;margin:8px 0}
+.meter-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.concession-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface);border-radius:8px;margin-bottom:8px}
+.concession-row .label{font-size:13px;font-weight:500}
+.concession-row .value{font-size:13px;color:var(--muted)}
+.script-block{background:var(--surface);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:14px 18px;margin:10px 0;font-size:13px;line-height:1.7;color:var(--text)}
+.script-block em{color:var(--accent);font-style:normal;font-weight:600}
+.batna-card{background:var(--surface);border-radius:8px;padding:16px;margin:8px 0}
+.batna-card h4{font-size:13px;font-weight:700;margin-bottom:6px}
+.batna-card p{font-size:12px;color:var(--muted);line-height:1.6}
+.walk-away{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:16px;margin:12px 0}
+.walk-away h4{color:var(--red);font-size:13px;font-weight:700;margin-bottom:6px}
+.walk-away p{font-size:12px;color:var(--muted);line-height:1.6}
+.counter-card{background:var(--surface);border-radius:8px;padding:16px;margin:8px 0;border-left:3px solid var(--green)}
+.counter-card h4{font-size:13px;font-weight:700;margin-bottom:4px;color:var(--green)}
+.counter-card p{font-size:12px;color:var(--muted);line-height:1.6}
+.phase{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--border)}
+.phase:last-child{border-bottom:none}
+.phase-num{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;color:#fff}
+.phase-content h4{font-size:13px;font-weight:600;margin-bottom:4px}
+.phase-content p{font-size:12px;color:var(--muted);line-height:1.5}
+.score-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;font-size:20px;font-weight:800;margin:8px 0}
+.leverage-high{background:rgba(16,185,129,.12);color:var(--green)}
+.leverage-mid{background:rgba(245,158,11,.12);color:var(--amber)}
+.leverage-low{background:rgba(239,68,68,.12);color:var(--red)}
+.chip-row{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.chip{padding:4px 12px;background:var(--surface);border:1px solid var(--border);border-radius:999px;font-size:11px;color:var(--muted);cursor:pointer;transition:all .2s}
+.chip.active{border-color:var(--accent);color:var(--accent);background:rgba(99,102,241,.1)}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.summary-stat{text-align:center;padding:14px;background:var(--surface);border-radius:8px}
+.summary-stat .num{font-size:22px;font-weight:800;color:var(--accent)}
+.summary-stat .lbl{font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+.print-btn{margin-top:16px}
+@media print{body{background:#fff;color:#000}.card{border:1px solid #ddd;background:#fff}.btn,.print-btn{display:none !important}input,select,textarea{border:1px solid #ccc;background:#f9f9f9}}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="brand">MERCURY × METTLE</div>
+<h1>Negotiation Playbook</h1>
+<p class="subtitle">Generate a full negotiation strategy with concession tiers, walk-away points, BATNA analysis & counter-offer scripts</p>
+
+<div class="grid">
+<div class="card">
+<h2><span>🏊</span> Prospect Profile</h2>
+<label>Team / Club Name</label>
+<input type="text" id="teamName" placeholder="e.g. Riverside Aquatics">
+<label>Team Size (Athletes)</label>
+<input type="number" id="teamSize" value="80" min="10" max="2000">
+<label>Contact Role</label>
+<select id="contactRole">
+<option value="head_coach">Head Coach</option>
+<option value="asst_coach">Assistant Coach</option>
+<option value="board_president">Board President</option>
+<option value="treasurer">Treasurer</option>
+<option value="parent_rep">Parent Rep / Booster</option>
+<option value="aquatic_director">Aquatic Director</option>
+</select>
+<label>Decision Timeline</label>
+<select id="timeline">
+<option value="urgent">This week</option>
+<option value="short">This month</option>
+<option value="medium">This quarter</option>
+<option value="long">Next season</option>
+</select>
+</div>
+
+<div class="card">
+<h2><span>⚔️</span> Competitive Landscape</h2>
+<label>Current Platform</label>
+<select id="currentPlatform">
+<option value="none">None / Spreadsheets</option>
+<option value="teamunify">TeamUnify</option>
+<option value="swimtopia">SwimTopia</option>
+<option value="gomotion">GoMotion</option>
+<option value="captyn">Captyn</option>
+<option value="other">Other</option>
+</select>
+<label>Stated Budget (Monthly)</label>
+<input type="number" id="budget" value="300" min="0" max="10000" step="50">
+<label>Key Objections (select all that apply)</label>
+<div class="chip-row" id="objectionChips">
+<div class="chip" data-obj="price" onclick="toggleChip(this)">Too expensive</div>
+<div class="chip" data-obj="switching" onclick="toggleChip(this)">Switching cost</div>
+<div class="chip" data-obj="features" onclick="toggleChip(this)">Missing features</div>
+<div class="chip" data-obj="timing" onclick="toggleChip(this)">Not the right time</div>
+<div class="chip" data-obj="authority" onclick="toggleChip(this)">Need board approval</div>
+<div class="chip" data-obj="trust" onclick="toggleChip(this)">Unproven / new</div>
+<div class="chip" data-obj="contract" onclick="toggleChip(this)">Don't want commitment</div>
+<div class="chip" data-obj="integration" onclick="toggleChip(this)">Integration concerns</div>
+</div>
+<label>Prospect's Hot Button (What do they care about most?)</label>
+<select id="hotButton">
+<option value="retention">Athlete retention</option>
+<option value="performance">Performance tracking</option>
+<option value="engagement">Athlete/parent engagement</option>
+<option value="admin">Reducing admin work</option>
+<option value="revenue">Growing team revenue</option>
+<option value="recruiting">Recruiting new swimmers</option>
+</select>
+</div>
+
+<div class="card full-width">
+<h2><span>📝</span> Additional Context</h2>
+<textarea id="additionalContext" placeholder="Any other details: past conversations, specific concerns, internal politics, competing bids, timeline pressures..."></textarea>
+<button class="btn" onclick="generatePlaybook()">⚡ Generate Negotiation Playbook</button>
+</div>
+</div>
+
+<div class="output" id="output">
+<div style="margin-top:32px">
+<div class="grid">
+<div class="card full-width">
+<h2><span>📊</span> Deal Intelligence Summary</h2>
+<div class="summary-grid" id="summaryGrid"></div>
+<div id="leverageSection"></div>
+</div>
+
+<div class="card">
+<div class="section">
+<h3><span>🎯</span> Recommended Tier & Pricing</h3>
+<div id="tierRec"></div>
+</div>
+<div class="section">
+<h3><span>🔄</span> Concession Ladder</h3>
+<p style="font-size:12px;color:var(--muted);margin-bottom:12px">Give these away in order — never skip levels. Each concession is a trade, not a gift.</p>
+<div id="concessions"></div>
+</div>
+</div>
+
+<div class="card">
+<div class="section">
+<h3><span>🚫</span> Walk-Away Points</h3>
+<div id="walkAway"></div>
+</div>
+<div class="section">
+<h3><span>🔀</span> BATNA Analysis</h3>
+<p style="font-size:12px;color:var(--muted);margin-bottom:12px">Best Alternative To Negotiated Agreement — what happens if this deal doesn't close?</p>
+<div id="batna"></div>
+</div>
+</div>
+
+<div class="card full-width">
+<div class="section">
+<h3><span>💬</span> Counter-Offer Scripts</h3>
+<p style="font-size:12px;color:var(--muted);margin-bottom:12px">Exact language for each objection they've raised. Use verbatim or adapt to your style.</p>
+<div id="scripts"></div>
+</div>
+</div>
+
+<div class="card full-width">
+<div class="section">
+<h3><span>📋</span> Negotiation Phase Plan</h3>
+<div id="phases"></div>
+</div>
+</div>
+
+<div class="card full-width">
+<div class="section">
+<h3><span>🧠</span> Psychological Playbook</h3>
+<div id="psych"></div>
+</div>
+</div>
+
+<button class="btn btn-outline print-btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+</div>
+</div>
+</div>
+
+<script>
+function toggleChip(el){el.classList.toggle('active')}
+function getSelectedObjections(){return[...document.querySelectorAll('.chip.active')].map(c=>c.dataset.obj)}
+
+const TIERS={
+  starter:{name:'Starter',price:149,maxAthletes:50,features:['Basic stats','Coach dashboard','Email support']},
+  team:{name:'Team',price:349,maxAthletes:150,features:['Full analytics','Gamification','Parent portal','Priority support']},
+  platinum:{name:'Platinum',price:549,maxAthletes:500,features:['Psychology Pulse','Custom branding','API access','Dedicated CSM','Advanced analytics']},
+  enterprise:{name:'Enterprise',price:null,maxAthletes:Infinity,features:['Multi-club','SSO','Custom integrations','SLA','Onboarding program']}
+};
+
+const COMPETITOR_INTEL={
+  none:{name:'Spreadsheets',weakness:'Manual errors, no analytics, zero engagement tools',switchCost:'Low',angle:'You\'re leaving money on the table every month you don\'t have retention data'},
+  teamunify:{name:'TeamUnify',weakness:'Legacy UI, no gamification, slow innovation',switchCost:'Medium',angle:'TeamUnify runs your office. METTLE transforms your athletes. Complementary, not competitive'},
+  swimtopia:{name:'SwimTopia',weakness:'Community-focused not performance-focused, limited analytics',switchCost:'Medium',angle:'SwimTopia is great for socials. When you need to track who\'s about to quit and why — that\'s us'},
+  gomotion:{name:'GoMotion',weakness:'$3-5/athlete adds up fast at scale, no engagement layer',switchCost:'High',angle:'At your size, GoMotion costs more AND does less. Run the numbers — I\'ll wait'},
+  captyn:{name:'Captyn',weakness:'Flat pricing caps value, no swim-specific features',switchCost:'Low',angle:'Captyn is a generic platform. We built METTLE specifically for competitive swim teams'},
+  other:{name:'Other',weakness:'Likely not swim-specific',switchCost:'Variable',angle:'How much of your current tool do you actually use for athlete development vs admin?'}
+};
+
+const OBJECTION_SCRIPTS={
+  price:{
+    label:'Too Expensive',
+    script:'I hear you — and I respect that you\'re watching the budget. Let me reframe this: at <em>{price}/month</em>, you\'re paying <em>{perAthlete}/athlete</em>. If METTLE prevents even <em>{churnSave} athletes</em> from quitting this season — and our retention data says it will — that\'s <em>${churnRevenue}</em> in dues you keep. The tool pays for itself in month one. The question isn\'t whether you can afford METTLE — it\'s whether you can afford the athletes you\'re losing without it.',
+    followUp:'Would it help to see the retention data from a team your size?'
+  },
+  switching:{
+    label:'Switching Cost',
+    script:'Totally fair concern. Here\'s what switching actually looks like: we handle the data migration — CSV import, done in 48 hours. Your coaches get a 1-on-1 onboarding call. And we run parallel for 30 days so nothing falls through the cracks. The real switching cost isn\'t moving to METTLE — it\'s the <em>opportunity cost</em> of staying on a platform that can\'t show you which athletes are about to walk out the door.',
+    followUp:'Want me to walk you through our migration timeline?'
+  },
+  features:{
+    label:'Missing Features',
+    script:'What specific feature are you looking for? I ask because 90% of the time, we either have it and it wasn\'t obvious in the demo, or it\'s on our roadmap with a ship date. And if we genuinely don\'t have it — I\'ll tell you straight. I\'d rather lose this deal honestly than win it with a promise I can\'t keep.',
+    followUp:'Can you list your top 3 must-haves so I can give you a direct answer on each?'
+  },
+  timing:{
+    label:'Not the Right Time',
+    script:'I get it — there\'s never a perfect time. But here\'s the math: every month without retention tracking, you\'re flying blind on churn. If your churn rate is 8% — industry average — that\'s <em>{monthlyChurn} athletes</em> leaving per month you can\'t predict or prevent. In 3 months of "waiting for the right time," that\'s <em>{quarterChurn} athletes</em> gone. What if we start with a 90-day pilot so there\'s zero risk?',
+    followUp:'What would make the timing feel right?'
+  },
+  authority:{
+    label:'Need Board Approval',
+    script:'Smart governance — that\'s actually a green flag for us. Boards love data. I can send you a one-page ROI summary built for your treasurer: cost, projected retention lift, break-even month, and comparable team case studies. I\'ve seen boards approve this in a single meeting when the numbers are clear. Want me to build that for your next board date?',
+    followUp:'When\'s the next board meeting? I\'ll have the materials ready 5 days before.'
+  },
+  trust:{
+    label:'Unproven / New Platform',
+    script:'Fair — you\'re protecting your team. Here\'s what I can offer: <em>Saint Andrew\'s Aquatics</em> — 240+ athletes — is our beta partner and they\'re on Platinum tier. I can connect you directly with their head coach. No sales pitch from me — just a coach-to-coach conversation about what\'s working. And we offer a 90-day money-back guarantee because I\'d rather you try it risk-free than wonder "what if."',
+    followUp:'Want me to set up that coach-to-coach call?'
+  },
+  contract:{
+    label:'No Long-Term Commitment',
+    script:'We don\'t do annual lock-ins. Month-to-month, cancel anytime, 30-day notice. I\'d rather earn your renewal every month than trap you in a contract. That said — teams that commit annually get 2 months free. Not pressure, just math. But start monthly, see the results, then decide.',
+    followUp:'Want to start month-to-month and revisit annual after 90 days?'
+  },
+  integration:{
+    label:'Integration Concerns',
+    script:'What systems do you need us to talk to? We integrate with Stripe for billing, export to standard formats for meet management, and have an API on Platinum tier for custom connections. If there\'s a specific integration that\'s a dealbreaker — tell me now. I\'ll either confirm we have it, give you a ship date, or tell you we can\'t do it. No runaround.',
+    followUp:'What\'s the #1 system METTLE needs to connect with for this to work?'
+  }
+};
+
+function recommendTier(size){
+  if(size<=50) return 'starter';
+  if(size<=150) return 'team';
+  if(size<=500) return 'platinum';
+  return 'enterprise';
+}
+
+function calcLeverage(data){
+  let score=50;
+  if(data.timeline==='urgent') score+=20;
+  else if(data.timeline==='short') score+=10;
+  else if(data.timeline==='long') score-=10;
+  if(data.currentPlatform==='none') score+=10;
+  if(data.currentPlatform==='gomotion'&&data.teamSize>100) score+=15;
+  if(data.objections.includes('price')) score-=10;
+  if(data.objections.includes('authority')) score-=5;
+  if(data.objections.includes('trust')) score-=8;
+  if(data.objections.length<=1) score+=10;
+  if(data.teamSize>200) score+=5;
+  if(data.budget>=349) score+=10;
+  return Math.max(10,Math.min(95,score));
+}
+
+function generatePlaybook(){
+  const data={
+    teamName:document.getElementById('teamName').value||'Prospect Team',
+    teamSize:parseInt(document.getElementById('teamSize').value)||80,
+    contactRole:document.getElementById('contactRole').value,
+    timeline:document.getElementById('timeline').value,
+    currentPlatform:document.getElementById('currentPlatform').value,
+    budget:parseInt(document.getElementById('budget').value)||300,
+    objections:getSelectedObjections(),
+    hotButton:document.getElementById('hotButton').value,
+    context:document.getElementById('additionalContext').value
+  };
+
+  const tierKey=recommendTier(data.teamSize);
+  const tier=TIERS[tierKey];
+  const competitor=COMPETITOR_INTEL[data.currentPlatform];
+  const leverage=calcLeverage(data);
+  const perAthlete=tier.price?((tier.price/data.teamSize).toFixed(2)):('custom');
+  const monthlyChurn=Math.round(data.teamSize*0.08);
+  const quarterChurn=monthlyChurn*3;
+  const avgDues=150;
+  const churnSave=Math.max(2,Math.round(data.teamSize*0.02));
+  const churnRevenue=(churnSave*avgDues*12).toLocaleString();
+  const annualDealValue=tier.price?(tier.price*12):0;
+
+  // Summary
+  document.getElementById('summaryGrid').innerHTML=`
+    <div class="summary-stat"><div class="num">${tier.price?'$'+tier.price+'/mo':'Custom'}</div><div class="lbl">Recommended Price</div></div>
+    <div class="summary-stat"><div class="num">${perAthlete==='custom'?'Custom':'$'+perAthlete}</div><div class="lbl">Per Athlete/Mo</div></div>
+    <div class="summary-stat"><div class="num">${annualDealValue?'$'+(annualDealValue).toLocaleString():'TBD'}</div><div class="lbl">Annual Deal Value</div></div>
+  `;
+
+  const levClass=leverage>=65?'leverage-high':leverage>=40?'leverage-mid':'leverage-low';
+  const levLabel=leverage>=65?'Strong':leverage>=40?'Moderate':'Weak';
+  document.getElementById('leverageSection').innerHTML=`
+    <div style="margin-top:16px">
+      <label style="margin:0">Our Leverage Position</label>
+      <div class="score-badge ${levClass}">${leverage}/100 — ${levLabel}</div>
+      <div class="meter"><div class="meter-fill" style="width:${leverage}%;background:${leverage>=65?'var(--green)':leverage>=40?'var(--amber)':'var(--red)'}"></div></div>
+      <p style="font-size:12px;color:var(--muted);margin-top:6px">
+        ${leverage>=65?'We have negotiation power. Hold firm on price, offer value-adds only if needed.':leverage>=40?'Balanced negotiation. Be strategic with concessions — trade, don\'t give.':'They have leverage. Lead with ROI proof, offer a pilot, and build trust before pushing for commitment.'}
+      </p>
+    </div>
+  `;
+
+  // Tier recommendation
+  const roleLabels={head_coach:'Head Coach',asst_coach:'Assistant Coach',board_president:'Board President',treasurer:'Treasurer',parent_rep:'Parent Rep',aquatic_director:'Aquatic Director'};
+  document.getElementById('tierRec').innerHTML=`
+    <div style="background:var(--surface);border-radius:8px;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <div style="font-size:18px;font-weight:800;color:var(--accent)">${tier.name} Tier</div>
+          <div style="font-size:12px;color:var(--muted)">${tier.price?'$'+tier.price+'/month':'Custom pricing'} · Up to ${tier.maxAthletes===Infinity?'unlimited':tier.maxAthletes} athletes</div>
+        </div>
+        <span class="tag tag-purple">${data.teamSize} athletes</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Includes:</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${tier.features.map(f=>`<span class="tag tag-green">${f}</span>`).join('')}</div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;color:var(--muted)">Competitor angle (${competitor.name}):</div>
+        <div style="font-size:13px;font-weight:500;margin-top:4px;font-style:italic">"${competitor.angle}"</div>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--muted)">
+        <strong>Decision-maker insight:</strong> ${
+          data.contactRole==='treasurer'?'Lead with unit economics and break-even analysis. Treasurers want ROI proof, not feature tours.':
+          data.contactRole==='board_president'?'Frame as strategic investment in program quality. Board presidents think in terms of competitive advantage and member satisfaction.':
+          data.contactRole==='head_coach'?'Lead with athlete outcomes and coach time savings. This person lives the pain daily — speak to their workflow.':
+          data.contactRole==='parent_rep'?'This person influences but doesn\'t decide. Arm them with a one-pager to take to the board. Make them your internal champion.':
+          data.contactRole==='aquatic_director'?'Multi-program perspective. Show how METTLE scales across all their teams, not just one.':
+          'Build rapport first. This person needs to see the product in action before they champion it internally.'
+        }
+      </div>
+    </div>
+  `;
+
+  // Concessions
+  const concessionList=[
+    {give:'Extended 60-day trial (vs standard 30)',get:'Commitment to full onboarding process',tier:'Free',impact:'Low'},
+    {give:'1-on-1 coach onboarding session',get:'Agreement to share testimonial if satisfied',tier:'Free',impact:'Low'},
+    {give:'Data migration handled by our team',get:'Start date within 2 weeks',tier:'Free',impact:'Low'},
+    {give:'2 months free on annual plan',get:'Annual commitment (prepaid)',tier:'Medium',impact:'Medium'},
+    {give:'Custom report template built for their program',get:'Case study participation',tier:'Medium',impact:'Medium'},
+    {give:`Upgrade to ${tierKey==='starter'?'Team':tierKey==='team'?'Platinum':'Enterprise'} features for 90 days`,get:'Commitment to eval at end of trial',tier:'High',impact:'High'},
+  ];
+  if(data.teamSize>200){
+    concessionList.push({give:'Volume pricing: 10% off for 200+ athletes',get:'12-month minimum + referral to 2 other teams',tier:'High',impact:'High'});
+  }
+  document.getElementById('concessions').innerHTML=concessionList.map((c,i)=>`
+    <div class="concession-row">
+      <div>
+        <div class="label">Level ${i+1}: ${c.give}</div>
+        <div class="value" style="margin-top:4px">🔄 Trade for: ${c.get}</div>
+      </div>
+      <span class="tag ${c.impact==='Low'?'tag-green':c.impact==='Medium'?'tag-amber':'tag-red'}">${c.impact} cost</span>
+    </div>
+  `).join('');
+
+  // Walk-away points
+  const walkPoints=[
+    `Below $${Math.round((tier.price||500)*0.6)}/mo — floor price. At this point we're losing money on support costs.`,
+    `More than 3 "free months" — we're not a charity. Value-add instead of discount.`,
+    `Prospect demands features we don't have with no willingness to use what exists — misaligned customer, will churn in 90 days.`,
+    `${data.contactRole==='parent_rep'||data.contactRole==='asst_coach'?'Contact cannot get decision-maker in a room after 3 attempts — dead deal, nurture and revisit next season.':'Decision-maker goes dark for 2+ weeks after proposal — move to nurture sequence.'}`,
+    `Prospect wants us to match competitor pricing without acknowledging our differentiation — they're commoditizing us. Walk.`
+  ];
+  document.getElementById('walkAway').innerHTML=walkPoints.map(w=>`
+    <div class="walk-away"><p>🚫 ${w}</p></div>
+  `).join('');
+
+  // BATNA
+  document.getElementById('batna').innerHTML=`
+    <div class="batna-card">
+      <h4>Their BATNA</h4>
+      <p>${data.currentPlatform==='none'?
+        'Stay on spreadsheets. Cost: $0/month but invisible churn, manual errors, no engagement data. Every month they wait, they lose athletes they could have saved.':
+        `Stay with ${competitor.name}. They keep familiarity but miss: ${competitor.weakness}. Their switching cost to us is ${competitor.switchCost.toLowerCase()}, which means ${competitor.switchCost==='Low'?'low barrier — focus on urgency':'we need to make the value delta crystal clear to justify the move'}.`
+      }</p>
+    </div>
+    <div class="batna-card">
+      <h4>Our BATNA</h4>
+      <p>Pipeline has other prospects. We don't need this deal to survive — and they should feel that confidence. ${data.teamSize>200?'That said, a '+data.teamSize+'-athlete team is a high-value logo. Worth extending concessions to Level 4-5 if needed.':'Standard-size team. Don\'t over-invest in concessions — if they walk, the next prospect is a week away.'}</p>
+    </div>
+    <div class="batna-card">
+      <h4>Zone of Possible Agreement (ZOPA)</h4>
+      <p>Their budget: $${data.budget}/mo. Our floor: $${Math.round((tier.price||500)*0.6)}/mo. Our ask: $${tier.price||'custom'}/mo.
+      ${data.budget>=(tier.price||500)?'✅ Budget exceeds our ask — strong position. Anchor high and hold.':
+        data.budget>=(tier.price||500)*0.6?`⚠️ Budget is between floor and ask. ZOPA exists at ~$${Math.round((data.budget+(tier.price||500))/2)}/mo — split the difference with value-adds.`:
+        '🔴 Budget below floor. Either resize the deal (fewer features, smaller tier) or qualify out.'
+      }</p>
+    </div>
+  `;
+
+  // Counter-offer scripts
+  const activeObjections=data.objections.length>0?data.objections:['price','timing'];
+  document.getElementById('scripts').innerHTML=activeObjections.map(obj=>{
+    const s=OBJECTION_SCRIPTS[obj];
+    if(!s) return '';
+    let script=s.script
+      .replace('{price}',tier.price?'$'+tier.price:'custom')
+      .replace('{perAthlete}','$'+perAthlete)
+      .replace('{churnSave}',churnSave)
+      .replace('{churnRevenue}',churnRevenue)
+      .replace('{monthlyChurn}',monthlyChurn)
+      .replace('{quarterChurn}',quarterChurn);
+    return`
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:6px">When they say: "${s.label}"</div>
+        <div class="script-block">${script}</div>
+        <div class="counter-card"><h4>Follow-up close:</h4><p>"${s.followUp}"</p></div>
+      </div>
+    `;
+  }).join('');
+
+  // Phase plan
+  const timelineLabels={urgent:'this week',short:'this month',medium:'this quarter',long:'next season'};
+  const phases=[
+    {title:'Rapport & Discovery',desc:`Open with their hot button: ${data.hotButton}. Ask open-ended questions. Mirror their language. Don't pitch yet.`,tip:'Spend 60% of this phase listening.'},
+    {title:'Pain Amplification',desc:`Quantify the cost of inaction. ${data.currentPlatform==='none'?'They're losing ~'+monthlyChurn+' athletes/month they can\'t predict.':'Their current platform misses: '+competitor.weakness+'.'}`,tip:'Use the "calibrated question": What happens to your program if this trend continues?'},
+    {title:'Solution Positioning',desc:`Present ${tier.name} tier at $${tier.price||'custom'}/mo. Lead with outcomes, not features. Anchor to the ${churnRevenue} retention number.`,tip:'Say the price like you say good morning. No flinch.'},
+    {title:'Objection Navigation',desc:`Expected objections: ${activeObjections.map(o=>OBJECTION_SCRIPTS[o]?.label||o).join(', ')}. Use scripts above — verbatim or adapted.`,tip:'After presenting each counter, go silent. Count to 7 in your head.'},
+    {title:'Close Architecture',desc:`Target close: ${timelineLabels[data.timeline]}. ${data.contactRole==='parent_rep'||data.contactRole==='asst_coach'?'This contact needs to champion internally. Arm them with materials.':'Go for the close directly with this decision-maker.'}`,tip:'Trial close: "If we can address [objection], is there anything else stopping us from getting started?"'},
+    {title:'Post-Close Lock-in',desc:'Onboarding call within 48 hours. First win within 7 days. 30-day check-in to confirm value. This is where churn prevention starts.',tip:'The sale isn\'t done when they sign — it\'s done when they renew.'}
+  ];
+  document.getElementById('phases').innerHTML=phases.map((p,i)=>`
+    <div class="phase">
+      <div class="phase-num">${i+1}</div>
+      <div class="phase-content">
+        <h4>${p.title}</h4>
+        <p>${p.desc}</p>
+        <p style="margin-top:6px;color:var(--accent);font-size:11px;font-weight:600">💡 ${p.tip}</p>
+      </div>
+    </div>
+  `).join('');
+
+  // Psychological playbook
+  const psychTactics=[
+    {name:'Anchoring',desc:`Open with the annual number ($${annualDealValue?annualDealValue.toLocaleString():'TBD'}/year) before revealing monthly. The monthly feels small by comparison.`,when:'During pricing presentation'},
+    {name:'Loss Aversion',desc:`"You're currently losing ~${monthlyChurn} athletes per month you can't predict. That's $${(monthlyChurn*avgDues).toLocaleString()}/month walking out the door." People fight harder to avoid losses than to capture gains.`,when:'Pain amplification phase'},
+    {name:'Social Proof',desc:'Saint Andrew\'s Aquatics — 240+ athletes, Platinum tier. Name-drop early. Coaches trust other coaches more than sales reps.',when:'Early rapport & objection handling'},
+    {name:'Tactical Empathy (Voss)',desc:`"It sounds like you're concerned about [objection]. That makes complete sense given [their situation]." Label the emotion before addressing the logic.`,when:'Every objection response'},
+    {name:'The 7-Second Silence',desc:'After presenting price or a counter-offer, stop talking. The first person to speak loses leverage. Count to 7. It will feel like an eternity. Let it.',when:'After any close attempt'},
+    {name:'Decoy Effect',desc:`Show all 3 tiers: $149, $349, $549. The middle tier (${tierKey==='team'?'your recommendation':'not the target but'}) looks like the smart choice — not too cheap, not too expensive. Even if they pick a different tier, the framing worked.`,when:'Pricing presentation'},
+    {name:'Future Pacing',desc:`"Imagine it's 6 months from now. Your retention rate is up, parents are engaged, and you have data on every athlete's trajectory. That's what ${tier.name} tier looks like for ${data.teamName}."`,when:'Closing phase'}
+  ];
+  document.getElementById('psych').innerHTML=psychTactics.map(t=>`
+    <div style="margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;font-weight:700">${t.name}</span>
+        <span class="tag tag-purple">${t.when}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);line-height:1.6">${t.desc}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('output').classList.add('active');
+  document.getElementById('output').scrollIntoView({behavior:'smooth'});
+}
+</script>
+</body>
+</html>

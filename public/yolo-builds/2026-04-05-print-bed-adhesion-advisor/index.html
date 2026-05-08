@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Bed Adhesion Advisor — NOVA</title>
+<style>
+  :root {
+    --bg: #07080c;
+    --surface: #0f1117;
+    --card: #141620;
+    --border: #1c1f2e;
+    --text: #e2e4ec;
+    --muted: #6e7191;
+    --accent: #7c5cfc;
+    --accent-soft: rgba(124,92,252,0.12);
+    --teal: #3ecfcf;
+    --teal-soft: rgba(62,207,207,0.12);
+    --amber: #f5a623;
+    --amber-soft: rgba(245,166,35,0.12);
+    --red: #e84855;
+    --red-soft: rgba(232,72,85,0.12);
+    --green: #34d399;
+    --green-soft: rgba(52,211,153,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body { background:var(--bg); color:var(--text); font-family:'Inter','SF Pro Display',system-ui,-apple-system,sans-serif; line-height:1.6; min-height:100vh; }
+
+  /* Linear Layout */
+  .container { max-width:680px; margin:0 auto; padding:40px 24px 80px; }
+
+  /* Header */
+  .hero { text-align:center; margin-bottom:48px; }
+  .hero-badge { display:inline-flex; align-items:center; gap:6px; background:var(--accent-soft); color:var(--accent); padding:4px 12px; border-radius:20px; font-size:11px; font-weight:600; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:16px; }
+  .hero h1 { font-size:28px; font-weight:700; letter-spacing:-0.5px; margin-bottom:8px; }
+  .hero h1 span { background:linear-gradient(135deg,var(--accent),var(--teal)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .hero p { color:var(--muted); font-size:14px; max-width:440px; margin:0 auto; }
+
+  /* Section */
+  .section { margin-bottom:32px; }
+  .section-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:12px; }
+
+  /* Cards */
+  .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:12px; transition:border-color 0.2s; }
+  .card:hover { border-color:rgba(124,92,252,0.3); }
+
+  /* Form Controls */
+  .form-group { margin-bottom:20px; }
+  .form-group label { display:block; font-size:12px; font-weight:500; color:var(--muted); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px; }
+  .form-group .hint { font-size:11px; color:var(--muted); margin-top:4px; font-style:italic; }
+
+  /* Select */
+  select {
+    width:100%; appearance:none; background:var(--surface); border:1px solid var(--border);
+    color:var(--text); padding:10px 14px; border-radius:8px; font-size:14px; font-family:inherit;
+    cursor:pointer; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%236e7191'%3E%3Cpath d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; transition:border-color 0.2s;
+  }
+  select:focus { outline:none; border-color:var(--accent); }
+
+  /* Range Slider */
+  .range-wrap { display:flex; align-items:center; gap:12px; }
+  .range-wrap input[type=range] { flex:1; -webkit-appearance:none; height:4px; background:var(--border); border-radius:2px; outline:none; }
+  .range-wrap input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--bg); }
+  .range-value { min-width:48px; text-align:right; font-size:14px; font-weight:600; color:var(--teal); font-variant-numeric:tabular-nums; }
+
+  /* Toggle Group */
+  .toggle-group { display:flex; gap:6px; flex-wrap:wrap; }
+  .toggle-btn {
+    padding:8px 16px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface); color:var(--muted); font-size:13px; cursor:pointer;
+    transition:all 0.15s; font-family:inherit;
+  }
+  .toggle-btn:hover { border-color:var(--accent); color:var(--text); }
+  .toggle-btn.active { background:var(--accent-soft); border-color:var(--accent); color:var(--accent); font-weight:500; }
+
+  /* Checkbox visual */
+  .check-row { display:flex; align-items:center; gap:10px; padding:8px 0; }
+  .check-row input[type=checkbox] { width:16px; height:16px; accent-color:var(--accent); cursor:pointer; }
+  .check-row label { font-size:13px; cursor:pointer; }
+
+  /* Divider */
+  .divider { height:1px; background:var(--border); margin:32px 0; }
+
+  /* Results */
+  .results { opacity:0; transform:translateY(12px); transition:all 0.4s ease; }
+  .results.visible { opacity:1; transform:translateY(0); }
+
+  .result-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; }
+  .confidence-badge {
+    display:inline-flex; align-items:center; gap:4px; padding:4px 10px;
+    border-radius:6px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .confidence-high { background:var(--green-soft); color:var(--green); }
+  .confidence-med { background:var(--amber-soft); color:var(--amber); }
+  .confidence-low { background:var(--red-soft); color:var(--red); }
+
+  /* Recommendation Cards */
+  .rec-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:10px; }
+  .rec-card .rec-title { font-size:13px; font-weight:600; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+  .rec-card .rec-value { font-size:15px; font-weight:600; color:var(--teal); margin-bottom:6px; }
+  .rec-card .rec-why { font-size:12px; color:var(--muted); line-height:1.5; }
+
+  .rec-icon { width:20px; height:20px; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; }
+
+  /* Temp Gauge */
+  .temp-gauge { display:flex; align-items:center; gap:12px; margin:8px 0; }
+  .gauge-bar { flex:1; height:8px; background:var(--border); border-radius:4px; overflow:hidden; position:relative; }
+  .gauge-fill { height:100%; border-radius:4px; transition:width 0.6s ease; }
+  .gauge-label { font-size:12px; color:var(--muted); min-width:32px; }
+  .gauge-value { font-size:14px; font-weight:600; min-width:48px; text-align:right; font-variant-numeric:tabular-nums; }
+
+  /* Warning Box */
+  .warning-box {
+    background:var(--amber-soft); border:1px solid rgba(245,166,35,0.25);
+    border-radius:8px; padding:12px 16px; margin-top:16px; font-size:12px; color:var(--amber);
+  }
+  .warning-box strong { display:block; margin-bottom:4px; }
+
+  .danger-box {
+    background:var(--red-soft); border:1px solid rgba(232,72,85,0.25);
+    border-radius:8px; padding:12px 16px; margin-top:16px; font-size:12px; color:var(--red);
+  }
+  .danger-box strong { display:block; margin-bottom:4px; }
+
+  .tip-box {
+    background:var(--teal-soft); border:1px solid rgba(62,207,207,0.25);
+    border-radius:8px; padding:12px 16px; margin-top:16px; font-size:12px; color:var(--teal);
+  }
+  .tip-box strong { display:block; margin-bottom:4px; }
+
+  /* Checklist */
+  .checklist { list-style:none; margin-top:12px; }
+  .checklist li { font-size:12px; padding:6px 0; display:flex; align-items:flex-start; gap:8px; border-bottom:1px solid var(--border); }
+  .checklist li:last-child { border-bottom:none; }
+  .checklist .step-num { width:20px; height:20px; border-radius:50%; background:var(--accent-soft); color:var(--accent); font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:1px; }
+
+  /* Animate Button */
+  .analyze-btn {
+    display:block; width:100%; padding:14px; background:linear-gradient(135deg,var(--accent),#5a3de8);
+    border:none; color:#fff; font-size:14px; font-weight:600; border-radius:10px;
+    cursor:pointer; font-family:inherit; transition:all 0.2s; letter-spacing:0.3px;
+  }
+  .analyze-btn:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(124,92,252,0.3); }
+  .analyze-btn:active { transform:translateY(0); }
+
+  /* Footer */
+  .footer { text-align:center; padding:32px 0; color:var(--muted); font-size:11px; }
+  .footer span { color:var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="hero">
+    <div class="hero-badge">&#9670; NOVA Fabrication</div>
+    <h1>Bed Adhesion <span>Advisor</span></h1>
+    <p>Get material-specific bed temperature, adhesion method, and first-layer settings tuned to your exact setup. No more warping, no more failed first layers.</p>
+  </div>
+
+  <!-- Material Selection -->
+  <div class="section">
+    <div class="section-label">1 &mdash; Material</div>
+    <div class="card">
+      <div class="form-group">
+        <label>Filament Type</label>
+        <select id="material">
+          <option value="">Select material...</option>
+          <option value="pla">PLA</option>
+          <option value="pla_plus">PLA+</option>
+          <option value="petg">PETG</option>
+          <option value="abs">ABS</option>
+          <option value="asa">ASA</option>
+          <option value="tpu">TPU (Flex)</option>
+          <option value="nylon">Nylon (PA)</option>
+          <option value="pc">Polycarbonate</option>
+          <option value="pla_silk">PLA Silk</option>
+          <option value="pla_cf">PLA-CF (Carbon Fiber)</option>
+          <option value="petg_cf">PETG-CF</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Brand (Optional)</label>
+        <select id="brand">
+          <option value="generic">Generic / Unknown</option>
+          <option value="bambu">Bambu Lab</option>
+          <option value="polymaker">Polymaker</option>
+          <option value="esun">eSUN</option>
+          <option value="hatchbox">Hatchbox</option>
+          <option value="overture">Overture</option>
+          <option value="prusament">Prusament</option>
+          <option value="sunlu">SUNLU</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Print Surface -->
+  <div class="section">
+    <div class="section-label">2 &mdash; Print Surface</div>
+    <div class="card">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Bed Surface Type</label>
+        <div class="toggle-group" id="surfaceGroup">
+          <button class="toggle-btn active" data-val="pei_textured">PEI Textured</button>
+          <button class="toggle-btn" data-val="pei_smooth">PEI Smooth</button>
+          <button class="toggle-btn" data-val="glass">Glass</button>
+          <button class="toggle-btn" data-val="buildtak">BuildTak</button>
+          <button class="toggle-btn" data-val="spring_steel">Spring Steel</button>
+          <button class="toggle-btn" data-val="garolite">Garolite (G10)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Environment -->
+  <div class="section">
+    <div class="section-label">3 &mdash; Environment</div>
+    <div class="card">
+      <div class="form-group">
+        <label>Ambient Temperature</label>
+        <div class="range-wrap">
+          <input type="range" id="ambientTemp" min="10" max="40" value="22" step="1">
+          <div class="range-value" id="ambientTempVal">22°C</div>
+        </div>
+        <div class="hint">Room temperature significantly affects adhesion — cold rooms = more warping risk</div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Enclosure</label>
+        <div class="toggle-group" id="enclosureGroup">
+          <button class="toggle-btn active" data-val="open">Open Frame</button>
+          <button class="toggle-btn" data-val="partial">Partial Enclosure</button>
+          <button class="toggle-btn" data-val="full">Full Enclosure</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Part Geometry -->
+  <div class="section">
+    <div class="section-label">4 &mdash; Part Geometry</div>
+    <div class="card">
+      <div class="form-group">
+        <label>First Layer Contact Area</label>
+        <div class="toggle-group" id="contactGroup">
+          <button class="toggle-btn" data-val="tiny">Tiny (&lt;4cm²)</button>
+          <button class="toggle-btn active" data-val="medium">Medium (4-25cm²)</button>
+          <button class="toggle-btn" data-val="large">Large (25-100cm²)</button>
+          <button class="toggle-btn" data-val="full">Full Bed</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Part Height</label>
+        <div class="toggle-group" id="heightGroup">
+          <button class="toggle-btn active" data-val="short">Short (&lt;30mm)</button>
+          <button class="toggle-btn" data-val="medium">Medium (30-100mm)</button>
+          <button class="toggle-btn" data-val="tall">Tall (&gt;100mm)</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>Geometry Challenges</label>
+        <div class="check-row"><input type="checkbox" id="chkThin"><label for="chkThin">Thin walls or features</label></div>
+        <div class="check-row"><input type="checkbox" id="chkSharp"><label for="chkSharp">Sharp corners on first layer</label></div>
+        <div class="check-row"><input type="checkbox" id="chkLong"><label for="chkLong">Long/narrow footprint (>15cm in one axis)</label></div>
+        <div class="check-row"><input type="checkbox" id="chkOverhang"><label for="chkOverhang">Overhang starting near bed</label></div>
+      </div>
+    </div>
+  </div>
+
+  <button class="analyze-btn" id="analyzeBtn" onclick="analyze()">Get Adhesion Recommendations</button>
+
+  <div class="divider"></div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div class="section">
+      <div class="result-header">
+        <div class="section-label" style="margin-bottom:0">Recommendations</div>
+        <div class="confidence-badge" id="confidenceBadge">HIGH CONFIDENCE</div>
+      </div>
+
+      <!-- Bed Temp -->
+      <div class="rec-card">
+        <div class="rec-title">
+          <div class="rec-icon" style="background:var(--red-soft);color:var(--red)">&#9632;</div>
+          Bed Temperature
+        </div>
+        <div class="rec-value" id="recBedTemp">—</div>
+        <div class="temp-gauge">
+          <div class="gauge-label">0°C</div>
+          <div class="gauge-bar"><div class="gauge-fill" id="bedTempGauge" style="width:0;background:var(--red)"></div></div>
+          <div class="gauge-value" id="bedTempGaugeVal">—</div>
+        </div>
+        <div class="rec-why" id="recBedTempWhy"></div>
+      </div>
+
+      <!-- Adhesion Method -->
+      <div class="rec-card">
+        <div class="rec-title">
+          <div class="rec-icon" style="background:var(--accent-soft);color:var(--accent)">&#9679;</div>
+          Adhesion Method
+        </div>
+        <div class="rec-value" id="recAdhesion">—</div>
+        <div class="rec-why" id="recAdhesionWhy"></div>
+      </div>
+
+      <!-- First Layer Settings -->
+      <div class="rec-card">
+        <div class="rec-title">
+          <div class="rec-icon" style="background:var(--teal-soft);color:var(--teal)">&#9650;</div>
+          First Layer Settings
+        </div>
+        <div id="firstLayerDetails"></div>
+      </div>
+
+      <!-- Adhesion Aids -->
+      <div class="rec-card">
+        <div class="rec-title">
+          <div class="rec-icon" style="background:var(--amber-soft);color:var(--amber)">&#9733;</div>
+          Adhesion Aids
+        </div>
+        <div class="rec-value" id="recAids">—</div>
+        <div class="rec-why" id="recAidsWhy"></div>
+      </div>
+
+      <!-- Warnings -->
+      <div id="warningsContainer"></div>
+
+      <!-- Pre-Print Checklist -->
+      <div class="rec-card" style="margin-top:20px">
+        <div class="rec-title">
+          <div class="rec-icon" style="background:var(--green-soft);color:var(--green)">&#10003;</div>
+          Pre-Print Checklist
+        </div>
+        <ol class="checklist" id="checklist"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="footer">
+  Built by <span>NOVA</span> &mdash; RAMICHE Fabrication Lab &mdash; 2026
+</div>
+
+<script>
+// Material database
+const MATERIALS = {
+  pla:      { name:'PLA',     bedMin:55, bedMax:65, bedIdeal:60, warpRisk:'low', needsEnclosure:false, glueHelps:false, brimDefault:false, firstLayerTemp:+5, speedMult:0.8, notes:'Most forgiving material. Clean bed = good adhesion.' },
+  pla_plus: { name:'PLA+',    bedMin:55, bedMax:65, bedIdeal:60, warpRisk:'low', needsEnclosure:false, glueHelps:false, brimDefault:false, firstLayerTemp:+5, speedMult:0.8, notes:'Slightly tougher than PLA, same adhesion profile.' },
+  pla_silk: { name:'PLA Silk', bedMin:55, bedMax:65, bedIdeal:60, warpRisk:'low', needsEnclosure:false, glueHelps:true, brimDefault:true, firstLayerTemp:+5, speedMult:0.7, notes:'Silk additives reduce bed grip. Glue stick recommended.' },
+  pla_cf:   { name:'PLA-CF',  bedMin:55, bedMax:65, bedIdeal:60, warpRisk:'low', needsEnclosure:false, glueHelps:false, brimDefault:false, firstLayerTemp:+10, speedMult:0.7, notes:'Carbon fiber additive. Abrasive — use hardened nozzle.' },
+  petg:     { name:'PETG',    bedMin:70, bedMax:85, bedIdeal:80, warpRisk:'medium', needsEnclosure:false, glueHelps:true, brimDefault:false, firstLayerTemp:+5, speedMult:0.7, notes:'Sticks TOO well to smooth PEI — use glue as release agent.' },
+  petg_cf:  { name:'PETG-CF', bedMin:70, bedMax:85, bedIdeal:80, warpRisk:'medium', needsEnclosure:false, glueHelps:true, brimDefault:true, firstLayerTemp:+5, speedMult:0.65, notes:'Like PETG but more rigid. Still bonds aggressively to PEI.' },
+  abs:      { name:'ABS',     bedMin:90, bedMax:110, bedIdeal:100, warpRisk:'high', needsEnclosure:true, glueHelps:true, brimDefault:true, firstLayerTemp:+10, speedMult:0.6, notes:'High warp risk. Enclosure mandatory. ABS slurry or glue stick.' },
+  asa:      { name:'ASA',     bedMin:90, bedMax:110, bedIdeal:100, warpRisk:'high', needsEnclosure:true, glueHelps:true, brimDefault:true, firstLayerTemp:+10, speedMult:0.6, notes:'UV-resistant ABS alternative. Same adhesion challenges.' },
+  tpu:      { name:'TPU',     bedMin:40, bedMax:60, bedIdeal:50, warpRisk:'low', needsEnclosure:false, glueHelps:false, brimDefault:false, firstLayerTemp:+0, speedMult:0.5, notes:'Flexible — sticks well but print SLOW. No brim needed.' },
+  nylon:    { name:'Nylon',   bedMin:70, bedMax:90, bedIdeal:80, warpRisk:'very_high', needsEnclosure:true, glueHelps:true, brimDefault:true, firstLayerTemp:+10, speedMult:0.6, notes:'Extremely hygroscopic. Dry filament is critical. Garolite bed ideal.' },
+  pc:       { name:'PC',      bedMin:100, bedMax:120, bedIdeal:110, warpRisk:'very_high', needsEnclosure:true, glueHelps:true, brimDefault:true, firstLayerTemp:+15, speedMult:0.5, notes:'Highest warp risk. Full enclosure + glue mandatory. Expert material.' },
+};
+
+// Surface compatibility matrix
+const SURFACE_COMPAT = {
+  pei_textured: { pla:5, pla_plus:5, pla_silk:3, pla_cf:5, petg:4, petg_cf:4, abs:3, asa:3, tpu:4, nylon:2, pc:2,
+    note:'Best all-rounder. PLA/PETG excellent. ABS/Nylon less ideal.' },
+  pei_smooth: { pla:5, pla_plus:5, pla_silk:3, pla_cf:4, petg:3, petg_cf:3, abs:4, asa:4, tpu:5, nylon:2, pc:3,
+    note:'Great for PLA/TPU. PETG bonds too aggressively — use release agent.' },
+  glass: { pla:4, pla_plus:4, pla_silk:3, pla_cf:3, petg:4, petg_cf:3, abs:3, asa:3, tpu:2, nylon:1, pc:2,
+    note:'Smooth bottoms. Needs glue/hairspray for most materials. Parts pop off when cooled.' },
+  buildtak: { pla:5, pla_plus:5, pla_silk:4, pla_cf:4, petg:4, petg_cf:4, abs:3, asa:3, tpu:3, nylon:2, pc:2,
+    note:'Good general surface. Wears over time. Replace every 6-12 months.' },
+  spring_steel: { pla:4, pla_plus:4, pla_silk:3, pla_cf:4, petg:4, petg_cf:3, abs:3, asa:3, tpu:3, nylon:2, pc:2,
+    note:'Flexible for easy part removal. Usually has PEI coating — check your sheet type.' },
+  garolite: { pla:2, pla_plus:2, pla_silk:1, pla_cf:3, petg:2, petg_cf:3, abs:3, asa:3, tpu:1, nylon:5, pc:4,
+    note:'Specialized for Nylon/PC. Poor for PLA. G10 fiberglass composite.' },
+};
+
+// Brand adjustments
+const BRAND_ADJ = {
+  generic:   { tempAdj:0, note:'' },
+  bambu:     { tempAdj:0, note:'Bambu Lab filament is well-calibrated. Use their recommended profiles as baseline.' },
+  polymaker: { tempAdj:-2, note:'Polymaker typically runs slightly cooler. PolyLite PLA is very consistent.' },
+  esun:      { tempAdj:+2, note:'eSUN filaments often benefit from +2-3°C on bed temp. Good value brand.' },
+  hatchbox:  { tempAdj:0, note:'Hatchbox is consistent batch-to-batch. Standard temps work well.' },
+  overture:  { tempAdj:+1, note:'Overture runs slightly warm. Their PETG is a standout.' },
+  prusament: { tempAdj:-1, note:'Premium tolerances. Prusament profiles are very tight — follow Prusa recommendations.' },
+  sunlu:     { tempAdj:+2, note:'SUNLU is budget-tier. May need slightly higher bed temp for consistent stick.' },
+};
+
+function getVal(groupId) {
+  const btns = document.querySelectorAll(`#${groupId} .toggle-btn`);
+  for(const b of btns) if(b.classList.contains('active')) return b.dataset.val;
+  return null;
+}
+
+// Toggle group handlers
+document.querySelectorAll('.toggle-group').forEach(group => {
+  group.addEventListener('click', e => {
+    const btn = e.target.closest('.toggle-btn');
+    if(!btn) return;
+    group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Range slider
+document.getElementById('ambientTemp').addEventListener('input', e => {
+  document.getElementById('ambientTempVal').textContent = e.target.value + '°C';
+});
+
+function analyze() {
+  const matKey = document.getElementById('material').value;
+  if(!matKey) { alert('Please select a material first.'); return; }
+
+  const mat = MATERIALS[matKey];
+  const brand = BRAND_ADJ[document.getElementById('brand').value];
+  const surface = getVal('surfaceGroup');
+  const surfCompat = SURFACE_COMPAT[surface][matKey] || 3;
+  const ambient = parseInt(document.getElementById('ambientTemp').value);
+  const enclosure = getVal('enclosureGroup');
+  const contact = getVal('contactGroup');
+  const height = getVal('heightGroup');
+  const hasThin = document.getElementById('chkThin').checked;
+  const hasSharp = document.getElementById('chkSharp').checked;
+  const hasLong = document.getElementById('chkLong').checked;
+  const hasOverhang = document.getElementById('chkOverhang').checked;
+
+  // Calculate bed temp
+  let bedTemp = mat.bedIdeal + brand.tempAdj;
+  let tempReasons = [];
+
+  // Ambient adjustment
+  if(ambient < 18) { bedTemp += 5; tempReasons.push(`Cold room (${ambient}°C) → +5°C bed temp to compensate`); }
+  else if(ambient < 15) { bedTemp += 8; tempReasons.push(`Very cold room (${ambient}°C) → +8°C bed temp`); }
+  else if(ambient > 30) { bedTemp -= 3; tempReasons.push(`Warm room (${ambient}°C) → -3°C bed temp to prevent elephants foot`); }
+
+  // Surface adjustment
+  if(surfCompat <= 2) { bedTemp += 5; tempReasons.push(`${surface.replace('_',' ')} has poor grip for ${mat.name} → +5°C`); }
+  else if(surfCompat >= 5) { tempReasons.push(`${surface.replace('_',' ')} is ideal for ${mat.name}`); }
+
+  // Geometry adjustments
+  if(contact === 'tiny') { bedTemp += 3; tempReasons.push('Tiny contact area → +3°C for better first-layer bond'); }
+  if(contact === 'full') { bedTemp -= 2; tempReasons.push('Full bed coverage → -2°C to prevent excessive stick'); }
+  if(hasLong) { bedTemp += 2; tempReasons.push('Long footprint → +2°C to fight differential cooling'); }
+  if(hasSharp) { tempReasons.push('Sharp corners increase corner-lift risk'); }
+
+  bedTemp = Math.max(mat.bedMin, Math.min(mat.bedMax + 10, bedTemp));
+
+  // Adhesion method
+  let adhesionMethod, adhesionWhy;
+  let needsBrim = mat.brimDefault;
+  let needsGlue = mat.glueHelps;
+  let needsRaft = false;
+
+  // Upgrade adhesion for risk factors
+  const riskFactors = [
+    contact === 'tiny',
+    height === 'tall',
+    hasLong,
+    hasSharp,
+    mat.warpRisk === 'high' || mat.warpRisk === 'very_high',
+    surfCompat <= 2,
+    ambient < 18 && !['full','partial'].includes(enclosure),
+  ].filter(Boolean).length;
+
+  if(riskFactors >= 4) { needsRaft = true; needsBrim = false; }
+  else if(riskFactors >= 2 || contact === 'tiny') { needsBrim = true; }
+
+  // PETG on smooth PEI special case
+  if((matKey === 'petg' || matKey === 'petg_cf') && surface === 'pei_smooth') {
+    needsGlue = true;
+    adhesionWhy = 'PETG bonds aggressively to smooth PEI. Glue stick acts as a RELEASE AGENT — it prevents the part from fusing to the bed and tearing the PEI surface.';
+  }
+
+  if(needsRaft) {
+    adhesionMethod = 'Raft (3-layer)';
+    adhesionWhy = adhesionWhy || `${riskFactors} risk factors detected. Raft provides maximum adhesion security for difficult geometry + material combinations.`;
+  } else if(needsBrim) {
+    const brimWidth = contact === 'tiny' ? '8-10mm' : hasLong ? '6-8mm' : '4-6mm';
+    adhesionMethod = `Brim — ${brimWidth} width, outer only`;
+    adhesionWhy = adhesionWhy || `Brim extends the first-layer footprint for better grip without affecting the bottom surface of your part.`;
+  } else {
+    adhesionMethod = 'Skirt only (no brim needed)';
+    adhesionWhy = adhesionWhy || `${mat.name} on ${surface.replace('_',' ')} with this geometry has reliable adhesion. A skirt primes the nozzle and verifies first-layer squish.`;
+  }
+
+  // Adhesion aids
+  let aids = [], aidsWhy = '';
+  if(needsGlue) {
+    if(matKey === 'petg' && surface === 'pei_smooth') {
+      aids.push('Glue stick (release agent)');
+    } else {
+      aids.push('Glue stick (thin, even coat)');
+    }
+  }
+  if(matKey === 'abs' || matKey === 'asa') {
+    aids.push('ABS slurry (ABS dissolved in acetone) or hairspray');
+  }
+  if(matKey === 'nylon' && surface !== 'garolite') {
+    aids.push('Magigoo PA or Garolite bed recommended');
+  }
+  if(matKey === 'pc') {
+    aids.push('PC-specific bed adhesive (Magigoo PC or Nano Polymer Adhesive)');
+  }
+  if(surface === 'glass') {
+    aids.push('Hairspray (Aqua Net) or glue stick');
+  }
+  if(aids.length === 0) {
+    aids.push('None needed — clean bed with IPA is sufficient');
+    aidsWhy = `${mat.name} on ${surface.replace('_',' ')} grips well without chemical aids. Wipe bed with 90%+ IPA before printing.`;
+  } else {
+    aidsWhy = mat.notes;
+  }
+
+  // First layer settings
+  const firstLayerSpeed = Math.round(25 * mat.speedMult);
+  const firstLayerHeight = contact === 'tiny' ? 0.28 : 0.2;
+  const firstLayerFlow = surfCompat <= 2 ? 105 : contact === 'full' ? 95 : 100;
+  const firstLayerWidth = 120; // percent of nozzle
+
+  // Confidence
+  let confidence = 'high';
+  if(riskFactors >= 4) confidence = 'low';
+  else if(riskFactors >= 2 || surfCompat <= 2) confidence = 'med';
+
+  // Warnings
+  let warnings = [];
+  if(mat.needsEnclosure && enclosure === 'open') {
+    warnings.push({ type:'danger', title:`${mat.name} requires an enclosure`, body:`Printing ${mat.name} on an open-frame printer will almost certainly result in warping and layer splitting. Drafts cause rapid, uneven cooling. At minimum, use a cardboard/acrylic enclosure.` });
+  }
+  if(mat.needsEnclosure && enclosure === 'partial') {
+    warnings.push({ type:'warning', title:'Partial enclosure may not be enough', body:`${mat.name} is sensitive to drafts. A partial enclosure helps but monitor for warping on prints taller than 50mm. Close any openings facing fans or vents.` });
+  }
+  if(matKey === 'nylon' || matKey === 'pc') {
+    warnings.push({ type:'warning', title:'Dry your filament!', body:`${mat.name} is extremely hygroscopic. Print from a dry box or dry at ${matKey==='nylon'?'70':'80'}°C for 6+ hours before printing. Wet filament = popping, stringing, and poor adhesion.` });
+  }
+  if(ambient < 15 && (mat.warpRisk === 'high' || mat.warpRisk === 'very_high')) {
+    warnings.push({ type:'danger', title:'Extreme warp risk', body:`${ambient}°C ambient + ${mat.name} is a high-failure combination. The temperature differential between bed and air causes severe curling. Heat the room or use a full enclosure.` });
+  }
+  if(hasLong && (mat.warpRisk === 'high' || mat.warpRisk === 'very_high')) {
+    warnings.push({ type:'warning', title:'Long part + high-warp material', body:'Long, narrow parts amplify warp forces along the longest axis. Orient the long axis diagonally on the bed if possible. Use maximum brim width.' });
+  }
+  if(surfCompat <= 1) {
+    warnings.push({ type:'danger', title:'Poor surface match', body:`${surface.replace('_',' ')} is NOT recommended for ${mat.name}. Adhesion will be unreliable regardless of settings. Consider switching to ${matKey==='nylon'?'Garolite':'PEI Textured'}.` });
+  }
+
+  // Tips
+  if(surfCompat >= 4 && riskFactors <= 1) {
+    warnings.push({ type:'tip', title:'You\'re in great shape', body:`${mat.name} on ${surface.replace('_',' ')} is a proven combo. Focus on getting your Z-offset dialed — the first layer should be slightly squished with no gaps between lines.` });
+  }
+
+  // Checklist
+  const checklist = [
+    'Clean bed with 90%+ IPA (isopropyl alcohol). No fingerprints.',
+    `Set bed temp to ${bedTemp}°C and let it soak for 2-3 minutes before printing.`,
+    needsGlue ? 'Apply thin, even coat of glue stick / adhesive. Let dry 30 seconds.' : null,
+    'Run auto bed-leveling (if available) or manually verify Z-offset.',
+    `Set first layer speed to ${firstLayerSpeed} mm/s — slower = better adhesion.`,
+    'Watch the first layer complete. Lines should be uniform width with slight squish.',
+    hasSharp ? 'Monitor corners for lifting during first 5 layers.' : null,
+    height === 'tall' ? 'Check adhesion at layers 10, 50, and 100 for early warp signs.' : null,
+    mat.needsEnclosure ? 'Verify enclosure is sealed — no drafts during print.' : null,
+  ].filter(Boolean);
+
+  // Render results
+  document.getElementById('recBedTemp').textContent = `${bedTemp}°C (range: ${mat.bedMin}–${mat.bedMax}°C)`;
+  const gaugePercent = ((bedTemp - 30) / 100) * 100;
+  document.getElementById('bedTempGauge').style.width = Math.min(100, gaugePercent) + '%';
+  document.getElementById('bedTempGauge').style.background = bedTemp >= 90 ? 'var(--red)' : bedTemp >= 70 ? 'var(--amber)' : 'var(--teal)';
+  document.getElementById('bedTempGaugeVal').textContent = bedTemp + '°C';
+  document.getElementById('recBedTempWhy').innerHTML = tempReasons.length
+    ? tempReasons.map(r => `<div style="margin-bottom:2px">&#x2022; ${r}</div>`).join('')
+    : `Standard ${mat.name} bed temperature. ${brand.note}`;
+
+  document.getElementById('recAdhesion').textContent = adhesionMethod;
+  document.getElementById('recAdhesionWhy').textContent = adhesionWhy;
+
+  document.getElementById('firstLayerDetails').innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+      <div class="rec-card" style="margin:0;padding:10px">
+        <div style="font-size:11px;color:var(--muted)">Speed</div>
+        <div style="font-size:16px;font-weight:700;color:var(--teal)">${firstLayerSpeed} mm/s</div>
+      </div>
+      <div class="rec-card" style="margin:0;padding:10px">
+        <div style="font-size:11px;color:var(--muted)">Layer Height</div>
+        <div style="font-size:16px;font-weight:700;color:var(--teal)">${firstLayerHeight} mm</div>
+      </div>
+      <div class="rec-card" style="margin:0;padding:10px">
+        <div style="font-size:11px;color:var(--muted)">Flow Rate</div>
+        <div style="font-size:16px;font-weight:700;color:var(--teal)">${firstLayerFlow}%</div>
+      </div>
+      <div class="rec-card" style="margin:0;padding:10px">
+        <div style="font-size:11px;color:var(--muted)">Line Width</div>
+        <div style="font-size:16px;font-weight:700;color:var(--teal)">${firstLayerWidth}%</div>
+      </div>
+    </div>
+    <div class="rec-why">First layer prints ${mat.speedMult < 0.7 ? 'significantly' : ''} slower than normal layers to maximize adhesion. ${firstLayerHeight === 0.28 ? 'Thicker first layer (0.28mm) for tiny contact area — more material = more grip.' : 'Standard 0.2mm first layer.'}</div>
+  `;
+
+  document.getElementById('recAids').textContent = aids.join(' + ');
+  document.getElementById('recAidsWhy').textContent = aidsWhy;
+
+  const badge = document.getElementById('confidenceBadge');
+  badge.textContent = confidence.toUpperCase() + ' CONFIDENCE';
+  badge.className = 'confidence-badge confidence-' + confidence;
+
+  const warnContainer = document.getElementById('warningsContainer');
+  warnContainer.innerHTML = warnings.map(w => `
+    <div class="${w.type === 'danger' ? 'danger-box' : w.type === 'tip' ? 'tip-box' : 'warning-box'}">
+      <strong>${w.title}</strong>
+      ${w.body}
+    </div>
+  `).join('');
+
+  const cl = document.getElementById('checklist');
+  cl.innerHTML = checklist.map((item, i) => `
+    <li><span class="step-num">${i+1}</span><span>${item}</span></li>
+  `).join('');
+
+  document.getElementById('results').classList.add('visible');
+  setTimeout(() => document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' }), 100);
+}
+</script>
+</body>
+</html>

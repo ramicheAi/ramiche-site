@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LTV Cohort Analyzer — SIMONS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--card:#1a1a28;--border:#2a2a3a;
+  --text:#e0e0e8;--muted:#7a7a8a;--accent:#4fc3f7;--green:#4caf50;
+  --red:#ef5350;--amber:#ffb74d;--purple:#b388ff;--teal:#26a69a;
+  --font:'SF Mono',Monaco,'Cascadia Code',monospace;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;overflow-x:hidden}
+.header{padding:16px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:16px;font-weight:600;color:var(--accent)}
+.header .sub{color:var(--muted);font-size:11px}
+.controls{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.controls label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px}
+.tab-group{display:flex;gap:2px}
+.tab{background:var(--card);border:1px solid var(--border);color:var(--muted);padding:4px 12px;cursor:pointer;font-size:11px;font-family:var(--font);transition:all 0.15s}
+.tab:first-child{border-radius:4px 0 0 4px}
+.tab:last-child{border-radius:0 4px 4px 0}
+.tab.active{border-color:var(--accent);color:var(--accent);background:rgba(79,195,247,0.08)}
+.tab:hover:not(.active){color:var(--text)}
+.btn{background:var(--accent);color:#000;border:none;padding:5px 14px;border-radius:4px;cursor:pointer;font-family:var(--font);font-size:11px;font-weight:600}
+.btn:hover{opacity:0.85}
+.main{padding:20px 24px}
+.kpi-strip{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+.kpi{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:12px;text-align:center}
+.kpi-value{font-size:20px;font-weight:700;margin:4px 0}
+.kpi-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px}
+.positive{color:var(--green)}.negative{color:var(--red)}.neutral{color:var(--accent)}.warn{color:var(--amber)}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+.full{grid-column:1/-1}
+.chart-card{background:var(--card);border:1px solid var(--border);border-radius:6px;padding:16px}
+.chart-title{font-size:12px;font-weight:600;margin-bottom:12px;color:var(--text);display:flex;justify-content:space-between;align-items:center}
+.chart-title .sub{font-size:10px;color:var(--muted);font-weight:400}
+canvas{width:100%;display:block}
+.cohort-table{width:100%;border-collapse:collapse;font-size:11px}
+.cohort-table th,.cohort-table td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--border)}
+.cohort-table th{color:var(--muted);font-weight:500;text-transform:uppercase;font-size:10px;position:sticky;top:0;background:var(--card)}
+.cohort-table td:first-child,.cohort-table th:first-child{text-align:left}
+.cohort-table tr:hover td{background:rgba(79,195,247,0.04)}
+.cell-heat{padding:4px 6px;border-radius:3px;font-weight:600;display:inline-block;min-width:40px;text-align:center}
+.tag{display:inline-block;padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.scroll-wrap{max-height:360px;overflow-y:auto}
+.tooltip{position:fixed;background:var(--surface);border:1px solid var(--accent);border-radius:6px;padding:12px;font-size:11px;pointer-events:none;z-index:100;max-width:300px;display:none;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.tooltip h4{color:var(--accent);font-size:12px;margin-bottom:8px}
+.tooltip .row{display:flex;justify-content:space-between;padding:2px 0;gap:12px}
+.tooltip .lbl{color:var(--muted)}
+.tooltip .val{font-weight:600}
+@media(max-width:900px){
+  .kpi-strip{grid-template-columns:repeat(3,1fr)}
+  .grid-2,.grid-3{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>◈ LTV Cohort Analyzer</h1>
+  <span class="sub">SIMONS — Data & Analytics · Simulated RAMICHE Cohort Data</span>
+</div>
+
+<div class="controls">
+  <label>Brand</label>
+  <div class="tab-group" id="brandTabs">
+    <div class="tab active" data-brand="all">All</div>
+    <div class="tab" data-brand="ga">GA</div>
+    <div class="tab" data-brand="ramiche">RAMICHE</div>
+    <div class="tab" data-brand="parallax">Parallax</div>
+    <div class="tab" data-brand="studio">Studio</div>
+  </div>
+  <label style="margin-left:16px">Time Horizon</label>
+  <div class="tab-group" id="horizonTabs">
+    <div class="tab active" data-months="12">12 mo</div>
+    <div class="tab" data-months="18">18 mo</div>
+    <div class="tab" data-months="24">24 mo</div>
+  </div>
+  <label style="margin-left:16px">CAC Scenario</label>
+  <div class="tab-group" id="cacTabs">
+    <div class="tab" data-cac="low">Low</div>
+    <div class="tab active" data-cac="mid">Mid</div>
+    <div class="tab" data-cac="high">High</div>
+  </div>
+  <button class="btn" onclick="exportCSV()" style="margin-left:auto">↓ Export CSV</button>
+</div>
+
+<div class="main">
+  <div class="kpi-strip" id="kpis"></div>
+
+  <div class="grid-2">
+    <div class="chart-card full">
+      <div class="chart-title">Retention Curves by Cohort <span class="sub">% of initial cohort still active</span></div>
+      <canvas id="retentionChart" height="220"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Cumulative LTV per Customer <span class="sub">Revenue accumulation over time</span></div>
+      <canvas id="ltvChart" height="240"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">LTV / CAC Ratio by Brand <span class="sub">Payback period marker at ratio = 1.0</span></div>
+      <canvas id="ltvCacChart" height="240"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="chart-card">
+      <div class="chart-title">Revenue by Cohort Month <span class="sub">Monthly contribution per cohort</span></div>
+      <canvas id="revenueChart" height="240"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Cohort Health Matrix <span class="sub">Retention % — darker = higher retention</span></div>
+      <div class="scroll-wrap" id="cohortMatrix"></div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="chart-card">
+      <div class="chart-title">Entry Product Distribution <span class="sub">First purchase product mix</span></div>
+      <canvas id="entryProdChart" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Cross-Brand Conversion <span class="sub">% who purchased from 2+ brands</span></div>
+      <canvas id="crossBrandChart" height="200"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Collector Tier Progression <span class="sub">Explorer → Seeker → Keeper → Archivist</span></div>
+      <canvas id="tierChart" height="200"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+// ─── DATA MODEL ───
+const BRANDS = ['ga','ramiche','parallax','studio'];
+const BRAND_LABELS = {ga:'GA',ramiche:'RAMICHE',parallax:'Parallax',studio:'Studio'};
+const BRAND_COLORS = {ga:'#4fc3f7',ramiche:'#b388ff',parallax:'#ffb74d',studio:'#26a69a'};
+
+const COHORT_MONTHS = ['2025-07','2025-08','2025-09','2025-10','2025-11','2025-12','2026-01','2026-02','2026-03'];
+
+const ENTRY_PRODUCTS = {
+  ga: ['iPhone Case','Sticker Pack','T-Shirt','Enamel Pin','Mug','Hoodie','Framed Poster'],
+  ramiche: ['Merch Tee','Vinyl','CD'],
+  parallax: ['Vinyl','Cassette'],
+  studio: ['Session/hr','Mix/Master']
+};
+
+const CAC = {
+  low:  {ga:8, ramiche:6, parallax:5, studio:15},
+  mid:  {ga:14, ramiche:10, parallax:8, studio:25},
+  high: {ga:22, ramiche:16, parallax:12, studio:40}
+};
+
+const AOV = {ga:24, ramiche:28, parallax:22, studio:85};
+const MARGIN_PCT = {ga:0.42, ramiche:0.55, parallax:0.48, studio:0.72};
+
+// Retention decay curves (monthly retention rates, brand-specific)
+// These follow a shifted beta distribution pattern
+function retentionRate(brand, monthIndex) {
+  const base = {ga:0.82, ramiche:0.78, parallax:0.74, studio:0.88};
+  const decay = {ga:0.92, ramiche:0.90, parallax:0.88, studio:0.95};
+  const b = base[brand] || 0.80;
+  const d = decay[brand] || 0.91;
+  // Retention at month m = base * decay^m with slight noise for realism
+  const seed = (monthIndex * 7 + brand.charCodeAt(0)) % 100;
+  const noise = 1 + (seed - 50) * 0.002;
+  return Math.max(0.05, b * Math.pow(d, monthIndex) * noise);
+}
+
+// Cohort sizes (simulated acquisition)
+function cohortSize(brand, cohortIdx) {
+  const bases = {ga:120, ramiche:80, parallax:45, studio:30};
+  const growth = 1 + cohortIdx * 0.06; // 6% monthly acquisition growth
+  const seasonal = 1 + 0.15 * Math.sin((cohortIdx + 3) * Math.PI / 6); // seasonal wave
+  return Math.round((bases[brand] || 60) * growth * seasonal);
+}
+
+// Generate full cohort data
+function generateCohortData(brandFilter, horizonMonths, cacScenario) {
+  const cohorts = [];
+
+  const brands = brandFilter === 'all' ? BRANDS : [brandFilter];
+
+  for (const brand of brands) {
+    for (let ci = 0; ci < COHORT_MONTHS.length; ci++) {
+      const monthsActive = Math.min(COHORT_MONTHS.length - ci + 3, horizonMonths);
+      const size = cohortSize(brand, ci);
+      const retentionCurve = [];
+      const revenueCurve = [];
+      const cumulativeLTV = [];
+      let cumRev = 0;
+
+      for (let m = 0; m < monthsActive; m++) {
+        const ret = m === 0 ? 1.0 : retentionCurve[m-1] * retentionRate(brand, m);
+        retentionCurve.push(ret);
+        // Revenue: active customers * purchase probability * AOV
+        const purchaseProb = m === 0 ? 1.0 : 0.35 + 0.15 * ret; // higher retention = higher purchase frequency
+        const monthRev = size * ret * purchaseProb * AOV[brand];
+        revenueCurve.push(monthRev);
+        cumRev += monthRev * MARGIN_PCT[brand]; // margin-adjusted
+        cumulativeLTV.push(cumRev / size); // per customer
+      }
+
+      const cac = CAC[cacScenario][brand];
+      const totalLTV = cumulativeLTV[cumulativeLTV.length - 1] || 0;
+
+      // Payback month: first month where cumLTV >= CAC
+      let paybackMonth = -1;
+      for (let m = 0; m < cumulativeLTV.length; m++) {
+        if (cumulativeLTV[m] >= cac) { paybackMonth = m; break; }
+      }
+
+      cohorts.push({
+        brand, cohortMonth: COHORT_MONTHS[ci], cohortIdx: ci,
+        size, retentionCurve, revenueCurve, cumulativeLTV,
+        cac, ltv: totalLTV, ltvCacRatio: totalLTV / cac,
+        paybackMonth, monthsActive,
+        m1Retention: retentionCurve[1] || 0,
+        m3Retention: retentionCurve[3] || 0,
+        m6Retention: retentionCurve[6] || 0
+      });
+    }
+  }
+  return cohorts;
+}
+
+// Entry product distribution (simulated)
+function getEntryProductDist(brand) {
+  const prods = ENTRY_PRODUCTS[brand] || [];
+  const weights = {
+    ga: [0.28, 0.22, 0.18, 0.12, 0.10, 0.06, 0.04],
+    ramiche: [0.45, 0.35, 0.20],
+    parallax: [0.60, 0.40],
+    studio: [0.55, 0.45]
+  };
+  const w = weights[brand] || prods.map(() => 1/prods.length);
+  return prods.map((p, i) => ({product: p, pct: w[i] || 0}));
+}
+
+// Cross-brand conversion (simulated %)
+function getCrossBrandRate(cohortIdx) {
+  // Improves over time as ecosystem grows
+  return Math.min(0.35, 0.08 + cohortIdx * 0.03);
+}
+
+// Tier progression (simulated)
+function getTierProgression(monthsActive) {
+  const explorer = Math.max(0.20, 1.0 - monthsActive * 0.08);
+  const seeker = Math.min(0.40, monthsActive * 0.06);
+  const keeper = Math.min(0.25, Math.max(0, (monthsActive - 3) * 0.04));
+  const archivist = Math.max(0, 1 - explorer - seeker - keeper);
+  return {explorer, seeker, keeper, archivist};
+}
+
+// ─── STATE ───
+let state = {brand:'all', horizon:12, cac:'mid'};
+let cohortData = [];
+
+function updateState() {
+  cohortData = generateCohortData(state.brand, state.horizon, state.cac);
+  renderKPIs();
+  renderRetentionChart();
+  renderLTVChart();
+  renderLTVCACChart();
+  renderRevenueChart();
+  renderCohortMatrix();
+  renderEntryProducts();
+  renderCrossBrand();
+  renderTierChart();
+}
+
+// ─── KPI STRIP ───
+function renderKPIs() {
+  const avgLTV = cohortData.reduce((s,c) => s + c.ltv, 0) / cohortData.length;
+  const avgCAC = cohortData.reduce((s,c) => s + c.cac, 0) / cohortData.length;
+  const avgRatio = avgLTV / avgCAC;
+  const totalCustomers = cohortData.reduce((s,c) => s + c.size, 0);
+  const avgPayback = cohortData.filter(c => c.paybackMonth >= 0).reduce((s,c) => s + c.paybackMonth, 0) /
+    Math.max(1, cohortData.filter(c => c.paybackMonth >= 0).length);
+  const avgM1 = cohortData.reduce((s,c) => s + (c.m1Retention || 0), 0) / cohortData.length;
+  const avgM3 = cohortData.reduce((s,c) => s + (c.m3Retention || 0), 0) / cohortData.length;
+
+  const kpis = [
+    {label:'Avg LTV', value:'$'+avgLTV.toFixed(2), cls: avgLTV > avgCAC ? 'positive' : 'negative'},
+    {label:'Avg CAC', value:'$'+avgCAC.toFixed(2), cls:'neutral'},
+    {label:'LTV/CAC', value:avgRatio.toFixed(2)+'x', cls: avgRatio >= 3 ? 'positive' : avgRatio >= 1.5 ? 'warn' : 'negative'},
+    {label:'Total Customers', value:totalCustomers.toLocaleString(), cls:'neutral'},
+    {label:'Avg Payback', value:avgPayback.toFixed(1)+' mo', cls: avgPayback <= 3 ? 'positive' : avgPayback <= 6 ? 'warn' : 'negative'},
+    {label:'M1 Retention', value:(avgM1*100).toFixed(1)+'%', cls: avgM1 >= 0.7 ? 'positive' : avgM1 >= 0.5 ? 'warn' : 'negative'}
+  ];
+
+  document.getElementById('kpis').innerHTML = kpis.map(k =>
+    `<div class="kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value ${k.cls}">${k.value}</div></div>`
+  ).join('');
+}
+
+// ─── CANVAS HELPERS ───
+function getCtx(id) {
+  const c = document.getElementById(id);
+  c.width = c.offsetWidth * 2;
+  c.height = c.offsetHeight * 2;
+  const ctx = c.getContext('2d');
+  ctx.scale(2, 2);
+  return {ctx, w: c.offsetWidth, h: c.offsetHeight};
+}
+
+function drawAxes(ctx, w, h, pad, yMax, yLabel, xLabels, yFormat) {
+  ctx.strokeStyle = '#2a2a3a';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, h - pad.b);
+  ctx.lineTo(w - pad.r, h - pad.b);
+  ctx.stroke();
+
+  // Y gridlines
+  ctx.fillStyle = '#7a7a8a';
+  ctx.font = '9px SF Mono, monospace';
+  ctx.textAlign = 'right';
+  const ySteps = 5;
+  for (let i = 0; i <= ySteps; i++) {
+    const y = pad.t + (h - pad.t - pad.b) * (1 - i / ySteps);
+    const val = (yMax * i / ySteps);
+    ctx.fillText(yFormat ? yFormat(val) : val.toFixed(0), pad.l - 4, y + 3);
+    if (i > 0) {
+      ctx.save();
+      ctx.strokeStyle = '#1a1a28';
+      ctx.beginPath();
+      ctx.moveTo(pad.l, y);
+      ctx.lineTo(w - pad.r, y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  // X labels
+  if (xLabels) {
+    ctx.textAlign = 'center';
+    const xStep = (w - pad.l - pad.r) / (xLabels.length - 1 || 1);
+    xLabels.forEach((lbl, i) => {
+      ctx.fillText(lbl, pad.l + i * xStep, h - pad.b + 14);
+    });
+  }
+}
+
+function mapY(val, yMax, h, pad) {
+  return pad.t + (h - pad.t - pad.b) * (1 - val / yMax);
+}
+
+function mapX(idx, count, w, pad) {
+  return pad.l + (w - pad.l - pad.r) * idx / (count - 1 || 1);
+}
+
+// ─── RETENTION CHART ───
+function renderRetentionChart() {
+  const {ctx, w, h} = getCtx('retentionChart');
+  const pad = {t:20, r:20, b:30, l:50};
+
+  ctx.clearRect(0, 0, w, h);
+  drawAxes(ctx, w, h, pad, 100, '%',
+    Array.from({length: state.horizon}, (_, i) => i % 2 === 0 ? 'M'+i : ''),
+    v => v.toFixed(0)+'%'
+  );
+
+  // Group by brand
+  const brandGroups = {};
+  cohortData.forEach(c => {
+    if (!brandGroups[c.brand]) brandGroups[c.brand] = [];
+    brandGroups[c.brand].push(c);
+  });
+
+  // Draw average retention curve per brand
+  for (const [brand, cohorts] of Object.entries(brandGroups)) {
+    const maxLen = Math.max(...cohorts.map(c => c.retentionCurve.length));
+    const avgCurve = [];
+    for (let m = 0; m < maxLen; m++) {
+      const vals = cohorts.filter(c => c.retentionCurve[m] !== undefined).map(c => c.retentionCurve[m]);
+      avgCurve.push(vals.reduce((s,v) => s+v, 0) / vals.length);
+    }
+
+    ctx.strokeStyle = BRAND_COLORS[brand];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    avgCurve.forEach((v, i) => {
+      const x = mapX(i, state.horizon, w, pad);
+      const y = mapY(v * 100, 100, h, pad);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Label at end
+    if (avgCurve.length > 1) {
+      const lastIdx = avgCurve.length - 1;
+      ctx.fillStyle = BRAND_COLORS[brand];
+      ctx.font = '10px SF Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(BRAND_LABELS[brand], mapX(lastIdx, state.horizon, w, pad) + 4, mapY(avgCurve[lastIdx]*100, 100, h, pad) + 3);
+    }
+  }
+}
+
+// ─── CUMULATIVE LTV CHART ───
+function renderLTVChart() {
+  const {ctx, w, h} = getCtx('ltvChart');
+  const pad = {t:20, r:20, b:30, l:55};
+
+  ctx.clearRect(0, 0, w, h);
+
+  const brandGroups = {};
+  cohortData.forEach(c => {
+    if (!brandGroups[c.brand]) brandGroups[c.brand] = [];
+    brandGroups[c.brand].push(c);
+  });
+
+  // Find max LTV for scale
+  let maxLTV = 0;
+  const brandCurves = {};
+  for (const [brand, cohorts] of Object.entries(brandGroups)) {
+    const maxLen = Math.max(...cohorts.map(c => c.cumulativeLTV.length));
+    const avgCurve = [];
+    for (let m = 0; m < maxLen; m++) {
+      const vals = cohorts.filter(c => c.cumulativeLTV[m] !== undefined).map(c => c.cumulativeLTV[m]);
+      const avg = vals.reduce((s,v) => s+v, 0) / vals.length;
+      avgCurve.push(avg);
+      if (avg > maxLTV) maxLTV = avg;
+    }
+    brandCurves[brand] = avgCurve;
+  }
+  maxLTV = Math.ceil(maxLTV / 10) * 10;
+
+  drawAxes(ctx, w, h, pad, maxLTV, '$',
+    Array.from({length: state.horizon}, (_, i) => i % 2 === 0 ? 'M'+i : ''),
+    v => '$'+v.toFixed(0)
+  );
+
+  for (const [brand, curve] of Object.entries(brandCurves)) {
+    // Fill area
+    ctx.fillStyle = BRAND_COLORS[brand] + '18';
+    ctx.beginPath();
+    curve.forEach((v, i) => {
+      const x = mapX(i, state.horizon, w, pad);
+      const y = mapY(v, maxLTV, h, pad);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.lineTo(mapX(curve.length - 1, state.horizon, w, pad), h - pad.b);
+    ctx.lineTo(pad.l, h - pad.b);
+    ctx.closePath();
+    ctx.fill();
+
+    // Line
+    ctx.strokeStyle = BRAND_COLORS[brand];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    curve.forEach((v, i) => {
+      const x = mapX(i, state.horizon, w, pad);
+      const y = mapY(v, maxLTV, h, pad);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // CAC line for this brand
+    const cac = CAC[state.cac][brand];
+    if (cac <= maxLTV) {
+      ctx.save();
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = BRAND_COLORS[brand] + '60';
+      ctx.lineWidth = 1;
+      const cacY = mapY(cac, maxLTV, h, pad);
+      ctx.beginPath();
+      ctx.moveTo(pad.l, cacY);
+      ctx.lineTo(w - pad.r, cacY);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Label
+    if (curve.length > 1) {
+      ctx.fillStyle = BRAND_COLORS[brand];
+      ctx.font = '10px SF Mono, monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(BRAND_LABELS[brand]+' $'+curve[curve.length-1].toFixed(0),
+        mapX(curve.length-1, state.horizon, w, pad)+4,
+        mapY(curve[curve.length-1], maxLTV, h, pad)+3);
+    }
+  }
+}
+
+// ─── LTV/CAC RATIO BAR CHART ───
+function renderLTVCACChart() {
+  const {ctx, w, h} = getCtx('ltvCacChart');
+  const pad = {t:20, r:20, b:40, l:50};
+  ctx.clearRect(0, 0, w, h);
+
+  const brandGroups = {};
+  cohortData.forEach(c => {
+    if (!brandGroups[c.brand]) brandGroups[c.brand] = [];
+    brandGroups[c.brand].push(c);
+  });
+
+  const brands = Object.keys(brandGroups);
+  const avgRatios = brands.map(b => {
+    const avg = brandGroups[b].reduce((s,c) => s + c.ltvCacRatio, 0) / brandGroups[b].length;
+    return {brand: b, ratio: avg};
+  });
+
+  const maxRatio = Math.max(5, Math.ceil(Math.max(...avgRatios.map(r => r.ratio))));
+
+  drawAxes(ctx, w, h, pad, maxRatio, 'x', brands.map(b => BRAND_LABELS[b]), v => v.toFixed(1)+'x');
+
+  // Payback line at 1.0
+  const oneY = mapY(1, maxRatio, h, pad);
+  ctx.save();
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = '#ef5350';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, oneY);
+  ctx.lineTo(w - pad.r, oneY);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#ef5350';
+  ctx.font = '9px SF Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Payback = 1.0x', w - pad.r - 70, oneY - 4);
+
+  // 3x target line
+  if (maxRatio >= 3) {
+    const threeY = mapY(3, maxRatio, h, pad);
+    ctx.save();
+    ctx.setLineDash([6, 4]);
+    ctx.strokeStyle = '#4caf50';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(pad.l, threeY);
+    ctx.lineTo(w - pad.r, threeY);
+    ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle = '#4caf50';
+    ctx.fillText('Target = 3.0x', w - pad.r - 70, threeY - 4);
+  }
+
+  // Bars
+  const barW = Math.min(50, (w - pad.l - pad.r) / brands.length * 0.6);
+  avgRatios.forEach((r, i) => {
+    const x = mapX(i, brands.length, w, {t: pad.t, r: pad.r + barW, b: pad.b, l: pad.l + barW});
+    const y = mapY(r.ratio, maxRatio, h, pad);
+    const barH = (h - pad.b) - y;
+
+    const color = r.ratio >= 3 ? '#4caf50' : r.ratio >= 1.5 ? '#ffb74d' : '#ef5350';
+    ctx.fillStyle = color + '40';
+    ctx.fillRect(x - barW/2, y, barW, barH);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x - barW/2, y, barW, barH);
+
+    // Value label
+    ctx.fillStyle = color;
+    ctx.font = '11px SF Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(r.ratio.toFixed(2)+'x', x, y - 6);
+  });
+}
+
+// ─── REVENUE BY COHORT MONTH ───
+function renderRevenueChart() {
+  const {ctx, w, h} = getCtx('revenueChart');
+  const pad = {t:20, r:20, b:30, l:55};
+  ctx.clearRect(0, 0, w, h);
+
+  // Aggregate revenue by calendar month
+  const monthRevenue = {};
+  cohortData.forEach(c => {
+    c.revenueCurve.forEach((rev, m) => {
+      const [y, mo] = c.cohortMonth.split('-').map(Number);
+      const calMonth = mo + m;
+      const calYear = y + Math.floor((calMonth - 1) / 12);
+      const calMo = ((calMonth - 1) % 12) + 1;
+      const key = `${calYear}-${String(calMo).padStart(2,'0')}`;
+      if (!monthRevenue[key]) monthRevenue[key] = {};
+      if (!monthRevenue[key][c.brand]) monthRevenue[key][c.brand] = 0;
+      monthRevenue[key][c.brand] += rev;
+    });
+  });
+
+  const months = Object.keys(monthRevenue).sort().slice(0, state.horizon);
+  const allBrands = [...new Set(cohortData.map(c => c.brand))];
+
+  let maxRev = 0;
+  months.forEach(m => {
+    const total = allBrands.reduce((s, b) => s + (monthRevenue[m]?.[b] || 0), 0);
+    if (total > maxRev) maxRev = total;
+  });
+  maxRev = Math.ceil(maxRev / 1000) * 1000;
+
+  drawAxes(ctx, w, h, pad, maxRev, '$',
+    months.map((m, i) => i % 2 === 0 ? m.slice(2) : ''),
+    v => '$'+Math.round(v/1000)+'k'
+  );
+
+  // Stacked bars
+  const barW = Math.max(4, (w - pad.l - pad.r) / months.length * 0.7);
+  months.forEach((month, i) => {
+    const x = mapX(i, months.length, w, pad);
+    let yOffset = h - pad.b;
+
+    allBrands.forEach(brand => {
+      const rev = monthRevenue[month]?.[brand] || 0;
+      const barH = rev / maxRev * (h - pad.t - pad.b);
+      ctx.fillStyle = BRAND_COLORS[brand] + '80';
+      ctx.fillRect(x - barW/2, yOffset - barH, barW, barH);
+      ctx.strokeStyle = BRAND_COLORS[brand];
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x - barW/2, yOffset - barH, barW, barH);
+      yOffset -= barH;
+    });
+  });
+
+  // Legend
+  let legendX = pad.l + 4;
+  allBrands.forEach(b => {
+    ctx.fillStyle = BRAND_COLORS[b];
+    ctx.fillRect(legendX, pad.t - 2, 8, 8);
+    ctx.fillStyle = '#7a7a8a';
+    ctx.font = '9px SF Mono, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(BRAND_LABELS[b], legendX + 12, pad.t + 6);
+    legendX += ctx.measureText(BRAND_LABELS[b]).width + 24;
+  });
+}
+
+// ─── COHORT HEALTH MATRIX ───
+function renderCohortMatrix() {
+  const container = document.getElementById('cohortMatrix');
+
+  // Build matrix: rows = cohort months, cols = months since acquisition
+  const maxMonths = Math.min(12, state.horizon);
+
+  let html = '<table class="cohort-table"><thead><tr><th>Cohort</th><th>Size</th>';
+  for (let m = 0; m < maxMonths; m++) html += `<th>M${m}</th>`;
+  html += '</tr></thead><tbody>';
+
+  // Aggregate across brands for each cohort month
+  const cohortsByMonth = {};
+  cohortData.forEach(c => {
+    if (!cohortsByMonth[c.cohortMonth]) cohortsByMonth[c.cohortMonth] = {size:0, curves:[]};
+    cohortsByMonth[c.cohortMonth].size += c.size;
+    cohortsByMonth[c.cohortMonth].curves.push(c);
+  });
+
+  for (const month of COHORT_MONTHS) {
+    const data = cohortsByMonth[month];
+    if (!data) continue;
+
+    html += `<tr><td>${month}</td><td>${data.size}</td>`;
+    for (let m = 0; m < maxMonths; m++) {
+      // Average retention across all cohorts for this month
+      const vals = data.curves.filter(c => c.retentionCurve[m] !== undefined).map(c => c.retentionCurve[m]);
+      if (vals.length === 0) {
+        html += '<td>—</td>';
+      } else {
+        const avg = vals.reduce((s,v) => s+v, 0) / vals.length;
+        const pct = (avg * 100).toFixed(1);
+        const intensity = Math.round(avg * 255);
+        const r = Math.round(239 - (239 - 76) * avg);
+        const g = Math.round(83 + (175 - 83) * avg);
+        const b = Math.round(80 + (80 - 80) * avg);
+        const bg = `rgba(${r},${g},${b},0.2)`;
+        const color = avg >= 0.6 ? '#4caf50' : avg >= 0.3 ? '#ffb74d' : '#ef5350';
+        html += `<td><span class="cell-heat" style="background:${bg};color:${color}">${pct}%</span></td>`;
+      }
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+}
+
+// ─── ENTRY PRODUCT DISTRIBUTION ───
+function renderEntryProducts() {
+  const {ctx, w, h} = getCtx('entryProdChart');
+  const pad = {t:16, r:10, b:10, l:10};
+  ctx.clearRect(0, 0, w, h);
+
+  const brands = state.brand === 'all' ? BRANDS : [state.brand];
+  let allProds = [];
+  brands.forEach(b => {
+    const dist = getEntryProductDist(b);
+    dist.forEach(d => allProds.push({...d, brand: b}));
+  });
+
+  // Normalize
+  const total = allProds.reduce((s, p) => s + p.pct, 0);
+  allProds.forEach(p => p.pct = p.pct / total);
+  allProds.sort((a, b) => b.pct - a.pct);
+
+  // Horizontal bars
+  const barH = Math.min(18, (h - pad.t - pad.b) / allProds.length - 2);
+  const maxPct = Math.max(...allProds.map(p => p.pct));
+
+  allProds.forEach((p, i) => {
+    const y = pad.t + i * (barH + 3);
+    const barW = p.pct / maxPct * (w - pad.l - pad.r - 100);
+
+    ctx.fillStyle = BRAND_COLORS[p.brand] + '40';
+    ctx.fillRect(pad.l + 90, y, barW, barH);
+    ctx.strokeStyle = BRAND_COLORS[p.brand];
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(pad.l + 90, y, barW, barH);
+
+    ctx.fillStyle = '#e0e0e8';
+    ctx.font = '9px SF Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(p.product, pad.l + 85, y + barH - 4);
+
+    ctx.fillStyle = BRAND_COLORS[p.brand];
+    ctx.textAlign = 'left';
+    ctx.fillText((p.pct * 100).toFixed(1)+'%', pad.l + 94 + barW, y + barH - 4);
+  });
+}
+
+// ─── CROSS-BRAND CONVERSION ───
+function renderCrossBrand() {
+  const {ctx, w, h} = getCtx('crossBrandChart');
+  const pad = {t:20, r:20, b:30, l:50};
+  ctx.clearRect(0, 0, w, h);
+
+  const rates = COHORT_MONTHS.map((m, i) => ({month: m, rate: getCrossBrandRate(i)}));
+  const maxRate = 0.40;
+
+  drawAxes(ctx, w, h, pad, 40, '%',
+    rates.map((r, i) => i % 2 === 0 ? r.month.slice(2) : ''),
+    v => v.toFixed(0)+'%'
+  );
+
+  // Target line at 20%
+  const targetY = mapY(20, 40, h, pad);
+  ctx.save();
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = '#4caf50';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, targetY);
+  ctx.lineTo(w - pad.r, targetY);
+  ctx.stroke();
+  ctx.restore();
+  ctx.fillStyle = '#4caf50';
+  ctx.font = '9px SF Mono, monospace';
+  ctx.textAlign = 'left';
+  ctx.fillText('Target 20%', w - pad.r - 60, targetY - 4);
+
+  // Area + line
+  ctx.fillStyle = 'rgba(79,195,247,0.12)';
+  ctx.beginPath();
+  rates.forEach((r, i) => {
+    const x = mapX(i, rates.length, w, pad);
+    const y = mapY(r.rate * 100, 40, h, pad);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.lineTo(mapX(rates.length - 1, rates.length, w, pad), h - pad.b);
+  ctx.lineTo(pad.l, h - pad.b);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.strokeStyle = '#4fc3f7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  rates.forEach((r, i) => {
+    const x = mapX(i, rates.length, w, pad);
+    const y = mapY(r.rate * 100, 40, h, pad);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Dots
+  rates.forEach((r, i) => {
+    const x = mapX(i, rates.length, w, pad);
+    const y = mapY(r.rate * 100, 40, h, pad);
+    ctx.fillStyle = '#4fc3f7';
+    ctx.beginPath();
+    ctx.arc(x, y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+// ─── TIER PROGRESSION ───
+function renderTierChart() {
+  const {ctx, w, h} = getCtx('tierChart');
+  const pad = {t:20, r:20, b:30, l:50};
+  ctx.clearRect(0, 0, w, h);
+
+  const months = Array.from({length: state.horizon}, (_, i) => i);
+  const tiers = months.map(m => getTierProgression(m));
+  const tierNames = ['explorer','seeker','keeper','archivist'];
+  const tierColors = ['#7a7a8a','#4fc3f7','#b388ff','#ffb74d'];
+
+  drawAxes(ctx, w, h, pad, 100, '%',
+    months.filter((_, i) => i % 2 === 0).map(m => 'M'+m),
+    v => v.toFixed(0)+'%'
+  );
+
+  // Stacked area
+  months.forEach((m, i) => {
+    const x = mapX(i, months.length, w, pad);
+    const barW = Math.max(3, (w - pad.l - pad.r) / months.length * 0.8);
+    let yOffset = h - pad.b;
+
+    tierNames.forEach((tier, ti) => {
+      const val = tiers[m][tier] * 100;
+      const barH = val / 100 * (h - pad.t - pad.b);
+      ctx.fillStyle = tierColors[ti] + '50';
+      ctx.fillRect(x - barW/2, yOffset - barH, barW, barH);
+      yOffset -= barH;
+    });
+  });
+
+  // Legend
+  let lx = pad.l + 4;
+  tierNames.forEach((t, i) => {
+    ctx.fillStyle = tierColors[i];
+    ctx.fillRect(lx, pad.t - 2, 8, 8);
+    ctx.fillStyle = '#7a7a8a';
+    ctx.font = '9px SF Mono, monospace';
+    ctx.textAlign = 'left';
+    const label = t.charAt(0).toUpperCase() + t.slice(1);
+    ctx.fillText(label, lx + 12, pad.t + 6);
+    lx += ctx.measureText(label).width + 24;
+  });
+}
+
+// ─── CSV EXPORT ───
+function exportCSV() {
+  let csv = 'Cohort,Brand,Size,CAC,LTV,LTV/CAC,Payback_Mo,M1_Ret,M3_Ret,M6_Ret\n';
+  cohortData.forEach(c => {
+    csv += `${c.cohortMonth},${BRAND_LABELS[c.brand]},${c.size},$${c.cac},$${c.ltv.toFixed(2)},${c.ltvCacRatio.toFixed(2)}x,${c.paybackMonth >= 0 ? c.paybackMonth : 'N/A'},${(c.m1Retention*100).toFixed(1)}%,${((c.m3Retention||0)*100).toFixed(1)}%,${((c.m6Retention||0)*100).toFixed(1)}%\n`;
+  });
+  const blob = new Blob([csv], {type:'text/csv'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ltv-cohort-analysis.csv';
+  a.click();
+}
+
+// ─── EVENT HANDLERS ───
+document.querySelectorAll('#brandTabs .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#brandTabs .tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.brand = t.dataset.brand;
+    updateState();
+  });
+});
+
+document.querySelectorAll('#horizonTabs .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#horizonTabs .tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.horizon = parseInt(t.dataset.months);
+    updateState();
+  });
+});
+
+document.querySelectorAll('#cacTabs .tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('#cacTabs .tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    state.cac = t.dataset.cac;
+    updateState();
+  });
+});
+
+// Resize handler
+window.addEventListener('resize', () => updateState());
+
+// ─── INIT ───
+updateState();
+</script>
+</body>
+</html>

@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Print Failure Diagnostics — NOVA</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface-2: #1a1a26;
+    --border: #2a2a3a;
+    --accent: #ff6b35;
+    --accent-glow: rgba(255, 107, 53, 0.15);
+    --success: #22c55e;
+    --warning: #eab308;
+    --danger: #ef4444;
+    --text: #e8e8f0;
+    --text-dim: #8888a0;
+    --text-muted: #55556a;
+    --radius: 12px;
+    --font: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: var(--font);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .header .badge {
+    display: inline-block;
+    background: var(--accent-glow);
+    border: 1px solid rgba(255, 107, 53, 0.3);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+
+  .header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+
+  .header h1 span { color: var(--accent); }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* Sections */
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+  }
+
+  .section h2 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  /* Symptom Grid */
+  .symptom-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .symptom-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .symptom-btn:hover {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+  }
+
+  .symptom-btn.selected {
+    border-color: var(--accent);
+    background: var(--accent-glow);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .symptom-btn .icon { font-size: 20px; flex-shrink: 0; }
+  .symptom-btn .label { font-weight: 500; }
+  .symptom-btn .sublabel { font-size: 12px; color: var(--text-dim); display: block; }
+
+  /* Select Inputs */
+  .input-group { margin-bottom: 16px; }
+  .input-group:last-child { margin-bottom: 0; }
+
+  .input-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 6px;
+  }
+
+  .input-group select, .input-group input {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: var(--font);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .input-group select:focus, .input-group input:focus {
+    border-color: var(--accent);
+  }
+
+  .input-group select option { background: var(--surface); }
+
+  /* Diagnose Button */
+  .diagnose-btn {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--font);
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+
+  .diagnose-btn:hover { background: #e85a28; transform: translateY(-1px); }
+  .diagnose-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  /* Results */
+  .results { display: none; }
+  .results.visible { display: block; }
+
+  .diagnosis-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    margin-bottom: 16px;
+    border-left: 3px solid var(--accent);
+  }
+
+  .diagnosis-card .severity {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+  }
+
+  .severity.critical { background: rgba(239,68,68,0.15); color: var(--danger); }
+  .severity.moderate { background: rgba(234,179,8,0.15); color: var(--warning); }
+  .severity.minor { background: rgba(34,197,94,0.15); color: var(--success); }
+
+  .diagnosis-card h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .diagnosis-card .cause {
+    color: var(--text-dim);
+    font-size: 14px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  .fix-list { list-style: none; }
+
+  .fix-list li {
+    position: relative;
+    padding: 10px 0 10px 28px;
+    font-size: 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fix-list li:last-child { border-bottom: none; }
+
+  .fix-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 14px;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--accent);
+    border-radius: 4px;
+  }
+
+  .fix-list li .step-num {
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 2px;
+    display: block;
+  }
+
+  .fix-list li .step-detail { color: var(--text-dim); font-size: 13px; display: block; }
+
+  /* Settings Preview */
+  .settings-preview {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .settings-preview .key { color: var(--text-muted); }
+  .settings-preview .val { color: var(--accent); font-weight: 500; }
+  .settings-preview .changed { color: var(--success); }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding-top: 32px;
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+
+  .footer a { color: var(--accent); text-decoration: none; }
+
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .results.visible .diagnosis-card {
+    animation: fadeIn 0.4s ease both;
+  }
+
+  .results.visible .diagnosis-card:nth-child(2) { animation-delay: 0.1s; }
+  .results.visible .diagnosis-card:nth-child(3) { animation-delay: 0.2s; }
+  .results.visible .settings-preview { animation: fadeIn 0.4s ease 0.3s both; }
+
+  @media (max-width: 540px) {
+    .symptom-grid { grid-template-columns: 1fr; }
+    .header h1 { font-size: 26px; }
+    .container { padding: 24px 16px 60px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="badge">NOVA Diagnostics</div>
+    <h1>Print <span>Failure</span> Diagnostics</h1>
+    <p>Select your symptoms, material, and printer settings — get root cause analysis and precise fixes in seconds.</p>
+  </div>
+
+  <!-- Step 1: Select Symptoms -->
+  <div class="section">
+    <div class="section-label">Step 1 — What went wrong?</div>
+    <div class="symptom-grid" id="symptomGrid">
+      <button class="symptom-btn" data-symptom="stringing" onclick="toggleSymptom(this)">
+        <span class="icon">🕸️</span>
+        <span><span class="label">Stringing</span><span class="sublabel">Thin threads between parts</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="warping" onclick="toggleSymptom(this)">
+        <span class="icon">🔥</span>
+        <span><span class="label">Warping</span><span class="sublabel">Corners lifting off bed</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="layer-shift" onclick="toggleSymptom(this)">
+        <span class="icon">📐</span>
+        <span><span class="label">Layer Shift</span><span class="sublabel">Layers misaligned mid-print</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="under-extrusion" onclick="toggleSymptom(this)">
+        <span class="icon">💨</span>
+        <span><span class="label">Under-Extrusion</span><span class="sublabel">Gaps, thin walls, missing layers</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="over-extrusion" onclick="toggleSymptom(this)">
+        <span class="icon">🫧</span>
+        <span><span class="label">Over-Extrusion</span><span class="sublabel">Blobbing, rough surfaces</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="adhesion" onclick="toggleSymptom(this)">
+        <span class="icon">🧲</span>
+        <span><span class="label">Bed Adhesion</span><span class="sublabel">Print detaches from bed</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="clog" onclick="toggleSymptom(this)">
+        <span class="icon">🔧</span>
+        <span><span class="label">Nozzle Clog</span><span class="sublabel">Partial or full blockage</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="elephant-foot" onclick="toggleSymptom(this)">
+        <span class="icon">🦶</span>
+        <span><span class="label">Elephant Foot</span><span class="sublabel">First layers bulge outward</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="zits" onclick="toggleSymptom(this)">
+        <span class="icon">⚡</span>
+        <span><span class="label">Zits / Blobs</span><span class="sublabel">Small bumps on surface</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="bridging" onclick="toggleSymptom(this)">
+        <span class="icon">🌉</span>
+        <span><span class="label">Bad Bridging</span><span class="sublabel">Sagging over gaps</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="ringing" onclick="toggleSymptom(this)">
+        <span class="icon">〰️</span>
+        <span><span class="label">Ringing / Ghosting</span><span class="sublabel">Wavy echoes on surfaces</span></span>
+      </button>
+      <button class="symptom-btn" data-symptom="delamination" onclick="toggleSymptom(this)">
+        <span class="icon">📄</span>
+        <span><span class="label">Delamination</span><span class="sublabel">Layers splitting apart</span></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Step 2: Print Context -->
+  <div class="section">
+    <div class="section-label">Step 2 — Print context</div>
+    <div class="input-group">
+      <label>Material</label>
+      <select id="material">
+        <option value="">Select material...</option>
+        <option value="pla">PLA</option>
+        <option value="pla+">PLA+</option>
+        <option value="petg">PETG</option>
+        <option value="abs">ABS</option>
+        <option value="asa">ASA</option>
+        <option value="tpu">TPU</option>
+        <option value="nylon">Nylon</option>
+        <option value="pc">Polycarbonate</option>
+      </select>
+    </div>
+    <div class="input-group">
+      <label>Nozzle Temp (°C)</label>
+      <input type="number" id="nozzleTemp" placeholder="e.g. 210" min="150" max="320">
+    </div>
+    <div class="input-group">
+      <label>Bed Temp (°C)</label>
+      <input type="number" id="bedTemp" placeholder="e.g. 60" min="0" max="120">
+    </div>
+    <div class="input-group">
+      <label>Print Speed (mm/s)</label>
+      <input type="number" id="printSpeed" placeholder="e.g. 50" min="5" max="500">
+    </div>
+    <div class="input-group">
+      <label>Layer Height (mm)</label>
+      <select id="layerHeight">
+        <option value="">Select...</option>
+        <option value="0.08">0.08 (Ultra Detail)</option>
+        <option value="0.12">0.12 (Fine)</option>
+        <option value="0.16">0.16 (Normal)</option>
+        <option value="0.20">0.20 (Standard)</option>
+        <option value="0.24">0.24 (Draft)</option>
+        <option value="0.28">0.28 (Fast)</option>
+        <option value="0.32">0.32 (Speed)</option>
+      </select>
+    </div>
+    <button class="diagnose-btn" id="diagnoseBtn" onclick="runDiagnosis()" disabled>
+      Run Diagnosis
+    </button>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results"></div>
+
+  <div class="footer">
+    Built by <a href="#">NOVA</a> — Ramiche 3D Fabrication
+  </div>
+</div>
+
+<script>
+// ─── Knowledge Base ───────────────────────────────────────────
+const DB = {
+  stringing: {
+    severity: 'minor',
+    title: 'Stringing / Oozing',
+    cause: 'Molten filament leaks from the nozzle during travel moves. Usually caused by too-high nozzle temperature, insufficient retraction, or wet filament.',
+    fixes: [
+      { step: 'Lower nozzle temp', detail: 'Reduce by 5°C increments until stringing stops. Stay above material min.' },
+      { step: 'Increase retraction distance', detail: 'Direct drive: 0.5–2mm. Bowden: 4–7mm. Test with a retraction tower.' },
+      { step: 'Increase retraction speed', detail: 'Try 40–60 mm/s. Too slow = ooze during retract.' },
+      { step: 'Enable wipe + coasting', detail: 'Wipe retraces the end of a path. Coasting stops extrusion slightly before path end.' },
+      { step: 'Dry your filament', detail: 'Moisture causes bubbling and stringing. Dry PLA at 45°C for 4–6 hours.' }
+    ],
+    tempRange: { pla: [190, 210], 'pla+': [200, 215], petg: [220, 240], abs: [230, 250], asa: [235, 255], tpu: [220, 240], nylon: [240, 270], pc: [260, 300] },
+    settings: { retraction_distance: '1.0–2.0mm (DD) / 5–7mm (Bowden)', retraction_speed: '45 mm/s', travel_speed: '150+ mm/s' }
+  },
+  warping: {
+    severity: 'moderate',
+    title: 'Warping / Corner Lift',
+    cause: 'Thermal contraction pulls corners upward as layers cool unevenly. Worse with large footprints, high bed temps, drafts, or materials with high shrinkage (ABS, ASA, Nylon).',
+    fixes: [
+      { step: 'Increase bed temperature', detail: 'PLA: 60–65°C. PETG: 70–80°C. ABS/ASA: 90–110°C. Keep below glass transition.' },
+      { step: 'Add brim', detail: 'Outer brim, 8–15mm width. Increases contact area dramatically.' },
+      { step: 'Eliminate drafts', detail: 'Enclose the printer or block airflow from AC/fans/windows. ABS requires enclosure.' },
+      { step: 'Clean the bed', detail: 'IPA wipe before every print. Oils from fingers kill adhesion.' },
+      { step: 'Use adhesion aids', detail: 'Glue stick (PVA) for glass beds. Hairspray for PEI. Magigoo for specialty materials.' },
+      { step: 'Slow first layer', detail: '15–20 mm/s first layer speed, 110–120% first layer width for maximum squish.' }
+    ],
+    tempRange: { pla: [55, 65], 'pla+': [55, 65], petg: [70, 85], abs: [95, 110], asa: [95, 110], tpu: [40, 60], nylon: [70, 90], pc: [100, 120] },
+    settings: { brim_width: '10mm', first_layer_speed: '20 mm/s', bed_temp: 'See material range' }
+  },
+  'layer-shift': {
+    severity: 'critical',
+    title: 'Layer Shift',
+    cause: 'The print head loses position mid-print, causing all subsequent layers to be offset. Caused by: belt tension, motor current, collisions, or excessive speed/acceleration.',
+    fixes: [
+      { step: 'Check belt tension', detail: 'Belts should be taut with slight flex — like a guitar string. Not loose, not overtight.' },
+      { step: 'Lower print speed & acceleration', detail: 'Reduce max speed by 20%. Reduce acceleration to 500–1000 mm/s². Jerk to 5–8.' },
+      { step: 'Check for obstructions', detail: 'Ensure cables, filament spool, and bed clips don\'t catch the print head.' },
+      { step: 'Verify motor current (Vref)', detail: 'Stepper drivers may need current adjustment. Check manufacturer specs.' },
+      { step: 'Check for overheating', detail: 'Stepper drivers overheat → skip steps. Ensure driver heatsinks + fan.' },
+      { step: 'Tighten grub screws', detail: 'Loose pulley set screws on motors cause intermittent shifts.' }
+    ],
+    settings: { max_speed: '60 mm/s', acceleration: '800 mm/s²', jerk: '6 mm/s' }
+  },
+  'under-extrusion': {
+    severity: 'moderate',
+    title: 'Under-Extrusion',
+    cause: 'Not enough filament reaches the nozzle. Causes: partial clog, wrong E-steps, worn drive gear, filament path friction, or low temperature.',
+    fixes: [
+      { step: 'Calibrate E-steps', detail: 'Mark 120mm of filament, extrude 100mm, measure remaining. Adjust steps/mm.' },
+      { step: 'Check for partial clog', detail: 'Do a cold pull (nylon at 240→100°C). Inspect pulled filament tip for debris.' },
+      { step: 'Increase nozzle temp', detail: 'Material may need higher temp. Increase 5°C at a time.' },
+      { step: 'Check drive gear tension', detail: 'Gear should grip filament firmly. Look for shavings — means too much tension.' },
+      { step: 'Increase flow rate', detail: 'Start at 100%. Increase to 105–110% if walls are consistently thin.' },
+      { step: 'Slow down', detail: 'High speeds demand more flow than the hotend can melt. Reduce speed or increase temp.' }
+    ],
+    tempRange: { pla: [200, 220], 'pla+': [205, 225], petg: [230, 250], abs: [235, 255], asa: [240, 260], tpu: [225, 245], nylon: [245, 275], pc: [265, 305] },
+    settings: { flow_rate: '100–105%', e_steps: 'Calibrate per extruder' }
+  },
+  'over-extrusion': {
+    severity: 'minor',
+    title: 'Over-Extrusion',
+    cause: 'Too much filament pushed through the nozzle. Creates rough surfaces, blobs, and dimensional inaccuracy. Usually E-steps too high or flow rate too high.',
+    fixes: [
+      { step: 'Calibrate E-steps', detail: 'Same process as under-extrusion. Ensure exactly 100mm extruded when commanded.' },
+      { step: 'Reduce flow rate', detail: 'Lower to 95% in 1% increments. Print a single-wall cube and measure wall thickness.' },
+      { step: 'Lower nozzle temp', detail: 'Lower viscosity filament extrudes more freely. Reduce by 5°C.' },
+      { step: 'Check filament diameter', detail: 'Measure with calipers at 3 points. Should be 1.75±0.03mm. Update slicer if off.' }
+    ],
+    settings: { flow_rate: '95–100%', e_steps: 'Calibrate per extruder' }
+  },
+  adhesion: {
+    severity: 'moderate',
+    title: 'Bed Adhesion Failure',
+    cause: 'Print doesn\'t stick to the bed. Root causes: bed not level, Z-offset too high, bed temp wrong, dirty surface, or wrong surface for material.',
+    fixes: [
+      { step: 'Level the bed', detail: 'Run auto-level + manual paper test. First layer should squish slightly.' },
+      { step: 'Decrease Z-offset', detail: 'Lower nozzle 0.02mm at a time. First layer should look like flat ribbons, not round lines.' },
+      { step: 'Clean bed with IPA', detail: '99% isopropyl alcohol. Wipe in one direction. Let dry before printing.' },
+      { step: 'Increase bed temp', detail: 'Add 5°C. PLA sticks well at 60°C on PEI, 65°C on glass.' },
+      { step: 'Add brim or raft', detail: 'Brim for most cases (easier removal). Raft for tall, narrow parts.' },
+      { step: 'Slow first layer', detail: '15–20 mm/s. Give the filament time to bond to the surface.' }
+    ],
+    settings: { z_offset: 'Calibrate with paper test', first_layer_speed: '20 mm/s', brim_width: '8mm' }
+  },
+  clog: {
+    severity: 'critical',
+    title: 'Nozzle Clog',
+    cause: 'Partial or full blockage in the hotend. Caused by: heat creep, carbonized filament, foreign particles, or frequent material changes without purging.',
+    fixes: [
+      { step: 'Cold pull', detail: 'Heat to 240°C, insert nylon. Cool to 100°C, pull firmly. Repeat until tip comes out clean.' },
+      { step: 'Atomic pull (alternative)', detail: 'Same as cold pull but with the material you normally use. Heat to normal temp + 10°C.' },
+      { step: 'Check PTFE tube', detail: 'Bowden: ensure tube sits flush against nozzle with no gap. Gap = clog factory.' },
+      { step: 'Needle clean', detail: 'Heat nozzle to max temp. Insert acupuncture needle (0.3–0.4mm) from below.' },
+      { step: 'Replace nozzle', detail: 'If repeated clogs, the nozzle may be worn or damaged. Brass nozzles wear fast with abrasives.' },
+      { step: 'Address heat creep', detail: 'Ensure heatsink fan runs at 100%. Check thermal paste between heatbreak and heatsink.' }
+    ],
+    settings: { maintenance: 'Cold pull every 200 print hours' }
+  },
+  'elephant-foot': {
+    severity: 'minor',
+    title: 'Elephant Foot',
+    cause: 'First layers are wider than designed, creating a bulge at the base. Caused by: nozzle too close, bed too hot, or too much first-layer squish.',
+    fixes: [
+      { step: 'Increase Z-offset slightly', detail: 'Raise nozzle 0.02–0.04mm. First layer should squish but not spread excessively.' },
+      { step: 'Lower bed temp', detail: 'Reduce by 5°C. Hot bed keeps first layers soft longer, allowing them to compress.' },
+      { step: 'Enable elephant foot compensation', detail: 'Most slicers have this. Start at 0.1mm and increase if needed.' },
+      { step: 'Reduce first layer flow', detail: 'Lower to 95% if first layer is too thick.' }
+    ],
+    settings: { elephant_foot_compensation: '0.1–0.2mm', first_layer_flow: '95%' }
+  },
+  zits: {
+    severity: 'minor',
+    title: 'Zits / Blobs / Surface Bumps',
+    cause: 'Small raised bumps on the surface where the nozzle pauses or changes direction. Caused by: retraction settings, seam placement, pressure buildup.',
+    fixes: [
+      { step: 'Tune retraction + prime', detail: 'Extra restart distance should be 0 or slightly negative (-0.02mm).' },
+      { step: 'Set seam position', detail: 'Aligned/rear seam concentrates zits. Sharpest corner hides them in geometry.' },
+      { step: 'Enable linear/pressure advance', detail: 'Klipper: pressure_advance. Marlin: Linear Advance. Reduces pressure-related artifacts.' },
+      { step: 'Reduce outer wall speed', detail: '25–35 mm/s outer wall speed. Smoother finish.' },
+      { step: 'Enable coasting', detail: 'Stops extrusion 0.2–0.5mm before end of path. Drains pressure.' }
+    ],
+    settings: { seam_position: 'Sharpest Corner', outer_wall_speed: '30 mm/s', coasting: '0.3mm' }
+  },
+  bridging: {
+    severity: 'moderate',
+    title: 'Poor Bridging',
+    cause: 'Filament sags when printing over unsupported spans. Caused by: too-high temp, too-slow speed, no cooling, or bridge too long.',
+    fixes: [
+      { step: 'Maximize cooling', detail: 'Bridge fan speed should be 100%. Add supplemental cooling if fan is weak.' },
+      { step: 'Increase bridge speed', detail: 'Faster = more tension on the filament = less sag. Try 30–50 mm/s.' },
+      { step: 'Lower bridge temp', detail: 'Reduce nozzle temp 5–10°C for bridge layers only (slicer bridge settings).' },
+      { step: 'Reduce bridge flow', detail: 'Lower to 85–95%. Less material = lighter strings = less sag.' },
+      { step: 'Redesign if possible', detail: 'Bridges over 50mm usually need supports regardless of settings.' }
+    ],
+    settings: { bridge_fan_speed: '100%', bridge_speed: '40 mm/s', bridge_flow: '90%' }
+  },
+  ringing: {
+    severity: 'moderate',
+    title: 'Ringing / Ghosting',
+    cause: 'Wavy echoes appear on flat surfaces after sharp direction changes. Caused by: too-high acceleration/jerk, loose belts, heavy printhead, or wobbly frame.',
+    fixes: [
+      { step: 'Lower acceleration', detail: 'Reduce to 500–1000 mm/s². Biggest single improvement for ringing.' },
+      { step: 'Lower jerk / junction deviation', detail: 'Jerk: 5–8 mm/s. Junction deviation: 0.01–0.04.' },
+      { step: 'Tighten belts', detail: 'Loose belts amplify vibration. Tighten until they make a low "twang."' },
+      { step: 'Secure the frame', detail: 'Place printer on a solid surface. Anti-vibration feet help. Tighten all frame bolts.' },
+      { step: 'Enable input shaper (Klipper)', detail: 'ADXL345 accelerometer + input shaping eliminates ringing at higher speeds.' }
+    ],
+    settings: { acceleration: '800 mm/s²', jerk: '6 mm/s', outer_wall_speed: '35 mm/s' }
+  },
+  delamination: {
+    severity: 'critical',
+    title: 'Layer Delamination / Splitting',
+    cause: 'Layers don\'t bond properly and separate. Often visible as cracks between layers. Caused by: too-low nozzle temp, too much cooling, wet filament, or under-extrusion.',
+    fixes: [
+      { step: 'Increase nozzle temp', detail: 'Higher temp = better inter-layer bonding. Increase 5–10°C.' },
+      { step: 'Reduce fan speed', detail: 'Too much cooling prevents layer fusion. Try 50–70% fan for PLA, 30–50% for PETG.' },
+      { step: 'Dry filament', detail: 'Moisture creates steam bubbles that weaken layer bonds. Dry before printing.' },
+      { step: 'Decrease layer height', detail: 'Thinner layers = more squish = better bonding. Stay under 75% nozzle diameter.' },
+      { step: 'Enclose printer for ABS/ASA/Nylon', detail: 'These materials need stable ambient temp. Enclosure prevents thermal shock.' },
+      { step: 'Check for under-extrusion', detail: 'Insufficient material = weak bonds. Calibrate E-steps and flow rate.' }
+    ],
+    tempRange: { pla: [205, 220], 'pla+': [210, 225], petg: [235, 250], abs: [240, 260], asa: [245, 265], tpu: [230, 250], nylon: [250, 280], pc: [270, 310] },
+    settings: { fan_speed: '50–70% (PLA), 30–50% (PETG), 0–30% (ABS)', layer_height: '<75% nozzle dia' }
+  }
+};
+
+// Material temp ranges (nozzle defaults)
+const MATERIAL_DEFAULTS = {
+  pla: { nozzle: [190, 220], bed: [55, 65], name: 'PLA' },
+  'pla+': { nozzle: [200, 225], bed: [55, 65], name: 'PLA+' },
+  petg: { nozzle: [225, 250], bed: [70, 85], name: 'PETG' },
+  abs: { nozzle: [230, 260], bed: [95, 110], name: 'ABS' },
+  asa: { nozzle: [235, 265], bed: [95, 110], name: 'ASA' },
+  tpu: { nozzle: [220, 245], bed: [40, 60], name: 'TPU' },
+  nylon: { nozzle: [240, 280], bed: [70, 90], name: 'Nylon' },
+  pc: { nozzle: [260, 310], bed: [100, 120], name: 'Polycarbonate' }
+};
+
+// ─── State ────────────────────────────────────────────────────
+let selectedSymptoms = new Set();
+
+function toggleSymptom(btn) {
+  const s = btn.dataset.symptom;
+  if (selectedSymptoms.has(s)) {
+    selectedSymptoms.delete(s);
+    btn.classList.remove('selected');
+  } else {
+    selectedSymptoms.add(s);
+    btn.classList.add('selected');
+  }
+  updateDiagnoseBtn();
+}
+
+function updateDiagnoseBtn() {
+  document.getElementById('diagnoseBtn').disabled = selectedSymptoms.size === 0;
+}
+
+function runDiagnosis() {
+  const material = document.getElementById('material').value;
+  const nozzleTemp = parseInt(document.getElementById('nozzleTemp').value) || null;
+  const bedTemp = parseInt(document.getElementById('bedTemp').value) || null;
+  const printSpeed = parseInt(document.getElementById('printSpeed').value) || null;
+  const layerHeight = parseFloat(document.getElementById('layerHeight').value) || null;
+
+  const resultsDiv = document.getElementById('results');
+  let html = '<div class="section-label" style="margin-bottom:16px;">Diagnosis Results</div>';
+
+  // Sort symptoms by severity: critical > moderate > minor
+  const severityOrder = { critical: 0, moderate: 1, minor: 2 };
+  const sorted = [...selectedSymptoms].sort((a, b) =>
+    severityOrder[DB[a].severity] - severityOrder[DB[b].severity]
+  );
+
+  sorted.forEach(symptom => {
+    const d = DB[symptom];
+
+    // Check temp warnings
+    let tempWarning = '';
+    if (material && nozzleTemp && d.tempRange && d.tempRange[material]) {
+      const [lo, hi] = d.tempRange[material];
+      if (nozzleTemp < lo) {
+        tempWarning = `<div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#eab308;">⚠️ Your nozzle temp (${nozzleTemp}°C) is below the recommended range for ${MATERIAL_DEFAULTS[material].name}: ${lo}–${hi}°C</div>`;
+      } else if (nozzleTemp > hi) {
+        tempWarning = `<div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#eab308;">⚠️ Your nozzle temp (${nozzleTemp}°C) is above the recommended range for ${MATERIAL_DEFAULTS[material].name}: ${lo}–${hi}°C</div>`;
+      }
+    }
+
+    let bedWarning = '';
+    if (material && bedTemp && (symptom === 'warping' || symptom === 'adhesion' || symptom === 'elephant-foot')) {
+      const md = MATERIAL_DEFAULTS[material];
+      if (md) {
+        const [lo, hi] = md.bed;
+        if (bedTemp < lo) {
+          bedWarning = `<div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#eab308;">⚠️ Bed temp (${bedTemp}°C) is below recommended for ${md.name}: ${lo}–${hi}°C — likely contributing to this issue.</div>`;
+        } else if (bedTemp > hi && symptom === 'elephant-foot') {
+          bedWarning = `<div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#eab308;">⚠️ Bed temp (${bedTemp}°C) is above recommended for ${md.name}: ${lo}–${hi}°C — may be causing first-layer softening.</div>`;
+        }
+      }
+    }
+
+    let speedWarning = '';
+    if (printSpeed && (symptom === 'ringing' || symptom === 'layer-shift') && printSpeed > 80) {
+      speedWarning = `<div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:13px;color:#eab308;">⚠️ Print speed (${printSpeed} mm/s) is high for this symptom. Try reducing to 50–60 mm/s.</div>`;
+    }
+
+    const fixesHtml = d.fixes.map((f, i) =>
+      `<li><span class="step-num">Step ${i+1}</span>${f.step}<span class="step-detail">${f.detail}</span></li>`
+    ).join('');
+
+    let settingsHtml = '';
+    if (d.settings) {
+      const lines = Object.entries(d.settings).map(([k, v]) =>
+        `<div><span class="key">${k.replace(/_/g, ' ')}:</span> <span class="val">${v}</span></div>`
+      ).join('');
+      settingsHtml = `<div class="settings-preview" style="margin-top:16px;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#55556a;margin-bottom:8px;font-family:var(--font);">Recommended Settings</div>${lines}</div>`;
+    }
+
+    html += `
+      <div class="diagnosis-card">
+        <span class="severity ${d.severity}">${d.severity}</span>
+        <h3>${d.title}</h3>
+        <p class="cause">${d.cause}</p>
+        ${tempWarning}${bedWarning}${speedWarning}
+        <ul class="fix-list">${fixesHtml}</ul>
+        ${settingsHtml}
+      </div>
+    `;
+  });
+
+  // Cross-symptom analysis
+  const symptoms = [...selectedSymptoms];
+  const crossTips = [];
+
+  if (symptoms.includes('stringing') && symptoms.includes('under-extrusion')) {
+    crossTips.push('Stringing + under-extrusion together often point to <strong>wet filament</strong>. Moisture causes steam (stringing) and flow disruption (under-extrusion). Dry your spool first.');
+  }
+  if (symptoms.includes('warping') && symptoms.includes('delamination')) {
+    crossTips.push('Warping + delamination = <strong>thermal stress throughout the print</strong>. This material likely needs an enclosure and higher ambient temp.');
+  }
+  if (symptoms.includes('layer-shift') && symptoms.includes('ringing')) {
+    crossTips.push('Layer shift + ringing = <strong>mechanical issue</strong>. Check belts, pulleys, and frame rigidity before adjusting slicer settings.');
+  }
+  if (symptoms.includes('over-extrusion') && symptoms.includes('elephant-foot')) {
+    crossTips.push('Over-extrusion + elephant foot = <strong>too much flow</strong>. Calibrate E-steps first, then adjust Z-offset. Solving one often fixes both.');
+  }
+  if (symptoms.includes('clog') && symptoms.includes('under-extrusion')) {
+    crossTips.push('Clog symptoms + under-extrusion = <strong>partial blockage</strong>. Do a cold pull immediately before wasting filament on more test prints.');
+  }
+
+  if (crossTips.length > 0) {
+    html += `
+      <div class="diagnosis-card" style="border-left-color: #8b5cf6;">
+        <span class="severity" style="background:rgba(139,92,246,0.15);color:#8b5cf6;">Cross-Analysis</span>
+        <h3>Combined Symptom Insights</h3>
+        ${crossTips.map(t => `<p class="cause" style="margin-bottom:8px;">${t}</p>`).join('')}
+      </div>
+    `;
+  }
+
+  resultsDiv.innerHTML = html;
+  resultsDiv.classList.add('visible');
+  resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+</script>
+</body>
+</html>

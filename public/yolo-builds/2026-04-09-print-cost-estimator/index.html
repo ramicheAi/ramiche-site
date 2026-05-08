@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA Print Cost Estimator</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--surface:#12121a;--card:#1a1a28;--border:#2a2a3d;
+  --text:#e8e8f0;--muted:#8888a0;--accent:#6c5ce7;--accent2:#00cec9;
+  --warn:#fdcb6e;--danger:#e17055;--success:#00b894;
+  --grad:linear-gradient(135deg,#6c5ce7,#00cec9);
+}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;min-height:100vh}
+.container{max-width:720px;margin:0 auto;padding:24px 20px 80px}
+header{text-align:center;padding:48px 0 40px}
+header h1{font-size:2rem;font-weight:700;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px}
+header p{color:var(--muted);font-size:0.95rem}
+.section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px}
+.section-title{font-size:0.8rem;text-transform:uppercase;letter-spacing:1.5px;color:var(--accent);margin-bottom:20px;font-weight:600}
+.field{margin-bottom:20px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:0.85rem;color:var(--muted);margin-bottom:8px}
+.field .row{display:flex;align-items:center;gap:12px}
+.field input[type=range]{flex:1;-webkit-appearance:none;height:6px;background:var(--border);border-radius:3px;outline:none}
+.field input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;background:var(--accent);border-radius:50%;cursor:pointer;transition:transform .15s}
+.field input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+.field .value{min-width:72px;text-align:right;font-size:1rem;font-weight:600;color:var(--text);font-variant-numeric:tabular-nums}
+.material-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.material-btn{padding:12px 8px;background:var(--surface);border:2px solid var(--border);border-radius:10px;cursor:pointer;text-align:center;transition:all .2s;font-size:0.8rem;color:var(--muted)}
+.material-btn:hover{border-color:var(--accent);color:var(--text)}
+.material-btn.active{border-color:var(--accent);background:rgba(108,92,231,0.15);color:var(--text)}
+.material-btn .name{font-weight:600;display:block;margin-bottom:2px;color:inherit}
+.material-btn .price{font-size:0.75rem;opacity:0.7}
+select{width:100%;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:0.9rem;outline:none;cursor:pointer;-webkit-appearance:none;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%238888a0'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center}
+select:focus{border-color:var(--accent)}
+.results{background:linear-gradient(135deg,rgba(108,92,231,0.08),rgba(0,206,201,0.08));border:1px solid rgba(108,92,231,0.3);border-radius:16px;padding:28px;margin-bottom:20px}
+.total-cost{text-align:center;margin-bottom:28px}
+.total-cost .amount{font-size:3rem;font-weight:800;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;line-height:1.1}
+.total-cost .label{font-size:0.85rem;color:var(--muted);margin-top:4px}
+.breakdown{display:flex;flex-direction:column;gap:12px}
+.cost-row{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(0,0,0,0.2);border-radius:10px}
+.cost-row .cost-label{font-size:0.85rem;color:var(--muted);display:flex;align-items:center;gap:8px}
+.cost-row .cost-label .dot{width:8px;height:8px;border-radius:50%}
+.cost-row .cost-value{font-weight:600;font-variant-numeric:tabular-nums}
+.bar-container{margin-top:20px}
+.bar-track{height:8px;background:var(--surface);border-radius:4px;overflow:hidden;display:flex}
+.bar-segment{height:100%;transition:width .3s ease}
+.bar-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px}
+.bar-legend span{font-size:0.75rem;color:var(--muted);display:flex;align-items:center;gap:4px}
+.bar-legend .ldot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.profit-section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;margin-bottom:20px}
+.profit-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.profit-row:last-child{border-bottom:none}
+.profit-row .plabel{font-size:0.85rem;color:var(--muted)}
+.profit-row .pvalue{font-weight:600;font-variant-numeric:tabular-nums}
+.profit-row .pvalue.green{color:var(--success)}
+.profit-row .pvalue.warn{color:var(--warn)}
+.profit-row .pvalue.danger{color:var(--danger)}
+.tip{background:rgba(253,203,110,0.1);border:1px solid rgba(253,203,110,0.25);border-radius:10px;padding:14px 16px;font-size:0.82rem;color:var(--warn);line-height:1.5;margin-top:20px}
+footer{text-align:center;padding:32px 0 16px;color:var(--muted);font-size:0.75rem}
+footer a{color:var(--accent);text-decoration:none}
+@media(max-width:500px){
+  .material-grid{grid-template-columns:repeat(2,1fr)}
+  .total-cost .amount{font-size:2.4rem}
+  .container{padding:16px 14px 60px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Print Cost Estimator</h1>
+    <p>Calculate true cost per print — filament, power, depreciation, labor &amp; failure overhead</p>
+  </header>
+
+  <div class="section">
+    <div class="section-title">Material</div>
+    <div class="material-grid" id="materialGrid"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Print Parameters</div>
+    <div class="field">
+      <label>Filament Usage (grams)</label>
+      <div class="row">
+        <input type="range" id="weightSlider" min="1" max="500" value="50">
+        <span class="value" id="weightVal">50g</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Print Time (hours)</label>
+      <div class="row">
+        <input type="range" id="timeSlider" min="0.5" max="48" value="4" step="0.5">
+        <span class="value" id="timeVal">4.0h</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Infill Percentage</label>
+      <div class="row">
+        <input type="range" id="infillSlider" min="5" max="100" value="20" step="5">
+        <span class="value" id="infillVal">20%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Historical Failure Rate</label>
+      <div class="row">
+        <input type="range" id="failSlider" min="0" max="50" value="10" step="1">
+        <span class="value" id="failVal">10%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Overhead</div>
+    <div class="field">
+      <label>Electricity Cost ($/kWh)</label>
+      <div class="row">
+        <input type="range" id="elecSlider" min="0.05" max="0.50" value="0.13" step="0.01">
+        <span class="value" id="elecVal">$0.13</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Printer Power Draw (watts)</label>
+      <div class="row">
+        <input type="range" id="wattSlider" min="50" max="500" value="150" step="10">
+        <span class="value" id="wattVal">150W</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Machine Cost ($)</label>
+      <div class="row">
+        <input type="range" id="machineSlider" min="100" max="5000" value="400" step="50">
+        <span class="value" id="machineVal">$400</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Expected Machine Life (print hours)</label>
+      <div class="row">
+        <input type="range" id="lifeSlider" min="500" max="10000" value="3000" step="100">
+        <span class="value" id="lifeVal">3,000h</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Labor Rate ($/hour)</label>
+      <div class="row">
+        <input type="range" id="laborSlider" min="0" max="100" value="25" step="1">
+        <span class="value" id="laborVal">$25</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Setup + Post-Processing Time (minutes)</label>
+      <div class="row">
+        <input type="range" id="setupSlider" min="0" max="120" value="15" step="5">
+        <span class="value" id="setupVal">15m</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="results" id="results">
+    <div class="total-cost">
+      <div class="amount" id="totalCost">$0.00</div>
+      <div class="label">Total Estimated Cost</div>
+    </div>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="bar-container">
+      <div class="bar-track" id="barTrack"></div>
+      <div class="bar-legend" id="barLegend"></div>
+    </div>
+  </div>
+
+  <div class="profit-section">
+    <div class="section-title">Pricing Guide</div>
+    <div id="profitTable"></div>
+    <div class="tip" id="tip"></div>
+  </div>
+
+  <footer>
+    NOVA Print Cost Estimator &mdash; Built by <a href="#">NOVA</a> for Ramiche Fabrication
+  </footer>
+</div>
+
+<script>
+const MATERIALS = [
+  { name: 'PLA', price: 20, density: 1.24, color: '#6c5ce7' },
+  { name: 'PLA+', price: 24, density: 1.24, color: '#a29bfe' },
+  { name: 'PETG', price: 22, density: 1.27, color: '#00cec9' },
+  { name: 'ABS', price: 20, density: 1.04, color: '#e17055' },
+  { name: 'ASA', price: 28, density: 1.07, color: '#fdcb6e' },
+  { name: 'TPU', price: 32, density: 1.21, color: '#e84393' },
+  { name: 'Nylon', price: 40, density: 1.14, color: '#00b894' },
+  { name: 'PETG-CF', price: 45, density: 1.30, color: '#636e72' },
+  { name: 'PLA Silk', price: 28, density: 1.24, color: '#fd79a8' },
+];
+
+let selectedMaterial = 0;
+
+function initMaterials() {
+  const grid = document.getElementById('materialGrid');
+  MATERIALS.forEach((m, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'material-btn' + (i === 0 ? ' active' : '');
+    btn.innerHTML = `<span class="name">${m.name}</span><span class="price">$${m.price}/kg</span>`;
+    btn.onclick = () => {
+      document.querySelectorAll('.material-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedMaterial = i;
+      calculate();
+    };
+    grid.appendChild(btn);
+  });
+}
+
+function getVal(id) { return parseFloat(document.getElementById(id).value); }
+
+function calculate() {
+  const mat = MATERIALS[selectedMaterial];
+  const weight = getVal('weightSlider');
+  const time = getVal('timeSlider');
+  const failRate = getVal('failSlider') / 100;
+  const elecRate = getVal('elecSlider');
+  const watts = getVal('wattSlider');
+  const machineCost = getVal('machineSlider');
+  const machineLife = getVal('lifeSlider');
+  const laborRate = getVal('laborSlider');
+  const setupMin = getVal('setupSlider');
+
+  // Filament cost
+  const filamentCost = (weight / 1000) * mat.price;
+
+  // Electricity cost
+  const kwh = (watts / 1000) * time;
+  const electricityCost = kwh * elecRate;
+
+  // Machine depreciation per print
+  const depreciationCost = (machineCost / machineLife) * time;
+
+  // Labor cost (setup + post-processing only — print time is passive)
+  const laborCost = (setupMin / 60) * laborRate;
+
+  // Subtotal before failure overhead
+  const subtotal = filamentCost + electricityCost + depreciationCost + laborCost;
+
+  // Failure overhead: expected waste per successful print
+  const failureOverhead = subtotal * (failRate / (1 - failRate));
+
+  // Total
+  const total = subtotal + failureOverhead;
+
+  // Update display
+  document.getElementById('totalCost').textContent = '$' + total.toFixed(2);
+
+  const items = [
+    { label: 'Filament', value: filamentCost, color: mat.color },
+    { label: 'Electricity', value: electricityCost, color: '#00cec9' },
+    { label: 'Depreciation', value: depreciationCost, color: '#636e72' },
+    { label: 'Labor', value: laborCost, color: '#6c5ce7' },
+    { label: 'Failure Overhead', value: failureOverhead, color: '#e17055' },
+  ];
+
+  const breakdown = document.getElementById('breakdown');
+  breakdown.innerHTML = items.map(item => `
+    <div class="cost-row">
+      <span class="cost-label"><span class="dot" style="background:${item.color}"></span>${item.label}</span>
+      <span class="cost-value">$${item.value.toFixed(2)}</span>
+    </div>
+  `).join('');
+
+  // Bar chart
+  const barTrack = document.getElementById('barTrack');
+  barTrack.innerHTML = items.map(item => {
+    const pct = total > 0 ? (item.value / total * 100) : 0;
+    return `<div class="bar-segment" style="width:${pct}%;background:${item.color}"></div>`;
+  }).join('');
+
+  const barLegend = document.getElementById('barLegend');
+  barLegend.innerHTML = items.map(item => {
+    const pct = total > 0 ? (item.value / total * 100) : 0;
+    return `<span><span class="ldot" style="background:${item.color}"></span>${item.label} ${pct.toFixed(0)}%</span>`;
+  }).join('');
+
+  // Pricing guide
+  const markups = [
+    { label: '2x Markup', mult: 2 },
+    { label: '2.5x Markup', mult: 2.5 },
+    { label: '3x Markup', mult: 3 },
+    { label: '4x Markup', mult: 4 },
+  ];
+
+  const profitTable = document.getElementById('profitTable');
+  profitTable.innerHTML = markups.map(m => {
+    const price = total * m.mult;
+    const profit = price - total;
+    const margin = ((profit / price) * 100).toFixed(0);
+    const cls = margin >= 60 ? 'green' : margin >= 40 ? 'warn' : 'danger';
+    return `
+      <div class="profit-row">
+        <span class="plabel">${m.label} → $${price.toFixed(2)}</span>
+        <span class="pvalue ${cls}">$${profit.toFixed(2)} profit (${margin}%)</span>
+      </div>`;
+  }).join('');
+
+  // Smart tip
+  const tip = document.getElementById('tip');
+  const biggest = items.reduce((a, b) => a.value > b.value ? a : b);
+  const tips = {
+    'Filament': `Filament is ${(filamentCost/total*100).toFixed(0)}% of your cost. Consider reducing infill or wall count if structural requirements allow. Switching to a bulk spool (2-5kg) can cut per-gram cost 15-25%.`,
+    'Electricity': `Power draw is significant. Printing overnight with off-peak rates or reducing nozzle temp 5°C (within spec) can save. Your ${watts}W draw over ${time}h = ${kwh.toFixed(1)} kWh.`,
+    'Depreciation': `Machine cost is a major factor at ${(depreciationCost/total*100).toFixed(0)}% of total. Maximize utilization — batch similar prints, keep the machine running. Every idle hour is depreciation without revenue.`,
+    'Labor': `Labor at $${laborRate}/hr dominates cost. Streamline post-processing: dedicated tools, jigs for support removal, batch finishing. Consider if the hourly rate reflects your market.`,
+    'Failure Overhead': `${(failRate*100).toFixed(0)}% failure rate adds $${failureOverhead.toFixed(2)} per successful print. Focus on first-layer calibration, filament drying, and proven slicer profiles to cut this.`,
+  };
+  tip.textContent = tips[biggest.label] || '';
+}
+
+function bindSlider(sliderId, valId, fmt) {
+  const slider = document.getElementById(sliderId);
+  const val = document.getElementById(valId);
+  slider.addEventListener('input', () => {
+    val.textContent = fmt(slider.value);
+    calculate();
+  });
+}
+
+initMaterials();
+bindSlider('weightSlider', 'weightVal', v => v + 'g');
+bindSlider('timeSlider', 'timeVal', v => parseFloat(v).toFixed(1) + 'h');
+bindSlider('infillSlider', 'infillVal', v => v + '%');
+bindSlider('failSlider', 'failVal', v => v + '%');
+bindSlider('elecSlider', 'elecVal', v => '$' + parseFloat(v).toFixed(2));
+bindSlider('wattSlider', 'wattVal', v => v + 'W');
+bindSlider('machineSlider', 'machineVal', v => '$' + parseInt(v).toLocaleString());
+bindSlider('lifeSlider', 'lifeVal', v => parseInt(v).toLocaleString() + 'h');
+bindSlider('laborSlider', 'laborVal', v => '$' + v);
+bindSlider('setupSlider', 'setupVal', v => v + 'm');
+
+calculate();
+</script>
+</body>
+</html>
