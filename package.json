@@ -32,7 +32,7 @@
     "lucide-react": "^0.577.0",
     "mqtt": "^5.15.1",
     "next": "^16.2.4",
-    "nodemailer": "^8.0.1",
+    "nodemailer": "^8.0.5",
     "page-agent": "^1.5.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -54,5 +54,19 @@
     "playwright": "^1.58.2",
     "typescript": "5.9.3",
     "vitest": "^4.0.18"
+  },
+  "overrides": {
+    "protobufjs": "^7.5.5",
+    "node-forge": "^1.4.0",
+    "fast-xml-parser": "^5.7.0",
+    "fast-xml-builder": "^1.1.7",
+    "flatted": "^3.4.2",
+    "vite": "^7.3.2",
+    "picomatch": "^4.0.4",
+    "brace-expansion": "^2.0.3",
+    "ip-address": "^10.1.1",
+    "postcss": "^8.5.10",
+    "uuid": "^11.1.1",
+    "@tootallnate/once": "^3.0.1"
   }
 }
