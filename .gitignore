@@ -49,3 +49,8 @@ next-env.d.ts
 
 # Claude Code worktrees
 **/.claude/worktrees/
+
+public/projects/meridian-repo/
+public/projects/parallaxbet-data/
+
+public/projects/sz-open-water-2027/
