@@ -2,8 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { supabase as _supabase } from "@/lib/supabase";
-const supabase = _supabase!;
+import { supabase } from "@/lib/supabase";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Supabase Real‑time
@@ -53,19 +52,22 @@ export default function CommandCenterRealChat() {
 
   // Load initial data (mount-only; helpers close over latest supabase client)
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
     loadInitialData();
     setupRealtimeSubscriptions();
 
     return () => {
-      // Cleanup subscriptions
       supabase?.removeAllChannels();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only bootstrap
   }, []);
 
   const loadInitialData = async () => {
+    if (!supabase) return;
     try {
-      // Load channels
       const { data: channelsData } = await supabase
         .from("channels")
         .select("*")
@@ -76,7 +78,6 @@ export default function CommandCenterRealChat() {
         setActiveChannel(channelsData[0]);
       }
 
-      // Load agents
       const { data: agentsData } = await supabase
         .from("agent_profiles")
         .select("*")
@@ -86,7 +87,6 @@ export default function CommandCenterRealChat() {
         setAgents(agentsData);
       }
 
-      // Load messages for active channel
       if (channelsData?.[0]) {
         await loadMessages(channelsData[0].id);
       }
@@ -98,6 +98,7 @@ export default function CommandCenterRealChat() {
   };
 
   const loadMessages = async (channelId: string) => {
+    if (!supabase) return;
     const { data } = await supabase
       .from("messages")
       .select("*")
@@ -117,6 +118,7 @@ export default function CommandCenterRealChat() {
   };
 
   const setupRealtimeSubscriptions = () => {
+    if (!supabase) return;
     // Subscribe to new messages (teardown: supabase.removeAllChannels in effect cleanup)
     supabase
       .channel("messages")
@@ -167,7 +169,7 @@ export default function CommandCenterRealChat() {
   };
 
   const sendMessage = async () => {
-    if (!messageInput.trim() || !activeChannel) return;
+    if (!messageInput.trim() || !activeChannel || !supabase) return;
 
     const { error } = await supabase.from("messages").insert({
       channel_id: activeChannel.id,
@@ -197,6 +199,20 @@ export default function CommandCenterRealChat() {
       sendMessage();
     }
   };
+
+  if (!supabase) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="text-xl mb-2">Supabase not configured</div>
+          <div className="text-gray-400 text-sm">
+            Set <code className="text-purple-400">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+            <code className="text-purple-400">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> to enable real-time chat.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

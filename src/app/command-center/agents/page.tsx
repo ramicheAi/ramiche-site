@@ -395,7 +395,7 @@ export default function AgentManagement() {
                         width: 28, height: 28, overflow: "hidden",
                         animation: agent.status === "active" ? "floatAvatar 3s ease-in-out infinite" : "none",
                       }}>
-                        <img src={agent.avatar} alt={agent.name} style={{ width: 28, height: 28, objectFit: "contain" }} />
+                        <span aria-label={agent.name} role="img" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, fontSize: 22, lineHeight: 1 }}>{agent.avatar}</span>
                       </div>
                       {/* Status indicator */}
                       <div style={{
@@ -493,7 +493,7 @@ export default function AgentManagement() {
                       width: 56, height: 56, overflow: "hidden", flexShrink: 0,
                       display: "flex", alignItems: "center", justifyContent: "center",
                     }}>
-                      <img src={agent.avatar} alt={agent.name} style={{ width: 56, height: 56, objectFit: "contain" }} />
+                      <span aria-label={agent.name} role="img" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 56, height: 56, fontSize: 44, lineHeight: 1 }}>{agent.avatar}</span>
                     </div>
 
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -563,7 +563,7 @@ export default function AgentManagement() {
                   <div style={{
                     width: 32, height: 32, overflow: "hidden",
                   }}>
-                    <img src={chatAgent.avatar} alt={chatAgent.name} style={{ width: 32, height: 32, objectFit: "contain" }} />
+                    <span aria-label={chatAgent.name} role="img" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, fontSize: 26, lineHeight: 1 }}>{chatAgent.avatar}</span>
                   </div>
                 )}
                 <div>
@@ -834,7 +834,7 @@ function AgentDetailPanel({ agent, onClose, onChat }: { agent: Agent; onClose: (
         <div style={{
           width: 80, height: 80, overflow: "hidden", marginBottom: 12,
         }}>
-          <img src={agent.avatar} alt={agent.name} style={{ width: 80, height: 80, objectFit: "contain" }} />
+          <span aria-label={agent.name} role="img" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 80, height: 80, fontSize: 64, lineHeight: 1 }}>{agent.avatar}</span>
         </div>
         <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: "#e5e5e5" }}>{agent.name}</h2>
         <span style={{ fontSize: 12, color: agent.color, marginTop: 2 }}>{agent.role}</span>

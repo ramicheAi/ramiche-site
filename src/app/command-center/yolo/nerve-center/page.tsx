@@ -29,9 +29,15 @@ export default function NerveCenterPage() {
 
   useEffect(() => {
     fetch("/api/command-center/yolo-builds")
-      .then(r => r.json())
-      .then((data: BuildMeta[]) => setBuilds(data))
-      .catch(() => setBuilds([]))
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`yolo-builds ${r.status}`);
+        return r.json() as Promise<BuildMeta[]>;
+      })
+      .then((data) => setBuilds(Array.isArray(data) ? data : []))
+      .catch((err) => {
+        console.error("Failed to load yolo-builds:", err);
+        setBuilds([]);
+      })
       .finally(() => setLoading(false));
   }, []);
 

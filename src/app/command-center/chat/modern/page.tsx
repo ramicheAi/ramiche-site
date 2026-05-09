@@ -98,14 +98,18 @@ export default function ModernChatPage() {
       }),
     })
       .then(async (r) => {
-        const data = (await r.json()) as {
-          ok?: boolean;
-          response?: string;
-          error?: string;
-          source?: string;
-        };
+        let data: { ok?: boolean; response?: string; error?: string; source?: string } = {};
+        try {
+          data = await r.json();
+        } catch {
+          /* non-JSON body */
+        }
         setTypingUsers([]);
         setSending(false);
+        if (!r.ok) {
+          setRelayError(data.error || `Chat relay failed (${r.status})`);
+          return;
+        }
         if (data.ok && data.response) {
           const replyMessage = {
             id: `reply-${Date.now()}`,

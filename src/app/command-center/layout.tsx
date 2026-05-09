@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
 
 const MAX_PIN_DIGITS = 12;
@@ -40,11 +40,16 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [serverMsg, setServerMsg] = useState<string | null>(null);
+  const hiddenInputRef = useRef<HTMLInputElement>(null);
+  const verifyingRef = useRef(false);
 
   const handleKey = useCallback((digit: string) => {
+    if (verifyingRef.current) return;
     if (digit === 'clear') { setPin(''); setError(false); setServerMsg(null); return; }
+    if (digit === 'backspace') { setPin(prev => prev.slice(0, -1)); setError(false); setServerMsg(null); return; }
     if (digit === 'enter') {
       if (pin.length < 1) return;
+      verifyingRef.current = true;
       setVerifying(true);
       setServerMsg(null);
       void fetch('/api/command-center/auth/pin', {
@@ -74,17 +79,67 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
           setPin('');
           setTimeout(() => setError(false), 600);
         })
-        .finally(() => setVerifying(false));
+        .finally(() => {
+          verifyingRef.current = false;
+          setVerifying(false);
+        });
       return;
     }
     if (pin.length < MAX_PIN_DIGITS) setPin(prev => prev + digit);
   }, [pin, onUnlock]);
 
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key >= '0' && e.key <= '9') {
+        e.preventDefault();
+        handleKey(e.key);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        handleKey('enter');
+      } else if (e.key === 'Backspace') {
+        e.preventDefault();
+        handleKey('backspace');
+      } else if (e.key === 'Delete' || e.key === 'Escape') {
+        e.preventDefault();
+        handleKey('clear');
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    hiddenInputRef.current?.focus();
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleKey]);
+
+  const dotCount = Math.max(4, pin.length);
+
   return (
-    <div style={{
-      minHeight: '100vh', background: '#0a0a0a', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-    }}>
+    <div
+      onClick={() => hiddenInputRef.current?.focus()}
+      style={{
+        minHeight: '100vh', background: '#0a0a0a', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
+      }}
+    >
+      <input
+        ref={hiddenInputRef}
+        type="tel"
+        inputMode="numeric"
+        pattern="[0-9]*"
+        autoComplete="one-time-code"
+        aria-label="PIN entry"
+        value=""
+        onChange={(e) => {
+          const v = e.target.value;
+          if (!v) return;
+          for (const ch of v) {
+            if (ch >= '0' && ch <= '9') handleKey(ch);
+          }
+        }}
+        style={{
+          position: 'absolute', opacity: 0, pointerEvents: 'none',
+          width: 1, height: 1, left: -9999,
+        }}
+      />
       <h1 style={{ color: '#fff', fontSize: 24, marginBottom: 8, fontFamily: 'monospace' }}>
         ENTER ACCESS PIN
       </h1>
@@ -94,27 +149,33 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
         </p>
       )}
       <div style={{
-        display: 'flex', gap: 12, marginBottom: 24,
+        display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap',
+        justifyContent: 'center', maxWidth: 320,
         animation: error ? 'shake 0.4s ease-in-out' : 'none',
       }}>
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: dotCount }).map((_, i) => (
           <div key={i} style={{
             width: 20, height: 20, borderRadius: '50%',
             border: '2px solid #7c3aed',
             background: i < pin.length ? '#7c3aed' : 'transparent',
+            transition: 'background 0.15s',
           }} />
         ))}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 72px)', gap: 12 }}>
         {['1','2','3','4','5','6','7','8','9','clear','0','enter'].map(k => (
-          <button key={k} onClick={() => handleKey(k)} style={{
-            height: 56, borderRadius: 12, border: 'none', cursor: 'pointer',
+          <button key={k} onClick={() => handleKey(k)} disabled={verifying} style={{
+            height: 56, borderRadius: 12, border: 'none', cursor: verifying ? 'not-allowed' : 'pointer',
             fontSize: k.length > 1 ? 12 : 22, fontWeight: 600, fontFamily: 'monospace',
-            background: k === 'enter' ? '#7c3aed' : k === 'clear' ? '#1a1a2e' : '#1a1a2e',
+            background: k === 'enter' ? '#7c3aed' : '#1a1a2e',
             color: k === 'enter' ? '#fff' : k === 'clear' ? '#666' : '#fff',
+            opacity: verifying ? 0.6 : 1,
           }}>{k === 'clear' ? 'CLR' : k === 'enter' ? (verifying ? '…' : 'GO') : k}</button>
         ))}
       </div>
+      <p style={{ color: '#666', fontSize: 11, marginTop: 16, fontFamily: 'monospace' }}>
+        Type with keyboard · Backspace to delete · Enter to submit
+      </p>
       <style>{`
         @keyframes shake {
           0%, 100% { transform: translateX(0); }

@@ -168,8 +168,7 @@ export default function SignalWirePage() {
     fetchData();
     const interval = setInterval(fetchData, 15000);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchData]);
 
   /* ── Canvas layout ─────────────────────────────────────────────────────── */
   const layoutNodes = useCallback(() => {

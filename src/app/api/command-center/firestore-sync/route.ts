@@ -358,6 +358,11 @@ async function syncMeridian(db: Firestore): Promise<SyncResult> {
   }
   try {
     const raw = readFileSync(MERIDIAN_JSON_PATH, "utf-8");
+    // Firestore enforces 1 MiB max document size; refuse before write to surface a clear error.
+    const FIRESTORE_DOC_LIMIT = 900_000;
+    if (Buffer.byteLength(raw, "utf-8") > FIRESTORE_DOC_LIMIT) {
+      return { collection: "meridian", ok: false, docCount: 0, error: "meridian snapshot exceeds Firestore 1MB doc limit" };
+    }
     await db.collection("command-center").doc("meridian").set(
       {
         snapshot: raw,
