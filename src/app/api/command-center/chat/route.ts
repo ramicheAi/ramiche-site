@@ -38,19 +38,16 @@ const AGENT_PERSONAS: Record<string, { role: string; style: string }> = {
   themis: { role: "Legal, Governance & Compliance", style: "Precise, careful. Risk-aware." },
 };
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key);
-}
-
-/** Service role — updates user message delivery status (server-only). */
+/**
+ * Service role — used for ALL server-side inserts and updates so RLS on the
+ * messages table can't reject agent replies or delivery-status writes.
+ * The anon key is intentionally unused here.
+ */
 function getSupabaseService() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
-  return createClient(url, key);
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 function isGroupNoResponse(text: string): boolean {
@@ -111,7 +108,7 @@ async function generateAgentReply(
           contents: [{ role: "user", parts: [{ text: userMessage }] }],
           generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30_000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -141,7 +138,7 @@ async function generateAgentReply(
           max_tokens: 500,
           temperature: 0.7,
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(30_000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -173,7 +170,7 @@ async function generateAgentReply(
           max_tokens: 500,
           temperature: 0.7,
         }),
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(30_000),
       });
       if (res.ok) {
         const data = await res.json();
@@ -239,13 +236,16 @@ export async function POST(req: NextRequest) {
     );
 
     const responses: { agent: string; response: string; source: ReplySource }[] = [];
-    const supabase = getSupabase();
+    const svc = getSupabaseService();
+    const fallbackOnlyTargets: string[] = [];
+    const rejectedTargets: string[] = [];
 
     for (let i = 0; i < targets.length; i++) {
       const target = targets[i];
       const settled = results[i];
       if (settled.status === "rejected") {
         console.error(`Chat target ${target} rejected:`, settled.reason);
+        rejectedTargets.push(target);
         continue;
       }
       const r = settled.value;
@@ -264,19 +264,42 @@ export async function POST(req: NextRequest) {
         continue;
       }
       responses.push({ agent: target, response: text, source: r.source });
+      if (r.source === "fallback") fallbackOnlyTargets.push(target);
 
-      if (supabase && channelId) {
+      if (svc && channelId) {
         const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-        await supabase.from("messages").insert({
+        const { error: insertErr } = await svc.from("messages").insert({
           channel_id: channelId,
           sender_agent_id: agentUUID,
           sender_type: "agent",
           content: text,
           tenant_id: "11111111-1111-1111-1111-111111111111",
           attachments: [],
+          status: r.source === "fallback" ? "failed" : "sent",
           ...(threadUuid ? { thread_parent_id: threadUuid } : {}),
         });
+        if (insertErr) {
+          console.error(`[chat] agent reply insert failed for ${target}:`, insertErr);
+        }
       }
+    }
+
+    // If every reply came from the static "fallback" branch (no provider responded),
+    // surface this as a 502 so the UI can show a real error instead of silent text.
+    if (
+      responses.length > 0 &&
+      fallbackOnlyTargets.length === responses.length &&
+      rejectedTargets.length === 0
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "All chat providers (OpenClaw, Gemini, DeepSeek, OpenRouter) failed or are not configured.",
+          source: "fallback",
+          targets,
+        },
+        { status: 502 }
+      );
     }
 
     const combined =
@@ -287,7 +310,6 @@ export async function POST(req: NextRequest) {
           : responses.map((x) => `**${x.agent}:** ${x.response}`).join("\n\n");
     const first = responses[0];
 
-    const svc = getSupabaseService();
     if (userMessageId && svc) {
       await svc
         .from("messages")

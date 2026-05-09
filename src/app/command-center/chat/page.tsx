@@ -422,6 +422,66 @@ function DeliveryTicks({ status }: { status?: Message["deliveryStatus"] }) {
   );
 }
 
+/**
+ * Compact pill that shows the Supabase Realtime channel state. Sits next to
+ * the channel/DM header so the user can immediately tell whether incoming
+ * messages will be pushed live (green) or whether they need to refresh.
+ */
+function RealtimeBadge({
+  status,
+}: {
+  status:
+    | "idle"
+    | "connecting"
+    | "connected"
+    | "error"
+    | "timed_out"
+    | "closed"
+    | "unavailable";
+}) {
+  const map: Record<typeof status, { label: string; color: string; bg: string }> = {
+    idle: { label: "—", color: "#6b7280", bg: "#6b728020" },
+    connecting: { label: "Connecting…", color: "#f59e0b", bg: "#f59e0b20" },
+    connected: { label: "Live", color: "#22c55e", bg: "#22c55e20" },
+    error: { label: "Realtime error", color: "#ef4444", bg: "#ef444420" },
+    timed_out: { label: "Realtime timeout", color: "#ef4444", bg: "#ef444420" },
+    closed: { label: "Realtime closed", color: "#6b7280", bg: "#6b728020" },
+    unavailable: { label: "Realtime off", color: "#6b7280", bg: "#6b728020" },
+  };
+  const s = map[status];
+  return (
+    <span
+      title={`Supabase Realtime: ${s.label}`}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "2px 8px",
+        borderRadius: 999,
+        fontSize: 10,
+        fontWeight: 600,
+        letterSpacing: 0.4,
+        textTransform: "uppercase",
+        color: s.color,
+        background: s.bg,
+        border: `1px solid ${s.color}40`,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: s.color,
+          boxShadow: status === "connected" ? `0 0 6px ${s.color}` : "none",
+        }}
+      />
+      {s.label}
+    </span>
+  );
+}
+
 /* ── HELPERS ────────────────────────────────────────────────────────────────── */
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -488,6 +548,14 @@ export default function CommandCenterChatPage() {
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
   const [waitingForResponse, setWaitingForResponse] = useState(false);
   const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  /** Supabase Realtime connection status — surfaced as a small badge near the channel header. */
+  const [realtimeStatus, setRealtimeStatus] = useState<
+    "idle" | "connecting" | "connected" | "error" | "timed_out" | "closed" | "unavailable"
+  >("idle");
+
+  /** Last relay error — rendered as a red bubble below the failing user message. */
+  const [relayError, setRelayError] = useState<{ id: string; message: string } | null>(null);
 
   /* ── file attachments (file = local blob before upload) ── */
   const [attachments, setAttachments] = useState<
@@ -793,13 +861,17 @@ export default function CommandCenterChatPage() {
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase) {
+      setRealtimeStatus("unavailable");
+      return;
+    }
     if (!activeChannel && viewMode !== "dm") return;
     const sb = supabase;
-    
+
     // Get the correct channel UUID for filtering
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
+    setRealtimeStatus("connecting");
 
     // Validate that channelId is a valid UUID format for Supabase filtering
     const isValidUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId);
@@ -947,16 +1019,22 @@ export default function CommandCenterChatPage() {
         )
         .subscribe((status) => {
           if (status === "SUBSCRIBED") {
+            setRealtimeStatus("connected");
             console.log(`✅ Supabase Realtime subscription ACTIVE for ${viewMode === "dm" ? "DM with " + activeAgent?.name : "channel " + activeChannel?.name} (UUID: ${channelId})`);
           } else if (status === "CHANNEL_ERROR") {
+            setRealtimeStatus("error");
             console.error(`❌ Supabase Realtime channel error for ${channelId}`);
           } else if (status === "TIMED_OUT") {
+            setRealtimeStatus("timed_out");
             console.warn(`⏰ Supabase Realtime timeout for ${channelId}`);
           } else if (status === "CLOSED") {
+            setRealtimeStatus("closed");
             console.log(`🔒 Supabase Realtime channel closed for ${channelId}`);
           }
         });
+      setRealtimeStatus("connecting");
     } catch (err) {
+      setRealtimeStatus("error");
       console.error("❌ Supabase Realtime subscription error:", err);
     }
 
@@ -1129,6 +1207,8 @@ export default function CommandCenterChatPage() {
     const channelName = isDM ? `DM: ${activeAgent!.name}` : (activeChannel?.name || "general");
 
     const runRelay = (userMessageId?: string) => {
+      const errorTargetId = userMessageId ?? tempId;
+      setRelayError(null);
       fetch("/api/command-center/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1143,13 +1223,34 @@ export default function CommandCenterChatPage() {
           threadParentId: threadPid ?? undefined,
         }),
       })
-        .then((r) => r.json())
-        .then((data: {
-          ok?: boolean;
-          response?: string;
-          responses?: { agent: string; response: string }[];
-          agent?: string;
-        }) => {
+        .then(async (r) => {
+          let parsed: {
+            ok?: boolean;
+            response?: string;
+            responses?: { agent: string; response: string }[];
+            agent?: string;
+            error?: string;
+          } = {};
+          try {
+            parsed = await r.json();
+          } catch {
+            /* non-JSON */
+          }
+          if (!r.ok) {
+            const msg = parsed.error || `Chat relay failed (${r.status})`;
+            setWaitingForResponse(false);
+            setTypingUsers([]);
+            if (waitingTimeoutRef.current) {
+              clearTimeout(waitingTimeoutRef.current);
+              waitingTimeoutRef.current = null;
+            }
+            setRelayError({ id: errorTargetId, message: msg });
+            return null;
+          }
+          return parsed;
+        })
+        .then((data) => {
+          if (!data) return;
           if (userMessageId) {
             setMessages((prev) =>
               prev.map((m) =>
@@ -1239,6 +1340,7 @@ export default function CommandCenterChatPage() {
             clearTimeout(waitingTimeoutRef.current);
             waitingTimeoutRef.current = null;
           }
+          setRelayError({ id: errorTargetId, message: "Network error — message not delivered. Tap to retry." });
         });
     };
 
@@ -2415,16 +2517,18 @@ export default function CommandCenterChatPage() {
                   {activeAgent.name.charAt(0)}
                 </div>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary }}>
-                    {activeAgent.name}
+                  <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary, display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>{activeAgent.name}</span>
+                    <RealtimeBadge status={realtimeStatus} />
                   </div>
                   <div style={{ fontSize: 11, color: COLORS.text.secondary }}>{activeAgent.role}</div>
                 </div>
               </div>
             ) : (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary }}>
-                  {activeChannel?.name || "Select a channel"}
+                <div style={{ fontSize: 14, fontWeight: 700, color: COLORS.text.primary, display: "flex", alignItems: "center", gap: 8 }}>
+                  <span>{activeChannel?.name || "Select a channel"}</span>
+                  <RealtimeBadge status={realtimeStatus} />
                 </div>
                 <div
                   style={{
@@ -3019,6 +3123,31 @@ export default function CommandCenterChatPage() {
                         {renderContentWithMentions(message.content)}
                         {renderMessageAttachments(message.attachments)}
                       </div>
+
+                      {/* Relay error — surfaced when the chat API returned 4xx/5xx
+                          or the network call itself failed. Click to dismiss. */}
+                      {relayError && relayError.id === message.id && (
+                        <div
+                          role="alert"
+                          onClick={() => setRelayError(null)}
+                          style={{
+                            marginTop: 6,
+                            padding: "6px 10px",
+                            borderRadius: 8,
+                            background: "#ef444415",
+                            border: "1px solid #ef444450",
+                            color: "#fca5a5",
+                            fontSize: 12,
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: 6,
+                          }}
+                        >
+                          <span aria-hidden style={{ fontSize: 14 }}>⚠</span>
+                          <span>{relayError.message}</span>
+                        </div>
+                      )}
 
                       {/* Phase 2.1 — hover reaction picker */}
                       {hoverReactionMsgId === message.id && (

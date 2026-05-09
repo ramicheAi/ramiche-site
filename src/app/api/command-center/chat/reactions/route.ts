@@ -11,17 +11,24 @@ function getSupabaseService() {
   return createClient(url, key);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Toggle a reaction for the CC user on a message (insert or delete).
+ * Toggle a reaction on a message (insert or delete).
+ * `userId` defaults to the CC commander UUID but can be overridden per call once
+ * real auth is wired through PIN/session.
  * Requires `message_reactions` table — see docs/supabase-cc-chat-migrations.sql
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as { messageId?: string; emoji?: string };
+    const body = (await req.json()) as { messageId?: string; emoji?: string; userId?: string };
     const messageId = body.messageId?.trim();
     const emoji = body.emoji?.trim();
     if (!messageId || !emoji) {
       return NextResponse.json({ error: "messageId and emoji required" }, { status: 400 });
+    }
+    if (!UUID_RE.test(messageId)) {
+      return NextResponse.json({ error: "messageId must be a uuid" }, { status: 400 });
     }
     if (!isAllowedReactionEmoji(emoji)) {
       return NextResponse.json({ error: "emoji not allowed" }, { status: 400 });
@@ -32,7 +39,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, skipped: true, reason: "no_service_role" }, { status: 200 });
     }
 
-    const userId = CC_REACTION_USER_ID;
+    const requestedUserId = body.userId?.trim();
+    const userId = requestedUserId && UUID_RE.test(requestedUserId)
+      ? requestedUserId
+      : CC_REACTION_USER_ID;
 
     const { data: existing } = await svc
       .from("message_reactions")

@@ -81,6 +81,14 @@ function SettingsContent() {
   const [vitals, setVitals] = useState<SystemVitals | null>(null);
   const [gatewayAction, setGatewayAction] = useState<string | null>(null);
   const [gatewayOutput, setGatewayOutput] = useState("");
+  /** OpenClaw gateway reachability — green when configured + responding to GET /settings. */
+  const [gatewayHealth, setGatewayHealth] = useState<{
+    configured: boolean;
+    reachable: boolean;
+    error?: string;
+    status?: unknown;
+    lastChecked?: string;
+  }>({ configured: false, reachable: false });
   const [source, setSource] = useState<"live" | "static">("static");
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -122,6 +130,45 @@ function SettingsContent() {
     const interval = setInterval(fetchData, 15_000);
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  /** Poll the gateway-health endpoint so the UI can render a live reachability badge. */
+  useEffect(() => {
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/command-center/settings", { cache: "no-store" });
+        if (cancelled) return;
+        const data = (await res.json()) as {
+          ok?: boolean;
+          configured?: boolean;
+          reachable?: boolean;
+          error?: string;
+          status?: unknown;
+        };
+        setGatewayHealth({
+          configured: !!data.configured,
+          reachable: !!data.reachable,
+          error: data.error,
+          status: data.status,
+          lastChecked: new Date().toLocaleTimeString(),
+        });
+      } catch (err) {
+        if (cancelled) return;
+        setGatewayHealth({
+          configured: false,
+          reachable: false,
+          error: err instanceof Error ? err.message : "Network error",
+          lastChecked: new Date().toLocaleTimeString(),
+        });
+      }
+    };
+    void tick();
+    const id = setInterval(tick, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -243,7 +290,13 @@ function SettingsContent() {
         body: JSON.stringify({ action }),
       });
       const data = await res.json();
-      setGatewayOutput(data.output || data.error || "Done");
+      const formatted =
+        typeof data.output === "string"
+          ? data.output
+          : data.output != null
+            ? JSON.stringify(data.output, null, 2)
+            : data.error || (data.ok ? "Done" : "Failed");
+      setGatewayOutput(formatted);
       if (action === "reload-crons" && res.ok) {
         try {
           const cal = await fetch("/api/command-center/calendar", { cache: "no-store" });
@@ -468,21 +521,65 @@ function SettingsContent() {
 
             {/* Gateway Controls */}
             <div>
-              <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Gateway Controls</h2>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+                <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", margin: 0, textTransform: "uppercase" }}>Gateway Controls</h2>
+                {(() => {
+                  const color = !gatewayHealth.configured
+                    ? "#6b7280"
+                    : gatewayHealth.reachable
+                      ? "#22c55e"
+                      : "#ef4444";
+                  const label = !gatewayHealth.configured
+                    ? "Not configured"
+                    : gatewayHealth.reachable
+                      ? "Reachable"
+                      : "Unreachable";
+                  return (
+                    <span
+                      title={gatewayHealth.error ? `${label} — ${gatewayHealth.error}` : label}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "4px 10px",
+                        borderRadius: 999,
+                        background: `${color}15`,
+                        border: `1px solid ${color}40`,
+                        color,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, boxShadow: gatewayHealth.reachable ? `0 0 6px ${color}` : "none" }} />
+                      Gateway · {label}
+                      {gatewayHealth.lastChecked && (
+                        <span style={{ color: "#737373", marginLeft: 6, fontWeight: 500 }}>{gatewayHealth.lastChecked}</span>
+                      )}
+                    </span>
+                  );
+                })()}
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
                 {[
                   { label: "Restart Gateway", action: "restart-gateway", color: "#f59e0b", desc: "Restart the OpenClaw Gateway process" },
                   { label: "Run Doctor", action: "run-doctor", color: "#22c55e", desc: "Run diagnostics on the OpenClaw system" },
                   { label: "Reload Crons", action: "reload-crons", color: "#818cf8", desc: "Force-reload cron schedules from jobs.json" },
+                  { label: "List Sessions", action: "sessions-list", color: "#22d3ee", desc: "Show active OpenClaw sessions" },
+                  { label: "List Agents", action: "agents-list", color: "#a78bfa", desc: "List all gateway-known agents" },
+                  { label: "Cron Status", action: "cron-list", color: "#34d399", desc: "Show cron jobs with last-run + status" },
                 ].map((ctrl) => (
                   <div key={ctrl.action} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: `2px solid ${ctrl.color}20`, boxShadow: `0 0 16px ${ctrl.color}08` }}>
                     <p style={{ fontSize: 10, color: "#737373", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase" }}>{ctrl.label}</p>
                     <p style={{ fontSize: 11, color: "#525252", margin: "0 0 12px" }}>{ctrl.desc}</p>
-                    <button onClick={() => handleGatewayAction(ctrl.action)} disabled={gatewayAction === ctrl.action} style={{
+                    <button onClick={() => handleGatewayAction(ctrl.action)} disabled={gatewayAction === ctrl.action || !gatewayHealth.configured} style={{
                       padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
                       background: `${ctrl.color}15`, border: `2px solid ${ctrl.color}30`, borderRadius: 6,
-                      color: ctrl.color, cursor: gatewayAction === ctrl.action ? "wait" : "pointer",
-                      opacity: gatewayAction === ctrl.action ? 0.5 : 1, transition: "all 0.2s"
+                      color: ctrl.color,
+                      cursor: gatewayAction === ctrl.action ? "wait" : (!gatewayHealth.configured ? "not-allowed" : "pointer"),
+                      opacity: (gatewayAction === ctrl.action || !gatewayHealth.configured) ? 0.5 : 1,
+                      transition: "all 0.2s"
                     }}>
                       {gatewayAction === ctrl.action ? "RUNNING..." : "EXECUTE"}
                     </button>
@@ -490,7 +587,7 @@ function SettingsContent() {
                 ))}
               </div>
               {gatewayOutput && (
-                <div style={{ marginTop: 16, padding: 16, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "monospace", fontSize: 11, color: "#a3a3a3", whiteSpace: "pre-wrap", maxHeight: 200, overflow: "auto" }}>
+                <div style={{ marginTop: 16, padding: 16, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "monospace", fontSize: 11, color: "#a3a3a3", whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
                   {gatewayOutput}
                 </div>
               )}
