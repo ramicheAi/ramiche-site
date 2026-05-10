@@ -33,7 +33,9 @@ describe("seo", () => {
       path: "/blog/p",
       type: "article",
     });
-    expect(m.openGraph?.type).toBe("article");
+    // Next.js OpenGraph types narrow `type` based on the variant. Cast for the
+    // assertion since we know the requested variant is `article`.
+    expect((m.openGraph as { type?: string } | undefined)?.type).toBe("article");
   });
 
   it("getPageSEO home", () => {
@@ -54,6 +56,8 @@ describe("seo", () => {
   it("generateMettleSEO includes manifest and icons", () => {
     const m = generateMettleSEO("mettle");
     expect(m.manifest).toBe("/mettle-manifest.json");
-    expect(m.icons?.icon).toBe("/mettle-brand/v5/mettle-icon.svg");
+    // `Metadata.icons` is a union type; narrow to the object shape we set.
+    const icons = m.icons as { icon?: string } | undefined;
+    expect(icons?.icon).toBe("/mettle-brand/v5/mettle-icon.svg");
   });
 });

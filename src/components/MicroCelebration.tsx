@@ -43,6 +43,7 @@ export function useCelebration() {
   const sparksRef = useRef<Spark[]>([]);
   const animRef = useRef(0);
   const activeRef = useRef(false);
+  const animateRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const canvas = document.createElement("canvas");
@@ -113,11 +114,17 @@ export function useCelebration() {
     });
 
     if (sparksRef.current.length > 0) {
-      animRef.current = requestAnimationFrame(animate);
+      animRef.current = requestAnimationFrame(() => animateRef.current());
     } else {
       activeRef.current = false;
     }
   }, []);
+
+  // Keep ref pointing at the latest animate so the rAF callback can invoke it
+  // without creating a forward self-reference at definition time.
+  useEffect(() => {
+    animateRef.current = animate;
+  }, [animate]);
 
   const celebrate = useCallback((type: CelebrationType, originX?: number, originY?: number) => {
     if (typeof window === "undefined") return;
@@ -161,9 +168,9 @@ export function useCelebration() {
 
     if (!activeRef.current) {
       activeRef.current = true;
-      animRef.current = requestAnimationFrame(animate);
+      animRef.current = requestAnimationFrame(() => animateRef.current());
     }
-  }, [animate]);
+  }, []);
 
   return { celebrate };
 }

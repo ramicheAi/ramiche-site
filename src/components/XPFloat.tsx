@@ -16,6 +16,7 @@ interface FloatingXP {
   amount: number;
   x: number;
   y: number;
+  jitter: number;
   startTime: number;
 }
 
@@ -30,7 +31,8 @@ export function useXPFloat() {
     const y = event ? event.clientY : window.innerHeight / 2;
 
     const id = counter.current++;
-    const newFloat: FloatingXP = { id, amount, x, y, startTime: Date.now() };
+    const jitter = (Math.random() - 0.5) * 40;
+    const newFloat: FloatingXP = { id, amount, x, y, jitter, startTime: Date.now() };
 
     setFloats(prev => [...prev, newFloat]);
 
@@ -75,7 +77,7 @@ export function XPFloatLayer({ floats }: { floats: FloatingXP[] }) {
             key={f.id}
             className="absolute font-black font-mono"
             style={{
-              left: f.x + (Math.random() - 0.5) * 40,
+              left: f.x + f.jitter,
               top: f.y,
               fontSize: isHuge ? "28px" : isBig ? "22px" : "16px",
               color: isHuge ? "#FFD700" : isBig ? "#00f0ff" : "#C9A84C",

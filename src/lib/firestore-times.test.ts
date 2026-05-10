@@ -8,28 +8,27 @@ const { fbSet, fbGet } = vi.hoisted(() => ({
 vi.mock("@/lib/firebase", () => ({ fbSet, fbGet }));
 
 import { saveBestTimes, getBestTimes } from "./firestore-times";
-import { fbSet as fbSetRef, fbGet as fbGetRef } from "@/lib/firebase";
 
 describe("firestore-times", () => {
   beforeEach(() => {
-    fbSetRef.mockClear();
-    fbGetRef.mockClear();
-    fbSetRef.mockResolvedValue(true);
+    fbSet.mockClear();
+    fbGet.mockClear();
+    fbSet.mockResolvedValue(true);
   });
 
   it("saveBestTimes writes path", async () => {
     await saveBestTimes("a1", { times: [] });
-    expect(fbSetRef.mock.calls[0][0]).toBe("athletes/a1/bestTimes");
+    expect(fbSet.mock.calls[0][0]).toBe("athletes/a1/bestTimes");
   });
 
   it("getBestTimes delegates", async () => {
-    fbGetRef.mockResolvedValue({ times: [], savedAt: 1 });
+    fbGet.mockResolvedValue({ times: [], savedAt: 1 });
     const out = await getBestTimes("a1");
     expect(out?.savedAt).toBe(1);
   });
 
   it("getBestTimes returns null when remote is missing", async () => {
-    fbGetRef.mockResolvedValue(null);
+    fbGet.mockResolvedValue(null);
     await expect(getBestTimes("a1")).resolves.toBeNull();
   });
 });

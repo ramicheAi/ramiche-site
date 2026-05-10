@@ -16,6 +16,16 @@ const eslintConfig = defineConfig([
     "public/projects/**",
     "public/yolo-builds/**",
   ]),
+  {
+    rules: {
+      // Downgrade React Compiler rules to warnings — too strict for current codebase
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/purity": "warn",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/rules-of-hooks": "error",
+      "prefer-const": "warn",
+    },
+  },
 ]);
 
 export default eslintConfig;

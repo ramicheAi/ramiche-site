@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
 
 /* ══════════════════════════════════════════════════════════════
@@ -116,11 +117,11 @@ export default function ClawGuardPage() {
 
       {/* Nav */}
       <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px 32px", maxWidth: "1400px", margin: "0 auto", width: "100%" }}>
-        <a href="/" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none", color: "#e2e8f0" }}>
+        <Link href="/" style={{ display: "flex", alignItems: "center", gap: "12px", textDecoration: "none", color: "#e2e8f0" }}>
           <span style={{ fontSize: "24px", fontWeight: 900, letterSpacing: "-0.02em" }}>PARALLAX</span>
-        </a>
+        </Link>
         <div style={{ display: "flex", gap: "24px", alignItems: "center" }}>
-          <a href="/agents" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "14px", fontWeight: 500 }}>Marketplace</a>
+          <Link href="/agents" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "14px", fontWeight: 500 }}>Marketplace</Link>
           <a href="https://github.com/ramicheAi/clawguard" target="_blank" rel="noopener noreferrer" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "14px", fontWeight: 500 }}>GitHub</a>
         </div>
       </nav>
@@ -293,7 +294,7 @@ export default function ClawGuardPage() {
       {/* Footer */}
       <footer style={{ borderTop: "1px solid #1e293b", padding: "40px 32px", textAlign: "center" }}>
         <div style={{ color: "#64748b", fontSize: "14px" }}>
-          © 2026 Parallax Ventures Inc. — <a href="/" style={{ color: "#94a3b8", textDecoration: "none" }}>parallaxhq.com</a>
+          © 2026 Parallax Ventures Inc. — <Link href="/" style={{ color: "#94a3b8", textDecoration: "none" }}>parallaxhq.com</Link>
         </div>
       </footer>
 

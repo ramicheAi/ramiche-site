@@ -231,7 +231,6 @@ export default function OptimizedAthleteList({
         <div className="fixed bottom-4 right-4 bg-black/80 text-white text-xs p-2 rounded-lg z-50">
           <div>Visible: {visibleAthletes.length}/{sortedAthletes.length}</div>
           <div>Range: {visibleRange.start}-{visibleRange.end}</div>
-          <div>Render time: {performance.now().toFixed(1)}ms</div>
         </div>
       )}
     </div>

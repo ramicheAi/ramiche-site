@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 /* ══════════════════════════════════════════════════════════════
    Parent Portal Preview Modal — Coach clicks "Preview Parent View"
@@ -33,6 +33,23 @@ const LEVEL_COLORS: Record<string, string> = {
 
 export default function ParentPreviewModal({ athlete, onClose, isOpen }: Props) {
   const [tab, setTab] = useState<"growth" | "achievements" | "times">("growth");
+
+  // Stable per-athlete bar heights (deterministic, derived from id) to avoid
+  // calling Math.random() during render and to keep visualization consistent.
+  // MUST be declared before any early return so hook order stays stable.
+  const consistencyHeights = useMemo(() => {
+    const seed = athlete.id || athlete.name || "default";
+    const baseHash = Array.from(seed).reduce(
+      (acc, ch) => ((acc * 31 + ch.charCodeAt(0)) >>> 0),
+      0,
+    );
+    return Array.from({ length: 12 }, (_, i) => {
+      const step = (baseHash + i * 2654435761) >>> 0;
+      const mixed = ((step ^ (step >>> 13)) * 1274126177) >>> 0;
+      return 20 + ((mixed >>> 16) % 30);
+    });
+  }, [athlete.id, athlete.name]);
+
   if (!isOpen) return null;
 
   const level = athlete.level || "Rookie";
@@ -96,8 +113,8 @@ export default function ParentPreviewModal({ athlete, onClose, isOpen }: Props) 
             <div className="rounded-xl border border-gray-800 bg-gray-800/30 p-4">
               <p className="text-sm font-medium text-gray-300 mb-2">Practice Consistency</p>
               <div className="flex gap-1">
-                {Array.from({ length: 12 }, (_, i) => (
-                  <div key={i} className="flex-1 rounded-sm" style={{ height: `${20 + Math.random() * 30}px`, background: i < 10 ? `${levelColor}60` : `${levelColor}20` }} />
+                {consistencyHeights.map((h, i) => (
+                  <div key={i} className="flex-1 rounded-sm" style={{ height: `${h}px`, background: i < 10 ? `${levelColor}60` : `${levelColor}20` }} />
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-1">Last 12 weeks</p>

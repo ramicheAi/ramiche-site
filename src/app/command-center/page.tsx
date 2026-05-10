@@ -361,11 +361,20 @@ export default function CommandCenter() {
   const [cronForm, setCronForm] = useState({ name: '', schedule: '', agent: '', task: '' });
   const [taskForm, setTaskForm] = useState({ title: '', description: '', assignee: '', priority: 'medium' });
 
+  /* ── shared headers / shorthand for /api/bridge/* (GET requires the
+        x-bridge-secret header just like POST/PATCH; previously the GETs
+        hit a 401 silently and the dashboard rendered with empty data) ── */
+  const BRIDGE_SECRET_VALUE = 'parallax-bridge-2026';
+  const bridgeAuthInit: RequestInit = {
+    cache: 'no-store',
+    headers: { 'x-bridge-secret': BRIDGE_SECRET_VALUE },
+  };
+
   /* ── fetch crons (mount + every 60s) ── */
   useEffect(() => {
     const fetchCrons = async () => {
       try {
-        const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
+        const res = await fetch('/api/bridge/crons', bridgeAuthInit);
         if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
       } catch { /* silent */ }
     };
@@ -378,7 +387,7 @@ export default function CommandCenter() {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
+        const res = await fetch('/api/bridge/tasks', bridgeAuthInit);
         if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
       } catch { /* silent */ }
     };
@@ -391,7 +400,7 @@ export default function CommandCenter() {
   useEffect(() => {
     const fetchChat = async () => {
       try {
-        const res = await fetch('/api/bridge/chat', { cache: 'no-store' });
+        const res = await fetch('/api/bridge/chat', bridgeAuthInit);
         if (res.ok) {
           const data = await res.json();
           const incoming = data.items || data.messages || [];
@@ -405,12 +414,12 @@ export default function CommandCenter() {
   }, []);
 
   /* ── CRUD handlers ── */
-  const bridgeHeaders = { 'Content-Type': 'application/json', 'x-bridge-secret': 'parallax-bridge-2026' };
+  const bridgeHeaders = { 'Content-Type': 'application/json', 'x-bridge-secret': BRIDGE_SECRET_VALUE };
 
   const handleCreateCron = async (name: string, schedule: string, agent: string, task: string) => {
     try {
       await fetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', name, schedule, agent, task }) });
-      const res = await fetch('/api/bridge/crons', { cache: 'no-store' });
+      const res = await fetch('/api/bridge/crons', bridgeAuthInit);
       if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
     } catch { /* silent */ }
   };
@@ -425,7 +434,7 @@ export default function CommandCenter() {
   const handleCreateTask = async (title: string, description: string, assignee: string, priority: string) => {
     try {
       await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', title, description, assignee, priority }) });
-      const res = await fetch('/api/bridge/tasks', { cache: 'no-store' });
+      const res = await fetch('/api/bridge/tasks', bridgeAuthInit);
       if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
     } catch { /* silent */ }
   };
@@ -1232,8 +1241,8 @@ export default function CommandCenter() {
                 <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, color: '#f59e0b', fontFamily: 'monospace' }}>{liveYoloBuilds.length} recent</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 160, overflowY: 'auto' }}>
-                {liveYoloBuilds.map((b: any) => (
-                  <div key={b.name} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.1)' }}>
+                {liveYoloBuilds.map((b: any, i: number) => (
+                  <div key={b.folder ?? `${b.name ?? 'build'}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, padding: '6px 10px', borderRadius: 6, background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.1)' }}>
                     <span style={{ fontFamily: 'monospace', color: '#f59e0b', fontWeight: 600, flexShrink: 0, fontSize: 10 }}>YOLO</span>
                     <span style={{ color: '#e5e5e5', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b.name}</span>
                     <span style={{ marginLeft: 'auto', color: '#555', fontFamily: 'monospace', fontSize: 10, flexShrink: 0 }}>

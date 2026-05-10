@@ -228,7 +228,7 @@ export function useXPEngine(): XPEngineState & XPEngineActions {
 
   // ── awardXP ─────────────────────────────────────────────
   const awardXP = useCallback((athlete: Athlete, xpBase: number, category: "pool" | "weight" | "meet"): { newAthlete: Athlete; awarded: number } => {
-    let a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
+    const a = { ...athlete, dailyXP: { ...athlete.dailyXP } };
     if (a.dailyXP.date !== today()) a.dailyXP = { date: today(), pool: 0, weight: 0, meet: 0 };
     const used = a.dailyXP.pool + a.dailyXP.weight + a.dailyXP.meet;
     const room = Math.max(0, DAILY_XP_CAP - used);

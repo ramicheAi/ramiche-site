@@ -9,8 +9,10 @@ const syncListenRoster = vi.fn(() => () => {});
 const syncListenConfig = vi.fn(() => () => {});
 
 vi.mock("./apex-sync", () => ({
-  syncListenRoster: (...args: unknown[]) => syncListenRoster(...args),
-  syncListenConfig: (...args: unknown[]) => syncListenConfig(...args),
+  syncListenRoster: (...args: Parameters<typeof syncListenRoster>) =>
+    syncListenRoster(...args),
+  syncListenConfig: (...args: Parameters<typeof syncListenConfig>) =>
+    syncListenConfig(...args),
 }));
 
 describe("use-realtime-sync", () => {

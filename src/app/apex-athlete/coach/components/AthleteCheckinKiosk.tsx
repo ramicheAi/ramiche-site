@@ -218,7 +218,7 @@ export default function AthleteCheckinKiosk({ roster, onCheckin }: Props) {
             <h4 className="text-sm font-bold text-[#f8fafc] mb-3">Attendance This Week</h4>
             <div className="flex gap-1">
               {["Mon","Tue","Wed","Thu","Fri"].map((d, i) => {
-                const rate = Math.random(); // placeholder — replace with real data
+                const rate = [0.85, 0.6, 0.9, 0.3, 0.7][i] ?? 0; // placeholder — replace with real data
                 return (
                   <div key={d} className="flex-1 text-center">
                     <div className="h-7 rounded-md mb-1" style={{ background: rate > 0.5 ? "#DCFCE7" : rate > 0 ? "#FEE2E2" : "#1c1917" }} />

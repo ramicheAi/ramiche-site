@@ -115,7 +115,7 @@ export async function validateInviteToken(
   token: string
 ): Promise<{ valid: boolean; invite?: Invite; error?: string }> {
   // Check localStorage first
-  let invites = loadInvites();
+  const invites = loadInvites();
   let invite = invites.find((i) => i.token === token);
 
   // If not in localStorage, try Firestore
