@@ -1,16 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import Link from 'next/link'
 
-export default function GuidePage() {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+function SubSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-6 last:mb-0">
+      <h3 className="text-xl font-bold text-[#a855f7] mb-3">{title}</h3>
+      <div className="text-gray-300 leading-relaxed space-y-2">{children}</div>
+    </div>
+  )
+}
 
-  const toggleSection = (id: string) => {
-    setOpenSections(prev => ({ ...prev, [id]: !prev[id] }))
-  }
+/**
+ * Open/close state for collapsible sections lives in a context so call sites
+ * (`<Section id title>`) don't need to thread `openSections` + `toggleSection`
+ * props, while Section itself remains module-scoped (avoids the
+ * react-hooks/static-components ESLint error and per-render remount).
+ */
+type GuideSectionState = {
+  openSections: Record<string, boolean>
+  toggleSection: (id: string) => void
+}
+const GuideSectionContext = createContext<GuideSectionState | null>(null)
 
-  const Section = ({ id, title, children }: { id: string; title: string; children: React.ReactNode }) => (
+function Section({
+  id,
+  title,
+  children,
+}: {
+  id: string
+  title: string
+  children: React.ReactNode
+}) {
+  const ctx = useContext(GuideSectionContext)
+  if (!ctx) return null
+  const { openSections, toggleSection } = ctx
+  return (
     <div className="border-2 border-[#a855f7]/25 rounded-2xl bg-[#0a0a1a] overflow-hidden">
       <button
         onClick={() => toggleSection(id)}
@@ -26,15 +52,22 @@ export default function GuidePage() {
       )}
     </div>
   )
+}
 
-  const SubSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <div className="mb-6 last:mb-0">
-      <h3 className="text-xl font-bold text-[#a855f7] mb-3">{title}</h3>
-      <div className="text-gray-300 leading-relaxed space-y-2">{children}</div>
-    </div>
+export default function GuidePage() {
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
+
+  const toggleSection = (id: string) => {
+    setOpenSections(prev => ({ ...prev, [id]: !prev[id] }))
+  }
+
+  const ctx = useMemo<GuideSectionState>(
+    () => ({ openSections, toggleSection }),
+    [openSections]
   )
 
   return (
+    <GuideSectionContext.Provider value={ctx}>
     <div className="min-h-screen bg-[#0a0a1a] p-10">
       <div className="max-w-5xl mx-auto">
         <div className="mb-8">
@@ -252,5 +285,6 @@ export default function GuidePage() {
         </div>
       </div>
     </div>
+    </GuideSectionContext.Provider>
   )
 }
