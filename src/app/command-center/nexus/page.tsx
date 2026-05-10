@@ -6,12 +6,19 @@ export default function NexusPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let cancelled = false;
     // Load the Nexus Experiment Lab as embedded HTML
     fetch("/yolo-builds/2026-03-18-proximon-nexus-experiment-lab/index.html")
       .then((r) => r.text())
       .then((html) => {
-        if (!containerRef.current) return;
-        const shadow = containerRef.current.attachShadow({ mode: "open" });
+        if (cancelled) return;
+        const host = containerRef.current;
+        if (!host) return;
+        // React Strict Mode in dev runs effects twice; reuse the existing
+        // shadow root instead of throwing "Shadow root cannot be created on a
+        // host which already hosts a shadow tree".
+        const shadow =
+          host.shadowRoot ?? host.attachShadow({ mode: "open" });
         shadow.innerHTML = html
           .replace(/<!DOCTYPE html>/i, "")
           .replace(/<\/?html[^>]*>/gi, "")
@@ -20,6 +27,9 @@ export default function NexusPage() {
           .replace(/<meta[^>]*>/gi, "")
           .replace(/<title[^>]*>.*?<\/title>/gi, "");
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return (

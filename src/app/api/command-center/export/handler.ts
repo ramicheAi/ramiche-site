@@ -5,8 +5,20 @@ import { execSync } from "child_process";
 import { resolveOpenclawCronDir } from "@/lib/openclaw-paths";
 import { fetchCommandCenterCronJobsFromFirestore } from "@/lib/firebase-admin";
 
-const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
-const REPO = process.env.REPO_DIR || "/Users/admin/ramiche-site";
+/**
+ * Resolved at runtime (not module init) so NFT does not statically trace the
+ * literal fallback paths into the serverless bundle. Returns `null` when the
+ * directory is unset and unavailable, callers then degrade gracefully.
+ */
+function workspaceDir(): string | null {
+  const w = process.env.OPENCLAW_WORKSPACE?.trim();
+  return w && w.length > 0 ? w : null;
+}
+
+function repoDir(): string | null {
+  const r = process.env.REPO_DIR?.trim();
+  return r && r.length > 0 ? r : null;
+}
 
 /* ── CSV helper ──────────────────────────────────────────────────────── */
 
@@ -82,22 +94,27 @@ interface AgentRow {
 }
 
 function collectAgents(): AgentRow[] {
-  const dirPath = join(WS, "agents", "directory.json");
-  const dir = readJSON<{ agents?: Record<string, DirectoryAgent> }>(dirPath, {});
+  const ws = workspaceDir();
+  const dir = ws
+    ? readJSON<{ agents?: Record<string, DirectoryAgent> }>(join(ws, "agents", "directory.json"), {})
+    : {};
   const agents = dir.agents ?? STATIC_AGENTS;
 
   const activeSet = new Set<string>();
-  safe(() => {
-    const raw = execSync('git log --format="%an" --since="48 hours ago" -n 100', {
-      cwd: REPO, encoding: "utf-8", timeout: 3000,
-    });
-    for (const author of raw.trim().split("\n").filter(Boolean)) {
-      const lower = author.toLowerCase().replace(/[^a-z-]/g, "");
-      for (const name of Object.keys(agents)) {
-        if (lower.includes(name.replace("-", ""))) activeSet.add(name);
+  const repo = repoDir();
+  if (repo) {
+    safe(() => {
+      const raw = execSync('git log --format="%an" --since="48 hours ago" -n 100', {
+        cwd: repo, encoding: "utf-8", timeout: 3000,
+      });
+      for (const author of raw.trim().split("\n").filter(Boolean)) {
+        const lower = author.toLowerCase().replace(/[^a-z-]/g, "");
+        for (const name of Object.keys(agents)) {
+          if (lower.includes(name.replace("-", ""))) activeSet.add(name);
+        }
       }
-    }
-  }, undefined);
+    }, undefined);
+  }
 
   return Object.entries(agents).map(([id, a]) => ({
     id,
@@ -188,10 +205,12 @@ async function collectCrons(): Promise<CronRow[]> {
     return fsSnap.jobs.map((j, i) => mapOpenclawJobToRow(j, i));
   }
 
+  const ws = workspaceDir();
+  if (!ws) return [];
   const cronPaths = [
-    join(WS, "crons", "jobs.json"),
-    join(WS, "cron", "jobs.json"),
-    join(WS, "crons.json"),
+    join(ws, "crons", "jobs.json"),
+    join(ws, "cron", "jobs.json"),
+    join(ws, "crons.json"),
   ];
   for (const p of cronPaths) {
     if (!existsSync(p)) continue;
@@ -215,7 +234,9 @@ interface MemoryRow {
 }
 
 function collectMemory(days: number): MemoryRow[] {
-  const memDir = join(WS, "memory");
+  const ws = workspaceDir();
+  if (!ws) return [];
+  const memDir = join(ws, "memory");
   if (!existsSync(memDir)) return [];
 
   const rows: MemoryRow[] = [];
@@ -273,21 +294,25 @@ async function generateWeeklySummary(): Promise<string> {
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
   let gitCommits: string[] = [];
-  safe(() => {
-    const raw = execSync(
-      `git log --oneline --since="${fmt(weekAgo)}" --until="${fmt(now)}" -n 50`,
-      { cwd: REPO, encoding: "utf-8", timeout: 5000 }
-    );
-    gitCommits = raw.trim().split("\n").filter(Boolean);
-  }, undefined);
+  const repo = repoDir();
+  if (repo) {
+    safe(() => {
+      const raw = execSync(
+        `git log --oneline --since="${fmt(weekAgo)}" --until="${fmt(now)}" -n 50`,
+        { cwd: repo, encoding: "utf-8", timeout: 5000 }
+      );
+      gitCommits = raw.trim().split("\n").filter(Boolean);
+    }, undefined);
+  }
 
   const memory = collectMemory(7);
   const agents = collectAgents();
   const crons = await collectCrons();
 
   let yoloBuilds: string[] = [];
-  const yoloDir = join(WS, "builds");
-  if (existsSync(yoloDir)) {
+  const ws = workspaceDir();
+  const yoloDir = ws ? join(ws, "builds") : null;
+  if (yoloDir && existsSync(yoloDir)) {
     safe(() => {
       yoloBuilds = readdirSync(yoloDir, { withFileTypes: true })
         .filter((e) => e.isDirectory() && /^\d{4}-\d{2}-\d{2}/.test(e.name))

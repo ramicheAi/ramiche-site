@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const securityHeaders = [
   {
@@ -26,6 +27,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   logging: {
     browserToTerminal: true,
+  },
+  turbopack: {
+    root: path.resolve(__dirname),
   },
   experimental: {
     staleTimes: {

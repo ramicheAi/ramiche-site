@@ -50,7 +50,20 @@ export async function GET(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
     });
-    if (!res.ok) return NextResponse.json({ error: "not found" }, { status: 404 });
+    if (!res.ok) {
+      // Firestore returns 404 when the doc hasn't been seeded yet, and 403
+      // when read rules deny anonymous access. Treat both as an empty payload
+      // (200) so dashboards render their fallback state instead of throwing
+      // red console errors and breaking the layout. True upstream failures
+      // (5xx) still surface so we can debug them.
+      if (res.status === 404 || res.status === 403 || res.status === 401) {
+        return NextResponse.json({ items: [], _empty: true, _upstream: res.status });
+      }
+      return NextResponse.json(
+        { error: `firestore upstream ${res.status}` },
+        { status: 502 },
+      );
+    }
     const doc = await res.json();
     return NextResponse.json(doc.fields ? fromFirestoreFields(doc.fields) : {});
   } catch (e) {

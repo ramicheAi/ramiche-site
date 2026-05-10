@@ -23,7 +23,21 @@ export function flattenScheduleFromJob(o: Record<string, unknown>): string {
   return "";
 }
 
-export function parseCronSchedule(schedule: string): { time: string; days: string[]; frequency: string } {
+export function parseCronSchedule(scheduleInput: unknown): { time: string; days: string[]; frequency: string } {
+  // Defensive: callers occasionally pass non-string values (e.g. when a job
+  // record stores `schedule` as `{ expr: "0 7 * * *" }` and the flattener
+  // returned an empty string, the original object falls through). Coerce so
+  // we never throw `schedule.match is not a function` from the calendar API.
+  let schedule: string;
+  if (typeof scheduleInput === "string") {
+    schedule = scheduleInput;
+  } else if (scheduleInput && typeof scheduleInput === "object") {
+    // Wrap the bare schedule object so flattenScheduleFromJob recognises it.
+    schedule = flattenScheduleFromJob({ schedule: scheduleInput });
+  } else {
+    schedule = "";
+  }
+
   if (!schedule) return { time: "00:00", days: [], frequency: "Unknown" };
 
   const atMatch = schedule.match(/^at\s+(\d{1,2}):(\d{2})/i);
@@ -77,13 +91,17 @@ export interface RawCronJob {
 export function normalizeCronJobEntry(j: unknown): RawCronJob {
   if (typeof j !== "object" || j === null) return {};
   const o = j as Record<string, unknown>;
-  const schedule = flattenScheduleFromJob(o);
+  const flat = flattenScheduleFromJob(o);
   const agentRaw = o.agent ?? o.agentId;
   const agent = typeof agentRaw === "string" ? agentRaw : undefined;
   const base = j as RawCronJob;
+  // `base.schedule` may itself be a non-string (object) when sourced from
+  // OpenClaw; only fall back to it if it's a string. Otherwise emit "" so
+  // downstream consumers can rely on `schedule` being a string.
+  const safeBaseSchedule = typeof base.schedule === "string" ? base.schedule : "";
   return {
     ...base,
-    schedule: schedule || base.schedule,
+    schedule: flat || safeBaseSchedule,
     agent: agent ?? base.agent,
   };
 }

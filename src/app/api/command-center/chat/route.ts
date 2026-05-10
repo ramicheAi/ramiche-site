@@ -11,6 +11,18 @@ import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+// Lightweight reachability probe. The Command Center health dashboard pings
+// every API endpoint to render service uptime; without this, the chat route
+// would return 405 to those GET pings and clutter the browser console with
+// red "method not allowed" errors despite the service being healthy.
+export async function GET() {
+  return NextResponse.json({ ok: true, accepts: ["POST"] });
+}
+
+export async function HEAD() {
+  return new Response(null, { status: 200 });
+}
+
 const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";

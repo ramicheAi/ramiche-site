@@ -83,7 +83,16 @@ export default function SystemHealthPage() {
         const start = Date.now();
         try {
           const res = await fetch(svc.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
-          return { ...svc, status: res.ok ? ("up" as const) : ("down" as const), latency: Date.now() - start, lastCheck: new Date().toLocaleTimeString() };
+          // 2xx = up. 405 / 401 / 400 mean the service responded but rejects
+          // an unauthenticated GET probe (e.g. POST-only routes such as
+          // /api/command-center/chat). Those still indicate the service is up.
+          const reachable = res.ok || res.status === 405 || res.status === 401 || res.status === 400;
+          return {
+            ...svc,
+            status: reachable ? ("up" as const) : ("down" as const),
+            latency: Date.now() - start,
+            lastCheck: new Date().toLocaleTimeString(),
+          };
         } catch {
           return { ...svc, status: "down" as const, latency: Date.now() - start, lastCheck: new Date().toLocaleTimeString() };
         }

@@ -1,6 +1,6 @@
 # Command Center — Implementation Status
 
-**Last updated:** 2026-04-01  
+**Last updated:** 2026-05-10  
 **Scope:** Tracks delivery against `CC-IMPLEMENTATION-DOC.md`, `public/projects/command-center/CC-AUDIT-FIXES.md`, and `docs/CC-CHAT-OPENCLAW-INTEGRATION-SPEC.md`.
 
 ---
@@ -22,6 +22,7 @@
 | **Phase 2.3 pins** | `POST /api/command-center/chat/pin`; collapsible pinned banner; hover Pin/Unpin; realtime `messages` UPDATE for `pinned`. |
 | **Phase 3.2 agent status** | Poll `GET /api/command-center/agents` every 30s; map `dr-strange` → `drstrange`; refresh sidebar `active` / `idle`. |
 | **Phase 4** | `thread_parent_id` on user + agent messages; thread panel lists replies; main timeline hides thread children; header search **filters current view**; **`GET /api/command-center/chat/search`** + dropdown (timeline rows only): text **or** filters **channel / agent / date range**; shared `AGENT_DM_UUID` in `src/lib/cc-agent-dm-uuids.ts`. |
+| **Build housekeeping (2026-05-10)** | Multi-lockfile warning silenced via explicit `turbopack.root` in `next.config.ts`. NFT over-trace warning on `yolo-approve/route.ts` resolved by extracting handler to `./handler.ts` + replacing literal absolute-path fallbacks (`/Users/admin/.openclaw/workspace`, `/Users/admin/ramiche-site`) with runtime `workspaceDir()` / `repoDir()` getters and a runtime-computed approvals filename — yolo-approve serverless bundle dropped from 1191 → 596 traced files; `next.config.ts` no longer pulled into the trace. `src/lib/openclaw-paths.ts` refactored to the same runtime-resolution pattern. **One residual NFT warning remains on `export/handler.ts`** (informational only, build still green) — Next.js 16.2 NFT static analysis treats `readFileSync(path.join(dynamicDir, "literal.json"))` as wide-trace; remediation requires deeper restructuring or `turbopack.ignoreIssue`. |
 
 ---
 

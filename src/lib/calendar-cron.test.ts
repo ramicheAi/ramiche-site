@@ -35,6 +35,15 @@ describe("calendar-cron parseCronSchedule", () => {
     const r = parseCronSchedule("every 5m");
     expect(r.frequency).toBe("every 5m");
   });
+
+  it("does not throw when given a non-string schedule (regression)", () => {
+    // Previously crashed with `schedule.match is not a function` when the
+    // calendar route passed an unrecognized object shape downstream.
+    expect(() => parseCronSchedule(undefined as unknown as string)).not.toThrow();
+    expect(parseCronSchedule(undefined as unknown as string).frequency).toBe("Unknown");
+    expect(parseCronSchedule({} as unknown as string).frequency).toBe("Unknown");
+    expect(parseCronSchedule({ expr: "0 8 * * *" } as unknown as string).time).toBe("08:00");
+  });
 });
 
 describe("flattenScheduleFromJob", () => {
@@ -107,5 +116,17 @@ describe("normalizeCronJobEntry & coerceJobs", () => {
 
   it("coerceJobs yields empty array for empty object", () => {
     expect(coerceJobs({})).toEqual([]);
+  });
+
+  it("normalizeCronJobEntry yields a string schedule even when source is an object (regression)", () => {
+    // Source rows whose `schedule` is an unrecognized object would previously
+    // bleed through and crash parseCronSchedule downstream.
+    const j = normalizeCronJobEntry({
+      id: "c2",
+      name: "Quirky",
+      agentId: "atlas",
+      schedule: { unknownShape: true },
+    });
+    expect(typeof j.schedule).toBe("string");
   });
 });

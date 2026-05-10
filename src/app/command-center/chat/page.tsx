@@ -1017,21 +1017,37 @@ export default function CommandCenterChatPage() {
             })();
           }
         )
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            setRealtimeStatus("connected");
-            console.log(`✅ Supabase Realtime subscription ACTIVE for ${viewMode === "dm" ? "DM with " + activeAgent?.name : "channel " + activeChannel?.name} (UUID: ${channelId})`);
-          } else if (status === "CHANNEL_ERROR") {
-            setRealtimeStatus("error");
-            console.error(`❌ Supabase Realtime channel error for ${channelId}`);
-          } else if (status === "TIMED_OUT") {
-            setRealtimeStatus("timed_out");
-            console.warn(`⏰ Supabase Realtime timeout for ${channelId}`);
-          } else if (status === "CLOSED") {
-            setRealtimeStatus("closed");
-            console.log(`🔒 Supabase Realtime channel closed for ${channelId}`);
-          }
-        });
+        .subscribe(((): ((status: string) => void) => {
+          // Supabase Realtime auto-reconnect can fire CHANNEL_ERROR / TIMED_OUT
+          // many times in a row when the realtime publication is misconfigured.
+          // Hold the last observed status in a closure-scoped variable so
+          // identical statuses log only once instead of flooding the console.
+          let lastStatus: string | undefined;
+          return (status: string) => {
+            if (status === "SUBSCRIBED") {
+              setRealtimeStatus("connected");
+              if (lastStatus !== "SUBSCRIBED") {
+                console.log(`✅ Supabase Realtime subscription ACTIVE for ${viewMode === "dm" ? "DM with " + activeAgent?.name : "channel " + activeChannel?.name} (UUID: ${channelId})`);
+              }
+            } else if (status === "CHANNEL_ERROR") {
+              setRealtimeStatus("error");
+              if (lastStatus !== "CHANNEL_ERROR") {
+                console.warn(
+                  `Supabase Realtime channel error for ${channelId} — falling back to polling. ` +
+                  `Verify the messages/message_reactions tables are in the supabase_realtime publication.`
+                );
+              }
+            } else if (status === "TIMED_OUT") {
+              setRealtimeStatus("timed_out");
+              if (lastStatus !== "TIMED_OUT") {
+                console.warn(`Supabase Realtime timeout for ${channelId} — retrying.`);
+              }
+            } else if (status === "CLOSED") {
+              setRealtimeStatus("closed");
+            }
+            lastStatus = status;
+          };
+        })());
       setRealtimeStatus("connecting");
     } catch (err) {
       setRealtimeStatus("error");

@@ -192,7 +192,16 @@ export default function CommandCenterLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [authed, setAuthed] = useState(getStoredAuth);
+  // Always start with `false` on both server and client to avoid a hydration
+  // mismatch (sessionStorage is client-only). Restore the stored session in
+  // a post-mount effect.
+  const [authed, setAuthed] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+    if (getStoredAuth()) setAuthed(true);
+  }, []);
 
   useEffect(() => {
     if (!authed) return;
@@ -216,6 +225,12 @@ export default function CommandCenterLayout({
       window.clearInterval(id);
     };
   }, [authed]);
+
+  // Until we've checked sessionStorage on the client, render a minimal
+  // placeholder that matches the server output to keep hydration stable.
+  if (!hydrated) {
+    return <div style={{ minHeight: '100vh', background: '#0a0a0a' }} />;
+  }
 
   if (!authed) {
     return <PinGate onUnlock={() => setAuthed(true)} />;

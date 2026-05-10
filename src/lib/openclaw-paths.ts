@@ -1,18 +1,37 @@
 import { existsSync } from "fs";
 import { join } from "path";
 
-const WS = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
+/**
+ * Resolve the OpenClaw workspace directory at runtime. Returns `null` when no
+ * env var is configured (typical Vercel deployment) so callers can degrade
+ * gracefully instead of consulting a host-specific path. Avoiding a literal
+ * absolute fallback at module init keeps NFT's static trace from pulling the
+ * entire local workspace into the serverless bundle.
+ */
+function workspaceDir(): string | null {
+  const w = process.env.OPENCLAW_WORKSPACE?.trim();
+  return w && w.length > 0 ? w : null;
+}
 
-/** Resolve the directory containing cron jobs.json + history.json */
+function openclawHome(): string | null {
+  const h = process.env.OPENCLAW_HOME?.trim();
+  return h && h.length > 0 ? h : null;
+}
+
+/** Resolve the directory containing cron jobs.json + history.json. */
 export function resolveOpenclawCronDir(): string {
+  const ws = workspaceDir();
+  const home = openclawHome();
+  const explicit = process.env.OPENCLAW_CRON_DIR?.trim();
+
   const candidates = [
-    join(WS, "crons"),
-    process.env.OPENCLAW_CRON_DIR ?? "",
-    "/Users/admin/.openclaw/cron",
-    join(process.env.OPENCLAW_HOME ?? "/Users/admin/.openclaw", "cron"),
-  ].filter(Boolean);
+    ws ? join(ws, "crons") : null,
+    explicit && explicit.length > 0 ? explicit : null,
+    home ? join(home, "cron") : null,
+  ].filter((c): c is string => typeof c === "string" && c.length > 0);
+
   for (const dir of candidates) {
     if (existsSync(join(dir, "jobs.json"))) return dir;
   }
-  return WS;
+  return ws ?? home ?? "";
 }
