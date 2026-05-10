@@ -98,18 +98,60 @@ export function resolveChatSessionKey(agentId: string): string {
   return process.env.OPENCLAW_CHAT_SESSION_KEY?.trim() || "main";
 }
 
+/**
+ * Pull the assistant's reply string out of the gateway response payload.
+ *
+ * The gateway returns one of several shapes depending on version / tool call;
+ * we try each in priority order:
+ *   1. `result.details.reply`             — current OpenClaw shape (verified live)
+ *   2. `result.content[0].text` (parsed)  — MCP-style content envelope; the text
+ *                                            itself is JSON containing `.reply`
+ *   3. `result.reply`                     — older / direct shape
+ *   4. `result.reply.{text,content}`      — older shape where reply is an object
+ *   5. `result.message`                   — last-resort wrapper
+ *   6. plain string                       — straight reply
+ */
 function extractSessionsSendReply(result: unknown): string | null {
   if (result == null) return null;
   if (typeof result === "string") return result;
   if (typeof result !== "object") return null;
   const r = result as Record<string, unknown>;
-  if (typeof r.reply === "string") return r.reply;
+
+  // 1. Current shape: { details: { reply: "..." } }
+  if (r.details && typeof r.details === "object") {
+    const d = r.details as Record<string, unknown>;
+    if (typeof d.reply === "string" && d.reply.trim()) return d.reply;
+  }
+
+  // 2. MCP content envelope: { content: [{ type: "text", text: "<json>" }] }
+  if (Array.isArray(r.content) && r.content.length > 0) {
+    const first = r.content[0] as Record<string, unknown> | null;
+    if (first && typeof first.text === "string") {
+      try {
+        const parsed = JSON.parse(first.text) as Record<string, unknown>;
+        if (typeof parsed.reply === "string" && parsed.reply.trim()) return parsed.reply;
+        if (parsed.reply && typeof parsed.reply === "object") {
+          const rep = parsed.reply as Record<string, unknown>;
+          if (typeof rep.text === "string") return rep.text;
+          if (typeof rep.content === "string") return rep.content;
+        }
+      } catch {
+        // not JSON — fall through and use the raw text as the reply
+        if (first.text.trim()) return first.text;
+      }
+    }
+  }
+
+  // 3. Older direct shape: { reply: "..." }
+  if (typeof r.reply === "string" && r.reply.trim()) return r.reply;
   if (r.reply && typeof r.reply === "object") {
     const rep = r.reply as Record<string, unknown>;
     if (typeof rep.text === "string") return rep.text;
     if (typeof rep.content === "string") return rep.content;
   }
-  if (typeof r.message === "string") return r.message;
+
+  // 4. Last-resort: { message: "..." }
+  if (typeof r.message === "string" && r.message.trim()) return r.message;
   return null;
 }
 

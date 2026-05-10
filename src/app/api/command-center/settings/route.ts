@@ -66,7 +66,10 @@ export async function GET() {
   if (!isOpenClawGatewayConfigured()) {
     return NextResponse.json({ ok: false, configured: false, reachable: false });
   }
-  const inv = await gatewayToolsInvoke({ tool: "gateway", action: "status", args: {} });
+  // Probe via `agents_list` — a known-cheap, side-effect-free tool that every
+  // gateway exposes. We're not parsing the result; a successful 200 + ok=true
+  // is enough to call the gateway "reachable".
+  const inv = await gatewayToolsInvoke({ tool: "agents_list", args: {} });
   if (!inv.ok) {
     return NextResponse.json(
       { ok: false, configured: true, reachable: false, error: inv.error },
