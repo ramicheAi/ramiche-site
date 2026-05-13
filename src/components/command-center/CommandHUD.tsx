@@ -103,9 +103,12 @@ function Pill({
 
 interface CommandHUDProps {
   onLock: () => void;
+  onToggleBriefing?: () => void;
+  briefingOpen?: boolean;
+  briefingSpeaking?: boolean;
 }
 
-export function CommandHUD({ onLock }: CommandHUDProps) {
+export function CommandHUD({ onLock, onToggleBriefing, briefingOpen, briefingSpeaking }: CommandHUDProps) {
   const status = useSystemStatus();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
@@ -328,6 +331,52 @@ export function CommandHUD({ onLock }: CommandHUDProps) {
             marginLeft: "auto",
           }}
         >
+          {onToggleBriefing && (
+            <button
+              type="button"
+              onClick={onToggleBriefing}
+              aria-label={briefingOpen ? "Close Atlas briefing" : "Open Atlas briefing"}
+              aria-pressed={briefingOpen}
+              title="Atlas briefing"
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: `1px solid ${briefingOpen ? `${TOKENS.gold}66` : TOKENS.border}`,
+                background: briefingOpen ? "rgba(201,168,76,0.16)" : TOKENS.card,
+                color: TOKENS.gold,
+                cursor: "pointer",
+                fontSize: 13,
+                boxShadow: briefingOpen ? `0 0 14px ${TOKENS.gold}55` : `0 0 6px ${TOKENS.gold}22`,
+                transition: "border-color 150ms ease, box-shadow 150ms ease, background 150ms ease",
+              }}
+            >
+              <span aria-hidden style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.16em", fontWeight: 700 }}>
+                ATL
+              </span>
+              {briefingSpeaking && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    top: -3,
+                    right: -3,
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: TOKENS.gold,
+                    boxShadow: `0 0 8px ${TOKENS.gold}`,
+                    animation: "ccHudPulse 0.85s ease-in-out infinite",
+                  }}
+                />
+              )}
+            </button>
+          )}
+
           <Link
             href="/command-center/chat"
             aria-label="Open chat with voice"

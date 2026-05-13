@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
 import { CommandHUD } from '@/components/command-center/CommandHUD';
+import { BriefingDock } from '@/components/command-center/BriefingDock';
+import { useBriefing } from '@/hooks/useBriefing';
 
 const MAX_PIN_DIGITS = 12;
 /** Session + idle; PIN verified via /api/command-center/auth/pin (`CC_PIN_HASH` / `CC_PIN`). Production requires one of them; local dev may use fallback when `NODE_ENV=development` or `CC_PIN_ALLOW_DEV=1`. */
@@ -311,10 +313,27 @@ export default function CommandCenterLayout({
     return <PinGate onUnlock={() => setAuthed(true)} />;
   }
 
+  return <CommandCenterShell onLock={lock}>{children}</CommandCenterShell>;
+}
+
+function CommandCenterShell({
+  children,
+  onLock,
+}: {
+  children: React.ReactNode;
+  onLock: () => void;
+}) {
+  const briefingState = useBriefing();
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0a0a' }}>
       <Sidebar />
-      <CommandHUD onLock={lock} />
+      <CommandHUD
+        onLock={onLock}
+        onToggleBriefing={() => briefingState.setOpen(!briefingState.open)}
+        briefingOpen={briefingState.open}
+        briefingSpeaking={briefingState.status === 'speaking'}
+      />
+      <BriefingDock briefingState={briefingState} />
       <div
         id="cc-content"
         style={{
