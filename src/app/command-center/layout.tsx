@@ -9,6 +9,7 @@ import { PushToast } from '@/components/command-center/PushToast';
 import { useBriefing } from '@/hooks/useBriefing';
 import { useChatPulse } from '@/hooks/useChatPulse';
 import { useWakeWord } from '@/hooks/useWakeWord';
+import { useLocalWake } from '@/hooks/useLocalWake';
 import { useRouter, usePathname } from 'next/navigation';
 
 const MAX_PIN_DIGITS = 12;
@@ -322,7 +323,10 @@ export default function CommandCenterLayout({
 }
 
 const WAKE_PREF_KEY = 'cc-wake-enabled';
+const WAKE_MODE_KEY = 'cc-wake-mode';
 const WAKE_TRIGGER_KEY = 'cc-wake-trigger';
+
+type WakeMode = 'cloud' | 'local';
 
 function CommandCenterShell({
   children,
@@ -336,11 +340,23 @@ function CommandCenterShell({
   const router = useRouter();
   const pathname = usePathname();
   const [wakeEnabled, setWakeEnabled] = useState(false);
+  const [wakeMode, setWakeModeState] = useState<WakeMode>('cloud');
   const [pulseOpen, setPulseOpen] = useState(false);
 
   useEffect(() => {
     try {
       setWakeEnabled(window.localStorage.getItem(WAKE_PREF_KEY) === '1');
+      const m = window.localStorage.getItem(WAKE_MODE_KEY);
+      if (m === 'local' || m === 'cloud') setWakeModeState(m);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setWakeMode = useCallback((m: WakeMode) => {
+    setWakeModeState(m);
+    try {
+      window.localStorage.setItem(WAKE_MODE_KEY, m);
     } catch {
       /* ignore */
     }
@@ -362,7 +378,15 @@ function CommandCenterShell({
     [pathname, router]
   );
 
-  const wake = useWakeWord({ enabled: wakeEnabled, onWake: handleWake });
+  const cloudWake = useWakeWord({ enabled: wakeEnabled && wakeMode === 'cloud', onWake: handleWake });
+  const localWake = useLocalWake({ enabled: wakeEnabled && wakeMode === 'local', onWake: handleWake });
+
+  const activeStatus = wakeMode === 'local' ? localWake.status : cloudWake.status;
+  const wakeLevel = wakeMode === 'local' ? localWake.level : 0;
+
+  const cycleWakeMode = useCallback(() => {
+    setWakeMode(wakeMode === 'cloud' ? 'local' : 'cloud');
+  }, [wakeMode, setWakeMode]);
 
   const toggleWake = useCallback(() => {
     setWakeEnabled((prev) => {
@@ -385,8 +409,11 @@ function CommandCenterShell({
         briefingOpen={briefingState.open}
         briefingSpeaking={briefingState.status === 'speaking'}
         wakeEnabled={wakeEnabled}
-        wakeStatus={wake.status}
+        wakeStatus={activeStatus}
+        wakeMode={wakeMode}
+        wakeLevel={wakeLevel}
         onToggleWake={toggleWake}
+        onCycleWakeMode={cycleWakeMode}
         onTogglePulse={() => {
           setPulseOpen((o) => !o);
         }}

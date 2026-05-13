@@ -129,8 +129,11 @@ interface CommandHUDProps {
   briefingOpen?: boolean;
   briefingSpeaking?: boolean;
   wakeEnabled?: boolean;
-  wakeStatus?: "idle" | "listening" | "triggered" | "unsupported" | "denied";
+  wakeStatus?: "idle" | "listening" | "triggered" | "unsupported" | "denied" | "evaluating";
+  wakeMode?: "cloud" | "local";
+  wakeLevel?: number;
   onToggleWake?: () => void;
+  onCycleWakeMode?: () => void;
   onTogglePulse?: () => void;
   pulseOpen?: boolean;
   pulse?: ChatPulse;
@@ -143,7 +146,10 @@ export function CommandHUD({
   briefingSpeaking,
   wakeEnabled,
   wakeStatus,
+  wakeMode,
+  wakeLevel,
   onToggleWake,
+  onCycleWakeMode,
   onTogglePulse,
   pulseOpen,
   pulse,
@@ -447,6 +453,7 @@ export function CommandHUD({
           )}
 
           {onToggleWake && (
+            <div style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4 }}>
             <button
               type="button"
               onClick={onToggleWake}
@@ -458,7 +465,7 @@ export function CommandHUD({
                   : wakeStatus === "denied"
                     ? "Microphone permission denied"
                     : wakeEnabled
-                      ? "Wake word listening — say 'Atlas'"
+                      ? `Wake word listening — say 'Atlas' (${wakeMode === "local" ? "local · privacy mode" : "cloud · Web Speech"})`
                       : "Enable wake word"
               }
               disabled={wakeStatus === "unsupported"}
@@ -505,7 +512,7 @@ export function CommandHUD({
               <span aria-hidden style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.16em", fontWeight: 700 }}>
                 WAKE
               </span>
-              {wakeEnabled && wakeStatus === "listening" && (
+              {wakeEnabled && (wakeStatus === "listening" || wakeStatus === "evaluating") && (
                 <span
                   aria-hidden
                   style={{
@@ -515,13 +522,61 @@ export function CommandHUD({
                     width: 8,
                     height: 8,
                     borderRadius: "50%",
-                    background: TOKENS.cyan,
-                    boxShadow: `0 0 8px ${TOKENS.cyan}`,
-                    animation: "ccHudPulse 1.8s ease-in-out infinite",
+                    background: wakeStatus === "evaluating" ? TOKENS.gold : TOKENS.cyan,
+                    boxShadow: `0 0 8px ${wakeStatus === "evaluating" ? TOKENS.gold : TOKENS.cyan}`,
+                    animation:
+                      wakeStatus === "evaluating"
+                        ? "ccHudPulse 0.6s ease-in-out infinite"
+                        : "ccHudPulse 1.8s ease-in-out infinite",
+                  }}
+                />
+              )}
+              {wakeEnabled && wakeMode === "local" && typeof wakeLevel === "number" && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: 8,
+                    pointerEvents: "none" as const,
+                    boxShadow: `inset 0 0 0 ${Math.min(2 + wakeLevel * 12, 14)}px ${TOKENS.cyan}${Math.round(Math.min(wakeLevel * 4, 1) * 0xff).toString(16).padStart(2, "0")}`,
+                    transition: "box-shadow 90ms linear",
                   }}
                 />
               )}
             </button>
+            {onCycleWakeMode && wakeEnabled && wakeStatus !== "unsupported" && (
+              <button
+                type="button"
+                onClick={onCycleWakeMode}
+                aria-label={`Switch wake mode (current: ${wakeMode})`}
+                title={
+                  wakeMode === "local"
+                    ? "Local · audio stays on device. Click to switch to cloud (faster, uses Web Speech)."
+                    : "Cloud · streams to Web Speech. Click to switch to local privacy mode (energy VAD + Whisper)."
+                }
+                style={{
+                  width: 24,
+                  height: 32,
+                  borderRadius: 6,
+                  border: `1px solid ${TOKENS.border}`,
+                  background: TOKENS.card,
+                  color: wakeMode === "local" ? TOKENS.cyan : TOKENS.textDim,
+                  cursor: "pointer",
+                  fontFamily: "monospace",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: "0.06em",
+                  lineHeight: 1,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {wakeMode === "local" ? "LCL" : "CLD"}
+              </button>
+            )}
+            </div>
           )}
 
           {onToggleBriefing && (
