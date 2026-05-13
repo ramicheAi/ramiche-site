@@ -27,6 +27,21 @@ const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemi
 const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+/**
+ * Trim whitespace + ALL control chars (incl. trailing \n / \r) from an env
+ * value. Vercel's env-vars UI occasionally stores values pasted from a
+ * terminal or chat app with a trailing newline; node's strict fetch then
+ * rejects the resulting Authorization header / URL with "Invalid header
+ * value" and every provider call silently fails. cleanEnv() is the single
+ * choke-point so a malformed secret can never break the chat again.
+ */
+function cleanEnv(name: string): string | undefined {
+  const raw = process.env[name];
+  if (!raw) return undefined;
+  const cleaned = raw.replace(/[\s\x00-\x1f\x7f]+$/u, "").replace(/^\s+/u, "");
+  return cleaned || undefined;
+}
+
 const AGENT_PERSONAS: Record<string, { role: string; style: string }> = {
   atlas: { role: "Operations Lead & Strategic Command", style: "Calm, sharp, direct. Systems thinker." },
   triage: { role: "Debugging & Log Analysis", style: "Methodical, detail-oriented. Asks clarifying questions." },
@@ -56,8 +71,8 @@ const AGENT_PERSONAS: Record<string, { role: string; style: string }> = {
  * The anon key is intentionally unused here.
  */
 function getSupabaseService() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = cleanEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const key = cleanEnv("SUPABASE_SERVICE_ROLE_KEY");
   if (!url || !key) return null;
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
@@ -70,13 +85,28 @@ function isGroupNoResponse(text: string): boolean {
 
 type ReplySource = "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback";
 
+/** Per-provider attempt diagnostic. Surfaced in the 502 payload + server logs
+ *  so every "all providers failed" event has the exact failure reasons. */
+type ProviderAttempt = {
+  provider: Exclude<ReplySource, "fallback">;
+  /** "skipped" → key not set; "ok" → returned a reply; "error" → tried but failed */
+  status: "skipped" | "ok" | "error";
+  /** HTTP status when available, "exception" for thrown errors */
+  detail?: string;
+};
+
 async function generateAgentReply(
   target: string,
   userMessage: string,
   channelName: string | undefined,
   groupMode: boolean,
   singleTargetStrict: boolean
-): Promise<{ text: string; source: ReplySource; openClawError?: string }> {
+): Promise<{
+  text: string;
+  source: ReplySource;
+  openClawError?: string;
+  attempts: ProviderAttempt[];
+}> {
   const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
   const displayName = target.charAt(0).toUpperCase() + target.slice(1);
   const groupRules = groupMode
@@ -87,6 +117,7 @@ async function generateAgentReply(
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
+  const attempts: ProviderAttempt[] = [];
 
   const openclawStrict =
     singleTargetStrict &&
@@ -99,20 +130,31 @@ async function generateAgentReply(
     if (gw.ok && gw.reply) {
       agentResponse = gw.reply;
       responseSource = "openclaw";
-    } else if (openclawStrict) {
-      return {
-        text: "",
-        source: "openclaw",
-        openClawError:
-          !gw.ok && "error" in gw ? gw.error : "OpenClaw gateway did not return a reply",
-      };
+      attempts.push({ provider: "openclaw", status: "ok" });
+    } else {
+      attempts.push({
+        provider: "openclaw",
+        status: "error",
+        detail: !gw.ok && "error" in gw ? gw.error : "no reply",
+      });
+      if (openclawStrict) {
+        return {
+          text: "",
+          source: "openclaw",
+          openClawError:
+            !gw.ok && "error" in gw ? gw.error : "OpenClaw gateway did not return a reply",
+          attempts,
+        };
+      }
     }
+  } else {
+    attempts.push({ provider: "openclaw", status: "skipped", detail: "not configured" });
   }
 
-  const geminiKey = process.env.GEMINI_API_KEY;
+  const geminiKey = cleanEnv("GEMINI_API_KEY");
   if (!agentResponse && geminiKey) {
     try {
-      const res = await fetch(`${GEMINI_URL}?key=${geminiKey}`, {
+      const res = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(geminiKey)}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,14 +167,24 @@ async function generateAgentReply(
       if (res.ok) {
         const data = await res.json();
         agentResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-        if (agentResponse) responseSource = "gemini";
+        if (agentResponse) {
+          responseSource = "gemini";
+          attempts.push({ provider: "gemini", status: "ok" });
+        } else {
+          attempts.push({ provider: "gemini", status: "error", detail: "empty candidates" });
+        }
+      } else {
+        attempts.push({ provider: "gemini", status: "error", detail: `HTTP ${res.status}` });
       }
     } catch (err) {
+      attempts.push({ provider: "gemini", status: "error", detail: `exception: ${err}` });
       console.error("Gemini direct timeout/error:", err);
     }
+  } else if (!agentResponse) {
+    attempts.push({ provider: "gemini", status: "skipped", detail: "GEMINI_API_KEY unset" });
   }
 
-  const deepseekKey = process.env.DEEPSEEK_API_KEY;
+  const deepseekKey = cleanEnv("DEEPSEEK_API_KEY");
   if (!agentResponse && deepseekKey) {
     try {
       const res = await fetch(DEEPSEEK_URL, {
@@ -155,14 +207,24 @@ async function generateAgentReply(
       if (res.ok) {
         const data = await res.json();
         agentResponse = data.choices?.[0]?.message?.content || null;
-        if (agentResponse) responseSource = "deepseek";
+        if (agentResponse) {
+          responseSource = "deepseek";
+          attempts.push({ provider: "deepseek", status: "ok" });
+        } else {
+          attempts.push({ provider: "deepseek", status: "error", detail: "empty choices" });
+        }
+      } else {
+        attempts.push({ provider: "deepseek", status: "error", detail: `HTTP ${res.status}` });
       }
     } catch (err) {
+      attempts.push({ provider: "deepseek", status: "error", detail: `exception: ${err}` });
       console.error("DeepSeek direct timeout/error:", err);
     }
+  } else if (!agentResponse) {
+    attempts.push({ provider: "deepseek", status: "skipped", detail: "DEEPSEEK_API_KEY unset" });
   }
 
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  const openrouterKey = cleanEnv("OPENROUTER_API_KEY");
   if (!agentResponse && openrouterKey) {
     try {
       const res = await fetch(OPENROUTER_URL, {
@@ -170,7 +232,7 @@ async function generateAgentReply(
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${openrouterKey}`,
-          "HTTP-Referer": "https://ramiche-site.vercel.app",
+          "HTTP-Referer": "https://parallaxvinc.com",
           "X-Title": "Parallax Command Center",
         },
         body: JSON.stringify({
@@ -187,19 +249,35 @@ async function generateAgentReply(
       if (res.ok) {
         const data = await res.json();
         agentResponse = data.choices?.[0]?.message?.content || null;
-        if (agentResponse) responseSource = "openrouter";
+        if (agentResponse) {
+          responseSource = "openrouter";
+          attempts.push({ provider: "openrouter", status: "ok" });
+        } else {
+          attempts.push({ provider: "openrouter", status: "error", detail: "empty choices" });
+        }
+      } else {
+        const body = await res.text().catch(() => "");
+        attempts.push({
+          provider: "openrouter",
+          status: "error",
+          detail: `HTTP ${res.status}${body ? ` — ${body.slice(0, 160)}` : ""}`,
+        });
       }
     } catch (err) {
+      attempts.push({ provider: "openrouter", status: "error", detail: `exception: ${err}` });
       console.error("OpenRouter fallback timeout/error:", err);
     }
+  } else if (!agentResponse) {
+    attempts.push({ provider: "openrouter", status: "skipped", detail: "OPENROUTER_API_KEY unset" });
   }
 
   if (!agentResponse) {
+    console.error(`[chat] all providers failed for ${target}:`, JSON.stringify(attempts));
     agentResponse = `${displayName} is temporarily unavailable. Please try again in a moment.`;
     responseSource = "fallback";
   }
 
-  return { text: agentResponse, source: responseSource };
+  return { text: agentResponse, source: responseSource, attempts };
 }
 
 export async function POST(req: NextRequest) {
@@ -251,6 +329,7 @@ export async function POST(req: NextRequest) {
     const svc = getSupabaseService();
     const fallbackOnlyTargets: string[] = [];
     const rejectedTargets: string[] = [];
+    const allAttempts: Record<string, ProviderAttempt[]> = {};
 
     for (let i = 0; i < targets.length; i++) {
       const target = targets[i];
@@ -261,12 +340,14 @@ export async function POST(req: NextRequest) {
         continue;
       }
       const r = settled.value;
+      allAttempts[target] = r.attempts;
       if (r.openClawError && singleTargetStrict) {
         return NextResponse.json(
           {
             ok: false,
             error: r.openClawError,
             source: "openclaw",
+            attempts: r.attempts,
           },
           { status: 502 }
         );
@@ -309,6 +390,7 @@ export async function POST(req: NextRequest) {
           error: "All chat providers (OpenClaw, Gemini, DeepSeek, OpenRouter) failed or are not configured.",
           source: "fallback",
           targets,
+          attempts: allAttempts,
         },
         { status: 502 }
       );
