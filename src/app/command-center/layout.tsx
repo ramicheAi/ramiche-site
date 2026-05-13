@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
+import { CommandHUD } from '@/components/command-center/CommandHUD';
 
 const MAX_PIN_DIGITS = 12;
 /** Session + idle; PIN verified via /api/command-center/auth/pin (`CC_PIN_HASH` / `CC_PIN`). Production requires one of them; local dev may use fallback when `NODE_ENV=development` or `CC_PIN_ALLOW_DEV=1`. */
@@ -225,6 +226,15 @@ export default function CommandCenterLayout({
   const [authed, setAuthed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
 
+  const lock = useCallback(() => {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    setAuthed(false);
+  }, []);
+
   useEffect(() => {
     setHydrated(true);
     if (getStoredAuth()) setAuthed(true);
@@ -304,6 +314,7 @@ export default function CommandCenterLayout({
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0a0a' }}>
       <Sidebar />
+      <CommandHUD onLock={lock} />
       <div
         id="cc-content"
         style={{
@@ -311,6 +322,7 @@ export default function CommandCenterLayout({
           minWidth: 0,
           minHeight: '100vh',
           marginLeft: 240,
+          paddingTop: 56,
           overflowX: 'hidden' as const,
         }}
       >
@@ -320,7 +332,7 @@ export default function CommandCenterLayout({
         @media (max-width: 767px) {
           #cc-content {
             margin-left: 0 !important;
-            padding-top: 48px;
+            padding-top: 56px !important;
           }
           #cc-content h1 {
             font-size: 24px !important;

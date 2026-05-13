@@ -1770,7 +1770,7 @@ export default function CommandCenterChatPage() {
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "100vh",
+        height: "calc(100vh - 56px)",
         width: "100%",
         background: COLORS.bg.main,
         color: COLORS.text.primary,

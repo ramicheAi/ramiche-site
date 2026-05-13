@@ -1,0 +1,445 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CommandPalette } from "./CommandPalette";
+import { useSystemStatus, type ServiceState } from "@/hooks/useSystemStatus";
+
+const TOKENS = {
+  bg: "rgba(10,10,10,0.78)",
+  bgSolid: "#0a0a0a",
+  card: "rgba(255,255,255,0.02)",
+  border: "#1e1e1e",
+  borderAccent: "rgba(124,58,237,0.28)",
+  text: "#e5e5e5",
+  textDim: "#888888",
+  textMuted: "#555555",
+  purple: "#7c3aed",
+  purpleSoft: "#a855f7",
+  gold: "#C9A84C",
+  cyan: "#00f0ff",
+  green: "#10b981",
+  amber: "#f59e0b",
+  red: "#ef4444",
+};
+
+const STATE_COLOR: Record<ServiceState, string> = {
+  ok: TOKENS.green,
+  degraded: TOKENS.amber,
+  offline: TOKENS.red,
+  unknown: TOKENS.textMuted,
+};
+
+const STATE_LABEL: Record<ServiceState, string> = {
+  ok: "OK",
+  degraded: "DEGR",
+  offline: "OFFL",
+  unknown: "...",
+};
+
+function fmtTime(d: Date): string {
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false });
+}
+
+function fmtMoney(n: number): string {
+  if (!Number.isFinite(n) || n <= 0) return "$0";
+  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 10_000) return `$${(n / 1000).toFixed(0)}K`;
+  if (n >= 1_000) return `$${(n / 1000).toFixed(1)}K`;
+  return `$${Math.round(n)}`;
+}
+
+function Pill({
+  label,
+  value,
+  state,
+  accent,
+  hint,
+}: {
+  label: string;
+  value: string;
+  state: ServiceState;
+  accent?: string;
+  hint?: string;
+}) {
+  const dot = STATE_COLOR[state];
+  const accentColor = accent ?? dot;
+  return (
+    <div
+      title={hint}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "5px 10px",
+        background: "rgba(255,255,255,0.02)",
+        border: `1px solid ${TOKENS.border}`,
+        borderRadius: 999,
+        fontFamily: "monospace",
+        fontSize: 10,
+        letterSpacing: "0.06em",
+        whiteSpace: "nowrap" as const,
+        height: 28,
+        boxSizing: "border-box" as const,
+      }}
+    >
+      <span
+        aria-hidden
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: dot,
+          boxShadow: `0 0 6px ${dot}aa`,
+          flexShrink: 0,
+        }}
+      />
+      <span style={{ color: TOKENS.textDim, textTransform: "uppercase" as const }}>{label}</span>
+      <span style={{ color: accentColor, fontWeight: 700 }}>{value}</span>
+      <span style={{ color: TOKENS.textMuted, fontSize: 9 }}>{STATE_LABEL[state]}</span>
+    </div>
+  );
+}
+
+interface CommandHUDProps {
+  onLock: () => void;
+}
+
+export function CommandHUD({ onLock }: CommandHUDProps) {
+  const status = useSystemStatus();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const handleLock = useCallback(() => {
+    onLock();
+  }, [onLock]);
+
+  const handleRefresh = useCallback(() => {
+    status.refresh();
+  }, [status]);
+
+  const pills = useMemo(
+    () => [
+      {
+        key: "agents",
+        label: "Agents",
+        value:
+          status.agents.total > 0
+            ? `${status.agents.active}/${status.agents.total}`
+            : "—",
+        state: status.agents.state,
+        accent: TOKENS.gold,
+        hint: `${status.agents.active} active of ${status.agents.total}`,
+      },
+      {
+        key: "gateway",
+        label: "Gateway",
+        value:
+          status.gateway.state === "ok"
+            ? "LIVE"
+            : status.gateway.state === "degraded"
+              ? "WAIT"
+              : status.gateway.state === "offline"
+                ? "DOWN"
+                : "—",
+        state: status.gateway.state,
+        accent: TOKENS.purpleSoft,
+        hint: "OpenClaw gateway reachability",
+      },
+      {
+        key: "revenue",
+        label: "MRR",
+        value: fmtMoney(status.revenue.mrr),
+        state: status.revenue.state,
+        accent: TOKENS.amber,
+        hint: `30d ${fmtMoney(status.revenue.last30)} · ARR ${fmtMoney(status.revenue.arr)}`,
+      },
+      {
+        key: "net",
+        label: "Net",
+        value: status.network.online ? "ON" : "OFF",
+        state: status.network.state,
+        accent: TOKENS.cyan,
+        hint: "Browser network status",
+      },
+    ],
+    [status]
+  );
+
+  return (
+    <>
+      <header
+        id="cc-hud"
+        role="banner"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 240,
+          right: 0,
+          height: 56,
+          zIndex: 70,
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "0 18px 0 18px",
+          background: TOKENS.bg,
+          borderBottom: `1px solid ${TOKENS.border}`,
+          backdropFilter: "blur(10px)",
+          WebkitBackdropFilter: "blur(10px)",
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        }}
+      >
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            inset: 0,
+            pointerEvents: "none",
+            background:
+              "linear-gradient(90deg, rgba(124,58,237,0.07) 0%, rgba(201,168,76,0.03) 50%, rgba(0,240,255,0.05) 100%)",
+            opacity: 0.55,
+          }}
+        />
+
+        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <span
+            aria-hidden
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: TOKENS.gold,
+              boxShadow: `0 0 10px ${TOKENS.gold}, 0 0 22px ${TOKENS.gold}66`,
+              animation: "ccHudPulse 2.4s ease-in-out infinite",
+            }}
+          />
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 11,
+              letterSpacing: "0.22em",
+              color: TOKENS.text,
+              fontWeight: 700,
+              textTransform: "uppercase" as const,
+            }}
+          >
+            RAMICHE · COMMAND
+          </span>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setPaletteOpen(true)}
+          aria-label="Open command palette"
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flex: "1 1 320px",
+            maxWidth: 480,
+            minWidth: 0,
+            height: 32,
+            padding: "0 12px",
+            background: TOKENS.card,
+            border: `1px solid ${TOKENS.border}`,
+            borderRadius: 8,
+            color: TOKENS.textDim,
+            fontFamily: "inherit",
+            fontSize: 12,
+            cursor: "pointer",
+            textAlign: "left",
+            transition: "border-color 150ms ease, color 150ms ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = TOKENS.borderAccent;
+            e.currentTarget.style.color = TOKENS.text;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = TOKENS.border;
+            e.currentTarget.style.color = TOKENS.textDim;
+          }}
+        >
+          <span aria-hidden style={{ fontFamily: "monospace", color: TOKENS.purpleSoft }}>⌘K</span>
+          <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+            Jump to anything · ask an agent · run a command
+          </span>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 9,
+              padding: "2px 6px",
+              border: `1px solid ${TOKENS.border}`,
+              borderRadius: 4,
+              color: TOKENS.textMuted,
+            }}
+          >
+            ⌘K
+          </span>
+        </button>
+
+        <div
+          id="cc-hud-pills"
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            flexShrink: 0,
+            overflow: "hidden",
+          }}
+        >
+          {pills.map((p) => (
+            <Pill
+              key={p.key}
+              label={p.label}
+              value={p.value}
+              state={p.state}
+              accent={p.accent}
+              hint={p.hint}
+            />
+          ))}
+        </div>
+
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexShrink: 0,
+            marginLeft: "auto",
+          }}
+        >
+          <Link
+            href="/command-center/chat"
+            aria-label="Open chat with voice"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: `1px solid ${TOKENS.border}`,
+              background: TOKENS.card,
+              color: TOKENS.gold,
+              textDecoration: "none",
+              fontSize: 13,
+              boxShadow: `0 0 8px ${TOKENS.gold}22`,
+              transition: "border-color 150ms ease, box-shadow 150ms ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = `${TOKENS.gold}66`;
+              e.currentTarget.style.boxShadow = `0 0 14px ${TOKENS.gold}55`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = TOKENS.border;
+              e.currentTarget.style.boxShadow = `0 0 8px ${TOKENS.gold}22`;
+            }}
+          >
+            ◉
+          </Link>
+
+          <div
+            id="cc-hud-clock"
+            style={{
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: `1px solid ${TOKENS.border}`,
+              background: "rgba(255,255,255,0.02)",
+              color: TOKENS.text,
+              fontFamily: "monospace",
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              minWidth: 76,
+              textAlign: "center" as const,
+            }}
+          >
+            {now ? fmtTime(now) : "--:--:--"}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleLock}
+            aria-label="Lock Command Center"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              border: `1px solid ${TOKENS.border}`,
+              background: TOKENS.card,
+              color: TOKENS.textDim,
+              cursor: "pointer",
+              fontSize: 13,
+              transition: "color 150ms ease, border-color 150ms ease",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = TOKENS.red;
+              e.currentTarget.style.borderColor = `${TOKENS.red}44`;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = TOKENS.textDim;
+              e.currentTarget.style.borderColor = TOKENS.border;
+            }}
+          >
+            ◆
+          </button>
+        </div>
+
+        <style>{`
+          @keyframes ccHudPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.65; transform: scale(0.85); }
+          }
+          @media (max-width: 1180px) {
+            #cc-hud-pills > div:nth-child(n+4) { display: none; }
+          }
+          @media (max-width: 980px) {
+            #cc-hud-pills > div:nth-child(n+3) { display: none; }
+          }
+          @media (max-width: 880px) {
+            #cc-hud-pills { display: none !important; }
+          }
+          @media (max-width: 767px) {
+            #cc-hud {
+              left: 0 !important;
+              padding-left: 60px !important;
+            }
+            #cc-hud-clock { display: none; }
+          }
+          @media (max-width: 520px) {
+            #cc-hud { gap: 8px !important; padding-right: 10px !important; }
+          }
+        `}</style>
+      </header>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onLock={handleLock}
+        onRefresh={handleRefresh}
+      />
+    </>
+  );
+}
