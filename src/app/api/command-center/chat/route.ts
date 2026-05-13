@@ -160,7 +160,10 @@ async function generateAgentReply(
         body: JSON.stringify({
           system_instruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: userMessage }] }],
-          generationConfig: { maxOutputTokens: 500, temperature: 0.7 },
+          // System prompt caps replies at 100 words; 150 tokens fits that
+          // budget and keeps credit-constrained providers (OpenRouter
+          // pay-as-you-go) from rejecting with HTTP 402 "insufficient credit".
+          generationConfig: { maxOutputTokens: 150, temperature: 0.7 },
         }),
         signal: AbortSignal.timeout(30_000),
       });
@@ -199,7 +202,7 @@ async function generateAgentReply(
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },
           ],
-          max_tokens: 500,
+          max_tokens: 150,
           temperature: 0.7,
         }),
         signal: AbortSignal.timeout(30_000),
@@ -241,7 +244,7 @@ async function generateAgentReply(
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },
           ],
-          max_tokens: 500,
+          max_tokens: 150,
           temperature: 0.7,
         }),
         signal: AbortSignal.timeout(30_000),
