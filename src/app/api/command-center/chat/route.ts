@@ -23,9 +23,21 @@ export async function HEAD() {
   return new Response(null, { status: 200 });
 }
 
-const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
+/**
+ * Architecture: Ramon's Parallax stack only uses two backends for chat —
+ *   1. Claude Max proxy — OpenAI-compatible bridge to his Claude Max
+ *                          subscription (no API spend). Default URL
+ *                          http://127.0.0.1:3456/v1/chat/completions.
+ *   2. LM Studio       — locally loaded models, OpenAI-compatible server
+ *                          exposed by LM Studio's "Local Server" tab.
+ *                          Default URL http://127.0.0.1:1234/v1/chat/completions.
+ *                          Used as fallback when the Claude proxy is down.
+ * No cloud LLM APIs (Gemini, DeepSeek, OpenRouter, OpenAI direct). OpenClaw
+ * gateway `sessions_send` is kept for future agent-orchestration but is
+ * opt-in via OPENCLAW_CHAT_PRIMARY=1 because the Mac gateway is flaky.
+ */
+const CLAUDE_MAX_DEFAULT_URL = "http://127.0.0.1:3456/v1/chat/completions";
+const LM_STUDIO_DEFAULT_URL = "http://127.0.0.1:1234/v1/chat/completions";
 
 /**
  * Trim whitespace + ALL control chars (incl. trailing \n / \r) from an env
@@ -40,6 +52,51 @@ function cleanEnv(name: string): string | undefined {
   if (!raw) return undefined;
   const cleaned = raw.replace(/[\s\x00-\x1f\x7f]+$/u, "").replace(/^\s+/u, "");
   return cleaned || undefined;
+}
+
+/** Per-agent Claude model tier. ATLAS gets Opus (orchestrator). Specialists
+ *  that do real reasoning get Sonnet. Lightweight assistants (TRIAGE, NOVA,
+ *  community/social agents) get Haiku for speed + cost. Tier overrideable
+ *  via env: CC_CLAUDE_MODEL_ATLAS, CC_CLAUDE_MODEL_DEFAULT, etc. */
+const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
+  atlas: "opus",
+  themis: "sonnet",
+  drstrange: "sonnet",
+  simons: "sonnet",
+  kiyosaki: "sonnet",
+  proximon: "sonnet",
+  widow: "sonnet",
+  shuri: "sonnet",
+  aetherion: "sonnet",
+  selah: "sonnet",
+  prophets: "sonnet",
+  michael: "haiku",
+  themaestro: "haiku",
+  mercury: "haiku",
+  vee: "haiku",
+  ink: "haiku",
+  echo: "haiku",
+  haven: "haiku",
+  nova: "haiku",
+  triage: "haiku",
+};
+
+function modelForAgent(agentId: string): string {
+  const tier = AGENT_MODEL_TIER[agentId.toLowerCase()] ?? "sonnet";
+  const overrideOpus = cleanEnv("CC_CLAUDE_MODEL_OPUS");
+  const overrideSonnet = cleanEnv("CC_CLAUDE_MODEL_SONNET");
+  const overrideHaiku = cleanEnv("CC_CLAUDE_MODEL_HAIKU");
+  if (tier === "opus") return overrideOpus || "claude-opus-4-6";
+  if (tier === "sonnet") return overrideSonnet || "claude-sonnet-4-6";
+  return overrideHaiku || "claude-haiku-4-5";
+}
+
+/** LM Studio loads whatever model the user has selected in the desktop app,
+ *  and that model id is what /v1/chat/completions expects. When this env is
+ *  unset we omit the field and most LM Studio builds respond with the active
+ *  loaded model regardless; setting CC_LMSTUDIO_MODEL pins a specific one. */
+function modelForLMStudio(): string | undefined {
+  return cleanEnv("CC_LMSTUDIO_MODEL");
 }
 
 const AGENT_PERSONAS: Record<string, { role: string; style: string }> = {
@@ -83,7 +140,7 @@ function isGroupNoResponse(text: string): boolean {
   return /^\[NO_RESPONSE\]/i.test(t);
 }
 
-type ReplySource = "openclaw" | "gemini" | "deepseek" | "openrouter" | "fallback";
+type ReplySource = "openclaw" | "claude-max" | "lm-studio" | "fallback";
 
 /** Per-provider attempt diagnostic. Surfaced in the 502 payload + server logs
  *  so every "all providers failed" event has the exact failure reasons. */
@@ -119,11 +176,19 @@ async function generateAgentReply(
   let responseSource: ReplySource = "fallback";
   const attempts: ProviderAttempt[] = [];
 
+  // OpenClaw `sessions_send` is opt-in (OPENCLAW_CHAT_PRIMARY=1) because
+  // the Mac gateway has a known timeout issue (see project rules). Kept here
+  // so when Ramon wires real OpenClaw agent orchestration he can flip the
+  // switch without re-deploying. Default chat path goes straight to
+  // Claude Max proxy + LM Studio.
+  const openclawPrimary =
+    process.env.OPENCLAW_CHAT_PRIMARY === "1" ||
+    process.env.OPENCLAW_CHAT_PRIMARY === "true";
   const openclawStrict =
     singleTargetStrict &&
     (process.env.OPENCLAW_CHAT_STRICT === "1" || process.env.OPENCLAW_CHAT_STRICT === "true");
 
-  if (isOpenClawGatewayConfigured()) {
+  if (openclawPrimary && isOpenClawGatewayConfigured()) {
     const sessionKey = resolveChatSessionKey(target);
     const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${userMessage}`;
     const gw = await gatewaySessionsSend(sessionKey, routed, 90);
@@ -148,135 +213,122 @@ async function generateAgentReply(
       }
     }
   } else {
-    attempts.push({ provider: "openclaw", status: "skipped", detail: "not configured" });
+    attempts.push({
+      provider: "openclaw",
+      status: "skipped",
+      detail: openclawPrimary ? "gateway not configured" : "OPENCLAW_CHAT_PRIMARY != 1",
+    });
   }
 
-  const geminiKey = cleanEnv("GEMINI_API_KEY");
-  if (!agentResponse && geminiKey) {
+  // ── Claude Max proxy (primary). OpenAI-compatible, served locally by
+  //    Ramon's Claude Max bridge at :3456. No API spend.
+  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
+  if (!agentResponse) {
     try {
-      const res = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(geminiKey)}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: systemPrompt }] },
-          contents: [{ role: "user", parts: [{ text: userMessage }] }],
-          // System prompt caps replies at 100 words; 150 tokens fits that
-          // budget and keeps credit-constrained providers (OpenRouter
-          // pay-as-you-go) from rejecting with HTTP 402 "insufficient credit".
-          generationConfig: { maxOutputTokens: 150, temperature: 0.7 },
-        }),
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        agentResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || null;
-        if (agentResponse) {
-          responseSource = "gemini";
-          attempts.push({ provider: "gemini", status: "ok" });
-        } else {
-          attempts.push({ provider: "gemini", status: "error", detail: "empty candidates" });
-        }
-      } else {
-        attempts.push({ provider: "gemini", status: "error", detail: `HTTP ${res.status}` });
-      }
-    } catch (err) {
-      attempts.push({ provider: "gemini", status: "error", detail: `exception: ${err}` });
-      console.error("Gemini direct timeout/error:", err);
-    }
-  } else if (!agentResponse) {
-    attempts.push({ provider: "gemini", status: "skipped", detail: "GEMINI_API_KEY unset" });
-  }
-
-  const deepseekKey = cleanEnv("DEEPSEEK_API_KEY");
-  if (!agentResponse && deepseekKey) {
-    try {
-      const res = await fetch(DEEPSEEK_URL, {
+      const res = await fetch(claudeUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${deepseekKey}`,
+          Authorization: "Bearer not-needed",
         },
         body: JSON.stringify({
-          model: "deepseek-chat",
+          model: modelForAgent(target),
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },
           ],
-          max_tokens: 150,
+          max_tokens: 300,
           temperature: 0.7,
         }),
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(45_000),
       });
       if (res.ok) {
         const data = await res.json();
         agentResponse = data.choices?.[0]?.message?.content || null;
         if (agentResponse) {
-          responseSource = "deepseek";
-          attempts.push({ provider: "deepseek", status: "ok" });
+          responseSource = "claude-max";
+          attempts.push({ provider: "claude-max", status: "ok" });
         } else {
-          attempts.push({ provider: "deepseek", status: "error", detail: "empty choices" });
-        }
-      } else {
-        attempts.push({ provider: "deepseek", status: "error", detail: `HTTP ${res.status}` });
-      }
-    } catch (err) {
-      attempts.push({ provider: "deepseek", status: "error", detail: `exception: ${err}` });
-      console.error("DeepSeek direct timeout/error:", err);
-    }
-  } else if (!agentResponse) {
-    attempts.push({ provider: "deepseek", status: "skipped", detail: "DEEPSEEK_API_KEY unset" });
-  }
-
-  const openrouterKey = cleanEnv("OPENROUTER_API_KEY");
-  if (!agentResponse && openrouterKey) {
-    try {
-      const res = await fetch(OPENROUTER_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openrouterKey}`,
-          "HTTP-Referer": "https://parallaxvinc.com",
-          "X-Title": "Parallax Command Center",
-        },
-        body: JSON.stringify({
-          model: "anthropic/claude-sonnet-4",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
-          max_tokens: 150,
-          temperature: 0.7,
-        }),
-        signal: AbortSignal.timeout(30_000),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        agentResponse = data.choices?.[0]?.message?.content || null;
-        if (agentResponse) {
-          responseSource = "openrouter";
-          attempts.push({ provider: "openrouter", status: "ok" });
-        } else {
-          attempts.push({ provider: "openrouter", status: "error", detail: "empty choices" });
+          attempts.push({ provider: "claude-max", status: "error", detail: "empty choices" });
         }
       } else {
         const body = await res.text().catch(() => "");
         attempts.push({
-          provider: "openrouter",
+          provider: "claude-max",
           status: "error",
-          detail: `HTTP ${res.status}${body ? ` — ${body.slice(0, 160)}` : ""}`,
+          detail: `HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
         });
       }
     } catch (err) {
-      attempts.push({ provider: "openrouter", status: "error", detail: `exception: ${err}` });
-      console.error("OpenRouter fallback timeout/error:", err);
+      attempts.push({
+        provider: "claude-max",
+        status: "error",
+        detail: `exception: ${err instanceof Error ? err.message : err}`,
+      });
+      console.error("[chat] Claude Max proxy error:", err);
     }
-  } else if (!agentResponse) {
-    attempts.push({ provider: "openrouter", status: "skipped", detail: "OPENROUTER_API_KEY unset" });
+  }
+
+  // ── LM Studio (fallback). Loaded model whatever the user picked in the
+  //    LM Studio "Local Server" tab. Used only if Claude Max proxy fails.
+  const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
+  if (!agentResponse) {
+    try {
+      const lmModel = modelForLMStudio();
+      const lmBody: Record<string, unknown> = {
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 300,
+        temperature: 0.7,
+      };
+      if (lmModel) lmBody.model = lmModel;
+      const res = await fetch(lmStudioUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lmBody),
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        agentResponse = data.choices?.[0]?.message?.content || null;
+        if (agentResponse) {
+          responseSource = "lm-studio";
+          attempts.push({ provider: "lm-studio", status: "ok" });
+        } else {
+          attempts.push({ provider: "lm-studio", status: "error", detail: "empty choices" });
+        }
+      } else {
+        const body = await res.text().catch(() => "");
+        attempts.push({
+          provider: "lm-studio",
+          status: "error",
+          detail: `HTTP ${res.status}${body ? ` — ${body.slice(0, 200)}` : ""}`,
+        });
+      }
+    } catch (err) {
+      // Most common: LM Studio's Local Server isn't started → ECONNREFUSED.
+      // We treat this as a soft skip so it doesn't dominate the diagnostic.
+      const msg = err instanceof Error ? err.message : String(err);
+      const econnrefused = /ECONNREFUSED|fetch failed/i.test(msg);
+      attempts.push({
+        provider: "lm-studio",
+        status: econnrefused ? "skipped" : "error",
+        detail: econnrefused
+          ? "LM Studio Local Server not running (start it in LM Studio → Local Server tab)"
+          : `exception: ${msg}`,
+      });
+    }
   }
 
   if (!agentResponse) {
     console.error(`[chat] all providers failed for ${target}:`, JSON.stringify(attempts));
-    agentResponse = `${displayName} is temporarily unavailable. Please try again in a moment.`;
+    // We deliberately do NOT mint a soothing "temporarily unavailable" line
+    // here. The chat UI now shows the real attempt log so Ramon sees exactly
+    // which backend died and why. The `responseSource` stays "fallback" so
+    // the POST handler returns 502 instead of pretending everything is fine.
+    agentResponse = "";
     responseSource = "fallback";
   }
 
@@ -359,8 +411,15 @@ export async function POST(req: NextRequest) {
       if (groupMode && isGroupNoResponse(text)) {
         continue;
       }
+      // Skip empty fallback replies — they happen when every backend failed.
+      // We DO still track them in fallbackOnlyTargets so the POST below knows
+      // to return 502 with the attempt log instead of silently dropping the
+      // user's message.
+      if (r.source === "fallback" || !text) {
+        fallbackOnlyTargets.push(target);
+        continue;
+      }
       responses.push({ agent: target, response: text, source: r.source });
-      if (r.source === "fallback") fallbackOnlyTargets.push(target);
 
       if (svc && channelId) {
         const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -371,7 +430,7 @@ export async function POST(req: NextRequest) {
           content: text,
           tenant_id: "11111111-1111-1111-1111-111111111111",
           attachments: [],
-          status: r.source === "fallback" ? "failed" : "sent",
+          status: "sent",
           ...(threadUuid ? { thread_parent_id: threadUuid } : {}),
         });
         if (insertErr) {
@@ -380,20 +439,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If every reply came from the static "fallback" branch (no provider responded),
-    // surface this as a 502 so the UI can show a real error instead of silent text.
+    // If NO agent produced a real reply (all fallback / rejected), return
+    // 502 with the structured attempt log so the chat UI can render the
+    // actual reason (which backend died) instead of a soothing lie.
     if (
-      responses.length > 0 &&
-      fallbackOnlyTargets.length === responses.length &&
-      rejectedTargets.length === 0
+      responses.length === 0 &&
+      (fallbackOnlyTargets.length > 0 || rejectedTargets.length > 0)
     ) {
       return NextResponse.json(
         {
           ok: false,
-          error: "All chat providers (OpenClaw, Gemini, DeepSeek, OpenRouter) failed or are not configured.",
+          error:
+            "No chat backend responded. Check that the Claude Max proxy is running on http://127.0.0.1:3456, or start LM Studio's Local Server.",
           source: "fallback",
           targets,
           attempts: allAttempts,
+          rejected: rejectedTargets,
         },
         { status: 502 }
       );
