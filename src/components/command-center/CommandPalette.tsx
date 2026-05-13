@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AGENT_UI, AGENT_ORBIT_IDS, type OrbitAgentId } from "@/app/command-center/dashboard-agents";
+import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
 
 const TOKENS = {
   bg: "rgba(10,10,10,0.92)",
@@ -42,7 +43,12 @@ interface ActionEntry extends BaseEntry {
   action: () => void;
 }
 
-type PaletteEntry = RouteEntry | AgentEntry | ActionEntry;
+interface GlobalEntry extends BaseEntry {
+  kind: "global";
+  data: GlobalSearchResult;
+}
+
+type PaletteEntry = RouteEntry | AgentEntry | ActionEntry | GlobalEntry;
 
 const ROUTES: RouteEntry[] = [
   { kind: "route", id: "dashboard", label: "Dashboard", hint: "Mission control", icon: "◇", accent: TOKENS.gold, href: "/command-center", keywords: "home" },
@@ -179,6 +185,22 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
     [actions]
   );
 
+  const global = useGlobalSearch(query, open);
+
+  const globalEntries: GlobalEntry[] = useMemo(
+    () =>
+      global.results.map((r) => ({
+        kind: "global" as const,
+        id: r.id,
+        label: r.title,
+        hint: r.subtitle,
+        icon: r.kind === "message" ? "◈" : r.kind === "doc" ? "≡" : "◎",
+        accent: r.accent,
+        data: r,
+      })),
+    [global.results]
+  );
+
   const results = useMemo<PaletteEntry[]>(() => {
     const q = query.trim();
     if (!q) {
@@ -191,12 +213,13 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       const blob = `${e.label} ${e.hint ?? ""} ${e.keywords ?? ""}`;
       return { e, s: fuzzyScore(blob, q) };
     });
-    return scored
+    const localTop = scored
       .filter((r) => r.s > 0)
       .sort((a, b) => b.s - a.s || a.e.label.localeCompare(b.e.label))
-      .slice(0, 40)
+      .slice(0, 16)
       .map((r) => r.e);
-  }, [allEntries, actions, query]);
+    return [...localTop, ...globalEntries];
+  }, [allEntries, actions, globalEntries, query]);
 
   const execute = useCallback(
     (entry: PaletteEntry) => {
@@ -205,6 +228,8 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
         router.push(entry.href);
       } else if (entry.kind === "agent") {
         router.push(`/command-center/chat#dm=${entry.agentId}`);
+      } else if (entry.kind === "global") {
+        router.push(entry.data.href);
       } else {
         entry.action();
       }
@@ -341,15 +366,49 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
         </div>
 
         <div ref={listRef} style={{ overflowY: "auto", padding: 6 }}>
+          {global.loading && (
+            <div
+              style={{
+                padding: "6px 12px",
+                fontFamily: "monospace",
+                fontSize: 10,
+                letterSpacing: "0.12em",
+                color: TOKENS.purpleSoft,
+                textTransform: "uppercase" as const,
+              }}
+            >
+              Searching messages · docs · memory…
+            </div>
+          )}
+          {global.unavailable && (
+            <div
+              style={{
+                padding: "6px 12px",
+                fontFamily: "monospace",
+                fontSize: 10,
+                color: TOKENS.textMuted,
+              }}
+            >
+              Message search disabled — set SUPABASE_SERVICE_ROLE_KEY on the server.
+            </div>
+          )}
           {results.length === 0 ? (
             <div style={{ padding: 18, color: TOKENS.textMuted, fontSize: 13, textAlign: "center" }}>
-              No matches. Try an agent name, page, or “refresh”.
+              {global.loading
+                ? "Looking across the system…"
+                : "No matches. Try an agent name, page, or “refresh”."}
             </div>
           ) : (
             results.map((entry, idx) => {
               const active = idx === activeIdx;
               const kindLabel =
-                entry.kind === "route" ? "Page" : entry.kind === "agent" ? "Agent" : "Action";
+                entry.kind === "route"
+                  ? "Page"
+                  : entry.kind === "agent"
+                    ? "Agent"
+                    : entry.kind === "global"
+                      ? entry.data.meta ?? "Result"
+                      : "Action";
               return (
                 <button
                   key={entry.id}

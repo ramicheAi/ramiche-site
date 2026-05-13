@@ -636,7 +636,11 @@ export default function CommandCenterChatPage() {
       }
 
       const voice = params.get("voice");
-      const consumed = !!(dm || voice);
+      const msgId = params.get("msg");
+      if (msgId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(msgId)) {
+        setPendingScrollToMessageId(msgId);
+      }
+      const consumed = !!(dm || voice || msgId);
       if (consumed) {
         try {
           window.history.replaceState(null, "", window.location.pathname + window.location.search);
