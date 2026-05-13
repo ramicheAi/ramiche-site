@@ -6,21 +6,26 @@ import { playVoiceReply, type VoicePlaybackHandle } from "@/lib/voice-playback";
 
 const AUTO_KEY = "cc-briefing-auto";
 const LAST_DATE_KEY = "cc-briefing-last-date";
+const COMPOSE_CACHE_KEY = "cc-briefing-compose-cache";
 const AUTO_DELAY_MS = 1800;
+const COMPOSE_TTL_MS = 12 * 60 * 60 * 1000;
 
 export type BriefingStatus = "idle" | "loading" | "ready" | "speaking" | "error";
+export type BriefingSource = "deterministic" | "atlas";
 
 export interface UseBriefingResult {
   status: BriefingStatus;
   open: boolean;
   setOpen: (open: boolean) => void;
   briefing: ComposedBriefing | null;
+  source: BriefingSource;
   raw: BriefingInput | null;
   autoEnabled: boolean;
   setAutoEnabled: (v: boolean) => void;
   speak: () => Promise<void>;
   stop: () => void;
   refresh: () => Promise<void>;
+  regenerate: () => Promise<void>;
   lastUpdated: string | null;
 }
 
@@ -80,6 +85,55 @@ function hasSpokenToday(): boolean {
   }
 }
 
+interface ComposeCacheEntry {
+  date: string;
+  cachedAt: number;
+  spoken: string;
+  bullets: string[];
+  greeting: string;
+  source: BriefingSource;
+}
+
+function loadComposeCache(): ComposeCacheEntry | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(COMPOSE_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ComposeCacheEntry;
+    if (parsed.date !== todayKey()) return null;
+    if (Date.now() - parsed.cachedAt > COMPOSE_TTL_MS) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveComposeCache(entry: ComposeCacheEntry): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(COMPOSE_CACHE_KEY, JSON.stringify(entry));
+  } catch {
+    /* ignore */
+  }
+}
+
+function clearComposeCache(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(COMPOSE_CACHE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+interface ComposeResponse {
+  ok?: boolean;
+  source?: BriefingSource;
+  greeting?: string;
+  spoken?: string;
+  bullets?: string[];
+}
+
 export function useBriefing(): UseBriefingResult {
   const [status, setStatus] = useState<BriefingStatus>("idle");
   const [open, setOpen] = useState(false);
@@ -87,12 +141,20 @@ export function useBriefing(): UseBriefingResult {
   const [autoEnabled, setAutoEnabledState] = useState<boolean>(true);
   const [hydrated, setHydrated] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
+  const [override, setOverride] = useState<ComposedBriefing | null>(null);
+  const [source, setSource] = useState<BriefingSource>("deterministic");
   const playbackRef = useRef<VoicePlaybackHandle | null>(null);
   const autoFiredRef = useRef(false);
+  const composeInflightRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     setHydrated(true);
     setAutoEnabledState(loadAutoEnabled());
+    const cached = loadComposeCache();
+    if (cached) {
+      setOverride({ greeting: cached.greeting, spoken: cached.spoken, bullets: cached.bullets });
+      setSource(cached.source);
+    }
   }, []);
 
   const refresh = useCallback(async () => {
@@ -150,7 +212,78 @@ export function useBriefing(): UseBriefingResult {
     void refresh();
   }, [refresh]);
 
-  const composed = useMemo(() => (raw ? composeBriefing(raw) : null), [raw]);
+  const baseline = useMemo(() => (raw ? composeBriefing(raw) : null), [raw]);
+  const composed = useMemo<ComposedBriefing | null>(
+    () => override ?? baseline,
+    [override, baseline]
+  );
+
+  const runCompose = useCallback(
+    async (force = false) => {
+      if (!raw) return;
+      if (composeInflightRef.current) return composeInflightRef.current;
+      if (!force) {
+        const cached = loadComposeCache();
+        if (cached) {
+          setOverride({ greeting: cached.greeting, spoken: cached.spoken, bullets: cached.bullets });
+          setSource(cached.source);
+          return;
+        }
+      }
+      const task = (async () => {
+        try {
+          const res = await fetch("/api/command-center/briefing/compose", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ facts: raw }),
+          });
+          if (!res.ok) return;
+          const data = (await res.json()) as ComposeResponse;
+          if (!data.ok || !data.spoken || !data.greeting || !data.bullets) return;
+          const next: ComposedBriefing = {
+            greeting: data.greeting,
+            spoken: data.spoken,
+            bullets: data.bullets,
+          };
+          setOverride(next);
+          setSource(data.source ?? "deterministic");
+          if (data.source === "atlas") {
+            saveComposeCache({
+              date: todayKey(),
+              cachedAt: Date.now(),
+              greeting: next.greeting,
+              spoken: next.spoken,
+              bullets: next.bullets,
+              source: "atlas",
+            });
+          }
+        } catch {
+          /* keep deterministic fallback */
+        }
+      })();
+      composeInflightRef.current = task;
+      try {
+        await task;
+      } finally {
+        composeInflightRef.current = null;
+      }
+    },
+    [raw]
+  );
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!baseline) return;
+    if (override) return;
+    void runCompose(false);
+  }, [hydrated, baseline, override, runCompose]);
+
+  const regenerate = useCallback(async () => {
+    clearComposeCache();
+    setOverride(null);
+    setSource("deterministic");
+    await runCompose(true);
+  }, [runCompose]);
 
   const stop = useCallback(() => {
     playbackRef.current?.stop();
@@ -204,12 +337,14 @@ export function useBriefing(): UseBriefingResult {
     open,
     setOpen,
     briefing: composed,
+    source,
     raw,
     autoEnabled,
     setAutoEnabled,
     speak,
     stop,
     refresh,
+    regenerate,
     lastUpdated,
   };
 }

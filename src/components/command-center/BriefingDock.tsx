@@ -28,11 +28,13 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
     setOpen,
     status,
     briefing,
+    source,
     autoEnabled,
     setAutoEnabled,
     speak,
     stop,
     refresh,
+    regenerate,
     lastUpdated,
   } = briefingState;
 
@@ -113,12 +115,31 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
         <span
           style={{
             marginLeft: "auto",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
             fontFamily: "monospace",
             fontSize: 10,
             color: TOKENS.textMuted,
             letterSpacing: "0.08em",
           }}
         >
+          <span
+            aria-label={source === "atlas" ? "Atlas-personalised brief" : "Deterministic brief"}
+            style={{
+              padding: "2px 6px",
+              borderRadius: 4,
+              border: `1px solid ${source === "atlas" ? `${TOKENS.gold}66` : TOKENS.border}`,
+              background: source === "atlas" ? `${TOKENS.gold}1a` : "transparent",
+              color: source === "atlas" ? TOKENS.gold : TOKENS.textDim,
+              fontSize: 9,
+              letterSpacing: "0.16em",
+              textTransform: "uppercase" as const,
+              fontWeight: 700,
+            }}
+          >
+            {source === "atlas" ? "Atlas" : "Auto"}
+          </span>
           {speaking ? "SPEAKING" : loading ? "SYNCING" : status === "error" ? "ERROR" : "READY"}
         </span>
         <button
@@ -312,6 +333,29 @@ export function BriefingDock({ briefingState }: BriefingDockProps) {
           }}
         >
           {speaking ? "Stop" : "Speak briefing"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => void regenerate()}
+          aria-label="Regenerate via Atlas"
+          title="Ask Atlas to rewrite the brief"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 8,
+            border: `1px solid ${TOKENS.border}`,
+            background: TOKENS.card,
+            color: TOKENS.gold,
+            cursor: "pointer",
+            fontSize: 12,
+            fontFamily: "monospace",
+            fontWeight: 700,
+            letterSpacing: "0.08em",
+            lineHeight: 1,
+          }}
+        >
+          ATL
         </button>
 
         <button
