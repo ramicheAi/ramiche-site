@@ -615,6 +615,73 @@ export default function CommandCenterChatPage() {
     };
   }, []);
 
+  /* ── HUD / wake-word deep-links: #dm=<id> selects an agent DM; #voice=auto or recent
+     sessionStorage `cc-wake-trigger` auto-starts the mic. Also listens for the
+     custom `cc:wake` event so wake triggers while the user is already on /chat
+     re-fire voice capture. ── */
+  useEffect(() => {
+    const tryDeepLink = () => {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (!hash) return false;
+      const params = new URLSearchParams(hash);
+
+      const dm = params.get("dm");
+      if (dm) {
+        const agent = DEFAULT_AGENTS.find((a) => a.id === dm.toLowerCase());
+        if (agent) {
+          setActiveAgent(agent);
+          setActiveChannel(null);
+          setViewMode("dm");
+        }
+      }
+
+      const voice = params.get("voice");
+      const consumed = !!(dm || voice);
+      if (consumed) {
+        try {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        } catch {
+          /* ignore */
+        }
+      }
+      return voice === "auto";
+    };
+
+    const consumeWakeTrigger = (): boolean => {
+      try {
+        const raw = sessionStorage.getItem("cc-wake-trigger");
+        if (!raw) return false;
+        const ts = Number(raw);
+        sessionStorage.removeItem("cc-wake-trigger");
+        return Number.isFinite(ts) && Date.now() - ts < 5000;
+      } catch {
+        return false;
+      }
+    };
+
+    const wantsVoice = tryDeepLink() || consumeWakeTrigger();
+    if (wantsVoice) {
+      window.setTimeout(() => {
+        try {
+          voiceLoop.startListening();
+        } catch {
+          /* ignore */
+        }
+      }, 500);
+    }
+
+    const onWake = () => {
+      if (voiceLoop.state !== "idle") return;
+      try {
+        voiceLoop.startListening();
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener("cc:wake", onWake);
+    return () => window.removeEventListener("cc:wake", onWake);
+  }, [voiceLoop]);
+
   /* ── keep agentsRef in sync ── */
   useEffect(() => {
     agentsRef.current = agents;

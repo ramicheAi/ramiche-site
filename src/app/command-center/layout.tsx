@@ -5,6 +5,8 @@ import Sidebar from '@/components/command-center/Sidebar';
 import { CommandHUD } from '@/components/command-center/CommandHUD';
 import { BriefingDock } from '@/components/command-center/BriefingDock';
 import { useBriefing } from '@/hooks/useBriefing';
+import { useWakeWord } from '@/hooks/useWakeWord';
+import { useRouter, usePathname } from 'next/navigation';
 
 const MAX_PIN_DIGITS = 12;
 /** Session + idle; PIN verified via /api/command-center/auth/pin (`CC_PIN_HASH` / `CC_PIN`). Production requires one of them; local dev may use fallback when `NODE_ENV=development` or `CC_PIN_ALLOW_DEV=1`. */
@@ -316,6 +318,9 @@ export default function CommandCenterLayout({
   return <CommandCenterShell onLock={lock}>{children}</CommandCenterShell>;
 }
 
+const WAKE_PREF_KEY = 'cc-wake-enabled';
+const WAKE_TRIGGER_KEY = 'cc-wake-trigger';
+
 function CommandCenterShell({
   children,
   onLock,
@@ -324,6 +329,48 @@ function CommandCenterShell({
   onLock: () => void;
 }) {
   const briefingState = useBriefing();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [wakeEnabled, setWakeEnabled] = useState(false);
+
+  useEffect(() => {
+    try {
+      setWakeEnabled(window.localStorage.getItem(WAKE_PREF_KEY) === '1');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const handleWake = useCallback(
+    (heard: string) => {
+      try {
+        sessionStorage.setItem(WAKE_TRIGGER_KEY, String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+      if (pathname !== '/command-center/chat') {
+        router.push('/command-center/chat#voice=auto');
+      } else {
+        window.dispatchEvent(new CustomEvent('cc:wake', { detail: { heard } }));
+      }
+    },
+    [pathname, router]
+  );
+
+  const wake = useWakeWord({ enabled: wakeEnabled, onWake: handleWake });
+
+  const toggleWake = useCallback(() => {
+    setWakeEnabled((prev) => {
+      const next = !prev;
+      try {
+        window.localStorage.setItem(WAKE_PREF_KEY, next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0a0a' }}>
       <Sidebar />
@@ -332,6 +379,9 @@ function CommandCenterShell({
         onToggleBriefing={() => briefingState.setOpen(!briefingState.open)}
         briefingOpen={briefingState.open}
         briefingSpeaking={briefingState.status === 'speaking'}
+        wakeEnabled={wakeEnabled}
+        wakeStatus={wake.status}
+        onToggleWake={toggleWake}
       />
       <BriefingDock briefingState={briefingState} />
       <div

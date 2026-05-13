@@ -106,9 +106,20 @@ interface CommandHUDProps {
   onToggleBriefing?: () => void;
   briefingOpen?: boolean;
   briefingSpeaking?: boolean;
+  wakeEnabled?: boolean;
+  wakeStatus?: "idle" | "listening" | "triggered" | "unsupported" | "denied";
+  onToggleWake?: () => void;
 }
 
-export function CommandHUD({ onLock, onToggleBriefing, briefingOpen, briefingSpeaking }: CommandHUDProps) {
+export function CommandHUD({
+  onLock,
+  onToggleBriefing,
+  briefingOpen,
+  briefingSpeaking,
+  wakeEnabled,
+  wakeStatus,
+  onToggleWake,
+}: CommandHUDProps) {
   const status = useSystemStatus();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
@@ -331,6 +342,84 @@ export function CommandHUD({ onLock, onToggleBriefing, briefingOpen, briefingSpe
             marginLeft: "auto",
           }}
         >
+          {onToggleWake && (
+            <button
+              type="button"
+              onClick={onToggleWake}
+              aria-label={wakeEnabled ? "Disable wake word" : "Enable wake word"}
+              aria-pressed={wakeEnabled}
+              title={
+                wakeStatus === "unsupported"
+                  ? "Wake word not supported in this browser"
+                  : wakeStatus === "denied"
+                    ? "Microphone permission denied"
+                    : wakeEnabled
+                      ? "Wake word listening — say 'Atlas'"
+                      : "Enable wake word"
+              }
+              disabled={wakeStatus === "unsupported"}
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: `1px solid ${
+                  wakeStatus === "triggered"
+                    ? `${TOKENS.gold}88`
+                    : wakeEnabled && wakeStatus === "listening"
+                      ? `${TOKENS.cyan}66`
+                      : TOKENS.border
+                }`,
+                background:
+                  wakeEnabled && wakeStatus === "listening"
+                    ? "rgba(0,240,255,0.12)"
+                    : wakeStatus === "triggered"
+                      ? "rgba(201,168,76,0.18)"
+                      : TOKENS.card,
+                color:
+                  wakeStatus === "triggered"
+                    ? TOKENS.gold
+                    : wakeStatus === "denied" || wakeStatus === "unsupported"
+                      ? TOKENS.textMuted
+                      : wakeEnabled
+                        ? TOKENS.cyan
+                        : TOKENS.textDim,
+                cursor: wakeStatus === "unsupported" ? "not-allowed" : "pointer",
+                fontSize: 13,
+                boxShadow:
+                  wakeEnabled && wakeStatus === "listening"
+                    ? `0 0 12px ${TOKENS.cyan}55`
+                    : wakeStatus === "triggered"
+                      ? `0 0 18px ${TOKENS.gold}88`
+                      : "none",
+                transition: "border-color 150ms ease, background 150ms ease, box-shadow 150ms ease",
+              }}
+            >
+              <span aria-hidden style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.16em", fontWeight: 700 }}>
+                WAKE
+              </span>
+              {wakeEnabled && wakeStatus === "listening" && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    top: -3,
+                    right: -3,
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: TOKENS.cyan,
+                    boxShadow: `0 0 8px ${TOKENS.cyan}`,
+                    animation: "ccHudPulse 1.8s ease-in-out infinite",
+                  }}
+                />
+              )}
+            </button>
+          )}
+
           {onToggleBriefing && (
             <button
               type="button"
