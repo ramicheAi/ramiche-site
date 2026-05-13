@@ -4,7 +4,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import Sidebar from '@/components/command-center/Sidebar';
 import { CommandHUD } from '@/components/command-center/CommandHUD';
 import { BriefingDock } from '@/components/command-center/BriefingDock';
+import { PulseDock } from '@/components/command-center/PulseDock';
 import { useBriefing } from '@/hooks/useBriefing';
+import { useChatPulse } from '@/hooks/useChatPulse';
 import { useWakeWord } from '@/hooks/useWakeWord';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -329,9 +331,11 @@ function CommandCenterShell({
   onLock: () => void;
 }) {
   const briefingState = useBriefing();
+  const pulse = useChatPulse();
   const router = useRouter();
   const pathname = usePathname();
   const [wakeEnabled, setWakeEnabled] = useState(false);
+  const [pulseOpen, setPulseOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -382,8 +386,14 @@ function CommandCenterShell({
         wakeEnabled={wakeEnabled}
         wakeStatus={wake.status}
         onToggleWake={toggleWake}
+        onTogglePulse={() => {
+          setPulseOpen((o) => !o);
+        }}
+        pulseOpen={pulseOpen}
+        pulse={pulse}
       />
       <BriefingDock briefingState={briefingState} />
+      <PulseDock open={pulseOpen} pulse={pulse} onClose={() => setPulseOpen(false)} />
       <div
         id="cc-content"
         style={{

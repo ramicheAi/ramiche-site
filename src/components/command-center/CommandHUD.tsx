@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette } from "./CommandPalette";
 import { StatusDock, type StatusTab } from "./StatusDock";
 import { useSystemStatus, type ServiceState } from "@/hooks/useSystemStatus";
+import type { ChatPulse } from "@/hooks/useChatPulse";
 
 const TOKENS = {
   bg: "rgba(10,10,10,0.78)",
@@ -130,6 +131,9 @@ interface CommandHUDProps {
   wakeEnabled?: boolean;
   wakeStatus?: "idle" | "listening" | "triggered" | "unsupported" | "denied";
   onToggleWake?: () => void;
+  onTogglePulse?: () => void;
+  pulseOpen?: boolean;
+  pulse?: ChatPulse;
 }
 
 export function CommandHUD({
@@ -140,6 +144,9 @@ export function CommandHUD({
   wakeEnabled,
   wakeStatus,
   onToggleWake,
+  onTogglePulse,
+  pulseOpen,
+  pulse,
 }: CommandHUDProps) {
   const status = useSystemStatus();
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -379,6 +386,66 @@ export function CommandHUD({
             marginLeft: "auto",
           }}
         >
+          {onTogglePulse && (
+            <button
+              type="button"
+              onClick={onTogglePulse}
+              aria-label={pulseOpen ? "Close chat pulse" : "Open chat pulse"}
+              aria-pressed={pulseOpen}
+              title={
+                pulse?.available === false
+                  ? "Chat pulse offline (no service role)"
+                  : `${pulse?.unread ?? 0} unread · ${pulse?.pinnedCount ?? 0} pinned`
+              }
+              style={{
+                position: "relative",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: `1px solid ${pulseOpen ? `${TOKENS.cyan}66` : TOKENS.border}`,
+                background: pulseOpen ? "rgba(0,240,255,0.14)" : TOKENS.card,
+                color: pulse?.available === false ? TOKENS.textMuted : TOKENS.cyan,
+                cursor: "pointer",
+                fontSize: 13,
+                boxShadow: pulseOpen ? `0 0 14px ${TOKENS.cyan}55` : "none",
+                transition: "border-color 150ms ease, background 150ms ease, box-shadow 150ms ease",
+              }}
+            >
+              <span aria-hidden style={{ fontFamily: "monospace", fontSize: 10, letterSpacing: "0.16em", fontWeight: 700 }}>
+                ◐
+              </span>
+              {pulse && pulse.unread > 0 && (
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    minWidth: 16,
+                    height: 16,
+                    padding: "0 4px",
+                    borderRadius: 999,
+                    background: TOKENS.cyan,
+                    color: "#001318",
+                    fontFamily: "monospace",
+                    fontSize: 9,
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    letterSpacing: "0.04em",
+                    boxShadow: `0 0 10px ${TOKENS.cyan}88`,
+                  }}
+                >
+                  {pulse.unread > 99 ? "99+" : pulse.unread}
+                </span>
+              )}
+            </button>
+          )}
+
           {onToggleWake && (
             <button
               type="button"
