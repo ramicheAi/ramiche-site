@@ -4,14 +4,40 @@ import { createHash, timingSafeEqual } from "crypto";
 export const dynamic = "force-dynamic";
 
 /**
- * POST { pin: string }
+ * Command Center PIN gate.
+ *
+ * POST { pin: string } — verify PIN.
+ * GET — preflight `{ ready, localDevDefaultPin? }` (no secrets); use so the UI can explain misconfiguration before the user types.
+ *
  * Set `CC_PIN_HASH` to sha256 hex of the PIN (e.g. `echo -n '2451' | shasum -a 256`),
  * or `CC_PIN` for plaintext comparison on trusted hosts only.
  *
  * Dev-only fallback PIN `2451` runs only when neither env is set and either
  * `NODE_ENV === "development"` or `CC_PIN_ALLOW_DEV=1` (e.g. local `next start` testing).
- * Production / Vercel: configure `CC_PIN_HASH` or all PIN checks fail closed.
+ * Production / Vercel: configure `CC_PIN_HASH` or `CC_PIN`, or PIN checks return 503.
  */
+/** True when POST / pin verification can succeed (env or dev fallback). */
+function pinVerificationAvailable(): boolean {
+  const hashEnv = process.env.CC_PIN_HASH?.trim();
+  const plainEnv = process.env.CC_PIN?.trim();
+  const allowDevFallback =
+    process.env.NODE_ENV === "development" || process.env.CC_PIN_ALLOW_DEV === "1";
+  return !!(hashEnv || plainEnv || allowDevFallback);
+}
+
+/** Preflight for the UI — no secrets. */
+export async function GET() {
+  const ready = pinVerificationAvailable();
+  const devOnly =
+    process.env.NODE_ENV === "development" &&
+    !process.env.CC_PIN_HASH?.trim() &&
+    !process.env.CC_PIN?.trim();
+  return NextResponse.json({
+    ready,
+    ...(devOnly ? ({ localDevDefaultPin: true } as const) : {}),
+  });
+}
+
 export async function POST(req: NextRequest) {
   let pin = "";
   try {

@@ -40,9 +40,30 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
   const [error, setError] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [serverMsg, setServerMsg] = useState<string | null>(null);
+  const [devPinHint, setDevPinHint] = useState(false);
   const hiddenInputRef = useRef<HTMLInputElement>(null);
   const verifyingRef = useRef(false);
 
+  useEffect(() => {
+    void fetch("/api/command-center/auth/pin", { cache: "no-store" })
+      .then(async (res) => {
+        if (!res.ok) throw new Error("pin-preflight-failed");
+        return res.json() as Promise<{ ready?: boolean; localDevDefaultPin?: boolean }>;
+      })
+      .then((j) => {
+        setDevPinHint(j.localDevDefaultPin === true);
+        if (j.ready === false) {
+          setServerMsg(
+            "PIN is not configured on the server (production unlock is disabled). " +
+              "In Vercel → Settings → Environment Variables, add CC_PIN_HASH (SHA-256 hex of your PIN) or CC_PIN. " +
+              "Redeploy after saving. Temporary preview-only: CC_PIN_ALLOW_DEV=1 enables the documented dev PIN (use with care)."
+          );
+        }
+      })
+      .catch(() => {
+        setServerMsg("Could not reach the server for PIN verification. Check your connection, deployment status, or try again.");
+      });
+  }, []);
   const handleKey = useCallback((digit: string) => {
     if (verifyingRef.current) return;
     if (digit === 'clear') { setPin(''); setError(false); setServerMsg(null); return; }
@@ -77,6 +98,7 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
         .catch(() => {
           setError(true);
           setPin('');
+          setServerMsg("Network error while verifying PIN. Check your connection and try again.");
           setTimeout(() => setError(false), 600);
         })
         .finally(() => {
@@ -143,6 +165,11 @@ function PinGate({ onUnlock }: { onUnlock: () => void }) {
       <h1 style={{ color: '#fff', fontSize: 24, marginBottom: 8, fontFamily: 'monospace' }}>
         ENTER ACCESS PIN
       </h1>
+      {devPinHint && !serverMsg && (
+        <p style={{ color: '#737373', fontSize: 11, maxWidth: 360, textAlign: 'center', marginBottom: 12, lineHeight: 1.5, fontFamily: 'monospace' }}>
+          Local dev: default PIN is 2451 when CC_PIN_HASH / CC_PIN are unset.
+        </p>
+      )}
       {serverMsg && (
         <p style={{ color: '#f87171', fontSize: 12, maxWidth: 320, textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
           {serverMsg}
@@ -229,7 +256,45 @@ export default function CommandCenterLayout({
   // Until we've checked sessionStorage on the client, render a minimal
   // placeholder that matches the server output to keep hydration stable.
   if (!hydrated) {
-    return <div style={{ minHeight: '100vh', background: '#0a0a0a' }} />;
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#0a0a0a',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 16,
+        }}
+      >
+        <p
+          style={{
+            color: '#888888',
+            fontSize: 11,
+            fontFamily: 'monospace',
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase' as const,
+            margin: 0,
+          }}
+        >
+          Command Center · Initializing
+        </p>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: '50%',
+            border: '2px solid rgba(124,58,237,0.35)',
+            borderTopColor: '#7c3aed',
+            animation: 'ccHydrateSpin 0.85s linear infinite',
+          }}
+        />
+        <style>{`
+          @keyframes ccHydrateSpin { to { transform: rotate(360deg); } }
+        `}</style>
+      </div>
+    );
   }
 
   if (!authed) {
