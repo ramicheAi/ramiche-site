@@ -5,6 +5,7 @@ import Sidebar from '@/components/command-center/Sidebar';
 import { CommandHUD } from '@/components/command-center/CommandHUD';
 import { BriefingDock } from '@/components/command-center/BriefingDock';
 import { PulseDock } from '@/components/command-center/PulseDock';
+import { PushToast } from '@/components/command-center/PushToast';
 import { useBriefing } from '@/hooks/useBriefing';
 import { useChatPulse } from '@/hooks/useChatPulse';
 import { useWakeWord } from '@/hooks/useWakeWord';
@@ -394,6 +395,7 @@ function CommandCenterShell({
       />
       <BriefingDock briefingState={briefingState} />
       <PulseDock open={pulseOpen} pulse={pulse} onClose={() => setPulseOpen(false)} />
+      <PushToast />
       <div
         id="cc-content"
         style={{
