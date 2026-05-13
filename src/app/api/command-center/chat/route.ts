@@ -220,16 +220,22 @@ async function generateAgentReply(
     });
   }
 
-  // ── Claude Max proxy (primary). OpenAI-compatible, served locally by
-  //    Ramon's Claude Max bridge at :3456. No API spend.
+  // ── Claude Max proxy (primary). OpenAI-compatible.
+  //    Locally  : Ramon's Claude Max bridge at http://127.0.0.1:3456 (no token).
+  //    Publicly : token-auth proxy at https://claude.parallaxvinc.com (port 9999
+  //               behind cloudflared) so Vercel-hosted parallaxvinc.com can also
+  //               reach the same Claude Max subscription.
+  //    CLAUDE_MAX_PROXY_TOKEN is sent as Bearer when set; if empty we fall
+  //    back to "not-needed" which the local bridge accepts.
   const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
+  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
   if (!agentResponse) {
     try {
       const res = await fetch(claudeUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: "Bearer not-needed",
+          Authorization: `Bearer ${claudeToken}`,
         },
         body: JSON.stringify({
           model: modelForAgent(target),
