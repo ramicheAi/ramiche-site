@@ -54,3 +54,6 @@ public/projects/meridian-repo/
 public/projects/parallaxbet-data/
 
 public/projects/sz-open-water-2027/
+
+# YOLO build artifacts (local only, not needed for production)
+public/yolo-builds/
