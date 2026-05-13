@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CommandPalette } from "./CommandPalette";
+import { StatusDock, type StatusTab } from "./StatusDock";
 import { useSystemStatus, type ServiceState } from "@/hooks/useSystemStatus";
 
 const TOKENS = {
@@ -55,25 +56,33 @@ function Pill({
   state,
   accent,
   hint,
+  onClick,
+  active,
 }: {
   label: string;
   value: string;
   state: ServiceState;
   accent?: string;
   hint?: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
   const dot = STATE_COLOR[state];
   const accentColor = accent ?? dot;
   return (
-    <div
+    <button
+      type="button"
+      onClick={onClick}
       title={hint}
+      aria-label={`${label} status: open detail`}
+      aria-pressed={active}
       style={{
         display: "flex",
         alignItems: "center",
         gap: 8,
         padding: "5px 10px",
-        background: "rgba(255,255,255,0.02)",
-        border: `1px solid ${TOKENS.border}`,
+        background: active ? `${accentColor}1a` : "rgba(255,255,255,0.02)",
+        border: `1px solid ${active ? `${accentColor}66` : TOKENS.border}`,
         borderRadius: 999,
         fontFamily: "monospace",
         fontSize: 10,
@@ -81,6 +90,18 @@ function Pill({
         whiteSpace: "nowrap" as const,
         height: 28,
         boxSizing: "border-box" as const,
+        color: TOKENS.text,
+        cursor: onClick ? "pointer" : "default",
+        boxShadow: active ? `0 0 12px ${accentColor}44` : "none",
+        transition: "border-color 150ms ease, background 150ms ease, box-shadow 150ms ease",
+      }}
+      onMouseEnter={(e) => {
+        if (!onClick || active) return;
+        e.currentTarget.style.borderColor = `${accentColor}55`;
+      }}
+      onMouseLeave={(e) => {
+        if (!onClick || active) return;
+        e.currentTarget.style.borderColor = TOKENS.border;
       }}
     >
       <span
@@ -97,7 +118,7 @@ function Pill({
       <span style={{ color: TOKENS.textDim, textTransform: "uppercase" as const }}>{label}</span>
       <span style={{ color: accentColor, fontWeight: 700 }}>{value}</span>
       <span style={{ color: TOKENS.textMuted, fontSize: 9 }}>{STATE_LABEL[state]}</span>
-    </div>
+    </button>
   );
 }
 
@@ -123,6 +144,13 @@ export function CommandHUD({
   const status = useSystemStatus();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [now, setNow] = useState<Date | null>(null);
+  const [dockTab, setDockTab] = useState<StatusTab | null>(null);
+
+  const openDock = useCallback((tab: StatusTab) => {
+    setDockTab((current) => (current === tab ? null : tab));
+  }, []);
+
+  const closeDock = useCallback(() => setDockTab(null), []);
 
   useEffect(() => {
     setNow(new Date());
@@ -149,7 +177,14 @@ export function CommandHUD({
     status.refresh();
   }, [status]);
 
-  const pills = useMemo(
+  const pills = useMemo<Array<{
+    key: StatusTab;
+    label: string;
+    value: string;
+    state: ServiceState;
+    accent: string;
+    hint: string;
+  }>>(
     () => [
       {
         key: "agents",
@@ -186,7 +221,7 @@ export function CommandHUD({
         hint: `30d ${fmtMoney(status.revenue.last30)} · ARR ${fmtMoney(status.revenue.arr)}`,
       },
       {
-        key: "net",
+        key: "network",
         label: "Net",
         value: status.network.online ? "ON" : "OFF",
         state: status.network.state,
@@ -328,6 +363,8 @@ export function CommandHUD({
               state={p.state}
               accent={p.accent}
               hint={p.hint}
+              onClick={() => openDock(p.key)}
+              active={dockTab === p.key}
             />
           ))}
         </div>
@@ -577,6 +614,14 @@ export function CommandHUD({
         onClose={() => setPaletteOpen(false)}
         onLock={handleLock}
         onRefresh={handleRefresh}
+      />
+
+      <StatusDock
+        open={dockTab !== null}
+        tab={dockTab ?? "agents"}
+        status={status}
+        onTabChange={setDockTab}
+        onClose={closeDock}
       />
     </>
   );
