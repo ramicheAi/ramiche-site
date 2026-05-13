@@ -10,6 +10,9 @@ import {
   REACTION_PICKER_EMOJIS,
   type ReactionRow,
 } from "@/lib/chat-reactions";
+import { VoiceButton } from "@/components/command-center/VoiceButton";
+import { useVoiceLoop } from "@/hooks/useVoiceLoop";
+import { VOICE_CONFIG } from "@/lib/voice-config";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
@@ -596,6 +599,14 @@ export default function CommandCenterChatPage() {
   const hoverReactionLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoverReactionMsgId, setHoverReactionMsgId] = useState<string | null>(null);
 
+  const sendVoiceMessageRef = useRef<(text: string) => void>(() => {});
+  const voiceLoop = useVoiceLoop({
+    maxRecordingSeconds: VOICE_CONFIG.maxRecordingSeconds,
+    silenceTimeoutMs: VOICE_CONFIG.silenceTimeoutMs,
+    autoPlayResponse: VOICE_CONFIG.autoPlayResponse,
+    onTranscriptReady: (text) => sendVoiceMessageRef.current(text),
+  });
+
   /* ── mount + cleanup ── */
   useEffect(() => {
     setMounted(true);
@@ -1157,8 +1168,12 @@ export default function CommandCenterChatPage() {
     opts?: {
       threadParentId?: string;
       localAttachments?: { name: string; size: string; type: string; url: string; file?: File }[];
+      onAgentVoiceReply?: (text: string) => void;
+      onVoiceRelayError?: () => void;
     }
   ) => {
+    const onAgentVoiceReply = opts?.onAgentVoiceReply;
+    const onVoiceRelayError = opts?.onVoiceRelayError;
     const trimmed = displayContent.trim();
     const attList = opts?.localAttachments ?? [];
     if (!trimmed && attList.length === 0) return;
@@ -1261,6 +1276,7 @@ export default function CommandCenterChatPage() {
               waitingTimeoutRef.current = null;
             }
             setRelayError({ id: errorTargetId, message: msg });
+            onVoiceRelayError?.();
             return null;
           }
           return parsed;
@@ -1276,6 +1292,26 @@ export default function CommandCenterChatPage() {
               )
             );
           }
+
+          let replyForVoice = "";
+          if (data.ok && (data.response || (data.responses && data.responses.length > 0))) {
+            const rs = data.responses;
+            if (rs && rs.length > 1) {
+              replyForVoice = rs
+                .map((r) => String(r.response ?? "").trim())
+                .filter(Boolean)
+                .join("\n\n");
+            } else if (rs && rs.length === 1) {
+              replyForVoice = String(rs[0]?.response ?? "").trim();
+            } else {
+              replyForVoice = String(data.response ?? "").trim();
+            }
+          }
+          if (onAgentVoiceReply) {
+            if (replyForVoice) void onAgentVoiceReply(replyForVoice);
+            else onVoiceRelayError?.();
+          }
+
           if (data.ok && (data.response || (data.responses && data.responses.length > 0))) {
             setTimeout(() => {
               setMessages((prev) => {
@@ -1357,6 +1393,7 @@ export default function CommandCenterChatPage() {
             waitingTimeoutRef.current = null;
           }
           setRelayError({ id: errorTargetId, message: "Network error — message not delivered. Tap to retry." });
+          onVoiceRelayError?.();
         });
     };
 
@@ -1388,6 +1425,7 @@ export default function CommandCenterChatPage() {
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         setWaitingForResponse(false);
         setTypingUsers([]);
+        onVoiceRelayError?.();
         return;
       }
 
@@ -1411,6 +1449,13 @@ export default function CommandCenterChatPage() {
     } finally {
       sendingRef.current = false;
     }
+  };
+
+  sendVoiceMessageRef.current = (text: string) => {
+    void sendUserMessageContent(text, {
+      onAgentVoiceReply: (reply) => void voiceLoop.playAgentReply(reply),
+      onVoiceRelayError: () => voiceLoop.cancelVoice(),
+    });
   };
 
   const handleSendMessage = async () => {
@@ -3509,7 +3554,7 @@ export default function CommandCenterChatPage() {
                   background: COLORS.bg.card,
                   border: `1px solid ${COLORS.border.default}`,
                   borderRadius: 12,
-                  padding: "10px 100px 10px 14px",
+                  padding: "10px 148px 10px 14px",
                   color: COLORS.text.primary,
                   fontSize: 13,
                   fontFamily: FONT_FAMILY,
@@ -3605,6 +3650,13 @@ export default function CommandCenterChatPage() {
                     {sym}
                   </button>
                 ))}
+
+                <VoiceButton
+                  state={voiceLoop.state}
+                  transcript={voiceLoop.transcript}
+                  audioLevel={voiceLoop.audioLevel}
+                  toggleMic={voiceLoop.toggleMic}
+                />
 
                 {/* Send Button — game-btn style */}
                 <button
