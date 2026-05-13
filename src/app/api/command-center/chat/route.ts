@@ -157,7 +157,8 @@ async function generateAgentReply(
   userMessage: string,
   channelName: string | undefined,
   groupMode: boolean,
-  singleTargetStrict: boolean
+  singleTargetStrict: boolean,
+  groupRoster: string[]
 ): Promise<{
   text: string;
   source: ReplySource;
@@ -166,11 +167,24 @@ async function generateAgentReply(
 }> {
   const persona = AGENT_PERSONAS[target] || { role: "AI Agent", style: "Helpful and direct." };
   const displayName = target.charAt(0).toUpperCase() + target.slice(1);
+  // Group mode = multi-agent channel. Each member must contribute from their
+  // own domain so Ramon gets a coordinated multi-perspective answer (the whole
+  // point of group chats). We previously told agents to stay silent unless
+  // "relevant" — but every specialist is relevant from their angle, and the
+  // result was Atlas talking alone. Now every agent participates with a tight,
+  // role-specific take. The [NO_RESPONSE] filter below is kept as a graceful
+  // catch for older models that still emit it.
+  const otherMembers = groupRoster
+    .filter((id) => id.toLowerCase() !== target.toLowerCase())
+    .map((id) => `@${id}`);
+  const rosterLine = otherMembers.length > 0 ? otherMembers.join(", ") : "(no one else)";
+  // pick a sensible default hand-off target for the example below
+  const handoffExample = otherMembers[0] ?? "@atlas";
   const groupRules = groupMode
-    ? `\n\nYou are in a shared channel with other agents. Only respond if the user's message is relevant to your role. If you should not reply, output exactly [NO_RESPONSE] and nothing else.`
+    ? `\n\nYou are in a shared channel with these agents: ${rosterLine}. Every agent contributes — including you. Ramon is asking the room, not just one of you.\n\nHow to participate:\n1. Open with ONE short sentence (max ~15 words) framing your take from YOUR role only — do NOT speak for other agents.\n2. Stay strictly in your lane: ${persona.role}. If the question barely touches your domain, give one short observation from that angle anyway (e.g. "From a ${persona.role.toLowerCase()} angle, …"). Never go silent.\n3. Don't repeat what another agent would obviously say. Add the angle only YOU can bring.\n4. If you need another agent to handle a piece, name them, e.g. "${handoffExample} should take the build." Keep it short.\n5. Total reply ≤ 60 words. Crisp. No headers, no bullets unless absolutely needed.`
     : "";
 
-  const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags — except the literal token [NO_RESPONSE] when you must stay silent in group mode.\n- Keep responses under 100 words. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
+  const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
@@ -382,7 +396,14 @@ export async function POST(req: NextRequest) {
 
     const results = await Promise.allSettled(
       targets.map((target) =>
-        generateAgentReply(target, message, channelName, groupMode, singleTargetStrict)
+        generateAgentReply(
+          target,
+          message,
+          channelName,
+          groupMode,
+          singleTargetStrict,
+          targets
+        )
       )
     );
 
