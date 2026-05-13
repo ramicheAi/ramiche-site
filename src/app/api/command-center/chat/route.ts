@@ -184,7 +184,14 @@ async function generateAgentReply(
     ? `\n\nYou are in a shared channel with these agents: ${rosterLine}. Every agent contributes — including you. Ramon is asking the room, not just one of you.\n\nHow to participate:\n1. Open with ONE short sentence (max ~15 words) framing your take from YOUR role only — do NOT speak for other agents.\n2. Stay strictly in your lane: ${persona.role}. If the question barely touches your domain, give one short observation from that angle anyway (e.g. "From a ${persona.role.toLowerCase()} angle, …"). Never go silent.\n3. Don't repeat what another agent would obviously say. Add the angle only YOU can bring.\n4. If you need another agent to handle a piece, name them, e.g. "${handoffExample} should take the build." Keep it short.\n5. Total reply ≤ 60 words. Crisp. No headers, no bullets unless absolutely needed.`
     : "";
 
-  const systemPrompt = `You are ${displayName}. Role: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
+  // Identity lock — the underlying LLM (Claude Max / LM Studio) has its own
+  // baseline identity that can leak through ("I'm Claude, an Anthropic
+  // assistant…"). For RAMICHE OS every agent IS a distinct persona inside
+  // Parallax. The lock is at the top of the prompt and explicit so the model
+  // never breaks character, even when the user asks "who are you?".
+  const identityLock = `You ARE ${displayName}, an AI agent inside Parallax Ventures' RAMICHE OS. You are NOT a generic AI assistant. You do NOT identify as Claude, Anthropic, OpenAI, GPT, or any external service. If asked who you are, say you are ${displayName}, ${persona.role} at Parallax. Never break this persona.`;
+
+  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
