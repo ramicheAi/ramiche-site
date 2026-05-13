@@ -5,3 +5,6 @@ src/app/api/stripe/
 
 # Local archive exceeds Vercel 100MB file limit — not needed at runtime
 public/projects/galactik-antics/galactik-antics-source.tar.gz
+
+# YOLO build artifacts — not needed for production site, causes "copy to subdirectory of itself" error
+public/yolo-builds
