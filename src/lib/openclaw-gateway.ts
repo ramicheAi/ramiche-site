@@ -85,35 +85,36 @@ export async function gatewayToolsInvoke(body: {
   }
 }
 
-/** Built-in CC agent id → OpenClaw `sessionKey` mapping, derived from the
- *  agents.list block in ~/.openclaw/openclaw.json. Most agents use their
- *  lowercased short name; a few diverge:
- *    atlas       → main
- *    drstrange   → strange
- *    michael     → swimelite
- *    themaestro  → maestro
+/** Built-in CC agent id → OpenClaw `sessionKey` mapping. Confirmed via live
+ *  `sessions_list` on the gateway (May 2026 post-prune). Every agent runs a
+ *  primary session keyed `agent:<short>:main`. Names that diverge from the
+ *  lowercased CC agent id:
+ *    atlas      → main      (internal agent name is literally "main")
+ *    drstrange  → strange
+ *    michael    → swimelite
+ *    themaestro → maestro
  *  Env OPENCLAW_AGENT_SESSION_KEYS (JSON) overrides this map per agent. */
 const DEFAULT_AGENT_SESSION_KEYS: Record<string, string> = {
-  atlas: "main",
-  triage: "triage",
-  shuri: "shuri",
-  proximon: "proximon",
-  aetherion: "aetherion",
-  simons: "simons",
-  mercury: "mercury",
-  vee: "vee",
-  ink: "ink",
-  echo: "echo",
-  haven: "haven",
-  widow: "widow",
-  drstrange: "strange",
-  kiyosaki: "kiyosaki",
-  michael: "swimelite",
-  selah: "selah",
-  prophets: "prophets",
-  themaestro: "maestro",
-  nova: "nova",
-  themis: "themis",
+  atlas: "agent:main:main",
+  triage: "agent:triage:main",
+  shuri: "agent:shuri:main",
+  proximon: "agent:proximon:main",
+  aetherion: "agent:aetherion:main",
+  simons: "agent:simons:main",
+  mercury: "agent:mercury:main",
+  vee: "agent:vee:main",
+  ink: "agent:ink:main",
+  echo: "agent:echo:main",
+  haven: "agent:haven:main",
+  widow: "agent:widow:main",
+  drstrange: "agent:strange:main",
+  kiyosaki: "agent:kiyosaki:main",
+  michael: "agent:swimelite:main",
+  selah: "agent:selah:main",
+  prophets: "agent:prophets:main",
+  themaestro: "agent:maestro:main",
+  nova: "agent:nova:main",
+  themis: "agent:themis:main",
 };
 
 /** Map UI agent id → OpenClaw session key. Lookup priority:
@@ -135,7 +136,7 @@ export function resolveChatSessionKey(agentId: string): string {
     }
   }
   if (DEFAULT_AGENT_SESSION_KEYS[id]) return DEFAULT_AGENT_SESSION_KEYS[id];
-  return process.env.OPENCLAW_CHAT_SESSION_KEY?.trim() || "main";
+  return process.env.OPENCLAW_CHAT_SESSION_KEY?.trim() || "agent:main:main";
 }
 
 /**
