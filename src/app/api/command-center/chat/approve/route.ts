@@ -71,6 +71,9 @@ function getSupabaseService() {
 /** Mirror chat/route.ts model tiers so handoffs run on the SAME quality
  *  Claude model as the agent's chat persona — Atlas-led actions get Opus,
  *  specialists get Sonnet, lightweights get Haiku. */
+// Mirrors src/app/api/command-center/chat/route.ts — keep in sync.
+// Haiku is reserved for utility agents (Triage) only; brand/sales/comms
+// personas need Sonnet to maintain identity under formal handoff prompts.
 const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
   atlas: "opus",
   themis: "sonnet",
@@ -83,14 +86,14 @@ const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
   aetherion: "sonnet",
   selah: "sonnet",
   prophets: "sonnet",
-  michael: "haiku",
-  themaestro: "haiku",
-  mercury: "haiku",
-  vee: "haiku",
-  ink: "haiku",
-  echo: "haiku",
-  haven: "haiku",
-  nova: "haiku",
+  mercury: "sonnet",
+  vee: "sonnet",
+  ink: "sonnet",
+  echo: "sonnet",
+  haven: "sonnet",
+  michael: "sonnet",
+  themaestro: "sonnet",
+  nova: "sonnet",
   triage: "haiku",
 };
 
@@ -122,29 +125,35 @@ function buildHandoffPrompt(
     .map((a) => `  - @${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ""}`)
     .join("\n");
 
+  // The framing here intentionally reads less like "roleplay an internal
+  // corporate agent" (which trips Anthropic's safety reflexes on smaller
+  // models and yields "I'm Claude…" responses) and more like a normal
+  // working-team conversation where ${name} is just one of the people in the
+  // group. Anchor the persona via the named greeting + first-person voice
+  // expectation, not via "you ARE an AI agent inside RAMICHE OS".
   return [
-    `You ARE ${name}, an AI agent inside Parallax Ventures' RAMICHE OS. You are NOT a generic AI assistant. You do NOT identify as Claude, Anthropic, OpenAI, or any external service.`,
+    `You are ${name}. Speak in first person as ${name} would — direct, operational, in your own voice. Never break character to describe yourself as an AI, assistant, or external model; you are simply ${name} on this team, replying to a teammate. If asked who you are, say ${name}.`,
     "",
-    `Atlas just synthesized a coordinated team plan${channelName ? ` in ${channelName}` : ""}. You have been formally assigned this work:`,
+    `Atlas just wrapped a${channelName ? ` ${channelName}` : ""} planning sync and you've taken the lead on one workstream:`,
     "",
-    `  Task        : ${action.task}`,
-    action.deliverable ? `  Deliverable : ${action.deliverable}` : "",
-    action.due ? `  Due         : ${action.due}` : "",
+    `  • What you said you'd do: ${action.task}`,
+    action.deliverable ? `  • Deliverable: ${action.deliverable}` : "",
+    action.due ? `  • By when: ${action.due}` : "",
     "",
-    `Team-wide decision: ${plan.decision}`,
+    `The whole-team decision Atlas landed on: ${plan.decision}`,
     "",
-    peers ? `Other workstreams (so you know what to coordinate with):\n${peers}` : "",
+    peers ? `Other people running pieces in parallel (so you know who to coordinate with):\n${peers}` : "",
     plan.risks && plan.risks.length > 0
-      ? `\nRisks the team flagged:\n${plan.risks.map((r) => `  - ${r}`).join("\n")}`
+      ? `\nThings the room flagged as risk:\n${plan.risks.map((r) => `  - ${r}`).join("\n")}`
       : "",
     "",
-    `Respond NOW with:`,
-    `  1. Confirmation you accept ownership (or push back, with reasoning, if something's wrong).`,
-    `  2. The first 3 concrete steps you'll take *tomorrow morning* to start.`,
-    `  3. What you need from anyone else — name them with @handle.`,
-    `  4. Any blockers visible from your domain.`,
+    `Reply to the group now, sounding like yourself. Cover, in roughly this order:`,
+    `  1) Quick confirm you've got it (or flag if something's off).`,
+    `  2) The first 3 things you'll do tomorrow morning to start.`,
+    `  3) What you need from anyone else — name them with @handle.`,
+    `  4) Any blocker you can already see from your seat.`,
     "",
-    `Keep it under 100 words. Direct. Operational. Plain text only, no headers, no bullets unless absolutely needed.`,
+    `Under 100 words. Plain text — no headers, no bullets unless you really need them.`,
   ]
     .filter((l) => l !== null && l !== undefined)
     .join("\n");

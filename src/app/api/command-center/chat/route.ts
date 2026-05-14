@@ -58,6 +58,12 @@ function cleanEnv(name: string): string | undefined {
  *  that do real reasoning get Sonnet. Lightweight assistants (TRIAGE, NOVA,
  *  community/social agents) get Haiku for speed + cost. Tier overrideable
  *  via env: CC_CLAUDE_MODEL_ATLAS, CC_CLAUDE_MODEL_DEFAULT, etc. */
+// Tiering rule: any agent whose value to Ramon comes from a STRONG, distinct
+// persona (sales, brand, copy, community, support, music, fabrication) gets
+// Sonnet — Haiku's safety guardrails kick in too aggressively and the agent
+// breaks character with "I'm Claude, an Anthropic assistant" when given a
+// formal handoff prompt. Only TRIAGE stays on Haiku since it's a pure log-
+// analysis utility with no customer-facing persona to maintain.
 const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
   atlas: "opus",
   themis: "sonnet",
@@ -70,14 +76,14 @@ const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
   aetherion: "sonnet",
   selah: "sonnet",
   prophets: "sonnet",
-  michael: "haiku",
-  themaestro: "haiku",
-  mercury: "haiku",
-  vee: "haiku",
-  ink: "haiku",
-  echo: "haiku",
-  haven: "haiku",
-  nova: "haiku",
+  mercury: "sonnet",
+  vee: "sonnet",
+  ink: "sonnet",
+  echo: "sonnet",
+  haven: "sonnet",
+  michael: "sonnet",
+  themaestro: "sonnet",
+  nova: "sonnet",
   triage: "haiku",
 };
 
