@@ -1112,6 +1112,17 @@ export async function POST(req: NextRequest) {
     // time. Stays null when the critic is off or approves without changes.
     let appliedCritique: SynthesisCritique | null = null;
     let originalPlanBeforeRefine: SynthesisPlan | null = null;
+    // Diagnostic — single-string state machine so the API response can tell
+    // us exactly which branch ran without trawling Vercel runtime logs.
+    let criticState:
+      | "disabled"
+      | "no-plan"
+      | "budget-skip-critic"
+      | "budget-skip-refine"
+      | "critic-failed"
+      | "approved"
+      | "revised"
+      | "refine-failed" = "disabled";
     if (groupMode && responses.length >= 2 && !threadUuid) {
       synthesisResult = await generateSynthesis(
         message,
@@ -1141,13 +1152,18 @@ export async function POST(req: NextRequest) {
       // entirely if we're already past 60s. Better to ship an unreviewed plan
       // than to hit the platform timeout and lose everything.
       const elapsedMsAtCritic = Date.now() - postStartedAt;
-      const criticOn =
-        (cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
-          cleanEnv("CC_SYNTHESIS_CRITIC") === "true") &&
-        elapsedMsAtCritic < 60_000;
-      if (!criticOn) {
+      const criticEnvOn =
+        cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
+        cleanEnv("CC_SYNTHESIS_CRITIC") === "true";
+      const criticOn = criticEnvOn && elapsedMsAtCritic < 60_000;
+      if (!criticEnvOn) {
+        criticState = "disabled";
+      } else if (!synthesisResult?.plan || !synthesisResult?.text) {
+        criticState = "no-plan";
+      } else if (!criticOn) {
+        criticState = "budget-skip-critic";
         console.log(
-          `[chat] critic skipped — env=${cleanEnv("CC_SYNTHESIS_CRITIC") || "off"} elapsed=${elapsedMsAtCritic}ms`
+          `[chat] critic skipped (budget) — elapsed=${elapsedMsAtCritic}ms`
         );
       }
       if (criticOn && synthesisResult?.plan && synthesisResult.text) {
@@ -1173,6 +1189,18 @@ export async function POST(req: NextRequest) {
         // see what would have been fixed.
         const elapsedMsAtRefine = Date.now() - postStartedAt;
         const refineOn = elapsedMsAtRefine < 70_000;
+        if (!critique) {
+          criticState = "critic-failed";
+        } else if (
+          critique.verdict === "revise" &&
+          critique.revisions.length > 0 &&
+          !refineOn
+        ) {
+          criticState = "budget-skip-refine";
+          // Still attach the critique even if we can't refine — Ramon should
+          // see what the critic flagged.
+          appliedCritique = critique;
+        }
         if (
           critique?.verdict === "revise" &&
           critique.revisions.length > 0 &&
@@ -1198,11 +1226,18 @@ export async function POST(req: NextRequest) {
             originalPlanBeforeRefine = synthesisResult.plan;
             synthesisResult = refined;
             appliedCritique = critique;
+            criticState = "revised";
+          } else {
+            // Refine failed — keep the original plan + the critique on the
+            // record so the UI still shows that the pass ran.
+            appliedCritique = critique;
+            criticState = "refine-failed";
           }
-        } else if (critique) {
+        } else if (critique?.verdict === "approve") {
           // Critic looked + approved. Stamp the metadata so we can prove the
           // pass happened even when no revision was needed.
           appliedCritique = critique;
+          criticState = "approved";
         }
       }
 
@@ -1277,6 +1312,9 @@ export async function POST(req: NextRequest) {
             ...(originalPlanBeforeRefine
               ? { original_plan: originalPlanBeforeRefine }
               : {}),
+            // Diagnostic — always surfaced so we can debug critic gating
+            // without trawling Vercel runtime logs.
+            critic_state: criticState,
           }
         : null,
     });
