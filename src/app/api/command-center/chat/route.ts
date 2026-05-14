@@ -1107,6 +1107,7 @@ export async function POST(req: NextRequest) {
     // The synthesis is stored as a regular agent message authored by Atlas with
     // `metadata.kind = "synthesis"` so the UI/Phase C can recognise it later.
     let synthesisResult: Awaited<ReturnType<typeof generateSynthesis>> | null = null;
+    let synthesisMessageId: string | null = null;
     // Phase E — bookkeeping for the critic pass. Stored in metadata so the UI
     // can show "Reviewed → revised" and so we can audit critique quality over
     // time. Stays null when the critic is off or approves without changes.
@@ -1142,6 +1143,40 @@ export async function POST(req: NextRequest) {
         targets
       );
 
+      // ─── INSERT synthesis FIRST, then run the critic ─────────────────────
+      // Two-stage write: persist the unreviewed synthesis to Supabase right
+      // now, then run the (optional) critic pass + UPDATE the same row with
+      // the critique afterwards. If a 504 hits us mid-critic the synthesis
+      // card is already in the channel; Realtime delivers it to the client
+      // even when the API response itself never returns. Phase E becomes
+      // best-effort polish on top of an already-shipped artifact.
+      if (synthesisResult?.text && svc && channelId) {
+        const atlasUUID = AGENT_DM_UUID["atlas"] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+        const { data: synthRow, error: synthErr } = await svc
+          .from("messages")
+          .insert({
+            channel_id: channelId,
+            sender_agent_id: atlasUUID,
+            sender_type: "agent",
+            content: synthesisResult.text,
+            tenant_id: "11111111-1111-1111-1111-111111111111",
+            attachments: [],
+            status: "sent",
+            metadata: {
+              kind: "synthesis",
+              plan: synthesisResult.plan,
+              participants: targets,
+            },
+          })
+          .select("id")
+          .single();
+        if (synthErr) {
+          console.error("[chat] synthesis insert failed:", synthErr);
+        } else {
+          synthesisMessageId = synthRow?.id || null;
+        }
+      }
+
       // Phase E — critic pass. Gated behind CC_SYNTHESIS_CRITIC=1 so we can
       // burn it in for a few sessions before defaulting on. Only runs when we
       // actually got a structured plan from the initial synthesis; without a
@@ -1149,8 +1184,8 @@ export async function POST(req: NextRequest) {
       //
       // Wall-clock budget guard: maxDuration on this route is 90s. We budget
       // ~20s for critic and ~25s for an optional refine, so we skip the critic
-      // entirely if we're already past 60s. Better to ship an unreviewed plan
-      // than to hit the platform timeout and lose everything.
+      // entirely if we're already past 45s for the typical 2-agent path.
+      // Anything beyond 2 agents skips outright via the fan-out guard.
       const elapsedMsAtCritic = Date.now() - postStartedAt;
       const criticEnvOn =
         cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
@@ -1256,24 +1291,17 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (synthesisResult?.text && svc && channelId) {
-        const atlasUUID = AGENT_DM_UUID["atlas"] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-        const { error: synthErr } = await svc.from("messages").insert({
-          channel_id: channelId,
-          sender_agent_id: atlasUUID,
-          sender_type: "agent",
-          content: synthesisResult.text,
-          tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: [],
-          status: "sent",
+      // Phase E — second-stage UPDATE on the synthesis row with the critique
+      // results. The synthesis itself was already inserted before the critic
+      // ran (see above), so this is purely about decorating it with the
+      // review verdict + (when revised) replacing the plan content with the
+      // refined version. Realtime delivers the diff to the client.
+      if (synthesisMessageId && svc && channelId && synthesisResult?.text) {
+        const updatePayload: Record<string, unknown> = {
           metadata: {
             kind: "synthesis",
             plan: synthesisResult.plan,
             participants: targets,
-            // Phase E — store the critique on the synthesis row when the pass
-            // ran. UI uses this to show a small "Reviewed" badge + which fixes
-            // were applied. `original_plan` only populated on actual revision
-            // so we can audit drift later.
             ...(appliedCritique
               ? {
                   critique: appliedCritique,
@@ -1283,9 +1311,22 @@ export async function POST(req: NextRequest) {
                 }
               : {}),
           },
-        });
-        if (synthErr) {
-          console.error("[chat] synthesis insert failed:", synthErr);
+        };
+        // When refine ran, synthesisResult.text is the refined markdown; we
+        // overwrite content too so the chat bubble shows the post-review copy.
+        if (originalPlanBeforeRefine) {
+          updatePayload.content = synthesisResult.text;
+        }
+        // Only update if the critic actually ran — there's no point in a
+        // no-op write that just rewrites the same metadata.
+        if (appliedCritique || originalPlanBeforeRefine) {
+          const { error: synthUpdErr } = await svc
+            .from("messages")
+            .update(updatePayload)
+            .eq("id", synthesisMessageId);
+          if (synthUpdErr) {
+            console.error("[chat] synthesis critique update failed:", synthUpdErr);
+          }
         }
       }
     }
