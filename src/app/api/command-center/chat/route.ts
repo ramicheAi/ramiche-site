@@ -1155,13 +1155,17 @@ export async function POST(req: NextRequest) {
       const criticEnvOn =
         cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
         cleanEnv("CC_SYNTHESIS_CRITIC") === "true";
-      // Fan-out guard: with 4+ parallel drafts the slowest agent alone can eat
-      // 30+s before synthesis even starts. Adding critic + maybe-refine on top
-      // reliably busts the 90s maxDuration ceiling. Cap critic to groups of 3
-      // or fewer where the latency math actually fits.
-      const fanOutFits = targets.length <= 3;
+      // Fan-out guard: in production the slowest parallel draft dominates
+      // wall-clock and can run 30s+ (Opus-tier agents like Vee, Dr.Strange).
+      // Critic + maybe-refine adds another 15-35s on top. The combined budget
+      // only reliably fits the 90s maxDuration for groups of 2 — anything
+      // larger ships the synthesis without the critic pass. Most coordination
+      // flows in practice are 2-agent (one specialist + Atlas), so this still
+      // covers the common case.
+      const fanOutFits = targets.length <= 2;
+      // Elapsed-time guard sits inside the fan-out window for extra safety.
       const criticOn =
-        criticEnvOn && fanOutFits && elapsedMsAtCritic < 60_000;
+        criticEnvOn && fanOutFits && elapsedMsAtCritic < 45_000;
       if (!criticEnvOn) {
         criticState = "disabled";
       } else if (!synthesisResult?.plan || !synthesisResult?.text) {
@@ -1195,11 +1199,11 @@ export async function POST(req: NextRequest) {
         );
 
         // Only run refine if we still have a comfortable budget for it.
-        // refineSynthesis runs another full Atlas pass — if elapsed > 70s we
+        // refineSynthesis runs another full Atlas pass — if elapsed > 65s we
         // ship the original plan + the critique attached so Ramon can still
         // see what would have been fixed.
         const elapsedMsAtRefine = Date.now() - postStartedAt;
-        const refineOn = elapsedMsAtRefine < 70_000;
+        const refineOn = elapsedMsAtRefine < 65_000;
         if (!critique) {
           criticState = "critic-failed";
         } else if (
