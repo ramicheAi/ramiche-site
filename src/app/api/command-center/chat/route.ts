@@ -953,6 +953,9 @@ Output the refined synthesis only — do not narrate the changes.`;
 }
 
 export async function POST(req: NextRequest) {
+  // Phase E budget guard: wall-clock anchor used to skip the critic pass if
+  // synthesis already burned most of the route's 60s maxDuration window.
+  const postStartedAt = Date.now();
   try {
     const body = await req.json();
     const {
@@ -1128,9 +1131,16 @@ export async function POST(req: NextRequest) {
       // burn it in for a few sessions before defaulting on. Only runs when we
       // actually got a structured plan from the initial synthesis; without a
       // plan there's nothing structural to critique.
+      //
+      // Wall-clock budget guard: maxDuration on this route is 60s. If we are
+      // already >35s in by the time synthesis returns, skip the critic to
+      // preserve the synthesis itself. Better to ship the unreviewed plan
+      // than to hit the platform timeout and lose everything.
+      const elapsedMs = Date.now() - postStartedAt;
       const criticOn =
-        cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
-        cleanEnv("CC_SYNTHESIS_CRITIC") === "true";
+        (cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
+          cleanEnv("CC_SYNTHESIS_CRITIC") === "true") &&
+        elapsedMs < 35_000;
       if (criticOn && synthesisResult?.plan && synthesisResult.text) {
         const critique = await generateCritique(
           message,
