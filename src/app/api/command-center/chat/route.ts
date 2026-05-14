@@ -210,6 +210,24 @@ function formatHistoryBlock(history: HistoryTurn[], currentAgent: string): strin
 
 type ReplySource = "openclaw" | "claude-max" | "lm-studio" | "fallback";
 
+/** Phase B — structured plan emitted by the synthesis pass.
+ *
+ * The synthesis agent (Atlas by default) reads all parallel drafts +
+ * conversation history and produces this object. Phase C will parse it back
+ * out of the stored message and turn each `action` into an actual handoff
+ * to that owner agent's OpenClaw session. */
+export type SynthesisPlan = {
+  decision: string;
+  actions: Array<{
+    owner: string;
+    task: string;
+    deliverable?: string;
+    due?: string;
+  }>;
+  risks?: string[];
+  next_check_in?: string;
+};
+
 /** Per-provider attempt diagnostic. Surfaced in the 502 payload + server logs
  *  so every "all providers failed" event has the exact failure reasons. */
 type ProviderAttempt = {
@@ -436,6 +454,206 @@ async function generateAgentReply(
   return { text: agentResponse, source: responseSource, attempts };
 }
 
+/** Phase B — Orchestrator synthesis pass.
+ *
+ * After every agent in a group chat has drafted their take in parallel, the
+ * lead orchestrator (Atlas) reads ALL drafts + the user's message + recent
+ * channel history and produces one unified plan:
+ *
+ *   1) A human-readable markdown summary (rendered as a regular agent message
+ *      in the channel — the "synthesis card").
+ *   2) A machine-readable JSON plan stored in `metadata.plan` so Phase C can
+ *      parse each action, dispatch it to the owner agent's OpenClaw session,
+ *      and stream execution updates back into the channel.
+ *
+ * This is the Anthropic "orchestrator-worker" pattern: parallel workers draft,
+ * lead synthesizes + decides. Without this step the chat is four monologues;
+ * with it the chat becomes an executable plan.
+ */
+async function generateSynthesis(
+  userMessage: string,
+  drafts: Array<{ agent: string; response: string }>,
+  history: HistoryTurn[],
+  channelName: string | undefined,
+  roster: string[]
+): Promise<{ text: string; plan: SynthesisPlan | null; source: ReplySource } | null> {
+  if (drafts.length < 2) return null;
+
+  // Render all drafts so the orchestrator can see who said what.
+  const draftBlock = drafts
+    .map((d) => `[${d.agent}]: ${d.response.trim()}`)
+    .join("\n\n");
+
+  const historyBlock = formatHistoryBlock(history, "atlas");
+  const rosterLine = roster.map((id) => `@${id}`).join(", ");
+
+  const synthesisPrompt = `You ARE Atlas — Operations Lead & Strategic Command at Parallax Ventures' RAMICHE OS. You are NOT a generic AI assistant.
+
+You are running synthesis after a group of agents (${rosterLine}) just replied to Ramon. Your job is NOT to repeat them or add another opinion. Your job is to:
+  1. Read every draft.
+  2. Find the agreed direction (and call out real disagreements).
+  3. Convert the conversation into ONE coordinated plan with owners and deadlines.
+
+OUTPUT FORMAT — strict, in this order:
+
+**Synthesis**
+2–3 sentence summary of the agreed direction. Name the dissents explicitly if any.
+
+**Decision**
+One sentence: the single most important call to make right now.
+
+**Actions**
+- @owner — what they will do, deliverable, by when
+- @owner — what they will do, deliverable, by when
+(3–6 actions max — pick the highest-leverage ones)
+
+**Risks**
+- one-line concern (skip the section if none)
+
+**Next check-in**: when + who
+
+Then, on its OWN line, emit a fenced JSON block with the exact same plan in machine-readable form. Use ONLY agent short-ids from this roster: ${rosterLine}. Keep field names exactly as shown:
+
+\`\`\`json
+{
+  "decision": "…",
+  "actions": [
+    {"owner": "kiyosaki", "task": "…", "deliverable": "…", "due": "Fri EOD"}
+  ],
+  "risks": ["…"],
+  "next_check_in": "…"
+}
+\`\`\`
+
+Rules:
+- Plain text outside the JSON block. No headers other than the four bold ones above.
+- Every action must have an owner from the roster. No "team will …" or "we should …".
+- Be decisive. Ramon needs to execute, not deliberate further.${historyBlock}
+
+User's message that started this thread:
+${userMessage}
+
+Drafts from the agents (most recent only — these are the takes you're synthesizing):
+${draftBlock}`;
+
+  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
+  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
+  let text: string | null = null;
+  let source: ReplySource = "fallback";
+
+  try {
+    const res = await fetch(claudeUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${claudeToken}`,
+      },
+      body: JSON.stringify({
+        model: modelForAgent("atlas"), // synthesis always runs on Atlas's tier (opus)
+        messages: [
+          { role: "system", content: synthesisPrompt },
+          { role: "user", content: "Run the synthesis now." },
+        ],
+        max_tokens: 800,
+        temperature: 0.4, // slightly lower for more deterministic plan structure
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      text = data.choices?.[0]?.message?.content || null;
+      if (text) source = "claude-max";
+    }
+  } catch (err) {
+    console.error("[chat/synthesis] Claude Max proxy error:", err);
+  }
+
+  if (!text) {
+    // LM Studio fallback — same prompt, whatever local model is loaded.
+    const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
+    try {
+      const lmBody: Record<string, unknown> = {
+        messages: [
+          { role: "system", content: synthesisPrompt },
+          { role: "user", content: "Run the synthesis now." },
+        ],
+        max_tokens: 800,
+        temperature: 0.4,
+      };
+      const lmModel = modelForLMStudio();
+      if (lmModel) lmBody.model = lmModel;
+      const res = await fetch(lmStudioUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lmBody),
+        signal: AbortSignal.timeout(75_000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        text = data.choices?.[0]?.message?.content || null;
+        if (text) source = "lm-studio";
+      }
+    } catch {
+      /* synthesis is best-effort — if both backends fail we skip the pass */
+    }
+  }
+
+  if (!text) return null;
+
+  // Pull the JSON block out so Phase C can execute on it. We accept either a
+  // ```json ... ``` fenced block or a bare {...} as the last JSON-looking
+  // chunk in the response, because some models drop the fence.
+  const plan = extractSynthesisPlan(text);
+
+  return { text, plan, source };
+}
+
+/** Best-effort parse of the JSON plan emitted by the synthesis prompt. We
+ *  tolerate fenced ```json blocks and bare {...} tails. Returns null if no
+ *  parseable plan is found OR the plan doesn't match the expected shape. */
+function extractSynthesisPlan(text: string): SynthesisPlan | null {
+  // 1) Prefer a fenced ```json … ``` block — this is what we asked for.
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  // 2) Otherwise grab the LAST balanced {...} run in the response.
+  const lastObj = text.match(/\{[\s\S]*\}\s*$/);
+  const candidates = [fenced?.[1], lastObj?.[0]].filter((s): s is string => !!s);
+  for (const raw of candidates) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (
+        parsed &&
+        typeof parsed === "object" &&
+        typeof parsed.decision === "string" &&
+        Array.isArray(parsed.actions)
+      ) {
+        // Normalise action shape — drop unknown owners and stringify fields.
+        const actions = (parsed.actions as unknown[])
+          .filter((a): a is Record<string, unknown> => !!a && typeof a === "object")
+          .map((a) => ({
+            owner: String(a.owner || "").toLowerCase().trim(),
+            task: String(a.task || "").trim(),
+            deliverable: a.deliverable ? String(a.deliverable).trim() : undefined,
+            due: a.due ? String(a.due).trim() : undefined,
+          }))
+          .filter((a) => a.owner && a.task);
+        if (actions.length === 0) continue;
+        return {
+          decision: String(parsed.decision).trim(),
+          actions,
+          risks: Array.isArray(parsed.risks)
+            ? parsed.risks.map((r: unknown) => String(r).trim()).filter(Boolean)
+            : undefined,
+          next_check_in:
+            typeof parsed.next_check_in === "string" ? parsed.next_check_in.trim() : undefined,
+        };
+      }
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -575,6 +793,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Phase B — Synthesis pass. After every agent has weighed in, Atlas reads
+    // all the drafts and produces a single coordinated plan (markdown for the
+    // human + a JSON action list for Phase C execution). Only fires when:
+    //   - we're in group mode (multiple targets)
+    //   - at least two real replies came back (synthesis of one draft is silly)
+    //   - this isn't a threaded reply (synthesis lives at the channel level)
+    // The synthesis is stored as a regular agent message authored by Atlas with
+    // `metadata.kind = "synthesis"` so the UI/Phase C can recognise it later.
+    let synthesisResult: Awaited<ReturnType<typeof generateSynthesis>> | null = null;
+    if (groupMode && responses.length >= 2 && !threadUuid) {
+      synthesisResult = await generateSynthesis(
+        message,
+        responses.map((r) => ({ agent: r.agent, response: r.response })),
+        // Pass an extended history that also includes the drafts we just
+        // inserted, so Atlas's synthesis line in the channel doesn't conflict
+        // with what every other agent just said. cheaper than re-fetching.
+        [
+          ...history,
+          ...responses.map((r) => ({
+            speaker: r.agent,
+            content: r.response,
+            createdAt: new Date().toISOString(),
+          })),
+        ],
+        channelName,
+        targets
+      );
+
+      if (synthesisResult?.text && svc && channelId) {
+        const atlasUUID = AGENT_DM_UUID["atlas"] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+        const { error: synthErr } = await svc.from("messages").insert({
+          channel_id: channelId,
+          sender_agent_id: atlasUUID,
+          sender_type: "agent",
+          content: synthesisResult.text,
+          tenant_id: "11111111-1111-1111-1111-111111111111",
+          attachments: [],
+          status: "sent",
+          metadata: {
+            kind: "synthesis",
+            plan: synthesisResult.plan,
+            participants: targets,
+          },
+        });
+        if (synthErr) {
+          console.error("[chat] synthesis insert failed:", synthErr);
+        }
+      }
+    }
+
     const combined =
       responses.length === 0
         ? ""
@@ -600,6 +868,13 @@ export async function POST(req: NextRequest) {
       agent: first?.agent ?? targets[0],
       source: first?.source ?? "fallback",
       targets,
+      synthesis: synthesisResult
+        ? {
+            text: synthesisResult.text,
+            plan: synthesisResult.plan,
+            source: synthesisResult.source,
+          }
+        : null,
     });
   } catch (e) {
     console.error("Chat API error:", e);
