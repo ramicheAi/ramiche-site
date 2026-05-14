@@ -325,6 +325,15 @@ type SynthesisPlan = {
   next_check_in?: string;
 };
 
+/** Phase E — critic pass output stored on synthesis metadata. Verdict is what
+ *  drives the UI badge; revisions/rationale are surfaced inside the card so
+ *  Ramon can see why the plan was changed (or approved as-is). */
+type SynthesisCritique = {
+  verdict: "approve" | "revise";
+  revisions: Array<{ reason: string; fix: string }>;
+  rationale: string;
+};
+
 function readSynthesisPlan(
   metadata: Record<string, unknown> | null | undefined
 ): SynthesisPlan | null {
@@ -350,6 +359,29 @@ function readSynthesisPlan(
     risks: Array.isArray(pp.risks) ? (pp.risks as unknown[]).map((r) => String(r)) : undefined,
     next_check_in: typeof pp.next_check_in === "string" ? pp.next_check_in : undefined,
   };
+}
+
+/** Phase E — pull the critique block off a synthesis message's metadata.
+ *  Returns null when the critic didn't run (CC_SYNTHESIS_CRITIC=0) or when
+ *  the metadata predates Phase E. */
+function readSynthesisCritique(
+  metadata: Record<string, unknown> | null | undefined
+): SynthesisCritique | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const c = (metadata as Record<string, unknown>).critique;
+  if (!c || typeof c !== "object") return null;
+  const cc = c as Record<string, unknown>;
+  const verdict = cc.verdict === "revise" ? "revise" : "approve";
+  const revisions = Array.isArray(cc.revisions)
+    ? (cc.revisions as unknown[])
+        .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+        .map((r) => ({
+          reason: String(r.reason || ""),
+          fix: String(r.fix || ""),
+        }))
+        .filter((r) => r.reason && r.fix)
+    : [];
+  return { verdict, revisions, rationale: String(cc.rationale || "") };
 }
 
 /** Phase 1.3 — who to show in the typing row while waiting for OpenClaw */
@@ -3428,6 +3460,12 @@ export default function CommandCenterChatPage() {
                           (n, _, i) => (statuses[i] === "done" ? n + 1 : n),
                           0
                         );
+                        // Phase E — Critic pass artifact, present when
+                        // CC_SYNTHESIS_CRITIC=1 was on at synthesis time. Shows
+                        // a small "Reviewed" badge + (when revised) the list
+                        // of fixes that were applied. Falls through silently
+                        // for synthesis rows from before Phase E.
+                        const critique = readSynthesisCritique(message.metadata);
                         return (
                           <div
                             style={{
@@ -3444,6 +3482,7 @@ export default function CommandCenterChatPage() {
                                 alignItems: "center",
                                 justifyContent: "space-between",
                                 marginBottom: 8,
+                                gap: 8,
                               }}
                             >
                               <div
@@ -3457,17 +3496,65 @@ export default function CommandCenterChatPage() {
                                 SYNTHESIS PLAN · {plan.actions.length} ACTION
                                 {plan.actions.length === 1 ? "" : "S"}
                               </div>
-                              {approvedAt && (
-                                <div
-                                  style={{
-                                    fontSize: 10,
-                                    color: doneCount === plan.actions.length ? "#10b981" : "#a78bfa",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  {doneCount}/{plan.actions.length} DONE
-                                </div>
-                              )}
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                {critique && (
+                                  <div
+                                    title={
+                                      critique.verdict === "revise"
+                                        ? `Reviewed → revised\n${critique.rationale}`
+                                        : `Reviewed → approved as-is\n${critique.rationale}`
+                                    }
+                                    style={{
+                                      display: "inline-flex",
+                                      alignItems: "center",
+                                      gap: 4,
+                                      fontSize: 9,
+                                      letterSpacing: 1.2,
+                                      padding: "2px 6px",
+                                      borderRadius: 4,
+                                      fontWeight: 700,
+                                      color:
+                                        critique.verdict === "revise"
+                                          ? "#f59e0b"
+                                          : "#10b981",
+                                      background:
+                                        critique.verdict === "revise"
+                                          ? "rgba(245,158,11,0.12)"
+                                          : "rgba(16,185,129,0.12)",
+                                      border: `1px solid ${
+                                        critique.verdict === "revise"
+                                          ? "rgba(245,158,11,0.4)"
+                                          : "rgba(16,185,129,0.4)"
+                                      }`,
+                                      cursor: "help",
+                                    }}
+                                  >
+                                    {critique.verdict === "revise"
+                                      ? `REVIEWED · ${critique.revisions.length} FIX${critique.revisions.length === 1 ? "" : "ES"}`
+                                      : "REVIEWED"}
+                                  </div>
+                                )}
+                                {approvedAt && (
+                                  <div
+                                    style={{
+                                      fontSize: 10,
+                                      color:
+                                        doneCount === plan.actions.length
+                                          ? "#10b981"
+                                          : "#a78bfa",
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    {doneCount}/{plan.actions.length} DONE
+                                  </div>
+                                )}
+                              </div>
                             </div>
                             <div style={{ marginBottom: 10 }}>
                               {plan.actions.map((a, i) => {

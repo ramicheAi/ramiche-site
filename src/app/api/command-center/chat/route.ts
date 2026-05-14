@@ -234,6 +234,16 @@ export type SynthesisPlan = {
   next_check_in?: string;
 };
 
+/** Phase E — structured output from the critic pass. The critic reads the
+ *  proposed plan and asks "where does this fail?". A `revise` verdict triggers
+ *  ONE refinement of the synthesis; an `approve` verdict ships the plan as-is.
+ *  Stored on `messages.metadata.critique` for auditability. */
+export type SynthesisCritique = {
+  verdict: "approve" | "revise";
+  revisions: Array<{ reason: string; fix: string }>;
+  rationale: string;
+};
+
 /** Per-provider attempt diagnostic. Surfaced in the 502 payload + server logs
  *  so every "all providers failed" event has the exact failure reasons. */
 type ProviderAttempt = {
@@ -660,6 +670,288 @@ function extractSynthesisPlan(text: string): SynthesisPlan | null {
   return null;
 }
 
+/**
+ * Phase E — Critic pass. After Atlas drafts the synthesis, a separate pass
+ * inspects the plan with one job: *find what would make this fail*. Anthropic,
+ * OpenAI, DeepMind, etc. all converged on the same pattern — drafter + critic
+ * separated, even when both use the same underlying model. The critic is
+ * primed to look for fuzzy ownership, vague deliverables, unrealistic timing,
+ * under-stated risk, and decision/action confusion.
+ *
+ * Returns a structured verdict. `revise` triggers ONE refinement pass via
+ * {@link refineSynthesis}; `approve` ships the plan as-is. Best-effort —
+ * if the LLM call fails we silently skip the critic and treat the original
+ * plan as good enough.
+ */
+async function generateCritique(
+  userMessage: string,
+  drafts: Array<{ agent: string; response: string }>,
+  synthesisText: string,
+  plan: SynthesisPlan,
+  history: HistoryTurn[],
+  roster: string[]
+): Promise<SynthesisCritique | null> {
+  const draftBlock = drafts
+    .map((d) => `[${d.agent}]: ${d.response.trim()}`)
+    .join("\n\n");
+  const historyBlock = formatHistoryBlock(history, "atlas");
+  const rosterLine = roster.map((id) => `@${id}`).join(", ");
+
+  const critiquePrompt = `You are Atlas wearing your CRITIC hat. Atlas just produced a synthesis plan for Ramon. Your job is to read it cold and find what would make it fail in execution — NOT to polish wording.
+
+Look specifically for:
+1. Fuzzy ownership — actions assigned to "team" or "we" instead of a single named agent.
+2. Vague deliverables — actions where you can't tell whether they're done or not.
+3. Unrealistic timing — deadlines that don't match the size of the work.
+4. Under-stated risk — biggest realistic failure mode not called out in the risks list.
+5. Decision/action confusion — actions that re-state the decision instead of advancing it.
+6. Missing the highest-leverage move — the synthesis picked safe actions when one bolder action would unlock more.
+
+Output STRICT JSON (no prose, no markdown, no code fence — just raw JSON):
+
+{"verdict": "approve" | "revise", "revisions": [{"reason": "…", "fix": "…"}], "rationale": "1-2 sentences why"}
+
+Rules:
+- "approve" if the plan is good enough to ship — no required revisions. revisions=[].
+- "revise" if there is at least one concrete fix that materially improves execution. Max 3 revisions — only the highest-leverage ones.
+- Each "fix" is a SPECIFIC instruction (e.g. "split @atlas action into @atlas (kickoff) + @simons (data pull)"), not a vague critique.
+- Be honest — most synthesised plans need at least one fix. Don't approve to be polite.
+- Only revise if the fix is worth a second LLM round trip. If the plan is mostly right, approve.
+
+Roster (use only these owner ids): ${rosterLine}${historyBlock}
+
+User's original message:
+${userMessage}
+
+Raw drafts that fed the synthesis:
+${draftBlock}
+
+Atlas's synthesis plan (the artifact you are critiquing):
+${synthesisText}
+
+Parsed plan JSON (for structural reference):
+${JSON.stringify(plan)}`;
+
+  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
+  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
+  let raw: string | null = null;
+  try {
+    const res = await fetch(claudeUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${claudeToken}`,
+      },
+      body: JSON.stringify({
+        model: modelForAgent("atlas"),
+        messages: [
+          { role: "system", content: critiquePrompt },
+          { role: "user", content: "Output the JSON now. No other text." },
+        ],
+        max_tokens: 400,
+        temperature: 0.3,
+      }),
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      raw = data.choices?.[0]?.message?.content || null;
+    }
+  } catch (err) {
+    console.error("[chat/critic] Claude Max proxy error:", err);
+  }
+  if (!raw) {
+    const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
+    try {
+      const lmBody: Record<string, unknown> = {
+        messages: [
+          { role: "system", content: critiquePrompt },
+          { role: "user", content: "Output the JSON now. No other text." },
+        ],
+        max_tokens: 400,
+        temperature: 0.3,
+      };
+      const lmModel = modelForLMStudio();
+      if (lmModel) lmBody.model = lmModel;
+      const res = await fetch(lmStudioUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lmBody),
+        signal: AbortSignal.timeout(60_000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        raw = data.choices?.[0]?.message?.content || null;
+      }
+    } catch {
+      /* critic is best-effort */
+    }
+  }
+  if (!raw) return null;
+
+  // Tolerate fenced or bare JSON.
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const candidates = [fenced?.[1], raw.trim()].filter((s): s is string => !!s);
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (!parsed || typeof parsed !== "object") continue;
+      const verdict = parsed.verdict === "revise" ? "revise" : "approve";
+      const revisions = Array.isArray(parsed.revisions)
+        ? (parsed.revisions as unknown[])
+            .filter((r): r is Record<string, unknown> => !!r && typeof r === "object")
+            .map((r) => ({
+              reason: String(r.reason || "").trim(),
+              fix: String(r.fix || "").trim(),
+            }))
+            .filter((r) => r.reason && r.fix)
+            .slice(0, 3)
+        : [];
+      const rationale = String(parsed.rationale || "").trim();
+      // Normalize: a `revise` verdict with no actionable revisions collapses to approve.
+      if (verdict === "revise" && revisions.length === 0) {
+        return { verdict: "approve", revisions: [], rationale };
+      }
+      return { verdict, revisions, rationale };
+    } catch {
+      /* try next candidate */
+    }
+  }
+  return null;
+}
+
+/**
+ * Phase E — Refinement pass. Re-runs the synthesis prompt with the original
+ * plan + critique appended, instructing Atlas to apply ONLY the critique's
+ * fixes (no new actions, no scope drift). One round only — we never critique
+ * the refined plan again.
+ */
+async function refineSynthesis(
+  userMessage: string,
+  drafts: Array<{ agent: string; response: string }>,
+  history: HistoryTurn[],
+  channelName: string | undefined,
+  roster: string[],
+  originalSynthesis: { text: string; plan: SynthesisPlan },
+  critique: SynthesisCritique
+): Promise<{ text: string; plan: SynthesisPlan | null; source: ReplySource } | null> {
+  const draftBlock = drafts
+    .map((d) => `[${d.agent}]: ${d.response.trim()}`)
+    .join("\n\n");
+  const historyBlock = formatHistoryBlock(history, "atlas");
+  const rosterLine = roster.map((id) => `@${id}`).join(", ");
+  const revisionsBlock = critique.revisions
+    .map((r, i) => `${i + 1}. ${r.reason}\n   Fix: ${r.fix}`)
+    .join("\n");
+
+  const refinePrompt = `You are Atlas. You just synthesised a plan for Ramon. A critic pass found ${critique.revisions.length} specific improvement(s). Apply ONLY those fixes — do not introduce new actions, do not change the decision, do not re-word what's already fine.
+
+Roster (owner ids): ${rosterLine}${historyBlock}
+
+User's message:
+${userMessage}
+
+Raw drafts:
+${draftBlock}
+
+Your previous synthesis (the artifact you are revising):
+${originalSynthesis.text}
+
+Critic's required fixes:
+${revisionsBlock}
+
+Now produce the REFINED synthesis. Same exact output format as the original synthesis:
+
+**Synthesis**
+2–3 sentences.
+
+**Decision**
+One sentence.
+
+**Actions**
+- @owner — task, deliverable, by when
+
+**Risks**
+- one-line concern (skip section if none)
+
+**Next check-in**: when + who
+
+Then a fenced JSON block with the refined plan in the same shape as before:
+
+\`\`\`json
+{"decision":"…","actions":[{"owner":"…","task":"…","deliverable":"…","due":"…"}],"risks":["…"],"next_check_in":"…"}
+\`\`\`
+
+Output the refined synthesis only — do not narrate the changes.`;
+
+  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
+  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
+  let text: string | null = null;
+  let source: ReplySource = "fallback";
+  try {
+    const res = await fetch(claudeUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${claudeToken}`,
+      },
+      body: JSON.stringify({
+        model: modelForAgent("atlas"),
+        messages: [
+          { role: "system", content: refinePrompt },
+          { role: "user", content: "Produce the refined synthesis now." },
+        ],
+        max_tokens: 800,
+        temperature: 0.4,
+      }),
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      text = data.choices?.[0]?.message?.content || null;
+      if (text) source = "claude-max";
+    }
+  } catch (err) {
+    console.error("[chat/refine] Claude Max proxy error:", err);
+  }
+  if (!text) {
+    const lmStudioUrl = cleanEnv("LM_STUDIO_URL") || LM_STUDIO_DEFAULT_URL;
+    try {
+      const lmBody: Record<string, unknown> = {
+        messages: [
+          { role: "system", content: refinePrompt },
+          { role: "user", content: "Produce the refined synthesis now." },
+        ],
+        max_tokens: 800,
+        temperature: 0.4,
+      };
+      const lmModel = modelForLMStudio();
+      if (lmModel) lmBody.model = lmModel;
+      const res = await fetch(lmStudioUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(lmBody),
+        signal: AbortSignal.timeout(75_000),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        text = data.choices?.[0]?.message?.content || null;
+        if (text) source = "lm-studio";
+      }
+    } catch {
+      /* refine is best-effort — original plan still ships if this fails */
+    }
+  }
+  if (!text) return null;
+  const plan = extractSynthesisPlan(text);
+  // Defensive: if refinement produced no parseable plan, keep the original
+  // plan (the critic's fixes only changed wording, not structure).
+  return { text, plan: plan ?? originalSynthesis.plan, source };
+  // channelName intentionally accepted for symmetry with generateSynthesis()
+  // even though we don't reference it in the prompt — keeps call sites uniform.
+  void channelName;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -808,6 +1100,11 @@ export async function POST(req: NextRequest) {
     // The synthesis is stored as a regular agent message authored by Atlas with
     // `metadata.kind = "synthesis"` so the UI/Phase C can recognise it later.
     let synthesisResult: Awaited<ReturnType<typeof generateSynthesis>> | null = null;
+    // Phase E — bookkeeping for the critic pass. Stored in metadata so the UI
+    // can show "Reviewed → revised" and so we can audit critique quality over
+    // time. Stays null when the critic is off or approves without changes.
+    let appliedCritique: SynthesisCritique | null = null;
+    let originalPlanBeforeRefine: SynthesisPlan | null = null;
     if (groupMode && responses.length >= 2 && !threadUuid) {
       synthesisResult = await generateSynthesis(
         message,
@@ -827,6 +1124,59 @@ export async function POST(req: NextRequest) {
         targets
       );
 
+      // Phase E — critic pass. Gated behind CC_SYNTHESIS_CRITIC=1 so we can
+      // burn it in for a few sessions before defaulting on. Only runs when we
+      // actually got a structured plan from the initial synthesis; without a
+      // plan there's nothing structural to critique.
+      const criticOn =
+        cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
+        cleanEnv("CC_SYNTHESIS_CRITIC") === "true";
+      if (criticOn && synthesisResult?.plan && synthesisResult.text) {
+        const critique = await generateCritique(
+          message,
+          responses.map((r) => ({ agent: r.agent, response: r.response })),
+          synthesisResult.text,
+          synthesisResult.plan,
+          [
+            ...history,
+            ...responses.map((r) => ({
+              speaker: r.agent,
+              content: r.response,
+              createdAt: new Date().toISOString(),
+            })),
+          ],
+          targets
+        );
+
+        if (critique?.verdict === "revise" && critique.revisions.length > 0) {
+          const refined = await refineSynthesis(
+            message,
+            responses.map((r) => ({ agent: r.agent, response: r.response })),
+            [
+              ...history,
+              ...responses.map((r) => ({
+                speaker: r.agent,
+                content: r.response,
+                createdAt: new Date().toISOString(),
+              })),
+            ],
+            channelName,
+            targets,
+            { text: synthesisResult.text, plan: synthesisResult.plan },
+            critique
+          );
+          if (refined?.text) {
+            originalPlanBeforeRefine = synthesisResult.plan;
+            synthesisResult = refined;
+            appliedCritique = critique;
+          }
+        } else if (critique) {
+          // Critic looked + approved. Stamp the metadata so we can prove the
+          // pass happened even when no revision was needed.
+          appliedCritique = critique;
+        }
+      }
+
       if (synthesisResult?.text && svc && channelId) {
         const atlasUUID = AGENT_DM_UUID["atlas"] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
         const { error: synthErr } = await svc.from("messages").insert({
@@ -841,6 +1191,18 @@ export async function POST(req: NextRequest) {
             kind: "synthesis",
             plan: synthesisResult.plan,
             participants: targets,
+            // Phase E — store the critique on the synthesis row when the pass
+            // ran. UI uses this to show a small "Reviewed" badge + which fixes
+            // were applied. `original_plan` only populated on actual revision
+            // so we can audit drift later.
+            ...(appliedCritique
+              ? {
+                  critique: appliedCritique,
+                  ...(originalPlanBeforeRefine
+                    ? { original_plan: originalPlanBeforeRefine }
+                    : {}),
+                }
+              : {}),
           },
         });
         if (synthErr) {
@@ -879,6 +1241,13 @@ export async function POST(req: NextRequest) {
             text: synthesisResult.text,
             plan: synthesisResult.plan,
             source: synthesisResult.source,
+            // Phase E — included so the UI can render a "Reviewed" badge (or
+            // "Reviewed → revised") and so debug tooling can inspect what the
+            // critic flagged + which fixes were applied.
+            ...(appliedCritique ? { critique: appliedCritique } : {}),
+            ...(originalPlanBeforeRefine
+              ? { original_plan: originalPlanBeforeRefine }
+              : {}),
           }
         : null,
     });
