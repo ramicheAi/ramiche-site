@@ -9,7 +9,11 @@ import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+// Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
+// realistically take 40-70s under load (the slowest parallel agent dominates,
+// then synthesis + critic + maybe refine run serially). 90s gives us headroom
+// without changing the user-perceived latency on the happy path.
+export const maxDuration = 90;
 
 // Lightweight reachability probe. The Command Center health dashboard pings
 // every API endpoint to render service uptime; without this, the chat route
@@ -1132,15 +1136,20 @@ export async function POST(req: NextRequest) {
       // actually got a structured plan from the initial synthesis; without a
       // plan there's nothing structural to critique.
       //
-      // Wall-clock budget guard: maxDuration on this route is 60s. If we are
-      // already >35s in by the time synthesis returns, skip the critic to
-      // preserve the synthesis itself. Better to ship the unreviewed plan
+      // Wall-clock budget guard: maxDuration on this route is 90s. We budget
+      // ~20s for critic and ~25s for an optional refine, so we skip the critic
+      // entirely if we're already past 60s. Better to ship an unreviewed plan
       // than to hit the platform timeout and lose everything.
-      const elapsedMs = Date.now() - postStartedAt;
+      const elapsedMsAtCritic = Date.now() - postStartedAt;
       const criticOn =
         (cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
           cleanEnv("CC_SYNTHESIS_CRITIC") === "true") &&
-        elapsedMs < 35_000;
+        elapsedMsAtCritic < 60_000;
+      if (!criticOn) {
+        console.log(
+          `[chat] critic skipped — env=${cleanEnv("CC_SYNTHESIS_CRITIC") || "off"} elapsed=${elapsedMsAtCritic}ms`
+        );
+      }
       if (criticOn && synthesisResult?.plan && synthesisResult.text) {
         const critique = await generateCritique(
           message,
@@ -1158,7 +1167,17 @@ export async function POST(req: NextRequest) {
           targets
         );
 
-        if (critique?.verdict === "revise" && critique.revisions.length > 0) {
+        // Only run refine if we still have a comfortable budget for it.
+        // refineSynthesis runs another full Atlas pass — if elapsed > 70s we
+        // ship the original plan + the critique attached so Ramon can still
+        // see what would have been fixed.
+        const elapsedMsAtRefine = Date.now() - postStartedAt;
+        const refineOn = elapsedMsAtRefine < 70_000;
+        if (
+          critique?.verdict === "revise" &&
+          critique.revisions.length > 0 &&
+          refineOn
+        ) {
           const refined = await refineSynthesis(
             message,
             responses.map((r) => ({ agent: r.agent, response: r.response })),
