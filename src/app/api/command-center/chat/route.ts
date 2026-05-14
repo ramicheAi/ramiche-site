@@ -1155,11 +1155,22 @@ export async function POST(req: NextRequest) {
       const criticEnvOn =
         cleanEnv("CC_SYNTHESIS_CRITIC") === "1" ||
         cleanEnv("CC_SYNTHESIS_CRITIC") === "true";
-      const criticOn = criticEnvOn && elapsedMsAtCritic < 60_000;
+      // Fan-out guard: with 4+ parallel drafts the slowest agent alone can eat
+      // 30+s before synthesis even starts. Adding critic + maybe-refine on top
+      // reliably busts the 90s maxDuration ceiling. Cap critic to groups of 3
+      // or fewer where the latency math actually fits.
+      const fanOutFits = targets.length <= 3;
+      const criticOn =
+        criticEnvOn && fanOutFits && elapsedMsAtCritic < 60_000;
       if (!criticEnvOn) {
         criticState = "disabled";
       } else if (!synthesisResult?.plan || !synthesisResult?.text) {
         criticState = "no-plan";
+      } else if (!fanOutFits) {
+        criticState = "budget-skip-critic";
+        console.log(
+          `[chat] critic skipped (fan-out) — targets=${targets.length}`
+        );
       } else if (!criticOn) {
         criticState = "budget-skip-critic";
         console.log(
