@@ -324,7 +324,13 @@ async function generateAgentReply(
   if (openclawPrimary && isOpenClawGatewayConfigured()) {
     const sessionKey = resolveChatSessionKey(target);
     const routed = `[CC chat → ${displayName} / session ${sessionKey}]\n${systemPrompt}\n\nUser:\n${userMessage}`;
-    const gw = await gatewaySessionsSend(sessionKey, routed, 90);
+    // 25s cap — OpenClaw WS dispatch occasionally hangs when an agent's
+    // Claude Code session has lost its WebSocket attachment on the Mac.
+    // 25s is comfortably longer than the typical 7-20s reply latency but
+    // short enough that we fall through to Claude Max well before the
+    // route's own maxDuration. Was 90s, which made one flaky agent kill
+    // the entire response.
+    const gw = await gatewaySessionsSend(sessionKey, routed, 25);
     if (gw.ok && gw.reply) {
       agentResponse = gw.reply;
       responseSource = "openclaw";
