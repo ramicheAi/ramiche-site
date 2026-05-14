@@ -352,6 +352,26 @@ async function regenerateAtlasDelegationReply(
   }
 }
 
+/** Last-resort: attach a minimal fenced JSON plan covering mentioned agents
+ *  when the rewrite loop fails (e.g. Ramon asked for a literal @mention line).
+ *  Keeps CC_STRICT_DELEGATION mechanically satisfiable without silent failure. */
+function attachDelegationEnvelope(
+  reply: string,
+  violations: string[],
+  userMessage: string
+): string {
+  const actions = violations.map((owner) => ({
+    owner,
+    task: `Execute per Atlas reply above; context from Ramon: ${userMessage.slice(0, 200).replace(/\s+/g, " ").trim()}`,
+  }));
+  const envelope = {
+    decision:
+      "Atlas named these owners — JSON envelope auto-attached because rewrite passes did not emit a plan.",
+    actions,
+  };
+  return `${reply.trim()}\n\n\`\`\`json\n${JSON.stringify(envelope, null, 2)}\n\`\`\``;
+}
+
 async function generateAgentReply(
   target: string,
   userMessage: string,
@@ -598,9 +618,16 @@ async function generateAgentReply(
     const remaining = detectDelegationViolations(agentResponse);
     if (remaining.length > 0) {
       console.warn(
-        "[chat] CC_STRICT_DELEGATION: violations remain after rewrite loop",
+        "[chat] CC_STRICT_DELEGATION: attaching JSON envelope — violations remained:",
         remaining
       );
+      agentResponse = attachDelegationEnvelope(agentResponse, remaining, userMessage);
+      responseSource = "claude-max";
+      attempts.push({
+        provider: "claude-max",
+        status: "ok",
+        detail: "strict-delegation-envelope-fallback",
+      });
     }
   }
 
