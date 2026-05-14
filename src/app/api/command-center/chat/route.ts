@@ -6,7 +6,7 @@ import {
   resolveChatSessionKey,
 } from "@/lib/openclaw-gateway";
 import { resolveChatTargets } from "@/lib/chat-routing";
-import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
+import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -140,6 +140,74 @@ function isGroupNoResponse(text: string): boolean {
   return /^\[NO_RESPONSE\]/i.test(t);
 }
 
+/** Phase A — Shared awareness.
+ *
+ * One channel message in the format every agent's LLM call sees. We collapse
+ * each prior turn (whether from Ramon or another agent) into a labelled line
+ * so the model never has to wonder who said what.
+ */
+type HistoryTurn = {
+  /** lowercased short id (`atlas`, `mercury`, `ramon`, …) */
+  speaker: string;
+  /** raw text content as it was stored in Supabase */
+  content: string;
+  /** ISO timestamp for ordering only — not surfaced to the model */
+  createdAt: string;
+};
+
+/** Pull the most recent N messages from the channel (chronological order on
+ *  return). Used to give every agent the same shared context window. The
+ *  excludeId is the just-inserted user message id — we drop it so the LLM
+ *  doesn't see the same prompt twice (once as `[ramon]: …` history, once as
+ *  the current `userMessage`). */
+async function loadChannelHistory(
+  svc: ReturnType<typeof getSupabaseService>,
+  channelId: string | undefined,
+  excludeId: string | undefined,
+  limit = 30
+): Promise<HistoryTurn[]> {
+  if (!svc || !channelId) return [];
+  const { data, error } = await svc
+    .from("messages")
+    .select("id, sender_type, sender_agent_id, content, created_at")
+    .eq("channel_id", channelId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  // Supabase returned newest-first; flip to oldest-first for the model.
+  const ordered = [...data].reverse();
+  const out: HistoryTurn[] = [];
+  for (const row of ordered) {
+    if (excludeId && row.id === excludeId) continue;
+    const content = typeof row.content === "string" ? row.content.trim() : "";
+    if (!content) continue;
+    const isAgent = row.sender_type === "agent";
+    const speaker = isAgent
+      ? AGENT_UUID_TO_SHORT_ID[(row.sender_agent_id as string) || ""] || "agent"
+      : "ramon";
+    out.push({ speaker, content, createdAt: row.created_at as string });
+  }
+  return out;
+}
+
+/** Render the channel transcript that gets injected into every agent's system
+ *  prompt. Each line is `[speaker]: content` so the model can attribute every
+ *  prior turn. The agent's OWN past messages get a `[you, name]:` prefix so it
+ *  recognises continuity with itself. Per-message content is hard-capped at
+ *  400 chars to keep the total bounded (30 turns × ~400 chars ≈ 12k chars,
+ *  comfortably inside every model context window we route to).
+ */
+function formatHistoryBlock(history: HistoryTurn[], currentAgent: string): string {
+  if (history.length === 0) return "";
+  const me = currentAgent.toLowerCase();
+  const lines = history.map((t) => {
+    const body = t.content.length > 400 ? `${t.content.slice(0, 400)}…` : t.content;
+    const tag = t.speaker.toLowerCase() === me ? `you, ${currentAgent}` : t.speaker;
+    return `[${tag}]: ${body}`;
+  });
+  return `\n\n--- Recent conversation in this channel (oldest → newest, ${history.length} message${history.length === 1 ? "" : "s"}) ---\n${lines.join("\n")}\n--- end of channel history ---\n\nThe user's NEW message is below. Treat the history above as context — reference earlier points by speaker, build on what others said, and avoid repeating yourself.`;
+}
+
 type ReplySource = "openclaw" | "claude-max" | "lm-studio" | "fallback";
 
 /** Per-provider attempt diagnostic. Surfaced in the 502 payload + server logs
@@ -158,7 +226,8 @@ async function generateAgentReply(
   channelName: string | undefined,
   groupMode: boolean,
   singleTargetStrict: boolean,
-  groupRoster: string[]
+  groupRoster: string[],
+  history: HistoryTurn[]
 ): Promise<{
   text: string;
   source: ReplySource;
@@ -191,7 +260,12 @@ async function generateAgentReply(
   // never breaks character, even when the user asks "who are you?".
   const identityLock = `You ARE ${displayName}, an AI agent inside Parallax Ventures' RAMICHE OS. You are NOT a generic AI assistant. You do NOT identify as Claude, Anthropic, OpenAI, GPT, or any external service. If asked who you are, say you are ${displayName}, ${persona.role} at Parallax. Never break this persona.`;
 
-  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.`;
+  // Phase A — Shared awareness. Inject the recent channel transcript so every
+  // agent can see what Ramon AND other agents have said, instead of replying
+  // blind. This is the single biggest unlock toward real coordination.
+  const historyBlock = formatHistoryBlock(history, target);
+
+  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.${historyBlock}`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
@@ -401,6 +475,13 @@ export async function POST(req: NextRequest) {
     const groupMode = targets.length > 1;
     const singleTargetStrict = targets.length === 1;
 
+    // Phase A — Shared awareness. Load the recent channel history ONCE up
+    // front so every parallel agent call sees the same snapshot. We exclude
+    // the just-inserted user message so the LLM doesn't read its current
+    // prompt twice (once in history, once as the "new" user turn).
+    const svc = getSupabaseService();
+    const history = await loadChannelHistory(svc, channelId, userMessageId, 30);
+
     const results = await Promise.allSettled(
       targets.map((target) =>
         generateAgentReply(
@@ -409,13 +490,13 @@ export async function POST(req: NextRequest) {
           channelName,
           groupMode,
           singleTargetStrict,
-          targets
+          targets,
+          history
         )
       )
     );
 
     const responses: { agent: string; response: string; source: ReplySource }[] = [];
-    const svc = getSupabaseService();
     const fallbackOnlyTargets: string[] = [];
     const rejectedTargets: string[] = [];
     const allAttempts: Record<string, ProviderAttempt[]> = {};
