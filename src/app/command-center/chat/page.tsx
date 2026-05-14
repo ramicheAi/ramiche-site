@@ -290,6 +290,7 @@ type Message = {
   attachments?: ChatAttachment[];
   threadParentId?: string | null;
   pinned?: boolean;
+  metadata?: Record<string, unknown> | null;
 };
 type ViewMode = "channel" | "dm";
 
@@ -309,6 +310,46 @@ function renderContentWithMentions(text: string) {
     }
     return <span key={i}>{part}</span>;
   });
+}
+
+type SynthesisActionItem = {
+  owner: string;
+  task: string;
+  deliverable?: string;
+  due?: string;
+};
+type SynthesisPlan = {
+  decision: string;
+  actions: SynthesisActionItem[];
+  risks?: string[];
+  next_check_in?: string;
+};
+
+function readSynthesisPlan(
+  metadata: Record<string, unknown> | null | undefined
+): SynthesisPlan | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  if (metadata.kind !== "synthesis") return null;
+  const p = metadata.plan;
+  if (!p || typeof p !== "object") return null;
+  const pp = p as Record<string, unknown>;
+  if (typeof pp.decision !== "string" || !Array.isArray(pp.actions)) return null;
+  const actions: SynthesisActionItem[] = (pp.actions as unknown[])
+    .filter((a): a is Record<string, unknown> => !!a && typeof a === "object")
+    .map((a) => ({
+      owner: String(a.owner || "").toLowerCase(),
+      task: String(a.task || ""),
+      deliverable: a.deliverable ? String(a.deliverable) : undefined,
+      due: a.due ? String(a.due) : undefined,
+    }))
+    .filter((a) => a.owner && a.task);
+  if (actions.length === 0) return null;
+  return {
+    decision: pp.decision as string,
+    actions,
+    risks: Array.isArray(pp.risks) ? (pp.risks as unknown[]).map((r) => String(r)) : undefined,
+    next_check_in: typeof pp.next_check_in === "string" ? pp.next_check_in : undefined,
+  };
 }
 
 /** Phase 1.3 — who to show in the typing row while waiting for OpenClaw */
@@ -559,6 +600,44 @@ export default function CommandCenterChatPage() {
 
   /** Last relay error — rendered as a red bubble below the failing user message. */
   const [relayError, setRelayError] = useState<{ id: string; message: string } | null>(null);
+
+  /* ── Phase C — approval state for synthesis cards.
+        approving = id of the synthesis message currently being approved;
+        approveError = inline error if the /approve call fails. ── */
+  const [approvingSynthId, setApprovingSynthId] = useState<string | null>(null);
+  const [approveError, setApproveError] = useState<{ id: string; message: string } | null>(null);
+
+  const handleApproveSynthesis = async (messageId: string) => {
+    setApproveError(null);
+    setApprovingSynthId(messageId);
+    try {
+      const res = await fetch("/api/command-center/chat/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        dispatched?: number;
+        total?: number;
+        alreadyApproved?: boolean;
+      } | null;
+      if (!res.ok || !data?.ok) {
+        setApproveError({
+          id: messageId,
+          message: data?.error || `Approve failed (HTTP ${res.status})`,
+        });
+      }
+    } catch (e) {
+      setApproveError({
+        id: messageId,
+        message: e instanceof Error ? e.message : "Approve request failed",
+      });
+    } finally {
+      setApprovingSynthId(null);
+    }
+  };
 
   /* ── file attachments (file = local blob before upload) ── */
   const [attachments, setAttachments] = useState<
@@ -903,6 +982,10 @@ export default function CommandCenterChatPage() {
             attachments: parseAttachmentsFromRow(msg.attachments),
             threadParentId: threadPid ?? null,
             pinned: pinnedRaw === true,
+            metadata:
+              msg.metadata && typeof msg.metadata === "object"
+                ? (msg.metadata as Record<string, unknown>)
+                : null,
           };
         });
 
@@ -3255,6 +3338,115 @@ export default function CommandCenterChatPage() {
                         {renderContentWithMentions(message.content)}
                         {renderMessageAttachments(message.attachments)}
                       </div>
+
+                      {/* Phase C — Synthesis card. Rendered ONLY on Atlas messages
+                          where metadata.kind === "synthesis". Surfaces the parsed
+                          plan and an [Approve] button that fires real handoffs to
+                          each action's owner agent. */}
+                      {(() => {
+                        const plan = readSynthesisPlan(message.metadata);
+                        if (!plan) return null;
+                        const approvedAt =
+                          message.metadata &&
+                          typeof message.metadata === "object" &&
+                          typeof (message.metadata as Record<string, unknown>).approved_at ===
+                            "string"
+                            ? ((message.metadata as Record<string, unknown>).approved_at as string)
+                            : null;
+                        const isApproving = approvingSynthId === message.id;
+                        const errForThis = approveError?.id === message.id ? approveError.message : null;
+                        return (
+                          <div
+                            style={{
+                              marginTop: 10,
+                              padding: "12px 14px",
+                              borderRadius: 10,
+                              background: "rgba(124,58,237,0.05)",
+                              border: "1px solid rgba(124,58,237,0.35)",
+                            }}
+                          >
+                            <div
+                              style={{
+                                fontSize: 10,
+                                letterSpacing: 1.4,
+                                color: "#a78bfa",
+                                fontWeight: 700,
+                                marginBottom: 6,
+                              }}
+                            >
+                              SYNTHESIS PLAN · {plan.actions.length} ACTION
+                              {plan.actions.length === 1 ? "" : "S"}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 12,
+                                color: COLORS.text.secondary,
+                                marginBottom: 10,
+                              }}
+                            >
+                              {plan.actions.map((a, i) => (
+                                <div key={i} style={{ marginBottom: 4 }}>
+                                  <span
+                                    style={{
+                                      color:
+                                        (COLORS.agents as Record<string, string>)[a.owner] ??
+                                        COLORS.text.primary,
+                                      fontWeight: 600,
+                                    }}
+                                  >
+                                    @{a.owner}
+                                  </span>{" "}
+                                  — {a.task}
+                                  {a.due ? (
+                                    <span style={{ color: "#888", marginLeft: 6 }}>· {a.due}</span>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                            {approvedAt ? (
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: "#10b981",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                ✓ Approved — handoffs dispatched
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveSynthesis(message.id)}
+                                disabled={isApproving}
+                                style={{
+                                  padding: "6px 14px",
+                                  borderRadius: 6,
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  background: isApproving ? "rgba(124,58,237,0.4)" : "#7c3aed",
+                                  color: "#fff",
+                                  border: "none",
+                                  cursor: isApproving ? "wait" : "pointer",
+                                }}
+                              >
+                                {isApproving ? "Dispatching handoffs…" : "Approve & dispatch"}
+                              </button>
+                            )}
+                            {errForThis && (
+                              <div
+                                role="alert"
+                                style={{
+                                  marginTop: 8,
+                                  fontSize: 11,
+                                  color: "#fca5a5",
+                                }}
+                              >
+                                {errForThis}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Relay error — surfaced when the chat API returned 4xx/5xx
                           or the network call itself failed. Click to dismiss. */}
