@@ -258,6 +258,100 @@ type ProviderAttempt = {
   detail?: string;
 };
 
+const AGENT_ROSTER_IDS = new Set(Object.keys(AGENT_PERSONAS).map((k) => k.toLowerCase()));
+
+/** Parse owners from a fenced JSON block with `actions[].owner` or from SOUL.md
+ *  Format B line `AGENT: triage`. Used by strict delegation enforcement. */
+function parseDelegationOwnersFromText(text: string): Set<string> {
+  const owners = new Set<string>();
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const candidate = fenced?.[1];
+  if (candidate) {
+    try {
+      const parsed = JSON.parse(candidate) as { actions?: unknown };
+      if (parsed?.actions && Array.isArray(parsed.actions)) {
+        for (const a of parsed.actions) {
+          if (a && typeof a === "object" && "owner" in a) {
+            const o = String((a as { owner: unknown }).owner || "")
+              .toLowerCase()
+              .trim();
+            if (o) owners.add(o);
+          }
+        }
+      }
+    } catch {
+      /* ignore malformed JSON */
+    }
+  }
+  const agentLine = text.match(/^AGENT:\s*([a-z][a-z0-9]*)/im);
+  if (agentLine) owners.add(agentLine[1].toLowerCase());
+  return owners;
+}
+
+/** Detect agent short-ids @mentioned without a matching delegation artifact. */
+function detectDelegationViolations(reply: string): string[] {
+  const mentioned = new Set<string>();
+  const re = /@([a-z][a-z0-9]*)/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(reply)) !== null) {
+    const id = m[1].toLowerCase();
+    if (AGENT_ROSTER_IDS.has(id) && id !== "atlas") mentioned.add(id);
+  }
+  const delegated = parseDelegationOwnersFromText(reply);
+  const violations: string[] = [];
+  for (const id of mentioned) {
+    if (!delegated.has(id)) violations.push(id);
+  }
+  return violations;
+}
+
+/** One-shot Claude rewrite when Atlas mentions agents without a JSON plan. */
+async function regenerateAtlasDelegationReply(
+  draft: string,
+  violations: string[],
+  systemPrompt: string,
+  userMessage: string
+): Promise<string | null> {
+  const claudeUrl = cleanEnv("CLAUDE_MAX_PROXY_URL") || CLAUDE_MAX_DEFAULT_URL;
+  const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
+  const handles = violations.map((v) => `@${v}`).join(", ");
+  const fixSystem =
+    `${systemPrompt}\n\n--- STRICT DELEGATION (PROGRAMMATIC) ---\n` +
+    `Your draft violated delegation discipline: you mentioned ${handles} without machine-readable assignment.\n\n` +
+    `Fix EXACTLY ONE way:\n` +
+    `1. Include a fenced JSON block (markdown triple-backtick around json) with an "actions" array — EVERY mentioned agent (${handles}) MUST appear as an "owner" with a concrete "task" string.\n` +
+    `2. OR remove ALL @mentions of agents other than yourself and answer alone.\n\n` +
+    `Output ONLY the corrected reply. No preamble or apology.\n\nDraft:\n---\n${draft}\n---`;
+  try {
+    const res = await fetch(claudeUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${claudeToken}`,
+      },
+      body: JSON.stringify({
+        model: modelForAgent("atlas"),
+        messages: [
+          { role: "system", content: fixSystem },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 500,
+        temperature: 0.25,
+      }),
+      signal: AbortSignal.timeout(45_000),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const out = data.choices?.[0]?.message?.content?.trim();
+    return out || null;
+  } catch (err) {
+    console.error("[chat] strict delegation rewrite failed:", err);
+    return null;
+  }
+}
+
 async function generateAgentReply(
   target: string,
   userMessage: string,
@@ -464,6 +558,49 @@ async function generateAgentReply(
           ? "LM Studio Local Server not running (start it in LM Studio → Local Server tab)"
           : `exception: ${msg}`,
       });
+    }
+  }
+
+  // Strict delegation — Atlas-only, single-target CC Chat (not group mode).
+  // Naming another agent (@triage, …) requires JSON actions[].owner or AGENT:
+  // Format B. One regeneration pass; second pass if violations remain.
+  if (
+    agentResponse &&
+    (cleanEnv("CC_STRICT_DELEGATION") === "1" ||
+      cleanEnv("CC_STRICT_DELEGATION") === "true") &&
+    target.toLowerCase() === "atlas" &&
+    singleTargetStrict &&
+    !groupMode
+  ) {
+    let draft = agentResponse;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const viol = detectDelegationViolations(draft);
+      if (viol.length === 0) break;
+      const fixed = await regenerateAtlasDelegationReply(
+        draft,
+        viol,
+        systemPrompt,
+        userMessage
+      );
+      if (!fixed) {
+        console.warn("[chat] CC_STRICT_DELEGATION: rewrite failed", viol);
+        break;
+      }
+      draft = fixed;
+      responseSource = "claude-max";
+      attempts.push({
+        provider: "claude-max",
+        status: "ok",
+        detail: `strict-delegation-rewrite-pass-${attempt + 1}`,
+      });
+    }
+    agentResponse = draft;
+    const remaining = detectDelegationViolations(agentResponse);
+    if (remaining.length > 0) {
+      console.warn(
+        "[chat] CC_STRICT_DELEGATION: violations remain after rewrite loop",
+        remaining
+      );
     }
   }
 
