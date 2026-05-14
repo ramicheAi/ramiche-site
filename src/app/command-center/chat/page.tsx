@@ -750,6 +750,9 @@ export default function CommandCenterChatPage() {
   const sendingRef = useRef(false);
   /** Last user message UUID (Supabase) — mark read when agent reply arrives */
   const lastPendingUserMessageIdRef = useRef<string | null>(null);
+  /** Latest Realtime status — read inside deferred relays so we don't trust stale subscriptions. */
+  const realtimeStatusRef = useRef(realtimeStatus);
+  realtimeStatusRef.current = realtimeStatus;
   const agentsRef = useRef<Agent[]>(agents);
   const hoverReactionLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [hoverReactionMsgId, setHoverReactionMsgId] = useState<string | null>(null);
@@ -1543,11 +1546,13 @@ export default function CommandCenterChatPage() {
           }
 
           if (data.ok && (data.response || (data.responses && data.responses.length > 0))) {
+            const delayMs = realtimeStatusRef.current === "connected" ? 2000 : 0;
             setTimeout(() => {
               setMessages((prev) => {
                 const lastUserIdx = prev.findLastIndex((m) => m.type === "user");
                 const hasAgentReply = prev.slice(lastUserIdx + 1).some((m) => m.type === "agent");
-                if (hasAgentReply) return prev;
+                const trustRealtimeDedupe = realtimeStatusRef.current === "connected";
+                if (trustRealtimeDedupe && hasAgentReply) return prev;
 
                 setWaitingForResponse(false);
                 setTypingUsers([]);
@@ -1611,7 +1616,7 @@ export default function CommandCenterChatPage() {
                   },
                 ];
               });
-            }, 2000);
+            }, delayMs);
           }
         })
         .catch((err) => {

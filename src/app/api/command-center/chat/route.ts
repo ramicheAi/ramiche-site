@@ -1247,18 +1247,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // If NO agent produced a real reply (all fallback / rejected), return
-    // 502 with the structured attempt log so the chat UI can render the
-    // actual reason (which backend died) instead of a soothing lie.
-    if (
-      responses.length === 0 &&
-      (fallbackOnlyTargets.length > 0 || rejectedTargets.length > 0)
-    ) {
+    // If NO agent produced a real reply, return 502 with context. This covers:
+    // all backends failed / empty, Promise rejections, and group mode where every
+    // specialist returned [NO_RESPONSE] (those rows are skipped without filling
+    // fallbackOnlyTargets — previously we'd incorrectly return ok:true with no text).
+    if (responses.length === 0) {
+      const silentDecline =
+        fallbackOnlyTargets.length === 0 &&
+        rejectedTargets.length === 0 &&
+        targets.length > 0;
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "No chat backend responded. Check that the Claude Max proxy is running on http://127.0.0.1:3456, or start LM Studio's Local Server.",
+          error: silentDecline
+            ? "No agent replies were produced (e.g. every specialist returned [NO_RESPONSE]). Try rephrasing or @mentioning fewer agents."
+            : "No chat backend responded. Check that the Claude Max proxy is running on http://127.0.0.1:3456, or start LM Studio's Local Server.",
           source: "fallback",
           targets,
           attempts: allAttempts,
