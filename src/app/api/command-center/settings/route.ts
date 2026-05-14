@@ -14,8 +14,8 @@ export const runtime = "nodejs";
  * the Next.js server lived on the same machine as OpenClaw, which is never
  * true on Vercel. Every action now goes through `gatewayToolsInvoke` which
  * speaks the gateway HTTP API at `OPENCLAW_GATEWAY_URL` (default
- * 127.0.0.1:18789) using the bearer in `OPENCLAW_GATEWAY_TOKEN` /
- * `OPENCLAW_GATEWAY_PASSWORD`.
+ * 127.0.0.1:24511, matches openclaw.json on Mac) using the bearer in
+ * `OPENCLAW_GATEWAY_TOKEN` / `OPENCLAW_GATEWAY_PASSWORD`.
  *
  * Action surface (POST body { action }):
  *   - "gateway-status"   → status snapshot

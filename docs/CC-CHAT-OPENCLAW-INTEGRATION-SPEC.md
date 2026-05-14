@@ -67,7 +67,7 @@ The CC Chat (`src/app/command-center/chat/page.tsx`, 2474 lines) has:
                │
                ▼
 ┌─────────────────────────────────────────────────────────┐
-│        OpenClaw Gateway (localhost:18789)                 │
+│        OpenClaw Gateway (localhost:24511)                 │
 │        src/lib/openclaw-gateway.ts                        │
 │                                                           │
 │  sessions_send(sessionKey, message) → agent reply         │
@@ -238,7 +238,8 @@ ALTER TABLE messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;
 
 ## Reference: OpenClaw Gateway API
 
-The gateway runs at `localhost:18789`. Auth: Bearer token.
+The gateway runs at `localhost:24511`. Auth: Bearer token (see
+`gateway.auth.token` in `~/.openclaw/openclaw.json`).
 
 **Key endpoint:** `POST /tools/invoke`
 ```json

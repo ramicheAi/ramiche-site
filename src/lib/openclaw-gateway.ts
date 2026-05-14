@@ -6,11 +6,14 @@
  * the gateway HTTP deny list in openclaw.json when calling from this app.
  *
  * Env:
- * - OPENCLAW_GATEWAY_URL — default http://127.0.0.1:18789
- * - OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD — Bearer value
+ * - OPENCLAW_GATEWAY_URL — default http://127.0.0.1:24511 (matches the live
+ *   port in ~/.openclaw/openclaw.json on Ramon's Mac). The earlier 18789 was
+ *   stale — corrected May 2026.
+ * - OPENCLAW_GATEWAY_TOKEN or OPENCLAW_GATEWAY_PASSWORD — Bearer value (see
+ *   gateway.auth.token in openclaw.json).
  */
 
-const DEFAULT_BASE = "http://127.0.0.1:18789";
+const DEFAULT_BASE = "http://127.0.0.1:24511";
 
 export function isOpenClawGatewayConfigured(): boolean {
   const t = process.env.OPENCLAW_GATEWAY_TOKEN?.trim();
@@ -82,19 +85,56 @@ export async function gatewayToolsInvoke(body: {
   }
 }
 
-/** Map UI agent id → OpenClaw session key (default main). Optional JSON: {"atlas":"main","shuri":"agent::..."} */
+/** Built-in CC agent id → OpenClaw `sessionKey` mapping, derived from the
+ *  agents.list block in ~/.openclaw/openclaw.json. Most agents use their
+ *  lowercased short name; a few diverge:
+ *    atlas       → main
+ *    drstrange   → strange
+ *    michael     → swimelite
+ *    themaestro  → maestro
+ *  Env OPENCLAW_AGENT_SESSION_KEYS (JSON) overrides this map per agent. */
+const DEFAULT_AGENT_SESSION_KEYS: Record<string, string> = {
+  atlas: "main",
+  triage: "triage",
+  shuri: "shuri",
+  proximon: "proximon",
+  aetherion: "aetherion",
+  simons: "simons",
+  mercury: "mercury",
+  vee: "vee",
+  ink: "ink",
+  echo: "echo",
+  haven: "haven",
+  widow: "widow",
+  drstrange: "strange",
+  kiyosaki: "kiyosaki",
+  michael: "swimelite",
+  selah: "selah",
+  prophets: "prophets",
+  themaestro: "maestro",
+  nova: "nova",
+  themis: "themis",
+};
+
+/** Map UI agent id → OpenClaw session key. Lookup priority:
+ *    1. env OPENCLAW_AGENT_SESSION_KEYS JSON map (per-agent override)
+ *    2. built-in DEFAULT_AGENT_SESSION_KEYS map (sane defaults from
+ *       openclaw.json on Ramon's Mac)
+ *    3. env OPENCLAW_CHAT_SESSION_KEY (global default)
+ *    4. literal "main" (Atlas session) — last-resort safe default. */
 export function resolveChatSessionKey(agentId: string): string {
+  const id = agentId.toLowerCase();
   const raw = process.env.OPENCLAW_AGENT_SESSION_KEYS?.trim();
   if (raw) {
     try {
       const map = JSON.parse(raw) as Record<string, string>;
-      const id = agentId.toLowerCase();
       if (map[id]) return map[id];
       if (map["*"]) return map["*"];
     } catch {
-      /* ignore */
+      /* malformed env JSON — fall through to defaults */
     }
   }
+  if (DEFAULT_AGENT_SESSION_KEYS[id]) return DEFAULT_AGENT_SESSION_KEYS[id];
   return process.env.OPENCLAW_CHAT_SESSION_KEY?.trim() || "main";
 }
 
