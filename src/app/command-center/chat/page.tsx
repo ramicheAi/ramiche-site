@@ -639,6 +639,50 @@ export default function CommandCenterChatPage() {
     }
   };
 
+  /* ── Phase D — action status (mark done / blocked / in-progress) on a
+        single action inside a synthesis plan. ── */
+  const [actionStatusPending, setActionStatusPending] = useState<string | null>(null);
+  const handleSetActionStatus = async (
+    synthesisId: string,
+    actionIndex: number,
+    status: "pending" | "in_progress" | "done" | "blocked" | "cancelled"
+  ) => {
+    const key = `${synthesisId}:${actionIndex}`;
+    setActionStatusPending(key);
+    try {
+      const res = await fetch("/api/command-center/chat/action-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ synthesisId, actionIndex, status }),
+      });
+      const data = (await res.json().catch(() => null)) as {
+        ok?: boolean;
+        error?: string;
+        action_statuses?: string[];
+      } | null;
+      if (!res.ok || !data?.ok) {
+        console.warn("[action-status] update failed", data?.error || res.status);
+      } else if (Array.isArray(data.action_statuses)) {
+        // Optimistically reflect the new statuses on the in-memory message
+        // so the UI updates instantly without waiting on Supabase realtime.
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== synthesisId) return m;
+            const prevMeta = (m.metadata as Record<string, unknown> | null) || {};
+            return {
+              ...m,
+              metadata: { ...prevMeta, action_statuses: data.action_statuses },
+            };
+          })
+        );
+      }
+    } catch (e) {
+      console.warn("[action-status] threw", e);
+    } finally {
+      setActionStatusPending(null);
+    }
+  };
+
   /* ── file attachments (file = local blob before upload) ── */
   const [attachments, setAttachments] = useState<
     { name: string; size: string; type: string; url: string; file?: File }[]
@@ -1897,6 +1941,28 @@ export default function CommandCenterChatPage() {
     : channelMessages;
 
   const pinnedForChannel = channelMessages.filter((m) => m.pinned);
+
+  /* Phase D — group execution_acks by their synthesis_id so the synthesis
+     card can show "✓ Committed" + a one-line preview next to each action.
+     Built per-render off the current channel messages so a new ack landing
+     via realtime instantly updates the card. */
+  const acksBySynthesisId = (() => {
+    const map = new Map<string, Map<string, Message>>();
+    for (const m of channelMessages) {
+      const meta = m.metadata as Record<string, unknown> | null | undefined;
+      if (!meta || meta.kind !== "execution_ack") continue;
+      const synthId = typeof meta.synthesis_id === "string" ? meta.synthesis_id : null;
+      const owner =
+        typeof meta.owner === "string" ? (meta.owner as string).toLowerCase() : null;
+      if (!synthId || !owner) continue;
+      if (!map.has(synthId)) map.set(synthId, new Map());
+      // Keep the EARLIEST ack per owner (the first commitment, not a later
+      // status update message that happens to also carry the same id).
+      const inner = map.get(synthId)!;
+      if (!inner.has(owner)) inner.set(owner, m);
+    }
+    return map;
+  })();
 
   const threadReplies =
     threadMessage && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(threadMessage.id)
@@ -3339,22 +3405,29 @@ export default function CommandCenterChatPage() {
                         {renderMessageAttachments(message.attachments)}
                       </div>
 
-                      {/* Phase C — Synthesis card. Rendered ONLY on Atlas messages
-                          where metadata.kind === "synthesis". Surfaces the parsed
-                          plan and an [Approve] button that fires real handoffs to
-                          each action's owner agent. */}
+                      {/* Phase C/D — Synthesis card. Rendered ONLY on Atlas
+                          messages where metadata.kind === "synthesis". Shows
+                          the parsed plan + Approve button (Phase C) + per-
+                          action commitment status & mark-done controls (Phase
+                          D). Every action's lifecycle (assigned → committed →
+                          done/blocked) is visible at a glance here. */}
                       {(() => {
                         const plan = readSynthesisPlan(message.metadata);
                         if (!plan) return null;
+                        const meta = (message.metadata as Record<string, unknown> | null) || {};
                         const approvedAt =
-                          message.metadata &&
-                          typeof message.metadata === "object" &&
-                          typeof (message.metadata as Record<string, unknown>).approved_at ===
-                            "string"
-                            ? ((message.metadata as Record<string, unknown>).approved_at as string)
-                            : null;
+                          typeof meta.approved_at === "string" ? (meta.approved_at as string) : null;
+                        const statuses = Array.isArray(meta.action_statuses)
+                          ? (meta.action_statuses as string[])
+                          : [];
+                        const ackByOwner = acksBySynthesisId.get(message.id) ?? new Map<string, Message>();
                         const isApproving = approvingSynthId === message.id;
                         const errForThis = approveError?.id === message.id ? approveError.message : null;
+                        // Progress count: how many actions are "done"
+                        const doneCount = plan.actions.reduce(
+                          (n, _, i) => (statuses[i] === "done" ? n + 1 : n),
+                          0
+                        );
                         return (
                           <div
                             style={{
@@ -3367,41 +3440,197 @@ export default function CommandCenterChatPage() {
                           >
                             <div
                               style={{
-                                fontSize: 10,
-                                letterSpacing: 1.4,
-                                color: "#a78bfa",
-                                fontWeight: 700,
-                                marginBottom: 6,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                marginBottom: 8,
                               }}
                             >
-                              SYNTHESIS PLAN · {plan.actions.length} ACTION
-                              {plan.actions.length === 1 ? "" : "S"}
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  letterSpacing: 1.4,
+                                  color: "#a78bfa",
+                                  fontWeight: 700,
+                                }}
+                              >
+                                SYNTHESIS PLAN · {plan.actions.length} ACTION
+                                {plan.actions.length === 1 ? "" : "S"}
+                              </div>
+                              {approvedAt && (
+                                <div
+                                  style={{
+                                    fontSize: 10,
+                                    color: doneCount === plan.actions.length ? "#10b981" : "#a78bfa",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {doneCount}/{plan.actions.length} DONE
+                                </div>
+                              )}
                             </div>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                color: COLORS.text.secondary,
-                                marginBottom: 10,
-                              }}
-                            >
-                              {plan.actions.map((a, i) => (
-                                <div key={i} style={{ marginBottom: 4 }}>
-                                  <span
+                            <div style={{ marginBottom: 10 }}>
+                              {plan.actions.map((a, i) => {
+                                const status = (statuses[i] as
+                                  | "pending"
+                                  | "in_progress"
+                                  | "done"
+                                  | "blocked"
+                                  | "cancelled"
+                                  | undefined) ?? "pending";
+                                const ack = ackByOwner.get(a.owner.toLowerCase());
+                                const updating =
+                                  actionStatusPending === `${message.id}:${i}`;
+                                const dot =
+                                  status === "done"
+                                    ? { c: "#10b981", l: "Done" }
+                                    : status === "blocked"
+                                      ? { c: "#ef4444", l: "Blocked" }
+                                      : status === "in_progress"
+                                        ? { c: "#f59e0b", l: "In progress" }
+                                        : status === "cancelled"
+                                          ? { c: "#6b7280", l: "Cancelled" }
+                                          : ack
+                                            ? { c: "#a78bfa", l: "Committed" }
+                                            : { c: "#6b7280", l: "Pending" };
+                                return (
+                                  <div
+                                    key={i}
                                     style={{
-                                      color:
-                                        (COLORS.agents as Record<string, string>)[a.owner] ??
-                                        COLORS.text.primary,
-                                      fontWeight: 600,
+                                      borderTop: i === 0 ? "none" : "1px solid rgba(124,58,237,0.15)",
+                                      paddingTop: i === 0 ? 0 : 8,
+                                      paddingBottom: 8,
                                     }}
                                   >
-                                    @{a.owner}
-                                  </span>{" "}
-                                  — {a.task}
-                                  {a.due ? (
-                                    <span style={{ color: "#888", marginLeft: 6 }}>· {a.due}</span>
-                                  ) : null}
-                                </div>
-                              ))}
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "baseline",
+                                        gap: 8,
+                                        fontSize: 12,
+                                        color: COLORS.text.secondary,
+                                      }}
+                                    >
+                                      <span
+                                        aria-label={dot.l}
+                                        title={dot.l}
+                                        style={{
+                                          flex: "0 0 auto",
+                                          width: 8,
+                                          height: 8,
+                                          borderRadius: "50%",
+                                          background: dot.c,
+                                          marginTop: 4,
+                                        }}
+                                      />
+                                      <div style={{ flex: 1, minWidth: 0 }}>
+                                        <span
+                                          style={{
+                                            color:
+                                              (COLORS.agents as Record<string, string>)[a.owner] ??
+                                              COLORS.text.primary,
+                                            fontWeight: 600,
+                                          }}
+                                        >
+                                          @{a.owner}
+                                        </span>{" "}
+                                        — {a.task}
+                                        {a.due ? (
+                                          <span style={{ color: "#888", marginLeft: 6 }}>· {a.due}</span>
+                                        ) : null}
+                                      </div>
+                                    </div>
+                                    {ack && (
+                                      <div
+                                        style={{
+                                          marginLeft: 16,
+                                          marginTop: 4,
+                                          fontSize: 11,
+                                          color: "#9ca3af",
+                                          fontStyle: "italic",
+                                          lineHeight: 1.5,
+                                          maxHeight: 48,
+                                          overflow: "hidden",
+                                        }}
+                                      >
+                                        “{ack.content.length > 220 ? ack.content.slice(0, 220) + "…" : ack.content}”
+                                      </div>
+                                    )}
+                                    {approvedAt && status !== "done" && status !== "cancelled" && (
+                                      <div
+                                        style={{
+                                          marginLeft: 16,
+                                          marginTop: 6,
+                                          display: "flex",
+                                          gap: 6,
+                                        }}
+                                      >
+                                        {status !== "in_progress" && (
+                                          <button
+                                            type="button"
+                                            disabled={updating}
+                                            onClick={() =>
+                                              handleSetActionStatus(message.id, i, "in_progress")
+                                            }
+                                            style={{
+                                              padding: "3px 9px",
+                                              borderRadius: 4,
+                                              fontSize: 10,
+                                              fontWeight: 600,
+                                              background: "transparent",
+                                              color: "#f59e0b",
+                                              border: "1px solid rgba(245,158,11,0.5)",
+                                              cursor: updating ? "wait" : "pointer",
+                                            }}
+                                          >
+                                            Start
+                                          </button>
+                                        )}
+                                        <button
+                                          type="button"
+                                          disabled={updating}
+                                          onClick={() =>
+                                            handleSetActionStatus(message.id, i, "done")
+                                          }
+                                          style={{
+                                            padding: "3px 9px",
+                                            borderRadius: 4,
+                                            fontSize: 10,
+                                            fontWeight: 600,
+                                            background: "transparent",
+                                            color: "#10b981",
+                                            border: "1px solid rgba(16,185,129,0.5)",
+                                            cursor: updating ? "wait" : "pointer",
+                                          }}
+                                        >
+                                          ✓ Done
+                                        </button>
+                                        {status !== "blocked" && (
+                                          <button
+                                            type="button"
+                                            disabled={updating}
+                                            onClick={() =>
+                                              handleSetActionStatus(message.id, i, "blocked")
+                                            }
+                                            style={{
+                                              padding: "3px 9px",
+                                              borderRadius: 4,
+                                              fontSize: 10,
+                                              fontWeight: 600,
+                                              background: "transparent",
+                                              color: "#ef4444",
+                                              border: "1px solid rgba(239,68,68,0.5)",
+                                              cursor: updating ? "wait" : "pointer",
+                                            }}
+                                          >
+                                            Blocked
+                                          </button>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                             {approvedAt ? (
                               <div
@@ -3409,9 +3638,23 @@ export default function CommandCenterChatPage() {
                                   fontSize: 11,
                                   color: "#10b981",
                                   fontWeight: 600,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
                                 }}
                               >
                                 ✓ Approved — handoffs dispatched
+                                <a
+                                  href="/command-center/decisions"
+                                  style={{
+                                    color: "#a78bfa",
+                                    fontSize: 11,
+                                    textDecoration: "none",
+                                    marginLeft: "auto",
+                                  }}
+                                >
+                                  Decisions ›
+                                </a>
                               </div>
                             ) : (
                               <button
