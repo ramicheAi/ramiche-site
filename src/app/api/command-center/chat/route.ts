@@ -283,7 +283,7 @@ function parseDelegationOwnersFromText(text: string): Set<string> {
       /* ignore malformed JSON */
     }
   }
-  const agentLine = text.match(/^AGENT:\s*([a-z][a-z0-9]*)/im);
+  const agentLine = text.match(/^AGENT:\s*([a-zA-Z][a-zA-Z0-9]*)/im);
   if (agentLine) owners.add(agentLine[1].toLowerCase());
   return owners;
 }
