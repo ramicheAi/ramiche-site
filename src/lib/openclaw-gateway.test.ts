@@ -35,7 +35,7 @@ describe("openclaw-gateway", () => {
   });
 
   it("resolveChatSessionKey defaults to main", () => {
-    expect(resolveChatSessionKey("atlas")).toBe("main");
+    expect(resolveChatSessionKey("atlas")).toBe("agent:main:main");
   });
 
   it("resolveChatSessionKey uses OPENCLAW_CHAT_SESSION_KEY", () => {
@@ -51,7 +51,7 @@ describe("openclaw-gateway", () => {
 
   it("resolveChatSessionKey defaults when agent JSON invalid", () => {
     vi.stubEnv("OPENCLAW_AGENT_SESSION_KEYS", "{not-json");
-    expect(resolveChatSessionKey("atlas")).toBe("main");
+    expect(resolveChatSessionKey("atlas")).toBe("agent:main:main");
   });
 
   it("gatewayToolsInvoke fails fast without auth", async () => {
