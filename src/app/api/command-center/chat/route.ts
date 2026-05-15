@@ -7,6 +7,7 @@ import {
 } from "@/lib/openclaw-gateway";
 import { resolveChatTargets } from "@/lib/chat-routing";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
+import { processImageMarkers } from "@/lib/image-gen/markers";
 
 export const dynamic = "force-dynamic";
 // Pro-tier ceiling. Group-chat fan-out with synthesis + Phase E critic can
@@ -473,7 +474,7 @@ async function generateAgentReply(
   // blind. This is the single biggest unlock toward real coordination.
   const historyBlock = formatHistoryBlock(history, target);
 
-  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.${historyBlock}`;
+  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.\n\nImages — if part of your reply is a visual artifact (slide, hero graphic, mood reference, product render, cover art), DO NOT describe it in prose. Embed this marker on its own line at the spot where you want the image:\n  [GENERATE_IMAGE: <detailed prompt — subject, style, lighting, composition, palette, aspect ratio>]\nThe system renders each marker through OpenAI gpt-image-1 and attaches the .png inline. Cap 8 per reply. Vague prompts produce ugly images — be specific.${historyBlock}`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
@@ -1346,7 +1347,17 @@ export async function POST(req: NextRequest) {
         fallbackOnlyTargets.push(target);
         continue;
       }
-      responses.push({ agent: target, response: text, source: r.source });
+
+      // If the agent embedded [GENERATE_IMAGE: ...] markers in their reply,
+      // render each one through /image-gen, swap the markers for stubs, and
+      // attach the resulting URLs. So a Phase A (non-approved) reply from
+      // @aetherion with markers ships actual PNGs inline — same behaviour as
+      // a Phase C dispatch, no need to first synthesize-and-approve.
+      const processed = await processImageMarkers(text, target);
+      const finalText = processed.text;
+      const generatedAttachments = processed.attachments;
+
+      responses.push({ agent: target, response: finalText, source: r.source });
 
       if (svc && channelId) {
         const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -1354,10 +1365,14 @@ export async function POST(req: NextRequest) {
           channel_id: channelId,
           sender_agent_id: agentUUID,
           sender_type: "agent",
-          content: text,
+          content: finalText,
           tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: [],
+          attachments: generatedAttachments,
           status: "sent",
+          metadata:
+            generatedAttachments.length > 0
+              ? { generated_image_count: generatedAttachments.length }
+              : null,
           ...(threadUuid ? { thread_parent_id: threadUuid } : {}),
         });
         if (insertErr) {
