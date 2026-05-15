@@ -1609,13 +1609,18 @@ export default function CommandCenterChatPage() {
     loadData();
   }, []);
 
-  /* ── load messages when activeChannel/agent changes ── */
+  /* ── load messages when activeChannel/agent changes ──
+        Critically: deps are ONLY (activeChannel, activeAgent, viewMode). The
+        old version had `agents` in deps, which meant every 30s when the
+        agent-status poller refreshed `agents`, this whole effect re-ran and
+        REPLACED the messages array with a fresh Supabase fetch. Any
+        message that hadn't reached Supabase yet (replication lag) — or that
+        the polling-fallback had just merged in — got wiped, producing the
+        "message disappears 10 seconds later" symptom Ramon reported.
+        Resolve names/colors via agentsRef so we don't need agents in deps. */
   useEffect(() => {
     if (!activeChannel && viewMode !== "dm") return;
-    if (!supabase) {
-      setMessages(DEFAULT_MESSAGES as unknown as Message[]);
-      return;
-    }
+    if (!supabase) return; // don't wipe to defaults; polling effect handles status separately
     const sb = supabase;
     const channelId = viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
     if (!channelId) return;
@@ -1628,6 +1633,7 @@ export default function CommandCenterChatPage() {
         .limit(100);
 
       if (data) {
+        const currentAgents = agentsRef.current;
         const mapped: Message[] = data.map((msg: Record<string, unknown>) => {
           const isUser = (msg.sender_type as string) === "user"
             || (msg.sender_user_id as string) === "00000000-0000-0000-0000-000000000001"
@@ -1639,8 +1645,8 @@ export default function CommandCenterChatPage() {
             id: msg.id as string,
             channelId: msg.channel_id as string,
             type: isUser ? "user" as const : "agent" as const,
-            sender: isUser ? "Ramon" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.name || (viewMode === "dm" && activeAgent ? activeAgent.name : "Agent")),
-            senderColor: isUser ? "#3B82F6" : (agents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.color || (viewMode === "dm" && activeAgent ? activeAgent.color : "#888")),
+            sender: isUser ? "Ramon" : (currentAgents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.name || (viewMode === "dm" && activeAgent ? activeAgent.name : "Agent")),
+            senderColor: isUser ? "#3B82F6" : (currentAgents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.color || (viewMode === "dm" && activeAgent ? activeAgent.color : "#888")),
             content: msg.content as string,
             timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             date: "Today",
@@ -1660,38 +1666,57 @@ export default function CommandCenterChatPage() {
 
         const ids = mapped.map((m) => m.id);
         if (ids.length === 0) {
-          setMessages(mapped);
+          // No rows from server; preserve any optimistic state we have.
+          // This avoids a brief flash when the user navigates to an empty
+          // channel that they just sent a message in.
+          setMessages((prev) => (prev.length > 0 ? prev : mapped));
         } else {
         const { data: reactRows, error: reactErr } = await sb
           .from("message_reactions")
           .select("message_id, emoji, user_id")
           .in("message_id", ids);
 
-        if (reactErr) {
-          console.warn("message_reactions load skipped:", reactErr.message);
-          setMessages(mapped);
-        } else {
-          const byMid = new Map<string, ReactionRow[]>();
+        const byMid = new Map<string, ReactionRow[]>();
+        if (!reactErr) {
           for (const r of reactRows ?? []) {
             const row = r as { message_id: string; emoji: string; user_id: string };
             if (!byMid.has(row.message_id)) byMid.set(row.message_id, []);
             byMid.get(row.message_id)!.push({ emoji: row.emoji, user_id: row.user_id });
           }
-          const withReactions: Message[] = mapped.map((m) => {
-            const rows = byMid.get(m.id) ?? [];
-            const agg = aggregateReactions(rows, CC_REACTION_USER_ID);
-            return agg.length > 0 ? { ...m, reactions: agg } : m;
-          });
-          setMessages(withReactions);
+        } else {
+          console.warn("message_reactions load skipped:", reactErr.message);
         }
+        const withReactions: Message[] = mapped.map((m) => {
+          const rows = byMid.get(m.id) ?? [];
+          const agg = aggregateReactions(rows, CC_REACTION_USER_ID);
+          return agg.length > 0 ? { ...m, reactions: agg } : m;
+        });
+        // MERGE with any optimistic state instead of replacing wholesale.
+        // The fetched data is authoritative for fields that may have updated
+        // (status, reactions, pinned), so we replace any matching id —
+        // but we PRESERVE any local-only messages (temp ids, in-flight
+        // optimistic adds) that aren't in the fetch yet. This is what
+        // stops the "Aetherion's reply appears for 10 seconds then
+        // disappears" symptom.
+        setMessages((prev) => {
+          if (prev.length === 0) return withReactions;
+          const fetchedById = new Map(withReactions.map((m) => [m.id, m]));
+          // Keep local messages that aren't in the fetch (optimistic / pending).
+          const localOnly = prev.filter((m) => !fetchedById.has(m.id));
+          // For messages in the fetch, take the fetched version (has latest status).
+          return [...withReactions, ...localOnly].sort((a, b) => {
+            // Try to keep chronological-ish order. Fetched messages have created_at
+            // implied by order. Local ones go at the end (they're the newest).
+            return 0;
+          });
+        });
         }
       }
     };
     loadMessages();
 
-    // No polling — realtime subscription handles live updates.
-    // Polling caused duplicate messages and race conditions.
-  }, [activeChannel, activeAgent, viewMode, agents]);
+    // No polling — realtime subscription + REST polling fallback handle live updates.
+  }, [activeChannel, activeAgent, viewMode]);
 
   /* ── real-time subscription for new messages ── */
   useEffect(() => {
@@ -1927,7 +1952,6 @@ export default function CommandCenterChatPage() {
     }
     const sb = supabase;
     let cancelled = false;
-    const seenIds = new Set<string>();
 
     const tick = async () => {
       if (cancelled) return;
@@ -1938,18 +1962,22 @@ export default function CommandCenterChatPage() {
           .select("*")
           .eq("channel_id", channelId)
           .order("created_at", { ascending: false })
-          .limit(20);
+          .limit(50); // was 20 — bump so high-traffic channels don't lose tail
         if (error || !data || cancelled) return;
         const fresh = [...data].reverse(); // oldest → newest
         setMessages((prev) => {
+          // CRITICAL: dedupe ONLY against the current `prev` state, NOT a
+          // persistent seenIds Set. The old persistent seenIds caused this
+          // bug: if loadMessages briefly wiped a message out of state, the
+          // next polling tick would refuse to re-add it because its id had
+          // been "seen" in a prior tick. Result: message gone forever.
+          // Sourcing dedupe from prev means polling can always re-add a
+          // message that got dropped from state.
           const knownIds = new Set(prev.map((m) => m.id));
-          for (const m of prev) seenIds.add(m.id);
           const toAdd: Message[] = [];
           for (const row of fresh) {
             const id = row.id as string;
-            if (!id) continue;
-            if (knownIds.has(id) || seenIds.has(id)) continue;
-            seenIds.add(id);
+            if (!id || knownIds.has(id)) continue;
             const senderType = row.sender_type as string | undefined;
             if (senderType === "user") continue; // user msgs are optimistic
             const agentId = resolveAgentId(row.sender_agent_id as string);
