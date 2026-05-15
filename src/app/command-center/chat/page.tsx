@@ -1311,6 +1311,95 @@ export default function CommandCenterChatPage() {
     };
   }, [activeChannel, activeAgent, viewMode]);
 
+  /* ── Polling fallback for new messages when Realtime is unhealthy ──
+     The Supabase Realtime WebSocket is occasionally wedged in the browser
+     (extension blocked, tenant hiccup, intermittent network). Every
+     server-side prerequisite checks green (CSP allows wss://*.supabase.co,
+     publication has both tables, anon has SELECT, Node subscribes fine)
+     yet the badge shows "REALTIME ERROR" intermittently. When that
+     happens we poll REST every 3s so incoming Telegram messages, cross-
+     device sends, and delayed agent replies still surface live without
+     forcing a full reload.
+
+     The previous "no polling" comment in loadMessages was about an older
+     polling loop that ran *unconditionally* and double-inserted rows that
+     Realtime had already pushed. This loop only fires while
+     realtimeStatusRef.current !== "connected" so when the WS recovers,
+     polling stops on the next tick and dedupe handles the overlap window. */
+  useEffect(() => {
+    if (!supabase) return;
+    if (!activeChannel && viewMode !== "dm") return;
+    const channelId =
+      viewMode === "dm" && activeAgent ? getDmChannelId(activeAgent.id) : activeChannel?.id;
+    if (!channelId) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(channelId)) {
+      return;
+    }
+    const sb = supabase;
+    let cancelled = false;
+    const seenIds = new Set<string>();
+
+    const tick = async () => {
+      if (cancelled) return;
+      if (realtimeStatusRef.current === "connected") return; // WS alive — skip
+      try {
+        const { data, error } = await sb
+          .from("messages")
+          .select("*")
+          .eq("channel_id", channelId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (error || !data || cancelled) return;
+        const fresh = [...data].reverse(); // oldest → newest
+        setMessages((prev) => {
+          const knownIds = new Set(prev.map((m) => m.id));
+          for (const m of prev) seenIds.add(m.id);
+          const toAdd: Message[] = [];
+          for (const row of fresh) {
+            const id = row.id as string;
+            if (!id) continue;
+            if (knownIds.has(id) || seenIds.has(id)) continue;
+            seenIds.add(id);
+            const senderType = row.sender_type as string | undefined;
+            if (senderType === "user") continue; // user msgs are optimistic
+            const agentId = resolveAgentId(row.sender_agent_id as string);
+            const agent = agentsRef.current.find((a) => a.id === agentId);
+            const threadPid = (row.thread_parent_id as string | null | undefined) ?? null;
+            toAdd.push({
+              id,
+              channelId,
+              type: "agent",
+              sender: agent?.name || activeAgent?.name || "Agent",
+              senderColor: agent?.color || activeAgent?.color || "#888",
+              content: row.content as string,
+              timestamp: new Date(row.created_at as string).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              date: "Today",
+              attachments: parseAttachmentsFromRow(row.attachments),
+              threadParentId: threadPid,
+              pinned: (row.pinned as boolean) === true,
+            });
+          }
+          if (toAdd.length === 0) return prev;
+          return [...prev, ...toAdd];
+        });
+      } catch {
+        /* ignore — next tick will retry */
+      }
+    };
+
+    // Wait 1.5s so Realtime gets first crack; if it subscribes, this no-ops.
+    const warmup = setTimeout(tick, 1500);
+    const id = setInterval(tick, 3000);
+    return () => {
+      cancelled = true;
+      clearTimeout(warmup);
+      clearInterval(id);
+    };
+  }, [activeChannel, activeAgent, viewMode]);
+
   /* ── scroll to bottom when messages change ── */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
