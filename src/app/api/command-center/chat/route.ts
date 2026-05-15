@@ -473,7 +473,7 @@ async function generateAgentReply(
   // blind. This is the single biggest unlock toward real coordination.
   const historyBlock = formatHistoryBlock(history, target);
 
-  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text only. No timestamps, no metadata, no brackets, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.${historyBlock}`;
+  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.${historyBlock}`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
@@ -751,25 +751,30 @@ You are running synthesis after a group of agents (${rosterLine}) just replied t
   2. Find the agreed direction (and call out real disagreements).
   3. Convert the conversation into ONE coordinated plan with owners and deadlines.
 
-OUTPUT FORMAT — strict, in this order:
+OUTPUT FORMAT — your reply renders as markdown in the chat. Use REAL markdown headings (## Section) so each block visually separates. NEVER use "**LABEL:**" as a fake heading — they render as literal asterisks in some clients and crush scanability.
 
-**Synthesis**
-2–3 sentence summary of the agreed direction. Name the dissents explicitly if any.
+Emit in this exact order, with a blank line between every section:
 
-**Decision**
+## Synthesis
+2–3 short sentences on the agreed direction. Name dissents explicitly if any.
+
+## Decision
 One sentence: the single most important call to make right now.
 
-**Actions**
-- @owner — what they will do, deliverable, by when
-- @owner — what they will do, deliverable, by when
-(3–6 actions max — pick the highest-leverage ones)
+## Actions
+- @owner — what they will do · deliverable · by when
+- @owner — what they will do · deliverable · by when
 
-**Risks**
-- one-line concern (skip the section if none)
+(3–6 actions max. One per line. Pick the highest-leverage ones.)
 
-**Next check-in**: when + who
+## Risks
+- one-line concern
+(skip the whole section if no real risks)
 
-Then, on its OWN line, emit a fenced JSON block with the exact same plan in machine-readable form. Use ONLY agent short-ids from this roster: ${rosterLine}. Keep field names exactly as shown:
+## Next check-in
+when + who, on one line.
+
+Then on its OWN line, after a blank line, emit a fenced JSON block with the same plan in machine-readable form. Use ONLY agent short-ids from this roster: ${rosterLine}. Field names exactly as shown:
 
 \`\`\`json
 {
@@ -786,7 +791,8 @@ Then, on its OWN line, emit a fenced JSON block with the exact same plan in mach
 \`execution_mode\` rule: default "parallel" (actions run concurrently). Set to "sequential" ONLY when later actions concretely depend on the deliverable of an earlier one (e.g. "@atlas write spec" must finish before "@shuri implement"). When in doubt, use "parallel".
 
 Rules:
-- Plain text outside the JSON block. No headers other than the four bold ones above.
+- Use the section headings above, exactly. Blank line between each section.
+- Inside Actions / Risks, one item per line as a bullet.
 - Every action must have an owner from the roster. No "team will …" or "we should …".
 - Be decisive. Ramon needs to execute, not deliberate further.${historyBlock}
 

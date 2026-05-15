@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
 import {
@@ -294,8 +296,10 @@ type Message = {
 };
 type ViewMode = "channel" | "dm";
 
-/** Phase 1.1 — inline @agent styling (COLORS.agents) */
-function renderContentWithMentions(text: string) {
+/** Split a string into ReactNodes where every `@handle` becomes a color-coded
+ *  bold span. Used inside ReactMarkdown's leaf text nodes so mentions render
+ *  correctly even when they sit inside bold / italic / list items. */
+function splitMentions(text: string, keyBase: string): ReactNode[] {
   const parts = text.split(/(@[a-z][a-z0-9_-]*)/gi);
   return parts.map((part, i) => {
     const m = /^@([a-z][a-z0-9_-]*)$/i.exec(part);
@@ -303,13 +307,220 @@ function renderContentWithMentions(text: string) {
       const id = m[1].toLowerCase();
       const color = (COLORS.agents as Record<string, string>)[id] ?? COLORS.text.secondary;
       return (
-        <span key={i} style={{ color, fontWeight: 600 }}>
+        <span key={`${keyBase}-m-${i}`} style={{ color, fontWeight: 600 }}>
           {part}
         </span>
       );
     }
-    return <span key={i}>{part}</span>;
+    return part;
   });
+}
+
+/** Recursively walk a ReactNode tree, splitting any string leaves on @mentions
+ *  so coloring works inside <strong>, <em>, <li>, <p>, etc. */
+function processMarkdownChildren(children: ReactNode, keyBase = "k"): ReactNode {
+  if (typeof children === "string") return splitMentions(children, keyBase);
+  if (Array.isArray(children)) {
+    return children.map((child, i) =>
+      typeof child === "string"
+        ? splitMentions(child, `${keyBase}-${i}`)
+        : child
+    );
+  }
+  return children;
+}
+
+/**
+ * Chat-tight markdown renderer.
+ *
+ * Replaces the old plain-text renderContentWithMentions. Agents emit a lot of
+ * markdown — bold, headers, bullets, numbered lists, code fences — that was
+ * previously showing as literal `**asterisks**` and `## hashes`. This component
+ * runs the content through react-markdown + GFM with a custom component map
+ * that:
+ *
+ *   - Keeps spacing tight (no big paragraph margins — chat, not a blog)
+ *   - Renders headings smaller than default (h2 → 14px, h3 → 13px)
+ *   - Styles code blocks for the dark theme
+ *   - Preserves the existing @mention color-coding inside every text leaf
+ *
+ * The styling is intentionally close to plain text so a single-sentence agent
+ * reply looks identical to before, while a structured deliverable suddenly
+ * becomes scannable.
+ */
+function MessageContent({ content }: { content: string }) {
+  return (
+    <div className="cc-message-md">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => (
+            <p style={{ margin: "0 0 6px", lineHeight: 1.55 }}>
+              {processMarkdownChildren(children, "p")}
+            </p>
+          ),
+          h1: ({ children }) => (
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: "12px 0 6px", color: COLORS.text.primary }}>
+              {processMarkdownChildren(children, "h1")}
+            </h3>
+          ),
+          h2: ({ children }) => (
+            <h4 style={{ fontSize: 14, fontWeight: 700, margin: "12px 0 6px", color: COLORS.text.primary }}>
+              {processMarkdownChildren(children, "h2")}
+            </h4>
+          ),
+          h3: ({ children }) => (
+            <h5 style={{ fontSize: 13, fontWeight: 700, margin: "10px 0 4px", color: COLORS.text.primary }}>
+              {processMarkdownChildren(children, "h3")}
+            </h5>
+          ),
+          h4: ({ children }) => (
+            <h6 style={{ fontSize: 12, fontWeight: 700, margin: "8px 0 4px", color: COLORS.text.secondary, textTransform: "uppercase" as const, letterSpacing: 0.6 }}>
+              {processMarkdownChildren(children, "h4")}
+            </h6>
+          ),
+          ul: ({ children }) => (
+            <ul style={{ margin: "4px 0 8px", paddingLeft: 20, lineHeight: 1.6 }}>{children}</ul>
+          ),
+          ol: ({ children }) => (
+            <ol style={{ margin: "4px 0 8px", paddingLeft: 22, lineHeight: 1.6 }}>{children}</ol>
+          ),
+          li: ({ children }) => (
+            <li style={{ marginBottom: 2 }}>{processMarkdownChildren(children, "li")}</li>
+          ),
+          strong: ({ children }) => (
+            <strong style={{ fontWeight: 700, color: COLORS.text.primary }}>
+              {processMarkdownChildren(children, "strong")}
+            </strong>
+          ),
+          em: ({ children }) => (
+            <em style={{ fontStyle: "italic" }}>{processMarkdownChildren(children, "em")}</em>
+          ),
+          a: ({ children, href }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{ color: COLORS.accent.purpleLight, textDecoration: "underline" }}
+            >
+              {processMarkdownChildren(children, "a")}
+            </a>
+          ),
+          code: ({ className, children, ...props }) => {
+            // Inline code (no language class) vs fenced block (has language-*).
+            const isInline = !/(^|\s)language-/.test(className || "");
+            if (isInline) {
+              return (
+                <code
+                  {...props}
+                  style={{
+                    background: "rgba(124,58,237,0.12)",
+                    color: COLORS.accent.purpleLight,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    fontSize: "0.92em",
+                    fontFamily: "'SF Mono', ui-monospace, monospace",
+                  }}
+                >
+                  {children}
+                </code>
+              );
+            }
+            return (
+              <code
+                {...props}
+                className={className}
+                style={{
+                  display: "block",
+                  fontFamily: "'SF Mono', ui-monospace, monospace",
+                  fontSize: 11.5,
+                  lineHeight: 1.45,
+                  whiteSpace: "pre" as const,
+                }}
+              >
+                {children}
+              </code>
+            );
+          },
+          pre: ({ children }) => (
+            <pre
+              style={{
+                background: "rgba(0,0,0,0.4)",
+                border: `1px solid ${COLORS.border.default}`,
+                borderRadius: 6,
+                padding: "8px 10px",
+                margin: "6px 0",
+                overflowX: "auto",
+                whiteSpace: "pre" as const,
+              }}
+            >
+              {children}
+            </pre>
+          ),
+          blockquote: ({ children }) => (
+            <blockquote
+              style={{
+                margin: "6px 0",
+                padding: "2px 0 2px 10px",
+                borderLeft: `3px solid ${COLORS.accent.purple}55`,
+                color: COLORS.text.secondary,
+                fontStyle: "italic",
+              }}
+            >
+              {children}
+            </blockquote>
+          ),
+          hr: () => (
+            <hr
+              style={{
+                border: "none",
+                borderTop: `1px solid ${COLORS.border.default}`,
+                margin: "10px 0",
+              }}
+            />
+          ),
+          table: ({ children }) => (
+            <div style={{ overflowX: "auto", margin: "6px 0" }}>
+              <table style={{ borderCollapse: "collapse", fontSize: 12 }}>{children}</table>
+            </div>
+          ),
+          th: ({ children }) => (
+            <th
+              style={{
+                textAlign: "left" as const,
+                padding: "4px 10px",
+                borderBottom: `1px solid ${COLORS.border.default}`,
+                color: COLORS.text.secondary,
+                fontWeight: 700,
+              }}
+            >
+              {processMarkdownChildren(children, "th")}
+            </th>
+          ),
+          td: ({ children }) => (
+            <td
+              style={{
+                padding: "4px 10px",
+                borderBottom: `1px solid ${COLORS.border.default}40`,
+              }}
+            >
+              {processMarkdownChildren(children, "td")}
+            </td>
+          ),
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
+/** Backwards-compatible alias. Phase 1.1 used this everywhere; new code can
+ *  use <MessageContent /> directly. Kept so any other module that imports it
+ *  still works. */
+function renderContentWithMentions(text: string) {
+  return <MessageContent content={text} />;
 }
 
 type SynthesisActionItem = {

@@ -283,17 +283,21 @@ function buildExecutionPrompt(
     retryBlock,
     "",
     `EXECUTE NOW — DO NOT PLAN FOR LATER:`,
-    `  • Produce the actual deliverable IN THIS REPLY. If it's a doc, write the doc. If it's specs, write the specs. If it's copy, write the copy.`,
-    `  • Open with ONE short sentence confirming what you're shipping. Then a blank line. Then the artifact.`,
-    `  • Do NOT say "I will" or "tomorrow" or "by EOD." You are doing it now in this message.`,
-    `  • If you genuinely cannot produce the deliverable in this reply because you need information only a teammate has, output a single line: "[BLOCKED: <one-sentence reason and who you need>]" and nothing else. Use this sparingly — only when it's a true hard block. If a prior deliverable is included above, you have what you need.`,
+    `  - Produce the actual deliverable IN THIS REPLY. If it's a doc, write the doc. If it's specs, write the specs. If it's copy, write the copy.`,
+    `  - Open with ONE short sentence confirming what you're shipping. Then a blank line. Then the artifact.`,
+    `  - Do NOT say "I will" or "tomorrow" or "by EOD." You are doing it now in this message.`,
+    `  - If you genuinely cannot produce the deliverable in this reply because you need information only a teammate has, output a single line: "[BLOCKED: <one-sentence reason and who you need>]" and nothing else. Use this sparingly — only when it's a true hard block. If a prior deliverable is included above, you have what you need.`,
     "",
-    `FORMATTING — write to be READ in a chat, not parsed by a wiki:`,
-    `  • Use blank lines between sections. Whitespace is a feature.`,
-    `  • For sequenced items (tweets, slides, steps), use plain numbered lines on their own line: "1. …" then a blank, then "2. …". Don't smush everything into one paragraph.`,
-    `  • Avoid stacked bold headers like "**TWEET 1 (HOOK):**" — they render as literal asterisks. Just write "Tweet 1 — the hook" on its own line.`,
-    `  • Skip emoji unless they're part of the deliverable's voice.`,
-    `  • Talk like yourself. Narrative over markdown salad.`,
+    `FORMATTING — your reply will be rendered as MARKDOWN in a chat client. Write for fast reading:`,
+    `  - Open with ONE short narrative sentence (max 15 words), then a blank line, then structure.`,
+    `  - Use real markdown headings for sections — write "## Section name" on its own line. Do NOT use "**LABEL:**" as a fake header (it renders weirdly and breaks scanning).`,
+    `  - For sequenced items (tweets, slides, days, steps), use numbered lists with blank lines between: "1. Hook\\n\\n2. Problem\\n\\n3. …". Each item gets its own line; don't smush them into a paragraph.`,
+    `  - For non-sequenced lists (channels, owners, risks), use "- " bullets with blank lines between items if items are long.`,
+    `  - For code, specs, or JSON, wrap in triple-backtick fenced blocks with a language hint.`,
+    `  - Always put a BLANK LINE between paragraphs, between sections, and before each list. Whitespace is the single most important readability tool.`,
+    `  - Use **bold** sparingly for emphasis on a key noun inside a sentence. Don't use it to mark up entire labels.`,
+    `  - Skip emoji unless they're part of the deliverable's voice (e.g. emoji ARE part of a tweet's copy).`,
+    `  - Talk like yourself. Narrative over markdown salad.`,
   ]
     .filter((l) => l !== null && l !== undefined)
     .join("\n");
@@ -832,6 +836,56 @@ export async function approveSynthesisMessageStreamed(
   // .metadata field carries the latest persisted statuses across iterations.
   const synthesisRow = { id: row.id as string, metadata: meta };
 
+  // Backfill priorDeliverables from RECENT channel history so a brand-new
+  // synthesis run doesn't dispatch downstream owners blind to artifacts that
+  // other agents already shipped in earlier rounds of the same conversation.
+  //
+  // Without this: Atlas synthesizes a new plan after Ink already shipped a
+  // thread two rounds ago. The new plan says "@vee adapt Ink's thread" — but
+  // Ink isn't in THIS plan's actions, so my in-run priorDeliverables array
+  // never receives it, and Vee gets dispatched with no Ink context and
+  // self-blocks. Pulling recent execution_deliverable rows from the channel
+  // fixes that loop.
+  const channelHistoryBackfill: Array<{
+    owner: string;
+    task: string;
+    text: string;
+  }> = await (async () => {
+    if (!channelId) return [];
+    try {
+      const { data } = await svc
+        .from("messages")
+        .select("content, metadata, created_at")
+        .eq("channel_id", channelId)
+        .order("created_at", { ascending: false })
+        .limit(40);
+      if (!data) return [];
+      const out: Array<{ owner: string; task: string; text: string }> = [];
+      const seen = new Set<string>();
+      for (const row of data) {
+        const meta = (row.metadata as Record<string, unknown> | null) ?? null;
+        if (!meta) continue;
+        const kind = meta.kind;
+        if (kind !== "execution_deliverable" && kind !== "execution_revision") continue;
+        const owner =
+          typeof meta.owner === "string" ? (meta.owner as string).toLowerCase() : null;
+        const task = typeof meta.task === "string" ? (meta.task as string) : null;
+        const content = typeof row.content === "string" ? row.content.trim() : "";
+        if (!owner || !task || !content) continue;
+        // Keep only the most recent deliverable per (owner, task) pair.
+        const key = `${owner}|${task}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ owner, task, text: content });
+      }
+      // Order roughly chronologically (oldest first) so newer revisions
+      // override older ones in the model's eyes.
+      return out.reverse();
+    } catch {
+      return [];
+    }
+  })();
+
   let results: ExecutionRecord[];
   if (mode === "sequential") {
     // CRITICAL: in sequential mode, every action that completes feeds its
@@ -839,8 +893,14 @@ export async function approveSynthesisMessageStreamed(
     // this, "@vee adapt @ink's thread" can't see @ink's thread and either
     // self-blocks or invents its own version. This is what made the
     // content-team test cascade-fail.
+    //
+    // We START with the channel backfill so even action[0] can see what
+    // shipped in prior rounds, then accumulate the current run's outputs
+    // on top.
     results = [];
-    const priorDeliverables: Array<{ owner: string; task: string; text: string }> = [];
+    const priorDeliverables: Array<{ owner: string; task: string; text: string }> = [
+      ...channelHistoryBackfill,
+    ];
     for (let i = 0; i < total; i++) {
       const rec = await executeAction(
         svc,
@@ -892,7 +952,10 @@ export async function approveSynthesisMessageStreamed(
       });
     }
   } else {
-    // Parallel: actions are independent by definition, so no context-passing.
+    // Parallel: actions inside THIS plan are independent of each other, but
+    // we still pass the channel backfill so they can see artifacts from
+    // prior rounds (e.g. Ink's thread from yesterday's synthesis when today's
+    // plan dispatches @vee for a related adaptation).
     results = await Promise.all(
       plan.actions.map((action, i) =>
         executeAction(
@@ -906,7 +969,7 @@ export async function approveSynthesisMessageStreamed(
           plan,
           channelName,
           onEvent,
-          []
+          channelHistoryBackfill
         )
       )
     );
