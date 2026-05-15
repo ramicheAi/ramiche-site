@@ -15,6 +15,7 @@ const sections = [
     items: [
       { href: '/command-center', label: 'Dashboard', icon: '◇', accent: '#C9A84C' },
       { href: '/command-center/chat', label: 'Chat', icon: '◈', accent: '#7c3aed' },
+      { href: '/command-center/gallery', label: 'Gallery', icon: '▦', accent: '#ec4899' },
       { href: '/command-center/agents', label: 'Agents', icon: '✦', accent: '#34d399' },
       { href: '/command-center/tasks', label: 'Tasks', icon: '▣', accent: '#f59e0b' },
       { href: '/command-center/health', label: 'System Health', icon: '◉', accent: '#22d3ee' },
