@@ -204,21 +204,50 @@ function displayName(agentId: string): string {
 
 /**
  * EXECUTION prompt — demands the deliverable IN this reply, not a future plan.
- * On retry, the verifier's gaps + required_revisions are appended so the
- * owner addresses the critique directly.
+ *
+ * Includes:
+ *   - The agent's task + deliverable definition
+ *   - Peer list so they know who else is on which thread
+ *   - `priorDeliverables`: artifacts shipped by upstream actions in the same
+ *     plan. CRITICAL in sequential mode — without this the downstream agent
+ *     literally cannot see the work they're supposed to adapt, and they end
+ *     up self-blocking with "I need @<upstream>'s output."
+ *   - `retryFeedback`: verifier's gaps from the previous attempt so the
+ *     owner fixes those specific issues on retry.
+ *
+ * Formatting rules favor clean narrative over markdown salad — the rendered
+ * messages should read like a real teammate's note, not a wiki dump.
  */
 function buildExecutionPrompt(
   owner: string,
   action: ActionItem,
   plan: SynthesisPlan,
   channelName: string | undefined,
-  retryFeedback: VerifierVerdict | null
+  retryFeedback: VerifierVerdict | null,
+  priorDeliverables: Array<{ owner: string; task: string; text: string }>
 ): string {
   const name = displayName(owner);
   const peers = plan.actions
     .filter((a) => a.owner.toLowerCase() !== owner.toLowerCase())
     .map((a) => `  - @${a.owner}: ${a.task}${a.due ? ` (by ${a.due})` : ""}`)
     .join("\n");
+
+  // Trim very large deliverables so the prompt stays under context limits.
+  // 4000 chars per upstream artifact is enough for tweets / briefs / specs
+  // without blowing the budget when 3-4 prior actions stack up.
+  const priorBlock =
+    priorDeliverables.length > 0
+      ? [
+          ``,
+          `Prior deliverables you can use (already shipped by your teammates in this channel — use them, don't ask for them again):`,
+          ``,
+          ...priorDeliverables.map((d) => {
+            const trimmed =
+              d.text.length > 4000 ? d.text.slice(0, 4000) + "\n…[truncated]" : d.text;
+            return `=== @${d.owner} — ${d.task} ===\n${trimmed}\n=== end @${d.owner} ===\n`;
+          }),
+        ].join("\n")
+      : "";
 
   const retryBlock = retryFeedback
     ? [
@@ -250,14 +279,21 @@ function buildExecutionPrompt(
     plan.risks && plan.risks.length > 0
       ? `\nRisks the room flagged:\n${plan.risks.map((r) => `  - ${r}`).join("\n")}`
       : "",
+    priorBlock,
     retryBlock,
     "",
     `EXECUTE NOW — DO NOT PLAN FOR LATER:`,
-    `  • Produce the actual deliverable IN THIS REPLY. If it's a doc, write the doc. If it's specs, write the specs. If it's copy, write the copy. If it's a tracker layout, draw it as a markdown board.`,
-    `  • Open with one short sentence confirming what you're shipping. Then DUMP THE ARTIFACT.`,
+    `  • Produce the actual deliverable IN THIS REPLY. If it's a doc, write the doc. If it's specs, write the specs. If it's copy, write the copy.`,
+    `  • Open with ONE short sentence confirming what you're shipping. Then a blank line. Then the artifact.`,
     `  • Do NOT say "I will" or "tomorrow" or "by EOD." You are doing it now in this message.`,
-    `  • If you genuinely cannot produce the deliverable in this reply because you need information only a teammate has, output a single line: "[BLOCKED: <one-sentence reason and who you need>]" and nothing else. Use this sparingly — only when it's a true hard block.`,
-    `  • Talk in your voice.`,
+    `  • If you genuinely cannot produce the deliverable in this reply because you need information only a teammate has, output a single line: "[BLOCKED: <one-sentence reason and who you need>]" and nothing else. Use this sparingly — only when it's a true hard block. If a prior deliverable is included above, you have what you need.`,
+    "",
+    `FORMATTING — write to be READ in a chat, not parsed by a wiki:`,
+    `  • Use blank lines between sections. Whitespace is a feature.`,
+    `  • For sequenced items (tweets, slides, steps), use plain numbered lines on their own line: "1. …" then a blank, then "2. …". Don't smush everything into one paragraph.`,
+    `  • Avoid stacked bold headers like "**TWEET 1 (HOOK):**" — they render as literal asterisks. Just write "Tweet 1 — the hook" on its own line.`,
+    `  • Skip emoji unless they're part of the deliverable's voice.`,
+    `  • Talk like yourself. Narrative over markdown salad.`,
   ]
     .filter((l) => l !== null && l !== undefined)
     .join("\n");
@@ -473,7 +509,8 @@ async function executeAction(
   action: ActionItem,
   plan: SynthesisPlan,
   channelName: string | undefined,
-  onEvent: OnEvent
+  onEvent: OnEvent,
+  priorDeliverables: Array<{ owner: string; task: string; text: string }>
 ): Promise<ExecutionRecord> {
   const owner = action.owner.toLowerCase();
   const ownerUUID = AGENT_DM_UUID[owner] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -488,7 +525,14 @@ async function executeAction(
   while (attempt < MAX_ATTEMPTS) {
     attempt++;
     onEvent({ type: "action_start", actionIndex, owner, task: action.task, attempt });
-    const prompt = buildExecutionPrompt(owner, action, plan, channelName, lastVerdict);
+    const prompt = buildExecutionPrompt(
+      owner,
+      action,
+      plan,
+      channelName,
+      lastVerdict,
+      priorDeliverables
+    );
     const dispatched = await dispatchExecution(owner, prompt);
     if (!dispatched.ok) {
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "blocked");
@@ -790,7 +834,13 @@ export async function approveSynthesisMessageStreamed(
 
   let results: ExecutionRecord[];
   if (mode === "sequential") {
+    // CRITICAL: in sequential mode, every action that completes feeds its
+    // deliverable forward into the prompts of subsequent actions. Without
+    // this, "@vee adapt @ink's thread" can't see @ink's thread and either
+    // self-blocks or invents its own version. This is what made the
+    // content-team test cascade-fail.
     results = [];
+    const priorDeliverables: Array<{ owner: string; task: string; text: string }> = [];
     for (let i = 0; i < total; i++) {
       const rec = await executeAction(
         svc,
@@ -802,9 +852,17 @@ export async function approveSynthesisMessageStreamed(
         plan.actions[i],
         plan,
         channelName,
-        onEvent
+        onEvent,
+        priorDeliverables
       );
       results.push(rec);
+      if (rec.status === "done" && rec.text) {
+        priorDeliverables.push({
+          owner: rec.owner,
+          task: rec.task,
+          text: rec.text,
+        });
+      }
       if (rec.status === "blocked") {
         // Halt the chain. Cancel the rest so the UI shows them deliberately
         // skipped rather than pending forever.
@@ -834,6 +892,7 @@ export async function approveSynthesisMessageStreamed(
       });
     }
   } else {
+    // Parallel: actions are independent by definition, so no context-passing.
     results = await Promise.all(
       plan.actions.map((action, i) =>
         executeAction(
@@ -846,7 +905,8 @@ export async function approveSynthesisMessageStreamed(
           action,
           plan,
           channelName,
-          onEvent
+          onEvent,
+          []
         )
       )
     );
