@@ -2198,7 +2198,15 @@ export default function CommandCenterChatPage() {
           let parsed: {
             ok?: boolean;
             response?: string;
-            responses?: { agent: string; response: string }[];
+            responses?: {
+              agent: string;
+              response: string;
+              /** Real Supabase row id of the agent's persisted reply. Use this
+               *  for the optimistic-render id so polling/Realtime don't render
+               *  a second copy under the synthetic `api-<ts>-<i>` id. */
+              messageId?: string | null;
+              attachments?: { url: string; name: string; type: string }[];
+            }[];
             agent?: string;
             error?: string;
           } = {};
@@ -2273,21 +2281,31 @@ export default function CommandCenterChatPage() {
                 const threadExtra = threadPid ? { threadParentId: threadPid as string } : {};
 
                 if (multiResponses) {
-                  const newMsgs: Message[] = data.responses!.map((r, idx) => {
-                    const agentId = r.agent.toLowerCase();
-                    const agentDef = DEFAULT_AGENTS.find((a) => a.id === agentId);
-                    return {
-                      id: `api-${Date.now()}-${idx}`,
-                      channelId: targetChannelId,
-                      type: "agent" as const,
-                      sender: agentDef?.name ?? r.agent,
-                      senderColor: agentDef?.color ?? (COLORS.agents as Record<string, string>)[agentId] ?? "#888",
-                      content: String(r.response),
-                      timestamp: ts2,
-                      date: "Today",
-                      ...threadExtra,
-                    };
-                  });
+                  // Dedupe against any agent reply that polling/Realtime may
+                  // have already merged in. We do this by skipping any entry
+                  // whose messageId is already in prev.
+                  const knownIds = new Set(prev.map((m) => m.id));
+                  const newMsgs: Message[] = data.responses!
+                    .filter((r) => !(r.messageId && knownIds.has(r.messageId)))
+                    .map((r, idx) => {
+                      const agentId = r.agent.toLowerCase();
+                      const agentDef = DEFAULT_AGENTS.find((a) => a.id === agentId);
+                      return {
+                        // Prefer the real Supabase id so polling can dedupe.
+                        // Fall back to a synthetic id only when the API call
+                        // succeeded but the row insert failed (very rare).
+                        id: r.messageId || `api-${Date.now()}-${idx}`,
+                        channelId: targetChannelId,
+                        type: "agent" as const,
+                        sender: agentDef?.name ?? r.agent,
+                        senderColor: agentDef?.color ?? (COLORS.agents as Record<string, string>)[agentId] ?? "#888",
+                        content: String(r.response),
+                        timestamp: ts2,
+                        date: "Today",
+                        attachments: r.attachments,
+                        ...threadExtra,
+                      };
+                    });
                   if (userMessageId) {
                     lastPendingUserMessageIdRef.current = null;
                     void fetch("/api/command-center/chat/mark-read", {
@@ -2308,10 +2326,18 @@ export default function CommandCenterChatPage() {
                     body: JSON.stringify({ userMessageId }),
                   });
                 }
+                // Same dedupe path as the multi-response branch — use the
+                // real Supabase id from data.responses[0] when present.
+                const firstReply = data.responses?.[0];
+                const realId = firstReply?.messageId;
+                const replyAttachments = firstReply?.attachments;
+                if (realId && prev.some((m) => m.id === realId)) {
+                  return prev; // already merged by polling/Realtime
+                }
                 return [
                   ...prev,
                   {
-                    id: `api-${Date.now()}`,
+                    id: realId || `api-${Date.now()}`,
                     channelId: targetChannelId,
                     type: "agent" as const,
                     sender: isDM ? activeAgent!.name : (data.agent ?? "Agent"),
@@ -2319,6 +2345,7 @@ export default function CommandCenterChatPage() {
                     content: text,
                     timestamp: ts2,
                     date: "Today",
+                    attachments: replyAttachments,
                     ...threadExtra,
                   },
                 ];

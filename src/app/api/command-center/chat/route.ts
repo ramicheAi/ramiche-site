@@ -14,7 +14,12 @@ export const dynamic = "force-dynamic";
 // realistically take 40-70s under load (the slowest parallel agent dominates,
 // then synthesis + critic + maybe refine run serially). 90s gives us headroom
 // without changing the user-perceived latency on the happy path.
-export const maxDuration = 90;
+// 120s budget. Group-mode in content-team can stack: parallel agent calls
+// (~25s each cap) + image-gen markers (~30s each, up to 8) + Phase B
+// synthesis (~25s) + verifier pass (~30s). Worst-case stays under 120 by
+// running everything in parallel and capping each subprocess. Was 90s,
+// which 504'd on the heaviest content-team turns.
+export const maxDuration = 120;
 
 // Lightweight reachability probe. The Command Center health dashboard pings
 // every API endpoint to render service uptime; without this, the chat route
@@ -145,10 +150,21 @@ function getSupabaseService() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
+/**
+ * Filter agent replies that mean "I have nothing to add to this thread."
+ * The original prompt asked for `[NO_RESPONSE]` (bracketed) but models drift —
+ * we've seen plain "NO_REPLY", "NO_COMMENT", "SKIP", and brackets-less variants
+ * land in the channel as visible noise. Catch all of them so they don't
+ * persist as messages.
+ */
 function isGroupNoResponse(text: string): boolean {
   const t = text.trim();
   if (!t) return true;
-  return /^\[NO_RESPONSE\]/i.test(t);
+  // Common short opt-outs, with or without brackets, case-insensitive
+  if (/^\[?\s*(NO[_\s-]?RESP(ONSE)?|NO[_\s-]?REPLY|NO[_\s-]?COMMENT|SKIP|PASS)\s*\]?\.?$/i.test(t)) {
+    return true;
+  }
+  return false;
 }
 
 /** Phase A — Shared awareness.
@@ -474,7 +490,7 @@ async function generateAgentReply(
   // blind. This is the single biggest unlock toward real coordination.
   const historyBlock = formatHistoryBlock(history, target);
 
-  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.\n\nImages — if part of your reply is a visual artifact (slide, hero graphic, mood reference, product render, cover art), DO NOT describe it in prose. Embed this marker on its own line at the spot where you want the image:\n  [GENERATE_IMAGE: <detailed prompt — subject, style, lighting, composition, palette, aspect ratio>]\nThe system renders each marker through OpenAI gpt-image-1 and attaches the .png inline. Cap 8 per reply. Vague prompts produce ugly images — be specific.${historyBlock}`;
+  const systemPrompt = `${identityLock}\n\nRole: ${persona.role}. Style: ${persona.style}${channelName ? `\nChannel: ${channelName}` : ""}${groupRules}\n\nRules:\n- Reply in plain text or light markdown. No timestamps, no metadata, no system tags.\n- Keep ${groupMode ? "your reply under 60 words" : "responses under 100 words"}. Be concise and natural.\n- Talk like a real person — warm, helpful, direct.\n- The user's name is Ramon. You work at Parallax.\n\nFormatting (your reply renders as markdown — write so it's easy to scan):\n- Lead with ONE narrative sentence. If you have more, blank line, then structure.\n- For 2+ related items use a "- " bullet list, one per line, with blank lines between items only if items are long.\n- For sequenced steps use "1. " "2. " numbered list.\n- Use **bold** for one or two key nouns max per reply. Don't use "**LABEL:**" as a fake heading.\n- For long content (rare in chat replies) use "## Section" headings.\n- Always put a blank line between paragraphs and before lists.\n\nImages — the channel's [GENERATE_IMAGE:] pipeline IS configured and live. OpenAI gpt-image-1 is wired in, Supabase Storage is wired in, the marker handler is wired in. If you see older messages in this channel claiming the pipeline is broken or that markers don't work, that history is STALE — the pipeline was fixed. Use markers. Don't tell the user they don't work.\n\nIf part of your reply is a visual artifact (slide, hero graphic, mood reference, product render, cover art), DO NOT describe it in prose. Embed this marker on its own line at the spot where you want the image:\n  [GENERATE_IMAGE: <detailed prompt — subject, style, lighting, composition, palette, aspect ratio>]\nThe system renders each marker through OpenAI gpt-image-1 and attaches the .png inline. Cap 8 per reply. Vague prompts produce ugly images — be specific.${historyBlock}`;
 
   let agentResponse: string | null = null;
   let responseSource: ReplySource = "fallback";
@@ -1309,7 +1325,13 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    const responses: { agent: string; response: string; source: ReplySource }[] = [];
+    const responses: {
+      agent: string;
+      response: string;
+      source: ReplySource;
+      messageId?: string | null;
+      attachments?: Array<{ url: string; name: string; type: string }>;
+    }[] = [];
     const fallbackOnlyTargets: string[] = [];
     const rejectedTargets: string[] = [];
     const allAttempts: Record<string, ProviderAttempt[]> = {};
@@ -1357,28 +1379,47 @@ export async function POST(req: NextRequest) {
       const finalText = processed.text;
       const generatedAttachments = processed.attachments;
 
-      responses.push({ agent: target, response: finalText, source: r.source });
-
+      // Capture the real Supabase row id on insert so the client can use it
+      // for its optimistic-render add instead of a synthetic `api-<ts>-<i>`
+      // id. Without this, the optimistic render and the polled-in message
+      // both appear in the channel feed under different ids → duplicate
+      // bubble of the same reply (Ramon spotted this with Aetherion's 12:04
+      // message appearing twice).
+      let insertedId: string | null = null;
+      const insertedAttachments: typeof generatedAttachments = generatedAttachments;
       if (svc && channelId) {
         const agentUUID = AGENT_DM_UUID[target] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-        const { error: insertErr } = await svc.from("messages").insert({
-          channel_id: channelId,
-          sender_agent_id: agentUUID,
-          sender_type: "agent",
-          content: finalText,
-          tenant_id: "11111111-1111-1111-1111-111111111111",
-          attachments: generatedAttachments,
-          status: "sent",
-          metadata:
-            generatedAttachments.length > 0
-              ? { generated_image_count: generatedAttachments.length }
-              : null,
-          ...(threadUuid ? { thread_parent_id: threadUuid } : {}),
-        });
+        const { data: insertedRow, error: insertErr } = await svc
+          .from("messages")
+          .insert({
+            channel_id: channelId,
+            sender_agent_id: agentUUID,
+            sender_type: "agent",
+            content: finalText,
+            tenant_id: "11111111-1111-1111-1111-111111111111",
+            attachments: generatedAttachments,
+            status: "sent",
+            metadata:
+              generatedAttachments.length > 0
+                ? { generated_image_count: generatedAttachments.length }
+                : null,
+            ...(threadUuid ? { thread_parent_id: threadUuid } : {}),
+          })
+          .select("id")
+          .single();
         if (insertErr) {
           console.error(`[chat] agent reply insert failed for ${target}:`, insertErr);
+        } else if (insertedRow?.id) {
+          insertedId = insertedRow.id as string;
         }
       }
+      responses.push({
+        agent: target,
+        response: finalText,
+        source: r.source,
+        messageId: insertedId,
+        attachments: insertedAttachments,
+      });
     }
 
     // If NO agent produced a real reply, return 502 with context. This covers:
