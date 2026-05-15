@@ -633,34 +633,199 @@ export default function CommandCenterChatPage() {
   /** Last relay error — rendered as a red bubble below the failing user message. */
   const [relayError, setRelayError] = useState<{ id: string; message: string } | null>(null);
 
-  /* ── Phase C — approval state for synthesis cards.
-        approving = id of the synthesis message currently being approved;
-        approveError = inline error if the /approve call fails. ── */
+  /* ── Phase C+F — approval state for synthesis cards.
+        approvingSynthId   = id of the synthesis message currently approving
+        approveError       = inline error if the /approve stream fails
+        approveProgress    = live per-action state, keyed by synthesisId
+                              actions[i] = { stage, attempt, gaps, lengthHint, status }
+        approveSummary     = final tally per synthesisId once "complete" fires
+     ── */
+  type ActionStage =
+    | "pending"
+    | "in_progress"
+    | "verifying"
+    | "done"
+    | "blocked"
+    | "cancelled";
+  type ActionLiveState = {
+    stage: ActionStage;
+    attempt: number;
+    gaps: string[];
+    lengthHint: number;
+    revisions: string[];
+  };
+  type ApproveProgress = {
+    actions: Record<number, ActionLiveState>;
+    mode?: "parallel" | "sequential";
+  };
   const [approvingSynthId, setApprovingSynthId] = useState<string | null>(null);
   const [approveError, setApproveError] = useState<{ id: string; message: string } | null>(null);
+  const [approveProgress, setApproveProgress] = useState<Record<string, ApproveProgress>>({});
+  const [approveSummary, setApproveSummary] = useState<
+    Record<string, { executed: number; blocked: number; total: number }>
+  >({});
+
+  const updateActionLive = (
+    synthesisId: string,
+    actionIndex: number,
+    patch: Partial<ActionLiveState>
+  ) => {
+    setApproveProgress((prev) => {
+      const cur: ApproveProgress = prev[synthesisId] || { actions: {} };
+      const curAction: ActionLiveState =
+        cur.actions[actionIndex] || {
+          stage: "pending",
+          attempt: 0,
+          gaps: [],
+          lengthHint: 0,
+          revisions: [],
+        };
+      return {
+        ...prev,
+        [synthesisId]: {
+          ...cur,
+          actions: {
+            ...cur.actions,
+            [actionIndex]: { ...curAction, ...patch },
+          },
+        },
+      };
+    });
+  };
 
   const handleApproveSynthesis = async (messageId: string) => {
     setApproveError(null);
+    setApproveSummary((prev) => {
+      const next = { ...prev };
+      delete next[messageId];
+      return next;
+    });
+    setApproveProgress((prev) => ({ ...prev, [messageId]: { actions: {} } }));
     setApprovingSynthId(messageId);
     try {
-      const res = await fetch("/api/command-center/chat/approve", {
+      const res = await fetch("/api/command-center/chat/approve/stream", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
         body: JSON.stringify({ messageId }),
       });
-      const data = (await res.json().catch(() => null)) as {
-        ok?: boolean;
-        error?: string;
-        dispatched?: number;
-        total?: number;
-        alreadyApproved?: boolean;
-      } | null;
-      if (!res.ok || !data?.ok) {
-        setApproveError({
-          id: messageId,
-          message: data?.error || `Approve failed (HTTP ${res.status})`,
-        });
+      if (!res.ok || !res.body) {
+        let detail = `Approve stream failed (HTTP ${res.status})`;
+        try {
+          const errText = await res.text();
+          if (errText) detail = errText.slice(0, 200);
+        } catch {
+          /* ignore */
+        }
+        setApproveError({ id: messageId, message: detail });
+        return;
       }
+
+      // Parse SSE — supabase-js style, framed by blank lines.
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let currentEvent: string | null = null;
+
+      const handleFrame = (eventName: string, payloadRaw: string) => {
+        let data: Record<string, unknown> = {};
+        try {
+          data = JSON.parse(payloadRaw);
+        } catch {
+          return;
+        }
+        const idx =
+          typeof data.actionIndex === "number" ? (data.actionIndex as number) : -1;
+
+        if (eventName === "plan_loaded") {
+          setApproveProgress((prev) => ({
+            ...prev,
+            [messageId]: {
+              actions: prev[messageId]?.actions || {},
+              mode: data.mode as "parallel" | "sequential" | undefined,
+            },
+          }));
+          return;
+        }
+        if (eventName === "action_start" && idx >= 0) {
+          updateActionLive(messageId, idx, {
+            stage: "in_progress",
+            attempt: (data.attempt as number) || 1,
+            gaps: [],
+            revisions: [],
+          });
+          return;
+        }
+        if (eventName === "deliverable" && idx >= 0) {
+          updateActionLive(messageId, idx, {
+            lengthHint: (data.length as number) || 0,
+          });
+          return;
+        }
+        if (eventName === "verifying" && idx >= 0) {
+          updateActionLive(messageId, idx, { stage: "verifying" });
+          return;
+        }
+        if (eventName === "verdict" && idx >= 0) {
+          updateActionLive(messageId, idx, {
+            gaps: Array.isArray(data.gaps) ? (data.gaps as string[]) : [],
+            revisions: Array.isArray(data.revisions) ? (data.revisions as string[]) : [],
+          });
+          return;
+        }
+        if (eventName === "action_done" && idx >= 0) {
+          updateActionLive(messageId, idx, {
+            stage: (data.status as ActionStage) || "done",
+            attempt: (data.attempts as number) || 1,
+          });
+          return;
+        }
+        if (eventName === "complete") {
+          setApproveSummary((prev) => ({
+            ...prev,
+            [messageId]: {
+              executed: (data.executed as number) || 0,
+              blocked: (data.blocked as number) || 0,
+              total: (data.total as number) || 0,
+            },
+          }));
+          return;
+        }
+        if (eventName === "error") {
+          setApproveError({
+            id: messageId,
+            message: typeof data.error === "string" ? data.error : "Approve stream error",
+          });
+          return;
+        }
+        if (eventName === "already_approved") {
+          setApproveError({ id: messageId, message: "Already approved." });
+          return;
+        }
+      };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let nl: number;
+        while ((nl = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, nl);
+          buffer = buffer.slice(nl + 2);
+          // Parse one frame (multiple lines: `event: foo` + `data: {...}`)
+          let evt: string | null = null;
+          let data = "";
+          for (const line of frame.split("\n")) {
+            if (line.startsWith("event:")) evt = line.slice(6).trim();
+            else if (line.startsWith("data:")) data += line.slice(5).trim();
+            else if (line.startsWith(":")) {
+              /* SSE comment / heartbeat */
+            }
+          }
+          if (evt && data) handleFrame(evt, data);
+          currentEvent = evt;
+        }
+      }
+      void currentEvent;
     } catch (e) {
       setApproveError({
         id: messageId,
@@ -3652,28 +3817,55 @@ export default function CommandCenterChatPage() {
                             </div>
                             <div style={{ marginBottom: 10 }}>
                               {plan.actions.map((a, i) => {
-                                const status = (statuses[i] as
+                                const storedStatus = (statuses[i] as
                                   | "pending"
                                   | "in_progress"
                                   | "done"
                                   | "blocked"
                                   | "cancelled"
                                   | undefined) ?? "pending";
+                                // Live progress from SSE stream (only set during an
+                                // active /approve/stream run for this synthesis).
+                                const live = approveProgress[message.id]?.actions[i];
+                                // Live stage takes precedence while approving;
+                                // afterwards we fall back to what's persisted on
+                                // metadata.action_statuses.
+                                const effectiveStage = live?.stage || storedStatus;
                                 const ack = ackByOwner.get(a.owner.toLowerCase());
                                 const updating =
                                   actionStatusPending === `${message.id}:${i}`;
                                 const dot =
-                                  status === "done"
+                                  effectiveStage === "done"
                                     ? { c: "#10b981", l: "Done" }
-                                    : status === "blocked"
+                                    : effectiveStage === "blocked"
                                       ? { c: "#ef4444", l: "Blocked" }
-                                      : status === "in_progress"
-                                        ? { c: "#f59e0b", l: "In progress" }
-                                        : status === "cancelled"
-                                          ? { c: "#6b7280", l: "Cancelled" }
-                                          : ack
-                                            ? { c: "#a78bfa", l: "Committed" }
-                                            : { c: "#6b7280", l: "Pending" };
+                                      : effectiveStage === "verifying"
+                                        ? { c: "#22d3ee", l: "Verifying" }
+                                        : effectiveStage === "in_progress"
+                                          ? { c: "#f59e0b", l: "In progress" }
+                                          : effectiveStage === "cancelled"
+                                            ? { c: "#6b7280", l: "Cancelled" }
+                                            : ack
+                                              ? { c: "#a78bfa", l: "Committed" }
+                                              : { c: "#6b7280", l: "Pending" };
+                                // Sub-label tells the user what's happening right
+                                // now during execution: which attempt, deliverable
+                                // size, or critic gaps that triggered a retry.
+                                const livePulse =
+                                  live?.stage === "in_progress"
+                                    ? (live.attempt > 1
+                                        ? `retrying (attempt ${live.attempt}/2)…`
+                                        : "drafting deliverable…")
+                                    : live?.stage === "verifying"
+                                      ? `verifying${
+                                          live.lengthHint ? ` (${live.lengthHint.toLocaleString()} chars)` : ""
+                                        }…`
+                                      : live?.stage === "blocked" && live.gaps.length > 0
+                                        ? `blocked — gaps: ${live.gaps.slice(0, 2).join("; ")}`
+                                        : null;
+                                // Status (just-completed) is the persisted one — keep
+                                // legacy variable name `status` for downstream code.
+                                const status = effectiveStage;
                                 return (
                                   <div
                                     key={i}
@@ -3721,6 +3913,20 @@ export default function CommandCenterChatPage() {
                                         ) : null}
                                       </div>
                                     </div>
+                                    {livePulse && (
+                                      <div
+                                        style={{
+                                          marginLeft: 16,
+                                          marginTop: 4,
+                                          fontSize: 11,
+                                          color: dot.c,
+                                          fontStyle: "italic",
+                                          letterSpacing: 0.2,
+                                        }}
+                                      >
+                                        ↳ {livePulse}
+                                      </div>
+                                    )}
                                     {ack && (
                                       <div
                                         style={{
@@ -3853,7 +4059,7 @@ export default function CommandCenterChatPage() {
                                   cursor: isApproving ? "wait" : "pointer",
                                 }}
                               >
-                                {isApproving ? "Dispatching handoffs…" : "Approve & dispatch"}
+                                {isApproving ? "Executing…" : "Approve & dispatch"}
                               </button>
                             )}
                             {errForThis && (
@@ -3866,6 +4072,24 @@ export default function CommandCenterChatPage() {
                                 }}
                               >
                                 {errForThis}
+                              </div>
+                            )}
+                            {/* Final tally once the stream's `complete` event fires.
+                                Persists after isApproving flips back to false so the
+                                user can read the outcome. */}
+                            {approveSummary[message.id] && (
+                              <div
+                                style={{
+                                  marginTop: 8,
+                                  fontSize: 11,
+                                  color:
+                                    approveSummary[message.id].blocked > 0 ? "#fbbf24" : "#10b981",
+                                  letterSpacing: 0.4,
+                                }}
+                              >
+                                {approveSummary[message.id].blocked > 0
+                                  ? `Executed ${approveSummary[message.id].executed}/${approveSummary[message.id].total} · ${approveSummary[message.id].blocked} blocked`
+                                  : `Executed ${approveSummary[message.id].executed}/${approveSummary[message.id].total} ✓`}
                               </div>
                             )}
                           </div>

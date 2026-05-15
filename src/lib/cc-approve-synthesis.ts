@@ -96,6 +96,63 @@ export type ApproveResult =
     }
   | { ok: false; error: string; status?: number };
 
+/**
+ * Live progress events emitted while approveSynthesisMessageStreamed runs.
+ * The SSE endpoint at /api/command-center/chat/approve/stream forwards these
+ * to the chat UI so action pills can flip pending → in_progress → done
+ * in real time without waiting for the whole loop to finish.
+ *
+ * Order per action (single attempt):
+ *   action_start → deliverable → verifying → verdict → action_done
+ * Retry case adds an extra action_start (attempt: 2) + deliverable + …
+ */
+export type ApproveEvent =
+  | { type: "plan_loaded"; total: number; mode: "parallel" | "sequential" }
+  | { type: "already_approved"; approvedAt: string }
+  | {
+      type: "action_start";
+      actionIndex: number;
+      owner: string;
+      task: string;
+      attempt: number;
+    }
+  | {
+      type: "deliverable";
+      actionIndex: number;
+      owner: string;
+      via: string;
+      attempt: number;
+      preview: string;
+      length: number;
+    }
+  | { type: "verifying"; actionIndex: number; owner: string }
+  | {
+      type: "verdict";
+      actionIndex: number;
+      owner: string;
+      meetsDefinition: boolean;
+      gaps: string[];
+      revisions: string[];
+    }
+  | {
+      type: "action_done";
+      actionIndex: number;
+      owner: string;
+      status: ActionStatus;
+      attempts: number;
+    }
+  | {
+      type: "complete";
+      executed: number;
+      blocked: number;
+      total: number;
+      mode: "parallel" | "sequential";
+    }
+  | { type: "error"; error: string };
+
+type OnEvent = (event: ApproveEvent) => void;
+const NOOP_EVENT: OnEvent = () => {};
+
 function cleanEnv(name: string): string | undefined {
   const raw = process.env[name];
   if (!raw) return undefined;
@@ -415,7 +472,8 @@ async function executeAction(
   actionIndex: number,
   action: ActionItem,
   plan: SynthesisPlan,
-  channelName: string | undefined
+  channelName: string | undefined,
+  onEvent: OnEvent
 ): Promise<ExecutionRecord> {
   const owner = action.owner.toLowerCase();
   const ownerUUID = AGENT_DM_UUID[owner] || "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
@@ -429,10 +487,18 @@ async function executeAction(
 
   while (attempt < MAX_ATTEMPTS) {
     attempt++;
+    onEvent({ type: "action_start", actionIndex, owner, task: action.task, attempt });
     const prompt = buildExecutionPrompt(owner, action, plan, channelName, lastVerdict);
     const dispatched = await dispatchExecution(owner, prompt);
     if (!dispatched.ok) {
       await persistStatus(svc, synthesisRow, totalActions, actionIndex, "blocked");
+      onEvent({
+        type: "action_done",
+        actionIndex,
+        owner,
+        status: "blocked",
+        attempts: attempt,
+      });
       return {
         owner,
         task: action.task,
@@ -446,6 +512,15 @@ async function executeAction(
     }
     lastText = dispatched.text.trim();
     lastVia = dispatched.via;
+    onEvent({
+      type: "deliverable",
+      actionIndex,
+      owner,
+      via: dispatched.via,
+      attempt,
+      preview: lastText.slice(0, 240),
+      length: lastText.length,
+    });
 
     // Persist this attempt as a message so the channel shows the full work,
     // not just the final accepted version. Tag attempts > 1 as revisions.
@@ -490,6 +565,13 @@ async function executeAction(
           owner,
         },
       });
+      onEvent({
+        type: "action_done",
+        actionIndex,
+        owner,
+        status: "blocked",
+        attempts: attempt,
+      });
       return {
         owner,
         task: action.task,
@@ -502,8 +584,28 @@ async function executeAction(
     }
 
     // Verifier pass.
+    onEvent({ type: "verifying", actionIndex, owner });
     const verdict = await runVerifier(action, lastText);
     lastVerdict = verdict;
+    if (verdict) {
+      onEvent({
+        type: "verdict",
+        actionIndex,
+        owner,
+        meetsDefinition: verdict.meets_definition,
+        gaps: verdict.gaps,
+        revisions: verdict.required_revisions,
+      });
+    } else {
+      onEvent({
+        type: "verdict",
+        actionIndex,
+        owner,
+        meetsDefinition: true, // accepted optimistically
+        gaps: [],
+        revisions: [],
+      });
+    }
     if (!verdict) {
       // Verifier couldn't run (timeout / no backend). Accept the deliverable
       // optimistically — don't punish the owner for our infra failure.
@@ -524,6 +626,13 @@ async function executeAction(
           owner,
           verifier: null,
         },
+      });
+      onEvent({
+        type: "action_done",
+        actionIndex,
+        owner,
+        status: "done",
+        attempts: attempt,
       });
       return {
         owner,
@@ -555,6 +664,13 @@ async function executeAction(
           verifier: verdict,
           attempts: attempt,
         },
+      });
+      onEvent({
+        type: "action_done",
+        actionIndex,
+        owner,
+        status: "done",
+        attempts: attempt,
       });
       return {
         owner,
@@ -594,6 +710,13 @@ async function executeAction(
       attempts: MAX_ATTEMPTS,
     },
   });
+  onEvent({
+    type: "action_done",
+    actionIndex,
+    owner,
+    status: "blocked",
+    attempts: MAX_ATTEMPTS,
+  });
   return {
     owner,
     task: action.task,
@@ -605,8 +728,11 @@ async function executeAction(
   };
 }
 
-/** Run Phase C+F approval for a synthesis row by Supabase message UUID. */
-export async function approveSynthesisMessage(messageId: string): Promise<ApproveResult> {
+/** Run Phase C+F approval, threading a callback for streaming progress events. */
+export async function approveSynthesisMessageStreamed(
+  messageId: string,
+  onEvent: OnEvent
+): Promise<ApproveResult> {
   if (!messageId || !/^[0-9a-f-]{36}$/i.test(messageId)) {
     return { ok: false, error: "messageId required (uuid)", status: 400 };
   }
@@ -644,11 +770,9 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
   }
 
   if (meta.approved_at) {
-    return {
-      ok: true,
-      alreadyApproved: true,
-      approvedAt: meta.approved_at as string,
-    };
+    const approvedAt = meta.approved_at as string;
+    onEvent({ type: "already_approved", approvedAt });
+    return { ok: true, alreadyApproved: true, approvedAt };
   }
 
   const channelId = row.channel_id as string;
@@ -657,6 +781,8 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
   const total = plan.actions.length;
   const mode: "parallel" | "sequential" =
     plan.execution_mode === "sequential" ? "sequential" : "parallel";
+
+  onEvent({ type: "plan_loaded", total, mode });
 
   // The synthesisRow object is passed-by-reference into executeAction so the
   // .metadata field carries the latest persisted statuses across iterations.
@@ -675,7 +801,8 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
         i,
         plan.actions[i],
         plan,
-        channelName
+        channelName,
+        onEvent
       );
       results.push(rec);
       if (rec.status === "blocked") {
@@ -683,6 +810,13 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
         // skipped rather than pending forever.
         for (let j = i + 1; j < total; j++) {
           await persistStatus(svc, synthesisRow, total, j, "cancelled");
+          onEvent({
+            type: "action_done",
+            actionIndex: j,
+            owner: plan.actions[j].owner.toLowerCase(),
+            status: "cancelled",
+            attempts: 0,
+          });
         }
         break;
       }
@@ -702,7 +836,18 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
   } else {
     results = await Promise.all(
       plan.actions.map((action, i) =>
-        executeAction(svc, channelId, tenantId, synthesisRow, total, i, action, plan, channelName)
+        executeAction(
+          svc,
+          channelId,
+          tenantId,
+          synthesisRow,
+          total,
+          i,
+          action,
+          plan,
+          channelName,
+          onEvent
+        )
       )
     );
   }
@@ -723,6 +868,8 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
     })
     .eq("id", row.id);
 
+  onEvent({ type: "complete", executed, blocked, total, mode });
+
   return {
     ok: true,
     approvedAt,
@@ -739,4 +886,9 @@ export async function approveSynthesisMessage(messageId: string): Promise<Approv
       verifierGaps: r.verifier?.gaps,
     })),
   };
+}
+
+/** Non-streaming approval (legacy entry point — used by /api/.../approve and Telegram). */
+export async function approveSynthesisMessage(messageId: string): Promise<ApproveResult> {
+  return approveSynthesisMessageStreamed(messageId, NOOP_EVENT);
 }
