@@ -200,6 +200,61 @@ async function loadChannelHistory(
   return out;
 }
 
+/**
+ * Thread-scoped history loader. When the incoming user message has a
+ * `threadParentId`, the agent should reply with awareness of THAT THREAD's
+ * conversation, not the noisy parent channel. Pulls the thread parent + all
+ * its children, in chronological order, so the model sees the focused
+ * back-and-forth that the user is currently inside.
+ *
+ * This is what makes the Reply feature work for agents — without it, asking
+ * @atlas a follow-up question inside an Ink reply thread would feed Atlas
+ * the entire channel's recent history and confuse the reply.
+ */
+async function loadThreadHistory(
+  svc: ReturnType<typeof getSupabaseService>,
+  threadParentId: string,
+  excludeId: string | undefined,
+  limit = 50
+): Promise<HistoryTurn[]> {
+  if (!svc) return [];
+  // Pull the parent row itself + all replies in one logical conversation.
+  const [{ data: parent }, { data: replies }] = await Promise.all([
+    svc
+      .from("messages")
+      .select("id, sender_type, sender_agent_id, content, created_at")
+      .eq("id", threadParentId)
+      .maybeSingle(),
+    svc
+      .from("messages")
+      .select("id, sender_type, sender_agent_id, content, created_at")
+      .eq("thread_parent_id", threadParentId)
+      .order("created_at", { ascending: true })
+      .limit(limit),
+  ]);
+  const rows: Array<{
+    id: string;
+    sender_type: string | null;
+    sender_agent_id: string | null;
+    content: string | null;
+    created_at: string;
+  }> = [];
+  if (parent) rows.push(parent as typeof rows[number]);
+  if (Array.isArray(replies)) rows.push(...(replies as typeof rows));
+  const out: HistoryTurn[] = [];
+  for (const row of rows) {
+    if (excludeId && row.id === excludeId) continue;
+    const content = typeof row.content === "string" ? row.content.trim() : "";
+    if (!content) continue;
+    const isAgent = row.sender_type === "agent";
+    const speaker = isAgent
+      ? AGENT_UUID_TO_SHORT_ID[(row.sender_agent_id as string) || ""] || "agent"
+      : "ramon";
+    out.push({ speaker, content, createdAt: row.created_at });
+  }
+  return out;
+}
+
 /** Render the channel transcript that gets injected into every agent's system
  *  prompt. Each line is `[speaker]: content` so the model can attribute every
  *  prior turn. The agent's OWN past messages get a `[you, name]:` prefix so it
@@ -379,7 +434,8 @@ async function generateAgentReply(
   groupMode: boolean,
   singleTargetStrict: boolean,
   groupRoster: string[],
-  history: HistoryTurn[]
+  history: HistoryTurn[],
+  imageUrls: string[]
 ): Promise<{
   text: string;
   source: ReplySource;
@@ -484,6 +540,17 @@ async function generateAgentReply(
   const claudeToken = cleanEnv("CLAUDE_MAX_PROXY_TOKEN") || "not-needed";
   if (!agentResponse) {
     try {
+      // When images are attached, switch to OpenAI's vision content array
+      // (which every modern Claude-as-OpenAI proxy supports). Mixed content:
+      //   [{type:"text", text:"…"}, {type:"image_url", image_url:{url:"…"}}, …]
+      // Without images we keep the plain string form so older proxies don't choke.
+      const userContent: unknown =
+        imageUrls.length > 0
+          ? [
+              { type: "text", text: userMessage },
+              ...imageUrls.map((url) => ({ type: "image_url", image_url: { url } })),
+            ]
+          : userMessage;
       const res = await fetch(claudeUrl, {
         method: "POST",
         headers: {
@@ -494,7 +561,7 @@ async function generateAgentReply(
           model: modelForAgent(target),
           messages: [
             { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
+            { role: "user", content: userContent },
           ],
           max_tokens: 300,
           temperature: 0.7,
@@ -1171,12 +1238,54 @@ export async function POST(req: NextRequest) {
     const groupMode = targets.length > 1;
     const singleTargetStrict = targets.length === 1;
 
-    // Phase A — Shared awareness. Load the recent channel history ONCE up
-    // front so every parallel agent call sees the same snapshot. We exclude
-    // the just-inserted user message so the LLM doesn't read its current
-    // prompt twice (once in history, once as the "new" user turn).
+    // Phase A — Shared awareness. Load history ONCE up front so every parallel
+    // agent call sees the same snapshot. We exclude the just-inserted user
+    // message so the LLM doesn't read its current prompt twice (once in
+    // history, once as the "new" user turn).
+    //
+    // When the user message is a thread reply (`threadParentId` set), load the
+    // THREAD's own conversation instead of the whole channel — the agent
+    // should respond within the focused back-and-forth, not get distracted by
+    // unrelated channel chatter.
     const svc = getSupabaseService();
-    const history = await loadChannelHistory(svc, channelId, userMessageId, 30);
+    const history = threadUuid
+      ? await loadThreadHistory(svc, threadUuid, userMessageId, 50)
+      : await loadChannelHistory(svc, channelId, userMessageId, 30);
+
+    // Multi-modal input — if the user attached images to their message, pass
+    // the URLs into the Claude Max call so the agent can actually SEE them.
+    // We pull straight from the just-inserted Supabase row (it's the source of
+    // truth for what's attached) rather than trust the client body. Anything
+    // that classifies as image/* goes in; video / audio / docs are summarized
+    // to text references (Claude vision is image-only; video/audio would need
+    // Gemini Pro or a separate transcript step — out of scope here).
+    let imageUrls: string[] = [];
+    if (svc && userMessageId) {
+      try {
+        const { data: row } = await svc
+          .from("messages")
+          .select("attachments")
+          .eq("id", userMessageId)
+          .maybeSingle();
+        const raw = row?.attachments;
+        if (Array.isArray(raw)) {
+          imageUrls = raw
+            .filter(
+              (a: { url?: unknown; type?: unknown; name?: unknown }) =>
+                typeof a.url === "string" &&
+                (typeof a.type === "string"
+                  ? a.type.startsWith("image/") || a.type === "image"
+                  : false ||
+                    (typeof a.name === "string" &&
+                      /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(a.name)))
+            )
+            .map((a: { url: string }) => a.url)
+            .slice(0, 8); // hard cap so a 50-image dump doesn't blow context
+        }
+      } catch {
+        /* attachments are optional — don't fail the chat call over a lookup error */
+      }
+    }
 
     const results = await Promise.allSettled(
       targets.map((target) =>
@@ -1187,7 +1296,8 @@ export async function POST(req: NextRequest) {
           groupMode,
           singleTargetStrict,
           targets,
-          history
+          history,
+          imageUrls
         )
       )
     );

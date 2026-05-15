@@ -417,32 +417,173 @@ function parseAttachmentsFromRow(raw: unknown): ChatAttachment[] | undefined {
   return out.length ? out : undefined;
 }
 
+/**
+ * Detect what kind of attachment we're rendering. Order matters — `type` from
+ * the upload route is the MIME (`image/png`, `video/mp4`, etc.); we fall back
+ * to extension sniffing for older rows where type may be just "image" or "file".
+ */
+function classifyAttachment(a: ChatAttachment): "image" | "video" | "audio" | "pdf" | "file" {
+  const mime = (a.type || "").toLowerCase();
+  const name = (a.name || "").toLowerCase();
+  if (mime.startsWith("image/") || a.type === "image" || /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(name)) {
+    return "image";
+  }
+  if (mime.startsWith("video/") || /\.(mp4|webm|mov|m4v|mkv|avi)$/i.test(name)) {
+    return "video";
+  }
+  if (mime.startsWith("audio/") || /\.(mp3|wav|m4a|oga|ogg|flac|aac)$/i.test(name)) {
+    return "audio";
+  }
+  if (mime === "application/pdf" || /\.pdf$/i.test(name)) return "pdf";
+  return "file";
+}
+
+function fileIconFor(kind: "image" | "video" | "audio" | "pdf" | "file"): string {
+  if (kind === "video") return "▶";
+  if (kind === "audio") return "♪";
+  if (kind === "pdf") return "▤";
+  if (kind === "image") return "🖼";
+  return "📎";
+}
+
 function renderMessageAttachments(list: ChatAttachment[] | undefined) {
   if (!list?.length) return null;
   return (
     <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
       {list.map((a, i) => {
-        const looksImage =
-          a.type === "image" || /^image\//.test(a.type) || /\.(png|jpe?g|gif|webp|svg)$/i.test(a.name);
-        return looksImage ? (
-          <div
-            key={`${a.url}-${i}`}
-            style={{
-              maxWidth: 280,
-              borderRadius: 8,
-              overflow: "hidden",
-              border: `1px solid ${COLORS.border.default}`,
-            }}
-          >
-            <img
-              src={a.url}
-              alt={a.name}
-              style={{ width: "100%", height: "auto", display: "block", objectFit: "cover", maxHeight: 220 }}
-            />
-          </div>
-        ) : (
+        const kind = classifyAttachment(a);
+        const key = `${a.url}-${i}`;
+
+        if (kind === "image") {
+          return (
+            <div
+              key={key}
+              style={{
+                maxWidth: 320,
+                borderRadius: 10,
+                overflow: "hidden",
+                border: `1px solid ${COLORS.border.default}`,
+                background: COLORS.bg.card,
+              }}
+            >
+              <a href={a.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                <img
+                  src={a.url}
+                  alt={a.name}
+                  style={{
+                    width: "100%",
+                    height: "auto",
+                    display: "block",
+                    objectFit: "cover",
+                    maxHeight: 260,
+                  }}
+                />
+              </a>
+              <div
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 11,
+                  color: COLORS.text.tertiary,
+                  borderTop: `1px solid ${COLORS.border.default}`,
+                }}
+              >
+                {a.name}
+              </div>
+            </div>
+          );
+        }
+
+        if (kind === "video") {
+          return (
+            <div
+              key={key}
+              style={{
+                maxWidth: 420,
+                borderRadius: 10,
+                overflow: "hidden",
+                border: `1px solid ${COLORS.border.default}`,
+                background: "#000",
+              }}
+            >
+              <video
+                controls
+                preload="metadata"
+                src={a.url}
+                style={{ width: "100%", height: "auto", display: "block", maxHeight: 320 }}
+              >
+                <a href={a.url} target="_blank" rel="noopener noreferrer">
+                  {a.name}
+                </a>
+              </video>
+              <div
+                style={{
+                  padding: "6px 10px",
+                  fontSize: 11,
+                  color: COLORS.text.tertiary,
+                  borderTop: `1px solid ${COLORS.border.default}`,
+                  background: COLORS.bg.card,
+                }}
+              >
+                {a.name}
+              </div>
+            </div>
+          );
+        }
+
+        if (kind === "audio") {
+          return (
+            <div
+              key={key}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 10px",
+                borderRadius: 10,
+                background: COLORS.bg.card,
+                border: `1px solid ${COLORS.border.default}`,
+                maxWidth: 420,
+              }}
+            >
+              <div
+                aria-hidden
+                style={{
+                  flex: "0 0 auto",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  background: `${COLORS.accent.purple}22`,
+                  color: COLORS.accent.purpleLight,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 14,
+                }}
+              >
+                ♪
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: COLORS.text.primary,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {a.name}
+                </div>
+                <audio controls src={a.url} style={{ width: "100%", height: 28, marginTop: 4 }} />
+              </div>
+            </div>
+          );
+        }
+
+        // pdf and generic file fall through to a styled card with icon + download.
+        return (
           <a
-            key={`${a.url}-${i}`}
+            key={key}
             href={a.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -450,17 +591,50 @@ function renderMessageAttachments(list: ChatAttachment[] | undefined) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: 8,
-              padding: "8px 10px",
-              borderRadius: 8,
+              gap: 10,
+              padding: "10px 12px",
+              borderRadius: 10,
               background: COLORS.bg.card,
               border: `1px solid ${COLORS.border.default}`,
-              color: COLORS.accent.purpleLight,
+              color: COLORS.text.primary,
               fontSize: 12,
               textDecoration: "none",
+              maxWidth: 420,
             }}
           >
-            <span style={{ color: COLORS.text.secondary }}>{a.name}</span>
+            <span
+              aria-hidden
+              style={{
+                flex: "0 0 auto",
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: kind === "pdf" ? "#ef444422" : `${COLORS.accent.purple}22`,
+                color: kind === "pdf" ? "#ef4444" : COLORS.accent.purpleLight,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 16,
+                fontWeight: 700,
+              }}
+            >
+              {fileIconFor(kind)}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {a.name}
+              </div>
+              <div style={{ fontSize: 10, color: COLORS.text.tertiary, marginTop: 2 }}>
+                {kind === "pdf" ? "PDF · click to open" : "Click to download"}
+              </div>
+            </div>
           </a>
         );
       })}
@@ -2260,6 +2434,27 @@ export default function CommandCenterChatPage() {
       ? messages.filter((m) => m.threadParentId === threadMessage.id)
       : [];
 
+  /* Build a reply-count map so each parent message can show a "💬 3 replies"
+     badge in the main feed. Counted across the current channel only — replies
+     from other channels never bleed in because every reply carries its parent
+     channelId from the API. */
+  const replyCountByParent = (() => {
+    const counts = new Map<string, number>();
+    for (const m of messages) {
+      if (!m.threadParentId) continue;
+      // Only count replies that belong to the channel we're viewing right
+      // now (threadMessage panel works against the live `messages` list, not
+      // a filtered view, so this guards against cross-channel leakage).
+      if (viewMode === "dm" && activeAgent) {
+        if (m.channelId !== getDmChannelId(activeAgent.id)) continue;
+      } else if (m.channelId !== activeChannel?.id) {
+        continue;
+      }
+      counts.set(m.threadParentId, (counts.get(m.threadParentId) ?? 0) + 1);
+    }
+    return counts;
+  })();
+
   /* ── group messages by date ── */
   const groupedMessages = filteredMessages.reduce(
     (groups, msg) => {
@@ -3696,6 +3891,40 @@ export default function CommandCenterChatPage() {
                         {renderMessageAttachments(message.attachments)}
                       </div>
 
+                      {/* Reply count badge — opens the thread panel on click.
+                          Only shows for messages that have replies (counted
+                          across the current channel in `replyCountByParent`). */}
+                      {(() => {
+                        const count = replyCountByParent.get(message.id) ?? 0;
+                        if (count === 0) return null;
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setThreadMessage(message);
+                            }}
+                            style={{
+                              marginTop: 6,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 6,
+                              padding: "4px 10px",
+                              borderRadius: 12,
+                              background: `${COLORS.accent.purple}15`,
+                              border: `1px solid ${COLORS.accent.purple}40`,
+                              color: COLORS.accent.purpleLight,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <span aria-hidden>💬</span>
+                            {count} {count === 1 ? "reply" : "replies"}
+                          </button>
+                        );
+                      })()}
+
                       {/* Phase C/D — Synthesis card. Rendered ONLY on Atlas
                           messages where metadata.kind === "synthesis". Shows
                           the parsed plan + Approve button (Phase C) + per-
@@ -4159,6 +4388,35 @@ export default function CommandCenterChatPage() {
                             }}
                           >
                             {message.pinned ? "Unpin" : "Pin"}
+                          </button>
+                          <button
+                            type="button"
+                            title="Reply in thread"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Replies need a real Supabase uuid as the
+                              // parent — temp ids (pending-…, api-…) would
+                              // produce orphaned threads that never resolve.
+                              const isRealId = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+                                message.id
+                              );
+                              if (!isRealId) return;
+                              setThreadMessage(message);
+                              setHoverReactionMsgId(null);
+                            }}
+                            style={{
+                              padding: "2px 6px",
+                              fontSize: 10,
+                              fontWeight: 700,
+                              letterSpacing: "0.06em",
+                              border: `1px solid ${COLORS.border.default}`,
+                              borderRadius: 4,
+                              background: COLORS.bg.card,
+                              color: COLORS.accent.purpleLight,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Reply
                           </button>
                           {REACTION_PICKER_EMOJIS.map((emoji) => (
                             <button
