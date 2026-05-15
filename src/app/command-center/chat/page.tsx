@@ -832,6 +832,8 @@ function ImageAttachment({
   const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
   const [regenStatus, setRegenStatus] = useState<"idle" | "regenerating" | "done" | "failed">("idle");
   const [showPrompt, setShowPrompt] = useState(false);
+  const [editingPrompt, setEditingPrompt] = useState(false);
+  const [draftPrompt, setDraftPrompt] = useState(attachment.prompt || "");
 
   const canRegen = Boolean(
     attachment.prompt && ownerAgentId && channelId && /^[0-9a-f-]{36}$/i.test(channelId)
@@ -850,8 +852,13 @@ function ImageAttachment({
     void downloadAttachmentBlob(attachment.url, attachment.name || "image.png");
   };
 
-  const handleRegen = async (e: React.MouseEvent) => {
-    e.stopPropagation();
+  /**
+   * Fire a regenerate-image call. Accepts an override prompt so the same
+   * function powers both Re-gen (same prompt) and "Re-render with edits"
+   * (user-edited prompt). Aspect-ratio buttons also pipe through here by
+   * appending size hints to the original prompt.
+   */
+  const fireRegen = async (overridePrompt?: string) => {
     if (!canRegen) return;
     setRegenStatus("regenerating");
     try {
@@ -859,7 +866,7 @@ function ImageAttachment({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: attachment.prompt,
+          prompt: (overridePrompt ?? attachment.prompt ?? "").trim(),
           agentId: ownerAgentId,
           channelId,
           threadParentId: threadParentId || undefined,
@@ -872,6 +879,35 @@ function ImageAttachment({
     } finally {
       setTimeout(() => setRegenStatus("idle"), 2400);
     }
+  };
+
+  const handleRegen = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    void fireRegen();
+  };
+
+  /** "Render edited prompt" — uses the textarea contents instead of the
+   *  original attachment.prompt. Useful when the agent's image is 80% there
+   *  and you just want a 10-word tweak without involving them in the loop. */
+  const handleRegenWithEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = draftPrompt.trim();
+    if (!next) return;
+    setEditingPrompt(false);
+    void fireRegen(next);
+  };
+
+  /** Aspect-ratio variants. We don't have direct size control on the
+   *  gpt-image-1 endpoint right now, so we steer the model through prompt
+   *  hints — the slug-cleaner in markers.ts will strip "px/1x1" tokens
+   *  before producing the filename, so artifacts stay readable. */
+  const fireVariant = (label: string) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!attachment.prompt) return;
+    const base = attachment.prompt
+      .replace(/\b(1:1|16:9|9:16|4:5|2:3|3:2|square|vertical|horizontal|landscape|portrait)\b/gi, "")
+      .trim();
+    void fireRegen(`${base} — ${label}`);
   };
 
   const btnStyle: CSSProperties = {
@@ -910,15 +946,20 @@ function ImageAttachment({
       }}
     >
       <div
-        style={{ cursor: "zoom-in" }}
+        style={{ cursor: hovered ? "grab" : "zoom-in" }}
         onClick={(e) => {
           e.stopPropagation();
           onOpenLightbox(attachment);
         }}
+        title="Click to zoom · drag to your desktop to save"
       >
         <img
           src={attachment.url}
           alt={attachment.name}
+          // Native HTML5 drag is on by default for <img>; the title above
+          // hints to the user that they can drag straight to Finder /
+          // Desktop / another window without going through Download.
+          draggable
           style={{
             width: "100%",
             height: "auto",
@@ -1005,8 +1046,11 @@ function ImageAttachment({
         </div>
       )}
 
-      {/* Expandable prompt panel — sits below the image when toggled. Click
-          inside doesn't bubble so it doesn't open the lightbox. */}
+      {/* Expandable prompt panel — sits below the image when toggled.
+          Two modes: read-only (default) and editable (✏️ Edit). Editable
+          mode lets Ramon tweak the prompt and re-render without involving
+          the agent. Click inside doesn't bubble so it doesn't open the
+          lightbox. */}
       {showPrompt && attachment.prompt && (
         <div
           onClick={(e) => e.stopPropagation()}
@@ -1016,15 +1060,154 @@ function ImageAttachment({
             color: COLORS.text.secondary,
             background: "rgba(124,58,237,0.08)",
             borderTop: `1px solid ${COLORS.border.default}`,
-            fontFamily: "'SF Mono', ui-monospace, monospace",
             lineHeight: 1.45,
-            whiteSpace: "pre-wrap" as const,
-            maxHeight: 120,
-            overflowY: "auto" as const,
           }}
         >
-          <span style={{ color: COLORS.accent.purpleLight, fontWeight: 700 }}>prompt:</span>{" "}
-          {attachment.prompt}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ color: COLORS.accent.purpleLight, fontWeight: 700, fontFamily: "'SF Mono', ui-monospace, monospace" }}>prompt</span>
+            {canRegen && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (editingPrompt) {
+                    setDraftPrompt(attachment.prompt || ""); // discard edits
+                  }
+                  setEditingPrompt((v) => !v);
+                }}
+                style={{
+                  padding: "2px 6px",
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: 0.4,
+                  border: `1px solid ${COLORS.border.default}`,
+                  borderRadius: 4,
+                  background: COLORS.bg.card,
+                  color: editingPrompt ? "#f87171" : COLORS.accent.purpleLight,
+                  cursor: "pointer",
+                }}
+              >
+                {editingPrompt ? "✕ Cancel" : "✏️ Edit"}
+              </button>
+            )}
+          </div>
+
+          {editingPrompt ? (
+            <>
+              <textarea
+                value={draftPrompt}
+                onChange={(e) => setDraftPrompt(e.target.value)}
+                rows={3}
+                style={{
+                  width: "100%",
+                  padding: "6px 8px",
+                  fontSize: 11,
+                  fontFamily: "'SF Mono', ui-monospace, monospace",
+                  lineHeight: 1.45,
+                  color: COLORS.text.primary,
+                  background: "rgba(0,0,0,0.4)",
+                  border: `1px solid ${COLORS.border.default}`,
+                  borderRadius: 4,
+                  resize: "vertical" as const,
+                }}
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={handleRegenWithEdit}
+                  disabled={regenStatus === "regenerating" || !draftPrompt.trim()}
+                  style={{
+                    padding: "4px 10px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.4,
+                    border: `1px solid ${COLORS.accent.purple}`,
+                    borderRadius: 4,
+                    background: `${COLORS.accent.purple}30`,
+                    color: COLORS.accent.purpleLight,
+                    cursor: regenStatus === "regenerating" ? "wait" : "pointer",
+                    opacity: regenStatus === "regenerating" ? 0.5 : 1,
+                  }}
+                >
+                  {regenStatus === "regenerating"
+                    ? "Rendering…"
+                    : regenStatus === "done"
+                      ? "✓ Shipped"
+                      : regenStatus === "failed"
+                        ? "✗ Failed — retry"
+                        : "Re-render with edits"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div
+              style={{
+                whiteSpace: "pre-wrap" as const,
+                fontFamily: "'SF Mono', ui-monospace, monospace",
+                maxHeight: 120,
+                overflowY: "auto" as const,
+              }}
+            >
+              {attachment.prompt}
+            </div>
+          )}
+
+          {/* Aspect-ratio variant row — only when not editing, to keep the
+              panel from feeling cluttered. Each button re-renders the prompt
+              with an appended size hint. */}
+          {!editingPrompt && canRegen && (
+            <div
+              style={{
+                display: "flex",
+                gap: 4,
+                marginTop: 8,
+                paddingTop: 6,
+                borderTop: `1px solid ${COLORS.border.default}66`,
+                flexWrap: "wrap" as const,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  letterSpacing: 0.6,
+                  color: COLORS.text.tertiary,
+                  textTransform: "uppercase" as const,
+                  marginRight: 4,
+                  alignSelf: "center",
+                }}
+              >
+                variants
+              </span>
+              {[
+                { label: "1:1", hint: "square 1:1 aspect ratio, social post format" },
+                { label: "16:9", hint: "wide 16:9 aspect ratio, horizontal hero / landscape" },
+                { label: "9:16", hint: "vertical 9:16 aspect ratio, story / reel format" },
+                { label: "4:5", hint: "4:5 aspect ratio, Instagram portrait" },
+              ].map((v) => (
+                <button
+                  key={v.label}
+                  type="button"
+                  title={`Re-render as ${v.label} (${v.hint})`}
+                  onClick={fireVariant(v.hint)}
+                  disabled={regenStatus === "regenerating"}
+                  style={{
+                    padding: "2px 8px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: 0.4,
+                    border: `1px solid ${COLORS.border.default}`,
+                    borderRadius: 4,
+                    background: COLORS.bg.card,
+                    color: COLORS.text.primary,
+                    cursor: regenStatus === "regenerating" ? "wait" : "pointer",
+                    opacity: regenStatus === "regenerating" ? 0.5 : 1,
+                  }}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
