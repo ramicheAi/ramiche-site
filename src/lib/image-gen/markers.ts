@@ -35,7 +35,26 @@ const GENERATE_IMAGE_RE = /\[GENERATE_IMAGE:\s*([^\]]+?)\]/g;
 const MAX_IMAGES_PER_REPLY = 8;
 const BUCKET = "agent-output";
 
-export type GeneratedAttachment = { url: string; name: string; type: string };
+export type GeneratedAttachment = {
+  url: string;
+  name: string;
+  type: string;
+  /** The exact `[GENERATE_IMAGE: ...]` prompt that produced this image. Stored
+   *  so the UI can show "what was asked" on hover and the Regenerate button
+   *  can re-render with the same prompt without the agent needing to be in
+   *  the loop. */
+  prompt?: string;
+  /** Pixel dimensions (read from the actual bytes when available) — surfaces
+   *  in the caption strip so Ramon doesn't have to open the file to see
+   *  what aspect / resolution he's working with. */
+  width?: number;
+  height?: number;
+  /** Byte size of the rendered image so the caption can show "1.2 MB". */
+  sizeBytes?: number;
+  /** Provider that produced it ("openai", "gemini", "local") — useful when
+   *  comparing aesthetics across providers in the same channel. */
+  via?: string;
+};
 
 function cleanEnv(name: string): string | undefined {
   const raw = process.env[name];
@@ -93,12 +112,41 @@ function slugFromPrompt(prompt: string): string {
   return slug || "image";
 }
 
-/** Generate + upload one prompt. Returns the public URL + chosen filename. */
+/** Read PNG width/height from the first 24 bytes of the file. Safe to call
+ *  on JPEG/WebP too — returns undefined when the header doesn't match PNG. */
+function readPngDimensions(bytes: Buffer): { width: number; height: number } | null {
+  if (bytes.length < 24) return null;
+  // PNG signature: 89 50 4E 47 0D 0A 1A 0A
+  if (
+    bytes[0] !== 0x89 ||
+    bytes[1] !== 0x50 ||
+    bytes[2] !== 0x4e ||
+    bytes[3] !== 0x47
+  ) {
+    return null;
+  }
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  return { width, height };
+}
+
+/** Generate + upload one prompt. Returns the public URL + chosen filename
+ *  + metadata (dimensions, byte size, provider). */
 async function generateAndUpload(
   prompt: string,
   ownerHint: string,
   index: number
-): Promise<{ url: string; name: string; via: string } | { error: string }> {
+): Promise<
+  | {
+      url: string;
+      name: string;
+      via: string;
+      width?: number;
+      height?: number;
+      sizeBytes: number;
+    }
+  | { error: string }
+> {
   try {
     const result = await generateImage({
       prompt,
@@ -135,7 +183,15 @@ async function generateAndUpload(
     if (!url) return { error: "supabase storage upload failed" };
     const ext =
       mediaType === "image/jpeg" ? "jpg" : mediaType === "image/webp" ? "webp" : "png";
-    return { url, name: `${friendlyName}.${ext}`, via: result.providerUsed };
+    const dims = readPngDimensions(bytes);
+    return {
+      url,
+      name: `${friendlyName}.${ext}`,
+      via: result.providerUsed,
+      width: dims?.width,
+      height: dims?.height,
+      sizeBytes: bytes.length,
+    };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
@@ -170,6 +226,11 @@ export async function processImageMarkers(
         marker: match.full,
         url: r.url,
         name: r.name, // friendly name from generateAndUpload (agent-date-slug.png)
+        prompt: match.prompt,
+        width: r.width,
+        height: r.height,
+        sizeBytes: r.sizeBytes,
+        via: r.via,
       };
     })
   );
@@ -179,7 +240,16 @@ export async function processImageMarkers(
   for (const r of results) {
     if (r.ok) {
       out = out.replace(r.marker, `*(rendered: ${r.name})*`);
-      attachments.push({ url: r.url, name: r.name, type: "image/png" });
+      attachments.push({
+        url: r.url,
+        name: r.name,
+        type: "image/png",
+        prompt: r.prompt,
+        width: r.width,
+        height: r.height,
+        sizeBytes: r.sizeBytes,
+        via: r.via,
+      });
     } else {
       out = out.replace(
         r.marker,

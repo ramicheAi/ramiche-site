@@ -6,6 +6,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase } from "@/lib/supabase";
 import { parseMentions } from "@/lib/chat-routing";
+import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
 import {
   aggregateReactions,
   CC_REACTION_USER_ID,
@@ -276,7 +277,19 @@ const DEFAULT_MESSAGES = [
 type Channel = (typeof DEFAULT_CHANNELS)[0];
 type Agent = (typeof DEFAULT_AGENTS)[0];
 
-type ChatAttachment = { url: string; name: string; type: string };
+type ChatAttachment = {
+  url: string;
+  name: string;
+  type: string;
+  /** Original `[GENERATE_IMAGE: …]` prompt (when this came from the marker
+   *  pipeline). Surfaces as a hover tooltip + powers the Regenerate button. */
+  prompt?: string;
+  width?: number;
+  height?: number;
+  sizeBytes?: number;
+  /** "openai" / "gemini" / "local" — image-gen backend that produced this. */
+  via?: string;
+};
 
 type Message = {
   id: string;
@@ -284,6 +297,10 @@ type Message = {
   type: "user" | "agent";
   sender: string;
   senderColor: string;
+  /** Short agent id ("atlas", "aetherion", …) — derived from sender_agent_id
+   *  when loaded from Supabase, set explicitly when locally constructed.
+   *  Used by Regenerate to dispatch back to the same agent. */
+  senderAgentId?: string;
   content: string;
   timestamp: string;
   date: string;
@@ -765,21 +782,60 @@ async function copyImageToClipboard(url: string): Promise<boolean> {
   }
 }
 
+/** Human-readable byte size (e.g. "1.2 MB", "847 KB"). */
+function formatBytes(n?: number): string | null {
+  if (!n || n <= 0) return null;
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${Math.round(n / 102.4) / 10} KB`;
+  return `${Math.round(n / 104857.6) / 10} MB`;
+}
+
+/** Map an agent UUID back to its short id so the Regenerate button can
+ *  re-dispatch to the right agent. */
+function senderAgentShortId(uuid: string | undefined): string | null {
+  if (!uuid) return null;
+  for (const [shortId, agentUuid] of Object.entries(AGENT_DM_UUID)) {
+    if (agentUuid === uuid) return shortId;
+  }
+  return null;
+}
+
 /**
- * Single image attachment with a hover toolbar (Download · Copy · Open).
- * Click opens the lightbox; the toolbar buttons handle the explicit actions
- * without leaving the chat. The button row only appears on hover so it
- * doesn't clutter the timeline when scanning.
+ * Single image attachment with a hover toolbar.
+ *
+ * Click image → fullscreen lightbox.
+ * Hover → top-right action bar:
+ *   ⬇ Download — blob-fetched + saved with friendly filename
+ *   📋 Copy    — PNG to clipboard (paste into Telegram/Slack/Notes/Figma)
+ *   🔁 Re-gen  — re-renders the same prompt, posts as new agent message
+ *                (only shown when the attachment carries a `.prompt` field,
+ *                 i.e. it came from the [GENERATE_IMAGE:] marker pipeline)
+ *   ⓘ Prompt   — tooltip showing the exact prompt that produced the image
+ *                (same gate as Re-gen)
+ *
+ * Caption row at bottom: filename · dimensions · size · provider.
  */
 function ImageAttachment({
   attachment,
+  channelId,
+  threadParentId,
+  ownerAgentId,
   onOpenLightbox,
 }: {
   attachment: ChatAttachment;
+  channelId?: string;
+  threadParentId?: string | null;
+  ownerAgentId?: string | null;
   onOpenLightbox: (a: ChatAttachment) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
+  const [regenStatus, setRegenStatus] = useState<"idle" | "regenerating" | "done" | "failed">("idle");
+  const [showPrompt, setShowPrompt] = useState(false);
+
+  const canRegen = Boolean(
+    attachment.prompt && ownerAgentId && channelId && /^[0-9a-f-]{36}$/i.test(channelId)
+  );
 
   const handleCopy = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -794,6 +850,30 @@ function ImageAttachment({
     void downloadAttachmentBlob(attachment.url, attachment.name || "image.png");
   };
 
+  const handleRegen = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!canRegen) return;
+    setRegenStatus("regenerating");
+    try {
+      const res = await fetch("/api/command-center/chat/regenerate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: attachment.prompt,
+          agentId: ownerAgentId,
+          channelId,
+          threadParentId: threadParentId || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      setRegenStatus(res.ok && (data as Record<string, unknown>).ok ? "done" : "failed");
+    } catch {
+      setRegenStatus("failed");
+    } finally {
+      setTimeout(() => setRegenStatus("idle"), 2400);
+    }
+  };
+
   const btnStyle: CSSProperties = {
     padding: "4px 8px",
     fontSize: 10,
@@ -801,11 +881,17 @@ function ImageAttachment({
     letterSpacing: 0.4,
     borderRadius: 4,
     border: `1px solid ${COLORS.border.default}`,
-    background: "rgba(0,0,0,0.7)",
+    background: "rgba(0,0,0,0.78)",
     color: COLORS.text.primary,
     cursor: "pointer",
     backdropFilter: "blur(4px)",
   };
+
+  const dims = attachment.width && attachment.height
+    ? `${attachment.width}×${attachment.height}`
+    : null;
+  const size = formatBytes(attachment.sizeBytes);
+  const captionExtras = [dims, size, attachment.via].filter(Boolean) as string[];
 
   return (
     <div
@@ -818,7 +904,10 @@ function ImageAttachment({
         position: "relative",
       }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseLeave={() => {
+        setHovered(false);
+        setShowPrompt(false);
+      }}
     >
       <div
         style={{ cursor: "zoom-in" }}
@@ -839,6 +928,7 @@ function ImageAttachment({
           }}
         />
       </div>
+
       {/* Hover toolbar — top-right of the image */}
       {hovered && (
         <div
@@ -875,8 +965,70 @@ function ImageAttachment({
                   ? "✗ Failed"
                   : "📋 Copy"}
           </button>
+          {canRegen && (
+            <button
+              type="button"
+              title="Regenerate with the same prompt"
+              onClick={handleRegen}
+              style={{
+                ...btnStyle,
+                color:
+                  regenStatus === "done"
+                    ? "#10b981"
+                    : regenStatus === "failed"
+                      ? "#f87171"
+                      : COLORS.text.primary,
+              }}
+            >
+              {regenStatus === "regenerating"
+                ? "Re-gen…"
+                : regenStatus === "done"
+                  ? "✓ Shipped"
+                  : regenStatus === "failed"
+                    ? "✗ Failed"
+                    : "🔁 Re-gen"}
+            </button>
+          )}
+          {attachment.prompt && (
+            <button
+              type="button"
+              title="See the prompt that produced this image"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowPrompt((s) => !s);
+              }}
+              style={btnStyle}
+            >
+              {showPrompt ? "✕ Prompt" : "ⓘ Prompt"}
+            </button>
+          )}
         </div>
       )}
+
+      {/* Expandable prompt panel — sits below the image when toggled. Click
+          inside doesn't bubble so it doesn't open the lightbox. */}
+      {showPrompt && attachment.prompt && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            padding: "8px 10px",
+            fontSize: 11,
+            color: COLORS.text.secondary,
+            background: "rgba(124,58,237,0.08)",
+            borderTop: `1px solid ${COLORS.border.default}`,
+            fontFamily: "'SF Mono', ui-monospace, monospace",
+            lineHeight: 1.45,
+            whiteSpace: "pre-wrap" as const,
+            maxHeight: 120,
+            overflowY: "auto" as const,
+          }}
+        >
+          <span style={{ color: COLORS.accent.purpleLight, fontWeight: 700 }}>prompt:</span>{" "}
+          {attachment.prompt}
+        </div>
+      )}
+
+      {/* Caption row — filename + dims/size/provider */}
       <div
         style={{
           padding: "6px 10px",
@@ -889,9 +1041,14 @@ function ImageAttachment({
           gap: 8,
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
           {attachment.name}
         </span>
+        {captionExtras.length > 0 && (
+          <span style={{ color: COLORS.text.tertiary, opacity: 0.7, fontSize: 10, whiteSpace: "nowrap" as const }}>
+            {captionExtras.join(" · ")}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -1032,7 +1189,12 @@ function ImageLightbox({
 
 function renderMessageAttachments(
   list: ChatAttachment[] | undefined,
-  onOpenLightbox?: (a: ChatAttachment) => void
+  onOpenLightbox?: (a: ChatAttachment) => void,
+  context?: {
+    channelId?: string;
+    threadParentId?: string | null;
+    ownerAgentId?: string | null;
+  }
 ) {
   if (!list?.length) return null;
   const handleOpen = onOpenLightbox || (() => {});
@@ -1043,7 +1205,16 @@ function renderMessageAttachments(
         const key = `${a.url}-${i}`;
 
         if (kind === "image") {
-          return <ImageAttachment key={key} attachment={a} onOpenLightbox={handleOpen} />;
+          return (
+            <ImageAttachment
+              key={key}
+              attachment={a}
+              channelId={context?.channelId}
+              threadParentId={context?.threadParentId ?? null}
+              ownerAgentId={context?.ownerAgentId ?? null}
+              onOpenLightbox={handleOpen}
+            />
+          );
         }
 
         if (kind === "video") {
@@ -1945,12 +2116,16 @@ export default function CommandCenterChatPage() {
           const st = msg.status as string | undefined;
           const threadPid = msg.thread_parent_id as string | null | undefined;
           const pinnedRaw = msg.pinned as boolean | undefined;
+          const resolvedAgentId = !isUser
+            ? resolveAgentId(msg.sender_agent_id as string)
+            : undefined;
           return {
             id: msg.id as string,
             channelId: msg.channel_id as string,
             type: isUser ? "user" as const : "agent" as const,
-            sender: isUser ? "Ramon" : (currentAgents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.name || (viewMode === "dm" && activeAgent ? activeAgent.name : "Agent")),
-            senderColor: isUser ? "#3B82F6" : (currentAgents.find((a) => a.id === resolveAgentId(msg.sender_agent_id as string))?.color || (viewMode === "dm" && activeAgent ? activeAgent.color : "#888")),
+            sender: isUser ? "Ramon" : (currentAgents.find((a) => a.id === resolvedAgentId)?.name || (viewMode === "dm" && activeAgent ? activeAgent.name : "Agent")),
+            senderColor: isUser ? "#3B82F6" : (currentAgents.find((a) => a.id === resolvedAgentId)?.color || (viewMode === "dm" && activeAgent ? activeAgent.color : "#888")),
+            senderAgentId: resolvedAgentId,
             content: msg.content as string,
             timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
             date: "Today",
@@ -2096,6 +2271,7 @@ export default function CommandCenterChatPage() {
                 type: "agent" as const,
                 sender: agent?.name || (activeAgent?.name || "Agent"),
                 senderColor: agent?.color || (activeAgent?.color || "#888"),
+                senderAgentId: agentId,
                 content: msg.content as string,
                 timestamp: new Date(msg.created_at as string).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
                 date: "Today",
@@ -2293,6 +2469,7 @@ export default function CommandCenterChatPage() {
               type: "agent",
               sender: agent?.name || activeAgent?.name || "Agent",
               senderColor: agent?.color || activeAgent?.color || "#888",
+              senderAgentId: agentId,
               content: row.content as string,
               timestamp: new Date(row.created_at as string).toLocaleTimeString([], {
                 hour: "2-digit",
@@ -4498,7 +4675,7 @@ export default function CommandCenterChatPage() {
                         }}
                       >
                         {renderContentWithMentions(message.content)}
-                        {renderMessageAttachments(message.attachments, setLightboxImage)}
+                        {renderMessageAttachments(message.attachments, setLightboxImage, { channelId: message.channelId, threadParentId: message.threadParentId, ownerAgentId: message.type === "agent" ? message.senderAgentId : null })}
                       </div>
 
                       {/* Reply count badge — opens the thread panel on click.
@@ -5666,7 +5843,7 @@ export default function CommandCenterChatPage() {
               </div>
               <div style={{ fontSize: 12, lineHeight: 1.6, color: COLORS.text.primary }}>
                 {renderContentWithMentions(threadMessage.content)}
-                {renderMessageAttachments(threadMessage.attachments, setLightboxImage)}
+                {renderMessageAttachments(threadMessage.attachments, setLightboxImage, { channelId: threadMessage.channelId, threadParentId: threadMessage.threadParentId, ownerAgentId: threadMessage.type === "agent" ? threadMessage.senderAgentId : null })}
               </div>
             </div>
           </div>
@@ -5754,7 +5931,7 @@ export default function CommandCenterChatPage() {
                     </div>
                     <div style={{ fontSize: 12, lineHeight: 1.55, color: COLORS.text.primary }}>
                       {renderContentWithMentions(rm.content)}
-                      {renderMessageAttachments(rm.attachments, setLightboxImage)}
+                      {renderMessageAttachments(rm.attachments, setLightboxImage, { channelId: rm.channelId, threadParentId: rm.threadParentId, ownerAgentId: rm.type === "agent" ? rm.senderAgentId : null })}
                     </div>
                   </div>
                 ))}
