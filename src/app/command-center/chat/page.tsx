@@ -697,8 +697,345 @@ function fileIconFor(kind: "image" | "video" | "audio" | "pdf" | "file"): string
   return "📎";
 }
 
-function renderMessageAttachments(list: ChatAttachment[] | undefined) {
+/**
+ * Cross-origin-safe blob download. Supabase Storage URLs are a different origin
+ * than parallaxvinc.com, so the HTML `download` attribute on a plain anchor
+ * gets ignored by browsers and the file opens in a tab. To force a real save
+ * dialog we fetch the bytes ourselves, wrap them in an object URL, click an
+ * invisible anchor, then revoke. End result: one click → file lands in
+ * Downloads with the friendly filename.
+ */
+async function downloadAttachmentBlob(url: string, filename: string) {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    // Give the browser a tick to start the save before we revoke.
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.error("[download] failed:", err);
+    // Best-effort fallback: just open the URL in a new tab.
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+}
+
+/** Copy an image to the system clipboard so the user can paste into
+ *  Telegram / Slack / iMessage / Notes / Figma without saving to disk first.
+ *  Requires the Clipboard API (modern browsers — Safari 16+, Chrome 76+). */
+async function copyImageToClipboard(url: string): Promise<boolean> {
+  try {
+    if (!navigator.clipboard?.write) return false;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const blob = await res.blob();
+    // Some browsers (notably Safari) reject anything other than image/png in
+    // the clipboard write. Coerce to PNG via a canvas if needed.
+    let writable = blob;
+    if (blob.type !== "image/png") {
+      const img = document.createElement("img");
+      const objectUrl = URL.createObjectURL(blob);
+      img.src = objectUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("img decode failed"));
+      });
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("canvas 2d ctx not available");
+      ctx.drawImage(img, 0, 0);
+      writable = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas toBlob null"))), "image/png");
+      });
+      URL.revokeObjectURL(objectUrl);
+    }
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": writable })]);
+    return true;
+  } catch (err) {
+    console.error("[copy-image] failed:", err);
+    return false;
+  }
+}
+
+/**
+ * Single image attachment with a hover toolbar (Download · Copy · Open).
+ * Click opens the lightbox; the toolbar buttons handle the explicit actions
+ * without leaving the chat. The button row only appears on hover so it
+ * doesn't clutter the timeline when scanning.
+ */
+function ImageAttachment({
+  attachment,
+  onOpenLightbox,
+}: {
+  attachment: ChatAttachment;
+  onOpenLightbox: (a: ChatAttachment) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copying" | "copied" | "failed">("idle");
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCopyStatus("copying");
+    const ok = await copyImageToClipboard(attachment.url);
+    setCopyStatus(ok ? "copied" : "failed");
+    setTimeout(() => setCopyStatus("idle"), 1600);
+  };
+
+  const handleDownload = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    void downloadAttachmentBlob(attachment.url, attachment.name || "image.png");
+  };
+
+  const btnStyle: CSSProperties = {
+    padding: "4px 8px",
+    fontSize: 10,
+    fontWeight: 600,
+    letterSpacing: 0.4,
+    borderRadius: 4,
+    border: `1px solid ${COLORS.border.default}`,
+    background: "rgba(0,0,0,0.7)",
+    color: COLORS.text.primary,
+    cursor: "pointer",
+    backdropFilter: "blur(4px)",
+  };
+
+  return (
+    <div
+      style={{
+        maxWidth: 320,
+        borderRadius: 10,
+        overflow: "hidden",
+        border: `1px solid ${COLORS.border.default}`,
+        background: COLORS.bg.card,
+        position: "relative",
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <div
+        style={{ cursor: "zoom-in" }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenLightbox(attachment);
+        }}
+      >
+        <img
+          src={attachment.url}
+          alt={attachment.name}
+          style={{
+            width: "100%",
+            height: "auto",
+            display: "block",
+            objectFit: "cover",
+            maxHeight: 260,
+          }}
+        />
+      </div>
+      {/* Hover toolbar — top-right of the image */}
+      {hovered && (
+        <div
+          style={{
+            position: "absolute",
+            top: 6,
+            right: 6,
+            display: "flex",
+            gap: 4,
+          }}
+        >
+          <button type="button" title="Download to your computer" onClick={handleDownload} style={btnStyle}>
+            ⬇ Download
+          </button>
+          <button
+            type="button"
+            title="Copy image to clipboard"
+            onClick={handleCopy}
+            style={{
+              ...btnStyle,
+              color:
+                copyStatus === "copied"
+                  ? "#10b981"
+                  : copyStatus === "failed"
+                    ? "#f87171"
+                    : COLORS.text.primary,
+            }}
+          >
+            {copyStatus === "copying"
+              ? "…"
+              : copyStatus === "copied"
+                ? "✓ Copied"
+                : copyStatus === "failed"
+                  ? "✗ Failed"
+                  : "📋 Copy"}
+          </button>
+        </div>
+      )}
+      <div
+        style={{
+          padding: "6px 10px",
+          fontSize: 11,
+          color: COLORS.text.tertiary,
+          borderTop: `1px solid ${COLORS.border.default}`,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 8,
+        }}
+      >
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {attachment.name}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Fullscreen image viewer. Mounted once at the page root; controlled by
+ * `lightboxAttachment` state. ESC closes; click backdrop closes; download +
+ * copy buttons mirror the inline toolbar but stay accessible while zoomed.
+ */
+function ImageLightbox({
+  attachment,
+  onClose,
+}: {
+  attachment: ChatAttachment | null;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!attachment) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [attachment, onClose]);
+
+  if (!attachment) return null;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(0,0,0,0.92)",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 32,
+        cursor: "zoom-out",
+      }}
+    >
+      {/* Top-right action bar */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "absolute",
+          top: 16,
+          right: 16,
+          display: "flex",
+          gap: 8,
+          cursor: "auto",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => void downloadAttachmentBlob(attachment.url, attachment.name || "image.png")}
+          style={{
+            padding: "8px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            borderRadius: 8,
+            background: "rgba(255,255,255,0.12)",
+            color: "#fff",
+            border: `1px solid rgba(255,255,255,0.25)`,
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          ⬇ Download
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const ok = await copyImageToClipboard(attachment.url);
+            if (!ok) console.warn("clipboard copy failed");
+          }}
+          style={{
+            padding: "8px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            borderRadius: 8,
+            background: "rgba(255,255,255,0.12)",
+            color: "#fff",
+            border: `1px solid rgba(255,255,255,0.25)`,
+            cursor: "pointer",
+            backdropFilter: "blur(6px)",
+          }}
+        >
+          📋 Copy
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          style={{
+            padding: "8px 14px",
+            fontSize: 12,
+            fontWeight: 600,
+            borderRadius: 8,
+            background: "rgba(255,255,255,0.12)",
+            color: "#fff",
+            border: `1px solid rgba(255,255,255,0.25)`,
+            cursor: "pointer",
+          }}
+        >
+          ✕ Close (Esc)
+        </button>
+      </div>
+      <img
+        src={attachment.url}
+        alt={attachment.name}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: "92vw",
+          maxHeight: "82vh",
+          objectFit: "contain",
+          borderRadius: 8,
+          boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
+          cursor: "auto",
+        }}
+      />
+      {attachment.name && (
+        <div
+          style={{
+            marginTop: 12,
+            fontSize: 12,
+            color: "rgba(255,255,255,0.75)",
+            fontFamily: "monospace",
+          }}
+        >
+          {attachment.name}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function renderMessageAttachments(
+  list: ChatAttachment[] | undefined,
+  onOpenLightbox?: (a: ChatAttachment) => void
+) {
   if (!list?.length) return null;
+  const handleOpen = onOpenLightbox || (() => {});
   return (
     <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
       {list.map((a, i) => {
@@ -706,42 +1043,7 @@ function renderMessageAttachments(list: ChatAttachment[] | undefined) {
         const key = `${a.url}-${i}`;
 
         if (kind === "image") {
-          return (
-            <div
-              key={key}
-              style={{
-                maxWidth: 320,
-                borderRadius: 10,
-                overflow: "hidden",
-                border: `1px solid ${COLORS.border.default}`,
-                background: COLORS.bg.card,
-              }}
-            >
-              <a href={a.url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                <img
-                  src={a.url}
-                  alt={a.name}
-                  style={{
-                    width: "100%",
-                    height: "auto",
-                    display: "block",
-                    objectFit: "cover",
-                    maxHeight: 260,
-                  }}
-                />
-              </a>
-              <div
-                style={{
-                  padding: "6px 10px",
-                  fontSize: 11,
-                  color: COLORS.text.tertiary,
-                  borderTop: `1px solid ${COLORS.border.default}`,
-                }}
-              >
-                {a.name}
-              </div>
-            </div>
-          );
+          return <ImageAttachment key={key} attachment={a} onOpenLightbox={handleOpen} />;
         }
 
         if (kind === "video") {
@@ -1330,6 +1632,8 @@ export default function CommandCenterChatPage() {
   const [pendingScrollToMessageId, setPendingScrollToMessageId] = useState<string | null>(null);
   const [pinnedBannerOpen, setPinnedBannerOpen] = useState(true);
   const [composerDragOver, setComposerDragOver] = useState(false);
+  /** When non-null, fullscreen image overlay is open with this attachment. */
+  const [lightboxImage, setLightboxImage] = useState<ChatAttachment | null>(null);
 
   /* ── refs ── */
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -4194,7 +4498,7 @@ export default function CommandCenterChatPage() {
                         }}
                       >
                         {renderContentWithMentions(message.content)}
-                        {renderMessageAttachments(message.attachments)}
+                        {renderMessageAttachments(message.attachments, setLightboxImage)}
                       </div>
 
                       {/* Reply count badge — opens the thread panel on click.
@@ -5362,7 +5666,7 @@ export default function CommandCenterChatPage() {
               </div>
               <div style={{ fontSize: 12, lineHeight: 1.6, color: COLORS.text.primary }}>
                 {renderContentWithMentions(threadMessage.content)}
-                {renderMessageAttachments(threadMessage.attachments)}
+                {renderMessageAttachments(threadMessage.attachments, setLightboxImage)}
               </div>
             </div>
           </div>
@@ -5450,7 +5754,7 @@ export default function CommandCenterChatPage() {
                     </div>
                     <div style={{ fontSize: 12, lineHeight: 1.55, color: COLORS.text.primary }}>
                       {renderContentWithMentions(rm.content)}
-                      {renderMessageAttachments(rm.attachments)}
+                      {renderMessageAttachments(rm.attachments, setLightboxImage)}
                     </div>
                   </div>
                 ))}
@@ -5620,6 +5924,10 @@ export default function CommandCenterChatPage() {
         }
       `}</style>
       </div>
+      {/* Fullscreen image viewer — opens when any inline image is clicked.
+          Mounted here at the page root so it overlays everything including
+          the sidebar and the thread panel. */}
+      <ImageLightbox attachment={lightboxImage} onClose={() => setLightboxImage(null)} />
     </div>
   );
 }

@@ -74,12 +74,31 @@ async function uploadBytes(
   return pub.publicUrl;
 }
 
-/** Generate + upload one prompt. Returns the public URL or null on any failure. */
+/** Derive a short, filesystem-safe slug from the prompt so generated assets
+ *  are findable later. "dark gradient, single glowing cyan node, 1:1 square"
+ *  becomes "dark-gradient-single-glowing-cyan-node". Filler words are stripped
+ *  so the slug stays readable at a glance. */
+function slugFromPrompt(prompt: string): string {
+  const stop = new Set([
+    "a", "an", "the", "and", "or", "of", "in", "on", "at", "to", "for",
+    "with", "by", "from", "as", "is", "are", "be", "this", "that", "it",
+    "px", "1x1", "1080x1080", "square", "minimal",
+  ]);
+  const words = prompt
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length >= 3 && !stop.has(w));
+  const slug = words.slice(0, 5).join("-").slice(0, 60);
+  return slug || "image";
+}
+
+/** Generate + upload one prompt. Returns the public URL + chosen filename. */
 async function generateAndUpload(
   prompt: string,
   ownerHint: string,
   index: number
-): Promise<{ url: string; via: string } | { error: string }> {
+): Promise<{ url: string; name: string; via: string } | { error: string }> {
   try {
     const result = await generateImage({
       prompt,
@@ -104,9 +123,19 @@ async function generateAndUpload(
       bytes = Buffer.from(await fetched.arrayBuffer());
       mediaType = fetched.headers.get("content-type") || "image/png";
     }
-    const url = await uploadBytes(bytes, mediaType, `${ownerHint}-${index + 1}`);
+    // Filename format: <agent>-<YYYY-MM-DD>-<slug>[-<idx>].png
+    // The slug makes the file findable later when Ramon needs to dig back
+    // through Supabase Storage or his Downloads folder. Index suffix only
+    // appears when an agent ships multiple images in one reply.
+    const today = new Date().toISOString().slice(0, 10);
+    const slug = slugFromPrompt(prompt);
+    const suffix = index === 0 ? "" : `-${index + 1}`;
+    const friendlyName = `${ownerHint}-${today}-${slug}${suffix}`;
+    const url = await uploadBytes(bytes, mediaType, friendlyName);
     if (!url) return { error: "supabase storage upload failed" };
-    return { url, via: result.providerUsed };
+    const ext =
+      mediaType === "image/jpeg" ? "jpg" : mediaType === "image/webp" ? "webp" : "png";
+    return { url, name: `${friendlyName}.${ext}`, via: result.providerUsed };
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) };
   }
@@ -140,7 +169,7 @@ export async function processImageMarkers(
         ok: true as const,
         marker: match.full,
         url: r.url,
-        name: `${ownerHint}-image-${idx + 1}.png`,
+        name: r.name, // friendly name from generateAndUpload (agent-date-slug.png)
       };
     })
   );
