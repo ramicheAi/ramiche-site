@@ -50,11 +50,12 @@ export async function generateWithGemini(req: ImageGenRequest): Promise<
     };
   }
 
-  // Nano Banana Pro is the marketing name; the API model id can change as
-  // Google iterates. Allow override via env so we can pin to a specific
-  // version when the default flips under us.
-  const model =
-    cleanEnv("GEMINI_IMAGE_MODEL") || "gemini-3-pro-image";
+  // Default to `gemini-2.5-flash-image` which has actual free-tier quota.
+  // `gemini-3-pro-image-preview` (aka Nano Banana Pro) is higher quality but
+  // requires a paid Google AI tier — set GEMINI_IMAGE_MODEL to override when
+  // billing is on. The "-preview" suffix on the Pro model means it may
+  // also change as Google iterates.
+  const model = cleanEnv("GEMINI_IMAGE_MODEL") || "gemini-2.5-flash-image";
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
     model
   )}:generateContent?key=${apiKey}`;
@@ -96,8 +97,15 @@ export async function generateWithGemini(req: ImageGenRequest): Promise<
     return { ok: false, error: `Gemini returned non-JSON (HTTP ${res.status})` };
   }
 
+  // Gemini sometimes returns HTTP 200 with an error in the body (e.g. quota
+  // exhausted on a free-tier project) — check `parsed.error` regardless of
+  // res.ok so the caller sees the real reason, not "no image parts."
+  if (parsed.error?.message) {
+    return { ok: false, error: parsed.error.message };
+  }
+
   if (!res.ok) {
-    return { ok: false, error: parsed.error?.message || `Gemini HTTP ${res.status}` };
+    return { ok: false, error: `Gemini HTTP ${res.status}` };
   }
 
   if (parsed.promptFeedback?.blockReason) {
@@ -109,7 +117,11 @@ export async function generateWithGemini(req: ImageGenRequest): Promise<
 
   const parts = parsed.candidates?.[0]?.content?.parts;
   if (!Array.isArray(parts)) {
-    return { ok: false, error: "Gemini returned no image parts" };
+    return {
+      ok: false,
+      error:
+        "Gemini returned no image parts — usually means image-gen quota is exhausted (enable billing on the Google AI project) or the prompt was blocked silently.",
+    };
   }
 
   const imagePart = parts.find((p) => p.inlineData?.data);
