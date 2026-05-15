@@ -711,9 +711,12 @@ Then, on its OWN line, emit a fenced JSON block with the exact same plan in mach
     {"owner": "kiyosaki", "task": "…", "deliverable": "…", "due": "Fri EOD"}
   ],
   "risks": ["…"],
-  "next_check_in": "…"
+  "next_check_in": "…",
+  "execution_mode": "parallel"
 }
 \`\`\`
+
+\`execution_mode\` rule: default "parallel" (actions run concurrently). Set to "sequential" ONLY when later actions concretely depend on the deliverable of an earlier one (e.g. "@atlas write spec" must finish before "@shuri implement"). When in doubt, use "parallel".
 
 Rules:
 - Plain text outside the JSON block. No headers other than the four bold ones above.

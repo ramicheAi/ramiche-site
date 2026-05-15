@@ -102,10 +102,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  const d = result.dispatched ?? 0;
+  // Phase F: `executed` is the count of actions that passed the verifier
+  // (the renamed `dispatched` from the pre-verifier API). `blocked` is the
+  // count that exhausted retries or self-flagged a hard block.
+  const e = result.executed ?? 0;
+  const b = result.blocked ?? 0;
   const t = result.total ?? 0;
-  await telegramAnswerCallbackQuery(cq.id, `Dispatched ${d}/${t} handoffs.`);
-  await editMarkupDone(chatId, msgId, d, Math.max(t, 1));
+  const msg =
+    b > 0
+      ? `Executed ${e}/${t}, blocked ${b}.`
+      : `Executed ${e}/${t}.`;
+  await telegramAnswerCallbackQuery(cq.id, msg);
+  await editMarkupDone(chatId, msgId, e, Math.max(t, 1));
 
   return NextResponse.json({ ok: true });
 }
