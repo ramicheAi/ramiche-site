@@ -288,6 +288,14 @@ function buildExecutionPrompt(
     `  - Do NOT say "I will" or "tomorrow" or "by EOD." You are doing it now in this message.`,
     `  - If you genuinely cannot produce the deliverable in this reply because you need information only a teammate has, output a single line: "[BLOCKED: <one-sentence reason and who you need>]" and nothing else. Use this sparingly — only when it's a true hard block. If a prior deliverable is included above, you have what you need.`,
     "",
+    `IMAGE GENERATION — if any part of your deliverable is a visual artifact (an Instagram carousel slide, a hero graphic, a quote card, a product render, cover art, a moodboard), DO NOT describe the image in prose. Instead, embed this marker on its own line at the spot where you want the image to appear:`,
+    `    [GENERATE_IMAGE: <detailed, comma-separated prompt — subject, style, composition, mood, palette, aspect ratio>]`,
+    `  - The system will render each marker through OpenAI gpt-image-1 (or Gemini Nano Banana Pro for ${owner === "aetherion" ? "visual brand" : "your"} agents) and attach the actual .png to this message inline.`,
+    `  - Cap at 8 images per deliverable. Reuse a single prompt for variants if you need more.`,
+    `  - Write the prompt as if you were briefing a designer: be specific about subject, style, lighting, color, composition. Vague prompts make ugly images.`,
+    `  - Example: \`[GENERATE_IMAGE: dark gradient background #0A0F1A→#1A1F3A, single glowing cyan node at center with faint connection lines radiating outward, minimal tension, 1:1 square, photographic depth]\``,
+    `  - You can mix prose AND markers in the same deliverable — write the slide caption, then the marker, then the next slide's caption.`,
+    "",
     `FORMATTING — your reply will be rendered as MARKDOWN in a chat client. Write for fast reading:`,
     `  - Open with ONE short narrative sentence (max 15 words), then a blank line, then structure.`,
     `  - Use real markdown headings for sections — write "## Section name" on its own line. Do NOT use "**LABEL:**" as a fake header (it renders weirdly and breaks scanning).`,
@@ -435,6 +443,110 @@ function isOwnerBlocked(text: string): { blocked: true; reason: string } | { blo
   return { blocked: false };
 }
 
+/**
+ * Image-gen marker handling.
+ *
+ * Visual agents (aetherion, echo for quote cards, themaestro for cover art,
+ * nova for product renders) are instructed to embed `[GENERATE_IMAGE: <prompt>]`
+ * inline anywhere they want an image to appear. After the agent's text comes
+ * back we extract every marker, fan-out to /api/command-center/image-gen for
+ * each, and:
+ *   - replace the marker in the message text with a short "✓ rendered:
+ *     <filename>" stub
+ *   - attach the resulting image URL to the message's `attachments` column
+ *     so the chat renders it inline via the existing image-attachment path.
+ *
+ * Cap at 8 generations per single deliverable so a runaway agent can't burn
+ * dollars of OpenAI credit per click.
+ */
+const GENERATE_IMAGE_RE = /\[GENERATE_IMAGE:\s*([^\]]+?)\]/g;
+const MAX_IMAGES_PER_DELIVERABLE = 8;
+
+type GeneratedAttachment = { url: string; name: string; type: string };
+
+/** Resolve the absolute URL of /api/command-center/image-gen. In Vercel the
+ *  function calls itself via the deployment URL; locally we use localhost. */
+function imageGenEndpoint(): string {
+  const base =
+    cleanEnv("CC_INTERNAL_BASE_URL") ||
+    cleanEnv("VERCEL_URL") ||
+    "http://127.0.0.1:3000";
+  const root = base.startsWith("http") ? base : `https://${base}`;
+  return `${root.replace(/\/$/, "")}/api/command-center/image-gen`;
+}
+
+async function processImageMarkers(
+  text: string,
+  owner: string
+): Promise<{ text: string; attachments: GeneratedAttachment[] }> {
+  const matches: Array<{ full: string; prompt: string }> = [];
+  let m: RegExpExecArray | null;
+  GENERATE_IMAGE_RE.lastIndex = 0;
+  while ((m = GENERATE_IMAGE_RE.exec(text)) !== null) {
+    matches.push({ full: m[0], prompt: m[1].trim() });
+    if (matches.length >= MAX_IMAGES_PER_DELIVERABLE) break;
+  }
+  if (matches.length === 0) return { text, attachments: [] };
+
+  const endpoint = imageGenEndpoint();
+  const results = await Promise.all(
+    matches.map(async (match, idx) => {
+      try {
+        const res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: match.prompt,
+            agentId: owner,
+            filenameHint: `${owner}-${idx + 1}`,
+          }),
+          signal: AbortSignal.timeout(120_000),
+        });
+        const data = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          url?: string;
+          providerUsed?: string;
+          error?: string;
+        };
+        if (!res.ok || !data.ok || !data.url) {
+          return {
+            ok: false as const,
+            marker: match.full,
+            error: data.error || `HTTP ${res.status}`,
+          };
+        }
+        return {
+          ok: true as const,
+          marker: match.full,
+          url: data.url,
+          name: `${owner}-image-${idx + 1}.png`,
+          providerUsed: data.providerUsed || "unknown",
+        };
+      } catch (err) {
+        return {
+          ok: false as const,
+          marker: match.full,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+    })
+  );
+
+  let out = text;
+  const attachments: GeneratedAttachment[] = [];
+  for (const r of results) {
+    if (r.ok) {
+      // Replace marker with a short readable stub the chat will render.
+      out = out.replace(r.marker, `*(rendered: ${r.name})*`);
+      attachments.push({ url: r.url, name: r.name, type: "image/png" });
+    } else {
+      // Replace with a visible error so the chat reader sees why the image is missing.
+      out = out.replace(r.marker, `*[image-gen failed: ${r.error.slice(0, 140)}]*`);
+    }
+  }
+  return { text: out, attachments };
+}
+
 /** Critic pass. Returns a parsed verdict or null when the critic itself couldn't run. */
 async function runVerifier(
   action: ActionItem,
@@ -570,6 +682,14 @@ async function executeAction(
       length: lastText.length,
     });
 
+    // If the agent embedded [GENERATE_IMAGE: ...] markers, render each one
+    // through /image-gen, swap the marker text for a small stub, and attach
+    // the URL to the message. So @aetherion can ship a slide concept WITH
+    // the actual rendered slides instead of just the description.
+    const processed = await processImageMarkers(lastText, owner);
+    lastText = processed.text;
+    const generatedAttachments = processed.attachments;
+
     // Persist this attempt as a message so the channel shows the full work,
     // not just the final accepted version. Tag attempts > 1 as revisions.
     await svc.from("messages").insert({
@@ -578,7 +698,7 @@ async function executeAction(
       sender_type: "agent",
       content: lastText,
       tenant_id: tenantId,
-      attachments: [],
+      attachments: generatedAttachments,
       status: "sent",
       metadata: {
         kind: attempt === 1 ? "execution_deliverable" : "execution_revision",
@@ -590,6 +710,7 @@ async function executeAction(
         task: action.task,
         deliverable: action.deliverable,
         due: action.due,
+        generated_image_count: generatedAttachments.length,
       },
     });
 
