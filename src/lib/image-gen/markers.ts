@@ -4,9 +4,22 @@
  * Agents are instructed to embed `[GENERATE_IMAGE: <prompt>]` markers inline
  * anywhere they want a rendered image to appear. This module:
  *   1. Extracts every marker from a piece of agent text
- *   2. Dispatches each prompt to /api/command-center/image-gen in parallel
- *   3. Replaces each marker in the text with a short stub
- *   4. Returns the rewritten text + an array of attachments
+ *   2. Generates each image in parallel (server-side, no HTTP round-trip)
+ *   3. Uploads to Supabase Storage bucket `agent-output`
+ *   4. Replaces each marker in the text with a short stub
+ *   5. Returns the rewritten text + an array of attachments
+ *
+ * Why direct calls instead of fetching /api/command-center/image-gen:
+ *   Vercel's Deployment Protection returns 401 on internal HTTPS calls between
+ *   functions in the same deployment (preview URLs require auth). Calling the
+ *   image-gen route via fetch from inside the chat route produced
+ *   "[image-gen failed: HTTP 401]" stubs everywhere. Skipping HTTP and going
+ *   straight to the library + Supabase Storage avoids that entirely AND is
+ *   noticeably faster (no JSON serialize → HTTPS → deserialize round-trip).
+ *
+ * The HTTP route /api/command-center/image-gen still exists for EXTERNAL
+ * callers (UI components, scripts) that want to dispatch a generation
+ * without re-implementing the upload step.
  *
  * Used by both Phase A (chat/route.ts, regular agent replies) and Phase C
  * (cc-approve-synthesis.ts, approved-deliverable dispatches). Living here
@@ -15,8 +28,12 @@
  * Cap at MAX_IMAGES_PER_REPLY to bound cost from a runaway agent.
  */
 
+import { createClient } from "@supabase/supabase-js";
+import { generateImage } from "./index";
+
 const GENERATE_IMAGE_RE = /\[GENERATE_IMAGE:\s*([^\]]+?)\]/g;
 const MAX_IMAGES_PER_REPLY = 8;
+const BUCKET = "agent-output";
 
 export type GeneratedAttachment = { url: string; name: string; type: string };
 
@@ -26,16 +43,73 @@ function cleanEnv(name: string): string | undefined {
   return raw.replace(/[\s\x00-\x1f\x7f]+$/u, "").replace(/^\s+/u, "") || undefined;
 }
 
-/** Resolve the absolute URL of /api/command-center/image-gen. In Vercel we
- *  use VERCEL_URL; locally the loopback. CC_INTERNAL_BASE_URL overrides both
- *  (useful when running inside Docker / behind a tunnel). */
-function imageGenEndpoint(): string {
-  const base =
-    cleanEnv("CC_INTERNAL_BASE_URL") ||
-    cleanEnv("VERCEL_URL") ||
-    "http://127.0.0.1:3000";
-  const root = base.startsWith("http") ? base : `https://${base}`;
-  return `${root.replace(/\/$/, "")}/api/command-center/image-gen`;
+function getSupabaseService() {
+  const url = cleanEnv("NEXT_PUBLIC_SUPABASE_URL");
+  const key = cleanEnv("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+/** Persist arbitrary bytes to Supabase Storage and return the public URL. */
+async function uploadBytes(
+  bytes: Buffer,
+  contentType: string,
+  filenameHint: string
+): Promise<string | null> {
+  const svc = getSupabaseService();
+  if (!svc) return null;
+  const ext =
+    contentType === "image/jpeg" ? "jpg" : contentType === "image/webp" ? "webp" : "png";
+  const safe = filenameHint.replace(/[^\w.\-]+/g, "_").slice(0, 80) || "image";
+  const path = `agent/${Date.now()}-${Math.random().toString(36).slice(2, 10)}-${safe}.${ext}`;
+  const { error } = await svc.storage.from(BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: false,
+  });
+  if (error) {
+    console.warn("[markers] supabase upload failed:", error.message);
+    return null;
+  }
+  const { data: pub } = svc.storage.from(BUCKET).getPublicUrl(path);
+  return pub.publicUrl;
+}
+
+/** Generate + upload one prompt. Returns the public URL or null on any failure. */
+async function generateAndUpload(
+  prompt: string,
+  ownerHint: string,
+  index: number
+): Promise<{ url: string; via: string } | { error: string }> {
+  try {
+    const result = await generateImage({
+      prompt,
+      agentId: ownerHint,
+    });
+    if (!result.ok) {
+      return { error: result.error };
+    }
+    let bytes: Buffer;
+    let mediaType: string;
+    if (result.data.kind === "base64") {
+      bytes = Buffer.from(result.data.base64, "base64");
+      mediaType = result.data.mediaType;
+    } else {
+      // Re-fetch the provider's URL so we can host it permanently.
+      const fetched = await fetch(result.data.url, {
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!fetched.ok) {
+        return { error: `couldn't re-host provider url (HTTP ${fetched.status})` };
+      }
+      bytes = Buffer.from(await fetched.arrayBuffer());
+      mediaType = fetched.headers.get("content-type") || "image/png";
+    }
+    const url = await uploadBytes(bytes, mediaType, `${ownerHint}-${index + 1}`);
+    if (!url) return { error: "supabase storage upload failed" };
+    return { url, via: result.providerUsed };
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 /**
@@ -56,46 +130,18 @@ export async function processImageMarkers(
   }
   if (matches.length === 0) return { text, attachments: [] };
 
-  const endpoint = imageGenEndpoint();
   const results = await Promise.all(
     matches.map(async (match, idx) => {
-      try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: match.prompt,
-            agentId: ownerHint,
-            filenameHint: `${ownerHint}-${idx + 1}`,
-          }),
-          signal: AbortSignal.timeout(120_000),
-        });
-        const data = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          url?: string;
-          providerUsed?: string;
-          error?: string;
-        };
-        if (!res.ok || !data.ok || !data.url) {
-          return {
-            ok: false as const,
-            marker: match.full,
-            error: data.error || `HTTP ${res.status}`,
-          };
-        }
-        return {
-          ok: true as const,
-          marker: match.full,
-          url: data.url,
-          name: `${ownerHint}-image-${idx + 1}.png`,
-        };
-      } catch (err) {
-        return {
-          ok: false as const,
-          marker: match.full,
-          error: err instanceof Error ? err.message : String(err),
-        };
+      const r = await generateAndUpload(match.prompt, ownerHint, idx);
+      if ("error" in r) {
+        return { ok: false as const, marker: match.full, error: r.error };
       }
+      return {
+        ok: true as const,
+        marker: match.full,
+        url: r.url,
+        name: `${ownerHint}-image-${idx + 1}.png`,
+      };
     })
   );
 
@@ -108,7 +154,7 @@ export async function processImageMarkers(
     } else {
       out = out.replace(
         r.marker,
-        `*[image-gen failed: ${r.error.slice(0, 140)}]*`
+        `*[image-gen failed: ${r.error.slice(0, 180)}]*`
       );
     }
   }
