@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo, type CSSProperties, type ReactNode } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Component, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -348,9 +348,48 @@ function processMarkdownChildren(children: ReactNode, keyBase = "k"): ReactNode 
  * reply looks identical to before, while a structured deliverable suddenly
  * becomes scannable.
  */
+/**
+ * Class component that catches render errors from ReactMarkdown so one bad
+ * message (e.g. malformed markdown, mid-table content, or a regex that trips
+ * remark-gfm) can't take down the entire message list. React's default
+ * behavior on a thrown render is to unmount everything above the nearest
+ * error boundary — without this, any subsequent message that *would* render
+ * fine also disappears, and the chat looks "frozen on this message" until
+ * the user reloads.
+ *
+ * On error we fall back to the original plain-text renderer with @mention
+ * coloring, so the message is still readable — just without markdown styling.
+ */
+class MessageMarkdownBoundary extends Component<
+  { content: string; children: ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { content: string; children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(err: Error) {
+    console.warn("[MessageContent] markdown render failed; falling back to plain text", err);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.55 }}>
+          {splitMentions(this.props.content, "fallback")}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function MessageContent({ content }: { content: string }) {
   return (
     <div className="cc-message-md">
+      <MessageMarkdownBoundary content={content}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -512,6 +551,7 @@ function MessageContent({ content }: { content: string }) {
       >
         {content}
       </ReactMarkdown>
+      </MessageMarkdownBoundary>
     </div>
   );
 }
