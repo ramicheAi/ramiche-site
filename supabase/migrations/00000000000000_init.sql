@@ -1,0 +1,15 @@
+-- Initial migration placeholder
+-- Pull real schema with: supabase db pull --linked
+-- This file will be replaced once Supabase CLI is authenticated
+-- and linked to the production project.
+--
+-- Current tables (from codebase references):
+-- - chat_messages (Realtime)
+-- - profiles
+-- - sessions
+-- 
+-- To complete setup:
+-- 1. Run: supabase login
+-- 2. Run: supabase link --project-ref <ref>
+-- 3. Run: supabase db pull
+-- 4. Enable GitHub Integration in Supabase Dashboard
