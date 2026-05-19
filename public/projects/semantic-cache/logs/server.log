@@ -94,3 +94,11 @@
   GET  /api/saved   — Total savings
   POST /api/lookup  — Cache lookup
   POST /api/store   — Cache store
+[semantic-cache] Dashboard & API running at http://localhost:3847
+[semantic-cache] API endpoints:
+  GET  /api/logs    — Cost log entries
+  GET  /api/stats   — Cache + cost stats
+  GET  /api/agents  — Breakdown by agent
+  GET  /api/saved   — Total savings
+  POST /api/lookup  — Cache lookup
+  POST /api/store   — Cache store

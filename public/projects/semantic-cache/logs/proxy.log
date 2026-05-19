@@ -131,3 +131,6 @@
 [semantic-cache-proxy] Logging proxy running on http://127.0.0.1:3848
 [semantic-cache-proxy] Forwarding to http://127.0.0.1:3456
 [semantic-cache-proxy] Dashboard: http://localhost:3847
+[semantic-cache-proxy] Logging proxy running on http://127.0.0.1:3848
+[semantic-cache-proxy] Forwarding to http://127.0.0.1:3456
+[semantic-cache-proxy] Dashboard: http://localhost:3847

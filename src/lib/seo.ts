@@ -78,8 +78,8 @@ export function generateSEO(config: SEOConfig): Metadata {
  */
 export const SEO_CONFIGS = {
   home: {
-    title: "Parallax Operations",
-    description: "Automation dock — all projects, all signals, one view",
+    title: "Parallax — Creative Technology Studio",
+    description: "We build what others can't. Parallax is an AI-powered creative technology studio that designs, develops, and ships products from concept to launch.",
     path: "/",
   },
 
