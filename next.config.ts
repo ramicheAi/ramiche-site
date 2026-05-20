@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import path from "node:path";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const securityHeaders = [
   {
@@ -10,7 +11,7 @@ const securityHeaders = [
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob: https://*.googleapis.com https://*.stripe.com https://*.supabase.co",
-      "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://api.stripe.com https://vitals.vercel-insights.com https://va.vercel-scripts.com wss://*.firebaseio.com https://wttr.in https://bible-api.com https://*.supabase.co wss://*.supabase.co",
+      "connect-src 'self' https://*.firebaseio.com https://*.googleapis.com https://*.firebaseapp.com https://api.stripe.com https://vitals.vercel-insights.com https://va.vercel-scripts.com wss://*.firebaseio.com https://wttr.in https://bible-api.com https://*.supabase.co wss://*.supabase.co https://*.ingest.us.sentry.io",
       "frame-src 'self' https://js.stripe.com https://*.firebaseapp.com",
       "object-src 'none'",
       "base-uri 'self'",
@@ -99,4 +100,14 @@ const nextConfig: NextConfig = {
   ],
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  tunnelRoute: "/monitoring",
+  sourcemaps: { disable: false },
+  disableLogger: true,
+  automaticVercelMonitors: false,
+});

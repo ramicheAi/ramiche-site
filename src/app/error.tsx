@@ -1,5 +1,6 @@
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect, useState } from "react";
 
 export default function GlobalError({
@@ -12,6 +13,7 @@ export default function GlobalError({
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
+    Sentry.captureException(error);
     console.error("[Parallax Error]", error);
   }, [error]);
 
