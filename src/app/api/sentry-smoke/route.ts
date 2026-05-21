@@ -43,17 +43,20 @@ export async function GET(req: Request) {
     endpoint: "/api/sentry-smoke",
   });
 
-  // Throw a uniquely-named error. The name (constructor.name) is what
-  // Sentry uses as the issue title, so a custom class makes the issue
-  // easy to identify + grep for in the listener log.
-  class SentryE2ESmokeError extends Error {
+  // Use a Date.now()-suffixed class name so every fire creates a NEW
+  // Sentry issue (and therefore triggers "Atlas Auto-Fix: New Error" each
+  // time). Avoids the need for release-tracked regression detection on a
+  // smoke endpoint that we just want to exercise on demand.
+  const stamp = Date.now();
+  const errName = `SentryE2ESmokeError_${stamp}`;
+  const ErrClass = class extends Error {
     constructor(msg: string) {
       super(msg);
-      this.name = "SentryE2ESmokeError";
+      this.name = errName;
     }
-  }
+  };
 
-  throw new SentryE2ESmokeError(
-    "[E2E SMOKE FROM RAMON] Intentional throw to verify auto-fix loop. Safe to ignore + close.",
+  throw new ErrClass(
+    `[E2E SMOKE FROM RAMON @${stamp}] Intentional throw to verify auto-fix loop. Safe to ignore + close.`,
   );
 }
