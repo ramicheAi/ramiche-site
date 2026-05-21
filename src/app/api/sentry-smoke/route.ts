@@ -34,29 +34,47 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, msg: "nothing to see here" });
   }
 
-  // Tag the event so it's obvious in Sentry that this was deliberate.
-  Sentry.setTag("smoke_test", "true");
-  Sentry.setTag("smoke_run_id", Date.now().toString());
-  Sentry.setContext("smoke_test", {
-    source: "ramon",
-    purpose: "verify Sentry → Atlas → GitHub auto-fix loop",
-    endpoint: "/api/sentry-smoke",
+  // Each fire must be a NEW Sentry issue so the "Atlas Auto-Fix: New Error"
+  // alert rule re-triggers. Earlier attempts varied the error class name,
+  // but Sentry's default grouping is by stack location + exception type
+  // (not message or class name), so all fires collapsed onto one issue.
+  //
+  // The correct lever is scope.setFingerprint() — that overrides grouping
+  // entirely. A per-fire fingerprint guarantees a fresh issue every time.
+  const stamp = Date.now();
+  Sentry.withScope((scope) => {
+    scope.setFingerprint([`sentry-smoke-${stamp}`]);
+    scope.setTag("smoke_test", "true");
+    scope.setTag("smoke_run_id", stamp.toString());
+    scope.setContext("smoke_test", {
+      source: "ramon",
+      purpose: "verify Sentry → Atlas → GitHub auto-fix loop",
+      endpoint: "/api/sentry-smoke",
+      stamp,
+    });
+    Sentry.captureException(
+      new Error(
+        `[E2E SMOKE FROM RAMON @${stamp}] Intentional capture to verify auto-fix loop. Safe to ignore + close.`,
+      ),
+    );
   });
 
-  // Use a Date.now()-suffixed class name so every fire creates a NEW
-  // Sentry issue (and therefore triggers "Atlas Auto-Fix: New Error" each
-  // time). Avoids the need for release-tracked regression detection on a
-  // smoke endpoint that we just want to exercise on demand.
-  const stamp = Date.now();
-  const errName = `SentryE2ESmokeError_${stamp}`;
-  const ErrClass = class extends Error {
-    constructor(msg: string) {
-      super(msg);
-      this.name = errName;
-    }
-  };
+  // Flush before responding so the event actually reaches Sentry on
+  // Vercel's short-lived serverless runtime. Without flush() the function
+  // can return before the network call completes.
+  await Sentry.flush(2000);
 
-  throw new ErrClass(
-    `[E2E SMOKE FROM RAMON @${stamp}] Intentional throw to verify auto-fix loop. Safe to ignore + close.`,
+  // Return 500 directly instead of throwing. A throw would be caught by
+  // Sentry's onRequestError instrumentation and create a SECOND (grouped)
+  // issue under the route-handler stack — we only want the one fingerprinted
+  // event captured above.
+  return new NextResponse(
+    JSON.stringify({
+      ok: false,
+      smoke: true,
+      stamp,
+      msg: "intentional smoke fire — event captured to Sentry with unique fingerprint",
+    }),
+    { status: 500, headers: { "content-type": "application/json" } },
   );
 }
