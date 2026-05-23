@@ -1,187 +1,204 @@
 # ATLAS QUALITY & DELEGATION AUDIT
 
 **Prepared for:** Ramon Walton (Operator)
-**Date:** 2026-05-23
-**Scope:** Why Atlas ships rushed, un-delegated work — and the repeatable system to fix it, an audit of all 21 agents vs. best-in-class, and confirmation of the Command Center as the hub.
+**Date:** 2026-05-23 · **Rev 2** (restructured after a first-principles / pre-mortem / red-team pass on Rev 1)
+**Scope:** Why Atlas ships rushed, off-brand work — the repeatable system that fixes it without taxing speed, an audit of all 21 agents vs. best-in-class, and confirmation of the Command Center as the hub.
+
+> **What changed in Rev 2.** Rev 1 framed the incident as a *delegation* failure and proposed to force every S2+ creative through a specialist and hard-block solo work. Pressure-testing that (see Appendix) showed it was wrong in three ways: (1) the real defect was **quality + missing context**, not too few hops; (2) forcing work to a weaker specialist can *lower* quality; (3) a text-matching gate is trivially gamed by naming the right words. Rev 2 reorients the system around **quality with the right context**, makes delegation a recommendation, and makes the gate judge the **artifact**, not the reply.
 
 This document answers three questions:
 
-1. How do we solve the quality + delegation problem with a **repeatable, proven system**?
-2. **Audit every agent** — role, purpose, performance vs. the best in their field, the gaps, and how to close them so they work together.
+1. How do we solve the quality problem with a **repeatable, proven system** that does not make a fast solo operator slow?
+2. **Audit every agent** — role, model fit vs. best-in-class, the gaps, and how to close them.
 3. Is the **Parallax Command Center + its chat** the hub for all of this?
 
 ---
 
-## 0. THE INCIDENT (root-cause, not symptom)
+## 0. THE INCIDENT (corrected root cause)
 
-The Telegram exchange (swim pitch shipped without Mettle branding, no delegation to the design/brand agents) is **not an Atlas personality flaw**. It is the predictable output of the current architecture. Three structural causes:
+The Telegram exchange (swim pitch shipped without Mettle branding) is **not an Atlas personality flaw**, and — corrected from Rev 1 — it is **not primarily a delegation failure**. Delegating that same task to AETHERION, which runs on a *weaker* local model than Atlas, could have produced a *worse* deck. The defect was concrete and upstream of delegation:
 
-**Cause 1 — Delegation is discretionary, not enforced.**
-In the runtime (`openclaw`), delegation is only enforced *downward*: a subagent is blocked from spawning further subagents (`src/agents/pi-tools.policy.ts`, `runtime-governor-tool-gate.ts`). There is **nothing that forces Atlas to delegate upward**. Whether a client-facing creative deliverable goes to AETHERION (visual) + VEE (brand) or gets banged out by Atlas alone is left entirely to Atlas's own judgment in its prompt. Under time pressure, the cheapest path for an orchestrator is to do it itself. So it does.
+**Root cause A — the brand kit was never in the agent's working context.** Atlas cannot apply brand assets it does not have. Nothing injects the versioned brand kit (logo, palette, type) into the context of whoever produces client-facing work. So "on-brand" was never on the table, by anyone.
 
-**Cause 2 — The quality gate is weak, non-blocking, and fires on the wrong path.**
-The only runtime quality control is `verifyDeliverableGate()` in `src/agents/subagent-announce.ts:343`. It:
-- only checks that **referenced files exist and parse** (size/format) — it cannot judge brand compliance, design quality, or correctness;
-- is **non-blocking** — it appends a warning to the announce message; the work can still reach the operator;
-- only fires when work was **delegated to a subagent**. In the incident Atlas did the work *itself*, so the gate never ran.
+**Root cause B — nothing inspected the artifact before it shipped.** The only runtime control, `verifyDeliverableGate()` (`openclaw/src/agents/subagent-announce.ts`), checked that referenced files *exist and parse* — never whether they are on-brand or placeholder-free — was **non-blocking**, and only fired on **delegated** output. In the incident Atlas produced the work itself, so the gate never ran.
 
-**Cause 3 — The good orchestration exists, but on a path the production agent doesn't use.**
-The Command Center chat (`ramiche-site/src/app/api/command-center/chat/route.ts`) already implements a genuinely strong **orchestrator-worker + critic** pipeline: parallel specialist drafts → Atlas synthesis (Phase B) → independent critic (Phase E) → one refinement → strict-delegation enforcement (`CC_STRICT_DELEGATION`). **But** that pipeline runs against the Claude Max proxy in the web app. The real production agent on Telegram/Signal runs through the OpenClaw gateway, where `OPENCLAW_CHAT_PRIMARY` is opt-in and described in-code as "flaky." **The discipline is in the demo, not in the worker.**
+**Root cause C — the good orchestration exists, but on a path the production agent doesn't use.** The Command Center chat (`ramiche-site/src/app/api/command-center/chat/route.ts`) implements a strong **orchestrator-worker + critic** pipeline (parallel drafts → synthesis → independent critic → refine → `CC_STRICT_DELEGATION`). But that runs against the Claude Max proxy in the web app; the production agent on Telegram/Signal runs through the OpenClaw gateway, where `OPENCLAW_CHAT_PRIMARY` is opt-in and in-code "flaky." **The discipline is in the demo, not in the worker.**
 
-> **One-line diagnosis:** The system has the right ideas (orchestrator-worker, critic pass, deliverable verification) but they are unenforced, non-blocking, and wired to the wrong execution path. Atlas behaves rationally given those incentives.
+> **One-line diagnosis (corrected):** Atlas shipped off-brand because the brand context was absent and nothing inspected the artifact before send — not because it skipped a hop. The fix is *context + an artifact-level quality bar on the production path*, with delegation as one optional means to quality, not a mandate.
 
 ---
 
-## 1. THE REPEATABLE SYSTEM — RAMICHE Quality & Delegation Protocol (QDP v1)
+## 1. THE REPEATABLE SYSTEM — RAMICHE Quality Protocol (QDP v2)
 
-The fix is not "tell Atlas to try harder." It is a **closed-loop production system** modeled on four proven disciplines, each already partially present in the codebase:
+**Goal: quality with the right context — at a process cost proportional to stakes.** A fast solo operator must not be forced through a multi-agent pipeline for a 30-second task. Process is a tax; we levy it only where stakes justify it.
 
-| Proven discipline | Where it comes from | Already in our code? |
+| Proven discipline | Source | In our code? |
 |---|---|---|
-| **Orchestrator–worker** (lead delegates to specialists, synthesizes) | Anthropic's multi-agent research pattern | Yes — `generateSynthesis()` (chat route) |
-| **Evaluator–optimizer** (independent critic before ship) | Anthropic agent patterns; adversarial review | Yes — `generateCritique()` / `refineSynthesis()` |
-| **Jidoka / Andon** (stop the line on a defect; never pass a defect downstream) | Toyota Production System | Partial — `verifyDeliverableGate()` warns but doesn't stop |
-| **Checklists + RACI** (deterministic routing, definition-of-done) | Aviation/surgery (Gawande); RACI matrices | No — routing is discretionary |
+| **Right inputs before work** (you can't be on-brand without the brand kit) | Design ops / brand systems | No — brand kit not injected |
+| **Inspect the artifact, not the claim** (test the part, not the operator's word) | TPS quality-at-source | No — old gate checked file existence + reply text |
+| **Jidoka / Andon** (stop the line on a real defect) | Toyota Production System | Partial — gate warned, didn't stop |
+| **Evaluator–optimizer** (independent critic before ship) | Anthropic agent patterns | Yes — `generateCritique()` (chat route only) |
+| **Orchestrator–worker** (delegate breadth, synthesize) | Anthropic multi-agent research | Yes — `generateSynthesis()` (chat route only) |
 
-QDP is six mechanisms. Each says **what to build** and **where it plugs into existing code**.
+Six mechanisms, **ordered by leverage-per-cost** — cheap, ungameable input fixes first; heavier process only at high stakes.
 
-### QDP-1 · Intake & Classification
-Every operator request is classified before work starts: **deliverable type** × **stakes tier**.
+### QDP-1 · Right context, injected (highest leverage, lowest cost)
+The cheapest fix for the incident: **inject the versioned brand kit** (logo paths, palette tokens, type, voice) into the working context of any agent producing `client-facing-creative` or `external-comms`. This is an *input* fix — it cannot be gamed, adds ~no latency, and would have prevented the incident on its own. Requires QDP-0 (brand kit in version control).
 
-- Types: `client-facing-creative` · `code` · `internal-analysis` · `external-comms` · `ops/automation`.
-- Stakes: `S0` internal scratch · `S1` internal decision · `S2` client/revenue-facing · `S3` legal/financial/safety.
+### QDP-2 · Proportional pre-send bar (stakes-scaled)
+A short, explicit definition-of-done **scaled to stakes**, so speed is preserved where it's cheap:
+- **S0/S1** (internal): ungated. Move fast.
+- **S2** (client/revenue): artifact must pass the inspection gate (QDP-4) + one independent review.
+- **S3** (legal/financial/safety): the above **plus a human sign-off**, enforced structurally (QDP-5).
 
-Classification is mechanical, not vibes (keyword + context classifier). The swim pitch = `client-facing-creative / S2`.
+### QDP-3 · Delegation as recommendation, not mandate
+Routing is a **recommendation**, because forcing a weaker specialist lowers quality. The RACI matrix (below) names a recommended owner/contributors/reviewer per type; the orchestrator may keep production in-house when it is on a **stronger model** than the specialist — but **independent review at S2+ is non-negotiable**. Delegation's real value is *parallelizable breadth* (research, multi-asset campaigns), not every single deliverable.
 
-### QDP-2 · Deterministic Routing Matrix (the core fix for delegation)
-Routing is a **lookup table, not Atlas's mood.** For each (type × stakes) the matrix names a **Responsible owner, Contributors, and a Reviewer** (RACI). Atlas is *Accountable* but is **forbidden from being sole Responsible** on anything ≥ S2.
-
-| Deliverable | Responsible (does it) | Must contribute | Reviewer (independent) | Atlas role |
+| Deliverable | Recommended owner | Contributes | Independent reviewer | Atlas role |
 |---|---|---|---|---|
-| Client pitch / deck / brand asset | AETHERION (visual) | VEE (brand), INK (copy), domain owner (e.g. MICHAEL for swim) | VEE or human | Orchestrate + final gate |
-| Marketing copy / landing page | INK | VEE | AETHERION (visual), MERCURY (offer) | Orchestrate |
-| Code / feature / build | SHURI or NOVA | PROXIMON (if architectural) | TRIAGE (review) | Orchestrate |
-| Financial / pricing model | KIYOSAKI | SIMONS (data) | DR STRANGE (scenarios) | Orchestrate |
-| Legal / compliance | THEMIS | — | human (S3 always) | Orchestrate |
-| Outbound sales | MERCURY | INK (copy) | HAVEN (CX sanity) | Orchestrate |
+| Client pitch / deck / brand asset | AETHERION (or Atlas if stronger model) | VEE (brand), INK (copy), domain owner | VEE or human | Orchestrate + final gate |
+| Marketing copy / landing page | INK | VEE | AETHERION, MERCURY | Orchestrate |
+| Code / feature / build | SHURI / NOVA | PROXIMON (if architectural) | TRIAGE | Orchestrate |
+| Financial / pricing model | KIYOSAKI | SIMONS (data) | DR STRANGE | Orchestrate |
+| Legal / compliance | THEMIS | — | **human (S3 always)** | Orchestrate |
+| Outbound sales | MERCURY | INK | HAVEN | Orchestrate |
 
-The matrix lives in version control (see QDP-6) so it is reviewable and auditable, and is the single source the runtime consults.
+### QDP-4 · The gate inspects the ARTIFACT, not the reply (closes the gaming hole)
+The single most important code change, **shipped in this branch** (`openclaw/src/agents/quality-delegation-gate.ts`, evidence-driven v2):
+- At **S2+, reply-text claims never satisfy the definition-of-done.** Only facts inspected from the **actual artifact** (file body / render) count. Writing "I used the Mettle brand kit" no longer passes anything — the deliverable file itself must carry the markers.
+- **Fail-safe:** missing evidence ⇒ verdict `review` ("verification owed"), **never a silent `pass`**. A real negative (placeholders in the file, brand kit absent, reviewer == author) ⇒ `block`.
+- **Independent review enforced:** a reviewer who is the producer is rejected; S3 requires a *human* reviewer flag.
+- The inspector reads the referenced files in `subagent-announce.ts` (`inspectDeliverableArtifacts`) and feeds `ArtifactEvidence` to the pure policy.
 
-### QDP-3 · Definition of Done (DoD) per type
-A deliverable is not "done" because the model said so. Each type carries an explicit, checkable DoD. Example — `client-facing-creative`:
-- [ ] Uses the correct brand kit (logo, palette, type) from the versioned brand library
-- [ ] Produced/reviewed by the named Responsible + Reviewer (QDP-2), evidenced in the audit log
-- [ ] No placeholder text, no lorem, no broken assets (extends current file-exists check)
-- [ ] Passes a brand-compliance check (asset references present, on-palette)
-- [ ] One independent critic pass with verdict `approve`
+### QDP-5 · Structural interlock at the send layer (S3) — not an advisory prompt
+A verdict that lives only in prompt text can be ignored by the agent summarizing to the operator. So the gate exposes a single boolean — `isShippable(result)` — and the **deliverable/send path must consult it as a hard interlock for S3**: client/legal-facing sends are refused at the channel layer unless the artifact passed. Today the announce flow surfaces a strong directive; the next step is wiring `isShippable` into the actual send path so it's an interlock, not a suggestion. *(Open item — see roadmap Phase 1.)*
 
-### QDP-4 · Mandatory two-pass review (generalize what the chat already does)
-The producer never ships its own work for S2/S3. The **critic pass** (`generateCritique`) that exists in the chat route is promoted to a **runtime primitive** that runs in the OpenClaw path too — drafter and critic separated even when the same model backs both. `revise` → one refinement; `approve` → proceed to gate.
-
-### QDP-5 · Blocking verification gate (Jidoka — stop the line)
-Upgrade `verifyDeliverableGate()` from *warning* to *gate*:
-- **Block, don't warn.** On failure the deliverable does **not** reach the operator/client; the orchestrator must rebuild in-session.
-- **Check more than existence.** Run the DoD checklist for the classified type (brand references, no placeholders, reviewer recorded), not just "file parses."
-- **Cover the self-produced path.** The gate must run on deliverables Atlas produced *itself*, not only delegated ones (this is the exact hole the incident fell through).
-
-### QDP-6 · Evidence, audit & the weekly scorecard (close the loop)
-- Every deliverable appends a record to `~/.openclaw/workspace/memory/subagent-audit.jsonl` (already exists) — extend it with: classified type, owner, reviewer, verdict, rework count.
-- The Command Center surfaces a **per-agent scorecard**: rework rate, gate-pass rate, critic-revise rate, time-to-deliver. (Today the only metric is vanity `tasksCompletedToday` — see audit finding A5.) **What gets measured gets delegated.**
+### QDP-6 · Evidence, scorecard, and a weekly ritual (or it dies)
+- Every S2+ deliverable appends type/owner/reviewer/verdict/rework to `~/.openclaw/workspace/memory/subagent-audit.jsonl` (extends today's log).
+- The Command Center renders a per-agent scorecard (rework rate, gate-pass rate, review-revise rate, time-to-deliver) — replacing the vanity `tasksCompletedToday`.
+- **A dashboard nobody opens is dead.** Tie it to a recurring ritual (a weekly `/loop` review), or don't build it.
 
 ### QDP-0 · The meta-fix: version-control the workspace
-The most important config in the entire system — `SOUL.md` (personas), the RAMICHE OS Protocol, `directory.json` (models/skills), `verify-deliverable.sh` (the quality bar), and the brand kit — **lives only at `~/.openclaw/workspace/` on Ramon's Mac and is not in any repo.** That means the rules that govern quality cannot be reviewed, diffed, tested, or rolled back, and they drift (see finding A6). **Put the workspace under git.** Without this, QDP-2/3/5 have no durable home.
+`SOUL.md` (personas), the OS Protocol, `directory.json` (models/skills), `verify-deliverable.sh`, and the **brand kit** live only at `~/.openclaw/workspace/` on Ramon's Mac, in no repo. The rules that govern quality can't be reviewed, diffed, tested, or rolled back — and they drift (finding A6). **Put the workspace under git.** Without it, QDP-1/2/4 have no durable home.
 
-> **Why this is "proven, not invented":** every mechanism above is a named industrial pattern (TPS jidoka, RACI, surgical checklists) or an Anthropic-published agent pattern (orchestrator-worker, evaluator-optimizer) — and 4 of the 6 already exist in fragments in this codebase. QDP's job is to **make them mandatory, blocking, and on the production path.**
+> **Why "proven, not invented":** quality-at-source and jidoka (TPS), RACI, and evaluator-optimizer / orchestrator-worker (Anthropic) are all named patterns. QDP-2 already exists in fragments in the chat route. The job is to put the *cheap input fixes first*, make the gate judge artifacts, and run it on the production path — without taxing low-stakes speed.
 
 ---
 
 ## 2. AGENT AUDIT — all 21, vs. best-in-class
 
-**Roster source-of-truth:** `src/app/api/command-center/agents/route.ts` (`STATIC_AGENTS`) + `dashboard-agents.ts`. Grades are operational (how well positioned to do the job *today*), A–F.
+**Roster source-of-truth:** `src/app/api/command-center/agents/route.ts` (`STATIC_AGENTS`) + `dashboard-agents.ts`. Grades are operational, A–F.
 
 ### Command layer
 | Agent | Role | Model | Best-in-class bar | Grade | Gap → close it |
 |---|---|---|---|---|---|
-| **ATLAS** | Operations lead / orchestrator | Opus 4.6 | A great EM/CTO chief-of-staff; Anthropic orchestrator-worker | **C+** | Does too much itself; one version behind (move to **Opus 4.7**); no enforced delegation. Fix = QDP-2 + QDP-5. |
-| **ARCHIVIST** | Workspace indexer (cron) | Sonnet 4.5 | Sourcegraph / Cursor codebase index | **B** | Fine for scope. Expose "last index" freshness in CC. |
+| **ATLAS** | Operations lead / orchestrator | Opus 4.6 | EM/CTO chief-of-staff; orchestrator-worker | **C+** | One version behind (→ **Opus 4.7**); no brand context; no artifact gate on its own output. Fix = QDP-1 + QDP-4. |
+| **ARCHIVIST** | Workspace indexer (cron) | Sonnet 4.5 | Sourcegraph / Cursor index | **B** | Fine. Expose "last index" freshness in CC. |
 
 ### Tier 1 — high-stakes professional
 | Agent | Role | Model | Best-in-class bar | Grade | Gap → close it |
 |---|---|---|---|---|---|
-| **THEMIS** | Legal & governance | Sonnet/Opus | Harvey AI, CoCounsel | **B–** | Strongest legal model + human-in-loop mandatory (S3). UPL risk is real — keep "legal information" not "advice." |
-| **KIYOSAKI** | Finance | Sonnet 4.5 | CFA-grade analyst | **C** | "Rich Dad" branding undercuts a *verified* finance agent's credibility. Pair with SIMONS for data; cite sources. |
-| **DR STRANGE** | Forecasting / scenarios | Sonnet 4.5 | Superforecasters (Tetlock), McKinsey | **B** | Strong fit. Make it the standing **Reviewer** for KIYOSAKI/strategy (QDP-2). |
-| **SIMONS** | Data / quant | Sonnet 4.5 | FAANG/quant-fund data scientist | **B+** | Well-matched. Wire to real datasets (GA4) so outputs are evidenced, not asserted. |
-| **WIDOW** | Security | **qwen3:14b (local)** | Snyk/Semgrep + senior pentester | **C–** | **Under-powered for security.** Local 14B can't reason about real CVEs. Move to Sonnet for S2+ scans. |
+| **THEMIS** | Legal & governance | Sonnet/Opus | Harvey AI, CoCounsel | **B–** | Strongest model + **human-in-loop mandatory (S3, QDP-5)**. Keep "legal information," not "advice." |
+| **KIYOSAKI** | Finance | Sonnet 4.5 | CFA-grade analyst | **C** | "Rich Dad" branding undercuts a *verified* finance agent. Pair with SIMONS; cite sources. |
+| **DR STRANGE** | Forecasting / scenarios | Sonnet 4.5 | Superforecasters (Tetlock) | **B** | Make it the standing reviewer for KIYOSAKI/strategy. |
+| **SIMONS** | Data / quant | Sonnet 4.5 | FAANG/quant data scientist | **B+** | Wire to real datasets (GA4) so outputs are evidenced. |
+| **WIDOW** | Security | **qwen3:14b (local)** | Snyk/Semgrep + senior pentester | **C–** | **Under-powered.** Local 14B can't reason about real CVEs. Move to Sonnet for S2+ scans. |
 
 ### Tier 2 — creative & marketing
 | Agent | Role | Model | Best-in-class bar | Grade | Gap → close it |
 |---|---|---|---|---|---|
-| **AETHERION** | Creative director / visual | Gemini 3.1 Pro (image) | Midjourney v6+, Pentagram/Collins | **C+** | The agent that *should* have made the swim pitch. Make it the mandatory Responsible for all `client-facing-creative` (QDP-2). Give it the versioned brand kit. |
-| **VEE** | Brand strategy | Kimi K2.5 | Top brand consultancy | **B–** | Overlaps AETHERION — split cleanly: VEE = strategy/positioning/voice, AETHERION = execution/visuals. VEE is default Reviewer for brand. |
-| **INK** | Copywriting | Sonnet 4.5 | Top direct-response copywriter | **B** | Solid. Needs the brand voice guide (versioned) as input, or copy drifts off-brand. |
-| **ECHO** | Community / social | qwen3:14b (local) | Head of Community (Discord/Reddit) | **C** | Local model is fine for low-stakes posting; escalate campaign work to Sonnet. |
-| **MERCURY** | Sales | Sonnet 4.5 | VP Sales at $100M ARR co. | **B** | Good. Wire to real pipeline data; pair with INK for outbound. |
+| **AETHERION** | Creative director / visual | Gemini 3.1 Pro (image) | Midjourney v6+, Pentagram | **C+** | Recommended owner for `client-facing-creative` — **but only if its model ≥ the orchestrator's** (QDP-3). Give it the versioned brand kit (QDP-1). |
+| **VEE** | Brand strategy | Kimi K2.5 | Top brand consultancy | **B–** | Split cleanly: VEE = strategy/voice, AETHERION = visuals. VEE is default reviewer for brand. |
+| **INK** | Copywriting | Sonnet 4.5 | Top direct-response copywriter | **B** | Needs the versioned brand voice guide as input or copy drifts. |
+| **ECHO** | Community / social | qwen3:14b (local) | Head of Community | **C** | Local fine for low-stakes posting; escalate campaigns to Sonnet. |
+| **MERCURY** | Sales | Sonnet 4.5 | VP Sales, $100M ARR | **B** | Wire to real pipeline; pair with INK for outbound. |
 
 ### Tier 3 — specialized verticals
 | Agent | Role | Model | Best-in-class bar | Grade | Gap → close it |
 |---|---|---|---|---|---|
-| **MICHAEL** | Swim coaching (**METTLE flagship**) | **qwen3:14b (local)** | Olympic coach (ASCA L5), TrainingPeaks | **C–** | **Backwards:** the #1 revenue product runs on the weakest model. Move flagship coaching reasoning to Sonnet; keep local only for cheap chat. |
-| **SELAH** | Psychology / wellness | qwen3:14b (local) | Licensed sport psychologist | **C** | Sensitive domain on a weak local model; escalate real check-ins to Sonnet + disclaimers. |
-| **PROPHETS** | Spiritual counsel | qwen3:14b (local) | Seminary-level | **B** | Niche; local model acceptable. Scripture-accuracy check. |
-| **HAVEN** | Customer success | Sonnet 4.5 | Intercom Fin / Decagon / Sierra | **B** | Strong fit; no live customers yet (so untested). First onboarding is the real test. |
+| **MICHAEL** | Swim coaching (**METTLE flagship**) | **qwen3:14b (local)** | Olympic coach (ASCA L5) | **C–** | **Backwards:** the #1 revenue product on the weakest model. Move coaching reasoning to Sonnet; keep local for cheap chat. |
+| **SELAH** | Psychology / wellness | qwen3:14b (local) | Licensed sport psychologist | **C** | Sensitive domain on a weak model; escalate real check-ins to Sonnet + disclaimers. |
+| **PROPHETS** | Spiritual counsel | qwen3:14b (local) | Seminary-level | **B** | Niche; local acceptable. Scripture-accuracy check. |
+| **HAVEN** | Customer success | Sonnet 4.5 | Intercom Fin / Sierra | **B** | Strong fit; untested (no live customers). First onboarding is the test. |
 
 ### Tier 4 — technical
 | Agent | Role | Model | Best-in-class bar | Grade | Gap → close it |
 |---|---|---|---|---|---|
-| **SHURI** | Engineering / UI | Sonnet 4.5 | Claude Code, Cursor, Devin | **B+** | Strong, productive (18+ PRs). Make TRIAGE its mandatory reviewer (QDP-2). |
-| **PROXIMON** | Architecture / infra | Sonnet 4.5 | AWS Well-Architected, staff eng | **B** | Good. Standing Contributor on architectural code. |
-| **NOVA** | "3D fabrication" + "overnight builds" | Sonnet 4.5 | Industrial designer / Fusion 360 | **C+** | **Role confusion:** 3D fab and overnight *software* builds are two different jobs. Split or rename — pick one lane. |
-| **TRIAGE** | Debugging / QA | **Haiku 4.5** | SRE, SWE-bench leaders | **B** | Good as the cheap, fast reviewer. For deep RCA on S2 incidents, allow Sonnet escalation. |
-| **THEMAESTRO** | Music production (Ramon's brand) | qwen3:14b (local) | Grammy producer; Suno/Udio | **C–** | A *founder-brand* product on a 14B local model. If music matters to the brand, it deserves a real model + Suno/Udio integration. |
+| **SHURI** | Engineering / UI | Sonnet 4.5 | Claude Code, Cursor, Devin | **B+** | Strong (18+ PRs). Make TRIAGE its mandatory reviewer. |
+| **PROXIMON** | Architecture / infra | Sonnet 4.5 | AWS Well-Architected, staff eng | **B** | Standing contributor on architectural code. |
+| **NOVA** | "3D fabrication" + "overnight builds" | Sonnet 4.5 | Industrial designer / Fusion 360 | **C+** | **Role confusion:** two different jobs. Split or rename. |
+| **TRIAGE** | Debugging / QA | **Haiku 4.5** | SRE, SWE-bench leaders | **B** | Good cheap reviewer; allow Sonnet escalation for deep RCA. |
+| **THEMAESTRO** | Music production (Ramon's brand) | qwen3:14b (local) | Grammy producer; Suno/Udio | **C–** | Founder-brand product on a 14B model. Deserves a real model + Suno/Udio. |
 
 ### Cross-cutting findings
-- **A1 — Model↔stakes inversion.** The two flagship customer/founder products (MICHAEL/METTLE swim, THEMAESTRO music) and security (WIDOW) run on the weakest local model, while internal ops runs on Opus/Sonnet. **Re-tier by stakes, not by habit.**
-- **A2 — Atlas is one version behind.** Orchestrator should be on the strongest model available (**Opus 4.7**), since its synthesis/critic quality caps the whole system.
-- **A3 — Role overlap.** AETHERION↔VEE (visual/brand) and SHURI↔NOVA↔TRIAGE (code) need clean RACI lanes (QDP-2) or they collide / no one owns.
-- **A4 — NOVA identity is two jobs.** "3D fabrication" and "overnight software builds" should not be one agent.
-- **A5 — No quality metric exists.** The only number tracked is `tasksCompletedToday` (vanity). Add rework rate, gate-pass rate, critic-revise rate (QDP-6).
-- **A6 — Three drifting sources of truth.** `agent-metrics.json` (says DeepSeek V3.2 everywhere), `agents/route.ts` (qwen/claude), and `dashboard-agents.ts` disagree on models. Collapse to **one** source: the version-controlled `directory.json` (QDP-0).
+- **A1 — Model↔stakes inversion.** The flagship products (MICHAEL/METTLE, THEMAESTRO) and security (WIDOW) run on the weakest local model; internal ops runs on Opus/Sonnet. **Re-tier by stakes, not habit.**
+- **A2 — Atlas is one version behind.** The orchestrator caps the whole system; move to **Opus 4.7**.
+- **A3 — Role overlap.** AETHERION↔VEE and SHURI↔NOVA↔TRIAGE need clean lanes.
+- **A4 — NOVA is two jobs.** Split 3D fabrication from overnight software builds.
+- **A5 — No quality metric.** Only `tasksCompletedToday` (vanity). Add rework/gate-pass/review-revise (QDP-6).
+- **A6 — Three drifting sources of truth.** `agent-metrics.json`, `agents/route.ts`, `dashboard-agents.ts` disagree on models. Collapse to version-controlled `directory.json` (QDP-0).
+- **A7 — "Expertise" is mostly persona over 2–3 shared models.** AETHERION/VEE/INK are Sonnet/Kimi/Gemini with different system prompts — real persona-diversity and parallel drafting, but **not** distinct domain expertise yet. Routing through three personas of one base model is partly theater until the **Verified-Agent** work (interview real experts, encode their reasoning) lands. This is *why* QDP-3 keeps delegation advisory: more hops over the same intelligence buys less than people assume.
 
 ---
 
-## 3. IS THE COMMAND CENTER + CHAT THE HUB? — Yes, with one critical caveat
+## 3. IS THE COMMAND CENTER + CHAT THE HUB? — Yes, with one caveat
 
-**Yes.** The Parallax Command Center (`ramiche-site`, `command.parallaxvinc.com/command-center`) is the control plane, and its chat is the human↔agent and agent↔agent interface. It already reads the agent directory, sessions, crons, and runs the orchestrator-worker + critic pipeline. That is the right hub.
+**Yes.** The Parallax Command Center (`command.parallaxvinc.com/command-center`) is the control plane and its chat is the human↔agent / agent↔agent interface. It reads the directory, sessions, crons, and runs the orchestrator-worker + critic pipeline. Right hub.
 
-**The caveat that makes the incident possible:** today the hub is mostly a **dashboard**, not yet a **control plane** over the *production* agent. The screenshot's Atlas runs through the **OpenClaw gateway** (Telegram), and that path bypasses the Command Center's synthesis/critic/strict-delegation — those are env-gated (`OPENCLAW_CHAT_PRIMARY`, `CC_STRICT_DELEGATION`) and largely run against the Claude Max proxy in the web app, not the live worker.
-
-**To make it the true hub, three things must converge there:**
-1. **Authoring** — the QDP routing matrix, DoD checklists, personas (`SOUL.md`), and brand kit are edited and version-controlled *through/alongside* the Command Center (QDP-0/2/3).
-2. **Enforcement on the production path** — the same critic + blocking gate (QDP-4/5) run in the OpenClaw runtime, so Telegram-Atlas obeys the same rules as chat-Atlas.
-3. **Observation** — per-agent scorecards (QDP-6) render in the Command Center so quality is visible and managed, not anecdotal.
+**The caveat that makes the incident possible:** today the hub is a **dashboard**, not yet a **control plane over the production agent**. The screenshot's Atlas runs through the **OpenClaw gateway** (Telegram), bypassing the Command Center's synthesis/critic/gate (env-gated, web-path only). To make it the true hub, three things must converge there:
+1. **Authoring** — brand kit, DoD, personas, routing edited and version-controlled through/alongside the Command Center (QDP-0/1/3).
+2. **Enforcement on the production path** — the artifact gate + S3 interlock (QDP-4/5) run in the OpenClaw runtime, so Telegram-Atlas obeys the same rules as chat-Atlas.
+3. **Observation** — per-agent scorecards (QDP-6) render in the Command Center, tied to a weekly ritual.
 
 ---
 
-## 4. IMPLEMENTATION ROADMAP (file-level)
+## 4. IMPLEMENTATION ROADMAP (reordered: cheap ungameable wins first)
 
-**Phase 0 — Stop the bleed (this week)**
-- `openclaw`: make `verifyDeliverableGate()` **blocking** for S2+ and run it on self-produced deliverables, not just subagent ones (`src/agents/subagent-announce.ts`).
-- Version-control the workspace (`~/.openclaw/workspace/` → git): `SOUL.md`, protocol, `directory.json`, `verify-deliverable.sh`, brand kit. (QDP-0)
-- Move ATLAS → Opus 4.7; move MICHAEL/WIDOW S2 work → Sonnet. (A1/A2)
+**Phase 0 — Cheap, high-value, hard-to-game (this week)**
+- **Inject the brand kit** into context for creative/comms producers (QDP-1). *Highest leverage; would have prevented the incident alone.*
+- **Version-control the workspace** (`~/.openclaw/workspace/` → git): brand kit, `SOUL.md`, protocol, `directory.json`, `verify-deliverable.sh`. (QDP-0)
+- **Re-tier by stakes:** ATLAS → Opus 4.7; MICHAEL/WIDOW S2 work → Sonnet. (A1/A2)
 
-**Phase 1 — Encode the system (1–2 weeks)**
-- Add the **QDP routing matrix** + **classifier** as a versioned module the runtime consults (this PR ships the classifier primitive — see `openclaw/src/agents/quality-delegation-gate.ts`).
-- Promote the chat route's `generateCritique` into a shared runtime primitive (QDP-4) so the OpenClaw path gets the critic pass.
-- Write DoD checklists per deliverable type into `verify-deliverable.sh`. (QDP-3)
+**Phase 1 — Make the bar real on the production path (1–2 weeks)**
+- ✅ **Artifact-inspecting gate shipped** (`openclaw/src/agents/quality-delegation-gate.ts` v2 + `inspectDeliverableArtifacts` in `subagent-announce.ts`): evidence over claims, fail-safe to `review`, independent-review enforced.
+- **Wire `isShippable` as a structural interlock** into the actual send path for S3 (QDP-5) — the open item that turns the advisory directive into a hard stop.
+- **Cover the self-produced path:** run the gate on deliverables Atlas produced itself, not only delegated ones — the exact hole the incident fell through.
+- Promote `generateCritique` to a shared runtime primitive so the OpenClaw path gets the independent critic (QDP-2/3).
 
 **Phase 2 — Close the loop (2–4 weeks)**
-- Extend `subagent-audit.jsonl` with type/owner/reviewer/verdict/rework. (QDP-6)
-- Build the **Agent Scorecard** page in the Command Center (rework rate, gate-pass, critic-revise). Collapse the 3 model sources to `directory.json`. (A5/A6)
-- Resolve role overlaps: split NOVA; lane AETHERION/VEE and SHURI/NOVA/TRIAGE via the matrix. (A3/A4)
+- Extend `subagent-audit.jsonl` with type/owner/reviewer/verdict/rework; build the Command Center scorecard tied to a weekly ritual (QDP-6). Collapse the 3 model sources to `directory.json` (A5/A6).
+- Resolve role overlaps (A3/A4); begin the **Verified-Agent** program so "expertise" stops being persona-only (A7).
 
-**North star:** No S2+ deliverable reaches the operator or a client without (a) the right specialist as Responsible, (b) an independent critic verdict of `approve`, and (c) a passing blocking gate — all logged and visible in the Command Center.
+**North star:** No S2+ deliverable reaches the operator or a client without (a) the right brand context, (b) an artifact that passed the inspection gate, (c) an independent reviewer's approval (human at S3) — all logged and visible in the Command Center, and **with low-stakes work left fast and ungated.**
 
 ---
 
-*This audit is grounded in the current code: `subagent-announce.ts` (verification gate), `runtime-governor-tool-gate.ts` (tool policy), `command-center/chat/route.ts` (synthesis/critic/delegation), `agents/route.ts` + `dashboard-agents.ts` (roster). The single biggest leverage point is QDP-2 (deterministic routing) + QDP-5 (blocking gate) running on the production path — that is what would have caught the swim pitch.*
+## Appendix — First principles, pre-mortem, red team (the reasoning behind Rev 2)
+
+### First principles
+An LLM orchestrator minimizes cost unless the environment makes quality the path of least resistance — that holds. But three Rev 1 premises did not survive scrutiny:
+1. **The incident was quality + context, not delegation.** Brand assets weren't in context and nothing reviewed the artifact. Delegating to a weaker AETHERION could have been *worse*. Delegation is a means to quality, not quality.
+2. **The "team" is largely personas over 2–3 shared models** (A7). "Delegate to the team" buys parallel drafts, not distinct expertise, until verified agents exist.
+3. **Process taxes the speed Ramon needs.** Every gate adds latency and failure surface; a heavy mandatory pipeline gets switched off. Process must be proportional to stakes.
+
+### Pre-mortem (it's 6 months later; QDP failed — why?)
+1. **It made everything slow and got turned off.** *(Mitigation: QDP-2 leaves S0/S1 ungated; cheap input fixes first.)*
+2. **The checks got gamed** — brand words in the reply passed the brand check. *(Mitigation: QDP-4 inspects the artifact, not the reply.)*
+3. **False blocks → alarm fatigue.** *(Mitigation: missing evidence is `review`, not `block`; only inspected negatives block.)*
+4. **Routed to a weaker specialist; quality dropped.** *(Mitigation: QDP-3 delegation is advisory, model-tier-aware.)*
+5. **Config drifted from reality.** *(Mitigation: QDP-0 version control.)*
+6. **Fixed the wrong path** (announce, not the solo/production path). *(Open item: Phase 1 self-produced coverage + send-layer interlock.)*
+7. **Nobody opened the scorecard.** *(Mitigation: QDP-6 tied to a weekly ritual.)*
+
+### Red team (how a motivated agent defeats it)
+- **Keyword-stuffing** → closed by artifact inspection (QDP-4).
+- **Reframe to dodge the classifier** ("internal draft") → partly closed: `inferStakes` now also scans the reply for external/brand markers and fails safe upward.
+- **Bypass the path** (write file + send directly, skipping announce) → **still open**; needs the send-layer interlock (QDP-5) covering all output paths.
+- **Reviewer collusion** (same model rubber-stamps) → mitigated: reviewer == producer is blocked; S3 needs a human. Different-model review is the next hardening.
+- **Verdict laundering** (ignore the prompt directive and report success anyway) → **still open** until `isShippable` is a structural interlock, not advisory text.
+
+**Honest status:** the gaming and false-block holes are closed in code on this branch; the **path-coverage** and **structural-interlock** holes are identified and scheduled (Phase 1), not yet closed.
+
+---
+
+*Grounded in current code: `subagent-announce.ts` (gate integration), `quality-delegation-gate.ts` (evidence-driven policy, v2), `command-center/chat/route.ts` (synthesis/critic), `agents/route.ts` + `dashboard-agents.ts` (roster). Biggest leverage point: QDP-1 (brand context) + QDP-4 (artifact gate) on the production path — that is what would have caught the swim pitch.*
