@@ -43,7 +43,7 @@ The Telegram exchange (swim pitch shipped without Mettle branding) is **not an A
 Six mechanisms, **ordered by leverage-per-cost** — cheap, ungameable input fixes first; heavier process only at high stakes.
 
 ### QDP-1 · Right context, injected (highest leverage, lowest cost)
-The cheapest fix for the incident: **inject the versioned brand kit** (logo paths, palette tokens, type, voice) into the working context of any agent producing `client-facing-creative` or `external-comms`. This is an *input* fix — it cannot be gamed, adds ~no latency, and would have prevented the incident on its own. Requires QDP-0 (brand kit in version control).
+The cheapest fix for the incident: **inject the versioned brand kit** (logo paths, palette tokens, type, voice) into the working context of any agent producing `client-facing-creative` or `external-comms`. This is an *input* fix — it cannot be gamed, adds ~no latency, and would have prevented the incident on its own. ✅ **Mechanism shipped** (`buildSubagentSystemPrompt` in `subagent-announce.ts` reads the workspace brand kit and injects it for creative/comms tasks, degrading gracefully if absent). Still needs the brand kit itself committed via QDP-0, and the same injection on the main-agent (non-subagent) prompt path.
 
 ### QDP-2 · Proportional pre-send bar (stakes-scaled)
 A short, explicit definition-of-done **scaled to stakes**, so speed is preserved where it's cheap:
@@ -71,7 +71,7 @@ The single most important code change, **shipped in this branch** (`openclaw/src
 - The inspector reads the referenced files in `subagent-announce.ts` (`inspectDeliverableArtifacts`) and feeds `ArtifactEvidence` to the pure policy.
 
 ### QDP-5 · Structural interlock at the send layer (S3) — not an advisory prompt
-A verdict that lives only in prompt text can be ignored by the agent summarizing to the operator. So the gate exposes a single boolean — `isShippable(result)` — and the **deliverable/send path must consult it as a hard interlock for S3**: client/legal-facing sends are refused at the channel layer unless the artifact passed. Today the announce flow surfaces a strong directive; the next step is wiring `isShippable` into the actual send path so it's an interlock, not a suggestion. *(Open item — see roadmap Phase 1.)*
+A verdict that lives only in prompt text can be ignored by the agent summarizing to the operator. So the gate exposes a single boolean — `isShippable(result)` — and the **deliverable/send path must consult it as a hard interlock**. ✅ **Shipped (opt-in):** the gate now runs on the main agent's own self-produced replies in the delivery path (`src/commands/agent/delivery.ts`), records every non-pass outcome, and — when `OPENCLAW_QDP_ENFORCE` is set — suppresses external delivery on a `block` verdict. It is opt-in by default so a heuristic gate never silently drops an operator reply. **Remaining:** make enforcement mandatory (not opt-in) for S3 specifically, and cover the non-delivery send paths. *(See roadmap Phase 1.)*
 
 ### QDP-6 · Evidence, scorecard, and a weekly ritual (or it dies)
 - Every S2+ deliverable appends type/owner/reviewer/verdict/rework to `~/.openclaw/workspace/memory/subagent-audit.jsonl` (extends today's log).
@@ -155,15 +155,14 @@ A verdict that lives only in prompt text can be ignored by the agent summarizing
 ## 4. IMPLEMENTATION ROADMAP (reordered: cheap ungameable wins first)
 
 **Phase 0 — Cheap, high-value, hard-to-game (this week)**
-- **Inject the brand kit** into context for creative/comms producers (QDP-1). *Highest leverage; would have prevented the incident alone.*
+- ✅ **Brand-kit injection mechanism shipped** for creative/comms producers (QDP-1); now **commit the brand kit itself** to the workspace so the mechanism has something to inject. *Highest leverage; would have prevented the incident alone.*
 - **Version-control the workspace** (`~/.openclaw/workspace/` → git): brand kit, `SOUL.md`, protocol, `directory.json`, `verify-deliverable.sh`. (QDP-0)
 - **Re-tier by stakes:** ATLAS → Opus 4.7; MICHAEL/WIDOW S2 work → Sonnet. (A1/A2)
 
 **Phase 1 — Make the bar real on the production path (1–2 weeks)**
-- ✅ **Artifact-inspecting gate shipped** (`openclaw/src/agents/quality-delegation-gate.ts` v2 + `inspectDeliverableArtifacts` in `subagent-announce.ts`): evidence over claims, fail-safe to `review`, independent-review enforced.
-- **Wire `isShippable` as a structural interlock** into the actual send path for S3 (QDP-5) — the open item that turns the advisory directive into a hard stop.
-- **Cover the self-produced path:** run the gate on deliverables Atlas produced itself, not only delegated ones — the exact hole the incident fell through.
-- Promote `generateCritique` to a shared runtime primitive so the OpenClaw path gets the independent critic (QDP-2/3).
+- ✅ **Artifact-inspecting gate shipped** (`openclaw/src/agents/quality-delegation-gate.ts` v2 + shared `quality-gate-runtime.ts`): evidence over claims, fail-safe to `review`, independent-review enforced.
+- ✅ **Self-produced path covered** — the gate runs on the main agent's own replies in `src/commands/agent/delivery.ts`, records outcomes, and suppresses delivery on `block` when `OPENCLAW_QDP_ENFORCE` is set. *(This was the exact hole the incident fell through.)*
+- **Make enforcement mandatory for S3** (not opt-in) and inject the brand kit on the main-agent prompt path too; promote `generateCritique` to a shared runtime primitive so the OpenClaw path gets the independent critic (QDP-2/3).
 
 **Phase 2 — Close the loop (2–4 weeks)**
 - Extend `subagent-audit.jsonl` with type/owner/reviewer/verdict/rework; build the Command Center scorecard tied to a weekly ritual (QDP-6). Collapse the 3 model sources to `directory.json` (A5/A6).
@@ -193,11 +192,11 @@ An LLM orchestrator minimizes cost unless the environment makes quality the path
 ### Red team (how a motivated agent defeats it)
 - **Keyword-stuffing** → closed by artifact inspection (QDP-4).
 - **Reframe to dodge the classifier** ("internal draft") → partly closed: `inferStakes` now also scans the reply for external/brand markers and fails safe upward.
-- **Bypass the path** (write file + send directly, skipping announce) → **still open**; needs the send-layer interlock (QDP-5) covering all output paths.
+- **Bypass the path** (main agent does the work itself and replies directly, skipping the subagent announce) → **now gated**: the delivery path runs the gate on self-produced replies. *Still open:* non-delivery send paths and making suppression default-on for S3.
 - **Reviewer collusion** (same model rubber-stamps) → mitigated: reviewer == producer is blocked; S3 needs a human. Different-model review is the next hardening.
-- **Verdict laundering** (ignore the prompt directive and report success anyway) → **still open** until `isShippable` is a structural interlock, not advisory text.
+- **Verdict laundering** (ignore the prompt directive and report success anyway) → **partially closed**: `isShippable` is now a real interlock on the delivery path under `OPENCLAW_QDP_ENFORCE`; closing it fully means making that enforcement mandatory at S3 rather than opt-in.
 
-**Honest status:** the gaming and false-block holes are closed in code on this branch; the **path-coverage** and **structural-interlock** holes are identified and scheduled (Phase 1), not yet closed.
+**Honest status:** the gaming, false-block, and main-agent path-coverage holes are closed in code on this branch (enforcement opt-in via `OPENCLAW_QDP_ENFORCE`). Remaining: make S3 enforcement mandatory, cover non-delivery send paths, and commit the brand kit so QDP-1 has content to inject.
 
 ---
 
