@@ -71,7 +71,7 @@ The single most important code change, **shipped in this branch** (`openclaw/src
 - The inspector reads the referenced files in `subagent-announce.ts` (`inspectDeliverableArtifacts`) and feeds `ArtifactEvidence` to the pure policy.
 
 ### QDP-5 · Structural interlock at the send layer (S3) — not an advisory prompt
-A verdict that lives only in prompt text can be ignored by the agent summarizing to the operator. So the gate exposes a single boolean — `isShippable(result)` — and the **deliverable/send path must consult it as a hard interlock**. ✅ **Shipped (opt-in):** the gate now runs on the main agent's own self-produced replies in the delivery path (`src/commands/agent/delivery.ts`), records every non-pass outcome, and — when `OPENCLAW_QDP_ENFORCE` is set — suppresses external delivery on a `block` verdict. It is opt-in by default so a heuristic gate never silently drops an operator reply. **Remaining:** make enforcement mandatory (not opt-in) for S3 specifically, and cover the non-delivery send paths. *(See roadmap Phase 1.)*
+A verdict that lives only in prompt text can be ignored by the agent summarizing to the operator. So the gate exposes a single boolean — `isShippable(result)` — and the **deliverable/send path consults it as a hard interlock**. ✅ **Shipped:** the gate runs on the main agent's own self-produced replies in the delivery path (`src/commands/agent/delivery.ts`) and records every non-pass outcome. Suppression is **tiered by stakes**: an **S3 (legal/financial/safety) block is held by default** — mandatory, no flag needed, since that class must never auto-ship a failed artifact; lower-stakes blocks are held only when `OPENCLAW_QDP_ENFORCE` is on; and `OPENCLAW_QDP_ENFORCE=off` disables all suppression as an escape hatch for a misfiring heuristic. (In practice an S3 block only fires on an *inspected* negative — placeholder or brand-absent in a real file — so mandatory suppression there is low false-positive risk.) **Remaining:** cover the non-delivery send paths.
 
 ### QDP-6 · Evidence, scorecard, and a weekly ritual (or it dies)
 - Every S2+ deliverable appends type/owner/reviewer/verdict/rework to `~/.openclaw/workspace/memory/subagent-audit.jsonl` (extends today's log).
@@ -161,8 +161,9 @@ A verdict that lives only in prompt text can be ignored by the agent summarizing
 
 **Phase 1 — Make the bar real on the production path (1–2 weeks)**
 - ✅ **Artifact-inspecting gate shipped** (`openclaw/src/agents/quality-delegation-gate.ts` v2 + shared `quality-gate-runtime.ts`): evidence over claims, fail-safe to `review`, independent-review enforced.
-- ✅ **Self-produced path covered** — the gate runs on the main agent's own replies in `src/commands/agent/delivery.ts`, records outcomes, and suppresses delivery on `block` when `OPENCLAW_QDP_ENFORCE` is set. *(This was the exact hole the incident fell through.)*
-- **Make enforcement mandatory for S3** (not opt-in) and inject the brand kit on the main-agent prompt path too; promote `generateCritique` to a shared runtime primitive so the OpenClaw path gets the independent critic (QDP-2/3).
+- ✅ **Self-produced path covered** — the gate runs on the main agent's own replies in `src/commands/agent/delivery.ts`, records outcomes, and suppresses delivery on a `block`. *(This was the exact hole the incident fell through.)*
+- ✅ **S3 enforcement is mandatory** — an S3 block is held by default (no flag); lower-stakes blocks stay opt-in via `OPENCLAW_QDP_ENFORCE`; `=off` is the escape hatch.
+- **Remaining:** inject the brand kit on the main-agent prompt path too, cover non-delivery send paths, and promote `generateCritique` to a shared runtime primitive so the OpenClaw path gets the independent critic (QDP-2/3).
 
 **Phase 2 — Close the loop (2–4 weeks)**
 - Extend `subagent-audit.jsonl` with type/owner/reviewer/verdict/rework; build the Command Center scorecard tied to a weekly ritual (QDP-6). Collapse the 3 model sources to `directory.json` (A5/A6).
@@ -194,9 +195,9 @@ An LLM orchestrator minimizes cost unless the environment makes quality the path
 - **Reframe to dodge the classifier** ("internal draft") → partly closed: `inferStakes` now also scans the reply for external/brand markers and fails safe upward.
 - **Bypass the path** (main agent does the work itself and replies directly, skipping the subagent announce) → **now gated**: the delivery path runs the gate on self-produced replies. *Still open:* non-delivery send paths and making suppression default-on for S3.
 - **Reviewer collusion** (same model rubber-stamps) → mitigated: reviewer == producer is blocked; S3 needs a human. Different-model review is the next hardening.
-- **Verdict laundering** (ignore the prompt directive and report success anyway) → **partially closed**: `isShippable` is now a real interlock on the delivery path under `OPENCLAW_QDP_ENFORCE`; closing it fully means making that enforcement mandatory at S3 rather than opt-in.
+- **Verdict laundering** (ignore the prompt directive and report success anyway) → **closed at S3**: an S3 block is a mandatory hard interlock on the delivery path (the agent cannot launder past it); lower stakes remain opt-in via `OPENCLAW_QDP_ENFORCE` by design, to avoid a heuristic gate dropping ordinary replies.
 
-**Honest status:** the gaming, false-block, and main-agent path-coverage holes are closed in code on this branch (enforcement opt-in via `OPENCLAW_QDP_ENFORCE`). Remaining: make S3 enforcement mandatory, cover non-delivery send paths, and commit the brand kit so QDP-1 has content to inject.
+**Honest status:** the gaming, false-block, main-agent path-coverage, and S3-laundering holes are closed in code on this branch. Remaining: cover non-delivery send paths, inject the brand kit on the main-agent prompt path, and commit an actual brand kit so QDP-1 has content to inject.
 
 ---
 
