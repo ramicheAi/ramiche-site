@@ -38,6 +38,9 @@ const TEAM = [
 export default function SalesPage() {
   const [agents, setAgents] = useState<AgentStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  // Live pipeline leads from the DB-backed API; null until loaded / on failure
+  // we fall back to the static seed file so the page is never empty.
+  const [dbLeads, setDbLeads] = useState<PipelineLead[] | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -48,11 +51,32 @@ export default function SalesPage() {
       }
     } catch { /* keep existing */ }
     finally { setLoading(false); }
+
+    try {
+      const pres = await fetch("/api/command-center/pipeline/leads?limit=500");
+      if (pres.ok) {
+        const pdata = await pres.json();
+        const rows = Array.isArray(pdata.leads) ? pdata.leads : [];
+        if (rows.length > 0) {
+          setDbLeads(rows.map((r: Record<string, unknown>): PipelineLead => ({
+            id: String(r.id),
+            name: String(r.name ?? ""),
+            company: String(r.company ?? ""),
+            product: String(r.product ?? ""),
+            stage: String(r.stage ?? "lead"),
+            value: Number(r.value) || 0,
+            lastContact: String(r.last_contact ?? r.updated_at ?? "").slice(0, 10),
+            notes: String(r.notes ?? ""),
+          })));
+        }
+      }
+    } catch { /* fall back to seed */ }
   }, []);
 
   useEffect(() => { fetchData(); const i = setInterval(fetchData, 30_000); return () => clearInterval(i); }, [fetchData]);
 
-  const leads: PipelineLead[] = pipelineData;
+  // Live data when present, otherwise the static seed.
+  const leads: PipelineLead[] = dbLeads && dbLeads.length > 0 ? dbLeads : pipelineData;
   const stageCounts = leads.reduce<Record<string, number>>((acc, lead) => { acc[lead.stage] = (acc[lead.stage] || 0) + 1; return acc; }, {});
   const totalPipelineValue = leads.reduce((sum, l) => sum + l.value, 0);
 
@@ -186,9 +210,9 @@ export default function SalesPage() {
         <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", marginBottom: 16, marginTop: 32, textTransform: "uppercase" }}>Sales Intelligence Tools</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {[
-            { name: "APEX Sales Dashboard", desc: "Lead scoring, email sequences, pipeline projection for METTLE sales", url: "/yolo-builds/2026-03-14-apex-sales-dashboard/index.html", accent: "#C9A84C" },
-            { name: "ROI Calculator", desc: "Enterprise ROI calculator for Verified Agent Business — 5 verticals", url: "/yolo-builds/2026-03-13-verified-agent-roi-calculator/index.html", accent: "#22d3ee" },
-            { name: "Margin Simulator", desc: "Interactive pricing and margin simulator — MRR, token costs, break-even", url: "/yolo-builds/2026-03-14-agent-margin-simulator/index.html", accent: "#a855f7" },
+            { name: "APEX Sales Dashboard", desc: "Lead scoring, email sequences, pipeline projection for METTLE sales", url: "/api/command-center/yolo-builds/preview/2026-03-14-apex-sales-dashboard/index.html", accent: "#C9A84C" },
+            { name: "ROI Calculator", desc: "Enterprise ROI calculator for Verified Agent Business — 5 verticals", url: "/api/command-center/yolo-builds/preview/2026-03-13-verified-agent-roi-calculator/index.html", accent: "#22d3ee" },
+            { name: "Margin Simulator", desc: "Interactive pricing and margin simulator — MRR, token costs, break-even", url: "/api/command-center/yolo-builds/preview/2026-03-14-agent-margin-simulator/index.html", accent: "#a855f7" },
           ].map((tool) => (
             <div key={tool.name} className="rounded-xl border-2 p-5 transition-all hover:scale-[1.02]" style={{ borderColor: `${tool.accent}33`, background: `${tool.accent}08` }}>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: "rgba(255,255,255,0.9)", marginBottom: 4, marginTop: 0 }}>{tool.name}</h4>

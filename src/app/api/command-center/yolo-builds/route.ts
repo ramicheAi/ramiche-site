@@ -78,6 +78,19 @@ function manifestRowToBuild(row: Record<string, unknown>): BuildMeta | null {
   };
 }
 
+// Sort: viewable builds (have index.html) first, then newest date first, with
+// undated / non-date folders pushed to the bottom — so the broken ones never sit
+// at the top of the list and 404 when clicked.
+function sortBuilds(a: BuildMeta, b: BuildMeta): number {
+  const av = a.files.includes("index.html") ? 0 : 1;
+  const bv = b.files.includes("index.html") ? 0 : 1;
+  if (av !== bv) return av - bv;
+  const ad = /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : "0000-00-00";
+  const bd = /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : "0000-00-00";
+  if (ad !== bd) return bd.localeCompare(ad);
+  return b.folder.localeCompare(a.folder);
+}
+
 function loadBuildsFromDir(buildsDir: string): BuildMeta[] {
   if (!existsSync(buildsDir)) return [];
 
@@ -131,7 +144,7 @@ function loadBuildsFromDir(buildsDir: string): BuildMeta[] {
     }
   }
 
-  builds.sort((a, b) => b.date.localeCompare(a.date) || b.folder.localeCompare(a.folder));
+  builds.sort(sortBuilds);
   return builds;
 }
 
@@ -160,7 +173,7 @@ export async function GET() {
       }
     }
 
-    builds.sort((a, b) => b.date.localeCompare(a.date) || b.folder.localeCompare(a.folder));
+    builds.sort(sortBuilds);
 
     return NextResponse.json(builds, { headers: { "X-CC-YOLO-Source": source } });
   } catch {

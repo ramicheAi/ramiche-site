@@ -8,7 +8,7 @@ export default function NexusPage() {
   useEffect(() => {
     let cancelled = false;
     // Load the Nexus Experiment Lab as embedded HTML
-    fetch("/yolo-builds/2026-03-18-proximon-nexus-experiment-lab/index.html")
+    fetch("/api/command-center/yolo-builds/preview/2026-03-18-proximon-nexus-experiment-lab/index.html")
       .then((r) => r.text())
       .then((html) => {
         if (cancelled) return;

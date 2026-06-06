@@ -126,7 +126,16 @@ export default function YoloBuildsPage() {
           score: (fs?.score ?? b.score) as number | undefined,
         };
       });
-      enriched.sort((a, b) => b.date.localeCompare(a.date));
+      // Viewable builds (status !== 'failed' → have index.html) first, newest first,
+      // undated/broken last — so the top of the grid is never a build that 404s on click.
+      enriched.sort((a, b) => {
+        const av = a.status === "failed" ? 1 : 0;
+        const bv = b.status === "failed" ? 1 : 0;
+        if (av !== bv) return av - bv;
+        const ad = /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : "0000-00-00";
+        const bd = /^\d{4}-\d{2}-\d{2}$/.test(b.date) ? b.date : "0000-00-00";
+        return bd.localeCompare(ad);
+      });
       setBuilds(enriched);
     }
     loadBuilds();
@@ -356,23 +365,33 @@ export default function YoloBuildsPage() {
                   <span className="text-xs text-white/30">{build.date}</span>
                 </div>
 
-                {/* Name */}
-                <a
-                  href={`/api/command-center/yolo-builds/preview/${build.folder}/index.html`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group"
-                >
+                {/* Name — only link when the build is viewable (has index.html). */}
+                {build.status === "failed" ? (
                   <h3
-                    className="text-sm font-bold leading-tight group-hover:underline"
-                    style={{
-                      color: isRejected ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.9)",
-                      textDecoration: isRejected ? "line-through" : "none",
-                    }}
+                    className="text-sm font-bold leading-tight"
+                    title="No preview available — this build has no index.html"
+                    style={{ color: "rgba(255,255,255,0.4)", textDecoration: isRejected ? "line-through" : "none" }}
                   >
-                    {build.name}
+                    {build.name} <span className="text-[10px] font-normal text-white/25">(no preview)</span>
                   </h3>
-                </a>
+                ) : (
+                  <a
+                    href={`/api/command-center/yolo-builds/preview/${build.folder}/index.html`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group"
+                  >
+                    <h3
+                      className="text-sm font-bold leading-tight group-hover:underline"
+                      style={{
+                        color: isRejected ? "rgba(255,255,255,0.4)" : "rgba(255,255,255,0.9)",
+                        textDecoration: isRejected ? "line-through" : "none",
+                      }}
+                    >
+                      {build.name}
+                    </h3>
+                  </a>
+                )}
 
                 {/* Idea */}
                 <p className="text-xs text-white/50 line-clamp-3">{build.idea}</p>

@@ -40,6 +40,7 @@ export default function SalesProposalsPage() {
   const [discount, setDiscount] = useState(0)
   const [customNote, setCustomNote] = useState('')
   const [generated, setGenerated] = useState(false)
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
   const tier = TIERS[recTier]
   const discountedPrice = Math.round(tier.price * (1 - discount / 100))
@@ -82,6 +83,43 @@ export default function SalesProposalsPage() {
 
   const copyLeadJson = () => {
     navigator.clipboard.writeText(JSON.stringify(leadData, null, 2))
+  }
+
+  const saveToPipeline = async () => {
+    if (!teamName && !contactEmail) { setSaveState('error'); return }
+    setSaveState('saving')
+    try {
+      const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      const res = await fetch('/api/command-center/pipeline/proposals', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          product: 'METTLE',
+          tier: tier.name,
+          monthly_price: discountedPrice,
+          discount_pct: discount,
+          projected_roi_pct: roi.roi,
+          annual_value: roi.totalValue,
+          valid_until: validUntil,
+          status: 'sent',
+          // lead fields (endpoint creates + links the lead, advances stage to 'proposal')
+          contact_name: contactName,
+          company: teamName,
+          contact_email: contactEmail,
+          contact_title: contactTitle,
+          source: 'proposal-generator',
+          owner: 'mercury',
+          meta: {
+            athleteCount, teamType: TEAM_TYPES[teamType], currentSpend, churnRate,
+            painPoints: painPoints.split(/[,\n]/).map(p => p.trim()).filter(Boolean),
+          },
+          terms: leadData,
+        }),
+      })
+      setSaveState(res.ok ? 'saved' : 'error')
+    } catch {
+      setSaveState('error')
+    }
   }
 
   const inputStyle = {
@@ -204,6 +242,15 @@ export default function SalesProposalsPage() {
                   background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid #C9A84C40',
                 }}>Copy Lead JSON</button>
               </div>
+              <button onClick={saveToPipeline} disabled={saveState === 'saving' || saveState === 'saved'} style={{
+                width: '100%', marginTop: 12, padding: '12px 0', fontSize: 14, fontWeight: 700, borderRadius: 6,
+                cursor: saveState === 'saving' || saveState === 'saved' ? 'default' : 'pointer',
+                border: '1px solid #22c55e55',
+                background: saveState === 'saved' ? 'rgba(34,197,94,0.15)' : saveState === 'error' ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.10)',
+                color: saveState === 'error' ? '#ef4444' : '#22c55e',
+              }}>
+                {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? '✓ Saved to Pipeline' : saveState === 'error' ? 'Save failed — retry' : 'Save to Pipeline'}
+              </button>
             </div>
 
             {/* Lead JSON */}
