@@ -14,6 +14,7 @@ const sections = [
     label: 'OPERATIONS',
     items: [
       { href: '/command-center', label: 'Dashboard', icon: '◇', accent: '#C9A84C' },
+      { href: '/command-center/jobs', label: 'Jobs', icon: '⚡', accent: '#7c3aed' },
       { href: '/command-center/chat', label: 'Chat', icon: '◈', accent: '#7c3aed' },
       { href: '/command-center/gallery', label: 'Gallery', icon: '▦', accent: '#ec4899' },
       { href: '/command-center/agents', label: 'Agents', icon: '✦', accent: '#34d399' },

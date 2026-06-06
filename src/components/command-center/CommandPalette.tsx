@@ -52,6 +52,7 @@ type PaletteEntry = RouteEntry | AgentEntry | ActionEntry | GlobalEntry;
 
 const ROUTES: RouteEntry[] = [
   { kind: "route", id: "dashboard", label: "Dashboard", hint: "Mission control", icon: "◇", accent: TOKENS.gold, href: "/command-center", keywords: "home" },
+  { kind: "route", id: "jobs", label: "Jobs", hint: "Live run feed", icon: "⚡", accent: TOKENS.purple, href: "/command-center/jobs", keywords: "runs tasks dispatch fleet" },
   { kind: "route", id: "chat", label: "Chat", hint: "All channels + DMs", icon: "◈", accent: TOKENS.purple, href: "/command-center/chat" },
   { kind: "route", id: "agents", label: "Agents", hint: "Roster + models", icon: "✦", accent: "#34d399", href: "/command-center/agents" },
   { kind: "route", id: "tasks", label: "Tasks", hint: "Kanban board", icon: "▣", accent: "#f59e0b", href: "/command-center/tasks" },
@@ -185,6 +186,24 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
     [actions]
   );
 
+  // Dispatch the typed instruction to the fleet as a tracked Job, then jump to
+  // the live Jobs feed to watch it run. This is what turns the command bar from
+  // a launcher into a control surface.
+  const dispatchJob = useCallback(
+    (instruction: string) => {
+      const title = instruction.trim();
+      if (!title) return;
+      onClose();
+      void fetch("/api/command-center/jobs", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title, kind: "generic", source: "command-bar" }),
+      }).catch(() => {});
+      router.push("/command-center/jobs");
+    },
+    [onClose, router]
+  );
+
   const global = useGlobalSearch(query, open);
 
   const globalEntries: GlobalEntry[] = useMemo(
@@ -218,8 +237,18 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       .sort((a, b) => b.s - a.s || a.e.label.localeCompare(b.e.label))
       .slice(0, 16)
       .map((r) => r.e);
-    return [...localTop, ...globalEntries];
-  }, [allEntries, actions, globalEntries, query]);
+    // Top entry: dispatch the typed instruction to the fleet as a Job.
+    const dispatch: ActionEntry = {
+      kind: "action",
+      id: "action:dispatch",
+      label: `Run as Job: "${q.length > 48 ? q.slice(0, 48) + "…" : q}"`,
+      hint: "Dispatch to the fleet → watch it run",
+      icon: "⚡",
+      accent: TOKENS.gold,
+      action: () => dispatchJob(q),
+    };
+    return [dispatch, ...localTop, ...globalEntries];
+  }, [allEntries, actions, globalEntries, query, dispatchJob]);
 
   const execute = useCallback(
     (entry: PaletteEntry) => {
