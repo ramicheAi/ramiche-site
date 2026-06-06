@@ -64,6 +64,16 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // command.parallaxvinc.com (or any command.* host) root → Command Center.
+  // The Cloudflare tunnel forwards the original host (sometimes via
+  // x-forwarded-host); we rebuild the redirect on that host so the user stays
+  // on their domain instead of bouncing to localhost.
+  const fwdHost = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
+  if (pathname === "/" && fwdHost.startsWith("command.")) {
+    const proto = req.headers.get("x-forwarded-proto") || "https";
+    return NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
+  }
+
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
@@ -80,6 +90,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/coach",
     "/coach/:path*",
     "/athlete",
