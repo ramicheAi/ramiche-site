@@ -81,6 +81,7 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "content", label: "Content", icon: "✒", accent: "#c084fc", href: "/command-center/content" },
   { kind: "route", id: "studio", label: "Studio", icon: "♫", accent: "#f59e0b", href: "/command-center/studio" },
   { kind: "route", id: "app-builder", label: "App Builder", icon: "▣", accent: TOKENS.cyan, href: "/command-center/app-builder" },
+  { kind: "route", id: "builder", label: "Builder", hint: "Dispatch dev/design to Claude Code", icon: "⚒", accent: TOKENS.cyan, href: "/command-center/builder", keywords: "dev design code claude build" },
   { kind: "route", id: "wellness", label: "Wellness", icon: "◈", accent: "#10b981", href: "/command-center/wellness" },
   { kind: "route", id: "fabrication", label: "Fabrication", hint: "NOVA + Bambu", icon: "⚡", accent: "#14b8a6", href: "/command-center/fabrication" },
   { kind: "route", id: "yolo", label: "YOLO Builds", icon: "⚡", accent: "#f59e0b", href: "/command-center/yolo" },

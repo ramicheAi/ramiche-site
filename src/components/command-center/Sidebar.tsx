@@ -49,6 +49,7 @@ const sections = [
       { href: '/command-center/content', label: 'Content', icon: '✒', accent: '#c084fc' },
       { href: '/command-center/studio', label: 'Studio', icon: '♫', accent: '#f59e0b' },
       { href: '/command-center/app-builder', label: 'App Builder', icon: '▣', accent: '#00f0ff' },
+      { href: '/command-center/builder', label: 'Builder', icon: '⚒', accent: '#00f0ff' },
     ],
   },
   {

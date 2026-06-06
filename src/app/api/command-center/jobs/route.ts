@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -7,6 +9,19 @@ import { parseBody, sanitize, badRequest } from "@/lib/api-security";
 export const dynamic = "force-dynamic";
 
 const KINDS = ["generic", "dev", "design", "prospect", "outreach", "content", "analysis"] as const;
+
+// dev/design jobs run tool-enabled Claude Code with skipped permissions, so the
+// working directory is allowlisted (same guardrail as the OpenClaw builder).
+const BUILDER_ROOTS = (process.env.CC_BUILDER_ROOTS || "/Users/admin/ramiche-site,/Users/admin/mettle")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
+function withinAllowedRoot(dir: string): boolean {
+  const t = path.resolve(dir);
+  return BUILDER_ROOTS.some((root) => {
+    const r = path.resolve(root);
+    return t === r || t.startsWith(r + path.sep);
+  });
+}
 
 function svc() {
   const db = getSupabaseAdmin();
@@ -42,6 +57,15 @@ export async function POST(req: Request) {
   const title = sanitize(body.title, 500);
   if (!title) return badRequest("title required");
   const kind = (typeof body.kind === "string" && (KINDS as readonly string[]).includes(body.kind) ? body.kind : "generic") as string;
+
+  // Guardrail: dev/design jobs must target an allowlisted working directory.
+  if (kind === "dev" || kind === "design") {
+    const wd = typeof (body.input as { workingDir?: unknown })?.workingDir === "string"
+      ? ((body.input as { workingDir: string }).workingDir)
+      : "";
+    if (!wd || !path.isAbsolute(wd)) return badRequest("dev/design jobs require an absolute workingDir");
+    if (!withinAllowedRoot(wd)) return badRequest(`workingDir is outside allowed roots (${BUILDER_ROOTS.join(", ")})`);
+  }
 
   const row = {
     title,
