@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+
+import { play, initSoundPref, isSoundEnabled, setSoundEnabled } from "@/lib/cc-sounds";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    JOBS — the live run feed. Every action in the Command Center is a tracked Job:
@@ -46,18 +48,36 @@ export default function JobsPage() {
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState("generic");
   const [busy, setBusy] = useState(false);
+  const [soundOn, setSoundOn] = useState(true);
+  const prevStatus = useRef<Record<string, string>>({});
+  const seeded = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/command-center/jobs?limit=80", { cache: "no-store" });
       if (res.ok) {
         const d = await res.json();
-        setJobs(Array.isArray(d.jobs) ? d.jobs : []);
+        const next: Job[] = Array.isArray(d.jobs) ? d.jobs : [];
+        // Play a cue when a job transitions to done/failed (skip first load).
+        if (seeded.current) {
+          for (const j of next) {
+            const was = prevStatus.current[j.id];
+            if (was && was !== j.status) {
+              if (j.status === "done") play("success");
+              else if (j.status === "failed") play("alert");
+            }
+          }
+        }
+        for (const j of next) prevStatus.current[j.id] = j.status;
+        seeded.current = true;
+        setJobs(next);
       }
     } catch { /* keep */ }
   }, []);
 
   useEffect(() => {
+    initSoundPref();
+    setSoundOn(isSoundEnabled());
     load();
     const i = setInterval(load, 2500);
     return () => clearInterval(i);
@@ -67,6 +87,7 @@ export default function JobsPage() {
     const t = title.trim();
     if (!t || busy) return;
     setBusy(true);
+    play("dispatch");
     try {
       await fetch("/api/command-center/jobs", {
         method: "POST",
@@ -101,6 +122,11 @@ export default function JobsPage() {
           <span style={{ fontSize: 12, color: "#22c55e", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", display: "inline-block" }} /> LIVE · auto-refresh
           </span>
+          <button
+            onClick={() => { const n = !soundOn; setSoundOn(n); setSoundEnabled(n); }}
+            title={soundOn ? "Mute cues" : "Enable cues"}
+            style={{ marginLeft: "auto", padding: "5px 11px", fontSize: 12, borderRadius: 7, cursor: "pointer", background: "transparent", color: soundOn ? "#a855f7" : "#52525b", border: `1px solid ${soundOn ? "rgba(124,58,237,0.35)" : "#27272a"}` }}
+          >{soundOn ? "🔊 cues on" : "🔇 cues off"}</button>
         </div>
         <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>Everything in motion. Dispatch work to the fleet and watch it run end to end.</p>
 
