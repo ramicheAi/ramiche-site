@@ -72,6 +72,7 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "arbitrage", label: "Arbitrage Calc", icon: "△", accent: "#fcd34d", href: "/command-center/finance/arbitrage" },
   { kind: "route", id: "revenue", label: "Revenue", hint: "Stripe MRR / payouts", icon: "◇", accent: "#d97706", href: "/command-center/revenue" },
   { kind: "route", id: "sales", label: "Sales", icon: "◉", accent: "#f59e0b", href: "/command-center/sales" },
+  { kind: "route", id: "prospector", label: "Prospector", hint: "Find businesses worldwide → pipeline", icon: "🌐", accent: "#22c55e", href: "/command-center/prospector", keywords: "leads business search nationwide overseas places osm" },
   { kind: "route", id: "proposals", label: "Proposals", icon: "▷", accent: "#f59e0b", href: "/command-center/sales/proposals" },
   { kind: "route", id: "pricing", label: "Pricing", icon: "◎", accent: "#f59e0b", href: "/command-center/sales/pricing" },
   { kind: "route", id: "agent-pricing", label: "Agent Pricing", icon: "◇", accent: "#f59e0b", href: "/command-center/sales/agent-pricing" },
