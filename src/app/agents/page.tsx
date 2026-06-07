@@ -312,7 +312,7 @@ export default function AgentsMarketplace() {
             PARALLAX
           </span>
           <a
-            href="mailto:hello@parallax.so?subject=Agent%20Marketplace%20Inquiry"
+            href="mailto:parallaxventuresinc@gmail.com?subject=Agent%20Marketplace%20Inquiry"
             style={{ fontSize: 12, color: "#00f0ff", textDecoration: "none", fontWeight: 600, letterSpacing: "0.05em" }}
           >
             CONTACT US
@@ -557,7 +557,7 @@ export default function AgentsMarketplace() {
                 Enterprise pricing, custom agent development, or consulting — reach out and we&apos;ll scope it together.
               </p>
               <a
-                href="mailto:hello@parallax.so?subject=White-Label%20Agent%20Inquiry"
+                href="mailto:parallaxventuresinc@gmail.com?subject=White-Label%20Agent%20Inquiry"
                 style={{
                   display: "inline-block",
                   padding: "12px 32px",
@@ -638,7 +638,7 @@ export default function AgentsMarketplace() {
             Browse Bundles
           </button>
           <a
-            href="mailto:hello@parallax.so?subject=Agent%20Marketplace%20Inquiry"
+            href="mailto:parallaxventuresinc@gmail.com?subject=Agent%20Marketplace%20Inquiry"
             style={{ padding: "16px 40px", background: "transparent", color: "#00f0ff", border: "1px solid rgba(0,240,255,0.3)", borderRadius: 12, fontSize: 16, fontWeight: 700, textDecoration: "none", cursor: "pointer" }}
           >
             Schedule a Demo

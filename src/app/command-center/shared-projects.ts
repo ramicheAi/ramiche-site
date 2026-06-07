@@ -247,7 +247,7 @@ export const PROJECTS: SharedProject[] = [
       { t: "Course map", done: false },
     ],
     blockers: ["Waiting on Jesse for waiver, photos, social links"],
-    link: { label: "Open Site", href: "https://power-challenge.vercel.app" },
+    link: { label: "Open Site", href: "https://powerchallenge.org" },
   },
   {
     name: "Verified Agents",

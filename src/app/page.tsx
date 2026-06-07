@@ -87,7 +87,7 @@ const TIERS = [
       "Monthly retainer with SLA",
     ],
     cta: "Contact Us",
-    href: "mailto:hello@ramiche.com",
+    href: "mailto:parallaxventuresinc@gmail.com",
   },
 ];
 

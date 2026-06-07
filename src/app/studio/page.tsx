@@ -1024,8 +1024,8 @@ export default function StudioPage() {
                 Instagram
               </a>
               <span className="text-white/10 text-[6px]">{"\u25C6"}</span>
-              <a href="mailto:studio@parallax.com" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
-                studio@parallax.com
+              <a href="mailto:parallaxventuresinc@gmail.com" className="text-white/20 text-xs font-mono hover:text-white/40 transition-colors">
+                parallaxventuresinc@gmail.com
               </a>
             </div>
           </div>
