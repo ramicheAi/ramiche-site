@@ -4,8 +4,27 @@
 // businesses (the web-dev-outreach target).
 
 const UA = "ParallaxCommandCenter/1.0 (business prospecting; contact ramon)";
-const OVERPASS = "https://overpass-api.de/api/interpreter";
+// Overpass mirrors — tried in order so one overloaded host can't sink a search.
+const OVERPASS_MIRRORS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://maps.mail.ru/osm/tools/overpass/api/interpreter",
+];
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+
+/** fetch with a hard client-side timeout so a slow/hung public API can never wedge the server. */
+async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") throw new Error("Search timed out — try a narrower location.");
+    throw e;
+  } finally {
+    clearTimeout(t);
+  }
+}
 
 // Curated categories → OSM tag filters. Covers the verticals in the
 // web-dev-outreach game plan plus common local-business types worldwide.
@@ -44,9 +63,10 @@ export interface GeoArea {
 
 export async function geocode(location: string): Promise<GeoArea | null> {
   const url = `${NOMINATIM}?q=${encodeURIComponent(location)}&format=json&limit=1`;
-  const res = await fetch(url, { headers: { "User-Agent": UA } });
+  const res = await fetchWithTimeout(url, { headers: { "User-Agent": UA } }, 12_000);
   if (!res.ok) return null;
-  const data = (await res.json()) as Array<{ display_name: string; boundingbox: string[] }>;
+  let data: Array<{ display_name: string; boundingbox: string[] }>;
+  try { data = (await res.json()) as Array<{ display_name: string; boundingbox: string[] }>; } catch { return null; }
   if (!data?.length) return null;
   const bb = data[0].boundingbox.map(Number); // [south, north, west, east]
   return { displayName: data[0].display_name, bbox: [bb[0], bb[2], bb[1], bb[3]] };
@@ -74,13 +94,21 @@ export async function searchBusinesses(
   // nwr = node/way/relation; "out center tags" gives a point for areas too.
   const q = `[out:json][timeout:25];nwr${cat.filter}(${s},${w},${n},${e});out center tags ${limit * 2};`;
 
-  const res = await fetch(OVERPASS, {
-    method: "POST",
-    headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
-    body: `data=${encodeURIComponent(q)}`,
-  });
-  if (!res.ok) throw new Error(`Overpass HTTP ${res.status} — try a narrower location`);
-  const data = (await res.json()) as { elements?: Array<{ type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }> };
+  // Try each Overpass mirror with a hard timeout; first one that returns valid JSON wins.
+  let data: { elements?: Array<{ type: string; id: number; lat?: number; lon?: number; center?: { lat: number; lon: number }; tags?: Record<string, string> }> } | null = null;
+  let lastErr = "";
+  for (const mirror of OVERPASS_MIRRORS) {
+    try {
+      const res = await fetchWithTimeout(mirror, {
+        method: "POST",
+        headers: { "User-Agent": UA, "Content-Type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(q)}`,
+      }, 30_000);
+      if (!res.ok) { lastErr = `Overpass HTTP ${res.status}`; continue; }
+      try { data = await res.json(); break; } catch { lastErr = "Overpass returned a non-JSON response (overloaded)"; continue; }
+    } catch (e) { lastErr = e instanceof Error ? e.message : "request failed"; continue; }
+  }
+  if (!data) throw new Error(`${lastErr || "Search failed"} — try a narrower location or a different category.`);
 
   const out: ProspectResult[] = [];
   for (const el of data.elements ?? []) {
