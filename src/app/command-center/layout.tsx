@@ -22,6 +22,7 @@ import { BriefingDock } from '@/components/command-center/BriefingDock';
 import { PulseDock } from '@/components/command-center/PulseDock';
 import { PushToast } from '@/components/command-center/PushToast';
 import AlertTicker from '@/components/command-center/AlertTicker';
+import AlertMonitor from '@/components/command-center/po/AlertMonitor';
 import Boot from '@/components/command-center/Boot';
 import { initPoSound } from '@/lib/po-sound';
 import { useBriefing } from '@/hooks/useBriefing';
@@ -519,6 +520,7 @@ function Cockpit({
         pulse={pulse}
       />
       <AlertTicker />
+      <AlertMonitor />
       <BriefingDock briefingState={briefingState} />
       <PulseDock open={pulseOpen} pulse={pulse} onClose={() => setPulseOpen(false)} />
       <PushToast />
