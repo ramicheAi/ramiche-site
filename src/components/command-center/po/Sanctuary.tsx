@@ -42,8 +42,10 @@ async function loadStats(signal: AbortSignal): Promise<Partial<Stats>> {
   ]);
   if (agents?.agents?.length) {
     const list = agents.agents as { status?: string }[];
+    const online = ['active', 'busy', 'online', 'working'];
     out.agentsTotal = list.length;
-    out.agentsOnline = list.filter((a) => a.status && a.status !== 'offline').length;
+    // "online" = actively engaged (matches the HUD readout's semantics)
+    out.agentsOnline = list.filter((a) => online.includes((a.status ?? '').toLowerCase())).length;
   }
   if (jobs?.jobs) {
     const active = ['running', 'queued', 'active', 'in_progress', 'pending', 'working'];

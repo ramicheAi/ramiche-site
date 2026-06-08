@@ -2,7 +2,9 @@
    PARALLAX OS — page surfaces: Agents · Observatory · Finance ·
    holographic scaffold (any other page). Accent-driven.
    ================================================================ */
-.po-shell .pg { position: absolute; inset: 0; overflow-y: auto; }
+/* In-flow inside the offset #cc-content (the document scrolls); relative keeps
+   it a positioning context for absolutely-positioned instrument children. */
+.po-shell .pg { position: relative; min-height: calc(100vh - 64px); }
 .po-shell .pg-inner { max-width: 1200px; margin: 0 auto; padding: 32px 40px 52px; }
 .po-shell .pg-head { display: flex; align-items: flex-start; gap: 18px; margin-bottom: 28px; }
 
