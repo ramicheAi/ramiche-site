@@ -2,7 +2,8 @@
    PARALLAX OS — COMMS HUB (access all chats)
    Conversation list (channels + agent DMs) | active conversation
    ================================================================ */
-.po-shell .cm-wrap { position: absolute; inset: 0; display: flex; }
+/* Fill the offset content area (below the 64px HUD) without escaping #cc-content. */
+.po-shell .cm-wrap { position: relative; height: calc(100vh - 64px); display: flex; }
 
 /* ---------- CONVERSATION LIST (the inbox) ---------- */
 .po-shell .cm-list { width: 304px; flex: 0 0 304px; display: flex; flex-direction: column; border-right: 1px solid var(--line);

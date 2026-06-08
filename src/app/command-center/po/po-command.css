@@ -1,7 +1,8 @@
 /* ================================================================
    PARALLAX OS — COMMAND (dashboard) view
    ================================================================ */
-.po-shell .cv { position: absolute; inset: 0; overflow-y: auto; }
+/* In-flow inside the offset #cc-content (relative keeps it a positioning context). */
+.po-shell .cv { position: relative; min-height: calc(100vh - 64px); }
 .po-shell .cv-inner { max-width: 1200px; margin: 0 auto; padding: 34px 40px 52px; display: flex; flex-direction: column; gap: 26px; }
 
 .po-shell .cv-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 36px; }
