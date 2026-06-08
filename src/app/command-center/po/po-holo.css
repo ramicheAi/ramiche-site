@@ -1,0 +1,82 @@
+/* ================================================================
+   PARALLAX OS — HOLOGRAPHIC MATERIALS
+   Iridescent foil, prismatic edges, refractive orb, holo text.
+   The "from another world" surface language.
+   ================================================================ */
+
+/* prismatic iridescent EDGE (animated conic border via mask) */
+.po-shell .holo-edge { position: relative; }
+.po-shell .holo-edge::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: var(--holo-conic); background-size: 200% 200%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  opacity: .55; animation: holo-rotate 8s linear infinite;
+}
+@keyframes holo-rotate { to { background-position: 200% 0; } }
+
+/* iridescent FOIL fill — holographic card surface with moving sheen */
+.po-shell .holo-foil { position: relative; overflow: hidden; }
+.po-shell .holo-foil::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .12;
+  background: var(--holo); background-size: 280% 280%; animation: holo-shift 12s var(--ease-io) infinite; mix-blend-mode: screen;
+}
+.po-shell .holo-foil::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.10) 50%, transparent 62%);
+  transform: translateX(-130%); animation: holo-sheen 7s ease-in-out infinite;
+}
+@keyframes holo-shift { 0%,100%{ background-position: 0% 50% } 50%{ background-position: 100% 50% } }
+@keyframes holo-sheen { 0%,68%{ transform: translateX(-130%) } 84%,100%{ transform: translateX(130%) } }
+.po-shell[data-po-theme="light"] .holo-foil::before { opacity: .16; mix-blend-mode: multiply; }
+
+/* holographic TEXT (gradient fill + drift) */
+.po-shell .holo-text {
+  background: var(--holo); background-size: 220% 220%;
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent;
+  animation: holo-shift 9s var(--ease-io) infinite;
+}
+
+/* ATLAS ORB — prismatic refractive presence */
+.po-shell .holo-orb { position: relative; border-radius: 50%; flex: 0 0 auto; display: grid; place-items: center; isolation: isolate; }
+.po-shell .holo-orb .core {
+  position: absolute; inset: 14%; border-radius: 50%;
+  background:
+    radial-gradient(circle at 34% 28%, #fff 2%, transparent 18%),
+    radial-gradient(circle at 38% 32%, var(--c-purple-l), var(--c-purple) 55%, #2a1466 88%);
+  box-shadow: inset 0 0 16px rgba(255,255,255,.25), 0 0 22px rgba(124,58,237,.55);
+  animation: orb-pulse 4s var(--ease-io) infinite;
+}
+.po-shell .holo-orb .sheen { position: absolute; inset: 14%; border-radius: 50%; pointer-events: none; mix-blend-mode: screen; opacity: .8;
+  background: conic-gradient(from 0deg, transparent, rgba(56,189,248,.6), transparent 25%, rgba(52,211,153,.5), transparent 50%, rgba(236,72,153,.5), transparent 75%, rgba(168,85,247,.6), transparent);
+  animation: holo-spin 5s linear infinite; }
+.po-shell .holo-orb .ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid var(--c-purple-l); opacity: .35; }
+.po-shell .holo-orb .ring2 { position: absolute; inset: -5px; border-radius: 50%; padding: 1px;
+  background: var(--holo-conic); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: holo-spin 7s linear infinite; opacity: .85; }
+@keyframes orb-pulse { 0%,100%{ transform: scale(.94); } 50%{ transform: scale(1.04); } }
+@keyframes holo-spin { to { transform: rotate(360deg); } }
+
+/* the real logo, holographic */
+.po-shell .po-logomark {
+  -webkit-mask: url(/assets/po-logo-mask.png) no-repeat center / contain; mask: url(/assets/po-logo-mask.png) no-repeat center / contain;
+  background: var(--holo-conic); background-size: 180% 180%; animation: holo-shift 8s var(--ease-io) infinite;
+  filter: drop-shadow(0 0 10px rgba(124,58,237,.45));
+}
+.po-shell[data-po-theme="light"] .po-logomark { background: linear-gradient(135deg, #7c3aed, #9a7b1f); filter: none; }
+
+/* holo divider line */
+.po-shell .holo-line { height: 1px; background: var(--holo); background-size: 300% 100%; animation: holo-rotate 10s linear infinite; opacity: .4; }
+
+/* scan shimmer overlay for hero panels (very restrained) */
+.po-shell .holo-scan::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit; opacity: .5;
+  background: repeating-linear-gradient(0deg, transparent 0 3px, rgba(160,140,230,.03) 3px 4px);
+}
+
+.po-shell .po-still .holo-edge::after, .po-shell .po-still .holo-foil::before, .po-shell .po-still .holo-foil::after,
+.po-shell .po-still .holo-text, .po-shell .po-still .holo-orb *, .po-shell .po-still .po-logomark, .po-shell .po-still .holo-line { animation: none !important; }
+
+/* tweak: disable iridescent foil */
+.po-shell .po-noholo .holo-foil::before, .po-shell .po-noholo .holo-foil::after { display: none; }
+.po-shell .po-noholo .holo-edge::after { opacity: .25; animation: none; }

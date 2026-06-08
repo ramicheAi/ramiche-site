@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import Link from "next/link";
+
+import { InstrumentPage } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SIGNAL WIRE — Live Agent Communication Visualiser
@@ -321,67 +322,60 @@ export default function SignalWirePage() {
 
   if (loading) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#050508", color: "#22d3ee", fontSize: 14, fontFamily: "monospace" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "60vh", color: "var(--c-cyan)", fontSize: 14, fontFamily: "var(--f-mono)" }}>
         SIGNAL WIRE — Connecting to live data…
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050508", color: "#e2e8f0", fontFamily: "'SF Mono','Fira Code','Cascadia Code',monospace", overflow: "hidden" }}>
-      {/* ── TOP BAR ────────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 24px", borderBottom: "1px solid #151520", background: "rgba(5,5,8,0.9)", backdropFilter: "blur(20px)", position: "sticky", top: 0, zIndex: 100 }}>
-        <Link href="/command-center" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg,#22d3ee,#a855f7)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 900, color: "#000", boxShadow: "0 0 20px rgba(34,211,238,0.3)" }}>SW</div>
-        </Link>
-        <div>
-          <h1 style={{ fontSize: 11, letterSpacing: 4, textTransform: "uppercase" as const, color: "#22d3ee", margin: 0 }}>SIGNAL WIRE</h1>
-          <div style={{ fontSize: 9, color: "#475569", letterSpacing: 2 }}>Live Agent Communication</div>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, fontSize: 10, letterSpacing: 2, color: "#22c55e" }}>
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 8px #22c55e", display: "inline-block", animation: "livePulse 1.5s ease-in-out infinite" }} />
-          LIVE
-        </div>
-        <div style={{ fontSize: 20, fontWeight: 200, color: "#C9A84C", letterSpacing: 1, marginLeft: 16 }}>{clock}</div>
-      </div>
-
+    <InstrumentPage
+      id="signal-wire"
+      title="Signal Wire"
+      section="Operations"
+      icon="nerve"
+      accent="var(--c-cyan)"
+      actions={<div style={{ fontSize: 20, fontWeight: 200, color: "var(--c-gold)", letterSpacing: 1, fontFamily: "var(--f-mono)" }}>{clock}</div>}
+    >
+    <div style={{ background: "var(--ink-0)", color: "var(--t-hi)", fontFamily: "var(--f-mono)", overflow: "hidden", borderRadius: "var(--r-lg)", border: "1px solid var(--line)" }}>
+      <div style={{ fontSize: 9, color: "var(--t-lo)", letterSpacing: 2, padding: "12px 24px 0" }}>Live Agent Communication</div>
       {/* ── STATS STRIP ────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", borderBottom: "1px solid #151520", background: "#0c0c14" }}>
+      <div style={{ display: "flex", borderBottom: "1px solid var(--line)", background: "var(--ink-1)", marginTop: 12 }}>
         {[
-          { val: stats.signals, lbl: "SIGNALS", color: "#22d3ee" },
-          { val: agents.filter(a => activeAgents.has(a.id.toLowerCase())).length + "/" + agents.length, lbl: "AGENTS", color: "#C9A84C" },
-          { val: stats.tasks, lbl: "TASKS", color: "#22c55e" },
-          { val: stats.handoffs, lbl: "HANDOFFS", color: "#f59e0b" },
-          { val: stats.errors, lbl: "ERRORS", color: "#ef4444" },
+          { val: stats.signals, lbl: "SIGNALS", color: "var(--c-cyan)" },
+          { val: agents.filter(a => activeAgents.has(a.id.toLowerCase())).length + "/" + agents.length, lbl: "AGENTS", color: "var(--c-gold)" },
+          { val: stats.tasks, lbl: "TASKS", color: "var(--c-green)" },
+          { val: stats.handoffs, lbl: "HANDOFFS", color: "var(--c-amber)" },
+          { val: stats.errors, lbl: "ERRORS", color: "var(--c-red)" },
         ].map((s, i) => (
-          <div key={i} style={{ flex: 1, padding: "12px 16px", textAlign: "center", borderRight: i < 4 ? "1px solid #151520" : undefined }}>
+          <div key={i} style={{ flex: 1, padding: "12px 16px", textAlign: "center", borderRight: i < 4 ? "1px solid var(--line)" : undefined }}>
             <div style={{ fontSize: 22, fontWeight: 200, color: s.color }}>{s.val}</div>
-            <div style={{ fontSize: 8, letterSpacing: 2, color: "#475569", textTransform: "uppercase" as const, marginTop: 2 }}>{s.lbl}</div>
+            <div style={{ fontSize: 8, letterSpacing: 2, color: "var(--t-lo)", textTransform: "uppercase" as const, marginTop: 2 }}>{s.lbl}</div>
           </div>
         ))}
       </div>
 
       {/* ── MAIN SPLIT ─────────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", flex: 1, overflow: "hidden", height: "calc(100vh - 120px)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "280px 1fr", flex: 1, overflow: "hidden", height: "calc(100vh - 240px)", minHeight: 420 }}>
 
         {/* ── LEFT ROSTER ──────────────────────────────────────────────────── */}
-        <div style={{ borderRight: "1px solid #151520", overflowY: "auto", background: "#0c0c14" }}>
-          <div style={{ fontSize: 9, letterSpacing: 3, color: "#475569", padding: "16px 16px 8px", textTransform: "uppercase" as const }}>Agent Roster — {agents.length}</div>
+        <div style={{ borderRight: "1px solid var(--line)", overflowY: "auto", background: "var(--ink-1)" }}>
+          <div style={{ fontSize: 9, letterSpacing: 3, color: "var(--t-lo)", padding: "16px 16px 8px", textTransform: "uppercase" as const }}>Agent Roster — {agents.length}</div>
           {agents.map(a => {
             const id = a.id.toLowerCase();
             const isActive = activeAgents.has(id);
             const col = agentColor(id);
             const signal = isActive ? 5 : 1;
             return (
-              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid #151520", borderLeft: isActive ? `2px solid ${col}` : "2px solid transparent", background: isActive ? "rgba(34,211,238,0.06)" : undefined, transition: "all 0.15s" }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: isActive ? "#22c55e" : "#f59e0b", boxShadow: isActive ? "0 0 6px #22c55e" : undefined, flexShrink: 0 }} />
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--line)", borderLeft: isActive ? `2px solid ${col}` : "2px solid transparent", background: isActive ? "var(--ink-2)" : undefined, transition: "all 0.15s" }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: isActive ? "var(--c-green)" : "var(--c-amber)", boxShadow: isActive ? "0 0 6px var(--c-green)" : undefined, flexShrink: 0 }} />
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5, color: col }}>{a.name.toUpperCase()}</div>
-                  <div style={{ fontSize: 9, color: "#475569" }}>{a.role}</div>
+                  <div style={{ fontSize: 9, color: "var(--t-lo)" }}>{a.role}</div>
                 </div>
                 <div style={{ marginLeft: "auto", display: "flex", gap: 1, alignItems: "flex-end", height: 12 }}>
                   {[1, 2, 3, 4, 5].map(j => (
-                    <div key={j} style={{ width: 3, height: j * 2 + 2, borderRadius: 1, background: j <= signal ? col : "#151520", transition: "all 0.3s" }} />
+                    <div key={j} style={{ width: 3, height: j * 2 + 2, borderRadius: 1, background: j <= signal ? col : "var(--line-2)", transition: "all 0.3s" }} />
                   ))}
                 </div>
               </div>
@@ -392,20 +386,20 @@ export default function SignalWirePage() {
         {/* ── RIGHT ────────────────────────────────────────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
           {/* ── NETWORK CANVAS ──────────────────────────────────────────────── */}
-          <div style={{ position: "relative", height: "45%", minHeight: 250, background: "#050508", borderBottom: "1px solid #151520", overflow: "hidden" }}>
+          <div style={{ position: "relative", height: "45%", minHeight: 250, background: "var(--ink-0)", borderBottom: "1px solid var(--line)", overflow: "hidden" }}>
             <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
           </div>
 
           {/* ── FEED HEADER ────────────────────────────────────────────────── */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: "1px solid #151520", background: "#0c0c14", position: "sticky", top: 0, zIndex: 10 }}>
-            <div style={{ fontSize: 9, letterSpacing: 3, color: "#475569", textTransform: "uppercase" as const }}>Signal Feed</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--line)", background: "var(--ink-1)", position: "sticky", top: 0, zIndex: 10 }}>
+            <div style={{ fontSize: 9, letterSpacing: 3, color: "var(--t-lo)", textTransform: "uppercase" as const }}>Signal Feed</div>
             <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
               {filters.map(f => (
                 <button key={f} onClick={() => setActiveFilter(f)} style={{
                   fontSize: 9, letterSpacing: 1, padding: "3px 8px", borderRadius: 4,
-                  border: activeFilter === f ? "1px solid #22d3ee" : "1px solid #151520",
-                  background: activeFilter === f ? "rgba(34,211,238,0.05)" : "transparent",
-                  color: activeFilter === f ? "#22d3ee" : "#475569",
+                  border: activeFilter === f ? "1px solid var(--c-cyan)" : "1px solid var(--line)",
+                  background: activeFilter === f ? "var(--ink-2)" : "transparent",
+                  color: activeFilter === f ? "var(--c-cyan)" : "var(--t-lo)",
                   cursor: "pointer", fontFamily: "inherit",
                 }}>{f.toUpperCase()}</button>
               ))}
@@ -426,16 +420,16 @@ export default function SignalWirePage() {
               };
               const tc = typeColors[sig.type] || "#475569";
               return (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 40px 1fr 60px", alignItems: "start", gap: 12, padding: "10px 20px", borderBottom: "1px solid rgba(21,21,32,0.5)" }}>
-                  <div style={{ fontSize: 10, color: "#475569", whiteSpace: "nowrap", paddingTop: 2 }}>{sig.time}</div>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "80px 40px 1fr 60px", alignItems: "start", gap: 12, padding: "10px 20px", borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ fontSize: 10, color: "var(--t-lo)", whiteSpace: "nowrap", paddingTop: 2 }}>{sig.time}</div>
                   <div style={{ width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, background: tc + "18", color: tc }}>{ICONS[sig.type] || "•"}</div>
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 10, color: "#475569", marginBottom: 2 }}>
+                    <div style={{ fontSize: 10, color: "var(--t-lo)", marginBottom: 2 }}>
                       <span style={{ color: fromCol }}>{fromAgent?.name.toUpperCase() || sig.from.toUpperCase()}</span>
                       {" → "}
                       <span style={{ color: toCol }}>{toAgent?.name.toUpperCase() || sig.to.toUpperCase()}</span>
                     </div>
-                    <div style={{ fontSize: 12, lineHeight: 1.5, wordBreak: "break-word" as const }}>{sig.msg}</div>
+                    <div style={{ fontSize: 12, lineHeight: 1.5, color: "var(--t-hi)", wordBreak: "break-word" as const }}>{sig.msg}</div>
                   </div>
                   <div style={{ fontSize: 8, letterSpacing: 1, textTransform: "uppercase" as const, padding: "2px 6px", borderRadius: 3, whiteSpace: "nowrap", justifySelf: "end", marginTop: 2, background: tc + "1f", color: tc }}>{sig.type}</div>
                 </div>
@@ -444,15 +438,7 @@ export default function SignalWirePage() {
           </div>
         </div>
       </div>
-
-      {/* ── KEYFRAMES ──────────────────────────────────────────────────────── */}
-      <style>{`
-        @keyframes livePulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        ::-webkit-scrollbar{width:4px}
-        ::-webkit-scrollbar-track{background:transparent}
-        ::-webkit-scrollbar-thumb{background:#151520;border-radius:2px}
-        ::-webkit-scrollbar-thumb:hover{background:#475569}
-      `}</style>
     </div>
+    </InstrumentPage>
   );
 }

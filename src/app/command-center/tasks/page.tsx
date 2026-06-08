@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import { InstrumentPage, Panel, PgBtn } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TASK BOARD — Kanban sub-page of Command Center
@@ -322,67 +322,47 @@ export default function TaskBoardPage() {
   const doneTasks = columns.done.length;
 
   return (
-    <div className="min-h-screen relative" style={{ background: "#0a0a0f" }}>
-      <ParticleField variant="cyan" opacity={0.25} count={40} connections />
-
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="relative z-10 px-4 sm:px-6 pt-6 pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div>
-            <Link
-              href="/command-center"
-              className="text-sm mb-2 inline-block transition-colors"
-              style={{ color: "rgba(255,255,255,0.4)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.8)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
-            >
-              ← Command Center
-            </Link>
-            <h1
-              className="text-2xl sm:text-3xl font-bold tracking-tight"
-              style={{ color: "#e2e8f0" }}
-            >
-              Task Board
-            </h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Drag tasks between columns to update status
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowNewTask(true)}
-              className="px-4 py-2 rounded-xl text-sm font-medium transition-all hover:scale-105"
-              style={{ background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "2px solid rgba(201,168,76,0.3)" }}
-            >
-              + New Task
-            </button>
-            <div
-              className="flex items-center gap-3 px-4 py-2 rounded-xl"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-            <div className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
+    <InstrumentPage
+      id="tasks"
+      title="Tasks"
+      section="Operations"
+      icon="tasks"
+      accent="var(--c-amber)"
+      actions={
+        <div className="flex items-center gap-3">
+          <PgBtn icon="spark" onClick={() => setShowNewTask(true)}>New Task</PgBtn>
+          <div
+            className="flex items-center gap-3 px-4 py-2 rounded-xl"
+            style={{ background: "var(--ink-2)", border: "1px solid var(--line)" }}
+          >
+            <div className="text-sm" style={{ color: "var(--t-mid)" }}>
               Progress
             </div>
             <div
               className="w-32 h-2 rounded-full overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.08)" }}
+              style={{ background: "var(--line)" }}
             >
               <div
                 className="h-full rounded-full transition-all duration-500"
                 style={{
                   width: `${totalTasks > 0 ? (doneTasks / totalTasks) * 100 : 0}%`,
-                  background: "linear-gradient(90deg, #22c55e, #4ade80)",
+                  background: "linear-gradient(90deg, var(--c-green), var(--c-teal))",
                 }}
               />
             </div>
-            <div className="text-sm font-mono" style={{ color: "#22c55e" }}>
+            <div className="text-sm" style={{ color: "var(--c-green)", fontFamily: "var(--f-mono)" }}>
               {doneTasks}/{totalTasks}
             </div>
           </div>
-          </div>
         </div>
+      }
+    >
+      <ParticleField variant="cyan" opacity={0.25} count={40} connections />
+      <p className="text-sm" style={{ color: "var(--t-mid)", margin: "0 0 20px" }}>
+        Drag tasks between columns to update status
+      </p>
 
+      <Panel>
         {/* ── Kanban Columns ─────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           {COLUMNS.map((col) => {
@@ -394,10 +374,10 @@ export default function TaskBoardPage() {
                 key={col.id}
                 className="flex flex-col rounded-2xl transition-all duration-200"
                 style={{
-                  background: isOver ? "rgba(255,255,255,0.04)" : "rgba(255,255,255,0.02)",
+                  background: isOver ? "var(--ink-2)" : "var(--ink-1)",
                   border: isOver
                     ? `2px solid ${col.accent}40`
-                    : "2px solid rgba(255,255,255,0.04)",
+                    : "2px solid var(--line)",
                   minHeight: 300,
                 }}
                 onDragEnter={(e) => handleDragEnter(e, col.id)}
@@ -434,7 +414,7 @@ export default function TaskBoardPage() {
                       onDragEnd={handleDragEnd}
                       className="rounded-xl p-3 cursor-grab active:cursor-grabbing transition-all duration-150 hover:scale-[1.02] group"
                       style={{
-                        background: "#12121a",
+                        background: "var(--ink-2)",
                         border: `2px solid ${task.accent}25`,
                       }}
                       onMouseEnter={(e) => {
@@ -469,7 +449,7 @@ export default function TaskBoardPage() {
                       {/* Title */}
                       <h3
                         className="text-sm font-semibold mb-1 leading-snug"
-                        style={{ color: "#e2e8f0" }}
+                        style={{ color: "var(--t-hi)" }}
                       >
                         {task.title}
                       </h3>
@@ -477,7 +457,7 @@ export default function TaskBoardPage() {
                       {/* Description */}
                       <p
                         className="text-xs leading-relaxed mb-2"
-                        style={{ color: "rgba(255,255,255,0.35)" }}
+                        style={{ color: "var(--t-mid)" }}
                       >
                         {task.description}
                       </p>
@@ -489,8 +469,8 @@ export default function TaskBoardPage() {
                             key={tag}
                             className="text-[10px] px-1.5 py-0.5 rounded"
                             style={{
-                              background: "rgba(255,255,255,0.05)",
-                              color: "rgba(255,255,255,0.3)",
+                              background: "var(--ink-1)",
+                              color: "var(--t-lo)",
                             }}
                           >
                             {tag}
@@ -503,7 +483,7 @@ export default function TaskBoardPage() {
                         {col.id === "backlog" && (
                           <button
                             className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
-                            style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
+                            style={{ background: "color-mix(in srgb, var(--c-amber) 15%, transparent)", color: "var(--c-amber)", border: "1px solid color-mix(in srgb, var(--c-amber) 25%, transparent)" }}
                             onClick={() => quickAction(task, col.id, "in-progress")}
                           >
                             Start
@@ -512,7 +492,7 @@ export default function TaskBoardPage() {
                         {col.id === "in-progress" && (
                           <button
                             className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
-                            style={{ background: "rgba(139,92,246,0.15)", color: "#8b5cf6", border: "1px solid rgba(139,92,246,0.25)" }}
+                            style={{ background: "color-mix(in srgb, var(--c-purple) 15%, transparent)", color: "var(--c-purple)", border: "1px solid color-mix(in srgb, var(--c-purple) 25%, transparent)" }}
                             onClick={() => quickAction(task, col.id, "review")}
                           >
                             Submit for Review
@@ -522,21 +502,21 @@ export default function TaskBoardPage() {
                           <>
                             <button
                               className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
-                              style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}
+                              style={{ background: "color-mix(in srgb, var(--c-green) 15%, transparent)", color: "var(--c-green)", border: "1px solid color-mix(in srgb, var(--c-green) 25%, transparent)" }}
                               onClick={() => quickAction(task, col.id, "done")}
                             >
                               Approve
                             </button>
                             <button
                               className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
-                              style={{ background: "rgba(239,68,68,0.15)", color: "#f87171", border: "1px solid rgba(239,68,68,0.25)" }}
+                              style={{ background: "color-mix(in srgb, var(--c-red) 15%, transparent)", color: "var(--c-red)", border: "1px solid color-mix(in srgb, var(--c-red) 25%, transparent)" }}
                               onClick={() => quickAction(task, col.id, "backlog")}
                             >
                               Reject
                             </button>
                             <button
                               className="flex-1 text-[10px] py-1.5 rounded-lg font-medium transition-all hover:scale-105"
-                              style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.25)" }}
+                              style={{ background: "color-mix(in srgb, var(--c-amber) 15%, transparent)", color: "var(--c-amber)", border: "1px solid color-mix(in srgb, var(--c-amber) 25%, transparent)" }}
                               onClick={() => { setReviseTask(task); setReviseFeedback(""); }}
                             >
                               Revise
@@ -546,7 +526,7 @@ export default function TaskBoardPage() {
                         {col.id !== "done" && (
                           <button
                             className="text-[10px] py-1.5 px-2 rounded-lg transition-colors md:hidden"
-                            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.06)" }}
+                            style={{ background: "var(--ink-1)", color: "var(--t-mid)", border: "1px solid var(--line)" }}
                             onClick={() => setMobileMenu({ task, fromCol: col.id })}
                           >
                             Move
@@ -560,8 +540,8 @@ export default function TaskBoardPage() {
                     <div
                       className="flex items-center justify-center h-24 rounded-xl border-2 border-dashed text-xs"
                       style={{
-                        borderColor: "rgba(255,255,255,0.06)",
-                        color: "rgba(255,255,255,0.2)",
+                        borderColor: "var(--line)",
+                        color: "var(--t-lo)",
                       }}
                     >
                       Drop tasks here
@@ -572,7 +552,7 @@ export default function TaskBoardPage() {
             );
           })}
         </div>
-      </div>
+      </Panel>
 
       {/* ── New Task Modal ────────────────────────────────────────────────── */}
       {showNewTask && (
@@ -583,20 +563,20 @@ export default function TaskBoardPage() {
         >
           <div
             className="w-full max-w-md rounded-2xl p-6 space-y-4"
-            style={{ background: "#12121a", border: "2px solid rgba(201,168,76,0.2)" }}
+            style={{ background: "var(--ink-1)", border: "2px solid var(--line-2)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold" style={{ color: "#e2e8f0" }}>New Task</h2>
+            <h2 className="text-lg font-bold" style={{ color: "var(--t-hi)" }}>New Task</h2>
             <input
               className="w-full px-4 py-3 rounded-xl text-sm"
-              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              style={{ background: "var(--ink-2)", color: "var(--t-hi)", border: "2px solid var(--line)" }}
               placeholder="Task title"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
             />
             <textarea
               className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              style={{ background: "var(--ink-2)", color: "var(--t-hi)", border: "2px solid var(--line)" }}
               placeholder="Description"
               rows={3}
               value={newDesc}
@@ -605,7 +585,7 @@ export default function TaskBoardPage() {
             <div className="flex gap-3">
               <select
                 className="flex-1 px-3 py-2 rounded-xl text-sm"
-                style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+                style={{ background: "var(--ink-2)", color: "var(--t-hi)", border: "2px solid var(--line)" }}
                 value={newPriority}
                 onChange={(e) => setNewPriority(e.target.value as Task["priority"])}
               >
@@ -616,7 +596,7 @@ export default function TaskBoardPage() {
               </select>
               <input
                 className="flex-1 px-3 py-2 rounded-xl text-sm"
-                style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+                style={{ background: "var(--ink-2)", color: "var(--t-hi)", border: "2px solid var(--line)" }}
                 placeholder="Assignee"
                 value={newAssignee}
                 onChange={(e) => setNewAssignee(e.target.value)}
@@ -625,14 +605,14 @@ export default function TaskBoardPage() {
             <div className="flex gap-3 pt-2">
               <button
                 className="flex-1 py-3 rounded-xl text-sm font-medium transition-all hover:scale-105"
-                style={{ background: "rgba(201,168,76,0.15)", color: "#C9A84C", border: "2px solid rgba(201,168,76,0.3)" }}
+                style={{ background: "color-mix(in srgb, var(--c-amber) 15%, transparent)", color: "var(--c-amber)", border: "2px solid color-mix(in srgb, var(--c-amber) 30%, transparent)" }}
                 onClick={createTask}
               >
                 Create Task
               </button>
               <button
                 className="px-6 py-3 rounded-xl text-sm"
-                style={{ color: "rgba(255,255,255,0.4)" }}
+                style={{ color: "var(--t-mid)" }}
                 onClick={() => setShowNewTask(false)}
               >
                 Cancel
@@ -651,18 +631,18 @@ export default function TaskBoardPage() {
         >
           <div
             className="w-full max-w-md rounded-2xl p-6 space-y-4"
-            style={{ background: "#12121a", border: "2px solid rgba(245,158,11,0.2)" }}
+            style={{ background: "var(--ink-1)", border: "2px solid color-mix(in srgb, var(--c-amber) 25%, transparent)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-bold" style={{ color: "#e2e8f0" }}>
+            <h2 className="text-lg font-bold" style={{ color: "var(--t-hi)" }}>
               Revise: {reviseTask.title}
             </h2>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <p className="text-xs" style={{ color: "var(--t-mid)" }}>
               Tell {reviseTask.assignee} what needs to change. They&apos;ll be re-spawned with your feedback.
             </p>
             <textarea
               className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-              style={{ background: "rgba(255,255,255,0.05)", color: "#e2e8f0", border: "2px solid rgba(255,255,255,0.08)" }}
+              style={{ background: "var(--ink-2)", color: "var(--t-hi)", border: "2px solid var(--line)" }}
               placeholder="What needs to change?"
               rows={4}
               value={reviseFeedback}
@@ -672,14 +652,14 @@ export default function TaskBoardPage() {
             <div className="flex gap-3 pt-2">
               <button
                 className="flex-1 py-3 rounded-xl text-sm font-medium transition-all hover:scale-105"
-                style={{ background: "rgba(245,158,11,0.15)", color: "#f59e0b", border: "2px solid rgba(245,158,11,0.3)" }}
+                style={{ background: "color-mix(in srgb, var(--c-amber) 15%, transparent)", color: "var(--c-amber)", border: "2px solid color-mix(in srgb, var(--c-amber) 30%, transparent)" }}
                 onClick={() => submitRevision(reviseTask)}
               >
                 Send Revision
               </button>
               <button
                 className="px-6 py-3 rounded-xl text-sm"
-                style={{ color: "rgba(255,255,255,0.4)" }}
+                style={{ color: "var(--t-mid)" }}
                 onClick={() => setReviseTask(null)}
               >
                 Cancel
@@ -698,10 +678,10 @@ export default function TaskBoardPage() {
         >
           <div
             className="w-full max-w-md rounded-t-2xl p-4 pb-8 space-y-2"
-            style={{ background: "#12121a", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{ background: "var(--ink-1)", border: "1px solid var(--line)" }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="text-sm font-semibold mb-3" style={{ color: "#e2e8f0" }}>
+            <div className="text-sm font-semibold mb-3" style={{ color: "var(--t-hi)" }}>
               Move &quot;{mobileMenu.task.title}&quot;
             </div>
             {COLUMNS.filter((c) => c.id !== mobileMenu.fromCol).map((col) => (
@@ -709,7 +689,7 @@ export default function TaskBoardPage() {
                 key={col.id}
                 className="w-full text-left px-4 py-3 rounded-xl text-sm transition-colors"
                 style={{
-                  background: "rgba(255,255,255,0.04)",
+                  background: "var(--ink-2)",
                   color: col.accent,
                   border: `1px solid ${col.accent}30`,
                 }}
@@ -720,7 +700,7 @@ export default function TaskBoardPage() {
             ))}
             <button
               className="w-full text-center px-4 py-3 rounded-xl text-sm mt-2"
-              style={{ color: "rgba(255,255,255,0.3)" }}
+              style={{ color: "var(--t-lo)" }}
               onClick={() => setMobileMenu(null)}
             >
               Cancel
@@ -728,6 +708,6 @@ export default function TaskBoardPage() {
           </div>
         </div>
       )}
-    </div>
+    </InstrumentPage>
   );
 }

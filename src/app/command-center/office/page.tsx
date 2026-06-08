@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
+import { InstrumentPage } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    3D OFFICE v2 — Living Agent Workspace
@@ -141,51 +140,42 @@ export default function OfficePage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060609] text-white relative overflow-hidden">
-      <ParticleField />
-
-      {/* Header — Linear-clean */}
-      <div className="relative z-10 border-b border-[#1a1a24] bg-[#0a0a10]/95 backdrop-blur-md">
-        <div className="px-4 py-3 flex items-center justify-between max-w-[1600px] mx-auto">
-          <div className="flex items-center gap-3">
-            <Link href="/command-center" className="text-[#666] hover:text-white text-sm transition-colors duration-150">
-              ← Command Center
-            </Link>
-            <span className="text-[#333]">|</span>
-            <h1 className="text-sm font-semibold tracking-wide text-[#e5e5e5]">
-              THE OFFICE
-            </h1>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-[#888]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.5)]" />
-              {statusCounts.online}
+    <InstrumentPage
+      id="office"
+      title="The Office"
+      section="Workspace"
+      icon="office"
+      accent="var(--c-cyan)"
+      actions={
+        <div className="flex items-center gap-4 text-xs" style={{ color: "var(--t-mid)" }}>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--c-green)", boxShadow: "0 0 6px var(--c-green)" }} />
+            {statusCounts.online}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--c-amber)", boxShadow: "0 0 6px var(--c-amber)" }} />
+            {statusCounts.busy}
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "var(--t-lo)" }} />
+            {statusCounts.idle}
+          </span>
+          {lastSync && (
+            <span className="text-[10px]" style={{ color: "var(--t-lo)" }}>
+              synced {new Date(lastSync).toLocaleTimeString()}
             </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.5)]" />
-              {statusCounts.busy}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#555]" />
-              {statusCounts.idle}
-            </span>
-            {lastSync && (
-              <span className="text-[10px] text-[#444]">
-                synced {new Date(lastSync).toLocaleTimeString()}
-              </span>
-            )}
-          </div>
+          )}
         </div>
-      </div>
-
+      }
+    >
       {agentsLoading && agents.length === 0 && (
-        <div className="relative z-10 px-4 py-8 text-center text-sm text-[#888]">
-          Loading agents from <span className="text-cyan-400/90">/api/command-center/agents</span>…
+        <div className="px-4 py-8 text-center text-sm" style={{ color: "var(--t-mid)" }}>
+          Loading agents from <span style={{ color: "var(--c-cyan)" }}>/api/command-center/agents</span>…
         </div>
       )}
 
       {/* 3D Office Floor — Enhanced */}
-      <div className="relative z-10 p-4 hidden md:block">
+      <div className="p-4 hidden md:block">
         <div
           className="mx-auto"
           style={{
@@ -345,7 +335,7 @@ export default function OfficePage() {
       </div>
 
       {/* Mobile grid — compact 4-col */}
-      <div className="relative z-10 px-3 pb-6 md:hidden">
+      <div className="px-3 pb-6 md:hidden">
         <h2 className="text-[10px] text-[#444] uppercase tracking-widest mb-3 text-center font-mono">
           Agent Grid
         </h2>
@@ -383,7 +373,7 @@ export default function OfficePage() {
       </div>
 
       {/* Room legend */}
-      <div className="relative z-10 px-4 pb-4">
+      <div className="px-4 pb-4">
         <div className="max-w-[1500px] mx-auto flex flex-wrap gap-4 justify-center">
           {Object.entries(ROOM_ICONS).map(([room, icon]) => {
             const count = agents.filter((a) => a.room === room).length;
@@ -408,8 +398,8 @@ export default function OfficePage() {
           onClick={() => setSelected(null)}
         >
           <div
-            className="w-full sm:max-w-md bg-[#0d0d12] border rounded-t-2xl sm:rounded-2xl p-6"
-            style={{ borderColor: `${selected.color}30` }}
+            className="w-full sm:max-w-md border rounded-t-2xl sm:rounded-2xl p-6"
+            style={{ background: "var(--ink-1)", borderColor: `${selected.color}30` }}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-5">
@@ -476,6 +466,6 @@ export default function OfficePage() {
           50% { transform: scale(1.4); opacity: 0.7; }
         }
       `}</style>
-    </div>
+    </InstrumentPage>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
+import { InstrumentPage } from "@/components/command-center/po/Instrument";
 
 /** Single-line ellipsis; `minWidth: 0` required inside flex/grid children */
 const TEXT_TRUNCATE: CSSProperties = {
@@ -122,67 +122,60 @@ export default function CalendarPage() {
   const disabledEvents = events.filter(e => !e.enabled);
 
   return (
-    <div className="relative min-h-screen" style={{ background: "#000000", color: "#e5e5e5" }}>
-      <ParticleField />
-
-      <div className="relative z-10 px-6 pt-8 pb-4">
-        <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#737373", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-          <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
-        </Link>
-
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div>
-            <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, textShadow: "0 0 40px rgba(168,85,247,0.3)" }}>
-              <span style={{ color: "#a855f7" }}>CRON</span> CALENDAR
-            </h1>
-            <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
-              {loading ? "Loading cron data..." : `${stats.enabled} active · ${stats.disabled} disabled · ${stats.total} total`}
-              {(source === "live" || source === "firestore") && (
-                <span style={{ marginLeft: 8, color: "rgba(34,197,94,0.6)" }}>
-                  ● {source === "firestore" ? "FIRESTORE" : "LIVE"}
-                </span>
-              )}
-              {source === "empty" && <span style={{ marginLeft: 8, color: "#f59e0b" }}>No cron data found</span>}
-              {source === "error" && <span style={{ marginLeft: 8, color: "#f87171" }}>Load failed</span>}
-              <span style={{ marginLeft: 8 }}>{today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <Link
-              href="/command-center/settings?tab=crons"
-              style={{
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                color: "rgba(201,168,76,0.85)",
-                textDecoration: "none",
-                padding: "8px 12px",
-                borderRadius: 8,
-                border: "1px solid rgba(201,168,76,0.25)",
-                background: "rgba(201,168,76,0.06)",
-              }}
-            >
-              Settings · Crons →
-            </Link>
-            <div style={{ display: "flex", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4 }}>
+    <InstrumentPage
+      id="calendar"
+      title="Cron Calendar"
+      section="Workspace"
+      icon="calendar"
+      accent="var(--c-sky)"
+      actions={
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <Link
+            href="/command-center/settings?tab=crons"
+            style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--gold)",
+              textDecoration: "none",
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "1px solid color-mix(in oklab, var(--gold) 25%, transparent)",
+              background: "color-mix(in oklab, var(--gold) 6%, transparent)",
+            }}
+          >
+            Settings · Crons →
+          </Link>
+          <div style={{ display: "flex", gap: 4, background: "var(--ink-2)", borderRadius: 10, padding: 4 }}>
             {(["week", "list"] as const).map((v) => (
               <button key={v} type="button" onClick={() => setView(v)} style={{
                 padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
-                border: view === v ? "2px solid rgba(168,85,247,0.3)" : "2px solid transparent",
-                background: view === v ? "rgba(168,85,247,0.12)" : "transparent",
-                color: view === v ? "#a855f7" : "rgba(255,255,255,0.35)",
+                border: view === v ? "2px solid color-mix(in oklab, var(--accent) 35%, transparent)" : "2px solid transparent",
+                background: view === v ? "color-mix(in oklab, var(--accent) 14%, transparent)" : "transparent",
+                color: view === v ? "var(--accent)" : "var(--t-mid)",
                 cursor: "pointer", transition: "all 0.2s"
               }}>
                 {v === "week" ? "WEEK" : "LIST"}
               </button>
             ))}
-            </div>
           </div>
         </div>
-      </div>
+      }
+    >
+      <p style={{ fontSize: 13, color: "var(--t-mid)", margin: "0 0 18px" }}>
+        {loading ? "Loading cron data..." : `${stats.enabled} active · ${stats.disabled} disabled · ${stats.total} total`}
+        {(source === "live" || source === "firestore") && (
+          <span style={{ marginLeft: 8, color: "var(--c-green)" }}>
+            ● {source === "firestore" ? "FIRESTORE" : "LIVE"}
+          </span>
+        )}
+        {source === "empty" && <span style={{ marginLeft: 8, color: "var(--c-amber)" }}>No cron data found</span>}
+        {source === "error" && <span style={{ marginLeft: 8, color: "var(--c-red)" }}>Load failed</span>}
+        <span style={{ marginLeft: 8 }}>{today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" })}</span>
+      </p>
 
-      <div className="relative z-10 px-6 pb-12">
+      <div>
         {loading ? (
           <div style={{ padding: 60, textAlign: "center", color: "#525252" }}>Loading cron schedule...</div>
         ) : events.length === 0 ? (
@@ -285,7 +278,7 @@ export default function CalendarPage() {
           </div>
         )}
       </div>
-    </div>
+    </InstrumentPage>
   );
 }
 

@@ -1,0 +1,84 @@
+/* ================================================================
+   PARALLAX OS — CANOPY: the living starship-visor atmosphere.
+   Aurora void + volumetric beams + holographic dust + radar sweep
+   + luminous visor frame + film grain + chromatic edge bloom.
+   A spatial layer nobody's shipped — additive, gated by .po-flat.
+   ================================================================ */
+
+/* ---------- BACKGROUND ATMOSPHERE (inside .po-bg, behind content) ---------- */
+.po-shell .po-aurora { position: absolute; inset: -25%; z-index: 0; pointer-events: none; filter: blur(46px) saturate(1.3); opacity: .72;
+  background:
+    radial-gradient(38% 26% at 22% 30%, color-mix(in oklab, var(--c-purple) 80%, transparent), transparent 70%),
+    radial-gradient(34% 22% at 74% 22%, color-mix(in oklab, var(--c-sky) 70%, transparent), transparent 70%),
+    radial-gradient(40% 24% at 60% 78%, color-mix(in oklab, var(--c-fuchsia) 60%, transparent), transparent 70%),
+    radial-gradient(30% 20% at 14% 80%, color-mix(in oklab, var(--c-teal) 55%, transparent), transparent 70%);
+  background-repeat: no-repeat; animation: aurora-drift 26s var(--ease-io) infinite; mix-blend-mode: screen; }
+@keyframes aurora-drift {
+  0%,100% { transform: translate3d(0,0,0) scale(1); filter: blur(46px) saturate(1.3) hue-rotate(0deg); }
+  33%     { transform: translate3d(3%, -2%, 0) scale(1.08); filter: blur(52px) saturate(1.4) hue-rotate(14deg); }
+  66%     { transform: translate3d(-2%, 2%, 0) scale(1.04); filter: blur(44px) saturate(1.25) hue-rotate(-10deg); }
+}
+.po-shell[data-po-theme="light"] .po-aurora { opacity: .3; }
+
+/* volumetric god-ray beams sweeping from upper right */
+.po-shell .po-beams { position: absolute; inset: -40%; z-index: 0; pointer-events: none; opacity: .2; mix-blend-mode: screen;
+  background: repeating-linear-gradient(64deg, transparent 0 60px, color-mix(in oklab, var(--c-purple-l) 60%, transparent) 60px 61px, transparent 61px 130px);
+  -webkit-mask: radial-gradient(60% 80% at 78% 8%, #000, transparent 70%); mask: radial-gradient(60% 80% at 78% 8%, #000, transparent 70%);
+  animation: beams-pan 18s linear infinite; }
+@keyframes beams-pan { to { transform: translateX(-130px); } }
+
+/* ---------- FOREGROUND CANOPY OVERLAY (above content, never blocks input) ---------- */
+.po-shell .canopy { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+
+/* radar sweep across the whole canopy */
+.po-shell .cnp-sweep { position: absolute; inset: -20%; opacity: .06; mix-blend-mode: screen;
+  background: conic-gradient(from 0deg at 50% 46%, transparent 0deg, color-mix(in oklab, var(--c-purple-l) 80%, transparent) 14deg, transparent 30deg);
+  animation: sweep-rot 14s linear infinite; }
+@keyframes sweep-rot { to { transform: rotate(360deg); } }
+
+/* film grain */
+.po-shell .cnp-grain { position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-jit .6s steps(3) infinite; }
+@keyframes grain-jit { 0%{transform:translate(0,0)} 33%{transform:translate(-3px,2px)} 66%{transform:translate(2px,-2px)} }
+
+/* chromatic edge bloom + vignette */
+.po-shell .cnp-vig { position: absolute; inset: 0;
+  background: radial-gradient(120% 100% at 50% 50%, transparent 56%, color-mix(in oklab, var(--void) 55%, transparent) 100%);
+  box-shadow: inset 0 0 1px 1px color-mix(in oklab, var(--c-purple-l) 30%, transparent),
+    inset 6px 0 60px -30px var(--c-sky), inset -6px 0 60px -30px var(--c-fuchsia); }
+
+/* the luminous VISOR FRAME */
+.po-shell .cnp-frame { position: absolute; inset: 7px; border-radius: 16px; pointer-events: none;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--c-purple-l) 30%, transparent), inset 0 0 60px -14px color-mix(in oklab, var(--c-purple) 55%, transparent); }
+.po-shell .cnp-corner { position: absolute; width: 26px; height: 26px; }
+.po-shell .cnp-corner::before, .po-shell .cnp-corner::after { content: ""; position: absolute; background: color-mix(in oklab, var(--c-purple-l) 90%, transparent); box-shadow: 0 0 10px color-mix(in oklab, var(--c-purple-l) 75%, transparent); }
+.po-shell .cnp-corner::before { width: 100%; height: 2px; } .po-shell .cnp-corner::after { width: 2px; height: 100%; }
+.po-shell .cnp-corner.tl { left: 10px; top: 10px; } .po-shell .cnp-corner.tl::before { top: 0; left: 0; } .po-shell .cnp-corner.tl::after { top: 0; left: 0; }
+.po-shell .cnp-corner.tr { right: 10px; top: 10px; } .po-shell .cnp-corner.tr::before { top: 0; right: 0; } .po-shell .cnp-corner.tr::after { top: 0; right: 0; }
+.po-shell .cnp-corner.bl { left: 10px; bottom: 10px; } .po-shell .cnp-corner.bl::before { bottom: 0; left: 0; } .po-shell .cnp-corner.bl::after { bottom: 0; left: 0; }
+.po-shell .cnp-corner.br { right: 10px; bottom: 10px; } .po-shell .cnp-corner.br::before { bottom: 0; right: 0; } .po-shell .cnp-corner.br::after { bottom: 0; right: 0; }
+
+/* edge telemetry ticks (top + bottom rails) */
+.po-shell .cnp-ticks { position: absolute; left: 80px; right: 80px; height: 8px;
+  background: repeating-linear-gradient(90deg, color-mix(in oklab, var(--c-purple-l) 45%, transparent) 0 1px, transparent 1px 26px);
+  -webkit-mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); opacity: .5; }
+.po-shell .cnp-ticks.top { display: none; } .po-shell .cnp-ticks.bot { bottom: 16px; }
+.po-shell .cnp-readout { display: none; }
+
+/* turn it all off (Tweaks: Atmosphere) */
+.po-shell .po-flat .po-aurora, .po-shell .po-flat .po-beams, .po-shell .po-flat .canopy { display: none; }
+.po-shell .po-still .po-aurora, .po-shell .po-still .po-beams, .po-shell .po-still .cnp-sweep, .po-shell .po-still .cnp-grain { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .po-shell .po-aurora, .po-shell .po-beams, .po-shell .cnp-sweep, .po-shell .cnp-grain { animation: none !important; }
+  .po-shell .cnp-grain { display: none; }
+}
+
+/* ---------- HOLOGRAPHIC GLASS elevation for panels ---------- */
+.po-shell .po-panel, .po-shell .cv-vitals, .po-shell .cv-directive, .po-shell .coll-face, .po-shell .cm-job, .po-shell .cm-data, .po-shell .scaf-mod, .po-shell .fn-tile {
+  position: relative;
+}
+.po-shell .po-panel::after, .po-shell .scaf-mod::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: linear-gradient(150deg, color-mix(in oklab, #fff 9%, transparent) 0%, transparent 24%);
+}

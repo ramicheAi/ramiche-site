@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AGENT_UI, AGENT_ORBIT_IDS, type OrbitAgentId } from "@/app/command-center/dashboard-agents";
 import { useGlobalSearch, type GlobalSearchResult } from "@/hooks/useGlobalSearch";
+import { Icon } from "@/components/command-center/po/Brand";
 
 const TOKENS = {
   bg: "rgba(10,10,10,0.92)",
@@ -18,6 +19,22 @@ const TOKENS = {
   gold: "#C9A84C",
   cyan: "#00f0ff",
 };
+
+/* map a legacy unicode/route icon to a Parallax OS geometric Icon name */
+function poIconName(entry: { kind: string; icon?: string; id?: string }): string {
+  if (entry.kind === "agent") return "agents";
+  if (entry.kind === "action") {
+    if (entry.id?.includes("dispatch")) return "dispatch";
+    if (entry.id?.includes("lock")) return "security";
+    if (entry.id?.includes("refresh")) return "spark";
+    if (entry.id?.includes("health")) return "health";
+    if (entry.id?.includes("voice")) return "mic";
+    return "dot";
+  }
+  if (entry.kind === "global") return "search";
+  // route entries: best-effort map by id below in execute render
+  return "dot";
+}
 
 interface BaseEntry {
   id: string;
@@ -91,6 +108,20 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "terminal", label: "Terminal", icon: ">_", accent: "#0f172a", href: "/command-center/terminal" },
   { kind: "route", id: "observatory", label: "Observatory", icon: "🔮", accent: "#9b5de5", href: "/command-center/observatory" },
 ];
+
+/* route id → Parallax OS geometric icon name */
+const ROUTE_ICON: Record<string, string> = {
+  dashboard: "dashboard", jobs: "bolt", chat: "comms", agents: "agents", tasks: "tasks",
+  calendar: "calendar", projects: "projects", missions: "mettle", memory: "memory",
+  docs: "docs", office: "office", comms: "comms", vitals: "health", activity: "pulse",
+  health: "health", security: "security", settings: "settings", finance: "finance",
+  arbitrage: "arbitrage", revenue: "finance", sales: "sales", prospector: "nexus",
+  leads: "strategy", proposals: "proposals", pricing: "finance", "agent-pricing": "finance",
+  legal: "legal", strategy: "strategy", reports: "reports", content: "content",
+  studio: "studio", "app-builder": "builder", builder: "builder", wellness: "wellness",
+  fabrication: "fabrication", yolo: "bolt", "nerve-center": "nerve", terminal: "command",
+  observatory: "observatory",
+};
 
 function buildAgentEntries(): AgentEntry[] {
   return AGENT_ORBIT_IDS.map((id) => {
@@ -320,246 +351,133 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
 
   if (!open) return null;
 
+  const iconNameFor = (entry: PaletteEntry): string => {
+    if (entry.kind === "route") return ROUTE_ICON[entry.id] ?? "dot";
+    if (entry.kind === "action" && entry.id === "action:dispatch") return "dispatch";
+    return poIconName(entry);
+  };
+
+  const kindLabelFor = (entry: PaletteEntry): string =>
+    entry.kind === "route"
+      ? "Page"
+      : entry.kind === "agent"
+        ? "Agent"
+        : entry.kind === "global"
+          ? entry.data.meta ?? "Result"
+          : "Action";
+
   return (
     <div
+      className="po-scrim"
       role="dialog"
       aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 90,
-        background: "rgba(0,0,0,0.55)",
-        backdropFilter: "blur(4px)",
-        WebkitBackdropFilter: "blur(4px)",
-        display: "flex",
-        alignItems: "flex-start",
-        justifyContent: "center",
-        paddingTop: "12vh",
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: "min(620px, 92vw)",
-          maxHeight: "70vh",
-          display: "flex",
-          flexDirection: "column",
-          background: TOKENS.bg,
-          border: `1px solid ${TOKENS.border}`,
-          borderRadius: 14,
-          boxShadow: `0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px ${TOKENS.borderSubtle}, 0 0 24px rgba(124,58,237,0.22)`,
-          overflow: "hidden",
-          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
-        }}
-      >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            padding: "12px 16px",
-            borderBottom: `1px solid ${TOKENS.borderSubtle}`,
-          }}
-        >
-          <span style={{ color: TOKENS.purpleSoft, fontFamily: "monospace", fontSize: 11, letterSpacing: "0.18em" }}>
-            ⌘K
-          </span>
+      <div className="po-palette" onClick={(e) => e.stopPropagation()}>
+        <div className="po-pal-in">
+          <Icon name="command" size={18} style={{ color: "var(--accent)" }} />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Jump to anything · ask an agent · run a command"
+            placeholder="Type intent — jump to anything · ask ATLAS · run a command…"
             spellCheck={false}
             autoComplete="off"
-            style={{
-              flex: 1,
-              background: "transparent",
-              border: "none",
-              outline: "none",
-              color: TOKENS.text,
-              fontSize: 15,
-              fontFamily: "inherit",
-            }}
           />
-          <kbd
-            style={{
-              padding: "2px 6px",
-              fontSize: 10,
-              fontFamily: "monospace",
-              color: TOKENS.textDim,
-              background: TOKENS.card,
-              border: `1px solid ${TOKENS.borderSubtle}`,
-              borderRadius: 4,
-            }}
-          >
-            ESC
-          </kbd>
+          <span className="kbd">ESC</span>
         </div>
 
-        <div ref={listRef} style={{ overflowY: "auto", padding: 6 }}>
+        <div ref={listRef} className="po-pal-list po-scroll">
           {global.loading && (
-            <div
-              style={{
-                padding: "6px 12px",
-                fontFamily: "monospace",
-                fontSize: 10,
-                letterSpacing: "0.12em",
-                color: TOKENS.purpleSoft,
-                textTransform: "uppercase" as const,
-              }}
-            >
+            <div className="eyebrow po-pal-head" style={{ color: "var(--c-purple-l)" }}>
               Searching messages · docs · memory…
             </div>
           )}
           {global.unavailable && (
-            <div
-              style={{
-                padding: "6px 12px",
-                fontFamily: "monospace",
-                fontSize: 10,
-                color: TOKENS.textMuted,
-              }}
-            >
+            <div className="po-pal-head" style={{ color: "var(--t-dim)", fontFamily: "var(--f-mono)", fontSize: 10 }}>
               Message search disabled — set SUPABASE_SERVICE_ROLE_KEY on the server.
             </div>
           )}
           {results.length === 0 ? (
-            <div style={{ padding: 18, color: TOKENS.textMuted, fontSize: 13, textAlign: "center" }}>
+            <div style={{ padding: 22, textAlign: "center", color: "var(--t-lo)" }}>
               {global.loading
                 ? "Looking across the system…"
-                : "No matches. Try an agent name, page, or “refresh”."}
+                : query.trim()
+                  ? `Press ↵ to run “${query.trim()}” as a job.`
+                  : "Try an agent name, a page, or “refresh”."}
             </div>
           ) : (
             results.map((entry, idx) => {
               const active = idx === activeIdx;
-              const kindLabel =
-                entry.kind === "route"
-                  ? "Page"
-                  : entry.kind === "agent"
-                    ? "Agent"
-                    : entry.kind === "global"
-                      ? entry.data.meta ?? "Result"
-                      : "Action";
+              const isRun = entry.kind === "action" && entry.id === "action:dispatch";
               return (
                 <button
                   key={entry.id}
                   data-idx={idx}
                   type="button"
+                  className={`po-pal-item${active ? " on" : ""}${isRun ? " run" : ""}`}
                   onMouseEnter={() => setActiveIdx(idx)}
                   onClick={() => execute(entry)}
-                  style={{
-                    width: "100%",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "10px 12px",
-                    margin: "1px 0",
-                    border: "1px solid transparent",
-                    borderRadius: 8,
-                    background: active ? "rgba(124,58,237,0.12)" : "transparent",
-                    borderColor: active ? "rgba(124,58,237,0.35)" : "transparent",
-                    color: TOKENS.text,
-                    fontFamily: "inherit",
-                    cursor: "pointer",
-                    textAlign: "left",
-                    transition: "background 120ms ease, border-color 120ms ease",
-                  }}
                 >
                   <span
                     aria-hidden
                     style={{
-                      width: 28,
-                      height: 28,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      borderRadius: 6,
-                      background: "rgba(255,255,255,0.03)",
-                      border: `1px solid ${TOKENS.borderSubtle}`,
-                      color: entry.accent ?? TOKENS.textDim,
-                      fontSize: 13,
-                      fontFamily: entry.icon && entry.icon.startsWith(">") ? "monospace" : "inherit",
+                      display: "grid",
+                      placeItems: "center",
+                      width: 18,
+                      color: isRun ? "var(--accent)" : entry.accent ?? "var(--t-mid)",
                     }}
                   >
-                    {entry.icon ?? "·"}
+                    <Icon name={iconNameFor(entry)} size={16} />
                   </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: "block", fontSize: 13, fontWeight: 600 }}>
+                  <span
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      textAlign: "left",
+                      fontSize: 14,
+                      color: isRun ? "var(--accent)" : "var(--t-hi)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "block",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {entry.label}
                     </span>
                     {entry.hint && (
-                      <span
-                        style={{
-                          display: "block",
-                          fontSize: 11,
-                          color: TOKENS.textDim,
-                          marginTop: 2,
-                        }}
-                      >
+                      <span style={{ display: "block", fontSize: 11, color: "var(--t-lo)", marginTop: 2 }}>
                         {entry.hint}
                       </span>
                     )}
                   </span>
-                  <span
-                    style={{
-                      fontSize: 9,
-                      fontFamily: "monospace",
-                      letterSpacing: "0.08em",
-                      padding: "2px 6px",
-                      borderRadius: 4,
-                      background: TOKENS.card,
-                      color: entry.accent ?? TOKENS.textDim,
-                      border: `1px solid ${TOKENS.borderSubtle}`,
-                      textTransform: "uppercase" as const,
-                    }}
-                  >
-                    {kindLabel}
-                  </span>
+                  {isRun ? (
+                    <span className="kbd">↵ dispatch</span>
+                  ) : (
+                    <span className="po-pal-grp">{kindLabelFor(entry)}</span>
+                  )}
                 </button>
               );
             })
           )}
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 10,
-            padding: "8px 14px",
-            borderTop: `1px solid ${TOKENS.borderSubtle}`,
-            color: TOKENS.textMuted,
-            fontSize: 10,
-            fontFamily: "monospace",
-            letterSpacing: "0.06em",
-          }}
-        >
+        <div className="po-pal-foot">
           <span>
-            <kbd style={kbdStyle}>↑</kbd>
-            <kbd style={kbdStyle}>↓</kbd> navigate
+            <b style={{ color: "var(--t-mid)" }}>↑↓</b> navigate
           </span>
           <span>
-            <kbd style={kbdStyle}>↵</kbd> open
+            <b style={{ color: "var(--t-mid)" }}>↵</b> select
           </span>
-          <span>
-            <kbd style={kbdStyle}>ESC</kbd> close
-          </span>
+          <span style={{ marginLeft: "auto", color: "var(--c-purple-l)" }}>● ATLAS listening</span>
         </div>
       </div>
     </div>
   );
 }
-
-const kbdStyle = {
-  display: "inline-block",
-  padding: "1px 6px",
-  margin: "0 4px 0 0",
-  border: "1px solid #1e1e1e",
-  borderRadius: 3,
-  background: "rgba(255,255,255,0.03)",
-  color: "#888",
-  fontFamily: "monospace",
-  fontSize: 10,
-} as const;

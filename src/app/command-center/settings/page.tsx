@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
+import { InstrumentPage, PgBtn } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SETTINGS — System Configuration & Agent Management
@@ -333,44 +333,31 @@ function SettingsContent() {
   ];
 
   return (
-    <div style={{ position: "relative", minHeight: "100vh", background: "#000000", color: "#e5e5e5", overflow: "hidden" }}>
-      <ParticleField />
-
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: "radial-gradient(ellipse 800px 600px at 25% 15%, rgba(201,168,76,0.08) 0%, transparent 60%), radial-gradient(ellipse 600px 600px at 75% 85%, rgba(249,115,22,0.06) 0%, transparent 60%)"
-      }} />
-
-      <div style={{ position: "relative", zIndex: 2, width: "100%", padding: "32px 24px 80px" }}>
-        <div style={{ marginBottom: 32 }}>
-          <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#737373", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8, transition: "all 0.15s" }}>
-            <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
-          </Link>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: "#e5e5e5", textShadow: "0 0 40px rgba(201,168,76,0.3)" }}>Settings</h1>
-              <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
-                {loading ? "LOADING..." : `${agents.length} agents registered`}
-                {lastSync && <span style={{ marginLeft: 8, color: "rgba(34,197,94,0.6)" }}>● LIVE · {lastSync}</span>}
-                <span style={{ marginLeft: 8, fontSize: 10, color: source === "live" ? "#22c55e" : "#f59e0b" }}>
-                  [{source === "live" ? "FILESYSTEM" : "STATIC FALLBACK"}]
-                </span>
-              </p>
-            </div>
-            <button onClick={fetchData} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: "rgba(255,255,255,0.05)", border: "2px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#a3a3a3", cursor: "pointer", transition: "all 0.2s" }}>
-              REFRESH
-            </button>
-          </div>
-        </div>
+    <InstrumentPage
+      id="settings"
+      title="Settings"
+      section="Operations"
+      icon="settings"
+      accent="var(--c-indigo)"
+      actions={<PgBtn icon="pulse" onClick={fetchData}>Refresh</PgBtn>}
+    >
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ fontSize: 13, color: "var(--t-mid)", margin: "0 0 18px" }}>
+          {loading ? "LOADING..." : `${agents.length} agents registered`}
+          {lastSync && <span style={{ marginLeft: 8, color: "var(--c-green)" }}>● LIVE · {lastSync}</span>}
+          <span style={{ marginLeft: 8, fontSize: 10, color: source === "live" ? "var(--c-green)" : "var(--c-amber)" }}>
+            [{source === "live" ? "FILESYSTEM" : "STATIC FALLBACK"}]
+          </span>
+        </p>
 
         {/* Tabs */}
-        <div style={{ display: "flex", gap: 4, marginBottom: 24, background: "rgba(255,255,255,0.03)", borderRadius: 10, padding: 4, width: "fit-content" }}>
+        <div style={{ display: "flex", gap: 4, background: "var(--ink-2)", borderRadius: 10, padding: 4, width: "fit-content" }}>
           {tabs.map((tab) => (
             <button key={tab.id} type="button" onClick={() => selectTab(tab.id)} style={{
               padding: "10px 20px", borderRadius: 8, fontSize: 11, fontWeight: 700, letterSpacing: "0.1em",
-              border: activeTab === tab.id ? "2px solid rgba(201,168,76,0.3)" : "2px solid transparent",
-              background: activeTab === tab.id ? "rgba(201,168,76,0.12)" : "transparent",
-              color: activeTab === tab.id ? "#C9A84C" : "rgba(255,255,255,0.35)",
+              border: activeTab === tab.id ? "2px solid color-mix(in oklab, var(--gold) 30%, transparent)" : "2px solid transparent",
+              background: activeTab === tab.id ? "color-mix(in oklab, var(--gold) 12%, transparent)" : "transparent",
+              color: activeTab === tab.id ? "var(--gold)" : "var(--t-mid)",
               cursor: "pointer", transition: "all 0.2s"
             }}>
               {tab.label}
@@ -378,6 +365,7 @@ function SettingsContent() {
             </button>
           ))}
         </div>
+      </div>
 
         {/* Agents Grid */}
         {activeTab === "agents" && (
@@ -390,10 +378,10 @@ function SettingsContent() {
             {loading ? (
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 16 }}>
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} style={{ padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: "1px solid rgba(255,255,255,0.06)", height: 140 }}>
-                    <div style={{ width: "60%", height: 12, borderRadius: 4, background: "rgba(255,255,255,0.06)", marginBottom: 12, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ width: "40%", height: 10, borderRadius: 4, background: "rgba(255,255,255,0.04)", marginBottom: 8, animation: "pulse 1.5s ease-in-out infinite" }} />
-                    <div style={{ width: "80%", height: 8, borderRadius: 4, background: "rgba(255,255,255,0.03)", animation: "pulse 1.5s ease-in-out infinite" }} />
+                  <div key={i} style={{ padding: 24, borderRadius: 16, background: "var(--ink-1)", border: "1px solid var(--line)", height: 140 }}>
+                    <div style={{ width: "60%", height: 12, borderRadius: 4, background: "var(--line)", marginBottom: 12, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    <div style={{ width: "40%", height: 10, borderRadius: 4, background: "var(--ink-2)", marginBottom: 8, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    <div style={{ width: "80%", height: 8, borderRadius: 4, background: "var(--ink-2)", animation: "pulse 1.5s ease-in-out infinite" }} />
                   </div>
                 ))}
               </div>
@@ -406,7 +394,7 @@ function SettingsContent() {
                   const isEditing = editingAgent === agent.id;
                   return (
                     <div key={agent.id} style={{
-                      padding: 24, borderRadius: 16, background: "rgba(0,0,0,0.95)",
+                      padding: 24, borderRadius: 16, background: "var(--ink-1)",
                       border: `2px solid ${isEditing ? `${tierColor}40` : "rgba(255,255,255,0.1)"}`,
                       boxShadow: `0 0 24px ${tierColor}15, 0 8px 32px rgba(0,0,0,0.4)`,
                       transition: "all 0.3s"
@@ -414,7 +402,7 @@ function SettingsContent() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                           <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: statusColor, boxShadow: agent.status === "active" ? `0 0 12px ${statusColor}80` : "none" }} />
-                          <span style={{ fontWeight: 700, fontSize: 15, color: "#e5e5e5" }}>{agent.name}</span>
+                          <span style={{ fontWeight: 700, fontSize: 15, color: "var(--t-hi)" }}>{agent.name}</span>
                         </div>
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", padding: "4px 10px", borderRadius: 6, color: tierColor, border: `1px solid ${tierColor}40`, background: `${tierColor}12`, textTransform: "uppercase" }}>
@@ -422,26 +410,26 @@ function SettingsContent() {
                           </span>
                           <button onClick={() => { setEditingAgent(isEditing ? null : agent.id); setEditModel(agent.model.split("/").pop() || agent.model); }} style={{
                             fontSize: 9, padding: "4px 8px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s",
-                            background: isEditing ? "rgba(201,168,76,0.15)" : "rgba(255,255,255,0.04)",
-                            border: isEditing ? "1px solid rgba(201,168,76,0.3)" : "1px solid rgba(255,255,255,0.08)",
-                            color: isEditing ? "#C9A84C" : "#525252"
+                            background: isEditing ? "rgba(201,168,76,0.15)" : "var(--ink-2)",
+                            border: isEditing ? "1px solid rgba(201,168,76,0.3)" : "1px solid var(--line)",
+                            color: isEditing ? "#C9A84C" : "var(--t-lo)"
                           }}>
                             {isEditing ? "CANCEL" : "EDIT"}
                           </button>
                         </div>
                       </div>
-                      <p style={{ fontSize: 12, color: "#737373", margin: "0 0 6px" }}>{agent.role}</p>
+                      <p style={{ fontSize: 12, color: "var(--t-mid)", margin: "0 0 6px" }}>{agent.role}</p>
 
                       {isEditing ? (
                         <div style={{ marginTop: 10 }}>
-                          <label style={{ fontSize: 9, color: "#525252", letterSpacing: "0.15em", display: "block", marginBottom: 4 }}>MODEL</label>
+                          <label style={{ fontSize: 9, color: "var(--t-lo)", letterSpacing: "0.15em", display: "block", marginBottom: 4 }}>MODEL</label>
                           <select value={editModel} onChange={e => setEditModel(e.target.value)} style={{
                             width: "100%", padding: "8px 10px", borderRadius: 6, fontSize: 11,
-                            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.12)",
-                            color: "#e5e5e5", fontFamily: "monospace", cursor: "pointer", outline: "none"
+                            background: "var(--ink-2)", border: "1px solid rgba(255,255,255,0.12)",
+                            color: "var(--t-hi)", fontFamily: "monospace", cursor: "pointer", outline: "none"
                           }}>
                             {AVAILABLE_MODELS.map(m => (
-                              <option key={m.value} value={m.value} style={{ background: "#111", color: "#e5e5e5" }}>
+                              <option key={m.value} value={m.value} style={{ background: "#111", color: "var(--t-hi)" }}>
                                 {m.label} ({m.tier})
                               </option>
                             ))}
@@ -456,13 +444,13 @@ function SettingsContent() {
                           </button>
                         </div>
                       ) : (
-                        <p style={{ fontSize: 11, color: "#525252", fontFamily: "monospace" }}>{agent.model}</p>
+                        <p style={{ fontSize: 11, color: "var(--t-lo)", fontFamily: "monospace" }}>{agent.model}</p>
                       )}
 
                       {agent.skills && agent.skills.length > 0 && (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 14 }}>
                           {agent.skills.slice(0, 3).map((s) => (
-                            <span key={s} style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)" }}>
+                            <span key={s} style={{ fontSize: 9, padding: "3px 8px", borderRadius: 4, background: "var(--ink-2)", border: "1px solid var(--line)", color: "rgba(255,255,255,0.3)" }}>
                               {s}
                             </span>
                           ))}
@@ -505,15 +493,15 @@ function SettingsContent() {
                     { label: "UPTIME", value: vitals.uptime.slice(0, 50), sub: "", color: "#C9A84C" },
                     { label: "AGENT COUNT", value: `${agents.length} registered`, sub: `${agents.filter(a => a.status === "active").length} active`, color: "#22c55e" },
                   ].map((item) => (
-                    <div key={item.label} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "2px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-                      <p style={{ fontSize: 10, color: "#737373", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase" }}>{item.label}</p>
+                    <div key={item.label} style={{ padding: 20, borderRadius: 12, background: "var(--ink-1)", border: "2px solid var(--line)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+                      <p style={{ fontSize: 10, color: "var(--t-mid)", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase" }}>{item.label}</p>
                       <p style={{ fontSize: 16, color: item.color, fontFamily: "monospace", fontWeight: 700, margin: 0 }}>{item.value}</p>
-                      {item.sub && <p style={{ fontSize: 11, color: "#525252", margin: "4px 0 0", fontFamily: "monospace" }}>{item.sub}</p>}
+                      {item.sub && <p style={{ fontSize: 11, color: "var(--t-lo)", margin: "4px 0 0", fontFamily: "monospace" }}>{item.sub}</p>}
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ padding: 40, textAlign: "center", color: "#525252", fontSize: 13 }}>
+                <div style={{ padding: 40, textAlign: "center", color: "var(--t-lo)", fontSize: 13 }}>
                   Connecting to SSE for live vitals...
                 </div>
               )}
@@ -555,7 +543,7 @@ function SettingsContent() {
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, boxShadow: gatewayHealth.reachable ? `0 0 6px ${color}` : "none" }} />
                       Gateway · {label}
                       {gatewayHealth.lastChecked && (
-                        <span style={{ color: "#737373", marginLeft: 6, fontWeight: 500 }}>{gatewayHealth.lastChecked}</span>
+                        <span style={{ color: "var(--t-mid)", marginLeft: 6, fontWeight: 500 }}>{gatewayHealth.lastChecked}</span>
                       )}
                     </span>
                   );
@@ -570,9 +558,9 @@ function SettingsContent() {
                   { label: "List Agents", action: "agents-list", color: "#a78bfa", desc: "List all gateway-known agents" },
                   { label: "Cron Status", action: "cron-list", color: "#34d399", desc: "Show cron jobs with last-run + status" },
                 ].map((ctrl) => (
-                  <div key={ctrl.action} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: `2px solid ${ctrl.color}20`, boxShadow: `0 0 16px ${ctrl.color}08` }}>
-                    <p style={{ fontSize: 10, color: "#737373", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase" }}>{ctrl.label}</p>
-                    <p style={{ fontSize: 11, color: "#525252", margin: "0 0 12px" }}>{ctrl.desc}</p>
+                  <div key={ctrl.action} style={{ padding: 20, borderRadius: 12, background: "var(--ink-1)", border: `2px solid ${ctrl.color}20`, boxShadow: `0 0 16px ${ctrl.color}08` }}>
+                    <p style={{ fontSize: 10, color: "var(--t-mid)", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 6px", textTransform: "uppercase" }}>{ctrl.label}</p>
+                    <p style={{ fontSize: 11, color: "var(--t-lo)", margin: "0 0 12px" }}>{ctrl.desc}</p>
                     <button onClick={() => handleGatewayAction(ctrl.action)} disabled={gatewayAction === ctrl.action || !gatewayHealth.configured} style={{
                       padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
                       background: `${ctrl.color}15`, border: `2px solid ${ctrl.color}30`, borderRadius: 6,
@@ -587,7 +575,7 @@ function SettingsContent() {
                 ))}
               </div>
               {gatewayOutput && (
-                <div style={{ marginTop: 16, padding: 16, borderRadius: 8, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", fontFamily: "monospace", fontSize: 11, color: "#a3a3a3", whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
+                <div style={{ marginTop: 16, padding: 16, borderRadius: 8, background: "var(--ink-2)", border: "1px solid var(--line)", fontFamily: "monospace", fontSize: 11, color: "var(--t-mid)", whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
                   {gatewayOutput}
                 </div>
               )}
@@ -605,9 +593,9 @@ function SettingsContent() {
                   { label: "TUNNEL", value: "command.parallaxvinc.com" },
                   { label: "CHANNEL", value: "Telegram + Discord" },
                 ].map((item) => (
-                  <div key={item.label} style={{ padding: 20, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "2px solid rgba(255,255,255,0.06)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
-                    <p style={{ fontSize: 10, color: "#737373", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase" }}>{item.label}</p>
-                    <p style={{ fontSize: 14, color: "#e5e5e5", fontFamily: "monospace", margin: 0 }}>{item.value}</p>
+                  <div key={item.label} style={{ padding: 20, borderRadius: 12, background: "var(--ink-1)", border: "2px solid var(--line)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+                    <p style={{ fontSize: 10, color: "var(--t-mid)", letterSpacing: "0.2em", fontWeight: 600, margin: "0 0 8px", textTransform: "uppercase" }}>{item.label}</p>
+                    <p style={{ fontSize: 14, color: "var(--t-hi)", fontFamily: "monospace", margin: 0 }}>{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -622,14 +610,14 @@ function SettingsContent() {
                 <h2 style={{ fontSize: 12, fontWeight: 800, color: "#C9A84C", letterSpacing: "0.15em", margin: "0 0 8px", textTransform: "uppercase" }}>
                   Cron jobs
                 </h2>
-                <p style={{ fontSize: 12, color: "#737373", margin: 0, maxWidth: 560 }}>
-                  Same data as Calendar — local <code style={{ color: "#a3a3a3", fontSize: 11 }}>jobs.json</code> under the resolved cron directory (default{" "}
-                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>~/.openclaw/cron</code>; override with{" "}
-                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>OPENCLAW_CRON_DIR</code> or{" "}
-                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>OPENCLAW_HOME</code>) when this server can read the OpenClaw host; otherwise{" "}
-                  <code style={{ color: "#a3a3a3", fontSize: 11 }}>POST /api/command-center/firestore-sync</code> pushes jobs to Firestore for Vercel.
+                <p style={{ fontSize: 12, color: "var(--t-mid)", margin: 0, maxWidth: 560 }}>
+                  Same data as Calendar — local <code style={{ color: "var(--t-mid)", fontSize: 11 }}>jobs.json</code> under the resolved cron directory (default{" "}
+                  <code style={{ color: "var(--t-mid)", fontSize: 11 }}>~/.openclaw/cron</code>; override with{" "}
+                  <code style={{ color: "var(--t-mid)", fontSize: 11 }}>OPENCLAW_CRON_DIR</code> or{" "}
+                  <code style={{ color: "var(--t-mid)", fontSize: 11 }}>OPENCLAW_HOME</code>) when this server can read the OpenClaw host; otherwise{" "}
+                  <code style={{ color: "var(--t-mid)", fontSize: 11 }}>POST /api/command-center/firestore-sync</code> pushes jobs to Firestore for Vercel.
                 </p>
-                <p style={{ fontSize: 11, color: "#525252", margin: "10px 0 0" }}>
+                <p style={{ fontSize: 11, color: "var(--t-lo)", margin: "10px 0 0" }}>
                   {cronLoading
                     ? "Loading…"
                     : cronSource === "live" || cronSource === "firestore"
@@ -646,22 +634,22 @@ function SettingsContent() {
                       marginTop: 14,
                       padding: "12px 14px",
                       borderRadius: 8,
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.08)",
+                      background: "var(--ink-2)",
+                      border: "1px solid var(--line)",
                       fontSize: 10,
-                      color: "#737373",
+                      color: "var(--t-mid)",
                       fontFamily: "ui-monospace, monospace",
                       lineHeight: 1.5,
                     }}
                   >
-                    <span style={{ color: "#525252", display: "block", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    <span style={{ color: "var(--t-lo)", display: "block", marginBottom: 6, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                       Sync paths (this server)
                     </span>
                     {Object.entries(syncPaths).map(([k, v]) => (
                       <div key={k}>
-                        <span style={{ color: "#a3a3a3" }}>{k}</span>
+                        <span style={{ color: "var(--t-mid)" }}>{k}</span>
                         {": "}
-                        <span style={{ color: "#d4d4d4", wordBreak: "break-all" }}>{v}</span>
+                        <span style={{ color: "var(--t-hi)", wordBreak: "break-all" }}>{v}</span>
                       </div>
                     ))}
                   </div>
@@ -707,7 +695,7 @@ function SettingsContent() {
             </div>
 
             {cronLoading ? (
-              <div style={{ padding: 48, textAlign: "center", color: "#525252", fontSize: 13 }}>Loading cron schedule…</div>
+              <div style={{ padding: 48, textAlign: "center", color: "var(--t-lo)", fontSize: 13 }}>Loading cron schedule…</div>
             ) : cronEvents.length === 0 ? (
               <div
                 style={{
@@ -718,31 +706,31 @@ function SettingsContent() {
                   background: "rgba(0,0,0,0.4)",
                 }}
               >
-                <p style={{ color: "#737373", fontSize: 14, margin: 0 }}>No cron jobs to show here.</p>
-                <p style={{ color: "#525252", fontSize: 12, margin: "10px 0 0" }}>
-                  Edit <code style={{ color: "#a3a3a3" }}>jobs.json</code> on the OpenClaw host or sync via your bridge.
+                <p style={{ color: "var(--t-mid)", fontSize: 14, margin: 0 }}>No cron jobs to show here.</p>
+                <p style={{ color: "var(--t-lo)", fontSize: 12, margin: "10px 0 0" }}>
+                  Edit <code style={{ color: "var(--t-mid)" }}>jobs.json</code> on the OpenClaw host or sync via your bridge.
                 </p>
               </div>
             ) : (
-              <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid rgba(255,255,255,0.08)", background: "rgba(0,0,0,0.5)" }}>
+              <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid var(--line)", background: "rgba(0,0,0,0.5)" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                   <thead>
-                    <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", textAlign: "left" }}>
-                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Job</th>
-                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Agent</th>
-                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Time</th>
-                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Frequency</th>
-                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Status</th>
-                      <th style={{ padding: "12px 14px", color: "#737373", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Last run</th>
+                    <tr style={{ borderBottom: "1px solid var(--line)", textAlign: "left" }}>
+                      <th style={{ padding: "12px 14px", color: "var(--t-mid)", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Job</th>
+                      <th style={{ padding: "12px 14px", color: "var(--t-mid)", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Agent</th>
+                      <th style={{ padding: "12px 14px", color: "var(--t-mid)", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Time</th>
+                      <th style={{ padding: "12px 14px", color: "var(--t-mid)", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Frequency</th>
+                      <th style={{ padding: "12px 14px", color: "var(--t-mid)", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Status</th>
+                      <th style={{ padding: "12px 14px", color: "var(--t-mid)", fontWeight: 700, letterSpacing: "0.08em", fontSize: 10, textTransform: "uppercase" }}>Last run</th>
                     </tr>
                   </thead>
                   <tbody>
                     {cronEvents.map((row) => (
-                      <tr key={row.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                        <td style={{ padding: "12px 14px", color: "#e5e5e5", fontWeight: 600, verticalAlign: "top" }}>{row.label}</td>
-                        <td style={{ padding: "12px 14px", color: "#a3a3a3", fontFamily: "monospace", verticalAlign: "top" }}>{row.agent}</td>
-                        <td style={{ padding: "12px 14px", color: "#a3a3a3", fontFamily: "monospace", verticalAlign: "top" }}>{row.time}</td>
-                        <td style={{ padding: "12px 14px", color: "#737373", verticalAlign: "top", maxWidth: 220 }}>{row.frequency}</td>
+                      <tr key={row.id} style={{ borderBottom: "1px solid var(--ink-2)" }}>
+                        <td style={{ padding: "12px 14px", color: "var(--t-hi)", fontWeight: 600, verticalAlign: "top" }}>{row.label}</td>
+                        <td style={{ padding: "12px 14px", color: "var(--t-mid)", fontFamily: "monospace", verticalAlign: "top" }}>{row.agent}</td>
+                        <td style={{ padding: "12px 14px", color: "var(--t-mid)", fontFamily: "monospace", verticalAlign: "top" }}>{row.time}</td>
+                        <td style={{ padding: "12px 14px", color: "var(--t-mid)", verticalAlign: "top", maxWidth: 220 }}>{row.frequency}</td>
                         <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
                           <span
                             style={{
@@ -755,7 +743,7 @@ function SettingsContent() {
                             {row.enabled ? "ON" : "OFF"}
                           </span>
                         </td>
-                        <td style={{ padding: "12px 14px", color: "#525252", fontSize: 11, fontFamily: "monospace", verticalAlign: "top" }}>
+                        <td style={{ padding: "12px 14px", color: "var(--t-lo)", fontSize: 11, fontFamily: "monospace", verticalAlign: "top" }}>
                           {row.lastRun || "—"}
                           {row.lastResult ? ` · ${row.lastResult}` : ""}
                         </td>
@@ -772,11 +760,11 @@ function SettingsContent() {
                   marginTop: 16,
                   padding: 14,
                   borderRadius: 8,
-                  background: "rgba(255,255,255,0.03)",
-                  border: "1px solid rgba(255,255,255,0.08)",
+                  background: "var(--ink-2)",
+                  border: "1px solid var(--line)",
                   fontFamily: "monospace",
                   fontSize: 11,
-                  color: "#a3a3a3",
+                  color: "var(--t-mid)",
                   whiteSpace: "pre-wrap",
                   maxHeight: 160,
                   overflow: "auto",
@@ -787,16 +775,15 @@ function SettingsContent() {
             )}
           </div>
         )}
-      </div>
 
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 0.3; }
           50% { opacity: 0.6; }
         }
-        select option { background: #111; color: #e5e5e5; }
+        select option { background: #111; color: var(--t-hi); }
       `}</style>
-    </div>
+    </InstrumentPage>
   );
 }
 
@@ -808,7 +795,7 @@ export default function SettingsPage() {
           style={{
             minHeight: "100vh",
             background: "#000000",
-            color: "#737373",
+            color: "var(--t-mid)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",

@@ -1,0 +1,28 @@
+/* ================================================================
+   PARALLAX OS — character portrait avatar token.
+   Container sets font-size = size; inner uses em units.
+   ================================================================ */
+.av3d { position: relative; display: inline-block; line-height: 0; flex: 0 0 auto; width: 1em; height: 1em; --fac: var(--c-cyan); }
+.av3d.bob .av-token { animation: av-bob 4.4s var(--ease-io) infinite; }
+@keyframes av-bob { 0%,100%{ transform: translateY(.015em); } 50%{ transform: translateY(-.04em); } }
+
+.av-aura { position: absolute; inset: -.1em; border-radius: 30%; pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, color-mix(in oklab, var(--fac) 36%, transparent), transparent 66%); }
+
+.av-token { position: absolute; inset: 0; border-radius: .28em; overflow: hidden;
+  background: color-mix(in oklab, var(--fac) 14%, var(--ink-0));
+  border: .035em solid color-mix(in oklab, var(--fac) 55%, transparent);
+  box-shadow: 0 0 .18em color-mix(in oklab, var(--fac) 40%, transparent), inset 0 0 .14em color-mix(in oklab, var(--fac) 22%, transparent); }
+.av-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.av-sheen { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(155deg, rgba(255,255,255,.18) 0%, transparent 32%); mix-blend-mode: screen; }
+.av-glint { position: absolute; right: .1em; top: .1em; width: .08em; height: .08em; border-radius: 50%;
+  background: var(--c-cyan); box-shadow: 0 0 .08em var(--c-cyan); opacity: .9; }
+
+.av-pip { position: absolute; right: -.03em; bottom: -.03em; width: .26em; height: .26em; border-radius: 50%; z-index: 3; border: .05em solid var(--ink-1); }
+.av-pip.active { background: var(--c-green); box-shadow: 0 0 .1em var(--c-green); }
+.av-pip.busy { background: var(--c-amber); box-shadow: 0 0 .1em var(--c-amber); }
+.av-pip.idle { background: var(--t-dim); }
+
+.po-still .av3d.bob .av-token { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .av3d.bob .av-token { animation: none !important; } }

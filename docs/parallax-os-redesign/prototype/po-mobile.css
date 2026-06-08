@@ -1,0 +1,102 @@
+/* ================================================================
+   PARALLAX OS — MOBILE / RESPONSIVE (simple, additive)
+   ≤1024: sidebar → icon rail, grids reflow
+   ≤640:  phone — stack panes, trim HUD, scale hero surfaces
+   ================================================================ */
+
+/* ---------------- ≤1024px : tablet / narrow ---------------- */
+@media (max-width: 1024px) {
+  .po-side { width: 66px; flex-basis: 66px; }
+  .po-side-head { padding: 16px 0; justify-content: center; }
+  .po-side-head > div, .po-side-foot span:first-child { display: none; }
+  .po-nav-sec { text-align: center; padding: 12px 0 4px; font-size: 7.5px; opacity: .6; }
+  /* icon rail: accordion off — show every item, hide the toggle chrome */
+  .po-nav-sec-lbl, .po-nav-sec-roll, .po-nav-sec-chev { display: none; }
+  .po-nav-sec { pointer-events: none; }
+  .po-nav-sec::after { content: ""; display: block; width: 18px; height: 1px; margin: 0 auto; background: var(--line); }
+  .po-nav-items { grid-template-rows: 1fr !important; }
+  .po-navitem { justify-content: center; padding: 0; margin: 1px 8px; width: calc(100% - 16px); border-left: none; }
+  .po-navitem .lbl { display: none; }
+  .po-navitem .bdg { position: absolute; top: 2px; right: 6px; padding: 0 4px; font-size: 8px; min-width: 0; }
+  .po-navitem.on { box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 45%, transparent); }
+  .po-side-foot { justify-content: center; }
+
+  /* trim the HUD readouts, keep command + clock + atlas */
+  .po-readouts { gap: 10px; }
+  .po-ro { display: none; }
+  .po-cmdbar { max-width: none; }
+  .po-cmdbar .txt { font-size: 12px; }
+
+  /* grids reflow */
+  .cv-stats, .scaf-grid { grid-template-columns: repeat(3, 1fr) !important; }
+  .ag-grid { grid-template-columns: repeat(3, 1fr); }
+  .fn-tiles { grid-template-columns: repeat(2, 1fr); }
+  .cv-cols, .ob-grid { grid-template-columns: 1fr; }
+  .tx-grid { grid-template-columns: 1fr; }
+  .tx-left { flex-direction: row; flex-wrap: wrap; }
+  .tx-strip, .tx-detail { flex: 1 1 280px; }
+}
+
+/* ---------------- ≤640px : phone ---------------- */
+@media (max-width: 640px) {
+  /* sidebar → bottom-less: keep slim rail but allow horizontal content */
+  .po-side { width: 56px; flex-basis: 56px; }
+  .po-top { height: 56px; flex-basis: 56px; padding: 0 12px; gap: 10px; }
+  .po-clock { display: none; }
+  .po-atlasbtn .lab { display: none; }
+  .po-atlasbtn { padding: 0 8px; }
+
+  /* page padding */
+  .cv-inner, .pg-inner { padding: 18px 16px 40px; }
+  .cv-stats, .scaf-grid, .ag-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .fn-tiles { grid-template-columns: repeat(2, 1fr); }
+
+  /* hero type scales down */
+  .cv-h1 { font-size: 34px; }
+  .pg-h1 { font-size: 27px; }
+  .fn-big { font-size: 44px; }
+  .cv-stage-head { flex-direction: column; gap: 14px; align-items: flex-start; }
+  .cv-directive { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .cv-directive .cv-primary { width: 100%; }
+
+  /* dashboard 3D stage: shrink + drop the floating corner gauges (vitals cover them) */
+  .stage { height: 340px; }
+  .holo-gauge { display: none; }
+  .instrument-head { flex-wrap: wrap; }
+  .pg-head-act { width: 100%; }
+
+  /* Finance hero stacks */
+  .fn-hero { flex-direction: column; align-items: stretch; gap: 14px; }
+  .fn-hero svg { width: 100%; }
+
+  /* Comms → stack list above thread */
+  .cm-wrap { flex-direction: column; }
+  .cm-list { width: 100%; flex: 0 0 auto; max-height: 168px; border-right: none; border-bottom: 1px solid var(--line); }
+  .cm-convs { display: flex; gap: 8px; overflow-x: auto; padding: 6px 10px; }
+  .cm-conv { flex: 0 0 200px; }
+  .cm-grp-lbl { display: none; }
+  .cm-thread-inner, .cm-chips, .cm-composer-inner { padding-left: 16px; padding-right: 16px; }
+  .cm-msg { max-width: 100%; }
+
+  /* Observatory radar above list */
+  .ob-radar { max-width: 360px; margin: 0 auto; }
+
+  /* Sanctuary: tighten so throne + word fit */
+  .sanc-throne { width: 280px; height: 280px; }
+  .sanc-truths { flex-wrap: wrap; justify-content: center; gap: 8px 12px; }
+  .sanc-star .ct { display: none; }
+  .sanc-bottom { width: 94%; }
+  .sanc-directive { font-size: 15px; }
+
+  /* alert ticker trims */
+  .po-alertbar-cta { display: none; }
+
+  /* boot scales */
+  .po-boot-log, .po-boot-bar { width: 280px; }
+  .po-boot-title { font-size: 24px; }
+}
+
+/* very short landscape phones: let key fixed surfaces scroll */
+@media (max-height: 520px) {
+  .sanc { overflow-y: auto; }
+}

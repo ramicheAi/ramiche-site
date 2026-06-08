@@ -1,0 +1,155 @@
+/* ================================================================
+   PARALLAX OS — shell UI: depth bg, rift, holographic sidebar,
+   top HUD, palette, panels, toast.
+   ================================================================ */
+.po-shell .po-app { position: fixed; inset: 0; display: flex; overflow: hidden; --mx: 0; --my: 0; }
+
+/* ---------- parallax depth background ---------- */
+.po-shell .po-bg { position: absolute; inset: -8%; z-index: 0; pointer-events: none; }
+.po-shell .po-layer { position: absolute; inset: 0; will-change: transform; }
+.po-shell .po-stars {
+  background:
+    radial-gradient(1.3px 1.3px at 18% 24%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 62% 58%, var(--c-purple-l) 50%, transparent),
+    radial-gradient(1.4px 1.4px at 41% 82%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 84% 16%, var(--star) 50%, transparent),
+    radial-gradient(1px 1px at 9% 66%, var(--c-sky) 50%, transparent),
+    radial-gradient(1px 1px at 73% 38%, var(--star) 50%, transparent);
+  background-repeat: repeat; background-size: 460px 460px, 320px 320px, 540px 540px, 380px 380px, 300px 300px, 420px 420px;
+  transform: translate(calc(var(--mx) * -8px), calc(var(--my) * -8px)); animation: po-drift 140s linear infinite; opacity: .8;
+}
+@keyframes po-drift { to { background-position: 460px 230px, -320px 160px, 270px -270px, -190px 190px, 150px -150px, -210px 210px; } }
+.po-shell .po-neb {
+  background:
+    radial-gradient(60% 55% at 82% 2%, color-mix(in oklab, var(--c-purple) 22%, transparent), transparent 70%),
+    radial-gradient(50% 55% at 4% 100%, color-mix(in oklab, var(--c-sky) 12%, transparent), transparent 70%),
+    radial-gradient(45% 50% at 60% 110%, color-mix(in oklab, var(--c-gold) 10%, transparent), transparent 70%);
+  transform: translate(calc(var(--mx) * -18px), calc(var(--my) * -18px)); animation: po-breathe 11s var(--ease-io) infinite;
+}
+@keyframes po-breathe { 0%,100%{opacity:.85} 50%{opacity:1} }
+.po-shell[data-po-theme="light"] .po-stars { opacity: .3; }
+.po-shell[data-po-theme="light"] .po-neb { opacity: .5; }
+
+.po-shell .po-rift { position: absolute; inset: -20%; z-index: 0; pointer-events: none; overflow: hidden; transform: translate(calc(var(--mx) * -10px), calc(var(--my) * -10px)); }
+.po-shell .po-rift::before, .po-shell .po-rift::after { content: ""; position: absolute; top: -30%; bottom: -30%; width: 1px; transform: rotate(var(--po-angle));
+  background: linear-gradient(180deg, transparent, var(--line-hot), transparent); box-shadow: 0 0 30px 1px color-mix(in oklab, var(--c-purple) 30%, transparent); }
+.po-shell .po-rift::before { left: 30%; opacity: .5; } .po-shell .po-rift::after { left: 31.3%; opacity: .85; }
+.po-shell .po-still .po-stars, .po-shell .po-still .po-neb { animation: none !important; }
+.po-shell .po-norift .po-rift { display: none; }
+
+/* ---------- HOLOGRAPHIC SIDEBAR ---------- */
+.po-shell .po-side { position: relative; z-index: 6; width: 244px; flex: 0 0 244px; display: flex; flex-direction: column;
+  border-right: 1px solid var(--line); background: linear-gradient(180deg, color-mix(in oklab, var(--ink-1) 78%, transparent), color-mix(in oklab, var(--ink-0) 55%, transparent)); backdrop-filter: blur(12px); }
+.po-shell .po-side-head { padding: 18px 16px 14px; border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 11px;
+  background: linear-gradient(180deg, color-mix(in oklab, var(--c-purple) 8%, transparent), transparent); }
+.po-shell .po-side-head .nm { font-family: var(--f-tech); font-size: 12.5px; font-weight: 700; letter-spacing: .14em; }
+.po-shell .po-side-head .ver { font-family: var(--f-mono); font-size: 8.5px; letter-spacing: .2em; color: var(--accent); margin-top: 2px; }
+.po-shell .po-nav { flex: 1; overflow-y: auto; padding: 8px 0 10px; }
+.po-shell .po-nav-grp { margin-bottom: 2px; }
+.po-shell .po-nav-sec { display: flex; align-items: center; gap: 8px; width: calc(100% - 16px); margin: 2px 8px; padding: 7px 10px; cursor: pointer;
+  border: none; background: transparent; border-radius: var(--r-sm);
+  font-family: var(--f-mono); font-size: 9.5px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: var(--t-lo);
+  transition: color .14s, background .14s; }
+.po-shell .po-nav-sec:hover { color: var(--t-mid); background: color-mix(in oklab, var(--accent) 5%, transparent); }
+.po-shell .po-nav-sec.has-active { color: var(--t-mid); }
+.po-shell .po-nav-sec-lbl { flex: 1; text-align: left; }
+.po-shell .po-nav-sec-roll { font-size: 9px; padding: 1px 6px; border-radius: var(--r-pill); color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 40%, transparent); }
+.po-shell .po-nav-sec-chev { display: grid; place-items: center; color: var(--t-dim); transition: transform .22s var(--ease); }
+.po-shell .po-nav-grp.open .po-nav-sec-chev { transform: rotate(180deg); color: var(--t-lo); }
+.po-shell .po-nav-items { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .26s var(--ease); }
+.po-shell .po-nav-grp.open .po-nav-items { grid-template-rows: 1fr; }
+.po-shell .po-nav-items-inner { overflow: hidden; min-height: 0; }
+.po-shell .po-navitem { position: relative; display: flex; align-items: center; gap: 11px; height: 33px; padding: 0 14px; margin: 1px 8px; cursor: pointer;
+  border-radius: var(--r-sm); font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .02em; color: var(--t-lo); border: none; background: transparent; width: calc(100% - 16px);
+  border-left: 2px solid transparent; transition: all .14s var(--ease); }
+.po-shell .po-navitem:hover { color: var(--t-mid); background: color-mix(in oklab, var(--accent) 6%, transparent); }
+.po-shell .po-navitem.on { color: var(--t-hi) !important; background: color-mix(in oklab, var(--accent) 14%, transparent); border-left-color: var(--accent);
+  box-shadow: inset 0 0 22px color-mix(in oklab, var(--accent) 7%, transparent); }
+.po-shell .po-navitem.on .lbl { color: var(--t-hi); }
+.po-shell .po-navitem .ic { color: var(--t-dim); flex: 0 0 18px; display: grid; place-items: center; transition: all .14s; }
+.po-shell .po-navitem:hover .ic { color: color-mix(in oklab, var(--accent) 70%, var(--t-mid)); }
+.po-shell .po-navitem.on .ic { color: var(--accent); filter: drop-shadow(0 0 5px var(--accent)); }
+.po-shell .po-navitem .lbl { flex: 1; text-align: left; }
+.po-shell .po-navitem .bdg { font-size: 9.5px; padding: 1px 6px; border-radius: var(--r-pill); color: var(--accent); border: 1px solid color-mix(in oklab, var(--accent) 45%, transparent); }
+.po-shell .po-side-foot { padding: 12px 16px 14px; border-top: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--f-mono); font-size: 8.5px; letter-spacing: .14em; color: var(--t-dim); text-transform: uppercase; }
+.po-shell .po-foot-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 8px var(--c-green); animation: po-blink 2.4s infinite; }
+@keyframes po-blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ---------- TOP HUD ---------- */
+.po-shell .po-main { position: relative; z-index: 5; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.po-shell .po-top { height: 64px; flex: 0 0 64px; display: flex; align-items: center; gap: 16px; padding: 0 22px; border-bottom: 1px solid var(--line); }
+.po-shell .po-cmdbar { position: relative; flex: 1; max-width: 520px; height: 40px; display: flex; align-items: center; gap: 11px; padding: 0 12px 0 15px; cursor: pointer;
+  color: var(--t-mid); border-radius: var(--r-pill); background: var(--panel-glass); border: 1px solid var(--line-2); backdrop-filter: blur(14px); transition: all .18s var(--ease); white-space: nowrap; overflow: hidden; }
+.po-shell .po-cmdbar:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 24px color-mix(in oklab, var(--accent) 22%, transparent); }
+.po-shell .po-cmdbar .txt { font-size: 13px; overflow: hidden; text-overflow: ellipsis; }
+.po-shell .po-cmdbar .kbd { margin-left: auto; }
+.po-shell .kbd { font-family: var(--f-mono); font-size: 10px; padding: 3px 7px; border-radius: 5px; color: var(--t-mid); border: 1px solid var(--line); background: color-mix(in oklab, var(--ink-0) 60%, transparent); white-space: nowrap; }
+.po-shell .po-readouts { display: flex; align-items: center; gap: 15px; margin-left: auto; }
+.po-shell .po-ro { display: flex; align-items: center; gap: 8px; }
+.po-shell .po-ro .lab { font-family: var(--f-mono); font-size: 8px; letter-spacing: .2em; text-transform: uppercase; color: var(--t-lo); line-height: 1; white-space: nowrap; }
+.po-shell .po-ro .val { font-family: var(--f-mono); font-size: 12.5px; line-height: 1.1; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.po-shell .po-livedot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 8px currentColor; animation: po-blink 2s infinite; }
+.po-shell .po-clock { font-family: var(--f-mono); font-size: 13px; color: var(--t-hi); letter-spacing: .04em; white-space: nowrap; }
+.po-shell .po-icbtn { width: 34px; height: 34px; display: grid; place-items: center; cursor: pointer; color: var(--t-mid); border-radius: var(--r-sm); border: 1px solid var(--line); background: var(--panel-glass); transition: all .16s; }
+.po-shell .po-icbtn:hover { color: var(--accent); border-color: var(--accent); }
+.po-shell .po-atlasbtn { display: flex; align-items: center; gap: 9px; height: 38px; padding: 0 14px 0 8px; cursor: pointer; white-space: nowrap;
+  border-radius: var(--r-pill); border: 1px solid color-mix(in oklab, var(--c-purple) 55%, transparent); color: var(--t-hi);
+  background: color-mix(in oklab, var(--c-purple) 12%, var(--panel-glass)); transition: all .18s var(--ease); }
+.po-shell .po-atlasbtn:hover { box-shadow: 0 0 22px color-mix(in oklab, var(--c-purple) 40%, transparent); }
+.po-shell .po-atlasbtn .lab { font-family: var(--f-tech); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; }
+
+.po-shell .po-view { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+
+/* ---------- GLOBAL ALERT TICKER ---------- */
+.po-shell .po-alertbar { flex: 0 0 auto; display: flex; align-items: center; gap: 13px; height: 38px; padding: 0 16px; cursor: pointer; overflow: hidden;
+  border-bottom: 1px solid color-mix(in oklab, var(--c-red) 50%, transparent);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--c-red) 22%, var(--ink-1)), color-mix(in oklab, var(--c-red) 9%, var(--ink-1)));
+  animation: po-alertbar-pulse 1.4s steps(1) infinite; }
+@keyframes po-alertbar-pulse { 0%,100% { box-shadow: inset 0 0 30px color-mix(in oklab, var(--c-red) 12%, transparent); } 50% { box-shadow: inset 0 0 44px color-mix(in oklab, var(--c-red) 24%, transparent); } }
+.po-shell .po-alertbar-pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--c-red); box-shadow: 0 0 10px var(--c-red); flex: 0 0 8px; animation: po-blink .7s steps(1) infinite; }
+.po-shell .po-alertbar-tag { font-size: 10px; letter-spacing: .14em; color: var(--c-red); font-weight: 600; white-space: nowrap; flex: 0 0 auto; }
+.po-shell .po-alertbar-track { flex: 1; overflow: hidden; -webkit-mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.po-shell .po-alertbar-scroll { display: inline-flex; align-items: center; gap: 26px; white-space: nowrap; animation: po-ticker 18s linear infinite; }
+@keyframes po-ticker { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.po-shell .po-alertbar-item { font-size: 11px; color: var(--t-hi); display: inline-flex; align-items: center; gap: 8px; }
+.po-shell .po-alertbar-item b { color: var(--c-red); }
+.po-shell .po-alertbar-dot { width: 3px; height: 3px; border-radius: 50%; background: color-mix(in oklab, var(--c-red) 60%, transparent); margin-left: 18px; }
+.po-shell .po-alertbar-cta { font-size: 9.5px; letter-spacing: .14em; color: var(--c-red); border: 1px solid color-mix(in oklab, var(--c-red) 50%, transparent); border-radius: var(--r-pill); padding: 4px 11px; white-space: nowrap; flex: 0 0 auto; }
+.po-shell .po-alertbar:hover .po-alertbar-cta { background: color-mix(in oklab, var(--c-red) 18%, transparent); }
+.po-shell .po-still .po-alertbar, .po-shell .po-still .po-alertbar-scroll, .po-shell .po-still .po-alertbar-pulse { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .po-shell .po-alertbar, .po-shell .po-alertbar-scroll, .po-shell .po-alertbar-pulse { animation: none !important; } }
+
+/* shared panel */
+.po-shell .po-panel { background: var(--panel-glass); border: 1px solid var(--line); border-radius: var(--r-lg); backdrop-filter: blur(12px); }
+.po-shell .po-pal-grp { font-family: var(--f-mono); font-size: 10px; color: var(--t-lo); padding: 2px 7px; border: 1px solid var(--line); border-radius: var(--r-pill); white-space: nowrap; }
+
+/* ---------- COMMAND PALETTE ---------- */
+.po-shell .po-scrim { position: fixed; inset: 0; z-index: 90; display: flex; justify-content: center; padding-top: 12vh; background: color-mix(in oklab, var(--void) 62%, transparent); backdrop-filter: blur(9px); }
+.po-shell .po-palette { width: 620px; max-width: 92%; align-self: flex-start; border-radius: var(--r-lg); overflow: hidden; background: color-mix(in oklab, var(--ink-1) 94%, transparent); border: 1px solid var(--line-2);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-purple) 20%, transparent), 0 40px 100px rgba(0,0,0,.6), 0 0 70px color-mix(in oklab, var(--c-purple) 14%, transparent); animation: po-rise .3s var(--ease); }
+@keyframes po-rise { from{ transform: translateY(-14px) scale(.98) } to{ transform: none } }
+.po-shell .po-pal-in { display: flex; align-items: center; gap: 12px; padding: 17px; border-bottom: 1px solid var(--line); }
+.po-shell .po-pal-in input { flex: 1; background: transparent; border: none; outline: none; color: var(--t-hi); font-size: 16.5px; font-family: var(--f-display); }
+.po-shell .po-pal-in input::placeholder { color: var(--t-lo); }
+.po-shell .po-pal-list { max-height: 46vh; overflow-y: auto; padding: 8px; }
+.po-shell .po-pal-head { padding: 11px 11px 5px; }
+.po-shell .po-pal-item { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: none; background: transparent; border-radius: var(--r-sm); cursor: pointer; font-family: var(--f-display); transition: background .12s; }
+.po-shell .po-pal-item.on { background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 15%, transparent), transparent); }
+.po-shell .po-pal-item.run { border: 1px dashed var(--line-2); margin: 3px 0; }
+.po-shell .po-pal-foot { display: flex; gap: 18px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--line); font-family: var(--f-mono); font-size: 11px; color: var(--t-lo); white-space: nowrap; }
+
+/* ---------- TOAST ---------- */
+.po-shell .po-toast { position: fixed; z-index: 95; right: 26px; bottom: 26px; display: flex; align-items: center; gap: 13px; padding: 14px 18px; border-radius: var(--r-md);
+  border: 1px solid var(--accent); background: var(--ink-1); box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 20%, transparent), 0 22px 56px rgba(0,0,0,.5), var(--glow); animation: po-toast-in .3s var(--ease); min-width: 240px; }
+@keyframes po-toast-in { from{ transform: translateY(14px) scale(.96) } to{ transform: none } }
+.po-shell .po-toast.alert { border-color: var(--c-red); box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-red) 35%, transparent), 0 22px 56px rgba(0,0,0,.5), 0 0 34px color-mix(in oklab, var(--c-red) 40%, transparent); animation: po-toast-in .3s var(--ease), po-toast-alarm 1s steps(1) infinite; }
+.po-shell .po-toast.alert .po-wave i { background: var(--c-red); box-shadow: 0 0 6px var(--c-red); }
+@keyframes po-toast-alarm { 0%,100% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-red) 35%, transparent), 0 22px 56px rgba(0,0,0,.5), 0 0 34px color-mix(in oklab, var(--c-red) 40%, transparent); } 50% { box-shadow: 0 0 0 1px color-mix(in oklab, var(--c-red) 60%, transparent), 0 22px 56px rgba(0,0,0,.5), 0 0 50px color-mix(in oklab, var(--c-red) 55%, transparent); } }
+.po-shell .po-wave { display: flex; align-items: flex-end; gap: 2.5px; height: 20px; }
+.po-shell .po-wave i { width: 2.5px; background: var(--accent); border-radius: 2px; box-shadow: 0 0 6px var(--accent); animation: po-waveb .9s var(--ease-io) infinite; }
+.po-shell .po-wave i:nth-child(1){height:7px;animation-delay:0s} .po-shell .po-wave i:nth-child(2){height:16px;animation-delay:.12s} .po-shell .po-wave i:nth-child(3){height:11px;animation-delay:.24s} .po-shell .po-wave i:nth-child(4){height:18px;animation-delay:.36s}
+@keyframes po-waveb { 0%,100%{transform:scaleY(.4)} 50%{transform:scaleY(1)} }
+
+.po-shell .po-nav::-webkit-scrollbar, .po-shell .po-pal-list::-webkit-scrollbar, .po-shell .po-scroll::-webkit-scrollbar { width: 8px; }
+.po-shell .po-nav::-webkit-scrollbar-thumb, .po-shell .po-pal-list::-webkit-scrollbar-thumb, .po-shell .po-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 8px; }

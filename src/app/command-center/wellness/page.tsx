@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 interface AgentStatus {
   id: string;
@@ -36,94 +35,81 @@ export default function WellnessPage() {
   }, [fetchData]);
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden" style={{ background: "#000000" }}>
-      <ParticleField />
+    <InstrumentPage
+      id="wellness"
+      title="Wellness & Training"
+      section="Specialist"
+      icon="pulse"
+      accent="var(--c-teal)"
+    >
+      <p className="mono" style={{ fontSize: 12, color: "var(--t-mid)", letterSpacing: "0.12em", margin: "0 0 20px" }}>
+        SELAH · MICHAEL — Mental performance, sport psychology &amp; swim coaching
+      </p>
 
-      <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href="/command-center" className="text-xs text-white/40 hover:text-white/70 tracking-[0.2em] transition-colors">
-              ← COMMAND CENTER
-            </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-400 to-cyan-500">WELLNESS</span>
-              <span className="text-white/40 ml-2 text-lg font-light">& TRAINING</span>
-            </h1>
-            <p className="text-white/30 text-xs tracking-[0.15em] mt-1">
-              SELAH · MICHAEL — Mental performance, sport psychology & swim coaching
-            </p>
-          </div>
-        </div>
-
-        {/* Wellness Team */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          {[
-            { id: "selah", name: "SELAH", role: "Wellness & Sport Psychology", desc: "Mental performance, stress management, emotional clarity", color: "#06b6d4", tier: "LOCAL" },
-            { id: "michael", name: "MICHAEL", role: "Swim Training AI", desc: "Race strategy, training plans, technique analysis", color: "#22c55e", tier: "LOCAL" },
-          ].map((agent) => {
-            const live = agents.find((a) => a.id === agent.id);
-            return (
-              <div
-                key={agent.id}
-                className="bg-white/[0.03] border-2 border-white/10 rounded-xl p-6 hover:border-white/20 transition-all"
-              >
-                <div className="flex items-center gap-4 mb-3">
-                  <div
-                    className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold"
-                    style={{ backgroundColor: `${agent.color}15`, color: agent.color }}
-                  >
-                    {agent.name[0]}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold">{agent.name}</span>
-                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 tracking-[0.1em]">
-                        {agent.tier}
-                      </span>
-                    </div>
-                    <p className="text-white/30 text-xs">{agent.role}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{
-                        backgroundColor: live?.status === "active" ? "#22c55e" : live?.status === "idle" ? "#f59e0b" : "#6b7280",
-                        boxShadow: live?.status === "active" ? "0 0 8px rgba(34,197,94,0.5)" : "none",
-                      }}
-                    />
-                    <span className="text-xs text-white/30">{live?.status?.toUpperCase() || "OFFLINE"}</span>
-                  </div>
+      {/* Wellness Team */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ marginBottom: 20 }}>
+        {[
+          { id: "selah", name: "SELAH", role: "Wellness & Sport Psychology", desc: "Mental performance, stress management, emotional clarity", color: "var(--c-cyan)", tier: "LOCAL" },
+          { id: "michael", name: "MICHAEL", role: "Swim Training AI", desc: "Race strategy, training plans, technique analysis", color: "var(--c-green)", tier: "LOCAL" },
+        ].map((agent) => {
+          const live = agents.find((a) => a.id === agent.id);
+          return (
+            <Panel key={agent.id}>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 12 }}>
+                <div
+                  style={{ width: 56, height: 56, borderRadius: "var(--r-md)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800, backgroundColor: `color-mix(in srgb, ${agent.color} 14%, transparent)`, color: agent.color }}
+                >
+                  {agent.name[0]}
                 </div>
-                <p className="text-white/20 text-xs">{agent.desc}</p>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 18, fontWeight: 800, color: "var(--t-hi)" }}>{agent.name}</span>
+                    <span className="mono" style={{ fontSize: 9, padding: "2px 8px", borderRadius: "var(--r-sm)", background: "color-mix(in srgb, var(--c-amber) 18%, transparent)", color: "var(--c-amber)", letterSpacing: "0.1em" }}>
+                      {agent.tier}
+                    </span>
+                  </div>
+                  <p style={{ color: "var(--t-mid)", fontSize: 12, margin: "2px 0 0" }}>{agent.role}</p>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div
+                    style={{
+                      width: 12, height: 12, borderRadius: "50%",
+                      backgroundColor: live?.status === "active" ? "var(--c-green)" : live?.status === "idle" ? "var(--c-amber)" : "var(--t-lo)",
+                      boxShadow: live?.status === "active" ? "0 0 8px color-mix(in srgb, var(--c-green) 50%, transparent)" : "none",
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: "var(--t-mid)" }}>{live?.status?.toUpperCase() || "OFFLINE"}</span>
+                </div>
               </div>
-            );
-          })}
-        </div>
+              <p style={{ color: "var(--t-lo)", fontSize: 12, margin: 0 }}>{agent.desc}</p>
+            </Panel>
+          );
+        })}
+      </div>
 
-        {/* METTLE Connection */}
-        <h2 className="text-xs text-white/40 tracking-[0.2em] font-medium mb-3">METTLE INTEGRATION</h2>
-        <div className="bg-white/[0.03] border-2 border-teal-500/20 rounded-xl p-6 mb-8">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-3 h-3 rounded-full bg-teal-500 shadow-[0_0_8px_rgba(20,184,166,0.5)]" />
-            <span className="text-xs text-teal-400 tracking-[0.15em] font-medium">BETA ACTIVE</span>
-          </div>
-          <h3 className="text-sm font-bold mb-1">Saint Andrew&apos;s Aquatics — 240+ Athletes</h3>
-          <p className="text-white/30 text-xs">
-            MICHAEL powers swim-specific training within METTLE. SELAH provides mental performance coaching.
-            Both agents support the ARM three-portal system.
-          </p>
-          <div className="mt-3 flex gap-2">
-            {["Coach Portal", "Athlete Portal", "Parent Portal"].map((p) => (
-              <span key={p} className="px-2 py-1 text-[10px] bg-white/5 border border-white/10 rounded tracking-[0.1em] text-white/40">
-                {p}
-              </span>
-            ))}
-          </div>
+      {/* METTLE Connection */}
+      <Panel title="METTLE Integration" icon="gateway" style={{ marginBottom: 20, borderColor: "color-mix(in srgb, var(--c-teal) 22%, var(--line))" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, marginTop: 6 }}>
+          <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--c-teal)", boxShadow: "0 0 8px color-mix(in srgb, var(--c-teal) 50%, transparent)" }} />
+          <span className="mono" style={{ fontSize: 11, color: "var(--c-teal)", letterSpacing: "0.15em", fontWeight: 600 }}>BETA ACTIVE</span>
         </div>
+        <h3 style={{ fontSize: 14, fontWeight: 700, margin: "0 0 4px", color: "var(--t-hi)" }}>Saint Andrew&apos;s Aquatics — 240+ Athletes</h3>
+        <p style={{ color: "var(--t-mid)", fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+          MICHAEL powers swim-specific training within METTLE. SELAH provides mental performance coaching.
+          Both agents support the ARM three-portal system.
+        </p>
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          {["Coach Portal", "Athlete Portal", "Parent Portal"].map((p) => (
+            <span key={p} style={{ padding: "4px 8px", fontSize: 10, background: "var(--ink-2)", border: "1px solid var(--line)", borderRadius: "var(--r-sm)", letterSpacing: "0.1em", color: "var(--t-mid)" }}>
+              {p}
+            </span>
+          ))}
+        </div>
+      </Panel>
 
-        {/* Focus Areas */}
-        <h2 className="text-xs text-white/40 tracking-[0.2em] font-medium mb-3">FOCUS AREAS</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* Focus Areas */}
+      <Panel title="Focus Areas" icon="command">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" style={{ marginTop: 6 }}>
           {[
             { area: "Mental Performance", agent: "SELAH", desc: "Pre-race mindset, competition anxiety, focus training" },
             { area: "Race Strategy", agent: "MICHAEL", desc: "Pacing, turns, starts, race-day preparation" },
@@ -134,15 +120,15 @@ export default function WellnessPage() {
           ].map((item) => (
             <div
               key={item.area}
-              className="bg-white/[0.03] border-2 border-white/10 rounded-xl p-4 hover:border-teal-500/20 transition-all"
+              style={{ background: "var(--ink-2)", border: "1px solid var(--line)", borderRadius: "var(--r-md)", padding: 16 }}
             >
-              <span className="text-sm font-semibold">{item.area}</span>
-              <p className="text-white/25 text-[10px] mt-1">{item.desc}</p>
-              <span className="text-[9px] text-teal-400/50 tracking-[0.1em] mt-2 block">{item.agent}</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--t-hi)" }}>{item.area}</span>
+              <p style={{ color: "var(--t-lo)", fontSize: 10, margin: "4px 0 0" }}>{item.desc}</p>
+              <span className="mono" style={{ fontSize: 9, color: "color-mix(in srgb, var(--c-teal) 70%, transparent)", letterSpacing: "0.1em", marginTop: 8, display: "block" }}>{item.agent}</span>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </Panel>
+    </InstrumentPage>
   );
 }

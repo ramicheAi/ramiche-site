@@ -1,0 +1,127 @@
+/* ================================================================
+   PARALLAX OS v4 — theme tokens (aligned to the real codebase)
+   Purple #7c3aed primary · Gold #C9A84C secondary · per-page accent.
+   Near-black, mono-uppercase house style. Holographic-ready.
+   Toggle data-po-theme="light|dark" on :root.
+   ================================================================ */
+:root {
+  --f-display: 'Space Grotesk', system-ui, sans-serif;
+  --f-tech: 'Chakra Petch', 'Space Grotesk', sans-serif;
+  --f-mono: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+
+  --po-angle: -15deg;
+  --echo: 5px;
+
+  --r-xs: 3px; --r-sm: 7px; --r-md: 11px; --r-lg: 16px; --r-xl: 24px; --r-pill: 999px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* full accent spectrum from the real sidebar (per-section colors) */
+  --c-purple: #7c3aed;  --c-purple-l: #a855f7;
+  --c-gold:   #C9A84C;  --c-gold-l:   #e6c668;
+  --c-pink:   #ec4899;  --c-green: #34d399;  --c-amber: #f59e0b;
+  --c-cyan:   #22d3ee;  --c-red:   #ef4444;  --c-indigo:#818cf8;
+  --c-teal:   #14b8a6;  --c-rose:  #f472b6;  --c-orange:#f97316;
+  --c-sky:    #38bdf8;  --c-fuchsia:#c084fc; --c-violet:#9b5de5;
+
+  /* the holographic spectrum used for foil/iridescence */
+  --holo: linear-gradient(115deg, #a855f7, #38bdf8, #34d399, #C9A84C, #ec4899, #a855f7);
+  --holo-conic: conic-gradient(from 210deg, #a855f7, #38bdf8, #34d399, #e6c668, #ec4899, #7c3aed, #a855f7);
+}
+
+/* -------------------- DARK (primary) -------------------- */
+:root, :root[data-po-theme="dark"] {
+  color-scheme: dark;
+  --void:   #050507;
+  --ink-0:  #08080d;
+  --ink-1:  #0c0c14;     /* panel */
+  --ink-2:  #11111b;     /* raised */
+  --ink-3:  #18182414;   /* (unused placeholder) */
+  --ink-3:  #181824;
+
+  --line:   rgba(150, 130, 220, 0.12);
+  --line-2: rgba(168, 130, 255, 0.26);
+  --line-hot: rgba(168, 107, 255, 0.5);
+
+  --t-hi:  #f4f5fb;
+  --t-mid: #97a0b8;
+  --t-lo:  #5e6680;
+  --t-dim: #353a4d;
+
+  /* --accent is the live accent; defaults purple, pages override inline */
+  --accent: var(--c-purple);
+  --accent-l: var(--c-purple-l);
+  --accent-rgb: 124, 58, 237;
+
+  --gold: #C9A84C; --gold-l: #e6c668;
+
+  --echo-col: rgba(168, 107, 255, 0.5);
+  --glow: 0 0 26px rgba(var(--accent-rgb), 0.4);
+  --panel-glass: rgba(14, 14, 24, 0.62);
+  --panel-edge: 0 0 0 1px var(--line), 0 24px 60px rgba(0,0,0,0.55);
+  --star: rgba(200, 190, 255, 0.85);
+}
+
+/* -------------------- LIGHT ("Daylight") -------------------- */
+:root[data-po-theme="light"] {
+  color-scheme: light;
+  --void:   #eceaf4;
+  --ink-0:  #f4f2fa;
+  --ink-1:  #ffffff;
+  --ink-2:  #ffffff;
+  --ink-3:  #f3f1fb;
+
+  --line:   rgba(80, 50, 140, 0.13);
+  --line-2: rgba(124, 58, 237, 0.28);
+  --line-hot: rgba(124, 58, 237, 0.45);
+
+  --t-hi:  #15121f;
+  --t-mid: #5a5274;
+  --t-lo:  #8b86a3;
+  --t-dim: #c3bed6;
+
+  --accent: #6d28d9;
+  --accent-l: #7c3aed;
+  --accent-rgb: 109, 40, 217;
+
+  --gold: #9a7b1f; --gold-l: #b8932c;
+
+  --echo-col: rgba(124, 58, 237, 0.26);
+  --glow: 0 0 18px rgba(var(--accent-rgb), 0.22);
+  --panel-glass: rgba(255, 255, 255, 0.74);
+  --panel-edge: 0 0 0 1px var(--line), 0 18px 48px rgba(60,40,110,0.12);
+  --star: rgba(110, 90, 160, 0.5);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--void); color: var(--t-hi); font-family: var(--f-display);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; overflow: hidden; }
+
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.tech { font-family: var(--f-tech); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+.eyebrow {
+  font-family: var(--f-mono); font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.28em; text-transform: uppercase; color: var(--t-lo); white-space: nowrap;
+}
+
+/* ============ SIGNATURE: parallax echo (the twin-slash displacement) ============ */
+.echo { position: relative; }
+.echo::before {
+  content: attr(data-echo); position: absolute; left: 0; top: 0;
+  transform: translate(calc(var(--echo) * -1), calc(var(--echo) * 0.66));
+  color: var(--echo-col); z-index: -1; pointer-events: none;
+  -webkit-text-fill-color: var(--echo-col); white-space: nowrap;
+}
+
+/* twin-slash accent glyph */
+.slash { display: inline-block; width: 14px; height: 1em; position: relative; flex: 0 0 14px; }
+.slash::before, .slash::after { content: ""; position: absolute; top: 0; bottom: 0; width: 2px; border-radius: 2px; background: currentColor; transform: skewX(var(--po-angle)); }
+.slash::before { left: 3px; opacity: 0.5; }
+.slash::after  { left: 8px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}

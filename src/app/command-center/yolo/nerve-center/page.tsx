@@ -4,6 +4,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 interface BuildMeta {
   date: string;
@@ -45,81 +46,84 @@ export default function NerveCenterPage() {
   const rate = builds.length ? Math.round((successCount / builds.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-black text-green-500 font-mono p-8 selection:bg-green-900 overflow-x-hidden">
-      <header className="mb-12 border-b border-green-900 pb-4 flex justify-between items-end">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tighter uppercase mb-2">Nerve Center</h1>
-          <p className="text-green-700 text-sm tracking-widest uppercase">/yolo/nerve-center :: EXPERIMENT_LOG_V1</p>
-        </div>
-        <div className="text-right hidden sm:block">
-          <div className="text-xs text-green-700">UPTIME</div>
-          <div className="text-xl font-bold">99.9%</div>
-        </div>
-      </header>
+    <InstrumentPage
+      id="nerve"
+      title="Nerve Center"
+      section="Operations"
+      icon="nerve"
+      accent="var(--c-purple)"
+    >
+      <p className="text-xs tracking-widest uppercase mb-6" style={{ color: "var(--t-lo)", fontFamily: "var(--f-mono)" }}>/yolo/nerve-center :: EXPERIMENT_LOG_V1</p>
 
-      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <main className="grid grid-cols-1 lg:grid-cols-3 gap-6" style={{ fontFamily: "var(--f-mono)" }}>
         {/* LEFT COL: METRICS */}
-        <section className="col-span-1 space-y-8">
-          <div className="bg-green-950/10 border border-green-900/50 p-6 rounded-sm">
-            <h3 className="text-green-700 text-xs font-bold mb-4 uppercase tracking-widest border-b border-green-900/30 pb-2">Throughput</h3>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black text-green-400">{loading ? "—" : rate}</span>
-              <span className="text-green-800 text-sm font-bold">%</span>
+        <section className="col-span-1 space-y-6">
+          <Panel title="Throughput" icon="pulse">
+            <div className="p-5">
+              <div className="flex items-baseline space-x-2">
+                <span className="text-5xl font-black" style={{ color: "var(--accent)" }}>{loading ? "—" : rate}</span>
+                <span className="text-sm font-bold" style={{ color: "var(--t-mid)" }}>%</span>
+              </div>
+              <p className="text-xs mt-2" style={{ color: "var(--t-lo)" }}>Build Success Rate</p>
             </div>
-            <p className="text-xs text-green-800 mt-2">Build Success Rate</p>
-          </div>
+          </Panel>
 
-          <div className="bg-green-950/10 border border-green-900/50 p-6 rounded-sm">
-            <h3 className="text-green-700 text-xs font-bold mb-4 uppercase tracking-widest border-b border-green-900/30 pb-2">Velocity</h3>
-            <div className="flex items-baseline space-x-2">
-              <span className="text-5xl font-black text-green-400">{loading ? "—" : builds.length}</span>
-              <span className="text-green-800 text-sm font-bold">total</span>
+          <Panel title="Velocity" icon="bolt">
+            <div className="p-5">
+              <div className="flex items-baseline space-x-2">
+                <span className="text-5xl font-black" style={{ color: "var(--accent)" }}>{loading ? "—" : builds.length}</span>
+                <span className="text-sm font-bold" style={{ color: "var(--t-mid)" }}>total</span>
+              </div>
+              <p className="text-xs mt-2" style={{ color: "var(--t-lo)" }}>YOLO Builds Tracked</p>
             </div>
-            <p className="text-xs text-green-800 mt-2">YOLO Builds Tracked</p>
-          </div>
+          </Panel>
+
+          <Panel>
+            <div className="p-5 flex items-center justify-between">
+              <div>
+                <div className="text-xs" style={{ color: "var(--t-lo)" }}>UPTIME</div>
+                <div className="text-xl font-bold" style={{ color: "var(--t-hi)" }}>99.9%</div>
+              </div>
+              <div className="flex space-x-2 items-center">
+                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: "var(--c-green)" }}></span>
+                <span className="text-xs uppercase tracking-widest" style={{ color: "var(--t-lo)" }}>Live</span>
+              </div>
+            </div>
+          </Panel>
         </section>
 
         {/* RIGHT COL: FEED */}
         <section className="col-span-1 lg:col-span-2">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-green-700 text-xs font-bold uppercase tracking-widest">Active Experiments</h3>
-            <div className="flex space-x-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              <span className="text-xs text-green-800 uppercase tracking-widest">Live</span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {loading && (
-              <div className="text-green-700 text-sm animate-pulse">Loading builds...</div>
-            )}
-            {builds.map((exp) => {
-              const label = statusLabel(exp.status);
-              return (
-              <div key={exp.folder} className="group relative bg-green-950/5 hover:bg-green-900/10 border-l-2 border-green-900 hover:border-green-500 p-4 transition-all duration-300">
-                <div className="flex justify-between items-start mb-2">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-xs font-bold text-green-800 bg-green-950/30 px-2 py-0.5 rounded">{exp.agent}</span>
-                    <h4 className="font-bold text-lg group-hover:text-green-300 transition-colors">{exp.name}</h4>
+          <Panel title="Active Experiments" icon="dispatch">
+            <div className="space-y-3 p-4">
+              {loading && (
+                <div className="text-sm animate-pulse" style={{ color: "var(--t-mid)" }}>Loading builds...</div>
+              )}
+              {builds.map((exp) => {
+                const label = statusLabel(exp.status);
+                const labelColor = label === "SUCCESS" ? "var(--c-green)" : label === "PROGRESS" ? "var(--c-amber)" : "var(--t-lo)";
+                return (
+                <div key={exp.folder} className="group relative p-4 transition-all duration-300" style={{ background: "var(--ink-1)", borderLeft: "2px solid var(--line-2)", borderRadius: "var(--r-sm)" }}>
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center space-x-3">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded" style={{ color: "var(--t-mid)", background: "var(--ink-3)" }}>{exp.agent}</span>
+                      <h4 className="font-bold text-lg transition-colors" style={{ color: "var(--t-hi)" }}>{exp.name}</h4>
+                    </div>
+                    <span className="text-xs font-bold px-2 py-1 rounded" style={{ color: labelColor, border: `1px solid ${labelColor}`, background: "var(--ink-2)" }}>
+                      {label}
+                    </span>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-1 rounded border ${
-                    label === 'SUCCESS' ? 'border-green-600 text-green-400 bg-green-900/20' :
-                    label === 'PROGRESS' ? 'border-yellow-600 text-yellow-500 bg-yellow-900/20' :
-                    'border-gray-800 text-gray-600'
-                  }`}>
-                    {label}
-                  </span>
+                  <div className="flex justify-between items-end">
+                      <p className="text-sm" style={{ color: "var(--t-mid)", fontFamily: "var(--f-mono)" }}>Result: {exp.takeaway || exp.idea || "—"}</p>
+                      <span className="text-[10px] uppercase font-bold tracking-wider" style={{ color: "var(--t-lo)" }}>{exp.date}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-end">
-                    <p className="text-sm text-green-600/80 font-mono">Result: {exp.takeaway || exp.idea || "—"}</p>
-                    <span className="text-[10px] text-green-900 uppercase font-bold tracking-wider">{exp.date}</span>
-                </div>
-              </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </Panel>
         </section>
       </main>
-    </div>
+    </InstrumentPage>
   );
 }

@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
 import { CC_DOCUMENTS, type CcDoc } from "@/data/cc-documents";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    DOC VIEWER — Searchable Document Library
@@ -52,26 +51,15 @@ export default function DocsPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a0f] text-white overflow-hidden">
-      <ParticleField />
-
-      {/* Header */}
-      <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href="/command-center" className="text-xs text-white/40 hover:text-white/70 tracking-[0.2em] transition-colors">
-              ← COMMAND CENTER
-            </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">DOC</span>
-              <span className="text-white/40 ml-2 text-lg font-light">VIEWER</span>
-            </h1>
-            <p className="text-white/30 text-xs tracking-[0.15em] mt-1">
-              {DOCUMENTS.length} DOCUMENTS · {CATEGORIES.length - 1} CATEGORIES
-            </p>
-          </div>
-        </div>
-
+    <InstrumentPage
+      id="docs"
+      title="Doc Viewer"
+      section="Workspace"
+      icon="docs"
+      accent="var(--c-indigo)"
+    >
+      {/* Search + Category filter */}
+      <Panel title="Library" icon="docs" badge={`${DOCUMENTS.length} docs · ${CATEGORIES.length - 1} cats`}>
         {/* Search */}
         <div className="relative mb-4">
           <input
@@ -79,10 +67,11 @@ export default function DocsPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search documents..."
-            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/30 focus:outline-none focus:border-cyan-500/50 transition-colors"
+            className="w-full rounded-lg px-4 py-2.5 text-sm focus:outline-none transition-colors"
+            style={{ background: "var(--ink-2)", border: "1px solid var(--line)", color: "var(--t-hi)" }}
           />
           {search && (
-            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 text-xs">
+            <button onClick={() => setSearch("")} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs" style={{ color: "var(--t-lo)" }}>
               ✕
             </button>
           )}
@@ -94,11 +83,12 @@ export default function DocsPage() {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium tracking-wider transition-all ${
+              className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium tracking-wider transition-all"
+              style={
                 selectedCategory === cat
-                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-                  : "bg-white/5 text-white/40 border border-white/5 hover:bg-white/10 hover:text-white/60"
-              }`}
+                  ? { background: "color-mix(in oklab, var(--accent) 18%, transparent)", color: "var(--accent)", border: "1px solid color-mix(in oklab, var(--accent) 35%, transparent)" }
+                  : { background: "var(--ink-2)", color: "var(--t-mid)", border: "1px solid var(--line)" }
+              }
             >
               {cat !== "All" && <span className="mr-1">{CATEGORY_ICONS[cat]}</span>}
               {cat}
@@ -106,12 +96,12 @@ export default function DocsPage() {
             </button>
           ))}
         </div>
-      </div>
+      </Panel>
 
       {/* Document Grid */}
-      <div className="relative z-10 px-4 sm:px-8 pb-12">
+      <div className="pt-5">
         {filtered.length === 0 ? (
-          <div className="text-center py-20 text-white/30">
+          <div className="text-center py-20" style={{ color: "var(--t-lo)" }}>
             <p className="text-4xl mb-3">∅</p>
             <p className="text-sm">No documents match your search</p>
           </div>
@@ -124,9 +114,13 @@ export default function DocsPage() {
                 <button
                   key={i}
                   onClick={() => setSelectedDoc(selectedDoc?.title === doc.title ? null : doc)}
-                  className={`text-left bg-white/[0.02] hover:bg-white/[0.05] border-2 rounded-xl p-4 transition-all duration-200 ${
-                    selectedDoc?.title === doc.title ? "border-cyan-500/40" : "border-white/[0.06] hover:border-white/10"
-                  }`}
+                  className="text-left rounded-xl p-4 transition-all duration-200"
+                  style={{
+                    background: "var(--ink-1)",
+                    border: selectedDoc?.title === doc.title
+                      ? "2px solid color-mix(in oklab, var(--accent) 40%, transparent)"
+                      : "2px solid var(--line)",
+                  }}
                 >
                   {/* Category + Status */}
                   <div className="flex items-center justify-between mb-2">
@@ -142,13 +136,13 @@ export default function DocsPage() {
                   </div>
 
                   {/* Title */}
-                  <h3 className="text-sm font-semibold text-white/90 mb-1.5 leading-tight">{doc.title}</h3>
+                  <h3 className="text-sm font-semibold mb-1.5 leading-tight" style={{ color: "var(--t-hi)" }}>{doc.title}</h3>
 
                   {/* Summary */}
-                  <p className="text-xs text-white/40 leading-relaxed line-clamp-2 mb-3">{doc.summary}</p>
+                  <p className="text-xs leading-relaxed line-clamp-2 mb-3" style={{ color: "var(--t-mid)" }}>{doc.summary}</p>
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between text-[10px] text-white/25">
+                  <div className="flex items-center justify-between text-[10px]" style={{ color: "var(--t-lo)" }}>
                     <span>{doc.author}</span>
                     <span>{doc.date}</span>
                   </div>
@@ -161,7 +155,10 @@ export default function DocsPage() {
 
       {/* Detail Panel */}
       {selectedDoc && (
-        <div className="fixed inset-x-0 bottom-0 z-50 bg-[#0d0d14]/95 backdrop-blur-xl border-t-2 border-cyan-500/20 p-6 max-h-[50vh] overflow-y-auto">
+        <div
+          className="fixed inset-x-0 bottom-0 z-50 backdrop-blur-xl p-6 max-h-[50vh] overflow-y-auto"
+          style={{ background: "color-mix(in oklab, var(--ink-1) 95%, transparent)", borderTop: "2px solid color-mix(in oklab, var(--accent) 30%, transparent)" }}
+        >
           <div className="max-w-4xl mx-auto">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -171,23 +168,24 @@ export default function DocsPage() {
                 >
                   {selectedDoc.category.toUpperCase()}
                 </span>
-                <h2 className="text-lg font-bold text-white/90 mt-1">{selectedDoc.title}</h2>
-                <p className="text-xs text-white/30 mt-1">{selectedDoc.author} · {selectedDoc.date}</p>
+                <h2 className="text-lg font-bold mt-1" style={{ color: "var(--t-hi)" }}>{selectedDoc.title}</h2>
+                <p className="text-xs mt-1" style={{ color: "var(--t-mid)" }}>{selectedDoc.author} · {selectedDoc.date}</p>
               </div>
               <button
                 onClick={() => setSelectedDoc(null)}
-                className="text-white/30 hover:text-white/70 text-lg transition-colors"
+                className="text-lg transition-colors"
+                style={{ color: "var(--t-lo)" }}
               >
                 ✕
               </button>
             </div>
-            <p className="text-sm text-white/60 leading-relaxed">{selectedDoc.summary}</p>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--t-mid)" }}>{selectedDoc.summary}</p>
             {selectedDoc.path && (
-              <p className="text-xs text-cyan-400/50 mt-3 font-mono">{selectedDoc.path}</p>
+              <p className="text-xs mt-3 font-mono" style={{ color: "var(--accent)" }}>{selectedDoc.path}</p>
             )}
           </div>
         </div>
       )}
-    </div>
+    </InstrumentPage>
   );
 }

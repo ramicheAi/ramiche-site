@@ -1,0 +1,142 @@
+/* ================================================================
+   PARALLAX OS — SANCTUARY
+   "Order from the void." A single throne of light in a vast field.
+   Navigation dissolves into a constellation. The Word is the input.
+   Radical subtraction; all functions reachable, none on screen at once.
+   ================================================================ */
+.sanc { position: absolute; inset: 0; overflow: hidden; display: grid; place-items: center;
+  --sx: 0; --sy: 0; }
+
+/* the void → light field */
+.sanc-field { position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(60% 60% at 50% 48%, color-mix(in oklab, var(--gold) 9%, transparent), transparent 70%),
+    radial-gradient(120% 90% at 50% 120%, color-mix(in oklab, var(--c-purple) 16%, transparent), transparent 72%); }
+[data-po-theme="light"] .sanc-field {
+  background:
+    radial-gradient(55% 55% at 50% 46%, color-mix(in oklab, var(--gold) 16%, transparent), transparent 70%),
+    radial-gradient(120% 90% at 50% 120%, color-mix(in oklab, var(--c-purple) 10%, transparent), transparent 72%); }
+
+/* ---------------- THRONE ---------------- */
+.sanc-throne { position: relative; width: 360px; height: 360px; display: grid; place-items: center; z-index: 2;
+  transform: translate3d(calc(var(--sx) * 8px), calc(var(--sy) * 8px), 0); transition: transform .4s var(--ease); }
+.sanc-halo { position: absolute; inset: -22%; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, color-mix(in oklab, var(--gold) 30%, transparent), transparent 60%);
+  filter: blur(8px); animation: sanc-breathe 7s var(--ease-io) infinite; }
+@keyframes sanc-breathe { 0%,100%{ opacity:.6; transform: scale(.96); } 50%{ opacity:1; transform: scale(1.05); } }
+
+/* concentric rings of light — sacred order */
+.sanc-ring { position: absolute; border-radius: 50%; border: 1px solid color-mix(in oklab, var(--gold) 36%, transparent); }
+.sanc-ring.r1 { inset: 8%; animation: sanc-spin 60s linear infinite; border-style: solid; opacity: .5; }
+.sanc-ring.r2 { inset: 20%; border-color: color-mix(in oklab, var(--gold) 50%, transparent); opacity: .7; }
+.sanc-ring.r3 { inset: 0; border-style: dashed; border-color: color-mix(in oklab, var(--c-purple-l) 30%, transparent); animation: sanc-spin 120s linear infinite reverse; opacity: .5; }
+.sanc-ring.ticks { inset: 13%; border: none;
+  background: repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--gold) 55%, transparent) 0 0.5deg, transparent 0.5deg 9deg);
+  -webkit-mask: radial-gradient(circle, transparent 48.4%, #000 48.6%, #000 50%, transparent 50.2%); mask: radial-gradient(circle, transparent 48.4%, #000 48.6%, #000 50%, transparent 50.2%);
+  animation: sanc-spin 200s linear infinite; opacity: .6; }
+@keyframes sanc-spin { to { transform: rotate(360deg); } }
+
+/* ---- TARGETING RETICLE (Iron Man + Expanse telemetry) ---- */
+.sanc-reticle { position: absolute; inset: -14%; pointer-events: none; z-index: 2; }
+.sanc-cross { position: absolute; background: color-mix(in oklab, var(--gold) 45%, transparent); box-shadow: 0 0 6px color-mix(in oklab, var(--gold) 35%, transparent); }
+.sanc-cross.h { left: 8%; right: 8%; top: 50%; height: 1px; -webkit-mask: linear-gradient(90deg, transparent, #000 16%, transparent 42%, transparent 58%, #000 84%, transparent); mask: linear-gradient(90deg, transparent, #000 16%, transparent 42%, transparent 58%, #000 84%, transparent); }
+.sanc-cross.v { top: 8%; bottom: 8%; left: 50%; width: 1px; -webkit-mask: linear-gradient(180deg, transparent, #000 16%, transparent 42%, transparent 58%, #000 84%, transparent); mask: linear-gradient(180deg, transparent, #000 16%, transparent 42%, transparent 58%, #000 84%, transparent); }
+.sanc-brk { position: absolute; width: 18px; height: 18px; border: 1.5px solid color-mix(in oklab, var(--gold) 70%, transparent); box-shadow: 0 0 8px color-mix(in oklab, var(--gold) 40%, transparent); }
+.sanc-brk.tl { left: 4%; top: 4%; border-right: none; border-bottom: none; }
+.sanc-brk.tr { right: 4%; top: 4%; border-left: none; border-bottom: none; }
+.sanc-brk.bl { left: 4%; bottom: 4%; border-right: none; border-top: none; }
+.sanc-brk.br { right: 4%; bottom: 4%; border-left: none; border-top: none; }
+.sanc-tele { position: absolute; font-family: var(--f-mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase; color: color-mix(in oklab, var(--gold) 75%, var(--t-mid)); white-space: nowrap; }
+.sanc-tele.t { top: 15%; left: 50%; transform: translateX(-50%); }
+.sanc-tele.b { bottom: 15%; left: 50%; transform: translateX(-50%); }
+.sanc-tele.l { left: -1%; top: 50%; transform: translateY(-50%) rotate(-90deg); transform-origin: left center; }
+.sanc-tele.r { right: -1%; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: right center; }
+
+/* segmented arc rings (Iron Man) */
+.sanc-arc { position: absolute; border-radius: 50%; }
+.sanc-arc.a1 { inset: 4%;
+  background: conic-gradient(from 200deg, color-mix(in oklab, var(--gold) 80%, transparent) 0 46deg, transparent 46deg 90deg, color-mix(in oklab, var(--gold) 80%, transparent) 90deg 120deg, transparent 120deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 46.5%, #000 47%, #000 49.5%, transparent 50%); mask: radial-gradient(circle, transparent 46.5%, #000 47%, #000 49.5%, transparent 50%);
+  animation: sanc-spin 38s linear infinite; opacity: .8; }
+.sanc-arc.a2 { inset: 16%;
+  background: conic-gradient(from 20deg, color-mix(in oklab, var(--c-purple-l) 70%, transparent) 0 30deg, transparent 30deg 180deg, color-mix(in oklab, var(--c-purple-l) 70%, transparent) 180deg 214deg, transparent 214deg 360deg);
+  -webkit-mask: radial-gradient(circle, transparent 47%, #000 47.5%, #000 49.5%, transparent 50%); mask: radial-gradient(circle, transparent 47%, #000 47.5%, #000 49.5%, transparent 50%);
+  animation: sanc-spin 24s linear infinite reverse; opacity: .7; }
+.po-still .sanc-arc { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .sanc-arc { animation: none !important; } }
+
+/* radiant core — the Word made light */
+.sanc-core { position: relative; width: 116px; height: 116px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; z-index: 3;
+  background:
+    radial-gradient(circle at 42% 36%, #fff 2%, color-mix(in oklab, var(--gold-l) 90%, #fff) 16%, var(--gold) 52%, color-mix(in oklab, var(--gold) 60%, #3a2a08) 86%);
+  box-shadow: 0 0 60px color-mix(in oklab, var(--gold) 70%, transparent), inset 0 0 30px rgba(255,255,255,.45), inset -6px -8px 22px color-mix(in oklab, var(--gold) 60%, #2a1d04);
+  animation: sanc-pulse 5s var(--ease-io) infinite; transition: transform .3s var(--ease); }
+.sanc-core:hover { transform: scale(1.05); }
+@keyframes sanc-pulse { 0%,100%{ box-shadow: 0 0 52px color-mix(in oklab, var(--gold) 60%, transparent), inset 0 0 30px rgba(255,255,255,.4), inset -6px -8px 22px color-mix(in oklab, var(--gold) 60%, #2a1d04); } 50%{ box-shadow: 0 0 80px color-mix(in oklab, var(--gold) 85%, transparent), inset 0 0 34px rgba(255,255,255,.55), inset -6px -8px 22px color-mix(in oklab, var(--gold) 60%, #2a1d04); } }
+.sanc-core-glint { position: absolute; width: 64%; height: 64%; border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, color-mix(in oklab, #fff 70%, var(--gold-l)) 38%, transparent 72%);
+  filter: blur(1px); animation: sanc-glint 5s var(--ease-io) infinite; }
+@keyframes sanc-glint { 0%,100%{ opacity:.75; transform: scale(.92); } 50%{ opacity:1; transform: scale(1.04); } }
+
+/* light rays from the core */
+.sanc-rays { position: absolute; inset: -40%; z-index: 1; pointer-events: none; opacity: .5;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, transparent 0 7deg, color-mix(in oklab, var(--gold) 22%, transparent) 7deg 7.4deg, transparent 7.4deg 14deg);
+  -webkit-mask: radial-gradient(circle, #000 6%, transparent 46%); mask: radial-gradient(circle, #000 6%, transparent 46%);
+  animation: sanc-spin 240s linear infinite; }
+
+/* ---------------- DIRECTIVE (one line) ---------------- */
+.sanc-top { position: absolute; top: 9%; left: 50%; transform: translateX(-50%); text-align: center; z-index: 4; width: 86%; max-width: 720px; }
+.sanc-eyebrow { font-family: var(--f-mono); font-size: 10px; letter-spacing: .42em; text-transform: uppercase; color: color-mix(in oklab, var(--gold) 70%, var(--t-mid)); }
+.sanc-status { display: inline-flex; align-items: center; gap: 9px; margin-top: 14px; font-family: var(--f-tech); font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--t-mid); }
+.sanc-status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 9px var(--c-green); animation: po-blink 2.6s infinite; }
+.sanc-truths { display: inline-flex; align-items: center; gap: 14px; margin-top: 16px; font-family: var(--f-mono); font-size: 12px; color: var(--t-lo); }
+.sanc-truths .t b { color: var(--t-hi); font-weight: 600; margin-right: 3px; }
+.sanc-truths .sep { width: 4px; height: 4px; border-radius: 50%; background: color-mix(in oklab, var(--gold) 55%, transparent); }
+
+.sanc-bottom { position: absolute; bottom: 6.5%; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; z-index: 5; text-align: center; }
+.sanc-directive { font-size: 18px; font-weight: 300; line-height: 1.5; color: var(--t-hi); letter-spacing: -.01em; margin-bottom: 18px; text-wrap: balance; }
+.sanc-directive b { font-weight: 500; color: var(--gold-l); }
+
+/* The Word — the single input */
+.sanc-word { position: relative; display: flex; align-items: center; gap: 13px; height: 58px; padding: 0 8px 0 22px; cursor: text;
+  border-radius: var(--r-pill); background: var(--panel-glass); border: 1px solid color-mix(in oklab, var(--gold) 32%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--gold) 12%, transparent), 0 20px 60px color-mix(in oklab, var(--void) 50%, transparent), 0 0 40px color-mix(in oklab, var(--gold) 12%, transparent);
+  backdrop-filter: blur(16px); transition: all .25s var(--ease); }
+.sanc-word:hover { border-color: color-mix(in oklab, var(--gold) 60%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--gold) 40%, transparent), 0 24px 70px color-mix(in oklab, var(--void) 55%, transparent), 0 0 56px color-mix(in oklab, var(--gold) 22%, transparent); }
+[data-po-theme="dark"] .sanc-word { background: rgba(14, 14, 24, 0.62); }
+[data-po-theme="light"] .sanc-word { background: rgba(255, 255, 255, 0.82); }
+.sanc-word .ph { flex: 1; text-align: left; font-size: 16px; color: var(--t-mid); font-weight: 300; }
+.sanc-word .kbd { background: color-mix(in oklab, var(--gold) 10%, transparent); border-color: color-mix(in oklab, var(--gold) 30%, transparent); color: color-mix(in oklab, var(--gold-l) 80%, var(--t-mid)); }
+.sanc-word .orb { width: 38px; height: 38px; border-radius: 50%; flex: 0 0 38px; display: grid; place-items: center; color: var(--void);
+  background: radial-gradient(circle at 40% 35%, #fff, var(--gold-l) 40%, var(--gold)); box-shadow: 0 0 18px color-mix(in oklab, var(--gold) 60%, transparent); }
+
+/* ---------------- CONSTELLATION (navigation) ---------------- */
+.sanc-constellation { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.sanc-star { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 9px; cursor: pointer; pointer-events: auto;
+  transition: transform .25s var(--ease); }
+.sanc-star:hover { transform: translate(-50%, -50%) scale(1.08); }
+.sanc-star .pt { width: 11px; height: 11px; border-radius: 50%; background: color-mix(in oklab, var(--fac, var(--gold)) 80%, #fff 10%);
+  box-shadow: 0 0 12px color-mix(in oklab, var(--fac, var(--gold)) 80%, transparent); position: relative; transition: all .25s var(--ease); }
+.sanc-star .pt::after { content: ""; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid color-mix(in oklab, var(--fac, var(--gold)) 40%, transparent); opacity: 0; transition: opacity .25s; }
+.sanc-star:hover .pt { box-shadow: 0 0 22px color-mix(in oklab, var(--fac, var(--gold)) 95%, transparent); }
+.sanc-star:hover .pt::after { opacity: 1; }
+.sanc-star .lbl { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--t-lo); white-space: nowrap; transition: color .25s; }
+.sanc-star:hover .lbl { color: var(--fac, var(--gold-l)); }
+.sanc-star .ct { font-family: var(--f-mono); font-size: 8px; color: var(--t-lo); letter-spacing: .1em; }
+
+/* four vital truths — luminous numerals, no boxes */
+.sanc-vital { position: absolute; z-index: 4; text-align: center; pointer-events: none; }
+.sanc-vital .v { font-family: var(--f-tech); font-size: 30px; font-weight: 600; letter-spacing: -.02em; line-height: 1;
+  background: linear-gradient(180deg, var(--t-hi), color-mix(in oklab, var(--gold) 40%, var(--t-mid))); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.sanc-vital .l { font-family: var(--f-mono); font-size: 8.5px; letter-spacing: .24em; text-transform: uppercase; color: var(--t-lo); margin-top: 6px; }
+.sanc-vital .s { font-family: var(--f-mono); font-size: 10px; color: var(--gold); margin-left: 4px; -webkit-text-fill-color: var(--gold); }
+
+/* return / fullness toggle hint */
+.sanc-corner { position: absolute; top: 18px; right: 20px; z-index: 6; display: flex; gap: 9px; }
+
+/* hide chrome when in sanctuary */
+.sanctuary-mode .po-side, .sanctuary-mode .po-top { display: none; }
+.sanctuary-mode .po-view { inset: 0; }
+
+.po-still .sanc-halo, .po-still .sanc-core, .po-still .sanc-ring, .po-still .sanc-rays { animation: none !important; }
+@media (prefers-reduced-motion: reduce) { .sanc-halo, .sanc-core, .sanc-ring, .sanc-rays { animation: none !important; } }

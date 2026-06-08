@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import ParticleField from "@/components/ParticleField";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    SYSTEM HEALTH — TRIAGE Dashboard
@@ -52,11 +52,11 @@ const SERVICES: { name: string; url: string; type: "internal" | "external" | "lo
 ];
 
 function getStatusColor(s: string) {
-  if (s === "up" || s === "active") return "#22c55e";
-  if (s === "down") return "#ef4444";
-  if (s === "idle") return "#f59e0b";
-  if (s === "checking") return "#f59e0b";
-  return "#6b7280";
+  if (s === "up" || s === "active") return "var(--c-green)";
+  if (s === "down") return "var(--c-red)";
+  if (s === "idle") return "var(--c-amber)";
+  if (s === "checking") return "var(--c-amber)";
+  return "var(--t-lo)";
 }
 
 function getMemoryPercent(pct: string): number {
@@ -171,152 +171,160 @@ export default function SystemHealthPage() {
   const enabledCrons = cronJobs.filter(c => c.enabled !== false).length;
 
   return (
-    <div style={{ position: "relative", minHeight: "100vh", background: "#000000", color: "#e5e5e5", overflow: "hidden" }}>
-      <ParticleField />
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0, background: "radial-gradient(ellipse 800px 600px at 30% 20%, rgba(34,197,94,0.08) 0%, transparent 60%), radial-gradient(ellipse 600px 600px at 70% 80%, rgba(16,185,129,0.06) 0%, transparent 60%)" }} />
-
-      <div style={{ position: "relative", zIndex: 2, width: "100%", padding: "32px 24px 80px" }}>
-        <div style={{ marginBottom: 32 }}>
-          <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#737373", textDecoration: "none", display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-            <span style={{ fontSize: 14 }}>&larr;</span> COMMAND CENTER
-          </Link>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <h1 style={{ fontSize: 32, fontWeight: 900, margin: 0, color: "#e5e5e5", textShadow: "0 0 40px rgba(34,197,94,0.3)" }}>System Health</h1>
-              <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>
-                {loading ? "SCANNING..." : `${activeCount} active · ${idleCount} idle · ${upCount}/${services.length} services up · ${enabledCrons} crons`}
-                {lastSync && <span style={{ marginLeft: 8, color: "rgba(34,197,94,0.6)" }}>● LIVE · {lastSync}</span>}
-              </p>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { checkServices(); fetchAgents(); }} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: "rgba(255,255,255,0.05)", border: "2px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#a3a3a3", cursor: "pointer" }}>
-                REFRESH
-              </button>
-              <button onClick={handleScan} disabled={scanning} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: scanning ? "rgba(239,68,68,0.1)" : "rgba(239,68,68,0.05)", border: "2px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "#ef4444", cursor: scanning ? "wait" : "pointer" }}>
-                {scanning ? "SCANNING..." : "RE-SCAN"}
-              </button>
-            </div>
-          </div>
+    <InstrumentPage
+      id="health"
+      title="System Health"
+      section="Operations"
+      icon="health"
+      accent="var(--c-cyan)"
+      actions={
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => { checkServices(); fetchAgents(); }} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: "var(--ink-2)", border: "2px solid var(--line)", borderRadius: "var(--r-sm)", color: "var(--t-hi)", cursor: "pointer" }}>
+            REFRESH
+          </button>
+          <button onClick={handleScan} disabled={scanning} style={{ padding: "8px 16px", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", background: scanning ? "color-mix(in srgb, var(--c-red) 10%, transparent)" : "color-mix(in srgb, var(--c-red) 5%, transparent)", border: "2px solid color-mix(in srgb, var(--c-red) 30%, transparent)", borderRadius: "var(--r-sm)", color: "var(--c-red)", cursor: scanning ? "wait" : "pointer" }}>
+            {scanning ? "SCANNING..." : "RE-SCAN"}
+          </button>
         </div>
+      }
+    >
+      <ParticleField />
+      <p style={{ fontSize: 13, color: "var(--t-mid)", margin: "0 0 24px" }} className="mono">
+        {loading ? "SCANNING..." : `${activeCount} active · ${idleCount} idle · ${upCount}/${services.length} services up · ${enabledCrons} crons`}
+        {lastSync && <span style={{ marginLeft: 8, color: "var(--c-green)" }}>● LIVE · {lastSync}</span>}
+      </p>
 
         {/* System Vitals Bar */}
         {vitals && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 32 }}>
+          <Panel title="System Vitals" icon="pulse">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
             {[
-              { label: "CPU", value: `${vitals.cpu.cores} cores`, sub: `Load: ${vitals.cpu.load}`, color: "#22d3ee", pct: null },
-              { label: "MEMORY", value: vitals.memory.used, sub: `${vitals.memory.percent} of ${vitals.memory.total}`, color: memPct > 80 ? "#ef4444" : memPct > 60 ? "#f59e0b" : "#22c55e", pct: memPct },
-              { label: "DISK", value: vitals.disk.used, sub: `${vitals.disk.percent} of ${vitals.disk.total}`, color: "#60a5fa", pct: vitals.disk.percent ? parseInt(vitals.disk.percent) : null },
-              { label: "UPTIME", value: vitals.uptime.slice(0, 40), sub: "", color: "#C9A84C", pct: null },
-              { label: "PROCESSES", value: `${sessions.count}`, sub: "OpenClaw / Claude / Node", color: "#a855f7", pct: null },
+              { label: "CPU", value: `${vitals.cpu.cores} cores`, sub: `Load: ${vitals.cpu.load}`, color: "var(--c-cyan)", pct: null },
+              { label: "MEMORY", value: vitals.memory.used, sub: `${vitals.memory.percent} of ${vitals.memory.total}`, color: memPct > 80 ? "var(--c-red)" : memPct > 60 ? "var(--c-amber)" : "var(--c-green)", pct: memPct },
+              { label: "DISK", value: vitals.disk.used, sub: `${vitals.disk.percent} of ${vitals.disk.total}`, color: "var(--c-sky)", pct: vitals.disk.percent ? parseInt(vitals.disk.percent) : null },
+              { label: "UPTIME", value: vitals.uptime.slice(0, 40), sub: "", color: "var(--c-gold)", pct: null },
+              { label: "PROCESSES", value: `${sessions.count}`, sub: "OpenClaw / Claude / Node", color: "var(--c-purple)", pct: null },
             ].map((m) => (
-              <div key={m.label} style={{ padding: 16, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: `2px solid ${m.color}20`, boxShadow: `0 0 16px ${m.color}08` }}>
-                <div style={{ fontSize: 10, color: "#737373", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 6 }}>{m.label}</div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "monospace" }}>{m.value}</div>
-                {m.sub && <div style={{ fontSize: 10, color: "#525252", marginTop: 4 }}>{m.sub}</div>}
+              <div key={m.label} style={{ padding: 16, borderRadius: "var(--r-md)", background: "var(--ink-2)", border: `2px solid color-mix(in srgb, ${m.color} 20%, transparent)` }}>
+                <div style={{ fontSize: 10, color: "var(--t-mid)", letterSpacing: "0.15em", fontWeight: 700, marginBottom: 6 }}>{m.label}</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: m.color, fontFamily: "var(--f-mono)" }}>{m.value}</div>
+                {m.sub && <div style={{ fontSize: 10, color: "var(--t-lo)", marginTop: 4 }}>{m.sub}</div>}
                 {m.pct !== null && (
-                  <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+                  <div style={{ marginTop: 8, height: 4, borderRadius: 2, background: "var(--line)", overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${m.pct}%`, background: m.color, borderRadius: 2, transition: "width 0.5s" }} />
                   </div>
                 )}
               </div>
             ))}
           </div>
+          </Panel>
         )}
 
+        <div style={{ height: 20 }} />
+
         {/* Service Status */}
-        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#22c55e", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Service Status</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 32 }}>
+        <Panel title="Service Status" icon="gateway">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {services.map((svc) => {
             const color = getStatusColor(svc.status);
             return (
-              <div key={svc.name} style={{ padding: 20, borderRadius: 16, background: "rgba(0,0,0,0.95)", border: `2px solid ${color}30`, boxShadow: `0 0 24px ${color}15, 0 8px 32px rgba(0,0,0,0.4)`, transition: "all 0.3s" }}>
+              <div key={svc.name} style={{ padding: 20, borderRadius: "var(--r-lg)", background: "var(--ink-2)", border: `2px solid color-mix(in srgb, ${color} 30%, transparent)`, transition: "all 0.3s" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{svc.name}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "var(--t-hi)" }}>{svc.name}</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: `${svc.type === "external" ? "#818cf8" : svc.type === "local" ? "#f59e0b" : "#34d399"}15`, color: svc.type === "external" ? "#818cf8" : svc.type === "local" ? "#f59e0b" : "#34d399", fontWeight: 700, letterSpacing: "0.1em" }}>
+                    <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 3, background: `color-mix(in srgb, ${svc.type === "external" ? "var(--c-indigo)" : svc.type === "local" ? "var(--c-amber)" : "var(--c-green)"} 15%, transparent)`, color: svc.type === "external" ? "var(--c-indigo)" : svc.type === "local" ? "var(--c-amber)" : "var(--c-green)", fontWeight: 700, letterSpacing: "0.1em" }}>
                       {svc.type.toUpperCase()}
                     </span>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: color, boxShadow: svc.status === "up" ? `0 0 8px ${color}80` : "none" }} />
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", backgroundColor: color, boxShadow: svc.status === "up" ? `0 0 8px color-mix(in srgb, ${color} 50%, transparent)` : "none" }} />
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", color }}>{svc.status.toUpperCase()}</span>
-                  {svc.latency !== undefined && <span style={{ fontSize: 11, color: "#525252", fontFamily: "monospace" }}>{svc.latency}ms</span>}
+                  {svc.latency !== undefined && <span style={{ fontSize: 11, color: "var(--t-lo)", fontFamily: "var(--f-mono)" }}>{svc.latency}ms</span>}
                 </div>
-                {svc.lastCheck && <p style={{ fontSize: 10, color: "#404040", marginTop: 6 }}>Last: {svc.lastCheck}</p>}
+                {svc.lastCheck && <p style={{ fontSize: 10, color: "var(--t-lo)", marginTop: 6 }}>Last: {svc.lastCheck}</p>}
               </div>
             );
           })}
         </div>
+        </Panel>
 
         {/* Active Processes */}
         {sessions.processes.length > 0 && (
           <>
-            <h2 style={{ fontSize: 12, fontWeight: 800, color: "#a855f7", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Active Processes ({sessions.count})</h2>
-            <div style={{ marginBottom: 32, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "2px solid rgba(168,85,247,0.15)", overflow: "hidden" }}>
+            <div style={{ height: 20 }} />
+            <Panel title={`Active Processes (${sessions.count})`} icon="pulse">
+            <div style={{ borderRadius: "var(--r-md)", overflow: "hidden" }}>
               {sessions.processes.slice(0, 10).map((p, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "60px 50px 50px 1fr", gap: 12, padding: "10px 16px", borderBottom: i < Math.min(sessions.processes.length, 10) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", fontSize: 11, fontFamily: "monospace" }}>
-                  <span style={{ color: "#a855f7" }}>{p.pid}</span>
-                  <span style={{ color: parseFloat(p.cpu) > 50 ? "#ef4444" : "#525252" }}>{p.cpu}%</span>
-                  <span style={{ color: parseFloat(p.mem) > 5 ? "#f59e0b" : "#525252" }}>{p.mem}%</span>
-                  <span style={{ color: "#737373", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cmd}</span>
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "60px 50px 50px 1fr", gap: 12, padding: "10px 16px", borderBottom: i < Math.min(sessions.processes.length, 10) - 1 ? "1px solid var(--line)" : "none", fontSize: 11, fontFamily: "var(--f-mono)" }}>
+                  <span style={{ color: "var(--c-purple)" }}>{p.pid}</span>
+                  <span style={{ color: parseFloat(p.cpu) > 50 ? "var(--c-red)" : "var(--t-lo)" }}>{p.cpu}%</span>
+                  <span style={{ color: parseFloat(p.mem) > 5 ? "var(--c-amber)" : "var(--t-lo)" }}>{p.mem}%</span>
+                  <span style={{ color: "var(--t-mid)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.cmd}</span>
                 </div>
               ))}
             </div>
+            </Panel>
           </>
         )}
 
+        <div style={{ height: 20 }} />
+
         {/* Agent Health Grid */}
-        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#22c55e", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Agent Status ({agents.length})</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, marginBottom: 32 }}>
+        <Panel title={`Agent Status (${agents.length})`} icon="agents">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
           {agents.map((agent) => {
             const color = getStatusColor(agent.status);
             return (
-              <div key={agent.id} style={{ padding: 16, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "2px solid rgba(255,255,255,0.06)", boxShadow: "0 4px 20px rgba(0,0,0,0.3)", transition: "all 0.3s" }}>
+              <div key={agent.id} style={{ padding: 16, borderRadius: "var(--r-md)", background: "var(--ink-2)", border: "2px solid var(--line)", transition: "all 0.3s" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color, boxShadow: agent.status === "active" ? `0 0 8px ${color}80` : "none", flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.name}</span>
+                  <div style={{ width: 8, height: 8, borderRadius: "50%", backgroundColor: color, boxShadow: agent.status === "active" ? `0 0 8px color-mix(in srgb, ${color} 50%, transparent)` : "none", flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--t-hi)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.name}</span>
                 </div>
-                <p style={{ fontSize: 10, color: "#525252", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.role}</p>
-                <p style={{ fontSize: 9, color: "#404040", fontFamily: "monospace", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.model}</p>
+                <p style={{ fontSize: 10, color: "var(--t-lo)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.role}</p>
+                <p style={{ fontSize: 9, color: "var(--t-lo)", fontFamily: "var(--f-mono)", margin: "4px 0 0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{agent.model}</p>
               </div>
             );
           })}
         </div>
+        </Panel>
 
         {/* Security Scan Results */}
         {scanResult && (
           <>
-            <h2 style={{ fontSize: 12, fontWeight: 800, color: "#ef4444", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Security Scan Results</h2>
-            <div style={{ padding: 16, borderRadius: 12, background: "rgba(0,0,0,0.95)", border: "2px solid rgba(239,68,68,0.15)", fontFamily: "monospace", fontSize: 11, color: "#a3a3a3", whiteSpace: "pre-wrap", maxHeight: 400, overflow: "auto", marginBottom: 32 }}>
+            <div style={{ height: 20 }} />
+            <Panel title="Security Scan Results" icon="security">
+            <div style={{ borderRadius: "var(--r-md)", fontFamily: "var(--f-mono)", fontSize: 11, color: "var(--t-mid)", whiteSpace: "pre-wrap", maxHeight: 400, overflow: "auto" }}>
               {scanResult}
             </div>
+            </Panel>
           </>
         )}
 
         {/* Cron Health Summary */}
         {cronJobs.length > 0 && (
           <>
-            <h2 style={{ fontSize: 12, fontWeight: 800, color: "#818cf8", letterSpacing: "0.15em", marginBottom: 16, textTransform: "uppercase" }}>Cron Health ({cronJobs.length} jobs)</h2>
+            <div style={{ height: 20 }} />
+            <Panel title={`Cron Health (${cronJobs.length} jobs)`} icon="clock">
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
               {cronJobs.slice(0, 12).map((cron) => {
                 const isEnabled = cron.enabled !== false;
-                const color = isEnabled ? "#22c55e" : "#525252";
+                const color = isEnabled ? "var(--c-green)" : "var(--t-lo)";
                 return (
-                  <div key={cron.id || cron.name} style={{ padding: 14, borderRadius: 10, background: "rgba(0,0,0,0.95)", border: `1px solid ${isEnabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.04)"}`, opacity: isEnabled ? 1 : 0.5 }}>
+                  <div key={cron.id || cron.name} style={{ padding: 14, borderRadius: "var(--r-md)", background: "var(--ink-2)", border: "1px solid var(--line)", opacity: isEnabled ? 1 : 0.5 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: isEnabled ? "#e5e5e5" : "#525252" }}>{cron.name || cron.id}</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: isEnabled ? "var(--t-hi)" : "var(--t-lo)" }}>{cron.name || cron.id}</span>
                       <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />
                     </div>
-                    <p style={{ fontSize: 9, color: "#525252", fontFamily: "monospace", margin: 0 }}>{cron.schedule}</p>
-                    {cron.lastRun && <p style={{ fontSize: 9, color: "#404040", margin: "2px 0 0" }}>Last: {cron.lastRun}</p>}
+                    <p style={{ fontSize: 9, color: "var(--t-lo)", fontFamily: "var(--f-mono)", margin: 0 }}>{cron.schedule}</p>
+                    {cron.lastRun && <p style={{ fontSize: 9, color: "var(--t-lo)", margin: "2px 0 0" }}>Last: {cron.lastRun}</p>}
                   </div>
                 );
               })}
             </div>
+            </Panel>
           </>
         )}
-      </div>
-    </div>
+    </InstrumentPage>
   );
 }

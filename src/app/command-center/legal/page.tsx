@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
 import { IP_PORTFOLIO, COMPLIANCE_AREAS } from "@/data/legal-status";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 interface AgentStatus {
   id: string;
@@ -13,9 +12,9 @@ interface AgentStatus {
 }
 
 const RISK_COLORS: Record<string, string> = {
-  low: "#22c55e",
-  medium: "#f59e0b",
-  high: "#ef4444",
+  low: "var(--c-green)",
+  medium: "var(--c-amber)",
+  high: "var(--c-red)",
 };
 
 export default function LegalPage() {
@@ -45,63 +44,46 @@ export default function LegalPage() {
   const themis = agents.find((a) => a.id === "themis");
 
   return (
-    <div className="relative min-h-screen text-white overflow-hidden" style={{ background: "#000000" }}>
-      <ParticleField />
-
-      <div className="relative z-10 px-4 sm:px-8 pt-6 pb-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link href="/command-center" className="text-xs text-white/40 hover:text-white/70 tracking-[0.2em] transition-colors">
-              ← COMMAND CENTER
-            </Link>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight mt-1">
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-500">LEGAL</span>
-              <span className="text-white/40 ml-2 text-lg font-light">& COMPLIANCE</span>
-            </h1>
-            <p className="text-white/30 text-xs tracking-[0.15em] mt-1">
-              THEMIS — Legal governance, IP protection & regulatory compliance
-            </p>
+    <InstrumentPage id="legal" title="Legal" section="Business" icon="legal" accent="var(--c-indigo)">
+      {/* THEMIS Status */}
+      <Panel title="THEMIS" icon="legal">
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold" style={{ background: "color-mix(in srgb, var(--c-indigo) 12%, transparent)", color: "var(--c-indigo)" }}>
+            T
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <span className="text-lg font-bold" style={{ color: "var(--t-hi)" }}>THEMIS</span>
+              <span className="text-[9px] px-2 py-0.5 rounded-full tracking-[0.1em]" style={{ background: "color-mix(in srgb, var(--c-indigo) 20%, transparent)", color: "var(--c-indigo)" }}>
+                APEX
+              </span>
+            </div>
+            <p className="text-xs" style={{ color: "var(--t-mid)" }}>Legal &amp; Compliance Agent — Opus 4.6</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{
+                backgroundColor: themis?.status === "active" ? "var(--c-green)" : themis?.status === "idle" ? "var(--c-amber)" : "var(--t-lo)",
+                boxShadow: themis?.status === "active" ? "0 0 8px rgba(34,197,94,0.5)" : "none",
+              }}
+            />
+            <span className="text-xs mono" style={{ color: "var(--t-mid)" }}>{themis?.status?.toUpperCase() || "OFFLINE"}</span>
           </div>
         </div>
+      </Panel>
 
-        {/* THEMIS Status */}
-        <div className="bg-white/[0.03] border-2 border-amber-500/20 rounded-xl p-6 mb-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold bg-amber-500/10 text-amber-400">
-              T
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <span className="text-lg font-bold">THEMIS</span>
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 tracking-[0.1em]">
-                  APEX
-                </span>
-              </div>
-              <p className="text-white/30 text-xs">Legal & Compliance Agent — Opus 4.6</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full"
-                style={{
-                  backgroundColor: themis?.status === "active" ? "#22c55e" : themis?.status === "idle" ? "#f59e0b" : "#6b7280",
-                  boxShadow: themis?.status === "active" ? "0 0 8px rgba(34,197,94,0.5)" : "none",
-                }}
-              />
-              <span className="text-xs text-white/30">{themis?.status?.toUpperCase() || "OFFLINE"}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* IP Portfolio */}
-        <h2 className="text-xs text-white/40 tracking-[0.2em] font-medium mb-3">IP PORTFOLIO</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+      {/* IP Portfolio */}
+      <Panel title="IP Portfolio" icon="spark">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {IP_PORTFOLIO.map((ip) => (
             <div
               key={ip.item}
-              className="bg-white/[0.03] border-2 border-white/10 rounded-xl p-4 hover:border-white/20 transition-all"
+              className="rounded-xl p-4 transition-all"
+              style={{ background: "var(--ink-2)", border: "1px solid var(--line)" }}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold">{ip.item}</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--t-hi)" }}>{ip.item}</span>
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-full tracking-[0.1em] font-medium"
                   style={{ backgroundColor: `${ip.color}20`, color: ip.color }}
@@ -110,24 +92,26 @@ export default function LegalPage() {
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/25 tracking-[0.1em]">{ip.type.toUpperCase()}</span>
-                <span className="text-[10px] text-white/20">{ip.date}</span>
+                <span className="text-[10px] tracking-[0.1em]" style={{ color: "var(--t-lo)" }}>{ip.type.toUpperCase()}</span>
+                <span className="text-[10px]" style={{ color: "var(--t-dim)" }}>{ip.date}</span>
               </div>
             </div>
           ))}
         </div>
+      </Panel>
 
-        {/* Compliance Matrix */}
-        <h2 className="text-xs text-white/40 tracking-[0.2em] font-medium mb-3">COMPLIANCE MATRIX</h2>
-        <div className="space-y-2 mb-8">
+      {/* Compliance Matrix */}
+      <Panel title="Compliance Matrix" icon="check">
+        <div className="space-y-2">
           {COMPLIANCE_AREAS.map((item) => (
             <div
               key={item.area}
-              className="bg-white/[0.03] border-2 border-white/10 rounded-lg p-4 flex items-center justify-between"
+              className="rounded-lg p-4 flex items-center justify-between"
+              style={{ background: "var(--ink-2)", border: "1px solid var(--line)" }}
             >
               <div>
-                <span className="text-sm font-medium">{item.area}</span>
-                <p className="text-white/25 text-[10px] mt-0.5">{item.status}</p>
+                <span className="text-sm font-medium" style={{ color: "var(--t-hi)" }}>{item.area}</span>
+                <p className="text-[10px] mt-0.5" style={{ color: "var(--t-mid)" }}>{item.status}</p>
               </div>
               <div className="flex items-center gap-2">
                 <div
@@ -144,7 +128,7 @@ export default function LegalPage() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </Panel>
+    </InstrumentPage>
   );
 }

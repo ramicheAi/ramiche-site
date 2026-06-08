@@ -240,26 +240,49 @@ export default function SignalWirePage() {
   }, []);
 
   return (
-    <div className="fixed inset-0 bg-[#050510] cursor-crosshair" onMouseMove={handleMouseMove}>
+    <div
+      className="fixed inset-0 cursor-crosshair"
+      style={{ background: "var(--ink-0)" }}
+      onMouseMove={handleMouseMove}
+    >
       <canvas ref={canvasRef} className="w-full h-full" />
+      {/* Instrument-style eyebrow header overlay */}
+      <div
+        className="fixed top-6 left-6 font-mono"
+        style={{ color: "var(--c-cyan)" }}
+      >
+        <div className="flex items-center gap-2 text-[10px] tracking-[0.25em] uppercase" style={{ color: "var(--t-mid)" }}>
+          <span style={{ color: "var(--c-cyan)" }}>SYS</span>
+          <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--c-green)" }} />
+          <span style={{ color: "var(--c-green)" }}>ONLINE</span>
+        </div>
+        <div className="text-base font-bold tracking-widest uppercase mt-1" style={{ color: "var(--t-hi)" }}>YOLO Signal Wire</div>
+      </div>
       <a
         href="/command-center/yolo"
-        className="fixed top-6 right-6 text-xs text-gray-600 hover:text-white font-mono uppercase tracking-widest transition-colors"
+        className="fixed top-6 right-6 text-xs font-mono uppercase tracking-widest transition-colors"
+        style={{ color: "var(--t-lo)" }}
       >
         ← YOLO Gallery
       </a>
       {hoveredAgent && (
-        <div className="fixed top-6 left-6 bg-black/90 border border-gray-800 rounded px-4 py-3 font-mono text-xs">
-          <div className="text-white text-sm font-bold mb-1">{hoveredAgent.name}</div>
-          <div className="text-gray-400">{hoveredAgent.role}</div>
-          <div className="text-gray-500">{hoveredAgent.model}</div>
+        <div
+          className="fixed top-24 left-6 rounded px-4 py-3 font-mono text-xs"
+          style={{ background: "var(--panel-glass)", border: "1px solid var(--line-2)", backdropFilter: "blur(12px)" }}
+        >
+          <div className="text-sm font-bold mb-1" style={{ color: "var(--t-hi)" }}>{hoveredAgent.name}</div>
+          <div style={{ color: "var(--t-mid)" }}>{hoveredAgent.role}</div>
+          <div style={{ color: "var(--t-lo)" }}>{hoveredAgent.model}</div>
         </div>
       )}
-      <div className="fixed bottom-0 left-0 right-0 h-10 bg-black/80 border-t border-gray-800 flex items-center px-6 gap-8 text-xs font-mono text-gray-500">
-        <span>NODES: <span className="text-white">{agents.length}</span></span>
-        <span>ACTIVE SIGNALS: <span className="text-cyan-400">{signalCount}</span></span>
-        <span>REFRESH: <span className="text-green-500">30s</span></span>
-        <span className="ml-auto text-gray-700">PROXIMON // R&D ARCHITECT</span>
+      <div
+        className="fixed bottom-0 left-0 right-0 h-10 flex items-center px-6 gap-8 text-xs font-mono"
+        style={{ background: "var(--ink-1)", borderTop: "1px solid var(--line)", color: "var(--t-lo)" }}
+      >
+        <span>NODES: <span style={{ color: "var(--t-hi)" }}>{agents.length}</span></span>
+        <span>ACTIVE SIGNALS: <span style={{ color: "var(--c-cyan)" }}>{signalCount}</span></span>
+        <span>REFRESH: <span style={{ color: "var(--c-green)" }}>30s</span></span>
+        <span className="ml-auto" style={{ color: "var(--t-dim)" }}>PROXIMON // R&D ARCHITECT</span>
       </div>
     </div>
   );

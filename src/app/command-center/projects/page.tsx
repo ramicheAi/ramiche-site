@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { InstrumentPage } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PROJECT TRACKER — Command Center
@@ -32,14 +32,6 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   planning: { bg: "rgba(168,85,247,0.08)", text: "#a855f7", border: "#a855f7" },
   paused: { bg: "rgba(100,116,139,0.08)", text: "#94a3b8", border: "#94a3b8" },
 };
-
-const NAV = [
-  { label: "COMMAND", href: "/command-center" },
-  { label: "AGENTS", href: "/command-center/agents" },
-  { label: "MISSIONS", href: "/command-center/missions" },
-  { label: "PROJECTS", href: "/command-center/projects", active: true },
-  { label: "METTLE", href: "/apex-athlete" },
-];
 
 function getProgress(p: Project): number {
   if (p.tasks.length === 0) return 0;
@@ -77,66 +69,43 @@ export default function ProjectTracker() {
   const filtered = filter === "all" ? sorted : sorted.filter(p => p.status === filter);
 
   return (
-    <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{
-        backgroundImage: 'linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)',
-        backgroundSize: '60px 60px', opacity: 0.4,
-      }} />
-
-      <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50, background: 'rgba(10,10,20,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: 'contain' }} />
-            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: '0.1em', color: '#c4b5fd' }}>PARALLAX</span>
-            <span style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>|</span>
-            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#94a3b8' }}>PROJECTS</span>
-          </Link>
-          <div style={{ display: 'flex', gap: 20, alignItems: 'center' }}>
-            {NAV.map(n => (
-              <Link key={n.label + n.href} href={n.href} style={{
-                fontSize: 13, fontWeight: 600, letterSpacing: '0.05em',
-                color: n.active ? '#c4b5fd' : '#94a3b8', transition: 'color 0.2s',
-              }}>{n.label}</Link>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      <div className="relative z-10 w-full" style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 48px' }}>
-        <div style={{ marginBottom: 32 }}>
-          <Link href="/command-center" style={{ fontSize: 12, color: '#94a3b8', marginBottom: 8, display: 'inline-block' }}>← Back to Command Center</Link>
-          <h1 style={{ fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: 800, lineHeight: 1.1, marginBottom: 8 }}>
-            Project <span style={{ background: 'linear-gradient(135deg, #c4b5fd, #7c3aed)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>Tracker</span>
-          </h1>
-          <p style={{ fontSize: 16, color: '#94a3b8', marginBottom: 8 }}>
-            {loading ? "Loading..." : `${projects.length} projects · ${projects.filter(p => p.status === "active").length} active · ${projects.filter(p => p.status === "blocked").length} blocked`}
+    <InstrumentPage
+      id="projects"
+      title="Project Tracker"
+      section="Workspace"
+      icon="projects"
+      accent="var(--c-indigo)"
+    >
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ fontSize: 16, color: 'var(--t-mid)', marginBottom: 8 }}>
+          {loading ? "Loading..." : `${projects.length} projects · ${projects.filter(p => p.status === "active").length} active · ${projects.filter(p => p.status === "blocked").length} blocked`}
+        </p>
+        {lastSync && (
+          <p style={{ fontSize: 11, color: 'var(--t-lo)', marginBottom: 20, fontFamily: 'var(--f-mono)' }}>
+            LIVE · Last synced: {new Date(lastSync).toLocaleString()} · Auto-refresh 30s
           </p>
-          {lastSync && (
-            <p style={{ fontSize: 11, color: '#64748b', marginBottom: 24, fontFamily: 'monospace' }}>
-              LIVE · Last synced: {new Date(lastSync).toLocaleString()} · Auto-refresh 30s
-            </p>
-          )}
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {["all", "active", "blocked", "shipped", "planning", "paused"].map(f => (
-              <button key={f} onClick={() => setFilter(f)} style={{
-                padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em',
-                textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s',
-                background: filter === f ? '#7c3aed' : 'rgba(255,255,255,0.04)',
-                color: filter === f ? '#fff' : '#94a3b8',
-                border: filter === f ? '1px solid #7c3aed' : '1px solid rgba(255,255,255,0.08)',
-              }}>{f}</button>
-            ))}
-          </div>
-        </div>
-
-        {loading && (
-          <div style={{ textAlign: 'center', padding: 60, color: '#94a3b8' }}>
-            <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.1em', animation: 'pulse 2s infinite' }}>SYNCING LIVE DATA…</div>
-          </div>
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {["all", "active", "blocked", "shipped", "planning", "paused"].map(f => (
+            <button key={f} onClick={() => setFilter(f)} style={{
+              padding: '6px 16px', borderRadius: 8, fontSize: 12, fontWeight: 600, letterSpacing: '0.05em',
+              textTransform: 'uppercase', cursor: 'pointer', transition: 'all 0.2s',
+              background: filter === f ? 'var(--accent)' : 'var(--ink-2)',
+              color: filter === f ? '#fff' : 'var(--t-mid)',
+              border: filter === f ? '1px solid var(--accent)' : '1px solid var(--line)',
+            }}>{f}</button>
+          ))}
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--t-mid)' }}>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.1em', animation: 'pulse 2s infinite' }}>SYNCING LIVE DATA…</div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(project => {
             const sc = STATUS_COLORS[project.status] || STATUS_COLORS.active;
             const progress = getProgress(project);
@@ -145,7 +114,7 @@ export default function ProjectTracker() {
             return (
               <div key={project.slug} onClick={() => router.push(`/command-center/projects/${project.slug}`)}
                 style={{
-                  background: 'rgba(255,255,255,0.03)', border: '2px solid rgba(255,255,255,0.08)',
+                  background: 'var(--ink-1)', border: '2px solid var(--line)',
                   borderRadius: 14, padding: 20, cursor: 'pointer', transition: 'all 0.2s ease',
                 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
@@ -157,30 +126,30 @@ export default function ProjectTracker() {
                       }}>{project.name.charAt(0)}</div>
                       <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#e2e8f0' }}>{project.name}</h2>
+                          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--t-hi)' }}>{project.name}</h2>
                           <span style={{
                             fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em',
                             padding: '2px 8px', borderRadius: 10, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}30`,
                           }}>{project.status}</span>
                         </div>
-                        <p style={{ fontSize: 13, color: '#94a3b8', margin: '2px 0 0' }}>{project.desc}</p>
+                        <p style={{ fontSize: 13, color: 'var(--t-mid)', margin: '2px 0 0' }}>{project.desc}</p>
                       </div>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', minWidth: 60 }}>
                     <div style={{ fontSize: 24, fontWeight: 800, color: sc.text }}>{progress}%</div>
-                    <div style={{ fontSize: 10, color: '#64748b' }}>{doneTasks}/{project.tasks.length}</div>
+                    <div style={{ fontSize: 10, color: 'var(--t-lo)' }}>{doneTasks}/{project.tasks.length}</div>
                   </div>
                 </div>
 
-                <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
+                <div style={{ height: 6, background: 'var(--ink-3)', borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
                   <div style={{ height: '100%', width: `${progress}%`, background: `linear-gradient(90deg, ${project.accent}, ${project.accent}80)`, borderRadius: 3, transition: 'width 0.5s ease' }} />
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: '#94a3b8' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, color: 'var(--t-mid)' }}>
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <span>Lead: <span style={{ color: project.accent, fontWeight: 600 }}>{project.lead}</span></span>
-                    <span style={{ color: 'rgba(255,255,255,0.15)' }}>|</span>
+                    <span style={{ color: 'var(--t-dim)' }}>|</span>
                     <span>{project.agents?.length || 0} agents</span>
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 600, color: project.accent, letterSpacing: '0.05em' }}>OPEN HQ →</span>
@@ -197,7 +166,6 @@ export default function ProjectTracker() {
             );
           })}
         </div>
-      </div>
-    </main>
+    </InstrumentPage>
   );
 }

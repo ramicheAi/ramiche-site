@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    BUILDER — dispatch DEV or DESIGN tasks to a tool-enabled Claude Code instance
@@ -26,7 +27,7 @@ interface Job {
   created_at: string;
 }
 
-const STATUS_COLOR: Record<string, string> = { queued: "#f59e0b", running: "#00f0ff", done: "#22c55e", failed: "#ef4444", canceled: "#6b7280" };
+const STATUS_COLOR: Record<string, string> = { queued: "var(--c-amber)", running: "var(--c-cyan)", done: "var(--c-green)", failed: "var(--c-red)", canceled: "var(--t-lo)" };
 
 export default function BuilderPage() {
   const [project, setProject] = useState(PROJECTS[0]);
@@ -76,87 +77,94 @@ export default function BuilderPage() {
     }
   }, [task, mode, project, busy, load]);
 
-  const accent = mode === "dev" ? "#00f0ff" : "#a855f7";
-  const inputStyle: React.CSSProperties = { background: "#09090b", border: "1px solid #27272a", borderRadius: 8, color: "#e4e4e7", fontSize: 14, padding: "11px 14px", outline: "none" };
+  const accent = mode === "dev" ? "var(--c-cyan)" : "var(--c-violet)";
+  const inputStyle: React.CSSProperties = { background: "var(--ink-2)", border: "1px solid var(--line-2)", borderRadius: "var(--r-sm)", color: "var(--t-hi)", fontSize: 14, padding: "11px 14px", outline: "none" };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e5e5e5", padding: "32px 28px 80px" }}>
-      <div style={{ maxWidth: 1000, margin: "0 auto" }}>
-        <Link href="/command-center" style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: "#737373", textDecoration: "none" }}>← COMMAND CENTER</Link>
-        <h1 style={{ fontSize: 30, fontWeight: 900, margin: "8px 0 0" }}>Builder</h1>
-        <p style={{ fontSize: 13, color: "#737373", margin: "6px 0 0" }}>Dispatch dev &amp; design work to Claude Code inside a project. It edits files, runs commands, and reports back. Tracked as Jobs.</p>
+    <InstrumentPage
+      id="builder"
+      title="Builder"
+      section="Creative"
+      icon="dispatch"
+      accent="var(--c-cyan)"
+    >
+      <p style={{ fontSize: 12, color: "var(--t-mid)", margin: "0 0 20px", lineHeight: 1.6 }}>
+        Dispatch dev &amp; design work to Claude Code inside a project. It edits files, runs commands, and reports back. Tracked as Jobs.
+      </p>
 
-        {/* Composer */}
-        <div style={{ marginTop: 22, padding: 20, borderRadius: 14, background: "rgba(0,0,0,0.5)", border: `1px solid ${accent}28` }}>
-          <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-            {/* Project */}
-            <div style={{ display: "flex", gap: 6 }}>
-              {PROJECTS.map((p) => (
-                <button key={p.id} onClick={() => setProject(p)} style={{
-                  padding: "7px 14px", fontSize: 12, fontWeight: 600, borderRadius: 7, cursor: "pointer",
-                  background: project.id === p.id ? "rgba(255,255,255,0.08)" : "transparent",
-                  color: project.id === p.id ? "#fff" : "#a1a1aa", border: `1px solid ${project.id === p.id ? "rgba(255,255,255,0.2)" : "#27272a"}`,
-                }}>{p.label}</button>
-              ))}
-            </div>
-            {/* Mode */}
-            <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-              {(["dev", "design"] as const).map((m) => {
-                const a = m === "dev" ? "#00f0ff" : "#a855f7";
-                return (
-                  <button key={m} onClick={() => setMode(m)} style={{
-                    padding: "7px 16px", fontSize: 12, fontWeight: 700, borderRadius: 7, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.06em",
-                    background: mode === m ? `${a}1f` : "transparent", color: mode === m ? a : "#71717a", border: `1px solid ${mode === m ? a + "55" : "#27272a"}`,
-                  }}>{m}</button>
-                );
-              })}
-            </div>
+      {/* Composer */}
+      <Panel style={{ marginBottom: 24, borderColor: `color-mix(in srgb, ${accent} 28%, var(--line))` }}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+          {/* Project */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {PROJECTS.map((p) => (
+              <button key={p.id} onClick={() => setProject(p)} style={{
+                padding: "7px 14px", fontSize: 12, fontWeight: 600, borderRadius: "var(--r-sm)", cursor: "pointer",
+                background: project.id === p.id ? "var(--ink-3)" : "transparent",
+                color: project.id === p.id ? "var(--t-hi)" : "var(--t-mid)", border: `1px solid ${project.id === p.id ? "var(--line-2)" : "var(--line)"}`,
+              }}>{p.label}</button>
+            ))}
           </div>
-          <textarea
-            value={task}
-            onChange={(e) => setTask(e.target.value)}
-            placeholder={mode === "dev"
-              ? "Describe the code task… (e.g. 'Add a CSV export button to the Reports page')"
-              : "Describe the design task… (e.g. 'Redesign the pricing cards with a cleaner hierarchy')"}
-            style={{ ...inputStyle, width: "100%", minHeight: 92, resize: "vertical", boxSizing: "border-box" }}
-          />
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
-            <span style={{ fontSize: 11, color: "#52525b", fontFamily: "monospace" }}>{project.dir}</span>
-            <button onClick={run} disabled={busy || !task.trim()} style={{
-              padding: "10px 24px", fontSize: 14, fontWeight: 700, borderRadius: 8, border: "none",
-              cursor: busy || !task.trim() ? "default" : "pointer",
-              background: busy || !task.trim() ? "#27272a" : `linear-gradient(135deg, ${accent}, ${accent}aa)`,
-              color: busy || !task.trim() ? "#71717a" : "#001016",
-            }}>{busy ? "Dispatching…" : `Run ${mode} ⚡`}</button>
+          {/* Mode */}
+          <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+            {(["dev", "design"] as const).map((m) => {
+              const a = m === "dev" ? "var(--c-cyan)" : "var(--c-violet)";
+              return (
+                <button key={m} onClick={() => setMode(m)} style={{
+                  padding: "7px 16px", fontSize: 12, fontWeight: 700, borderRadius: "var(--r-sm)", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.06em",
+                  background: mode === m ? `color-mix(in srgb, ${a} 14%, transparent)` : "transparent", color: mode === m ? a : "var(--t-lo)", border: `1px solid ${mode === m ? `color-mix(in srgb, ${a} 45%, transparent)` : "var(--line)"}`,
+                }}>{m}</button>
+              );
+            })}
           </div>
         </div>
+        <textarea
+          value={task}
+          onChange={(e) => setTask(e.target.value)}
+          placeholder={mode === "dev"
+            ? "Describe the code task… (e.g. 'Add a CSV export button to the Reports page')"
+            : "Describe the design task… (e.g. 'Redesign the pricing cards with a cleaner hierarchy')"}
+          style={{ ...inputStyle, width: "100%", minHeight: 92, resize: "vertical", boxSizing: "border-box" }}
+        />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12 }}>
+          <span className="mono" style={{ fontSize: 11, color: "var(--t-lo)" }}>{project.dir}</span>
+          <button onClick={run} disabled={busy || !task.trim()} style={{
+            padding: "10px 24px", fontSize: 14, fontWeight: 700, borderRadius: "var(--r-sm)", border: "none",
+            cursor: busy || !task.trim() ? "default" : "pointer",
+            background: busy || !task.trim() ? "var(--ink-3)" : `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 67%, transparent))`,
+            color: busy || !task.trim() ? "var(--t-lo)" : "var(--ink-1)",
+          }}>{busy ? "Dispatching…" : `Run ${mode} ⚡`}</button>
+        </div>
+      </Panel>
 
-        {/* Runs */}
-        <h2 style={{ fontSize: 12, fontWeight: 800, color: "#71717a", letterSpacing: "0.15em", textTransform: "uppercase", margin: "28px 0 12px" }}>
-          Builder Runs · <Link href="/command-center/jobs" style={{ color: "#a855f7" }}>all jobs →</Link>
-        </h2>
-        {jobs.length === 0 && <div style={{ color: "#52525b", fontSize: 14, padding: 20, textAlign: "center" }}>No builder runs yet.</div>}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Runs */}
+      <Panel
+        title="Builder Runs"
+        icon="pulse"
+        badge={<Link href="/command-center/jobs" style={{ color: "var(--c-violet)", fontSize: 11 }}>all jobs →</Link>}
+      >
+        {jobs.length === 0 && <div style={{ color: "var(--t-lo)", fontSize: 14, padding: 20, textAlign: "center" }}>No builder runs yet.</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 6 }}>
           {jobs.map((j) => {
-            const color = STATUS_COLOR[j.status] || "#6b7280";
+            const color = STATUS_COLOR[j.status] || "var(--t-lo)";
             const isOpen = open === j.id;
             return (
-              <div key={j.id} style={{ borderRadius: 12, background: "rgba(0,0,0,0.6)", border: `1px solid ${color}22`, overflow: "hidden" }}>
+              <div key={j.id} style={{ borderRadius: "var(--r-md)", background: "var(--ink-2)", border: `1px solid color-mix(in srgb, ${color} 22%, var(--line))`, overflow: "hidden" }}>
                 <div onClick={() => setOpen(isOpen ? null : j.id)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 18px", cursor: "pointer" }}>
                   <span style={{ width: 9, height: 9, borderRadius: "50%", background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0, animation: j.status === "running" ? "ccPulse 1.2s ease-in-out infinite" : undefined }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{j.title}</div>
-                    <div style={{ fontSize: 11, color: "#71717a", marginTop: 3 }}>
+                    <div style={{ fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "var(--t-hi)" }}>{j.title}</div>
+                    <div style={{ fontSize: 11, color: "var(--t-mid)", marginTop: 3 }}>
                       <span style={{ color, textTransform: "uppercase", fontWeight: 700 }}>{j.status}</span>
                       {" · "}{j.kind} · {j.input?.workingDir?.split("/").pop() || "?"}
                       {j.status === "running" && j.progress ? ` · ${j.progress}` : ""}
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: "#52525b" }}>{isOpen ? "▾" : "▸"}</span>
+                  <span style={{ fontSize: 12, color: "var(--t-lo)" }}>{isOpen ? "▾" : "▸"}</span>
                 </div>
                 {isOpen && (
-                  <div style={{ padding: "0 18px 16px 41px", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
-                    <pre style={{ marginTop: 12, background: "#09090b", borderRadius: 8, padding: 14, fontSize: 12.5, color: j.status === "failed" ? "#fca5a5" : "#a1a1aa", whiteSpace: "pre-wrap", overflowX: "auto", maxHeight: 360, lineHeight: 1.55 }}>
+                  <div style={{ padding: "0 18px 16px 41px", borderTop: "1px solid var(--line)" }}>
+                    <pre className="mono" style={{ marginTop: 12, background: "var(--ink-1)", borderRadius: "var(--r-sm)", padding: 14, fontSize: 12.5, color: j.status === "failed" ? "var(--c-red)" : "var(--t-mid)", whiteSpace: "pre-wrap", overflowX: "auto", maxHeight: 360, lineHeight: 1.55 }}>
                       {j.result || j.error || (j.status === "running" ? "Building… result will appear here." : "Queued.")}
                     </pre>
                   </div>
@@ -165,8 +173,8 @@ export default function BuilderPage() {
             );
           })}
         </div>
-      </div>
+      </Panel>
       <style>{`@keyframes ccPulse { 0%,100% { opacity:1 } 50% { opacity:0.35 } }`}</style>
-    </div>
+    </InstrumentPage>
   );
 }

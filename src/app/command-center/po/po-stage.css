@@ -1,0 +1,159 @@
+/* ================================================================
+   PARALLAX OS — HOLO STAGE
+   A volumetric 3D holographic console (Tony Stark / JARVIS).
+   Arc-reactor core · gimbal rings · orbiting fleet · floating gauges.
+   Mouse-driven perspective tilt. Reduced-motion + po-still aware.
+   ================================================================ */
+.po-shell .stage { position: relative; height: 460px; perspective: 1500px; perspective-origin: 50% 42%;
+  margin: 4px 0 6px; --tiltx: 0deg; --tilty: 0deg; }
+.po-shell .stage-scene { position: absolute; inset: 0; transform-style: preserve-3d;
+  transform: rotateX(calc(8deg + var(--tiltx))) rotateY(var(--tilty));
+  transition: transform .25s var(--ease); }
+
+/* faint holo floor grid receding into depth */
+.po-shell .stage-floor { position: absolute; left: 50%; top: 76%; width: 1300px; height: 760px;
+  transform: translate(-50%, 0) rotateX(74deg); transform-style: preserve-3d; opacity: .5;
+  background-image:
+    linear-gradient(var(--accent) 1px, transparent 1px),
+    linear-gradient(90deg, var(--accent) 1px, transparent 1px);
+  background-size: 54px 54px; -webkit-mask: radial-gradient(circle at 50% 40%, #000 8%, transparent 62%);
+  mask: radial-gradient(circle at 50% 40%, #000 8%, transparent 62%); animation: floor-flow 8s linear infinite; }
+@keyframes floor-flow { to { background-position: 0 54px, 0 0; } }
+
+/* ---------- CORE (arc reactor) ---------- */
+.po-shell .stage-core { position: absolute; left: 50%; top: 44%; width: 230px; height: 230px;
+  transform: translate(-50%, -50%); transform-style: preserve-3d; }
+.po-shell .core-glow { position: absolute; inset: -60%; border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent) 45%, transparent), transparent 62%);
+  filter: blur(14px); animation: core-breathe 4.5s var(--ease-io) infinite; }
+@keyframes core-breathe { 0%,100%{ opacity:.55; transform: scale(.92); } 50%{ opacity:.9; transform: scale(1.06); } }
+
+.po-shell .core-sphere { position: absolute; inset: 30%; border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 30%, rgba(255,255,255,.85) 1%, transparent 14%),
+    radial-gradient(circle at 44% 36%, color-mix(in oklab, var(--c-purple-l) 78%, transparent), color-mix(in oklab, var(--c-purple) 55%, transparent) 50%, transparent 78%);
+  box-shadow: inset 0 0 26px color-mix(in oklab, var(--accent) 40%, transparent), 0 0 48px color-mix(in oklab, var(--accent) 60%, transparent);
+  animation: core-pulse 3.6s var(--ease-io) infinite; }
+@keyframes core-pulse { 0%,100%{ transform: scale(.96); } 50%{ transform: scale(1.05); } }
+.po-shell .core-iris { position: absolute; inset: 30%; border-radius: 50%; mix-blend-mode: screen; opacity: .9;
+  background: conic-gradient(from 0deg, transparent, #38bdf8, transparent 22%, #34d399, transparent 46%, #ec4899, transparent 70%, #a855f7, transparent);
+  animation: spin3 5s linear infinite; }
+/* holographic wireframe globe — meridian great-circles */
+.po-shell .core-wire { position: absolute; inset: 30%; transform-style: preserve-3d; }
+.po-shell .core-wire i { position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in oklab, var(--accent) 50%, transparent);
+  box-shadow: inset 0 0 12px color-mix(in oklab, var(--accent) 22%, transparent); }
+.po-shell .core-wire i:nth-child(1){ transform: rotateY(0deg); } .po-shell .core-wire i:nth-child(2){ transform: rotateY(60deg); } .po-shell .core-wire i:nth-child(3){ transform: rotateY(120deg); }
+.po-shell .core-wire i:nth-child(4){ transform: rotateX(90deg) scale(0.62); } .po-shell .core-wire i:nth-child(5){ transform: rotateX(90deg) scale(0.92); }
+.po-shell .core-wire-spin { position: absolute; inset: 30%; transform-style: preserve-3d; animation: spinY 9s linear infinite; }
+@keyframes spinY { to { transform: rotateY(360deg); } }
+
+/* gimbal RINGS — each on its own 3D plane */
+.po-shell .gring { position: absolute; left: 50%; top: 50%; border-radius: 50%; transform-style: preserve-3d;
+  border: 1.5px solid color-mix(in oklab, var(--accent) 55%, transparent);
+  box-shadow: 0 0 18px color-mix(in oklab, var(--accent) 35%, transparent), inset 0 0 18px color-mix(in oklab, var(--accent) 14%, transparent); }
+.po-shell .gring::before { content: ""; position: absolute; width: 10px; height: 10px; border-radius: 50%; top: -5px; left: 50%; margin-left: -5px;
+  background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.po-shell .gring.r1 { width: 230px; height: 230px; margin: -115px 0 0 -115px; transform: rotateX(72deg) rotateZ(0deg); animation: spinZ 14s linear infinite; }
+.po-shell .gring.r2 { width: 196px; height: 196px; margin: -98px 0 0 -98px; transform: rotateY(70deg) rotateZ(0deg); animation: spinZ 10s linear infinite reverse; border-color: color-mix(in oklab, var(--gold) 60%, transparent); }
+.po-shell .gring.r2::before { background: var(--gold); box-shadow: 0 0 12px var(--gold); }
+.po-shell .gring.r3 { width: 270px; height: 270px; margin: -135px 0 0 -135px; transform: rotateX(60deg) rotateY(28deg); animation: spinZ 22s linear infinite; border-style: dashed; opacity: .7; }
+@keyframes spinZ { to { transform: var(--rb, rotateX(72deg)) rotateZ(360deg); } }
+
+/* dashed data ring sitting flat under the core (HUD compass) */
+.po-shell .stage-compass { position: absolute; left: 50%; top: 44%; width: 380px; height: 380px; margin: -190px 0 0 -190px;
+  transform: rotateX(78deg); transform-style: preserve-3d; }
+.po-shell .compass-ring { position: absolute; inset: 0; border-radius: 50%; border: 1px solid color-mix(in oklab, var(--accent) 30%, transparent); }
+.po-shell .compass-ring.tick { background:
+    repeating-conic-gradient(from 0deg, color-mix(in oklab, var(--accent) 50%, transparent) 0 1deg, transparent 1deg 6deg);
+  -webkit-mask: radial-gradient(circle, transparent 47%, #000 48%, #000 50%, transparent 51%);
+  mask: radial-gradient(circle, transparent 47%, #000 48%, #000 50%, transparent 51%); animation: spin3 40s linear infinite; }
+.po-shell .compass-ring.rot { animation: spin3 60s linear infinite reverse; }
+
+/* ---------- ORBITING FLEET ---------- */
+.po-shell .orbit { position: absolute; left: 50%; top: 44%; transform-style: preserve-3d; }
+.po-shell .orbit-path { position: absolute; left: 50%; top: 50%; border-radius: 50%; border: 1px dashed color-mix(in oklab, var(--accent) 22%, transparent); transform: translate(-50%,-50%) rotateX(76deg); }
+.po-shell .orbit-node { position: absolute; left: 0; top: 0; width: 38px; height: 38px; margin: -19px 0 0 -19px; transform-style: preserve-3d; }
+.po-shell .orbit-chip { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; color: var(--fac); cursor: pointer;
+  background: color-mix(in oklab, var(--fac) 18%, var(--ink-0)); border: 1px solid color-mix(in oklab, var(--fac) 55%, transparent);
+  box-shadow: 0 0 16px color-mix(in oklab, var(--fac) 35%, transparent); backdrop-filter: blur(3px);
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%); transition: transform .16s var(--ease); }
+.po-shell .orbit-chip:hover { transform: scale(1.18); }
+.po-shell .orbit-chip.naked { background: none; border: none; box-shadow: none; clip-path: none; backdrop-filter: none; width: auto; height: auto; }
+.po-shell .orbit-label { position: absolute; left: 50%; top: 42px; transform: translateX(-50%); font-family: var(--f-mono); font-size: 8px;
+  letter-spacing: .12em; color: var(--fac); white-space: nowrap; opacity: .85; text-shadow: 0 0 8px color-mix(in oklab, var(--fac) 60%, transparent); }
+
+/* ---------- FLOATING HUD GAUGES (depth panels) ---------- */
+.po-shell .holo-gauge { position: absolute; transform-style: preserve-3d; }
+.po-shell .gauge-card { position: relative; padding: 13px 16px; min-width: 132px; border-radius: var(--r-md);
+  background: linear-gradient(160deg, color-mix(in oklab, var(--accent) 16%, var(--ink-1)), color-mix(in oklab, var(--accent) 5%, var(--ink-1)));
+  border: 1px solid color-mix(in oklab, var(--accent) 42%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 16%, transparent), 0 14px 40px color-mix(in oklab, var(--void) 58%, transparent), inset 0 0 22px color-mix(in oklab, var(--accent) 10%, transparent);
+  backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); }
+.po-shell .gauge-card::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 2px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent); transform: skewX(var(--po-angle)); }
+.po-shell .gauge-conn { position: absolute; height: 1px; background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 60%, transparent), transparent);
+  top: 50%; box-shadow: 0 0 8px color-mix(in oklab, var(--accent) 40%, transparent); }
+.po-shell .gauge-lab { font-family: var(--f-mono); font-size: 8.5px; letter-spacing: .2em; text-transform: uppercase; color: color-mix(in oklab, var(--accent) 70%, var(--t-mid)); }
+
+/* ---- INSTRUMENT chrome (Expanse serial + corner brackets + Iron Man arc) ---- */
+.po-shell .gauge-card.instrument { min-width: 168px; padding: 12px 15px; }
+.po-shell .gauge-row { display: flex; align-items: center; gap: 13px; }
+.po-shell .gauge-readout { display: flex; flex-direction: column; }
+.po-shell .inst-serial { position: absolute; top: 7px; right: 12px; font-family: var(--f-mono); font-size: 7.5px; letter-spacing: .16em; color: color-mix(in oklab, var(--accent) 55%, var(--t-lo)); opacity: .8; }
+.po-shell .inst-cnr { position: absolute; width: 7px; height: 7px; border: 1px solid color-mix(in oklab, var(--accent) 65%, transparent); }
+.po-shell .inst-cnr.tl { left: 4px; top: 4px; border-right: none; border-bottom: none; }
+.po-shell .inst-cnr.tr { right: 4px; top: 4px; border-left: none; border-bottom: none; }
+.po-shell .inst-cnr.bl { left: 4px; bottom: 4px; border-right: none; border-top: none; }
+.po-shell .inst-cnr.br { right: 4px; bottom: 4px; border-left: none; border-top: none; }
+.po-shell .arc-gauge { flex: 0 0 auto; filter: drop-shadow(0 0 5px color-mix(in oklab, var(--accent) 55%, transparent)); }
+.po-shell .arc-gauge .arc-fill { transition: stroke-dasharray .8s var(--ease); }
+.po-shell .po-still .arc-gauge .arc-fill { transition: none; }
+.po-shell .gauge-val { font-family: var(--f-tech); font-size: 24px; font-weight: 600; line-height: 1.05; margin-top: 4px; display: flex; align-items: baseline; gap: 5px; }
+.po-shell .gauge-val small { font-family: var(--f-mono); font-size: 11px; font-weight: 400; color: var(--t-mid); }
+.po-shell .gauge-spark { display: flex; align-items: flex-end; gap: 2px; height: 16px; margin-top: 8px; }
+.po-shell .gauge-spark i { flex: 1; border-radius: 1px; background: color-mix(in oklab, var(--accent) 60%, transparent); }
+
+/* ATLAS title plate, floating front */
+.po-shell .stage-plate { position: absolute; left: 50%; top: 76%; transform: translate(-50%,0) translateZ(70px); text-align: center; pointer-events: none; }
+.po-shell .stage-plate .nm { font-family: var(--f-tech); font-size: 22px; font-weight: 700; letter-spacing: .34em; padding-left: .34em;
+  background: var(--holo); background-size: 220% 220%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  animation: holo-shift 8s var(--ease-io) infinite; }
+.po-shell .stage-plate .st { font-family: var(--f-mono); font-size: 9.5px; letter-spacing: .26em; text-transform: uppercase; color: var(--t-mid); margin-top: 5px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* scanline + vignette over the whole stage */
+.po-shell .stage-fx { position: absolute; inset: 0; pointer-events: none; z-index: 3; border-radius: var(--r-lg);
+  background: repeating-linear-gradient(0deg, transparent 0 2px, color-mix(in oklab, var(--accent) 5%, transparent) 2px 3px); opacity: .5;
+  -webkit-mask: radial-gradient(ellipse 75% 70% at 50% 45%, #000 55%, transparent 100%); mask: radial-gradient(ellipse 75% 70% at 50% 45%, #000 55%, transparent 100%); }
+
+/* CRT / phosphor instrument layer — Severance + Fallout texture */
+.po-shell .stage-crt { position: absolute; inset: 0; pointer-events: none; z-index: 4; border-radius: var(--r-lg); overflow: hidden; opacity: .6; }
+.po-shell .stage-crt::before { content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px);
+  -webkit-mask: radial-gradient(ellipse 85% 80% at 50% 48%, #000 60%, transparent 100%); mask: radial-gradient(ellipse 85% 80% at 50% 48%, #000 60%, transparent 100%); }
+.po-shell .stage-crt::after { content: ""; position: absolute; left: 0; right: 0; height: 26%; top: -26%;
+  background: linear-gradient(180deg, transparent, color-mix(in oklab, var(--accent) 7%, transparent) 60%, transparent);
+  animation: crt-scan 6.5s linear infinite; }
+@keyframes crt-scan { to { top: 100%; } }
+.po-shell[data-po-theme="light"] .stage-crt { opacity: .35; }
+.po-shell .po-still .stage-crt::after, .po-shell .po-noholo .stage-crt { display: none; }
+@media (prefers-reduced-motion: reduce) { .po-shell .stage-crt::after { display: none; } }
+
+@keyframes spin3 { to { transform: rotate(360deg); } }
+@keyframes spin3x { to { transform: rotateX(78deg) rotate(360deg); } }
+
+/* rising data motes */
+.po-shell .stage-motes { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.po-shell .stage-motes span { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: var(--mc, var(--accent));
+  box-shadow: 0 0 8px var(--mc, var(--accent)); opacity: 0; animation: mote-rise linear infinite; }
+@keyframes mote-rise { 0%{ transform: translateY(0) scale(.6); opacity: 0; } 12%{ opacity: .9; } 88%{ opacity: .7; } 100%{ transform: translateY(-340px) scale(1); opacity: 0; } }
+
+/* kill 3D motion when stilled / reduced */
+.po-shell .po-still .stage-scene { transition: none; }
+.po-shell .po-still .stage-floor, .po-shell .po-still .core-glow, .po-shell .po-still .core-sphere, .po-shell .po-still .core-iris,
+.po-shell .po-still .gring, .po-shell .po-still .compass-ring, .po-shell .po-still .orbit-spin, .po-shell .po-still .stage-plate .nm,
+.po-shell .po-still .core-wire-spin, .po-shell .po-still .stage-motes span { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  .po-shell .stage-floor, .po-shell .core-glow, .po-shell .core-sphere, .po-shell .core-iris, .po-shell .gring, .po-shell .compass-ring, .po-shell .orbit-spin, .po-shell .stage-plate .nm,
+  .po-shell .core-wire-spin, .po-shell .stage-motes span { animation: none !important; }
+  .po-shell .stage-motes { display: none; }
+}

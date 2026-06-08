@@ -2,11 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Logo, Icon } from '@/components/command-center/po/Brand';
 
 /* ══════════════════════════════════════════════════════════════════════════════
-   COMMAND CENTER SIDEBAR — Holographic Navigation
-   Matches dashboard: #0a0a0a bg, accent glows, font-mono uppercase, living borders
+   COMMAND CENTER SIDEBAR — Parallax OS holographic accordion
+   244px rail · single-open accordion · collapses to icon rail ≤1024px (po-mobile.css).
+   Uses the ported `.po-side*` / `.po-nav*` classes from po-ui.css.
+   The `sections` array below is the source of truth for routing — keep it verbatim.
    ══════════════════════════════════════════════════════════════════════════════ */
 
 const sections = [
@@ -35,7 +38,7 @@ const sections = [
       { href: '/command-center/sales', label: 'Sales', icon: '◉', accent: '#f59e0b' },
       { href: '/command-center/prospector', label: 'Prospector', icon: '🌐', accent: '#22c55e' },
       { href: '/command-center/leads', label: 'Leads', icon: '◎', accent: '#22c55e' },
-      { href: '/command-center/sales/proposals', label: 'Proposals', icon: '▷', accent: '#f59e0b' },
+      { href: '/command-center/sales/proposals', label: 'METTLE Proposal', icon: '▷', accent: '#f59e0b' },
       { href: '/command-center/sales/pricing', label: 'Pricing', icon: '◎', accent: '#f59e0b' },
       { href: '/command-center/sales/agent-pricing', label: 'Agent Pricing', icon: '◇', accent: '#f59e0b' },
       { href: '/command-center/legal', label: 'Legal', icon: '⚖', accent: '#8b5cf6' },
@@ -74,13 +77,84 @@ const sections = [
   },
 ];
 
+/* href → Parallax OS geometric icon name (from Brand's `I` map). The legacy
+   `item.icon` unicode glyphs are kept on the data above for compatibility; this
+   table is the visual upgrade. Unknown hrefs fall back to a sensible default. */
+const ICON_BY_HREF: Record<string, string> = {
+  '/command-center': 'dashboard',
+  '/command-center/jobs': 'bolt',
+  '/command-center/chat': 'comms',
+  '/command-center/gallery': 'gallery',
+  '/command-center/agents': 'agents',
+  '/command-center/tasks': 'tasks',
+  '/command-center/health': 'health',
+  '/command-center/security': 'security',
+  '/command-center/settings': 'settings',
+  '/command-center/yolo': 'bolt',
+  '/command-center/nerve-center': 'nerve',
+  '/command-center/comms': 'comms',
+  '/command-center/finance': 'finance',
+  '/command-center/finance/arbitrage': 'arbitrage',
+  '/command-center/sales': 'sales',
+  '/command-center/prospector': 'nexus',
+  '/command-center/leads': 'strategy',
+  '/command-center/sales/proposals': 'proposals',
+  '/command-center/sales/pricing': 'finance',
+  '/command-center/sales/agent-pricing': 'finance',
+  '/command-center/legal': 'legal',
+  '/command-center/strategy': 'strategy',
+  '/command-center/observatory': 'observatory',
+  '/command-center/observatory/live': 'observatory',
+  '/command-center/reports': 'reports',
+  '/command-center/content': 'content',
+  '/command-center/studio': 'studio',
+  '/command-center/app-builder': 'builder',
+  '/command-center/builder': 'builder',
+  '/command-center/wellness': 'wellness',
+  '/command-center/fabrication': 'fabrication',
+  '/command-center/projects': 'projects',
+  '/command-center/memory': 'memory',
+  '/command-center/calendar': 'calendar',
+  '/command-center/docs': 'docs',
+  '/command-center/office': 'office',
+  '/apex-athlete': 'mettle',
+};
+
+function iconFor(href: string): string {
+  return ICON_BY_HREF[href] ?? 'dot';
+}
+
+function isItemActive(pathname: string | null, href: string): boolean {
+  if (!pathname) return false;
+  if (href === '/command-center') return pathname === '/command-center';
+  return pathname === href || pathname.startsWith(href + '/');
+}
+
+/** the section label that contains the currently active route (default-open) */
+function sectionForPath(pathname: string | null): string {
+  for (const s of sections) {
+    // longest-match wins so /sales/proposals beats /sales
+    const matches = s.items
+      .filter((it) => isItemActive(pathname, it.href))
+      .sort((a, b) => b.href.length - a.href.length);
+    if (matches.length) return s.label;
+  }
+  return sections[0].label;
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [openSec, setOpenSec] = useState<string>(() => sectionForPath(pathname));
+
+  // when the route changes, expand the section that owns it (single-open)
+  useEffect(() => {
+    setOpenSec(sectionForPath(pathname));
+  }, [pathname]);
 
   return (
     <>
-      {/* Mobile toggle */}
+      {/* Mobile toggle (preserved behavior) */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
         className="fixed top-4 left-4 z-50 md:hidden"
@@ -94,193 +168,78 @@ export default function Sidebar() {
           cursor: 'pointer',
           boxShadow: '0 0 12px rgba(124,58,237,0.15)',
         }}
+        aria-label={mobileOpen ? 'Close navigation' : 'Open navigation'}
       >
         {mobileOpen ? '✕' : '☰'}
       </button>
 
       <aside
-        style={{
-          background: '#050505',
-          borderRight: '1px solid rgba(124,58,237,0.15)',
-          width: 240,
-          fontFamily: "'SF Mono', 'Fira Code', 'JetBrains Mono', monospace",
-        }}
-        className={`
-          fixed left-0 top-0 h-screen z-40 transition-transform duration-200
-          ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}
+        className={`po-side fixed left-0 top-0 z-40 transition-transform duration-200 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        }`}
+        style={{ position: 'fixed', height: '100vh' }}
       >
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div
-            style={{
-              padding: '20px 16px 16px',
-              borderBottom: '1px solid rgba(124,58,237,0.15)',
-              background: 'linear-gradient(180deg, rgba(124,58,237,0.06) 0%, transparent 100%)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  background: '#7c3aed',
-                  boxShadow: '0 0 8px rgba(124,58,237,0.6), 0 0 16px rgba(124,58,237,0.3)',
-                  animation: 'pulse 2s ease-in-out infinite',
-                }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.2em',
-                  color: '#e5e5e5',
-                  textTransform: 'uppercase' as const,
-                }}
-              >
-                Command Center
-              </span>
-            </div>
-            <p
-              style={{
-                fontSize: 9,
-                color: 'rgba(124,58,237,0.5)',
-                letterSpacing: '0.15em',
-                marginTop: 4,
-                paddingLeft: 18,
-                textTransform: 'uppercase' as const,
-              }}
-            >
-              PARALLAX OS v4
-            </p>
-          </div>
-
-          {/* Nav sections */}
-          <nav style={{ flex: 1, overflowY: 'auto', padding: '4px 0' }}>
-            {sections.map((section) => (
-              <div key={section.label} style={{ marginBottom: 2 }}>
-                {/* Section label */}
-                <div
-                  style={{
-                    padding: '12px 16px 4px',
-                    fontSize: 9,
-                    fontWeight: 600,
-                    letterSpacing: '0.2em',
-                    color: '#444444',
-                    textTransform: 'uppercase' as const,
-                  }}
-                >
-                  {section.label}
-                </div>
-
-                {section.items.map((item) => {
-                  const isActive =
-                    pathname === item.href ||
-                    (item.href !== '/command-center' && pathname?.startsWith(item.href));
-
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileOpen(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '8px 16px',
-                        margin: '1px 6px',
-                        borderRadius: 6,
-                        fontSize: 11,
-                        fontWeight: isActive ? 600 : 400,
-                        letterSpacing: '0.05em',
-                        color: isActive ? '#e5e5e5' : '#666666',
-                        background: isActive
-                          ? `rgba(${hexToRgb(item.accent)},0.08)`
-                          : 'transparent',
-                        borderLeft: isActive
-                          ? `2px solid ${item.accent}`
-                          : '2px solid transparent',
-                        boxShadow: isActive
-                          ? `inset 0 0 20px rgba(${hexToRgb(item.accent)},0.04)`
-                          : 'none',
-                        transition: 'all 120ms ease-in-out',
-                        textDecoration: 'none',
-                      }}
-                      onMouseEnter={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = `rgba(${hexToRgb(item.accent)},0.04)`;
-                          e.currentTarget.style.color = '#999999';
-                        }
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!isActive) {
-                          e.currentTarget.style.background = 'transparent';
-                          e.currentTarget.style.color = '#666666';
-                        }
-                      }}
-                    >
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: isActive ? item.accent : '#333333',
-                          flexShrink: 0,
-                          width: 16,
-                          textAlign: 'center',
-                          filter: isActive
-                            ? `drop-shadow(0 0 4px ${item.accent})`
-                            : 'none',
-                        }}
-                      >
-                        {item.icon}
-                      </span>
-                      <span>{item.label}</span>
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
-          </nav>
-
-          {/* Footer */}
-          <div
-            style={{
-              padding: '12px 16px 16px',
-              borderTop: '1px solid rgba(124,58,237,0.15)',
-              background: 'linear-gradient(0deg, rgba(124,58,237,0.04) 0%, transparent 100%)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <p
-                style={{
-                  fontSize: 8,
-                  color: '#333333',
-                  letterSpacing: '0.15em',
-                  textTransform: 'uppercase' as const,
-                }}
-              >
-                ATLAS v4 // 20 AGENTS
-              </p>
-              <div
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: '#22c55e',
-                  boxShadow: '0 0 6px rgba(34,197,94,0.5)',
-                }}
-              />
-            </div>
+        <div className="po-side-head">
+          <Logo size={30} />
+          <div>
+            <div className="nm">PARALLAX</div>
+            <div className="ver">OS v4 · COMMAND CENTER</div>
           </div>
         </div>
 
-        {/* Pulse animation */}
-        <style jsx>{`
-          @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-          }
-        `}</style>
+        <nav className="po-nav po-scroll">
+          {sections.map((section) => {
+            const open = openSec === section.label;
+            const hasActive = section.items.some((it) => isItemActive(pathname, it.href));
+            // rolled-up badge count of any numeric badges (legacy items have none → 0)
+            const rollup = section.items.length;
+
+            return (
+              <div key={section.label} className={`po-nav-grp${open ? ' open' : ''}`}>
+                <button
+                  type="button"
+                  className={`po-nav-sec${hasActive ? ' has-active' : ''}`}
+                  onClick={() => setOpenSec(open ? '' : section.label)}
+                  aria-expanded={open}
+                >
+                  <span className="po-nav-sec-lbl">{section.label}</span>
+                  {!open && rollup > 0 && <span className="po-nav-sec-roll">{rollup}</span>}
+                  <span className="po-nav-sec-chev">
+                    <Icon name="chevdown" size={13} />
+                  </span>
+                </button>
+
+                <div className="po-nav-items">
+                  <div className="po-nav-items-inner">
+                    {section.items.map((item) => {
+                      const active = isItemActive(pathname, item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => setMobileOpen(false)}
+                          className={`po-navitem${active ? ' on' : ''}`}
+                          style={{ ['--accent' as string]: item.accent } as React.CSSProperties}
+                          title={item.label}
+                        >
+                          <span className="ic">
+                            <Icon name={iconFor(item.href)} size={16} />
+                          </span>
+                          <span className="lbl">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </nav>
+
+        <div className="po-side-foot">
+          <span>ATLAS v4 // 20 AGENTS</span>
+          <span className="po-foot-dot" />
+        </div>
       </aside>
 
       {/* Mobile overlay */}
@@ -293,13 +252,4 @@ export default function Sidebar() {
       )}
     </>
   );
-}
-
-/* Helper: hex color to r,g,b string */
-function hexToRgb(hex: string): string {
-  const h = hex.replace('#', '');
-  const r = parseInt(h.substring(0, 2), 16);
-  const g = parseInt(h.substring(2, 4), 16);
-  const b = parseInt(h.substring(4, 6), 16);
-  return `${r},${g},${b}`;
 }

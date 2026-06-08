@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    TERMINAL — Remote Command Interface
@@ -130,78 +131,76 @@ export default function TerminalPage() {
 
   const lineColor = (type: TerminalLine["type"]) => {
     switch (type) {
-      case "input": return "#22d3ee";
-      case "output": return "#e2e8f0";
-      case "error": return "#ef4444";
-      case "system": return "#a78bfa";
+      case "input": return "var(--c-green)";
+      case "output": return "var(--t-hi)";
+      case "error": return "var(--c-red)";
+      case "system": return "var(--accent)";
     }
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0a0a0a", color: "#e2e8f0", fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace" }}>
-      {/* Header */}
-      <div style={{ padding: "16px 20px", borderBottom: "2px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: "12px" }}>
-        <Link href="/command-center" style={{ color: "#94a3b8", textDecoration: "none", fontSize: "14px" }}>← BACK</Link>
-        <span style={{ color: "#0f172a", background: "#e2e8f0", padding: "2px 8px", borderRadius: "4px", fontSize: "12px", fontWeight: 800 }}>&gt;_</span>
-        <span style={{ fontSize: "16px", fontWeight: 800, letterSpacing: "0.05em" }}>TERMINAL</span>
-      </div>
-
-      {/* Terminal Output */}
-      <div
-        ref={termRef}
-        style={{
-          padding: "16px 20px",
-          height: "calc(100vh - 120px)",
-          overflowY: "auto",
-          fontSize: "13px",
-          lineHeight: "1.6",
-        }}
-      >
-        {history.map((line, i) => (
-          <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "2px" }}>
-            <span style={{ color: "#475569", fontSize: "11px", minWidth: "70px", flexShrink: 0 }}>{line.timestamp}</span>
-            {line.type === "input" && <span style={{ color: "#22d3ee" }}>❯ </span>}
-            <span style={{ color: lineColor(line.type), whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{line.text}</span>
-          </div>
-        ))}
-        {isProcessing && (
-          <div style={{ color: "#a78bfa", animation: "pulse 1s infinite" }}>Processing...</div>
-        )}
-      </div>
-
-      {/* Input */}
-      <div style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: "12px 20px",
-        borderTop: "2px solid rgba(255,255,255,0.1)",
-        background: "#0a0a0a",
-        display: "flex",
-        alignItems: "center",
-        gap: "8px",
-      }}>
-        <span style={{ color: "#22d3ee", fontWeight: 800 }}>❯</span>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") handleCommand(input); }}
-          placeholder="Type a command..."
+    <InstrumentPage
+      id="terminal"
+      title="Terminal"
+      section="Workspace"
+      icon="command"
+      accent="var(--c-green)"
+    >
+      <Panel title="Remote Shell" icon="command" style={{ fontFamily: "var(--f-mono)" }}>
+        {/* Terminal Output */}
+        <div
+          ref={termRef}
           style={{
-            flex: 1,
-            background: "transparent",
-            border: "none",
-            outline: "none",
-            color: "#e2e8f0",
-            fontSize: "14px",
-            fontFamily: "inherit",
+            padding: "16px 20px",
+            height: "calc(100vh - 320px)",
+            minHeight: 280,
+            overflowY: "auto",
+            fontSize: "13px",
+            lineHeight: "1.6",
           }}
-          autoFocus
-          disabled={isProcessing}
-        />
-      </div>
-    </div>
+        >
+          {history.map((line, i) => (
+            <div key={i} style={{ display: "flex", gap: "8px", marginBottom: "2px" }}>
+              <span style={{ color: "var(--t-lo)", fontSize: "11px", minWidth: "70px", flexShrink: 0 }}>{line.timestamp}</span>
+              {line.type === "input" && <span style={{ color: "var(--c-green)" }}>❯ </span>}
+              <span style={{ color: lineColor(line.type), whiteSpace: "pre-wrap", wordBreak: "break-all" }}>{line.text}</span>
+            </div>
+          ))}
+          {isProcessing && (
+            <div style={{ color: "var(--accent)", animation: "pulse 1s infinite" }}>Processing...</div>
+          )}
+        </div>
+
+        {/* Input */}
+        <div style={{
+          padding: "12px 20px",
+          borderTop: "1px solid var(--line-2)",
+          background: "var(--ink-2)",
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+        }}>
+          <span style={{ color: "var(--c-green)", fontWeight: 800 }}>❯</span>
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") handleCommand(input); }}
+            placeholder="Type a command..."
+            style={{
+              flex: 1,
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "var(--t-hi)",
+              fontSize: "14px",
+              fontFamily: "var(--f-mono)",
+            }}
+            autoFocus
+            disabled={isProcessing}
+          />
+        </div>
+      </Panel>
+    </InstrumentPage>
   );
 }

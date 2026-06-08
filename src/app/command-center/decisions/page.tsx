@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { InstrumentPage, Panel, PgBtn } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════
    DECISIONS — Cross-channel synthesis ledger
@@ -17,22 +18,22 @@ import Link from "next/link";
    ══════════════════════════════════════════════════════════════════════════ */
 
 const COLORS = {
-  bg: "#0a0a0a",
-  card: "rgba(255,255,255,0.02)",
-  border: "#1e1e1e",
+  bg: "transparent",
+  card: "var(--ink-1)",
+  border: "var(--line)",
   text: {
-    primary: "#e5e5e5",
-    secondary: "#888888",
-    muted: "#555555",
+    primary: "var(--t-hi)",
+    secondary: "var(--t-mid)",
+    muted: "var(--t-lo)",
   },
-  accent: { purple: "#7c3aed", purpleSoft: "#a78bfa", gold: "#C9A84C" },
+  accent: { purple: "var(--accent)", purpleSoft: "var(--c-violet)", gold: "var(--c-gold)" },
   status: {
-    done: "#10b981",
-    blocked: "#ef4444",
-    in_progress: "#f59e0b",
-    cancelled: "#6b7280",
-    committed: "#a78bfa",
-    pending: "#6b7280",
+    done: "var(--c-green)",
+    blocked: "var(--c-red)",
+    in_progress: "var(--c-amber)",
+    cancelled: "var(--t-lo)",
+    committed: "var(--c-violet)",
+    pending: "var(--t-lo)",
   },
   agents: {
     atlas: "#FFD600",
@@ -196,101 +197,51 @@ export default function DecisionsPage() {
   }, [decisions, statusFilter]);
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: COLORS.bg,
-        color: COLORS.text.primary,
-        fontFamily: "Inter, system-ui, sans-serif",
-      }}
+    <InstrumentPage
+      id="decisions"
+      title="Decisions"
+      section="Operations"
+      icon="strategy"
+      accent="var(--c-violet)"
+      actions={
+        <>
+          <PgBtn icon="pulse" onClick={() => void load()}>Refresh</PgBtn>
+          <Link
+            href="/command-center/chat"
+            style={{
+              padding: "8px 14px",
+              fontSize: 12,
+              fontWeight: 600,
+              borderRadius: "var(--r-sm)",
+              background: COLORS.accent.purple,
+              color: "var(--t-hi)",
+              textDecoration: "none",
+              display: "inline-flex",
+              alignItems: "center",
+            }}
+          >
+            ← Back to Chat
+          </Link>
+        </>
+      }
     >
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 24px 80px" }}>
-        {/* Header */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 24,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 11,
-                color: COLORS.accent.purpleSoft,
-                letterSpacing: 2,
-                fontWeight: 700,
-                marginBottom: 4,
-              }}
-            >
-              DECISIONS
-            </div>
-            <h1
-              style={{
-                fontSize: 28,
-                fontWeight: 700,
-                margin: 0,
-                color: COLORS.text.primary,
-                letterSpacing: -0.5,
-              }}
-            >
-              What the team has agreed to
-            </h1>
-            <p
-              style={{
-                fontSize: 13,
-                color: COLORS.text.secondary,
-                marginTop: 4,
-                marginBottom: 0,
-              }}
-            >
-              Every approved synthesis plan across every channel. Track follow-through here.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              type="button"
-              onClick={() => void load()}
-              style={{
-                padding: "8px 14px",
-                fontSize: 12,
-                fontWeight: 600,
-                borderRadius: 6,
-                background: "transparent",
-                color: COLORS.text.secondary,
-                border: `1px solid ${COLORS.border}`,
-                cursor: "pointer",
-              }}
-            >
-              Refresh
-            </button>
-            <Link
-              href="/command-center/chat"
-              style={{
-                padding: "8px 14px",
-                fontSize: 12,
-                fontWeight: 600,
-                borderRadius: 6,
-                background: COLORS.accent.purple,
-                color: "#fff",
-                textDecoration: "none",
-                display: "inline-flex",
-                alignItems: "center",
-              }}
-            >
-              ← Back to Chat
-            </Link>
-          </div>
-        </div>
+      <p
+        style={{
+          fontSize: 13,
+          color: COLORS.text.secondary,
+          margin: "0 0 24px",
+        }}
+      >
+        Every approved synthesis plan across every channel. Track follow-through here.
+      </p>
 
-        {/* Stat strip */}
+      {/* Stat strip */}
+      <Panel title="Plan Telemetry" icon="strategy">
         <div
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(5, 1fr)",
             gap: 12,
-            marginBottom: 24,
           }}
         >
           {[
@@ -326,8 +277,11 @@ export default function DecisionsPage() {
             </div>
           ))}
         </div>
+      </Panel>
 
-        {/* Filter pills */}
+      <div style={{ height: 20 }} />
+
+      {/* Filter pills */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           {(["all", "active", "done"] as const).map((f) => (
             <button
@@ -341,7 +295,7 @@ export default function DecisionsPage() {
                 borderRadius: 20,
                 cursor: "pointer",
                 background: statusFilter === f ? COLORS.accent.purple : "transparent",
-                color: statusFilter === f ? "#fff" : COLORS.text.secondary,
+                color: statusFilter === f ? "var(--t-hi)" : COLORS.text.secondary,
                 border: `1px solid ${statusFilter === f ? COLORS.accent.purple : COLORS.border}`,
                 textTransform: "capitalize",
               }}
@@ -362,10 +316,10 @@ export default function DecisionsPage() {
             role="alert"
             style={{
               padding: "12px 14px",
-              border: "1px solid #ef444450",
-              background: "#ef444415",
+              border: "1px solid color-mix(in srgb, var(--c-red) 40%, transparent)",
+              background: "color-mix(in srgb, var(--c-red) 12%, transparent)",
               borderRadius: 8,
-              color: "#fca5a5",
+              color: "var(--c-red)",
               fontSize: 13,
             }}
           >
@@ -409,7 +363,7 @@ export default function DecisionsPage() {
                   style={{
                     background: COLORS.card,
                     border: `1px solid ${
-                      fullyDone ? "rgba(16,185,129,0.4)" : COLORS.border
+                      fullyDone ? "color-mix(in srgb, var(--c-green) 40%, transparent)" : COLORS.border
                     }`,
                     borderRadius: 10,
                     padding: "16px 18px",
@@ -582,7 +536,7 @@ export default function DecisionsPage() {
                                         borderRadius: 4,
                                         background: "transparent",
                                         color: COLORS.status.in_progress,
-                                        border: `1px solid ${COLORS.status.in_progress}80`,
+                                        border: `1px solid color-mix(in srgb, ${COLORS.status.in_progress} 50%, transparent)`,
                                         cursor: updatingThis ? "wait" : "pointer",
                                       }}
                                     >
@@ -600,7 +554,7 @@ export default function DecisionsPage() {
                                       borderRadius: 4,
                                       background: "transparent",
                                       color: COLORS.status.done,
-                                      border: `1px solid ${COLORS.status.done}80`,
+                                      border: `1px solid color-mix(in srgb, ${COLORS.status.done} 50%, transparent)`,
                                       cursor: updatingThis ? "wait" : "pointer",
                                     }}
                                   >
@@ -618,7 +572,7 @@ export default function DecisionsPage() {
                                         borderRadius: 4,
                                         background: "transparent",
                                         color: COLORS.status.blocked,
-                                        border: `1px solid ${COLORS.status.blocked}80`,
+                                        border: `1px solid color-mix(in srgb, ${COLORS.status.blocked} 50%, transparent)`,
                                         cursor: updatingThis ? "wait" : "pointer",
                                       }}
                                     >
@@ -669,7 +623,6 @@ export default function DecisionsPage() {
             })}
           </div>
         )}
-      </div>
-    </div>
+    </InstrumentPage>
   );
 }

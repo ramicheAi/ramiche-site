@@ -16,6 +16,7 @@ import {
 import { VoiceButton } from "@/components/command-center/VoiceButton";
 import { useVoiceLoop } from "@/hooks/useVoiceLoop";
 import { VOICE_CONFIG } from "@/lib/voice-config";
+import { serialFor } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    COMMAND CENTER CHAT — Unified Design Language
@@ -26,20 +27,21 @@ import { VOICE_CONFIG } from "@/lib/voice-config";
 /* ── DESIGN TOKENS (mirrors command-center/page.tsx) ──────────────────────── */
 const COLORS = {
   bg: {
-    main: "#0a0a0a",
-    card: "rgba(255,255,255,0.02)",
-    elevated: "#111111",
-    input: "#0a0a0a",
-    hover: "rgba(255,255,255,0.04)",
+    // Parallax OS cockpit surface tokens (resolve inside .po-shell)
+    main: "var(--ink-1)",
+    card: "var(--panel-glass)",
+    elevated: "var(--ink-2)",
+    input: "var(--ink-1)",
+    hover: "color-mix(in oklab, var(--ink-3) 60%, transparent)",
   },
   border: {
-    default: "#1e1e1e",
-    subtle: "rgba(255,255,255,0.06)",
+    default: "var(--line)",
+    subtle: "var(--line)",
   },
   text: {
-    primary: "#e5e5e5",
-    secondary: "#888888",
-    tertiary: "#666666",
+    primary: "var(--t-hi)",
+    secondary: "var(--t-mid)",
+    tertiary: "var(--t-lo)",
   },
   accent: {
     purple: "#7c3aed",
@@ -75,7 +77,7 @@ const COLORS = {
   },
 };
 
-const FONT_FAMILY = "'Inter', system-ui, -apple-system, sans-serif";
+const FONT_FAMILY = "var(--f-display)";
 
 /* ── GLOBAL NAV (matches command-center/page.tsx) ──────────────────────────── */
 const NAV = [
@@ -558,7 +560,7 @@ function MessageContent({ content }: { content: string }) {
             <td
               style={{
                 padding: "4px 10px",
-                borderBottom: `1px solid ${COLORS.border.default}40`,
+                borderBottom: `1px solid ${COLORS.border.subtle}`,
               }}
             >
               {processMarkdownChildren(children, "td")}
@@ -1161,7 +1163,7 @@ function ImageAttachment({
                 gap: 4,
                 marginTop: 8,
                 paddingTop: 6,
-                borderTop: `1px solid ${COLORS.border.default}66`,
+                borderTop: `1px solid ${COLORS.border.default}`,
                 flexWrap: "wrap" as const,
               }}
             >
@@ -3474,15 +3476,27 @@ export default function CommandCenterChatPage() {
         <a
           href="/command-center"
           style={{
-            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontFamily: "var(--f-mono)",
+            fontSize: 10,
             fontWeight: 600,
-            letterSpacing: "0.1em",
+            letterSpacing: "0.14em",
             color: COLORS.text.secondary,
             textDecoration: "none",
             marginRight: 16,
+            whiteSpace: "nowrap",
           }}
         >
-          COMMAND CENTER
+          <span style={{ color: "var(--accent)" }}>COMMS</span>
+          <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--line-2)" }} />
+          <span>SYS·{serialFor("comms")}</span>
+          <span style={{ width: 3, height: 3, borderRadius: "50%", background: "var(--line-2)" }} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--c-green)" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--c-green)", boxShadow: "0 0 7px var(--c-green)" }} />
+            ONLINE
+          </span>
         </a>
         {NAV.map((n) => (
           <a

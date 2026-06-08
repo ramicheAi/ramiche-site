@@ -1,0 +1,59 @@
+/* ================================================================
+   PARALLAX OS — COMMAND (dashboard) view
+   ================================================================ */
+.cv { position: absolute; inset: 0; overflow-y: auto; }
+.cv-inner { max-width: 1200px; margin: 0 auto; padding: 34px 40px 52px; display: flex; flex-direction: column; gap: 26px; }
+
+.cv-hero { display: flex; align-items: flex-start; justify-content: space-between; gap: 36px; }
+.cv-stage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+.cv-directive { display: flex; align-items: center; gap: 16px; padding: 16px 18px; border-radius: var(--r-lg); cursor: pointer;
+  border: 1px solid color-mix(in oklab, var(--c-purple) 42%, transparent); position: relative; overflow: hidden;
+  background: linear-gradient(120deg, color-mix(in oklab, var(--c-purple) 13%, var(--panel-glass)), var(--panel-glass)); transition: box-shadow .2s var(--ease); }
+.cv-directive:hover { box-shadow: 0 0 30px color-mix(in oklab, var(--c-purple) 28%, transparent); }
+.cv-h1 { margin: 10px 0 14px; font-size: 54px; font-weight: 600; letter-spacing: -0.03em; line-height: .96; }
+.cv-lede { margin: 0; font-size: 16px; font-weight: 300; color: var(--t-mid); max-width: 470px; line-height: 1.5; }
+.cv-nominal { display: inline-flex; align-items: center; gap: 11px; padding: 10px 16px; border-radius: var(--r-pill); white-space: nowrap; background: var(--panel-glass); border: 1px solid color-mix(in oklab, var(--c-green) 40%, transparent); }
+.cv-nominal .ring { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--c-green); position: relative; box-shadow: 0 0 14px color-mix(in oklab, var(--c-green) 50%, transparent); }
+.cv-nominal .ring::after { content: ""; position: absolute; inset: 4px; border-radius: 50%; background: var(--c-green); box-shadow: 0 0 8px var(--c-green); animation: po-blink 2.4s infinite; }
+
+/* ATLAS recommendation card — holographic */
+.cv-atlas { position: relative; width: 366px; flex: 0 0 366px; padding: 20px 22px; border-radius: var(--r-lg); overflow: hidden;
+  background: linear-gradient(150deg, color-mix(in oklab, var(--c-purple) 18%, var(--ink-1)), color-mix(in oklab, var(--c-purple) 3%, var(--ink-1)));
+  border: 1px solid color-mix(in oklab, var(--c-purple) 48%, transparent); box-shadow: 0 24px 60px rgba(0,0,0,.42); }
+.cv-atlas-top { display: flex; align-items: center; gap: 13px; margin-bottom: 16px; }
+.cv-atlas-name { font-family: var(--f-tech); font-size: 15px; font-weight: 600; letter-spacing: .12em; }
+.cv-atlas-status { font-size: 11px; color: var(--c-purple-l); margin-top: 2px; }
+.cv-atlas-rec { font-size: 15px; line-height: 1.5; color: var(--t-hi); margin-bottom: 16px; position: relative; z-index: 1; }
+.cv-atlas-rec b { color: var(--gold-l); }
+.cv-primary { position: relative; z-index: 1; width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; height: 46px; cursor: pointer;
+  border-radius: var(--r-md); border: none; color: #fff; font-family: var(--f-tech); font-size: 13px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  background: linear-gradient(135deg, var(--c-purple-l), var(--c-purple)); box-shadow: var(--glow); transition: all .16s var(--ease); }
+.cv-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+/* vitals strip */
+.cv-vitals { display: flex; border-radius: var(--r-lg); overflow: hidden; position: relative; }
+.cv-vital { flex: 1; padding: 19px 22px; position: relative; }
+.cv-vital + .cv-vital::before { content: ""; position: absolute; left: 0; top: 16px; bottom: 16px; width: 1px; background: var(--line); transform: skewX(var(--po-angle)); }
+.cv-vital .vtop { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cv-vital .num { font-size: 34px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.cv-vital .sub { font-family: var(--f-mono); font-size: 12px; color: var(--accent); margin-left: 6px; }
+
+.cv-cols { display: grid; grid-template-columns: 1fr 1.12fr; gap: 22px; }
+.cv-sec-head { display: flex; align-items: center; gap: 10px; padding: 15px 18px; border-bottom: 1px solid var(--line); }
+.cv-sec-head h3 { margin: 0; font-family: var(--f-tech); font-size: 13px; font-weight: 600; letter-spacing: .08em; flex: 1; }
+.cv-fleet { padding: 8px; max-height: 340px; overflow-y: auto; }
+.cv-fleet-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--r-sm); transition: background .14s; cursor: pointer; }
+.cv-fleet-row:hover { background: color-mix(in oklab, var(--ink-3) 50%, transparent); }
+.cv-fleet-sig { width: 32px; height: 32px; flex: 0 0 32px; display: grid; place-items: center; border-radius: 9px; color: var(--fac);
+  background: color-mix(in oklab, var(--fac) 12%, var(--ink-0)); border: 1px solid color-mix(in oklab, var(--fac) 40%, transparent); }
+.cv-fleet-name { font-family: var(--f-tech); font-size: 12.5px; font-weight: 600; letter-spacing: .05em; }
+.cv-fleet-task { font-size: 11.5px; color: var(--t-lo); margin-top: 1px; }
+.cv-fleet-stat { margin-left: auto; font-family: var(--f-mono); font-size: 10px; padding: 3px 9px; border-radius: var(--r-pill); white-space: nowrap; }
+.cv-fleet-stat.active { color: var(--c-green); border: 1px solid color-mix(in oklab, var(--c-green) 45%, transparent); }
+.cv-fleet-stat.idle { color: var(--t-lo); border: 1px solid var(--line); }
+.cv-feed { padding: 6px 4px; }
+.cv-feed-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.cv-feed-row:last-child { border-bottom: none; }
+.cv-feed-hash { font-family: var(--f-mono); font-size: 11px; color: var(--accent); width: 52px; flex: 0 0 52px; }
+.cv-feed-msg { flex: 1; font-size: 13px; }
+.cv-feed-meta { font-family: var(--f-mono); font-size: 10.5px; color: var(--t-lo); white-space: nowrap; }

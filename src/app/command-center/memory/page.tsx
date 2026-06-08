@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import Link from "next/link";
-import ParticleField from "@/components/ParticleField";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    JOURNAL LOG v4 — Color-Coded, Engaging, Organized
@@ -170,115 +169,102 @@ export default function MemoryBrowserPage() {
   /* ── Render ──────────────────────────────────────────────────────────────── */
 
   return (
-    <div className="min-h-screen bg-[#060609] text-white">
-      {/* ─── Header ────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-30 bg-[#060609]/95 backdrop-blur-md border-b border-white/[0.06]">
-        <div className="max-w-4xl mx-auto px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Link
-                href="/command-center"
-                className="text-[10px] text-white/30 hover:text-white/60 tracking-[0.2em] transition-colors uppercase"
-              >
-                ← Command Center
-              </Link>
-              <h1 className="text-xl font-bold tracking-tight mt-1 flex items-center gap-2">
-                <span className="text-amber-400">JOURNAL</span>
-                {!loading && (
-                  <span className="text-[11px] font-normal text-white/25 ml-1">
-                    {totalEntries} entries across {memoryLogs.length} days
-                  </span>
-                )}
-              </h1>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {lastSync && (
-                <span className="text-[9px] text-emerald-500/60 font-mono mr-2 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  LIVE {lastSync}
-                </span>
-              )}
-              <ViewToggle active={viewMode === "timeline"} onClick={() => setViewMode("timeline")}>
-                TIMELINE
-              </ViewToggle>
-              <ViewToggle active={viewMode === "agent"} onClick={() => setViewMode("agent")}>
-                BY AGENT
-              </ViewToggle>
-              <span className="w-px h-5 bg-white/10 mx-1" />
-              <MiniBtn onClick={expandAll}>↕ ALL</MiniBtn>
-              <MiniBtn onClick={collapseAll}>— NONE</MiniBtn>
-            </div>
-          </div>
-
-          {/* Search + Agent filter */}
-          <div className="flex gap-2 mt-3">
-            <div className="relative flex-1">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search entries, agents, topics..."
-                className="w-full bg-white/[0.04] border border-white/[0.08] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-amber-500/40 focus:bg-white/[0.06] transition-all"
-              />
-            </div>
-            <select
-              value={selectedAgent}
-              onChange={(e) => setSelectedAgent(e.target.value)}
-              className="bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-xs text-white/60 focus:outline-none focus:border-amber-500/40 transition-colors min-w-[120px]"
-            >
-              <option value="all">All Agents</option>
-              {agents.map((a) => (
-                <option key={a} value={a}>
-                  {agentMeta(a).emoji} {a}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Agent chips — quick filter */}
-          {agents.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              <AgentChip
-                name="All"
-                color="#F59E0B"
-                active={selectedAgent === "all"}
-                onClick={() => setSelectedAgent("all")}
-                count={totalEntries}
-              />
-              {agents.map((a) => {
-                const meta = agentMeta(a);
-                const count = memoryLogs.reduce(
-                  (s, d) => s + d.entries.filter((e) => e.agent === a).length, 0
-                );
-                return (
-                  <AgentChip
-                    key={a}
-                    name={a}
-                    color={meta.color}
-                    emoji={meta.emoji}
-                    active={selectedAgent === a}
-                    onClick={() => setSelectedAgent(selectedAgent === a ? "all" : a)}
-                    count={count}
-                  />
-                );
-              })}
-            </div>
+    <InstrumentPage
+      id="memory"
+      title="Journal"
+      section="Workspace"
+      icon="memory"
+      accent="var(--c-violet)"
+      actions={
+        <div className="flex items-center gap-2">
+          {lastSync && (
+            <span className="text-[9px] font-mono mr-2 flex items-center gap-1" style={{ color: "var(--c-green)" }}>
+              <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: "var(--c-green)" }} />
+              LIVE {lastSync}
+            </span>
           )}
+          <ViewToggle active={viewMode === "timeline"} onClick={() => setViewMode("timeline")}>
+            TIMELINE
+          </ViewToggle>
+          <ViewToggle active={viewMode === "agent"} onClick={() => setViewMode("agent")}>
+            BY AGENT
+          </ViewToggle>
+          <span className="w-px h-5 mx-1" style={{ background: "var(--line-2)" }} />
+          <MiniBtn onClick={expandAll}>↕ ALL</MiniBtn>
+          <MiniBtn onClick={collapseAll}>— NONE</MiniBtn>
         </div>
-      </header>
+      }
+    >
+      {/* Search + Agent filter */}
+      <Panel title="Filters" icon="search" badge={!loading ? `${totalEntries} entries · ${memoryLogs.length} days` : undefined}>
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "var(--t-lo)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search entries, agents, topics..."
+              className="w-full rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none transition-all"
+              style={{ background: "var(--ink-2)", border: "1px solid var(--line)", color: "var(--t-hi)" }}
+            />
+          </div>
+          <select
+            value={selectedAgent}
+            onChange={(e) => setSelectedAgent(e.target.value)}
+            className="rounded-lg px-3 py-2 text-xs focus:outline-none transition-colors min-w-[120px]"
+            style={{ background: "var(--ink-2)", border: "1px solid var(--line)", color: "var(--t-mid)" }}
+          >
+            <option value="all">All Agents</option>
+            {agents.map((a) => (
+              <option key={a} value={a}>
+                {agentMeta(a).emoji} {a}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Agent chips — quick filter */}
+        {agents.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-3">
+            <AgentChip
+              name="All"
+              color="#F59E0B"
+              active={selectedAgent === "all"}
+              onClick={() => setSelectedAgent("all")}
+              count={totalEntries}
+            />
+            {agents.map((a) => {
+              const meta = agentMeta(a);
+              const count = memoryLogs.reduce(
+                (s, d) => s + d.entries.filter((e) => e.agent === a).length, 0
+              );
+              return (
+                <AgentChip
+                  key={a}
+                  name={a}
+                  color={meta.color}
+                  emoji={meta.emoji}
+                  active={selectedAgent === a}
+                  onClick={() => setSelectedAgent(selectedAgent === a ? "all" : a)}
+                  count={count}
+                />
+              );
+            })}
+          </div>
+        )}
+      </Panel>
 
       {/* ─── Day list ──────────────────────────────────────────────────────── */}
-      <main className="max-w-4xl mx-auto px-5 py-6">
+      <main className="pt-5">
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+            <div className="w-8 h-8 rounded-full animate-spin" style={{ border: "2px solid color-mix(in oklab, var(--accent) 30%, transparent)", borderTopColor: "var(--accent)" }} />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-24 text-white/20 text-sm">
+          <div className="text-center py-24 text-sm" style={{ color: "var(--t-lo)" }}>
             No entries found.
           </div>
         ) : (
@@ -413,7 +399,7 @@ export default function MemoryBrowserPage() {
           </div>
         )}
       </main>
-    </div>
+    </InstrumentPage>
   );
 }
 
@@ -425,11 +411,12 @@ function ViewToggle({ children, active, onClick }: { children: React.ReactNode; 
   return (
     <button
       onClick={onClick}
-      className={`text-[9px] tracking-[0.12em] font-semibold px-3 py-1 rounded-md transition-all ${
+      className="text-[9px] tracking-[0.12em] font-semibold px-3 py-1 rounded-md transition-all border"
+      style={
         active
-          ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 shadow-[0_0_8px_rgba(245,158,11,0.1)]"
-          : "text-white/25 hover:text-white/50 border border-transparent hover:border-white/10"
-      }`}
+          ? { background: "color-mix(in oklab, var(--accent) 15%, transparent)", color: "var(--accent)", borderColor: "color-mix(in oklab, var(--accent) 30%, transparent)" }
+          : { color: "var(--t-lo)", borderColor: "transparent" }
+      }
     >
       {children}
     </button>
@@ -440,7 +427,8 @@ function MiniBtn({ children, onClick }: { children: React.ReactNode; onClick?: (
   return (
     <button
       onClick={onClick}
-      className="text-[9px] tracking-[0.08em] text-white/25 hover:text-white/50 px-2 py-1 rounded transition-colors hover:bg-white/[0.04]"
+      className="text-[9px] tracking-[0.08em] px-2 py-1 rounded transition-colors"
+      style={{ color: "var(--t-lo)" }}
     >
       {children}
     </button>

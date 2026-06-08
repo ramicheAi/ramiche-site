@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { InstrumentPage } from '@/components/command-center/po/Instrument'
 
 /* ══════════════════════════════════════════════════════════════════════════════
    METTLE SALES PROPOSAL GENERATOR — Native React
-   Command Center aesthetic: #09090b bg, thin borders, accent glows.
+   Restyled to the Parallax OS cockpit. All proposal/lead/ROI logic unchanged.
    ══════════════════════════════════════════════════════════════════════════════ */
 
 const TIERS = {
@@ -123,41 +124,21 @@ export default function SalesProposalsPage() {
   }
 
   const inputStyle = {
-    width: '100%', padding: '10px 14px', background: '#09090b', border: '1px solid #27272a',
-    borderRadius: 6, color: '#e4e4e7', fontSize: 14, outline: 'none',
+    width: '100%', padding: '10px 14px', background: 'var(--ink-1)', border: '1px solid var(--line-2)',
+    borderRadius: 6, color: 'var(--t-hi)', fontSize: 14, outline: 'none',
   }
 
-  const labelStyle = { display: 'block' as const, fontSize: 12, color: '#71717a', marginBottom: 6, marginTop: 14 }
+  const labelStyle = { display: 'block' as const, fontSize: 12, color: 'var(--t-mid)', marginBottom: 6, marginTop: 14 }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#09090b', color: '#e4e4e7' }}>
-      {/* Header */}
-      <div style={{
-        padding: '24px 48px', borderBottom: '1px solid rgba(201,168,76,0.2)',
-        background: 'linear-gradient(180deg, rgba(201,168,76,0.06) 0%, transparent 100%)',
-        display: 'flex', alignItems: 'center', gap: 16,
-      }}>
-        <span style={{
-          width: 40, height: 40, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(201,168,76,0.15)', fontSize: 18, fontWeight: 900, color: '#C9A84C',
-        }}>M</span>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, letterSpacing: -0.5 }}>METTLE — Sales Proposal Generator</h1>
-          <span style={{
-            padding: '3px 10px', fontSize: 10, fontWeight: 700, letterSpacing: 1,
-            textTransform: 'uppercase' as const, background: 'rgba(251,191,36,0.12)',
-            color: '#fbbf24', borderRadius: 12,
-          }}>Mercury Sales Tool</span>
-        </div>
-      </div>
-
-      <div style={{ padding: '32px 48px' }}>
+    <InstrumentPage id="proposals" title="METTLE Proposal" section="Business" icon="proposals" accent="var(--c-amber)">
+      <div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
           {/* Left — Input */}
           <div>
             {/* Team Info */}
-            <div style={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8, padding: 24, marginBottom: 16 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#C9A84C', textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+            <div style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 8, padding: 24, marginBottom: 16 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-amber)', textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
                 Team Information
               </h3>
               <label style={labelStyle}>Team / Club Name</label>
@@ -208,8 +189,8 @@ export default function SalesProposalsPage() {
             </div>
 
             {/* Proposal Settings */}
-            <div style={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8, padding: 24, marginBottom: 16 }}>
-              <h3 style={{ fontSize: 13, fontWeight: 600, color: '#C9A84C', textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
+            <div style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 8, padding: 24, marginBottom: 16 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: 'var(--c-amber)', textTransform: 'uppercase' as const, letterSpacing: 1, marginBottom: 8 }}>
                 Proposal Settings
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -254,10 +235,10 @@ export default function SalesProposalsPage() {
             </div>
 
             {/* Lead JSON */}
-            <div style={{ background: '#111113', border: '1px solid #C9A84C30', borderRadius: 8, padding: 16 }}>
-              <h4 style={{ fontSize: 12, fontWeight: 600, color: '#C9A84C', marginBottom: 8 }}>Lead Capture Data (CRM-Ready)</h4>
-              <pre style={{
-                background: '#09090b', borderRadius: 6, padding: 12, fontSize: 11, color: '#71717a',
+            <div style={{ background: 'var(--ink-2)', border: '1px solid color-mix(in srgb, var(--c-amber) 19%, transparent)', borderRadius: 8, padding: 16 }}>
+              <h4 style={{ fontSize: 12, fontWeight: 600, color: 'var(--c-amber)', marginBottom: 8 }}>Lead Capture Data (CRM-Ready)</h4>
+              <pre className="mono" style={{
+                background: 'var(--ink-1)', borderRadius: 6, padding: 12, fontSize: 11, color: 'var(--t-mid)',
                 overflow: 'auto', maxHeight: 200, whiteSpace: 'pre-wrap' as const,
               }}>
                 {generated ? JSON.stringify(leadData, null, 2) : 'Fill in team info and generate a proposal to see lead data here.'}
@@ -266,9 +247,9 @@ export default function SalesProposalsPage() {
           </div>
 
           {/* Right — Proposal Preview */}
-          <div style={{ background: '#111113', border: '1px solid #27272a', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ background: 'var(--ink-2)', border: '1px solid var(--line)', borderRadius: 8, overflow: 'hidden' }}>
             {!generated ? (
-              <div style={{ padding: '80px 40px', textAlign: 'center' as const, color: '#52525b' }}>
+              <div style={{ padding: '80px 40px', textAlign: 'center' as const, color: 'var(--t-lo)' }}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>&#9744;</div>
                 <p style={{ fontSize: 15, fontWeight: 600 }}>Fill in team details and click Generate Proposal</p>
                 <p style={{ fontSize: 13, marginTop: 8 }}>The proposal will appear here</p>
@@ -434,6 +415,6 @@ export default function SalesProposalsPage() {
           </div>
         </div>
       </div>
-    </div>
+    </InstrumentPage>
   )
 }

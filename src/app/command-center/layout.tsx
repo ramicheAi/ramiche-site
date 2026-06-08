@@ -1,16 +1,43 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+// Parallax OS stylesheet layer — load order mirrors the prototype HTML.
+import './po/po-theme.css';
+import './po/po-holo.css';
+import './po/po-canopy.css';
+import './po/po-ui.css';
+import './po/po-command.css';
+import './po/po-stage.css';
+import './po/po-avatar.css';
+import './po/po-chat.css';
+import './po/po-console.css';
+import './po/po-pages.css';
+import './po/po-sanctuary.css';
+import './po/po-boot.css';
+import './po/po-mobile.css';
+import PoShell, { usePoTheme } from '@/components/command-center/PoShell';
 import Sidebar from '@/components/command-center/Sidebar';
 import { CommandHUD } from '@/components/command-center/CommandHUD';
 import { BriefingDock } from '@/components/command-center/BriefingDock';
 import { PulseDock } from '@/components/command-center/PulseDock';
 import { PushToast } from '@/components/command-center/PushToast';
+import AlertTicker from '@/components/command-center/AlertTicker';
+import Boot from '@/components/command-center/Boot';
+import { initPoSound } from '@/lib/po-sound';
 import { useBriefing } from '@/hooks/useBriefing';
-import { useChatPulse } from '@/hooks/useChatPulse';
+import { useChatPulse, type ChatPulse } from '@/hooks/useChatPulse';
 import { useWakeWord } from '@/hooks/useWakeWord';
 import { useLocalWake } from '@/hooks/useLocalWake';
 import { useRouter, usePathname } from 'next/navigation';
+
+/** wake status union accepted by the HUD (covers cloud + local hook statuses) */
+type WakeStatus =
+  | 'idle'
+  | 'listening'
+  | 'triggered'
+  | 'unsupported'
+  | 'denied'
+  | 'evaluating';
 
 const MAX_PIN_DIGITS = 12;
 /** Session + idle; PIN verified via /api/command-center/auth/pin (`CC_PIN_HASH` / `CC_PIN`). Production requires one of them; local dev may use fallback when `NODE_ENV=development` or `CC_PIN_ALLOW_DEV=1`. */
@@ -401,7 +428,78 @@ function CommandCenterShell({
   }, []);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#0a0a0a' }}>
+    <PoShell>
+      <Cockpit
+        onLock={onLock}
+        briefingState={briefingState}
+        pulse={pulse}
+        pulseOpen={pulseOpen}
+        setPulseOpen={setPulseOpen}
+        wakeEnabled={wakeEnabled}
+        activeStatus={activeStatus}
+        wakeMode={wakeMode}
+        wakeLevel={wakeLevel}
+        toggleWake={toggleWake}
+        cycleWakeMode={cycleWakeMode}
+      >
+        {children}
+      </Cockpit>
+    </PoShell>
+  );
+}
+
+/* The cockpit body. Lives INSIDE <PoShell> so it can read usePoTheme() for the
+ * motion toggles, which the ported CSS expects on an element under .po-shell
+ * (the `.po-app` wrapper carries `.po-still`). */
+function Cockpit({
+  children,
+  onLock,
+  briefingState,
+  pulse,
+  pulseOpen,
+  setPulseOpen,
+  wakeEnabled,
+  activeStatus,
+  wakeMode,
+  wakeLevel,
+  toggleWake,
+  cycleWakeMode,
+}: {
+  children: React.ReactNode;
+  onLock: () => void;
+  briefingState: ReturnType<typeof useBriefing>;
+  pulse: ChatPulse;
+  pulseOpen: boolean;
+  setPulseOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  wakeEnabled: boolean;
+  activeStatus: WakeStatus;
+  wakeMode: WakeMode;
+  wakeLevel: number;
+  toggleWake: () => void;
+  cycleWakeMode: () => void;
+}) {
+  const { still } = usePoTheme();
+
+  // Initialize the sound bridge once (autoplay-safe; off unless enabled).
+  useEffect(() => {
+    initPoSound();
+  }, []);
+
+  return (
+    <div
+      className={`po-app${still ? ' po-still' : ''}`}
+      style={{
+        // .po-app in the prototype is fixed/inset-0/overflow-hidden (its own
+        // internal scroll). This codebase uses fixed sidebar + HUD over a
+        // document-scrolling #cc-content, so neutralize those three props and
+        // keep only the .po-still descendant hook + flex flow.
+        position: 'static',
+        inset: 'auto',
+        overflow: 'visible',
+        display: 'flex',
+        minHeight: '100vh',
+      }}
+    >
       <Sidebar />
       <CommandHUD
         onLock={onLock}
@@ -420,28 +518,47 @@ function CommandCenterShell({
         pulseOpen={pulseOpen}
         pulse={pulse}
       />
+      <AlertTicker />
       <BriefingDock briefingState={briefingState} />
       <PulseDock open={pulseOpen} pulse={pulse} onClose={() => setPulseOpen(false)} />
       <PushToast />
+      <Boot />
       <div
         id="cc-content"
         style={{
           flex: 1,
           minWidth: 0,
           minHeight: '100vh',
-          marginLeft: 240,
-          paddingTop: 56,
+          marginLeft: 244,
+          paddingTop: 64,
           overflowX: 'hidden' as const,
         }}
       >
         {children}
       </div>
       <style>{`
+        /* sidebar collapses to a 66px icon rail ≤1024, 56px ≤640 (po-mobile.css).
+           The HUD + alert ticker are position:fixed, so their left offset must
+           track the rail width at each breakpoint. */
+        @media (max-width: 1024px) {
+          #cc-content { margin-left: 66px; }
+          #cc-hud, #cc-alertbar { left: 66px !important; }
+        }
+        @media (max-width: 640px) {
+          #cc-content { margin-left: 56px; }
+          #cc-hud, #cc-alertbar { left: 56px !important; }
+          /* HUD shrinks to 56px on phones (po-mobile.css) — ride the ticker up */
+          #cc-alertbar { top: 56px !important; }
+        }
         @media (max-width: 767px) {
           #cc-content {
             margin-left: 0 !important;
             padding-top: 56px !important;
           }
+          /* phone: sidebar is off-canvas; HUD/ticker span full width with room
+             for the floating ☰ toggle */
+          #cc-hud { left: 0 !important; padding-left: 60px !important; }
+          #cc-alertbar { left: 0 !important; }
           #cc-content h1 {
             font-size: 24px !important;
           }

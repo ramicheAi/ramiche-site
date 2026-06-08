@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { InstrumentPage } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    PROJECT HQ — Per-Project Dashboard with Doc Viewer
@@ -36,13 +37,6 @@ const DOC_LABELS: Record<string, { label: string; icon: string; desc: string }> 
   "PIPELINE.md": { label: "Pipeline", icon: "▸", desc: "Sprint flow & task states" },
   "TASKS.md": { label: "Tasks", icon: "☐", desc: "Current backlog & completed" },
 };
-
-const NAV = [
-  { label: "COMMAND", href: "/command-center" },
-  { label: "AGENTS", href: "/command-center/agents" },
-  { label: "PROJECTS", href: "/command-center/projects" },
-  { label: "METTLE", href: "/apex-athlete" },
-];
 
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   active: { bg: "rgba(34,197,94,0.08)", text: "#059669", border: "#059669" },
@@ -133,22 +127,22 @@ export default function ProjectHQ() {
 
   if (loading) {
     return (
-      <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, sans-serif" }}>
-        <div style={{ padding: "120px 24px", textAlign: "center" }}>
-          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.1em', color: '#94a3b8' }}>LOADING PROJECT…</div>
+      <InstrumentPage id="projects" title="Project" section="Workspace" icon="projects" accent="var(--c-indigo)">
+        <div style={{ padding: "80px 24px", textAlign: "center" }}>
+          <div style={{ fontSize: 14, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--t-mid)' }}>LOADING PROJECT…</div>
         </div>
-      </main>
+      </InstrumentPage>
     );
   }
 
   if (!project) {
     return (
-      <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, sans-serif" }}>
-        <div style={{ padding: "120px 24px", textAlign: "center" }}>
-          <h1 style={{ fontSize: 32, fontWeight: 800, color: '#e2e8f0' }}>Project not found</h1>
-          <Link href="/command-center/projects" style={{ color: "#c4b5fd", marginTop: 16, display: "inline-block" }}>← Back to Projects</Link>
+      <InstrumentPage id="projects" title="Project" section="Workspace" icon="projects" accent="var(--c-indigo)">
+        <div style={{ padding: "80px 24px", textAlign: "center" }}>
+          <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--t-hi)' }}>Project not found</h1>
+          <Link href="/command-center/projects" style={{ color: "var(--accent)", marginTop: 16, display: "inline-block" }}>← Back to Projects</Link>
         </div>
-      </main>
+      </InstrumentPage>
     );
   }
 
@@ -157,38 +151,19 @@ export default function ProjectHQ() {
   const doneTasks = project.tasks.filter((t) => t.done).length;
 
   return (
-    <main className="min-h-screen w-full" style={{ background: "#0a0a14", color: "#e2e8f0", fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}>
-      {/* Grid background */}
-      <div className="fixed inset-0 z-0 pointer-events-none" style={{
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
-        backgroundSize: "60px 60px", opacity: 0.4,
-      }} />
-
-      {/* Nav */}
-      <nav style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50, background: "rgba(10,10,20,0.92)", backdropFilter: "blur(20px)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <Link href="/" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <img src="/parallax-logo.jpg" alt="Parallax" style={{ width: 36, height: 44, objectFit: "contain" }} />
-            <span style={{ fontWeight: 700, fontSize: 18, letterSpacing: "0.1em", color: "#c4b5fd" }}>PARALLAX</span>
-            <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 14 }}>|</span>
-            <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.1em", color: "#94a3b8" }}>PROJECT HQ</span>
-          </Link>
-          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-            {NAV.map((n) => (
-              <Link key={n.label} href={n.href} style={{ fontSize: 13, fontWeight: 600, letterSpacing: "0.05em", color: "#94a3b8", transition: "color 0.2s" }}>
-                {n.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </nav>
-
-      <div className="relative z-10 w-full" style={{ maxWidth: 1400, margin: "0 auto", padding: "100px 24px 48px" }}>
-        {/* Back link */}
-        <Link href="/command-center/projects" style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16, display: "inline-block" }}>
+    <InstrumentPage
+      id="projects"
+      title={project.name}
+      section="Workspace"
+      icon="projects"
+      accent="var(--c-indigo)"
+      actions={
+        <Link href="/command-center/projects" style={{ fontSize: 12, color: "var(--t-mid)", textDecoration: "none" }}>
           ← Back to Projects
         </Link>
-
+      }
+    >
+      <div>
         {/* Project Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
           <div>
@@ -200,8 +175,8 @@ export default function ProjectHQ() {
                 {project.name.charAt(0)}
               </div>
               <div>
-                <h1 style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, lineHeight: 1.1, margin: 0, color: '#e2e8f0' }}>{project.name}</h1>
-                <p style={{ fontSize: 14, color: "#94a3b8", margin: "4px 0 0" }}>{project.desc}</p>
+                <h1 style={{ fontSize: "clamp(28px, 4vw, 40px)", fontWeight: 800, lineHeight: 1.1, margin: 0, color: 'var(--t-hi)' }}>{project.name}</h1>
+                <p style={{ fontSize: 14, color: "var(--t-mid)", margin: "4px 0 0" }}>{project.desc}</p>
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
@@ -209,22 +184,22 @@ export default function ProjectHQ() {
                 fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
                 padding: "3px 10px", borderRadius: 10, background: sc.bg, color: sc.text, border: `1px solid ${sc.border}30`,
               }}>{project.status}</span>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "rgba(255,255,255,0.04)", color: "#94a3b8" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "var(--ink-2)", color: "var(--t-mid)" }}>
                 Priority #{project.priority}
               </span>
-              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "rgba(255,255,255,0.04)", color: "#94a3b8" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "3px 10px", borderRadius: 10, background: "var(--ink-2)", color: "var(--t-mid)" }}>
                 Lead: {project.lead}
               </span>
             </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 48, fontWeight: 800, color: sc.text, lineHeight: 1 }}>{progress}%</div>
-            <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 4 }}>{doneTasks}/{project.tasks.length} tasks done</div>
+            <div style={{ fontSize: 12, color: "var(--t-mid)", marginTop: 4 }}>{doneTasks}/{project.tasks.length} tasks done</div>
           </div>
         </div>
 
         {/* Progress bar */}
-        <div style={{ height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
+        <div style={{ height: 8, background: "var(--line)", borderRadius: 4, overflow: "hidden", marginBottom: 24 }}>
           <div style={{ height: "100%", width: `${progress}%`, background: `linear-gradient(90deg, ${project.accent}, ${project.accent}80)`, borderRadius: 4, transition: "width 0.5s ease" }} />
         </div>
 
@@ -242,19 +217,19 @@ export default function ProjectHQ() {
 
         {/* Agents */}
         <div style={{ marginBottom: 24, display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", padding: "4px 0", marginRight: 4 }}>Team:</span>
+          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-mid)", padding: "4px 0", marginRight: 4 }}>Team:</span>
           {project.agents.map((a) => (
             <span key={a} style={{ fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 8, background: `${project.accent}08`, color: project.accent, border: `1px solid ${project.accent}20` }}>{a}</span>
           ))}
         </div>
 
         {/* Tab switcher */}
-        <div style={{ display: "flex", gap: 0, marginBottom: 32, borderBottom: "2px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ display: "flex", gap: 0, marginBottom: 32, borderBottom: "2px solid var(--line)" }}>
           {(["overview", "docs", "tasks"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)} style={{
               padding: "12px 24px", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em",
               cursor: "pointer", background: "transparent", border: "none", borderBottom: tab === t ? `3px solid ${project.accent}` : "3px solid transparent",
-              color: tab === t ? "#e2e8f0" : "#94a3b8", transition: "all 0.2s", marginBottom: -2,
+              color: tab === t ? "var(--t-hi)" : "var(--t-mid)", transition: "all 0.2s", marginBottom: -2,
             }}>
               {t === "docs" ? `Documents (${docs.length})` : t === "tasks" ? `Tasks (${project.tasks.length})` : "Overview"}
             </button>
@@ -265,27 +240,27 @@ export default function ProjectHQ() {
         {tab === "overview" && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
             {/* Quick Stats */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Quick Stats</div>
+            <div style={{ background: "var(--ink-1)", border: "2px solid var(--line)", borderRadius: 14, padding: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-mid)", marginBottom: 16 }}>Quick Stats</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Progress</span>
+                  <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Progress</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: sc.text }}>{progress}%</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Tasks Complete</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{doneTasks}/{project.tasks.length}</span>
+                  <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Tasks Complete</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t-hi)' }}>{doneTasks}/{project.tasks.length}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Team Size</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{project.agents.length} agents</span>
+                  <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Team Size</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t-hi)' }}>{project.agents.length} agents</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Documents</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: '#e2e8f0' }}>{docs.length} files</span>
+                  <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Documents</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--t-hi)' }}>{docs.length} files</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 13, color: "#94a3b8" }}>Blockers</span>
+                  <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Blockers</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: project.blockers?.length ? "#ef4444" : "#059669" }}>
                     {project.blockers?.length || 0}
                   </span>
@@ -294,12 +269,12 @@ export default function ProjectHQ() {
             </div>
 
             {/* Project Info */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Project Info</div>
+            <div style={{ background: "var(--ink-1)", border: "2px solid var(--line)", borderRadius: 14, padding: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-mid)", marginBottom: 16 }}>Project Info</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {project.liveUrl && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#94a3b8" }}>Live URL</span>
+                    <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Live URL</span>
                     <a href={project.liveUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: project.accent, textDecoration: "none" }}>
                       {project.liveUrl.replace(/^https?:\/\//, "").split("/")[0]} ↗
                     </a>
@@ -307,21 +282,21 @@ export default function ProjectHQ() {
                 )}
                 {project.repo && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#94a3b8" }}>Repo</span>
-                    <a href={`https://github.com/${project.repo}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: "#94a3b8", textDecoration: "none" }}>
+                    <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Repo</span>
+                    <a href={`https://github.com/${project.repo}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, fontWeight: 600, color: "var(--t-mid)", textDecoration: "none" }}>
                       {project.repo} ↗
                     </a>
                   </div>
                 )}
                 {project.repoPath && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "#94a3b8" }}>Path</span>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#64748b", fontFamily: "monospace" }}>{project.repoPath}</span>
+                    <span style={{ fontSize: 13, color: "var(--t-mid)" }}>Path</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--t-lo)", fontFamily: "monospace" }}>{project.repoPath}</span>
                   </div>
                 )}
                 {project.stack && project.stack.length > 0 && (
                   <div>
-                    <span style={{ fontSize: 13, color: "#94a3b8", display: "block", marginBottom: 8 }}>Stack</span>
+                    <span style={{ fontSize: 13, color: "var(--t-mid)", display: "block", marginBottom: 8 }}>Stack</span>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {project.stack.map((s) => (
                         <span key={s} style={{ fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 8, background: `${project.accent}08`, color: project.accent, border: `1px solid ${project.accent}20` }}>{s}</span>
@@ -333,42 +308,42 @@ export default function ProjectHQ() {
             </div>
 
             {/* Documents Quick Access */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Documents</div>
+            <div style={{ background: "var(--ink-1)", border: "2px solid var(--line)", borderRadius: 14, padding: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-mid)", marginBottom: 16 }}>Documents</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {docs.map((d) => {
                   const info = DOC_LABELS[d] || { label: d, icon: "◻", desc: "" };
                   return (
                     <button key={d} onClick={() => { setTab("docs"); loadDoc(d); }} style={{
                       display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10,
-                      background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)", cursor: "pointer",
+                      background: "var(--ink-1)", border: "1px solid var(--line)", cursor: "pointer",
                       transition: "all 0.2s", textAlign: "left", width: "100%",
                     }}>
                       <span style={{ fontSize: 16, color: project.accent }}>{info.icon}</span>
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: "#e2e8f0" }}>{info.label}</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{info.desc}</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--t-hi)" }}>{info.label}</div>
+                        <div style={{ fontSize: 11, color: "var(--t-mid)" }}>{info.desc}</div>
                       </div>
                     </button>
                   );
                 })}
-                {docs.length === 0 && <div style={{ fontSize: 13, color: "#94a3b8" }}>No documents found</div>}
+                {docs.length === 0 && <div style={{ fontSize: 13, color: "var(--t-mid)" }}>No documents found</div>}
               </div>
             </div>
 
             {/* Recent Tasks */}
-            <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Tasks</div>
+            <div style={{ background: "var(--ink-1)", border: "2px solid var(--line)", borderRadius: 14, padding: 24 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-mid)", marginBottom: 16 }}>Tasks</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {project.tasks.slice(0, 8).map((t, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                     <span style={{
                       width: 16, height: 16, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10,
-                      background: t.done ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.02)",
-                      border: t.done ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(255,255,255,0.08)",
-                      color: t.done ? "#059669" : "#94a3b8", flexShrink: 0,
+                      background: t.done ? "rgba(34,197,94,0.08)" : "var(--ink-1)",
+                      border: t.done ? "1px solid rgba(34,197,94,0.2)" : "1px solid var(--line)",
+                      color: t.done ? "#059669" : "var(--t-mid)", flexShrink: 0,
                     }}>{t.done ? "✓" : ""}</span>
-                    <span style={{ color: t.done ? "#64748b" : "#e2e8f0", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1, lineHeight: 1.3 }}>{t.t}</span>
+                    <span style={{ color: t.done ? "var(--t-lo)" : "var(--t-hi)", textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.6 : 1, lineHeight: 1.3 }}>{t.t}</span>
                   </div>
                 ))}
                 {project.tasks.length > 8 && (
@@ -381,8 +356,8 @@ export default function ProjectHQ() {
 
             {/* Link */}
             {project.link && (
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#94a3b8", marginBottom: 16 }}>Quick Link</div>
+              <div style={{ background: "var(--ink-1)", border: "2px solid var(--line)", borderRadius: 14, padding: 24, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-mid)", marginBottom: 16 }}>Quick Link</div>
                 <Link href={project.link.href} style={{
                   display: "inline-block", padding: "12px 28px", borderRadius: 10, fontSize: 13, fontWeight: 700,
                   textTransform: "uppercase", letterSpacing: "0.1em", color: "#fff",
@@ -407,14 +382,14 @@ export default function ProjectHQ() {
                 return (
                   <button key={d} onClick={() => loadDoc(d)} style={{
                     display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", borderRadius: 10,
-                    background: isActive ? `${project.accent}08` : "rgba(255,255,255,0.03)",
-                    border: isActive ? `2px solid ${project.accent}30` : "2px solid rgba(255,255,255,0.06)",
+                    background: isActive ? `${project.accent}08` : "var(--ink-1)",
+                    border: isActive ? `2px solid ${project.accent}30` : "2px solid var(--line)",
                     cursor: "pointer", transition: "all 0.2s", textAlign: "left", width: "100%",
                   }}>
-                    <span style={{ fontSize: 16, color: isActive ? project.accent : "#94a3b8" }}>{info.icon}</span>
+                    <span style={{ fontSize: 16, color: isActive ? project.accent : "var(--t-mid)" }}>{info.icon}</span>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "#e2e8f0" : "#94a3b8" }}>{info.label}</div>
-                      <div style={{ fontSize: 10, color: "#64748b" }}>{info.desc}</div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? "var(--t-hi)" : "var(--t-mid)" }}>{info.label}</div>
+                      <div style={{ fontSize: 10, color: "var(--t-lo)" }}>{info.desc}</div>
                     </div>
                   </button>
                 );
@@ -423,23 +398,23 @@ export default function ProjectHQ() {
 
             {/* Doc content viewer */}
             {activeDoc && (
-              <div style={{ background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: 0, overflow: "hidden" }}>
+              <div style={{ background: "var(--ink-1)", border: "2px solid var(--line)", borderRadius: 14, padding: 0, overflow: "hidden" }}>
                 {/* Doc header */}
                 <div style={{
                   display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 24px",
-                  borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)",
+                  borderBottom: "1px solid var(--line)", background: "var(--ink-1)",
                 }}>
                   <div>
-                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#e2e8f0" }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--t-hi)" }}>
                       {DOC_LABELS[activeDoc]?.icon} {DOC_LABELS[activeDoc]?.label || activeDoc}
                     </h3>
-                    <span style={{ fontSize: 11, color: "#64748b" }}>{slug}/{activeDoc}</span>
+                    <span style={{ fontSize: 11, color: "var(--t-lo)" }}>{slug}/{activeDoc}</span>
                   </div>
                   <button onClick={shareDoc} style={{
                     padding: "8px 16px", borderRadius: 8, fontSize: 11, fontWeight: 600, cursor: "pointer",
-                    background: copied ? "rgba(34,197,94,0.08)" : "rgba(255,255,255,0.04)",
-                    border: copied ? "1px solid rgba(34,197,94,0.2)" : "1px solid rgba(255,255,255,0.08)",
-                    color: copied ? "#059669" : "#94a3b8", transition: "all 0.2s",
+                    background: copied ? "rgba(34,197,94,0.08)" : "var(--ink-2)",
+                    border: copied ? "1px solid rgba(34,197,94,0.2)" : "1px solid var(--line)",
+                    color: copied ? "#059669" : "var(--t-mid)", transition: "all 0.2s",
                   }}>
                     {copied ? "✓ Copied!" : "Share Link"}
                   </button>
@@ -448,11 +423,11 @@ export default function ProjectHQ() {
                 {/* Doc body */}
                 <div style={{ padding: "24px", maxHeight: "70vh", overflowY: "auto" }}>
                   {docLoading ? (
-                    <div style={{ fontSize: 14, color: "#94a3b8", textAlign: "center", padding: 40 }}>Loading...</div>
+                    <div style={{ fontSize: 14, color: "var(--t-mid)", textAlign: "center", padding: 40 }}>Loading...</div>
                   ) : (
                     <pre style={{
                       fontFamily: "'SF Mono', 'Fira Code', 'Cascadia Code', monospace",
-                      fontSize: 13, lineHeight: 1.7, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word",
+                      fontSize: 13, lineHeight: 1.7, color: "var(--t-mid)", whiteSpace: "pre-wrap", wordBreak: "break-word",
                       margin: 0, background: "transparent",
                     }}>
                       {docContent}
@@ -463,7 +438,7 @@ export default function ProjectHQ() {
             )}
 
             {!activeDoc && (
-              <div style={{ padding: 60, textAlign: "center", color: "#94a3b8", fontSize: 14 }}>
+              <div style={{ padding: 60, textAlign: "center", color: "var(--t-mid)", fontSize: 14 }}>
                 Select a document to view
               </div>
             )}
@@ -478,7 +453,7 @@ export default function ProjectHQ() {
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               {/* Pending section */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#e2e8f0", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-hi)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: project.accent, display: "inline-block" }} />
                   In Progress ({pending.length})
                 </div>
@@ -486,23 +461,23 @@ export default function ProjectHQ() {
                   {pending.map((t, i) => (
                     <div key={`p-${i}`} style={{
                       display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 10,
-                      background: "rgba(255,255,255,0.03)", border: "2px solid rgba(255,255,255,0.08)", transition: "all 0.2s",
+                      background: "var(--ink-1)", border: "2px solid var(--line)", transition: "all 0.2s",
                     }}>
                       <span style={{
                         width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
-                        background: "rgba(255,255,255,0.02)", border: `2px solid ${project.accent}40`, color: "#94a3b8",
+                        background: "var(--ink-1)", border: `2px solid ${project.accent}40`, color: "var(--t-mid)",
                       }} />
-                      <span style={{ fontSize: 14, color: "#e2e8f0" }}>{t.t}</span>
+                      <span style={{ fontSize: 14, color: "var(--t-hi)" }}>{t.t}</span>
                     </div>
                   ))}
-                  {pending.length === 0 && <div style={{ fontSize: 13, color: "#94a3b8", padding: "12px 18px" }}>All tasks complete</div>}
+                  {pending.length === 0 && <div style={{ fontSize: 13, color: "var(--t-mid)", padding: "12px 18px" }}>All tasks complete</div>}
                 </div>
               </div>
 
               {/* Done section */}
               {done.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#64748b", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--t-lo)", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#059669", display: "inline-block" }} />
                     Completed ({done.length})
                   </div>
@@ -510,13 +485,13 @@ export default function ProjectHQ() {
                     {done.map((t, i) => (
                       <div key={`d-${i}`} style={{
                         display: "flex", alignItems: "center", gap: 12, padding: "10px 18px", borderRadius: 10,
-                        background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.04)", transition: "all 0.2s",
+                        background: "var(--ink-1)", border: "1px solid var(--ink-2)", transition: "all 0.2s",
                       }}>
                         <span style={{
                           width: 22, height: 22, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0,
                           background: "rgba(34,197,94,0.08)", border: "2px solid rgba(34,197,94,0.25)", color: "#059669",
                         }}>✓</span>
-                        <span style={{ fontSize: 13, color: "#64748b", textDecoration: "line-through", opacity: 0.7 }}>{t.t}</span>
+                        <span style={{ fontSize: 13, color: "var(--t-lo)", textDecoration: "line-through", opacity: 0.7 }}>{t.t}</span>
                       </div>
                     ))}
                   </div>
@@ -526,6 +501,6 @@ export default function ProjectHQ() {
           );
         })()}
       </div>
-    </main>
+    </InstrumentPage>
   );
 }

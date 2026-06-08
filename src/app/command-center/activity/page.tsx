@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
+import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
 
 /* ══════════════════════════════════════════════════════════════════════════════
    ACTIVITY — Event Feed & History
@@ -17,18 +17,18 @@ interface ActivityEvent {
 }
 
 const TYPE_COLORS: Record<ActivityEvent["type"], string> = {
-  deploy: "#22c55e",
-  build: "#2563eb",
-  agent: "#7c3aed",
-  commit: "#0891b2",
-  alert: "#ef4444",
-  milestone: "#d97706",
+  deploy: "var(--c-green)",
+  build: "var(--c-sky)",
+  agent: "var(--c-purple)",
+  commit: "var(--c-cyan)",
+  alert: "var(--c-red)",
+  milestone: "var(--c-amber)",
 };
 
 const FALLBACK_EVENTS: ActivityEvent[] = [
-  { type: "deploy", title: "Command Center deployed", detail: "Visual fixes — thicker borders, brighter text, bolder fonts", time: "11:39 AM", color: "#22c55e" },
-  { type: "build", title: "METTLE landing page fixed", detail: "Missing packages installed: @vercel/analytics, speed-insights, nodemailer", time: "10:30 AM", color: "#2563eb" },
-  { type: "agent", title: "Agent routing verified", detail: "17 execution agents wired to local Qwen 3.5 — 7 stay on cloud", time: "7:02 AM", color: "#7c3aed" },
+  { type: "deploy", title: "Command Center deployed", detail: "Visual fixes — thicker borders, brighter text, bolder fonts", time: "11:39 AM", color: "var(--c-green)" },
+  { type: "build", title: "METTLE landing page fixed", detail: "Missing packages installed: @vercel/analytics, speed-insights, nodemailer", time: "10:30 AM", color: "var(--c-sky)" },
+  { type: "agent", title: "Agent routing verified", detail: "17 execution agents wired to local Qwen 3.5 — 7 stay on cloud", time: "7:02 AM", color: "var(--c-purple)" },
 ];
 
 interface ApiEvent {
@@ -139,13 +139,14 @@ export default function ActivityPage() {
               : source;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#fafafa", color: "#0f172a", fontFamily: "'Inter', -apple-system, sans-serif" }}>
-      {/* Header */}
-      <div style={{ padding: "16px 20px", borderBottom: "2px solid #e2e8f0", display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
-        <Link href="/command-center" style={{ color: "#64748b", textDecoration: "none", fontSize: "14px", fontWeight: 600 }}>← BACK</Link>
-        <span style={{ color: "#2563eb", fontSize: "18px" }}>●</span>
-        <span style={{ fontSize: "16px", fontWeight: 800, letterSpacing: "0.05em" }}>ACTIVITY</span>
-        <span style={{ marginLeft: "auto", fontSize: "12px", color: "#94a3b8", fontWeight: 600 }}>
+    <InstrumentPage
+      id="activity"
+      title="Activity"
+      section="Operations"
+      icon="nerve"
+      accent="var(--c-purple)"
+      actions={
+        <span style={{ fontSize: 12, color: "var(--t-mid)", fontWeight: 600 }} className="mono">
           {loading ? "…" : `${filtered.length} events`}
           {sourceLabel && (
             <span style={{ marginLeft: 10, opacity: 0.85 }}>
@@ -154,20 +155,20 @@ export default function ActivityPage() {
             </span>
           )}
         </span>
-      </div>
-
+      }
+    >
       {/* Filters */}
-      <div style={{ padding: "12px 20px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
+      <div style={{ padding: "0 0 16px", display: "flex", gap: "6px", flexWrap: "wrap" }}>
         {(["all", "deploy", "agent", "build", "commit", "milestone", "alert"] as const).map(f => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             style={{
               padding: "5px 12px",
-              borderRadius: "6px",
-              border: filter === f ? "2px solid #0f172a" : "2px solid #e2e8f0",
-              background: filter === f ? "#0f172a" : "white",
-              color: filter === f ? "white" : "#475569",
+              borderRadius: "var(--r-sm)",
+              border: filter === f ? "2px solid var(--accent)" : "2px solid var(--line)",
+              background: filter === f ? "var(--accent)" : "transparent",
+              color: filter === f ? "var(--ink-0)" : "var(--t-mid)",
               fontSize: "11px",
               fontWeight: 700,
               cursor: "pointer",
@@ -181,12 +182,12 @@ export default function ActivityPage() {
       </div>
 
       {/* Timeline */}
-      <div style={{ padding: "8px 20px 100px" }}>
+      <Panel title="Event Stream" icon="nerve">
         {loading && events.length === 0 && (
-          <p style={{ fontSize: "13px", color: "#94a3b8", fontWeight: 600 }}>Loading activity…</p>
+          <p style={{ fontSize: "13px", color: "var(--t-mid)", fontWeight: 600 }}>Loading activity…</p>
         )}
         {!loading && filtered.length === 0 && (
-          <p style={{ fontSize: "13px", color: "#64748b" }}>No events match this filter.</p>
+          <p style={{ fontSize: "13px", color: "var(--t-mid)" }}>No events match this filter.</p>
         )}
         {filtered.map((event, i) => (
           <div
@@ -204,7 +205,7 @@ export default function ActivityPage() {
                 width: "24px",
                 height: "24px",
                 borderRadius: "50%",
-                background: `${event.color}15`,
+                background: `color-mix(in srgb, ${event.color} 15%, transparent)`,
                 border: `2px solid ${event.color}`,
                 display: "flex",
                 alignItems: "center",
@@ -217,28 +218,28 @@ export default function ActivityPage() {
                 {typeIcons[event.type]}
               </div>
               {i < filtered.length - 1 && (
-                <div style={{ width: "2px", flex: 1, background: "#e2e8f0", marginTop: "4px" }} />
+                <div style={{ width: "2px", flex: 1, background: "var(--line)", marginTop: "4px" }} />
               )}
             </div>
 
             {/* Content */}
             <div style={{
-              background: "white",
-              borderRadius: "10px",
-              border: "2px solid #e2e8f0",
+              background: "var(--ink-2)",
+              borderRadius: "var(--r-md)",
+              border: "1px solid var(--line)",
               padding: "12px 16px",
               flex: 1,
               borderLeft: `4px solid ${event.color}`,
             }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                <span style={{ fontSize: "14px", fontWeight: 800, color: "#0f172a" }}>{event.title}</span>
-                <span style={{ fontSize: "11px", color: "#94a3b8", fontWeight: 600 }}>{event.time}</span>
+                <span style={{ fontSize: "14px", fontWeight: 800, color: "var(--t-hi)" }}>{event.title}</span>
+                <span style={{ fontSize: "11px", color: "var(--t-mid)", fontWeight: 600 }} className="mono">{event.time}</span>
               </div>
-              <p style={{ fontSize: "13px", color: "#475569", fontWeight: 500, margin: 0, lineHeight: 1.4 }}>{event.detail}</p>
+              <p style={{ fontSize: "13px", color: "var(--t-mid)", fontWeight: 500, margin: 0, lineHeight: 1.4 }}>{event.detail}</p>
             </div>
           </div>
         ))}
-      </div>
-    </div>
+      </Panel>
+    </InstrumentPage>
   );
 }

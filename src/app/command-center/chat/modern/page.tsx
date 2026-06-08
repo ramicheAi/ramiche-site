@@ -132,29 +132,30 @@ export default function ModernChatPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0e0e18] text-[#f8fafc] flex">
+    <div className="min-h-screen flex" style={{ background: "var(--ink-1)", color: "var(--t-hi)", fontFamily: "var(--f-display)" }}>
       {/* Sidebar */}
-      <div className="w-60 bg-[#111111] border-r-2 border-[#333333] flex flex-col">
-        <div className="p-4 border-b-2 border-[#333333]">
-          <div className="text-[#c4b5fd] font-bold text-lg">COMMAND</div>
-          <div className="text-[#94a3b8] text-xs">Modern Chat</div>
+      <div className="w-60 flex flex-col" style={{ background: "var(--ink-2)", borderRight: "1px solid var(--line-2)" }}>
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-2)" }}>
+          <div className="font-bold text-lg" style={{ color: "var(--accent)", fontFamily: "var(--f-tech)", letterSpacing: "0.08em" }}>COMMAND</div>
+          <div className="text-xs" style={{ color: "var(--t-mid)" }}>Modern Chat</div>
         </div>
-        
+
         <div className="p-4">
           <ThemeToggle />
         </div>
 
-        <div className="p-4 border-b-2 border-[#333333]">
-          <div className="text-xs font-bold text-[#94a3b8] mb-3">CHANNELS</div>
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-2)" }}>
+          <div className="text-xs font-bold mb-3 eyebrow" style={{ color: "var(--t-mid)", fontFamily: "var(--f-mono)", letterSpacing: "0.16em" }}>CHANNELS</div>
           {CHANNELS.map(channel => (
             <button
               key={channel.id}
               onClick={() => setActiveChannel(channel)}
-              className={`w-full px-3 py-2 rounded-lg text-sm transition-all ${
-                activeChannel.id === channel.id 
-                  ? "bg-[#2a2a2a] text-[#f8fafc]" 
-                  : "hover:bg-[#1a1a1a] text-[#94a3b8] hover:text-[#f8fafc]"
-              }`}
+              className="w-full px-3 py-2 rounded-lg text-sm transition-all text-left"
+              style={
+                activeChannel.id === channel.id
+                  ? { background: "color-mix(in oklab, var(--accent) 14%, transparent)", color: "var(--t-hi)" }
+                  : { color: "var(--t-mid)" }
+              }
             >
               {channel.name}
             </button>
@@ -162,24 +163,25 @@ export default function ModernChatPage() {
         </div>
 
         <div className="p-4">
-          <div className="text-xs font-bold text-[#94a3b8] mb-3">AGENTS</div>
+          <div className="text-xs font-bold mb-3 eyebrow" style={{ color: "var(--t-mid)", fontFamily: "var(--f-mono)", letterSpacing: "0.16em" }}>AGENTS</div>
           {AGENTS.map(agent => (
             <button
               key={agent.id}
               onClick={() => setActiveAgent(agent)}
-              className={`w-full flex items-center gap-3 p-2 rounded-lg transition-colors ${
+              className="w-full flex items-center gap-3 p-2 rounded-lg transition-colors"
+              style={
                 activeAgent.id === agent.id
-                  ? "bg-[#2a2a2a]"
-                  : "hover:bg-[#1a1a1a]"
-              }`}
+                  ? { background: "color-mix(in oklab, var(--accent) 12%, transparent)" }
+                  : undefined
+              }
             >
-              <div 
+              <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold"
                 style={{ backgroundColor: `${agent.color}40` }}
               >
                 {agent.name.charAt(0)}
               </div>
-              <div className="text-sm font-semibold text-[#f8fafc]">
+              <div className="text-sm font-semibold" style={{ color: "var(--t-hi)" }}>
                 {agent.name}
               </div>
             </button>
@@ -190,7 +192,7 @@ export default function ModernChatPage() {
       {/* Main Chat */}
       <div className="flex-1 flex flex-col">
         {/* Dashboard Header */}
-        <div className="p-4 border-b-2 border-[#333333]">
+        <div className="p-4" style={{ borderBottom: "1px solid var(--line-2)" }}>
           <BentoGrid>
             <AthleteStatsCard 
               title="Active Agents"
@@ -235,9 +237,9 @@ export default function ModernChatPage() {
             {/* User messages */}
             {messages.filter(m => m.type === "user").map(message => (
               <div key={message.id} className="flex justify-end">
-                <div className="bg-gradient-to-r from-[#7c3aed] to-[#6b21a8] rounded-2xl rounded-br-none p-4 max-w-[70%]">
+                <div className="rounded-2xl rounded-br-none p-4 max-w-[70%]" style={{ background: "linear-gradient(135deg, var(--c-purple-l), var(--c-purple))", boxShadow: "var(--glow)" }}>
                   <div className="text-white text-sm">{message.content}</div>
-                  <div className="text-white/60 text-xs mt-1">{message.timestamp}</div>
+                  <div className="text-white/60 text-xs mt-1" style={{ fontFamily: "var(--f-mono)" }}>{message.timestamp}</div>
                 </div>
               </div>
             ))}
@@ -267,9 +269,9 @@ export default function ModernChatPage() {
         </div>
 
         {/* Message Input */}
-        <div className="p-4 border-t-2 border-[#333333] bg-[#111111]">
+        <div className="p-4" style={{ borderTop: "1px solid var(--line-2)", background: "var(--ink-2)" }}>
           {relayError && (
-            <div className="mb-3 rounded-lg border border-red-500/40 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            <div className="mb-3 rounded-lg px-3 py-2 text-sm" style={{ border: "1px solid color-mix(in oklab, var(--c-red) 40%, transparent)", background: "color-mix(in oklab, var(--c-red) 14%, transparent)", color: "color-mix(in oklab, var(--c-red) 70%, var(--t-hi))" }}>
               {relayError}
             </div>
           )}
@@ -279,7 +281,8 @@ export default function ModernChatPage() {
               onChange={(e) => setMessageInput(e.target.value)}
               placeholder={`Message ${activeChannel.name} (${activeAgent.name})...`}
               disabled={sending}
-              className="flex-1 bg-[#1a1a1a] border-2 border-[#333333] rounded-xl px-4 py-3 text-[#f8fafc] text-sm resize-none focus:outline-none focus:border-[#555555] min-h-[44px] disabled:opacity-50"
+              className="flex-1 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none min-h-[44px] disabled:opacity-50"
+              style={{ background: "var(--panel-glass)", border: "1px solid var(--line-2)", color: "var(--t-hi)" }}
               rows={1}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -291,11 +294,12 @@ export default function ModernChatPage() {
             <button
               onClick={handleSendMessage}
               disabled={!messageInput.trim() || sending}
-              className={`px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
+              className="px-4 py-2 text-sm font-semibold rounded-lg transition-all"
+              style={
                 messageInput.trim() && !sending
-                  ? "bg-gradient-to-r from-[#7c3aed] to-[#6b21a8] text-white hover:shadow-[0_0_20px_rgba(124,58,237,0.3)]"
-                  : "bg-[#222222] text-[#666666] cursor-not-allowed"
-              }`}
+                  ? { background: "linear-gradient(135deg, var(--c-purple-l), var(--c-purple))", color: "#fff", boxShadow: "var(--glow)" }
+                  : { background: "var(--ink-3)", color: "var(--t-lo)", cursor: "not-allowed" }
+              }
             >
               {sending ? "…" : "Send"}
             </button>
@@ -303,8 +307,8 @@ export default function ModernChatPage() {
 
           {/* Typing indicator */}
           {typingUsers.length > 0 && (
-            <div className="text-sm text-[#94a3b8] mt-2">
-              {typingUsers.length === 1 
+            <div className="text-sm mt-2" style={{ color: "var(--t-mid)" }}>
+              {typingUsers.length === 1
                 ? `${typingUsers[0]} is typing...`
                 : `${typingUsers.length} typing...`}
             </div>
