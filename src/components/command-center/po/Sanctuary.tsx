@@ -12,11 +12,54 @@
  * Motion gates on prefers-reduced-motion AND the .po-still tweak (usePoTheme).
  * ========================================================================== */
 
-import { useEffect, useRef, Fragment, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, Fragment, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/command-center/po/Brand';
 import { ROUTE } from '@/lib/po-data';
 import { usePoTheme } from '@/components/command-center/PoShell';
+
+/* ---- live state of all things (real endpoints, graceful fallback) ---- */
+type Stats = {
+  agentsOnline: number; agentsTotal: number;
+  mrr: string; mrrLive: boolean;
+  jobs: number; shipped: number;
+};
+const STAT_DEFAULTS: Stats = { agentsOnline: 19, agentsTotal: 20, mrr: '$48.2k', mrrLive: false, jobs: 7, shipped: 23 };
+
+function todayKey(): string {
+  // local YYYY-MM-DD without Date math beyond formatting
+  return new Date().toISOString().slice(0, 10);
+}
+
+async function loadStats(signal: AbortSignal): Promise<Partial<Stats>> {
+  const out: Partial<Stats> = {};
+  const get = (p: string) => fetch(p, { signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const [agents, jobs, rev, act] = await Promise.all([
+    get('/api/command-center/agents'),
+    get('/api/command-center/jobs'),
+    get('/api/command-center/stripe-revenue'),
+    get('/api/command-center/activity'),
+  ]);
+  if (agents?.agents?.length) {
+    const list = agents.agents as { status?: string }[];
+    out.agentsTotal = list.length;
+    out.agentsOnline = list.filter((a) => a.status && a.status !== 'offline').length;
+  }
+  if (jobs?.jobs) {
+    const active = ['running', 'queued', 'active', 'in_progress', 'pending', 'working'];
+    out.jobs = (jobs.jobs as { status?: string }[]).filter((j) => j.status && active.includes(j.status)).length;
+  }
+  if (rev?.source === 'live' && rev?.subscriptions?.mrr > 0) {
+    out.mrr = `$${(rev.subscriptions.mrr / 1000).toFixed(1)}k`;
+    out.mrrLive = true;
+  }
+  if (act?.events) {
+    const t = todayKey();
+    out.shipped = (act.events as { date?: string; type?: string }[])
+      .filter((e) => e.date?.slice(0, 10) === t && (e.type === 'build' || e.type === 'deploy')).length;
+  }
+  return out;
+}
 
 // six primary domains orbit the throne (everything else via the Word/⌘K)
 type Star = { id: string; label: string; fac: string; x: number; y: number; ct: string };
@@ -27,14 +70,6 @@ const STARS: Star[] = [
   { id: 'observatory', label: 'Observatory', fac: 'var(--c-violet)', x: 50, y: 69, ct: '6 signals' },
   { id: 'tasks', label: 'Tasks', fac: 'var(--c-amber)', x: 30, y: 62, ct: '7 live' },
   { id: 'builder', label: 'App Builder', fac: 'var(--c-cyan)', x: 27, y: 33, ct: 'ready' },
-];
-
-// the truths, woven into one quiet line (not floating boxes)
-const TRUTHS: [string, string][] = [
-  ['19/20', 'online'],
-  ['$48.2k', 'MRR'],
-  ['7', 'jobs'],
-  ['23', 'shipped'],
 ];
 
 /** open the existing ⌘K palette via a synthetic Meta+K keydown (chrome listens). */
@@ -48,6 +83,28 @@ export default function Sanctuary() {
   const router = useRouter();
   const { toggleTheme, still } = usePoTheme();
   const ref = useRef<HTMLDivElement>(null);
+  const [stats, setStats] = useState<Stats>(STAT_DEFAULTS);
+
+  // pull the real state of all things; fall back to the design figures.
+  useEffect(() => {
+    const ctrl = new AbortController();
+    loadStats(ctrl.signal).then((s) => setStats((prev) => ({ ...prev, ...s }))).catch(() => {});
+    return () => ctrl.abort();
+  }, []);
+
+  // the truths, woven into one quiet line (live)
+  const truths: [string, string][] = [
+    [`${stats.agentsOnline}/${stats.agentsTotal}`, 'online'],
+    [stats.mrr, stats.mrrLive ? 'MRR · live' : 'MRR'],
+    [String(stats.jobs), 'jobs'],
+    [String(stats.shipped), 'shipped'],
+  ];
+  // per-domain live counts for the constellation
+  const starCount: Record<string, string> = {
+    agents: `${stats.agentsOnline} online`,
+    finance: stats.mrr,
+    tasks: `${stats.jobs} live`,
+  };
 
   const go = (id: string) => {
     const href = ROUTE[id];
@@ -102,7 +159,7 @@ export default function Sanctuary() {
           <span className="dot" /> All systems nominal · the fleet is at peace
         </div>
         <div className="sanc-truths">
-          {TRUTHS.map(([v, l], i) => (
+          {truths.map(([v, l], i) => (
             <Fragment key={l}>
               {i > 0 && <span className="sep" />}
               <span className="t">
@@ -125,7 +182,7 @@ export default function Sanctuary() {
           >
             <span className="pt" />
             <span className="lbl">{s.label}</span>
-            <span className="ct">{s.ct}</span>
+            <span className="ct">{starCount[s.id] ?? s.ct}</span>
           </div>
         ))}
       </div>
