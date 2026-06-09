@@ -45,16 +45,28 @@ export async function auditLead(input: { website?: string | null }): Promise<Aud
       clearTimeout(timer);
       signals.responseMs = Date.now() - t0;
       signals.reachable = res.ok;
-      if (!res.ok) gaps.add("outdated_website");
+      // True https = what we actually ended up on after redirects, not the stored string.
+      signals.https = res.url ? res.url.startsWith("https://") : signals.https;
+      if (signals.https) gaps.delete("no_ssl"); else gaps.add("no_ssl");
       if (signals.responseMs > 3500) gaps.add("slow_site");
-      const html = (await res.text()).slice(0, 60_000).toLowerCase();
-      signals.mobileFriendly = html.includes('name="viewport"') || html.includes("name='viewport'");
-      if (!signals.mobileFriendly) gaps.add("not_mobile");
-      const m = html.match(/<title[^>]*>([^<]*)<\/title>/);
-      signals.title = m ? m[1].trim().slice(0, 120) : null;
-      if (!html.includes("mailto:") && !html.includes("subscribe") && !html.includes("newsletter")) gaps.add("no_email_capture");
-      // AI visibility: no structured data → assistants can't reliably read/cite the business.
-      if (!html.includes("application/ld+json")) gaps.add("no_ai_visibility");
+      if (!res.ok) {
+        // 403/challenge/error pages aren't the client's site — don't fabricate
+        // content gaps from a bot-block interstitial. Flag reachability only.
+        gaps.add("outdated_website");
+      } else {
+        // Full body (bounded) for the structured-data check — JSON-LD often sits
+        // late in <head> or in <body>, past any small prefix.
+        const fullHtml = (await res.text()).slice(0, 500_000).toLowerCase();
+        const html = fullHtml.slice(0, 60_000);
+        signals.mobileFriendly = html.includes('name="viewport"') || html.includes("name='viewport'");
+        if (!signals.mobileFriendly) gaps.add("not_mobile");
+        const m = html.match(/<title[^>]*>([^<]*)<\/title>/);
+        signals.title = m ? m[1].trim().slice(0, 120) : null;
+        if (!html.includes("mailto:") && !html.includes("subscribe") && !html.includes("newsletter")) gaps.add("no_email_capture");
+        // AI visibility: no structured data (JSON-LD or microdata) → assistants
+        // can't reliably read/cite the business.
+        if (!fullHtml.includes("application/ld+json") && !fullHtml.includes('itemtype="http')) gaps.add("no_ai_visibility");
+      }
     } catch {
       signals.reachable = false;
       gaps.add("outdated_website");

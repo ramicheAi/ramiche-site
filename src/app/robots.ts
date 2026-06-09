@@ -7,7 +7,7 @@ import { AI_CRAWLERS } from "@/lib/seo-ai-visibility";
 // crawlers). Canonical public origin is parallaxvinc.com (the apex serves the
 // public site; command.* serves the gated OS via middleware).
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com";
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com").replace(/\/$/, "");
 
 // Private / internal — never index, never feed to AI.
 const DISALLOW = [
@@ -41,6 +41,5 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: [...AI_CRAWLERS], allow: "/", disallow: DISALLOW },
     ],
     sitemap: `${SITE}/sitemap.xml`,
-    host: SITE,
   };
 }

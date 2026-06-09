@@ -5,7 +5,7 @@ import { PARALLAX } from "@/lib/parallax-co";
 // This is the reference implementation of the standard we ship for clients
 // (see buildLlmsTxt in src/lib/seo-ai-visibility.ts). Cached, no private surfaces.
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com";
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com").replace(/\/$/, "");
 
 const KEY_PAGES: { path: string; label: string; desc: string }[] = [
   { path: "/", label: "Parallax studio home", desc: "Services, pricing tiers, and work." },

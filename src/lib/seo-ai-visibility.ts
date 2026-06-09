@@ -248,10 +248,20 @@ export interface BusinessFacts {
   hours?: string[]; // e.g. ["Mo-Fr 09:00-17:00", "Sa 10:00-14:00"]
   services?: { name: string; description?: string; price?: string }[];
   socials?: string[]; // absolute URLs
+  pages?: { label: string; url: string; desc?: string }[]; // key public pages for llms.txt
   type?: string; // Schema.org @type, default "LocalBusiness"
 }
 
-/** LocalBusiness JSON-LD — drop into a <script type="application/ld+json">. */
+/**
+ * Serialize JSON-LD for inline embedding. Plain JSON.stringify does NOT escape
+ * `<`, so a description containing "</script>" would break out of the tag —
+ * always embed via this, never raw stringify.
+ */
+export function serializeJsonLd(data: Record<string, unknown>): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
+/** LocalBusiness JSON-LD — embed with serializeJsonLd() in a <script type="application/ld+json">. */
 export function buildLocalBusinessJsonLd(b: BusinessFacts): Record<string, unknown> {
   const a = b.address;
   return {
@@ -282,7 +292,8 @@ export function buildLocalBusinessJsonLd(b: BusinessFacts): Record<string, unkno
           makesOffer: b.services.map((s) => ({
             "@type": "Offer",
             itemOffered: { "@type": "Service", name: s.name, ...(s.description ? { description: s.description } : {}) },
-            ...(s.price ? { price: s.price } : {}),
+            // Google requires numeric price + priceCurrency to validate.
+            ...(s.price ? { price: s.price.replace(/[^0-9.]/g, ""), priceCurrency: "USD" } : {}),
           })),
         }
       : {}),
@@ -307,6 +318,7 @@ export function buildLlmsTxt(b: BusinessFacts): string {
     lines.push("");
   }
   lines.push("## Key pages", `- [Home](${b.url})`);
+  for (const p of b.pages || []) lines.push(`- [${p.label}](${p.url})${p.desc ? ` — ${p.desc}` : ""}`);
   if (b.socials?.length) {
     lines.push("", "## Elsewhere");
     for (const s of b.socials) lines.push(`- ${s}`);

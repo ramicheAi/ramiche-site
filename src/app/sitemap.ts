@@ -4,7 +4,7 @@ import type { MetadataRoute } from "next";
 // configs in src/lib/seo.ts). Private app surfaces are intentionally excluded and
 // are also blocked in robots.ts. Canonical public origin = parallaxvinc.com.
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com";
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com").replace(/\/$/, "");
 
 type Entry = { path: string; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"]; priority: number };
 

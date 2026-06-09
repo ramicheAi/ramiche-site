@@ -192,7 +192,7 @@ export default function DealRoom() {
             {tab === "script" && kit && <Script kit={kit} copy={copy} copied={copied} />}
             {tab === "objections" && kit && <Objections kit={kit} />}
             {tab === "outreach" && kit && <Outreach kit={kit} copy={copy} copied={copied} email={lead.contact_email} biz={biz} onSend={sendEmail} sending={busy === "send"} />}
-            {tab === "delivery" && rec && <Delivery rec={rec} biz={biz} website={lead.meta?.website || intel?.onlinePresence?.website || null} leadId={leadId} competitors={(intel?.competitors || []).map((c) => c.name).join(", ")} copy={copy} copied={copied} />}
+            {tab === "delivery" && rec && <Delivery rec={rec} biz={biz} website={lead.meta?.website || intel?.onlinePresence?.website || null} leadId={leadId} competitors={(intel?.competitors || []).map((c) => c.name).join(", ")} facts={[intel?.summary, intel?.services?.length ? `Services: ${intel.services.join(", ")}` : ""].filter(Boolean).join(" · ")} copy={copy} copied={copied} />}
           </div>
         </Panel>
       )}
@@ -320,12 +320,23 @@ function Outreach({ kit, copy, copied, email, biz, onSend, sending }: { kit: Kit
     </div>
   );
 }
-function Delivery({ rec, biz, website, leadId, competitors, copy, copied }: { rec: { items: RecItem[] }; biz: string; website: string | null; leadId: string; competitors: string; copy: (k: string, t: string) => void; copied: string | null }) {
+function Delivery({ rec, biz, website, leadId, competitors, facts, copy, copied }: { rec: { items: RecItem[] }; biz: string; website: string | null; leadId: string; competitors: string; facts: string; copy: (k: string, t: string) => void; copied: string | null }) {
   const plays = rec.items.map((i) => deliveryFor(i.id)).filter(Boolean);
   const ids = new Set(rec.items.map((i) => i.id));
   const hasAv = ids.has("ai_visibility");
   const needsBuild = ids.has("web_build") || ids.has("ai_visibility") || ids.has("local_seo") || ids.has("branding");
-  const avVars = { brand: biz, competitors, page: website || biz, platform: "Next.js (Parallax build)" };
+  // Every {{var}} the four AV workflow templates use — so copied prompts are
+  // genuinely pre-filled, not shipped with [placeholders].
+  const avVars = {
+    brand: biz,
+    competitors,
+    competitor: competitors.split(",")[0]?.trim() || "",
+    page: website || biz,
+    pages: website || biz,
+    facts,
+    questions: "(top-ranked questions from the AI Visibility Audit — run that workflow first)",
+    platform: "Next.js (Parallax build)",
+  };
   const counts = standardCounts();
   const bundle = rec.items.map((i) => i.name).join(", ");
   // The exact prompt to drop into Claude Code / OpenClaw — runs the build skill for THIS client.
