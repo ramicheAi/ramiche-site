@@ -45,6 +45,11 @@
   .po-shell .po-clock { display: none; }
   .po-shell .po-atlasbtn .lab { display: none; }
   .po-shell .po-atlasbtn { padding: 0 8px; }
+  /* dashboard vitals: 4-up flex row → 2x2 so it never overflows the phone */
+  .po-shell .cv-vitals { flex-wrap: wrap; }
+  .po-shell .cv-vital { flex: 1 1 calc(50% - 14px); min-width: 0; }
+  /* finance ring-gauge tiles: 4-col grid → 2x2 */
+  .po-shell .fn-tiles { grid-template-columns: 1fr 1fr; }
 
   /* page padding */
   .po-shell .cv-inner, .po-shell .pg-inner { padding: 18px 16px 40px; }
