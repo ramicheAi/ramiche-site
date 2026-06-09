@@ -14,7 +14,7 @@ export interface SEOConfig {
   noIndex?: boolean;
 }
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://command.parallaxvinc.com";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com";
 const DEFAULT_OG_IMAGE = `${SITE_URL}/og-default.png`;
 
 /**

@@ -15,7 +15,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// One source of truth for the absolute site origin (canonical / OG / sitemap / robots / llms).
+// Override per-environment with NEXT_PUBLIC_SITE_URL (e.g. https://parallaxvinc.com).
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://parallaxvinc.com";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   ...getPageSEO("home"),
   manifest: "/manifest.json",
   icons: {

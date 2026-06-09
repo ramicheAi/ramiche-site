@@ -32,6 +32,7 @@ export async function auditLead(input: { website?: string | null }): Promise<Aud
     gaps.add("not_mobile");
     gaps.add("no_ssl");
     gaps.add("no_email_capture");
+    gaps.add("no_ai_visibility"); // no site → nothing for an AI assistant to cite
   } else {
     signals.https = website.startsWith("https://");
     if (!signals.https) gaps.add("no_ssl");
@@ -52,6 +53,8 @@ export async function auditLead(input: { website?: string | null }): Promise<Aud
       const m = html.match(/<title[^>]*>([^<]*)<\/title>/);
       signals.title = m ? m[1].trim().slice(0, 120) : null;
       if (!html.includes("mailto:") && !html.includes("subscribe") && !html.includes("newsletter")) gaps.add("no_email_capture");
+      // AI visibility: no structured data → assistants can't reliably read/cite the business.
+      if (!html.includes("application/ld+json")) gaps.add("no_ai_visibility");
     } catch {
       signals.reachable = false;
       gaps.add("outdated_website");

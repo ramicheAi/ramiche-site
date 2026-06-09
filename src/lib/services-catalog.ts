@@ -28,7 +28,8 @@ export type GapId =
   | "few_reviews"
   | "no_online_ordering"
   | "no_social"
-  | "no_email_capture";
+  | "no_email_capture"
+  | "no_ai_visibility";
 
 export const SERVICES: Service[] = [
   // ── One-time builds ──────────────────────────────────────────────────────
@@ -52,6 +53,9 @@ export const SERVICES: Service[] = [
   { id: "local_seo", name: "Local SEO + Google Business Profile", billing: "monthly", low: 300, high: 800,
     value: "Get found on Google Maps and local search — claim, optimize, and rank your profile.",
     triggers: ["no_gbp", "no_website", "outdated_website"] },
+  { id: "ai_visibility", name: "AI Visibility (Get Found by ChatGPT)", billing: "monthly", low: 200, high: 700,
+    value: "Get named and recommended by ChatGPT, Perplexity, Gemini & Google AI when people ask an assistant for a business like yours — the new front door to search.",
+    triggers: ["no_ai_visibility"] },
   { id: "reviews", name: "Reviews + Reputation", billing: "monthly", low: 100, high: 300,
     value: "Automatically request reviews from happy customers and protect your reputation. More reviews = more trust = more sales.",
     triggers: ["few_reviews", "no_gbp"] },
@@ -109,4 +113,5 @@ export const GAP_LABEL: Record<GapId, string> = {
   no_online_ordering: "No online ordering/booking — a revenue channel left on the table",
   no_social: "Weak social presence — no top-of-funnel discovery",
   no_email_capture: "No email/lead capture — visitors leave without a way to follow up",
+  no_ai_visibility: "Invisible to AI search — not cited by ChatGPT/Perplexity/Gemini when customers ask an assistant",
 };
