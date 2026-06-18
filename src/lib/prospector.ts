@@ -42,7 +42,9 @@ export const CATEGORIES: { id: string; label: string; filter: string }[] = [
   { id: "doctor", label: "Doctors / Clinics", filter: '["amenity"="doctors"]' },
   { id: "autorepair", label: "Auto Repair", filter: '["shop"="car_repair"]' },
   { id: "hotel", label: "Hotels", filter: '["tourism"="hotel"]' },
-  { id: "contractor", label: "Contractors / Trades", filter: '["craft"]' },
+  // Curated trades only — the bare ["craft"] tag also matches breweries/potteries
+  // (false positives we saw in testing). This targets real home-service contractors.
+  { id: "contractor", label: "Contractors / Trades", filter: '["craft"~"^(electrician|plumber|hvac|carpenter|roofer|painter|builder|gardener|stonemason|tiler|handyman|metal_construction|window_construction|insulation|electronics_repair)$"]' },
 ];
 
 export interface ProspectResult {
@@ -50,6 +52,7 @@ export interface ProspectResult {
   category: string;
   address: string;
   phone: string | null;
+  email: string | null;
   website: string | null;
   lat: number | null;
   lon: number | null;
@@ -122,6 +125,9 @@ export async function searchBusinesses(
       category: cat.label,
       address: addrOf(tags),
       phone: tags.phone || tags["contact:phone"] || null,
+      // Email was never captured before — it unlocks the cold-email channel for
+      // leads that have no phone in OSM (the common case for higher-value verticals).
+      email: tags.email || tags["contact:email"] || null,
       website,
       lat: el.lat ?? el.center?.lat ?? null,
       lon: el.lon ?? el.center?.lon ?? null,

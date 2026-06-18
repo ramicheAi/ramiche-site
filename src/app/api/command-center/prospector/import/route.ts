@@ -34,10 +34,12 @@ export async function POST(req: Request) {
       product,
       stage: "lead",
       source: "prospector",
-      contact_email: null,
+      // Seed contact_email from OSM email when present so the email/send channel
+      // works without a separate intel pass.
+      contact_email: (typeof l.email === "string" && l.email) ? sanitize(l.email, 200) : null,
       tags: [String(l.category ?? "prospect")].filter(Boolean),
-      notes: [sanitize(l.address, 300), l.phone ? `☎ ${sanitize(l.phone, 40)}` : "", l.website ? `web: ${sanitize(l.website, 200)}` : "no website"].filter(Boolean).join(" · "),
-      meta: { osmId: l.osmId ?? null, category: l.category ?? null, address: l.address ?? null, phone: l.phone ?? null, website: l.website ?? null, lat: l.lat ?? null, lon: l.lon ?? null },
+      notes: [sanitize(l.address, 300), l.phone ? `☎ ${sanitize(l.phone, 40)}` : "", l.email ? `✉ ${sanitize(String(l.email), 120)}` : "", l.website ? `web: ${sanitize(l.website, 200)}` : "no website"].filter(Boolean).join(" · "),
+      meta: { osmId: l.osmId ?? null, category: l.category ?? null, address: l.address ?? null, phone: l.phone ?? null, email: l.email ?? null, website: l.website ?? null, lat: l.lat ?? null, lon: l.lon ?? null },
     }));
 
   const { data, error } = await db.from("pipeline_leads").insert(rows).select("id");
