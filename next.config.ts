@@ -29,6 +29,27 @@ const nextConfig: NextConfig = {
   logging: {
     browserToTerminal: true,
   },
+  // The /api/command-center/projects route reads public/projects/<slug>/<file> with a
+  // DYNAMIC path, so Next's file tracer bundles the ENTIRE 249MB public/projects dir
+  // (yummyz vectors/PDFs, logs) into that lambda → over Vercel's 250MB function limit →
+  // "Deploying outputs" fails (build succeeds, deploy errors). The route is GitHub-first
+  // and only ever reads small .md/.json locally, so exclude the heavy non-text assets
+  // from every function's trace. This is what unfroze command-center deploys.
+  outputFileTracingExcludes: {
+    "*": [
+      "public/projects/**/*.svg",
+      "public/projects/**/*.pdf",
+      "public/projects/**/*.png",
+      "public/projects/**/*.jpg",
+      "public/projects/**/*.jpeg",
+      "public/projects/**/*.gif",
+      "public/projects/**/*.webp",
+      "public/projects/**/*.mp4",
+      "public/projects/**/*.zip",
+      "public/projects/**/logs/**",
+      "public/yolo-builds/**",
+    ],
+  },
   turbopack: {
     root: path.resolve(__dirname),
   },
