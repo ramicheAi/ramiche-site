@@ -19,14 +19,12 @@ export type NavSection = { label: string; items: NavItem[] };
 export const NAV: NavSection[] = [
   { label: "Operations", items: [
     { id: "dashboard", label: "Dashboard", icon: "dashboard", accent: A.gold },
-    { id: "comms", label: "Comms", icon: "comms", accent: A.purple, badge: "12" },
     { id: "gallery", label: "Gallery", icon: "gallery", accent: A.pink },
     { id: "agents", label: "Agents", icon: "agents", accent: A.green },
     { id: "tasks", label: "Tasks", icon: "tasks", accent: A.amber, badge: "7" },
     { id: "health", label: "System Health", icon: "health", accent: A.cyan },
     { id: "security", label: "Security", icon: "security", accent: A.red },
     { id: "yolo", label: "YOLO Builds", icon: "bolt", accent: A.amber },
-    { id: "nerve", label: "Nerve Center", icon: "nerve", accent: A.purple },
     { id: "settings", label: "Settings", icon: "settings", accent: A.indigo },
   ]},
   { label: "Business", items: [
@@ -35,8 +33,6 @@ export const NAV: NavSection[] = [
     { id: "sales", label: "Sales", icon: "sales", accent: A.amber },
     { id: "proposals", label: "Proposals", icon: "proposals", accent: A.amber },
     { id: "legal", label: "Legal", icon: "legal", accent: A.indigo },
-    { id: "strategy", label: "Strategy", icon: "strategy", accent: A.violet },
-    { id: "observatory", label: "Observatory", icon: "observatory", accent: A.violet },
     { id: "reports", label: "Reports", icon: "reports", accent: A.amber },
   ]},
   { label: "Creative", items: [

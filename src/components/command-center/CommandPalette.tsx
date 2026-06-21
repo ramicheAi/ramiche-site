@@ -79,7 +79,6 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "memory", label: "Memory", hint: "Agent journal", icon: "◎", accent: TOKENS.purpleSoft, href: "/command-center/memory" },
   { kind: "route", id: "docs", label: "Docs", hint: "Library", icon: "≡", accent: "#3b82f6", href: "/command-center/docs" },
   { kind: "route", id: "office", label: "Office", hint: "3D workspace", icon: "▣", accent: "#06b6d4", href: "/command-center/office" },
-  { kind: "route", id: "comms", label: "Comms", hint: "Broadcast", icon: "✉", accent: "#34d399", href: "/command-center/comms" },
   { kind: "route", id: "vitals", label: "Vitals", hint: "Health + verse + weather", icon: "♥", accent: "#10b981", href: "/command-center/vitals" },
   { kind: "route", id: "activity", label: "Activity", icon: "●", accent: "#2563eb", href: "/command-center/activity" },
   { kind: "route", id: "health", label: "System Health", hint: "Service status", icon: "◉", accent: "#22d3ee", href: "/command-center/health" },
@@ -95,7 +94,6 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "pricing", label: "Pricing", icon: "◎", accent: "#f59e0b", href: "/command-center/sales/pricing" },
   { kind: "route", id: "agent-pricing", label: "Agent Pricing", icon: "◇", accent: "#f59e0b", href: "/command-center/sales/agent-pricing" },
   { kind: "route", id: "legal", label: "Legal", icon: "⚖", accent: "#8b5cf6", href: "/command-center/legal" },
-  { kind: "route", id: "strategy", label: "Strategy", icon: "◇", accent: TOKENS.purpleSoft, href: "/command-center/strategy" },
   { kind: "route", id: "reports", label: "Reports", icon: "▤", accent: "#f59e0b", href: "/command-center/reports" },
   { kind: "route", id: "content", label: "Content", icon: "✒", accent: "#c084fc", href: "/command-center/content" },
   { kind: "route", id: "studio", label: "Studio", icon: "♫", accent: "#f59e0b", href: "/command-center/studio" },
@@ -104,9 +102,7 @@ const ROUTES: RouteEntry[] = [
   { kind: "route", id: "wellness", label: "Wellness", icon: "◈", accent: "#10b981", href: "/command-center/wellness" },
   { kind: "route", id: "fabrication", label: "Fabrication", hint: "NOVA + Bambu", icon: "⚡", accent: "#14b8a6", href: "/command-center/fabrication" },
   { kind: "route", id: "yolo", label: "YOLO Builds", icon: "⚡", accent: "#f59e0b", href: "/command-center/yolo" },
-  { kind: "route", id: "nerve-center", label: "Nerve Center", icon: "⚛", accent: TOKENS.purple, href: "/command-center/nerve-center" },
   { kind: "route", id: "terminal", label: "Terminal", icon: ">_", accent: "#0f172a", href: "/command-center/terminal" },
-  { kind: "route", id: "observatory", label: "Observatory", icon: "🔮", accent: "#9b5de5", href: "/command-center/observatory" },
 ];
 
 /* route id → Parallax OS geometric icon name */
