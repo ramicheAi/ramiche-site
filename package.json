@@ -59,6 +59,7 @@
     "jsdom": "^29.1.1",
     "lint-staged": "^16.2.7",
     "playwright": "^1.58.2",
+    "shadcn": "^4.11.0",
     "typescript": "5.9.3",
     "vitest": "^4.0.18"
   },

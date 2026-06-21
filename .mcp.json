@@ -2,11 +2,21 @@
   "mcpServers": {
     "contextplus": {
       "command": "npx",
-      "args": ["-y", "contextplus"],
+      "args": [
+        "-y",
+        "contextplus"
+      ],
       "env": {
         "OLLAMA_EMBED_MODEL": "nomic-embed-text",
         "OLLAMA_CHAT_MODEL": "qwen3:8b"
       }
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ]
     }
   }
 }
