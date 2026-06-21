@@ -17,6 +17,7 @@ const sections = [
     label: 'OPERATIONS',
     items: [
       { href: '/command-center', label: 'Dashboard', icon: '◇', accent: '#C9A84C' },
+      { href: '/command-center/gate', label: 'Approval Gate', icon: '⚡', accent: '#22c55e' },
       { href: '/command-center/jobs', label: 'Jobs', icon: '⚡', accent: '#7c3aed' },
       { href: '/command-center/chat', label: 'Chat', icon: '◈', accent: '#7c3aed' },
       { href: '/command-center/gallery', label: 'Gallery', icon: '▦', accent: '#ec4899' },
@@ -78,6 +79,7 @@ const sections = [
    table is the visual upgrade. Unknown hrefs fall back to a sensible default. */
 const ICON_BY_HREF: Record<string, string> = {
   '/command-center': 'dashboard',
+  '/command-center/gate': 'bolt',
   '/command-center/jobs': 'bolt',
   '/command-center/chat': 'comms',
   '/command-center/gallery': 'gallery',
