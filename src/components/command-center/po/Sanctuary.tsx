@@ -125,7 +125,11 @@ export default function Sanctuary() {
     },
     [voiceLoop],
   );
-  askAtlasRef.current = (text: string) => { void askAtlas(text); };
+  // Keep the latest askAtlas in a ref WITHOUT touching the ref during render
+  // (react-hooks/refs): update it in an effect after commit.
+  useEffect(() => {
+    askAtlasRef.current = (text: string) => { void askAtlas(text); };
+  }, [askAtlas]);
 
   // pull the real state of all things; fall back to the design figures.
   useEffect(() => {
