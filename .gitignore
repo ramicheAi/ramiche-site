@@ -57,3 +57,6 @@ public/projects/sz-open-water-2027/
 
 # YOLO build artifacts (local only, not needed for production)
 public/yolo-builds/
+
+# runtime logs (do not track)
+public/projects/semantic-cache/logs/
