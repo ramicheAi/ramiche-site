@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
+import DailyVerse from "@/components/command-center/DailyVerse";
 
 interface AgentStatus {
   id: string;
@@ -45,6 +46,9 @@ export default function WellnessPage() {
       <p className="mono" style={{ fontSize: 12, color: "var(--t-mid)", letterSpacing: "0.12em", margin: "0 0 20px" }}>
         SELAH · MICHAEL — Mental performance, sport psychology &amp; swim coaching
       </p>
+
+      {/* Daily contextual Bible verse — new each day, never repeats, fits his day */}
+      <DailyVerse />
 
       {/* Wellness Team */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4" style={{ marginBottom: 20 }}>
