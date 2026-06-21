@@ -398,7 +398,7 @@ function CommandCenterShell({
         /* ignore */
       }
       if (pathname !== '/command-center/chat') {
-        router.push('/command-center/chat#voice=auto');
+        router.push('/command-center/chat#dm=atlas&voice=auto');
       } else {
         window.dispatchEvent(new CustomEvent('cc:wake', { detail: { heard } }));
       }

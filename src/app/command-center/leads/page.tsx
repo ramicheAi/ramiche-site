@@ -18,12 +18,15 @@ interface Lead {
   meta: { website?: string | null; audit?: { healthScore?: number; gaps?: string[] }; recommendation?: Recommendation; fit?: { fitScore?: number; qualified?: boolean }; disqualified?: boolean } | null;
 }
 
-/** Work-order: best targets first — high fit + low digital health (most need), undiagnosed slightly boosted. */
+/** Work-order: best targets first — high fit + low digital health (most need) +
+ *  bigger winnable deals (ACV), with undiagnosed leads slightly boosted. */
 function priority(l: Lead): number {
   const fit = l.meta?.fit?.fitScore ?? 55;
   const health = l.meta?.audit?.healthScore;
   const undiagBoost = l.meta?.audit ? 0 : 8;
-  return fit - (health ?? 0) / 2 + undiagBoost;
+  // Revenue weight: a $10k ACV deal ≈ +10, capped so it sharpens (not dominates) order.
+  const acvBoost = typeof l.value === "number" ? Math.min(25, l.value / 1000) : 0;
+  return fit - (health ?? 0) / 2 + undiagBoost + acvBoost;
 }
 
 const STAGE_COLOR: Record<string, string> = { lead: "#6b7280", qualified: "#f59e0b", proposal: "#818cf8", negotiation: "#06b6d4", closed: "#22c55e", lost: "#ef4444" };

@@ -9,7 +9,15 @@ export interface UseVoiceLoopOptions {
   maxRecordingSeconds?: number;
   silenceTimeoutMs?: number;
   autoPlayResponse?: boolean;
+  /** Auto-listen again after the agent finishes speaking → natural back-and-forth. Default true. */
+  continuous?: boolean;
   onTranscriptReady: (text: string) => void;
+}
+
+/** Electron/webview ships a non-functional Web Speech API — force the Whisper upload path there. */
+function isElectronLike(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /electron/i.test(navigator.userAgent);
 }
 
 export interface UseVoiceLoopResult {
@@ -91,6 +99,13 @@ export function useVoiceLoop(options: UseVoiceLoopOptions): UseVoiceLoopResult {
     onTranscriptReadyRef.current = options.onTranscriptReady;
   }, [options.onTranscriptReady]);
 
+  // Continuous-conversation state: true while a voice session is active.
+  const continuousEnabledRef = useRef(options.continuous ?? true);
+  useEffect(() => {
+    continuousEnabledRef.current = options.continuous ?? true;
+  }, [options.continuous]);
+  const conversationRef = useRef(false);
+
   const [state, setState] = useState<VoiceState>("idle");
   const [transcript, setTranscript] = useState("");
   const [audioLevel, setAudioLevel] = useState(0);
@@ -170,6 +185,7 @@ export function useVoiceLoop(options: UseVoiceLoopOptions): UseVoiceLoopResult {
 
   const cancelVoice = useCallback(() => {
     cancelledRef.current = true;
+    conversationRef.current = false; // end the continuous conversation
     stopPlayback();
     try {
       const rec = recorderRef.current;
@@ -415,13 +431,23 @@ export function useVoiceLoop(options: UseVoiceLoopOptions): UseVoiceLoopResult {
   /* ── Public start / stop ─────────────────────────────────────────────── */
   const startListening = useCallback(async () => {
     cancelledRef.current = false;
+    if (continuousEnabledRef.current) conversationRef.current = true; // mark the conversation active
     stopPlayback();
     cleanupRecorderPipeline();
     cleanupRecognition();
 
-    // Prefer the browser engine when available — zero-server, live transcript,
-    // works identically on Vercel and on the Mac.
-    if (getSpeechRecognitionCtor()) {
+    // The MediaRecorder → Whisper path is the reliable default: it records your
+    // real audio and transcribes server-side. The browser Web Speech API "works"
+    // on paper but in this standalone/PWA window it starts then instantly ends
+    // (the listening visualizer flashes and dies). Only fall back to Web Speech if
+    // there's literally no MediaRecorder/getUserMedia available.
+    const canRecord =
+      typeof navigator !== "undefined" &&
+      !!navigator.mediaDevices?.getUserMedia &&
+      typeof MediaRecorder !== "undefined";
+    if (canRecord) {
+      void startServerRecording();
+    } else if (!isElectronLike() && getSpeechRecognitionCtor()) {
       void startBrowserRecognition();
     } else {
       void startServerRecording();
@@ -561,9 +587,16 @@ export function useVoiceLoop(options: UseVoiceLoopOptions): UseVoiceLoopResult {
         await speakViaBrowser(t);
       }
 
+      // Continuous conversation: the moment the agent finishes speaking, start
+      // listening again so it flows like two people talking — until the user
+      // cancels (X / mic) or stays silent (the turn ends itself and goes idle).
+      if (conversationRef.current && !cancelledRef.current) {
+        void startListening();
+        return;
+      }
       setState("idle");
     },
-    [autoPlayResponse, speakViaBrowser]
+    [autoPlayResponse, speakViaBrowser, startListening]
   );
 
   useEffect(() => {

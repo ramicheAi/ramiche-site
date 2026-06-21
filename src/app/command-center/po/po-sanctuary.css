@@ -140,3 +140,25 @@
 
 .po-shell .po-still .sanc-halo, .po-shell .po-still .sanc-core, .po-shell .po-still .sanc-ring, .po-shell .po-still .sanc-rays { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .po-shell .sanc-halo, .po-shell .sanc-core, .po-shell .sanc-ring, .po-shell .sanc-rays { animation: none !important; } }
+
+/* ── Voice-reactive throne — ATLAS conversation (data-voice on .sanc-throne) ──
+   The core orb pulses with the live audio level while listening/speaking and
+   "sequences" while ATLAS thinks. --voice-level (0..1) is set inline in Sanctuary. */
+.po-shell .sanc-throne[data-voice="listening"] .sanc-core,
+.po-shell .sanc-throne[data-voice="speaking"] .sanc-core {
+  animation: none;
+  transform: scale(calc(1 + var(--voice-level, 0) * 0.32));
+  box-shadow:
+    0 0 calc(60px + var(--voice-level, 0) * 150px) color-mix(in oklab, var(--gold) 80%, transparent),
+    inset 0 0 30px rgba(255, 255, 255, 0.5);
+  transition: transform 90ms linear, box-shadow 90ms linear;
+}
+.po-shell .sanc-throne[data-voice="thinking"] .sanc-core,
+.po-shell .sanc-throne[data-voice="transcribing"] .sanc-core {
+  animation: sanc-think 1.05s var(--ease-io, ease-in-out) infinite;
+}
+@keyframes sanc-think {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 50px color-mix(in oklab, var(--gold) 60%, transparent), inset 0 0 30px rgba(255,255,255,0.45); }
+  50%      { transform: scale(1.08); box-shadow: 0 0 110px color-mix(in oklab, var(--gold) 92%, transparent), inset 0 0 30px rgba(255,255,255,0.55); }
+}
+.po-shell .sanc-vstate { color: var(--gold); letter-spacing: 0.02em; font-weight: 600; }

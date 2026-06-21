@@ -56,6 +56,9 @@ export const SERVICES: Service[] = [
   { id: "ai_visibility", name: "AI Visibility (Get Found by ChatGPT)", billing: "monthly", low: 200, high: 700,
     value: "Get named and recommended by ChatGPT, Perplexity, Gemini & Google AI when people ask an assistant for a business like yours — the new front door to search.",
     triggers: ["no_ai_visibility"] },
+  { id: "ai_receptionist", name: "AI Voice Receptionist", billing: "monthly", low: 300, high: 1500,
+    value: "A 24/7 AI receptionist that answers every call in your customers' language, books appointments, and captures the leads you'd otherwise miss — never a missed call again.",
+    triggers: ["no_email_capture", "no_online_ordering"] },
   { id: "reviews", name: "Reviews + Reputation", billing: "monthly", low: 100, high: 300,
     value: "Automatically request reviews from happy customers and protect your reputation. More reviews = more trust = more sales.",
     triggers: ["few_reviews", "no_gbp"] },
@@ -73,33 +76,72 @@ export function serviceById(id: string): Service | undefined {
 
 export interface RecommendedItem { id: string; name: string; billing: Billing; price: number; value: string; }
 export interface Recommendation {
-  items: RecommendedItem[];
+  items: RecommendedItem[];       // the RIGHT-SIZED starter anchor — what we quote cold
   oneTimeTotal: number;
   monthlyTotal: number;
   rationale: string[];
+  expansion: RecommendedItem[];   // additional fits — the UPSELL menu for the review call, never the cold anchor
 }
 
+// ── Right-sizing the cold anchor (anti price-shock) ─────────────────────────
+// We sell to small local businesses. Auto-stacking every triggered service at once
+// (a cookie shop was quoted 11 items = $5,340 + $3,350/mo) guarantees a "no". So we
+// anchor on a sane STARTER — the foundation + the single most impactful growth layer
+// — and keep the rest as an upsell menu for Ramon's review call. TUNABLE caps:
+const STARTER_ONETIME_CAP = 2500; // cold anchor stays near the Beacon Launch/Site level
+const STARTER_MONTHLY_CAP = 500;  // one care/growth plan, not a full stack
+// Heavy services that are UPSELLS on the call — never the cold anchor.
+const UPSELL_ONLY = new Set<string>(["social_content", "ai_receptionist"]);
+// Fill order for the starter (most foundational first).
+const STARTER_PRIORITY = ["web_build", "local_seo", "ai_visibility", "online_ordering", "reviews", "branding", "email_sms", "ai_chatbot", "hosting_maint"];
+
 /**
- * Build a value-priced bundle from the audit gaps. Bigger gaps → bigger scope.
+ * Build a right-sized recommendation from the audit gaps. `items` is the STARTER we
+ * anchor on (capped — never price-shock); `expansion` is the rest (upsell on the call).
  * Price within each band scales with the lead's apparent size (sizeFactor 0..1).
  */
 export function recommendBundle(gaps: GapId[], sizeFactor = 0.35): Recommendation {
-  const wanted = new Set<string>();
-  for (const s of SERVICES) {
-    if (s.triggers.some((t) => gaps.includes(t))) wanted.add(s.id);
+  const clamp = (n: number) => Math.min(1, Math.max(0, n));
+  const priceOf = (s: Service) => Math.round((s.low + (s.high - s.low) * clamp(sizeFactor)) / 10) * 10;
+  const priced = (s: Service): RecommendedItem => ({ id: s.id, name: s.name, billing: s.billing, price: priceOf(s), value: s.value });
+
+  // Every service whose triggers match a gap = the full opportunity.
+  const wanted = SERVICES.filter((s) => s.triggers.some((t) => gaps.includes(t)));
+
+  // Fill the starter in priority order under the caps. The first one-time build is
+  // always included (the foundation) even if it edges the cap; later items must fit.
+  const ordered = [...wanted].sort((a, b) => (STARTER_PRIORITY.indexOf(a.id) + 1 || 99) - (STARTER_PRIORITY.indexOf(b.id) + 1 || 99));
+  const core: RecommendedItem[] = [];
+  let oneTime = 0, monthly = 0, haveBuild = false;
+  for (const s of ordered) {
+    if (UPSELL_ONLY.has(s.id)) continue;
+    const item = priced(s);
+    if (item.billing === "one-time") {
+      if (!haveBuild) {
+        // Foundation is always included — but never above the anchor cap, even at a
+        // high sizeFactor. The full scope still shows up in `expansion` as the upsell.
+        const price = Math.min(item.price, STARTER_ONETIME_CAP);
+        core.push({ ...item, price }); oneTime += price; haveBuild = true;
+      } else if (oneTime + item.price <= STARTER_ONETIME_CAP) {
+        core.push(item); oneTime += item.price;
+      }
+    } else if (monthly + item.price <= STARTER_MONTHLY_CAP) {
+      core.push(item); monthly += item.price;
+    }
   }
-  const items: RecommendedItem[] = [];
-  for (const id of wanted) {
-    const s = serviceById(id)!;
-    const price = Math.round((s.low + (s.high - s.low) * Math.min(1, Math.max(0, sizeFactor))) / 10) * 10;
-    items.push({ id: s.id, name: s.name, billing: s.billing, price, value: s.value });
-  }
-  // Sort: one-time build first, then recurring by price desc.
-  items.sort((a, b) => (a.billing === b.billing ? b.price - a.price : a.billing === "one-time" ? -1 : 1));
-  const oneTimeTotal = items.filter((i) => i.billing === "one-time").reduce((n, i) => n + i.price, 0);
-  const monthlyTotal = items.filter((i) => i.billing === "monthly").reduce((n, i) => n + i.price, 0);
-  const rationale = gaps.map((g) => GAP_LABEL[g]).filter(Boolean);
-  return { items, oneTimeTotal, monthlyTotal, rationale };
+
+  const sortBundle = (a: RecommendedItem, b: RecommendedItem) => (a.billing === b.billing ? b.price - a.price : a.billing === "one-time" ? -1 : 1);
+  core.sort(sortBundle);
+  const coreIds = new Set(core.map((i) => i.id));
+  const expansion = wanted.filter((s) => !coreIds.has(s.id)).map(priced).sort(sortBundle);
+
+  return {
+    items: core,
+    oneTimeTotal: oneTime,
+    monthlyTotal: monthly,
+    rationale: gaps.map((g) => GAP_LABEL[g]).filter(Boolean),
+    expansion,
+  };
 }
 
 export const GAP_LABEL: Record<GapId, string> = {

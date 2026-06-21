@@ -12,6 +12,7 @@ export interface AuditSignals {
   mobileFriendly: boolean | null;
   responseMs: number | null;
   title: string | null;
+  email: string | null; // contact email scraped from the homepage (free enrichment)
 }
 
 export interface AuditResult {
@@ -25,7 +26,7 @@ const UA = "ParallaxCommandCenter/1.0 (+lead-audit)";
 export async function auditLead(input: { website?: string | null }): Promise<AuditResult> {
   const website = (input.website || "").trim();
   const gaps = new Set<GapId>();
-  const signals: AuditSignals = { hasWebsite: !!website, reachable: null, https: null, mobileFriendly: null, responseMs: null, title: null };
+  const signals: AuditSignals = { hasWebsite: !!website, reachable: null, https: null, mobileFriendly: null, responseMs: null, title: null, email: null };
 
   if (!website) {
     gaps.add("no_website");
@@ -62,6 +63,11 @@ export async function auditLead(input: { website?: string | null }): Promise<Aud
         if (!signals.mobileFriendly) gaps.add("not_mobile");
         const m = html.match(/<title[^>]*>([^<]*)<\/title>/);
         signals.title = m ? m[1].trim().slice(0, 120) : null;
+        // Free contact enrichment: pull a business email from the page (mailto first).
+        const em = fullHtml.match(/mailto:([a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,})/i) || fullHtml.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+        const cand = em ? (em[1] || em[0]) : null;
+        const JUNK = /(example|sentry|wixpress|godaddy|squarespace|cloudflare|\.png|\.jpg|\.gif|@2x|@3x|sentry\.io|\.wix\.)/i;
+        signals.email = cand && !JUNK.test(cand) ? cand.toLowerCase() : null;
         if (!html.includes("mailto:") && !html.includes("subscribe") && !html.includes("newsletter")) gaps.add("no_email_capture");
         // AI visibility: no structured data (JSON-LD or microdata) → assistants
         // can't reliably read/cite the business.

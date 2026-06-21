@@ -12,11 +12,13 @@
  * Motion gates on prefers-reduced-motion AND the .po-still tweak (usePoTheme).
  * ========================================================================== */
 
-import { useEffect, useRef, useState, Fragment, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, Fragment, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/command-center/po/Brand';
 import { ROUTE } from '@/lib/po-data';
 import { usePoTheme } from '@/components/command-center/PoShell';
+import { useVoiceLoop } from '@/hooks/useVoiceLoop';
+import { VOICE_CONFIG } from '@/lib/voice-config';
 
 /* ---- live state of all things (real endpoints, graceful fallback) ---- */
 type Stats = {
@@ -86,6 +88,44 @@ export default function Sanctuary() {
   const { toggleTheme, still } = usePoTheme();
   const ref = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<Stats>(STAT_DEFAULTS);
+
+  // ── Commune with ATLAS in place: the core orb is the voice trigger and the
+  // throne reacts to the conversation state (listening / thinking / speaking).
+  const historyRef = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const askAtlasRef = useRef<(t: string) => void>(() => {});
+  const voiceLoop = useVoiceLoop({
+    maxRecordingSeconds: VOICE_CONFIG.maxRecordingSeconds,
+    silenceTimeoutMs: VOICE_CONFIG.silenceTimeoutMs,
+    autoPlayResponse: true,
+    continuous: true,
+    onTranscriptReady: (t) => askAtlasRef.current(t),
+  });
+  const askAtlas = useCallback(
+    async (text: string) => {
+      const t = text.trim();
+      if (!t) { voiceLoop.cancelVoice(); return; }
+      historyRef.current.push({ role: 'user', content: t });
+      try {
+        const res = await fetch('/api/command-center/voice/atlas', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: t, history: historyRef.current.slice(0, -1) }),
+        });
+        const j = (await res.json().catch(() => null)) as { reply?: string } | null;
+        const reply = (j?.reply || '').trim();
+        if (reply) {
+          historyRef.current.push({ role: 'assistant', content: reply });
+          await voiceLoop.playAgentReply(reply);
+        } else {
+          voiceLoop.cancelVoice();
+        }
+      } catch {
+        voiceLoop.cancelVoice();
+      }
+    },
+    [voiceLoop],
+  );
+  askAtlasRef.current = (text: string) => { void askAtlas(text); };
 
   // pull the real state of all things; fall back to the design figures.
   useEffect(() => {
@@ -189,8 +229,12 @@ export default function Sanctuary() {
         ))}
       </div>
 
-      {/* THE THRONE — an Iron Man targeting reticle */}
-      <div className="sanc-throne">
+      {/* THE THRONE — an Iron Man targeting reticle (reacts to the ATLAS voice loop) */}
+      <div
+        className="sanc-throne"
+        data-voice={voiceLoop.state}
+        style={{ ['--voice-level' as string]: voiceLoop.audioLevel.toFixed(3) } as CSSProperties}
+      >
         <div className="sanc-rays" />
         <div className="sanc-halo" />
 
@@ -213,7 +257,11 @@ export default function Sanctuary() {
         <div className="sanc-arc a2" />
         <div className="sanc-ring ticks" />
         <div className="sanc-ring r2" />
-        <div className="sanc-core" onClick={() => go('comms')} title="Commune with ATLAS">
+        <div
+          className="sanc-core"
+          onClick={() => voiceLoop.toggleMic()}
+          title={voiceLoop.state === 'idle' ? 'Tap to talk to ATLAS' : 'Tap to stop'}
+        >
           <span className="sanc-core-glint" />
         </div>
       </div>
@@ -221,7 +269,17 @@ export default function Sanctuary() {
       {/* THE WORD — speak, and it is done */}
       <div className="sanc-bottom">
         <div className="sanc-directive">
-          <b>Helios Robotics</b> is hot and matches three signals — speak, and it is done.
+          {voiceLoop.state === 'idle' ? (
+            <><b>Helios Robotics</b> is hot and matches three signals — or tap the core to talk to ATLAS.</>
+          ) : voiceLoop.state === 'listening' ? (
+            <span className="sanc-vstate">◉ Listening{voiceLoop.transcript ? ` — “${voiceLoop.transcript}”` : '…'}</span>
+          ) : voiceLoop.state === 'transcribing' ? (
+            <span className="sanc-vstate">Hearing you…</span>
+          ) : voiceLoop.state === 'thinking' ? (
+            <span className="sanc-vstate">ATLAS is thinking…</span>
+          ) : (
+            <span className="sanc-vstate">ATLAS is speaking…</span>
+          )}
         </div>
         <div className="sanc-word" onClick={openPalette}>
           <span className="orb">

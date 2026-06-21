@@ -2008,6 +2008,9 @@ export default function CommandCenterChatPage() {
   const [hoverReactionMsgId, setHoverReactionMsgId] = useState<string | null>(null);
 
   const sendVoiceMessageRef = useRef<(text: string) => void>(() => {});
+  // When a wake/#dm intent opens an agent DM, this blocks the async channel-loader
+  // from clobbering the selection with a default channel.
+  const pendingDmRef = useRef(false);
   const voiceLoop = useVoiceLoop({
     maxRecordingSeconds: VOICE_CONFIG.maxRecordingSeconds,
     silenceTimeoutMs: VOICE_CONFIG.silenceTimeoutMs,
@@ -2015,6 +2018,17 @@ export default function CommandCenterChatPage() {
     onTranscriptReady: (text) => sendVoiceMessageRef.current(text),
   });
 
+  // Voice always talks to ATLAS — route any mic trigger to the Atlas DM first so the
+  // reply lands in the Atlas chat, not whatever channel happens to be open.
+  const switchToAtlasDm = useCallback(() => {
+    const atlas = DEFAULT_AGENTS.find((a) => a.id === "atlas");
+    if (atlas) {
+      pendingDmRef.current = true;
+      setActiveAgent(atlas);
+      setActiveChannel(null);
+      setViewMode("dm");
+    }
+  }, []);
   /* ── mount + cleanup ── */
   useEffect(() => {
     setMounted(true);
@@ -2037,6 +2051,7 @@ export default function CommandCenterChatPage() {
       if (dm) {
         const agent = DEFAULT_AGENTS.find((a) => a.id === dm.toLowerCase());
         if (agent) {
+          pendingDmRef.current = true;
           setActiveAgent(agent);
           setActiveChannel(null);
           setViewMode("dm");
@@ -2071,7 +2086,11 @@ export default function CommandCenterChatPage() {
       }
     };
 
-    const wantsVoice = tryDeepLink() || consumeWakeTrigger();
+    const fromDeepLink = tryDeepLink();
+    const fromWake = consumeWakeTrigger();
+    // Wake-word / HUD voice always means "talk to Atlas". An explicit #dm deep link keeps its own agent.
+    if (fromWake) switchToAtlasDm();
+    const wantsVoice = fromDeepLink || fromWake;
     if (wantsVoice) {
       window.setTimeout(() => {
         try {
@@ -2085,6 +2104,7 @@ export default function CommandCenterChatPage() {
     const onWake = () => {
       if (voiceLoop.state !== "idle") return;
       try {
+        switchToAtlasDm();
         voiceLoop.startListening();
       } catch {
         /* ignore */
@@ -2092,7 +2112,7 @@ export default function CommandCenterChatPage() {
     };
     window.addEventListener("cc:wake", onWake);
     return () => window.removeEventListener("cc:wake", onWake);
-  }, [voiceLoop]);
+  }, [voiceLoop, switchToAtlasDm]);
 
   /* ── keep agentsRef in sync ── */
   useEffect(() => {
@@ -2188,7 +2208,7 @@ export default function CommandCenterChatPage() {
   useEffect(() => {
     const loadData = async () => {
       if (!supabase) {
-        setActiveChannel(DEFAULT_CHANNELS[1]);
+        if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
         setMessages(DEFAULT_MESSAGES as unknown as Message[]);
         setLoading(false);
         return;
@@ -2219,8 +2239,8 @@ export default function CommandCenterChatPage() {
             ...(hasTeam ? [] : DEFAULT_CHANNELS.filter(c => c.type === "team")),
           ];
           setChannels(merged as Channel[]);
-          setActiveChannel((mapped[0] || merged[0]) as Channel);
-        } else {
+          if (!pendingDmRef.current) setActiveChannel((mapped[0] || merged[0]) as Channel);
+        } else if (!pendingDmRef.current) {
           // Fallback to defaults if no Supabase data
           setActiveChannel(DEFAULT_CHANNELS[1]);
         }
@@ -2261,7 +2281,7 @@ export default function CommandCenterChatPage() {
       } catch (err) {
         console.error("Supabase load failed, using defaults:", err);
         // Fallback to defaults
-        setActiveChannel(DEFAULT_CHANNELS[1]);
+        if (!pendingDmRef.current) setActiveChannel(DEFAULT_CHANNELS[1]);
       } finally {
         setLoading(false);
       }

@@ -38,6 +38,7 @@ const sections = [
       { href: '/command-center/sales', label: 'Sales', icon: '◉', accent: '#f59e0b' },
       { href: '/command-center/prospector', label: 'Prospector', icon: '🌐', accent: '#22c55e' },
       { href: '/command-center/leads', label: 'Leads', icon: '◎', accent: '#22c55e' },
+      { href: '/command-center/funnel', label: 'Funnel', icon: '▼', accent: '#22d3ee' },
       { href: '/command-center/sales/proposals', label: 'METTLE Proposal', icon: '▷', accent: '#f59e0b' },
       { href: '/command-center/sales/pricing', label: 'Pricing', icon: '◎', accent: '#f59e0b' },
       { href: '/command-center/sales/agent-pricing', label: 'Agent Pricing', icon: '◇', accent: '#f59e0b' },

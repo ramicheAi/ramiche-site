@@ -15,6 +15,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '@/components/command-center/po/Brand';
+import QuantPanel from '@/components/command-center/po/QuantPanel';
 import { PAGE } from '@/lib/po-data';
 import { usePoTheme } from '@/components/command-center/PoShell';
 import { poPlay } from '@/lib/po-sound';
@@ -280,6 +281,9 @@ export default function FinanceHQ() {
             ))}
           </div>
         </section>
+
+        {/* quant / Simons — real MERIDIAN snapshot (honest, no mock data) */}
+        <QuantPanel />
       </div>
     </div>
   );

@@ -94,10 +94,12 @@ export default function DealRoom() {
   const prepClient = useCallback(async () => {
     setBusy("prep"); setMsg(null);
     const pollGen = async (url: string, field: "intel" | "kit") => {
-      const post = () => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) }).then((r) => r.json());
+      const post = (regenerate?: boolean) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, ...(regenerate ? { regenerate: true } : {}) }) }).then((r) => r.json());
       let d = await post();
       if (d[field]) return;
-      if (d.status === "error") throw new Error(d.error || "failed");
+      // A stale cached error (from an earlier failed run) won't clear on its own — the
+      // route returns it verbatim unless we force a fresh run. Retry ONCE with regenerate.
+      if (d.status === "error") d = await post(true);
       for (let i = 0; i < 60; i++) { await new Promise((r) => setTimeout(r, 4000)); d = await post(); if (d[field]) return; if (d.status === "error") throw new Error(d.error || "failed"); }
       throw new Error("timed out");
     };

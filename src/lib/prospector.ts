@@ -2,6 +2,7 @@
 // Worldwide business search via OpenStreetMap — Nominatim (geocode) + Overpass
 // (business data). Free, no API key, global coverage. Flags "no website"
 // businesses (the web-dev-outreach target).
+import { osmLooksClosed } from "./lead-qualification";
 
 const UA = "ParallaxCommandCenter/1.0 (business prospecting; contact ramon)";
 // Overpass mirrors — tried in order so one overloaded host can't sink a search.
@@ -118,6 +119,7 @@ export async function searchBusinesses(
     const tags = el.tags ?? {};
     const name = tags.name;
     if (!name) continue; // unnamed = not a usable lead
+    if (osmLooksClosed(name, tags)) continue; // skip OSM-flagged closed/disused businesses (free pre-filter)
     const website = tags.website || tags["contact:website"] || null;
     if (opts.onlyNoWebsite && website) continue;
     out.push({

@@ -5,10 +5,19 @@
 // this completes), and the result is written to the lead's meta for the UI to poll.
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const PROXY = process.env.CLAUDE_MAX_PROXY_URL || "http://127.0.0.1:3456/v1/chat/completions";
-// The proxy requires a bearer token. lead-gen was the only caller NOT sending it →
-// every intel/kit generation got HTTP 401 in prod. Match the working sibling (cc-approve-synthesis).
-const PROXY_TOKEN = (process.env.CLAUDE_MAX_PROXY_TOKEN || "not-needed").trim();
+// Read proxy config at CALL TIME, not module-load. In the long-running `next start`
+// server the module-level const evaluated before env was fully applied, freezing the
+// token to "not-needed" → HTTP 401 on every intel/kit generation (the prep "snag").
+// cc-approve-synthesis reads at call time and works — match it. Also strip stray
+// surrounding quotes/whitespace (Vercel-pulled .env.production.local quotes values).
+function proxyConfig(): { url: string; token: string } {
+  const clean = (v: string | undefined, fallback: string) =>
+    ((v ?? "").trim().replace(/^["']|["']$/g, "").trim() || fallback);
+  return {
+    url: clean(process.env.CLAUDE_MAX_PROXY_URL, "http://127.0.0.1:3456/v1/chat/completions"),
+    token: clean(process.env.CLAUDE_MAX_PROXY_TOKEN, "not-needed"),
+  };
+}
 
 // Prevent a poll from kicking off a duplicate generation for the same field.
 const inFlight = new Set<string>();
@@ -19,25 +28,37 @@ export async function callProxyJSON(
   user: string,
   opts: { model?: string; timeoutMs?: number } = {},
 ): Promise<unknown> {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 180_000);
+  const { url, token } = proxyConfig();
+  const once = async (): Promise<unknown> => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs ?? 180_000);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ model: opts.model ?? "claude-sonnet-4-5", stream: false, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
+        signal: ctrl.signal,
+      });
+      if (!res.ok) throw new Error(`agent proxy HTTP ${res.status}`);
+      const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+      const raw = (j.choices?.[0]?.message?.content || "").trim();
+      const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      const start = cleaned.indexOf("{");
+      const end = cleaned.lastIndexOf("}");
+      const jsonStr = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+      return JSON.parse(jsonStr);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
   try {
-    const res = await fetch(PROXY, {
-      method: "POST",
-      headers: { "content-type": "application/json", Authorization: `Bearer ${PROXY_TOKEN}` },
-      body: JSON.stringify({ model: opts.model ?? "claude-sonnet-4-5", stream: false, messages: [{ role: "system", content: system }, { role: "user", content: user }] }),
-      signal: ctrl.signal,
-    });
-    if (!res.ok) throw new Error(`agent proxy HTTP ${res.status}`);
-    const j = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const raw = (j.choices?.[0]?.message?.content || "").trim();
-    const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-    const start = cleaned.indexOf("{");
-    const end = cleaned.lastIndexOf("}");
-    const jsonStr = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
-    return JSON.parse(jsonStr);
-  } finally {
-    clearTimeout(timer);
+    return await once();
+  } catch (e) {
+    // The model occasionally emits slightly-malformed JSON (esp. large kits) → a
+    // SyntaxError from JSON.parse. Retry once with a fresh generation. Do NOT retry
+    // proxy HTTP/network errors (auth/down) — surface those immediately.
+    if (e instanceof SyntaxError) return await once();
+    throw e;
   }
 }
 

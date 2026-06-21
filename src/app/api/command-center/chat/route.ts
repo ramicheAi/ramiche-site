@@ -78,7 +78,7 @@ const AGENT_MODEL_TIER: Record<string, "opus" | "sonnet" | "haiku"> = {
   atlas: "opus",
   themis: "sonnet",
   drstrange: "sonnet",
-  simons: "sonnet",
+  simons: "opus",
   kiyosaki: "sonnet",
   proximon: "sonnet",
   widow: "sonnet",
