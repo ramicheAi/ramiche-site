@@ -74,6 +74,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
   }
 
+  // SECURITY: the command center + its data APIs (leads, pipeline, financials) are
+  // ONLY reachable via the command.* domain, localhost, or the tailnet — NEVER the
+  // public *.vercel.app alias. Without this, anyone could GET the lead list publicly.
+  if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {
+    const trusted =
+      fwdHost.startsWith("command.") ||
+      fwdHost.startsWith("localhost") ||
+      fwdHost.startsWith("127.0.0.1") ||
+      fwdHost.endsWith(".ts.net");
+    if (!trusted) return new NextResponse("Not found", { status: 404 });
+  }
+
   if (!isProtectedPath(pathname)) {
     return NextResponse.next();
   }
@@ -99,5 +111,8 @@ export const config = {
     "/apex-athlete/coach/:path*",
     "/apex-athlete/athlete",
     "/apex-athlete/athlete/:path*",
+    "/command-center",
+    "/command-center/:path*",
+    "/api/command-center/:path*",
   ],
 };
