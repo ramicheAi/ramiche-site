@@ -184,6 +184,18 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
       expiry: Date.now() + SESSION_DURATION_MS,
     };
     setSession(session);
+    // Establish a server-verified coach session so /api/apex-athlete/roster trusts this device.
+    // No-op until APEX_SESSION_SECRET + MASTER_PIN are set server-side (route returns 503/401).
+    try {
+      await fetch("/api/apex-athlete/coach-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ pin }),
+      });
+    } catch {
+      /* offline: roster stays localStorage-only this session */
+    }
     return { success: true, session };
   }
 

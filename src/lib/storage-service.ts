@@ -1,6 +1,4 @@
 // src/lib/storage-service.ts
-import { db } from './firebase'
-import { doc, getDoc, setDoc } from 'firebase/firestore'
 import type { Athlete } from '@/app/apex-athlete/coach/types'
 
 const STORAGE_KEYS = {
@@ -44,17 +42,16 @@ export const StorageService = {
       console.error('LocalStorage save failed', e)
     }
 
-    // 2. Save to Firestore (Async backup)
+    // 2. Save to Firestore via server (Admin SDK) — /organizations is locked to `if false`
     try {
-      if (orgId && db) {
-        await setDoc(doc(db, 'organizations', orgId, 'rosters', 'all'), {
-          athletes: roster,
-          updatedAt: new Date().toISOString(),
-          totalXP // Metadata for recovery
-        }, { merge: true }) // Merge prevents wiping fields not in Roster type
-      }
+      await fetch('/api/apex-athlete/roster', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // send the coach session cookie
+        body: JSON.stringify({ orgId, athletes: roster }),
+      })
     } catch (e) {
-      console.error('Firestore save failed (offline?)', e)
+      console.error('Roster save failed (offline?)', e)
     }
   },
 
@@ -70,19 +67,18 @@ export const StorageService = {
       }
     }
 
-    // 2. Fallback to Firestore
-    if (!db) return null
+    // 2. Fallback to server (Admin SDK reads the locked /organizations path)
     try {
-      const snap = await getDoc(doc(db, 'organizations', orgId, 'rosters', 'all'))
-      if (snap.exists()) {
-        const data = snap.data()
-        const roster = data.athletes as Athlete[]
-        // Cache it locally for next time
-        localStorage.setItem(STORAGE_KEYS.ROSTER, JSON.stringify(roster))
-        return roster
+      const res = await fetch(`/api/apex-athlete/roster?orgId=${encodeURIComponent(orgId)}`, { credentials: 'include' })
+      if (res.ok) {
+        const { athletes } = await res.json()
+        if (Array.isArray(athletes) && athletes.length) {
+          localStorage.setItem(STORAGE_KEYS.ROSTER, JSON.stringify(athletes))
+          return athletes as Athlete[]
+        }
       }
     } catch (e) {
-      console.error('Firestore load failed', e)
+      console.error('Roster load failed', e)
     }
 
     return null
