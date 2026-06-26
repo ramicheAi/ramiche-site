@@ -218,37 +218,31 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
     }
   } catch {}
 
-  // 3. Check Athlete PINs from Firestore (works on any device)
-  if (db) {
-    try {
-      const rostersRef = collection(db, `organizations/${ORG_ID}/rosters`);
-      const snap = await getDocs(rostersRef);
-      for (const docSnap of snap.docs) {
-        const data = docSnap.data();
-        const athletes = data.athletes as unknown[];
-        if (!athletes) continue;
-        const athlete = athletes.find((a: unknown) => {
-          const ath = a as { pin?: string; name: string; id: string };
-          return ath.pin && ath.pin === pin;
-        });
-        if (athlete) {
-          const ath = athlete as { pin?: string; name: string; id: string };
-          const session: AuthSession = {
-            role: "athlete",
-            name: ath.name,
-            email: `${ath.id}@apexathlete.local`,
-            athleteId: ath.id,
-            expiry: Date.now() + SESSION_DURATION_MS,
-          };
-          setSession(session);
-          // Phase 4: Dual-write — anonymous Firebase session for athlete (non-blocking)
-          fbSignInAnonymous().catch(() => {});
-          return { success: true, session };
-        }
+  // 3. Check Athlete PINs via server (Admin SDK reads the locked /organizations path; works on any device)
+  try {
+    const res = await fetch("/api/apex-athlete/athlete-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    });
+    if (res.ok) {
+      const { athlete } = (await res.json()) as { athlete?: { id: string; name: string } };
+      if (athlete?.id) {
+        const session: AuthSession = {
+          role: "athlete",
+          name: athlete.name,
+          email: `${athlete.id}@apexathlete.local`,
+          athleteId: athlete.id,
+          expiry: Date.now() + SESSION_DURATION_MS,
+        };
+        setSession(session);
+        // Phase 4: Dual-write — anonymous Firebase session for athlete (non-blocking)
+        fbSignInAnonymous().catch(() => {});
+        return { success: true, session };
       }
-    } catch (e) {
-      console.warn("[Auth] Firestore PIN lookup failed:", e);
     }
+  } catch (e) {
+    console.warn("[Auth] athlete login lookup failed:", e);
   }
 
   // 4. Fallback: check localStorage roster (coach's device only)
