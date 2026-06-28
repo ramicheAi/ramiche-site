@@ -9,6 +9,7 @@
 import {
   getAuth,
   signInWithEmailAndPassword,
+  signInWithCustomToken,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
@@ -78,6 +79,20 @@ export async function fbSignInAnonymous(): Promise<{
   } catch (e: unknown) {
     const err = e as { message?: string };
     return { success: false, error: err.message ?? "Anonymous sign in failed" };
+  }
+}
+
+// ── Sign In With Custom Token (Path A: claims-based) ──────────
+// Token is minted server-side after the PIN/password check and carries
+// {orgId, role, athleteId} claims the Firestore rules enforce.
+export async function fbSignInWithCustomToken(token: string): Promise<boolean> {
+  const a = getFirebaseAuth();
+  if (!a || !token) return false;
+  try {
+    await signInWithCustomToken(a, token);
+    return true;
+  } catch {
+    return false;
   }
 }
 

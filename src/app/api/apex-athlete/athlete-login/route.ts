@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initializeApp, getApps, cert, type App } from "firebase-admin/app";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { mintCustomToken } from "@/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -68,7 +69,16 @@ export async function POST(req: NextRequest) {
       const athletes = (doc.data()?.athletes ?? []) as Array<{ pin?: string; id?: string; name?: string }>;
       const match = athletes.find((a) => a.pin && a.pin === pin);
       if (match?.id) {
-        return NextResponse.json({ ok: true, athlete: { id: match.id, name: match.name ?? "" } });
+        const customToken = await mintCustomToken(`apex_${match.id}`, {
+          orgId,
+          role: "athlete",
+          athleteId: match.id,
+        });
+        return NextResponse.json({
+          ok: true,
+          athlete: { id: match.id, name: match.name ?? "" },
+          customToken,
+        });
       }
     }
   } catch {

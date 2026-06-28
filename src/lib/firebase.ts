@@ -10,6 +10,7 @@
 //   NEXT_PUBLIC_FIREBASE_APP_ID
 
 import { initializeApp, getApps, getApp } from "firebase/app";
+import { startAppCheck } from "./app-check";
 import {
   getFirestore,
   doc,
@@ -43,6 +44,7 @@ let db: ReturnType<typeof getFirestore> | null = null;
 
 if (hasConfig && typeof window !== "undefined") {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  startAppCheck(app); // no-op until NEXT_PUBLIC_FIREBASE_APPCHECK_KEY is set
   db = getFirestore(app);
 }
 

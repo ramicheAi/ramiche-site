@@ -132,6 +132,22 @@ export async function revokeSession(uid: string): Promise<boolean> {
   }
 }
 
+// ── Mint Custom Token (Path A: claims-based client auth) ─────
+// Server stamps {orgId, role, athleteId} onto the user's Firebase token after a
+// credential check; client signInWithCustomToken; Firestore rules read the claims.
+export async function mintCustomToken(
+  uid: string,
+  claims: Record<string, unknown>
+): Promise<string | null> {
+  getAdminApp();
+  if (!adminAuth) return null;
+  try {
+    return await adminAuth.createCustomToken(uid, claims);
+  } catch {
+    return null;
+  }
+}
+
 /** YOLO builds manifest synced by POST /api/command-center/firestore-sync (local → Firestore). */
 export async function fetchCommandCenterYoloManifest(): Promise<{
   builds: Record<string, unknown>[];

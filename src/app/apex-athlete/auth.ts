@@ -6,7 +6,7 @@
 
 import { db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
-import { fbSignUp, fbSignInAnonymous } from "./lib/firebase-auth";
+import { fbSignUp, fbSignInAnonymous, fbSignInWithCustomToken } from "./lib/firebase-auth";
 
 const ORG_ID = "saint-andrews-aquatics";
 
@@ -187,12 +187,16 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
     // Establish a server-verified coach session so /api/apex-athlete/roster trusts this device.
     // No-op until APEX_SESSION_SECRET + MASTER_PIN are set server-side (route returns 503/401).
     try {
-      await fetch("/api/apex-athlete/coach-session", {
+      const r = await fetch("/api/apex-athlete/coach-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ pin }),
       });
+      if (r.ok) {
+        const { customToken } = (await r.json()) as { customToken?: string };
+        if (customToken) await fbSignInWithCustomToken(customToken);
+      }
     } catch {
       /* offline: roster stays localStorage-only this session */
     }
@@ -226,7 +230,10 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
       body: JSON.stringify({ pin }),
     });
     if (res.ok) {
-      const { athlete } = (await res.json()) as { athlete?: { id: string; name: string } };
+      const { athlete, customToken } = (await res.json()) as {
+        athlete?: { id: string; name: string };
+        customToken?: string;
+      };
       if (athlete?.id) {
         const session: AuthSession = {
           role: "athlete",
@@ -236,8 +243,9 @@ export async function loginWithPin(pin: string): Promise<{ success: boolean; ses
           expiry: Date.now() + SESSION_DURATION_MS,
         };
         setSession(session);
-        // Phase 4: Dual-write — anonymous Firebase session for athlete (non-blocking)
-        fbSignInAnonymous().catch(() => {});
+        // Path A: real Firebase session with athlete claims (falls back to anon)
+        if (customToken) await fbSignInWithCustomToken(customToken);
+        else fbSignInAnonymous().catch(() => {});
         return { success: true, session };
       }
     }

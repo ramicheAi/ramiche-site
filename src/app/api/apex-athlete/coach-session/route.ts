@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { mintCoachToken } from "@/lib/apex-coach-token";
+import { mintCustomToken } from "@/lib/firebase-admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -64,7 +65,9 @@ export async function POST(req: NextRequest) {
   if (!token)
     return NextResponse.json({ ok: false, error: "server not configured (APEX_SESSION_SECRET)" }, { status: 503 });
 
-  const res = NextResponse.json({ ok: true });
+  // Path A: also mint a Firebase custom token with claims for signInWithCustomToken.
+  const customToken = await mintCustomToken("apex-admin", { orgId, role: "admin" });
+  const res = NextResponse.json({ ok: true, customToken });
   res.cookies.set("apex-coach-session", token, {
     httpOnly: true,
     secure: true,
