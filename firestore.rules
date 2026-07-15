@@ -5,8 +5,11 @@ rules_version = '2';
 //     cp firestore.rules.proposed firestore.rules
 // Deploy this IDENTICAL file from EVERY repo that targets apex-athlete-73755
 // (mettle, ramiche-site, GALACTIK-ANTICS 2) so "last deploy wins" drift can no
-// longer open a hole. Do NOT deploy until the Admin-SDK roster route is wired
-// (see SECURITY-FIX-PROPOSAL.md) or coach roster sync will break.
+// longer open a hole. CANONICAL UNION (2026-07-15): this exact file lives in
+// mettle, ramiche-site AND "GALACTIK-ANTICS 2" — all three deploy to project
+// apex-athlete-73755 and LAST DEPLOY WINS, so the three copies must stay
+// byte-identical. The entitlements block belongs to Galactik; the org deny
+// wall belongs to METTLE. Never remove either. Update ALL THREE together.
 // ════════════════════════════════════════════════════════════════════════
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -32,8 +35,15 @@ service cloud.firestore {
     match /lore/{loreId}             { allow read: if true; allow write: if false; }
     match /commerceOrders/{sessionId}    { allow read, write: if false; }
     match /stripeWebhookEvents/{eventId} { allow read, write: if false; }
+    // digital purchase entitlements — granted ONLY by the Stripe webhook via
+    // Admin SDK; owners may read their own, nobody may write from the client
+    // (client-writable ownership would let anyone grant themselves products)
+    match /entitlements/{userId}/{document=**} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
 
-    // ── Default deny everything else (this floor is currently MISSING) ──
+    // ── Default deny everything else ────────────────────────────────────
     match /{document=**} { allow read, write: if false; }
   }
 }
