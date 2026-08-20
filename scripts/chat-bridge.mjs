@@ -14,9 +14,10 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
+import os from "node:os";
 import { execFile } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { readFileSync, writeFileSync, renameSync } from "node:fs";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -286,11 +287,59 @@ async function main() {
       }
     });
 
-  // Refresh caches periodically
+/**
+ * Write the dead-man heartbeat this fleet is built on.
+ *
+ * The watchdog's real question is inverted: a job must actively state it is fine, and the
+ * ABSENCE of that statement is the alarm, because a dead process cannot report its own
+ * death. Every Python job does this through Gate.heartbeat(). This bridge is the only Node
+ * job in the fleet and had no equivalent, so its state entry sat at null forever and it
+ * could never prove health even once the exit-code bug was fixed.
+ *
+ * Deliberately synchronous and wrapped: this is observability, and it must never be able to
+ * take down message relay. A failed heartbeat write is silently dropped, and the watchdog
+ * then correctly reports silence.
+ */
+function heartbeat() {
+  try {
+    const statePath = join(os.homedir(), ".openclaw", "qc", "state.json");
+    let state = {};
+    try {
+      state = JSON.parse(readFileSync(statePath, "utf8"));
+    } catch {
+      state = {};
+    }
+    const jobs = state.jobs || state;
+    const now = new Date();
+    // LOCAL time, matching Gate.heartbeat()'s datetime.now().isoformat(). toISOString()
+    // returns UTC, which on this machine is four hours ahead, and a heartbeat stamped in
+    // the future would read as fresh for four hours after the bridge actually stopped.
+    // The epoch field is timezone independent and is what the watchdog compares; last_ok is
+    // what a human reads, so the two must agree.
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    jobs["chat-bridge"] = {
+      last_ok: local.toISOString().slice(0, 19),
+      last_ok_epoch: Math.floor(now.getTime() / 1000),
+    };
+    // Write through a temp file and rename, so a crash mid-write cannot leave the shared
+    // state file truncated for the twenty other jobs that read it.
+    const tmp = statePath + ".tmp";
+    writeFileSync(tmp, JSON.stringify(state, null, 2));
+    renameSync(tmp, statePath);
+  } catch {
+    // Never let observability break the bridge.
+  }
+}
+
+  // Refresh caches periodically, and prove we are alive while doing it.
   setInterval(async () => {
     await loadAgents();
     await loadChannels();
+    heartbeat();
   }, 5 * 60 * 1000);
+
+  // Say it once at startup too, so a fresh process does not look silent for five minutes.
+  heartbeat();
 
   // Graceful shutdown
   process.on("SIGINT", () => {
