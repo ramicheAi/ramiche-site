@@ -1,0 +1,19 @@
+# Parallax Publish, QUEUE ONLY token for this repo's brand: ramiche
+#
+# COMMITTED ON PURPOSE, and only safe because of what this token cannot do.
+# It cannot publish. It submits to an approval queue and Ramon decides at
+# parallax-publish.vercel.app/queue. It is scoped to the ramiche brand and
+# physically cannot reach another. The worst case if it leaks is junk in an
+# approval list, which is why it can live in a private repo while SERVICE_TOKEN
+# never can.
+#
+# It exists because cloud containers have no .env. Sessions kept reporting "no
+# credential" and asking for SERVICE_TOKEN, which is refused correctly, and the
+# safe path was unreachable from a container. This makes it reachable.
+#
+# It is a SEPARATE token from the one in .env, so revoking it costs nothing else:
+#   npx tsx scripts/agent-token.ts revoke cloud-ramiche     (in parallax-publish)
+#
+# Read it with:  export PARALLAX_PUBLISH_TOKEN=$(grep -v '^#' .parallax-publish-token | tr -d '\n')
+
+pxp_que_uuAMXAEMdPHHBaGgX6SHbenLv8fxxUII

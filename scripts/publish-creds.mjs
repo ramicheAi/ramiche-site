@@ -61,7 +61,21 @@ const present = (n) => Boolean(process.env[n]);
 const anyPublish = PUBLISHING_KEYS.some(present);
 const anyRead = READ_KEYS.some(present);
 
-const queueTok = QUEUE_KEYS.map((k) => process.env[k]).find(Boolean);
+/* Env first, then the committed file. A cloud container has no .env, so before
+   this file existed the safe path was simply unreachable there and sessions asked
+   for SERVICE_TOKEN instead. The file holds a SEPARATE, revocable, queue-only
+   token: it cannot publish, only propose, which is what makes committing it to a
+   private repo defensible where SERVICE_TOKEN never would be. */
+const tokenFromFile = () => {
+  try {
+    const raw = readFileSync(new URL("../.parallax-publish-token", import.meta.url), "utf8");
+    const line = raw.split("\n").map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
+    return line || undefined;
+  } catch {
+    return undefined;
+  }
+};
+const queueTok = QUEUE_KEYS.map((k) => process.env[k]).find(Boolean) || tokenFromFile();
 
 console.log("THIS CONTAINER");
 console.log(`  queue a post for approval : ${queueTok ? `YES, PARALLAX_PUBLISH_TOKEN present (${queueTok.slice(0, 12)}...)` : "no token, see below"}`);
