@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -67,7 +69,7 @@ export default function ProjectHQ() {
   // Fetch project data from API
   useEffect(() => {
     if (!slug) return;
-    fetch(`/api/command-center/projects?slug=${slug}`)
+    cockpitFetch(`/api/command-center/projects?slug=${slug}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.docs) setDocs(data.docs);
@@ -98,7 +100,7 @@ export default function ProjectHQ() {
     setActiveDoc(docName);
     setDocLoading(true);
     setDocContent("");
-    fetch(`/api/command-center/projects?slug=${slug}&doc=${docName}`)
+    cockpitFetch(`/api/command-center/projects?slug=${slug}&doc=${docName}`)
       .then((r) => r.json())
       .then((data) => {
         if (data.content) setDocContent(data.content);

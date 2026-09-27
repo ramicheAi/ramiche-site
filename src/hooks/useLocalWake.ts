@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -132,7 +134,7 @@ export function useLocalWake(opts: UseLocalWakeOptions): UseLocalWakeResult {
     form.append("audio", blob, "wake.webm");
 
     try {
-      const res = await fetch("/api/command-center/voice/transcribe", {
+      const res = await cockpitFetch("/api/command-center/voice/transcribe", {
         method: "POST",
         body: form,
       });

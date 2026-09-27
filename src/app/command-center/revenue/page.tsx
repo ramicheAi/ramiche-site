@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -59,7 +61,7 @@ export default function RevenuePage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/command-center/revenue", { cache: "no-store" })
+    cockpitFetch("/api/command-center/revenue", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (cancelled || !data) return;

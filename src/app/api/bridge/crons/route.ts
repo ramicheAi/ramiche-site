@@ -1,3 +1,4 @@
+import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
 // ── Cron CRUD API ───────────────────────────────────────────────────
 // POST: Create cron → writes to Firestore, bridge picks up
 // DELETE: Remove cron → writes to Firestore, bridge picks up
@@ -11,6 +12,9 @@ const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const authHeader = req.headers.get("x-bridge-secret");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -69,7 +73,10 @@ export async function POST(req: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     // Fetch from both sources: user-created crons + bridge-synced OpenClaw crons
     const [userRes, bridgeRes] = await Promise.all([

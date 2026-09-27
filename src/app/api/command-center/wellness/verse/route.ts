@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 /**
  * Daily contextual Bible verse — Command Center / Wellness.
  *
@@ -188,12 +189,18 @@ async function getOrCreateToday(opts: { mood?: string; force?: boolean }): Promi
   return { ...chosen, verse_date: date, context_summary: context.slice(0, 1200) };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const verse = await getOrCreateToday({});
   return NextResponse.json(verse);
 }
 
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let mood: string | undefined;
   try {
     const body = await req.json();

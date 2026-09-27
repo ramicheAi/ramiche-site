@@ -7,6 +7,8 @@
  *     header X-Telegram-Bot-Api-Secret-Token on each update
  */
 
+import { requireTelegramTransport } from "@/lib/server/telegram-dispatch-policy";
+
 function cleanEnv(name: string): string | undefined {
   const raw = process.env[name];
   if (!raw) return undefined;
@@ -79,7 +81,5 @@ export async function telegramAnswerCallbackQuery(
 }
 
 export function verifyTelegramWebhookSecret(req: { headers: Headers }): boolean {
-  const expected = cleanEnv("TELEGRAM_WEBHOOK_SECRET");
-  if (!expected) return true;
-  return req.headers.get("X-Telegram-Bot-Api-Secret-Token") === expected;
+  return requireTelegramTransport(req).ok;
 }

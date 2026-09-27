@@ -1,3 +1,4 @@
+import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { composeBriefing, type BriefingInput } from "@/lib/cc-briefing";
 import {
@@ -49,6 +50,9 @@ function sanitizeReply(text: string): string {
  * something useful.
  */
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: ComposeBody;
   try {
     body = (await req.json()) as ComposeBody;
@@ -120,7 +124,10 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return NextResponse.json({
     ok: true,
     endpoint: "POST /api/command-center/briefing/compose",

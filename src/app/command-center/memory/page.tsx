@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -82,7 +84,7 @@ export default function MemoryBrowserPage() {
 
   const fetchMemory = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/memory?days=30");
+      const res = await cockpitFetch("/api/command-center/memory?days=30");
       if (!res.ok) throw new Error("API error");
       const data = await res.json();
       if (data.days && data.days.length > 0) {

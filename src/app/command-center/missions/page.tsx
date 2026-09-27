@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -37,14 +39,14 @@ export default function MissionsPage() {
   const [loading, setLoading] = useState(true);
 
   const fetchProjects = useCallback(() => {
-    fetch("/api/bridge?type=projects")
+    cockpitFetch("/api/bridge?type=projects")
       .then(r => r.json())
       .then(data => {
         const list = data?.projects;
         if (Array.isArray(list) && list.length > 0) {
           setProjects(list);
         } else {
-          return fetch("/api/command-center/projects").then(r => r.json()).then(fb => {
+          return cockpitFetch("/api/command-center/projects").then(r => r.json()).then(fb => {
             if (fb.projects) setProjects(fb.projects);
           });
         }

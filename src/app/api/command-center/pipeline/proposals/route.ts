@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -17,6 +18,9 @@ function svc() {
 
 /** GET /api/command-center/pipeline/proposals?lead_id=...&status=sent&limit=100 */
 export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { db, err } = svc();
   if (err) return err;
 
@@ -45,6 +49,9 @@ export async function GET(req: Request) {
  * its stage to 'proposal'.
  */
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { db, err } = svc();
   if (err) return err;
 

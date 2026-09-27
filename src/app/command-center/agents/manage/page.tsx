@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -171,7 +173,7 @@ export default function AgentManagement() {
 
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/agents", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       if (data.agents?.length) {

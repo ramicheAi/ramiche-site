@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 // ── Command Center: Cron CRUD API ──────────────────────────────────
 // Proxies cron operations to OpenClaw CLI on the local machine
 // For Vercel deployment: reads from Firestore (bridge-synced data)
@@ -12,7 +13,10 @@ const BRIDGE_SECRET = process.env.BRIDGE_API_SECRET;
 export const dynamic = "force-dynamic";
 
 // GET: List cron jobs from Firestore (bridge-synced)
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const res = await fetch(`${FIRESTORE_BASE}/command-center/crons`, {
       headers: { "Content-Type": "application/json" },
@@ -28,6 +32,9 @@ export async function GET() {
 
 // POST: Create/Delete/Toggle cron (writes action to Firestore queue for bridge to pick up)
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const authHeader = req.headers.get("x-bridge-secret");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

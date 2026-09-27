@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -39,7 +41,7 @@ export default function LeadsPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/pipeline/leads?limit=300", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/pipeline/leads?limit=300", { cache: "no-store" });
       if (res.ok) { const d = await res.json(); setLeads(Array.isArray(d.leads) ? d.leads : []); }
     } catch { /* keep */ }
   }, []);

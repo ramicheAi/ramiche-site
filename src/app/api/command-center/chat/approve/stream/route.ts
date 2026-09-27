@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 /**
  * Streaming Phase C+F approval — SSE.
  *
@@ -45,6 +46,9 @@ function sseFrame(name: string, data: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
+  const guard = await guardProtectedMutation(req);
+  if (!guard.ok) return guard.response;
+
   let messageId = "";
   try {
     const body = (await req.json()) as { messageId?: string };
@@ -83,7 +87,7 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        const result = await approveSynthesisMessageStreamed(messageId, onEvent);
+        const result = await approveSynthesisMessageStreamed(messageId, onEvent, req);
         if (!result.ok) {
           safeEnqueue(sseFrame("error", { error: result.error, status: result.status }));
         }
@@ -118,7 +122,10 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return new Response(
     JSON.stringify({
       ok: true,

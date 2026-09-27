@@ -57,11 +57,14 @@ export async function verifyIdToken(
 // ── Create Session Cookie ────────────────────────────────────
 export async function createSessionCookie(
   idToken: string,
-  expiresIn: number = 30 * 24 * 60 * 60 * 1000 // 30 days
+  expiresIn: number = 5 * 24 * 60 * 60 * 1000 // within Firebase maximum (14 days)
 ): Promise<string | null> {
   getAdminApp();
   if (!adminAuth) return null;
   try {
+    const verified = await adminAuth.verifyIdToken(idToken, true);
+    const age = Date.now() / 1000 - verified.auth_time;
+    if (!Number.isFinite(age) || age < -60 || age > 300) return null;
     return await adminAuth.createSessionCookie(idToken, { expiresIn });
   } catch {
     return null;
@@ -71,12 +74,12 @@ export async function createSessionCookie(
 // ── Verify Session Cookie ────────────────────────────────────
 export async function verifySessionCookie(
   cookie: string
-): Promise<{ uid: string; email?: string } | null> {
+): Promise<{ uid: string; email?: string; signInProvider?: string } | null> {
   getAdminApp();
   if (!adminAuth) return null;
   try {
     const decoded = await adminAuth.verifySessionCookie(cookie, true);
-    return { uid: decoded.uid, email: decoded.email };
+    return { uid: decoded.uid, email: decoded.email, signInProvider: decoded.firebase?.sign_in_provider };
   } catch {
     return null;
   }

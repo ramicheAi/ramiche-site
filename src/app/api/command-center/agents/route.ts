@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, writeFile } from "fs/promises";
 import { join } from "path";
@@ -99,7 +100,10 @@ function mapAgent(id: string, a: DirectoryAgent, isActive: boolean) {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const activeSet = getRecentlyActiveAgents();
 
   // Try live filesystem first (works when self-hosted / local dev)
@@ -138,6 +142,9 @@ interface PostBody {
 
 /** Persist model change to `agents/directory.json` when workspace is writable (local OpenClaw). */
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: PostBody;
   try {
     body = (await req.json()) as PostBody;

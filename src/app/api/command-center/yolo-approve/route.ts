@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,9 @@ export const runtime = "nodejs";
  * imports into this route's serverless bundle.
  */
 export async function POST(request: Request): Promise<Response> {
+  const p03Guard = await guardProtectedMutation(request);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const { handleYoloApprove } = await import("./handler");
     return await handleYoloApprove(request);

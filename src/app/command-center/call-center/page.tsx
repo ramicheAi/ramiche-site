@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel, PgBtn } from "@/components/command-center/po/Instrument";
@@ -60,8 +62,8 @@ export default function CallCenterPage() {
     setErr(null);
     try {
       const [cl, mt] = await Promise.all([
-        fetch(`/api/command-center/voice/call-list?limit=25${callableOnly ? "&callableOnly=1" : ""}`),
-        fetch(`/api/command-center/voice/metrics`),
+        cockpitFetch(`/api/command-center/voice/call-list?limit=25${callableOnly ? "&callableOnly=1" : ""}`),
+        cockpitFetch(`/api/command-center/voice/metrics`),
       ]);
       if (cl.ok) {
         const d = await cl.json();
@@ -89,7 +91,7 @@ export default function CallCenterPage() {
     setCalling(c.leadId);
     setResult((p) => ({ ...p, [c.leadId]: "Calling…" }));
     try {
-      const res = await fetch(`/api/command-center/voice/call`, {
+      const res = await cockpitFetch(`/api/command-center/voice/call`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ leadId: c.leadId }),

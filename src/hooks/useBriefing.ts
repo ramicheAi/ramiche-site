@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { composeBriefing, type BriefingInput, type ComposedBriefing } from "@/lib/cc-briefing";
@@ -161,9 +163,9 @@ export function useBriefing(): UseBriefingResult {
     setStatus((prev) => (prev === "speaking" ? prev : "loading"));
     try {
       const [aRes, rRes, cRes] = await Promise.allSettled([
-        fetch("/api/command-center/agents", { cache: "no-store" }),
-        fetch("/api/command-center/revenue", { cache: "no-store" }),
-        fetch("/api/command-center/calendar", { cache: "no-store" }),
+        cockpitFetch("/api/command-center/agents", { cache: "no-store" }),
+        cockpitFetch("/api/command-center/revenue", { cache: "no-store" }),
+        cockpitFetch("/api/command-center/calendar", { cache: "no-store" }),
       ]);
 
       const agentsJson =
@@ -232,7 +234,7 @@ export function useBriefing(): UseBriefingResult {
       }
       const task = (async () => {
         try {
-          const res = await fetch("/api/command-center/briefing/compose", {
+          const res = await cockpitFetch("/api/command-center/briefing/compose", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ facts: raw }),

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 
@@ -115,8 +117,8 @@ export default function SignalWirePage() {
   const fetchData = useCallback(async () => {
     try {
       const [agentsRes, activityRes] = await Promise.allSettled([
-        fetch("/api/bridge?type=agents"),
-        fetch("/api/bridge?type=agentActivity"),
+        cockpitFetch("/api/bridge?type=agents"),
+        cockpitFetch("/api/bridge?type=agentActivity"),
       ]);
       let liveAgents: LiveAgent[] = [];
       if (agentsRes.status === "fulfilled" && agentsRes.value.ok) {

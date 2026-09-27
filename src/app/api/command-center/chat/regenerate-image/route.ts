@@ -1,3 +1,4 @@
+import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
 /**
  * Regenerate a single image inline.
  *
@@ -43,6 +44,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const TENANT_ID = "11111111-1111-1111-1111-111111111111";
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: {
     prompt?: string;
     agentId?: string;
@@ -130,7 +134,10 @@ export async function POST(req: NextRequest) {
   });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return NextResponse.json({
     ok: true,
     accepts: ["POST"],

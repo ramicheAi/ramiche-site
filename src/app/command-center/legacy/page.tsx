@@ -1,5 +1,7 @@
+
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars, @next/next/no-img-element */
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
 
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import Link from "next/link";
@@ -271,7 +273,7 @@ export default function CommandCenter() {
   useEffect(() => {
     const fetchBridge = async () => {
       try {
-        const res = await fetch("/api/bridge?type=all", { cache: "no-store" });
+        const res = await cockpitFetch("/api/bridge?type=all", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           setBridgeData(data);
@@ -314,7 +316,7 @@ export default function CommandCenter() {
 
   /* ── Agent directory (models/roles from directory.json via API) ── */
   useEffect(() => {
-    fetch("/api/command-center/agents", { cache: "no-store" })
+    cockpitFetch("/api/command-center/agents", { cache: "no-store" })
       .then((r) => r.json())
       .then((data: { agents?: { id: string; model: string; role: string; status: string }[] }) => {
         if (!data.agents?.length) return;
@@ -374,7 +376,7 @@ export default function CommandCenter() {
   useEffect(() => {
     const fetchCrons = async () => {
       try {
-        const res = await fetch('/api/bridge/crons', bridgeAuthInit);
+        const res = await cockpitFetch('/api/bridge/crons', bridgeAuthInit);
         if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
       } catch { /* silent */ }
     };
@@ -387,7 +389,7 @@ export default function CommandCenter() {
   useEffect(() => {
     const fetchTasks = async () => {
       try {
-        const res = await fetch('/api/bridge/tasks', bridgeAuthInit);
+        const res = await cockpitFetch('/api/bridge/tasks', bridgeAuthInit);
         if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
       } catch { /* silent */ }
     };
@@ -400,7 +402,7 @@ export default function CommandCenter() {
   useEffect(() => {
     const fetchChat = async () => {
       try {
-        const res = await fetch('/api/bridge/chat', bridgeAuthInit);
+        const res = await cockpitFetch('/api/bridge/chat', bridgeAuthInit);
         if (res.ok) {
           const data = await res.json();
           const incoming = data.items || data.messages || [];
@@ -418,37 +420,37 @@ export default function CommandCenter() {
 
   const handleCreateCron = async (name: string, schedule: string, agent: string, task: string) => {
     try {
-      await fetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', name, schedule, agent, task }) });
-      const res = await fetch('/api/bridge/crons', bridgeAuthInit);
+      await cockpitFetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', name, schedule, agent, task }) });
+      const res = await cockpitFetch('/api/bridge/crons', bridgeAuthInit);
       if (res.ok) { const data = await res.json(); setLiveCrons(data.items || []); }
     } catch { /* silent */ }
   };
 
   const handleDeleteCron = async (cronId: string) => {
     try {
-      await fetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'delete', cronId }) });
+      await cockpitFetch('/api/bridge/crons', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'delete', cronId }) });
       setLiveCrons(prev => prev.filter(c => c.id !== cronId && c.cronId !== cronId));
     } catch { /* silent */ }
   };
 
   const handleCreateTask = async (title: string, description: string, assignee: string, priority: string) => {
     try {
-      await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', title, description, assignee, priority }) });
-      const res = await fetch('/api/bridge/tasks', bridgeAuthInit);
+      await cockpitFetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'create', title, description, assignee, priority }) });
+      const res = await cockpitFetch('/api/bridge/tasks', bridgeAuthInit);
       if (res.ok) { const data = await res.json(); setLiveTasks(data.items || []); }
     } catch { /* silent */ }
   };
 
   const handleApproveTask = async (taskId: string) => {
     try {
-      await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'approve', taskId }) });
+      await cockpitFetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'approve', taskId }) });
       setLiveTasks(prev => prev.map(t => (t.id === taskId || t.taskId === taskId) ? { ...t, status: 'approved' } : t));
     } catch { /* silent */ }
   };
 
   const handleRejectTask = async (taskId: string) => {
     try {
-      await fetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'reject', taskId }) });
+      await cockpitFetch('/api/bridge/tasks', { method: 'POST', headers: bridgeHeaders, body: JSON.stringify({ action: 'reject', taskId }) });
       setLiveTasks(prev => prev.map(t => (t.id === taskId || t.taskId === taskId) ? { ...t, status: 'rejected' } : t));
     } catch { /* silent */ }
   };
@@ -464,13 +466,13 @@ export default function CommandCenter() {
     ]);
     setChatInput("");
     setChatSending(true);
-    void fetch("/api/bridge/chat", {
+    void cockpitFetch("/api/bridge/chat", {
       method: "POST",
       headers: bridgeHeaders,
       body: JSON.stringify({ targetAgent: chatAgent, message: text, sender: "commander" }),
     }).catch(() => {});
     try {
-      const res = await fetch("/api/command-center/chat", {
+      const res = await cockpitFetch("/api/command-center/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -841,7 +843,7 @@ export default function CommandCenter() {
   /* ── fetchers ── */
   const fetchWeather = useCallback(async () => {
     try {
-      const r = await fetch("https://wttr.in/BocaRaton?format=j1");
+      const r = await cockpitFetch("https://wttr.in/BocaRaton?format=j1");
       const d = await r.json();
       const c = d.current_condition?.[0];
       setWeather({
@@ -863,7 +865,7 @@ export default function CommandCenter() {
 
   const fetchVerse = useCallback(async () => {
     try {
-      const r = await fetch("https://bible-api.com/?random=verse");
+      const r = await cockpitFetch("https://bible-api.com/?random=verse");
       const d = await r.json();
       setVerse({ text: d.text?.trim() ?? "", ref: d.reference ?? "" });
     } catch { /* silent */ }
@@ -895,7 +897,7 @@ export default function CommandCenter() {
 
   /* ── Merge status.json task/status into orbit agents ── */
   useEffect(() => {
-    fetch("/status.json", { cache: "no-store" })
+    cockpitFetch("/status.json", { cache: "no-store" })
       .then((r) => r.json())
       .then((data: { agents?: { name: string; status: string; task: string }[] }) => {
         if (!data.agents) return;

@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { readFile, writeFile, appendFile } from "fs/promises";
 import { join } from "path";
@@ -63,6 +64,8 @@ async function logToMemory(entry: string) {
 }
 
 export async function handleYoloApprove(request: Request) {
+  const guard = await guardProtectedMutation(request);
+  if (!guard.ok) return guard.response;
   try {
     const body = (await request.json()) as ApproveBody;
     const { folder, name, agent, action = "approve", tier, reason } = body;

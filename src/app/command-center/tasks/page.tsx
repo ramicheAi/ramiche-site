@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import ParticleField from "@/components/ParticleField";
@@ -66,7 +68,7 @@ export default function TaskBoardPage() {
     const fetchTasks = async () => {
       try {
         // Fetch all projects from the projects API
-        const res = await fetch("/api/command-center/projects");
+        const res = await cockpitFetch("/api/command-center/projects");
         if (res.ok) {
           const data = await res.json();
           const projects = data.projects || [];
@@ -116,7 +118,7 @@ export default function TaskBoardPage() {
       reason?: string
     ) => {
       try {
-        await fetch("/api/command-center/tasks/notify", {
+        await cockpitFetch("/api/command-center/tasks/notify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -139,7 +141,7 @@ export default function TaskBoardPage() {
     async (task: Task, fromCol: ColumnId, toCol: ColumnId) => {
       try {
         if (toCol === "in-progress" && task.assignee) {
-          await fetch("/api/bridge", {
+          await cockpitFetch("/api/bridge", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -152,7 +154,7 @@ export default function TaskBoardPage() {
             }),
           });
         } else {
-          await fetch("/api/bridge", {
+          await cockpitFetch("/api/bridge", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "move", taskId: task.id, fromCol, toCol }),
@@ -187,7 +189,7 @@ export default function TaskBoardPage() {
     setNewTitle("");
     setNewDesc("");
     try {
-      await fetch("/api/bridge", {
+      await cockpitFetch("/api/bridge", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -215,7 +217,7 @@ export default function TaskBoardPage() {
       return { ...prev, review: fromTasks, "in-progress": [...prev["in-progress"], moved] };
     });
     try {
-      await fetch("/api/bridge", {
+      await cockpitFetch("/api/bridge", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

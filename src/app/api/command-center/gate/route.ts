@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 /**
  * The Approval Gate — Ramon's one-click queue for the autonomous Growth Loop.
  *
@@ -30,7 +31,10 @@ type GateItem = {
   pipeline_leads?: GateLead | null;
 };
 
-export async function GET() {
+export async function GET(req: Request) {
+  const guard = await guardPrivateRead(req);
+  if (!guard.ok) return guard.response;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   const { data, error } = await db
@@ -43,6 +47,9 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const guard = await guardProtectedMutation(req);
+  if (!guard.ok) return guard.response;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 
@@ -65,7 +72,7 @@ export async function POST(req: Request) {
   if (item.status !== "pending")
     return NextResponse.json({ error: `already ${item.status}` }, { status: 409 });
 
-  const stamp = { decided_at: new Date().toISOString(), decided_by: "ramon" };
+  const stamp = { decided_at: new Date().toISOString(), decided_by: guard.uid };
 
   if (action === "reject") {
     await db.from("pipeline_gate").update({ status: "rejected", ...stamp }).eq("id", id);

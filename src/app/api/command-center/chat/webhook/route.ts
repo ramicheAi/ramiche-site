@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { telegramAttachApproveButton } from "@/lib/telegram-cc-bot";
@@ -61,6 +62,9 @@ function authOk(req: NextRequest): boolean {
  * (requires TELEGRAM_BOT_TOKEN). Wire OpenClaw to POST here after sendMessage.
  */
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   if (!authOk(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

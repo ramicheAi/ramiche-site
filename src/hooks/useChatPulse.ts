@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -83,7 +85,7 @@ export function useChatPulse(): ChatPulse {
   const fetchPulse = useCallback(async () => {
     try {
       const since = readRef.current;
-      const res = await fetch(
+      const res = await cockpitFetch(
         `/api/command-center/chat/pulse?since=${encodeURIComponent(since)}`,
         { cache: "no-store" }
       );

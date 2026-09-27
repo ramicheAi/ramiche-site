@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback, useRef } from "react";
 
@@ -54,7 +56,7 @@ export default function JobsPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/jobs?limit=80", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/jobs?limit=80", { cache: "no-store" });
       if (res.ok) {
         const d = await res.json();
         const next: Job[] = Array.isArray(d.jobs) ? d.jobs : [];
@@ -89,7 +91,7 @@ export default function JobsPage() {
     setBusy(true);
     play("dispatch");
     try {
-      await fetch("/api/command-center/jobs", {
+      await cockpitFetch("/api/command-center/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ title: t, kind, source: "jobs-page" }),
@@ -102,7 +104,7 @@ export default function JobsPage() {
   }, [title, kind, busy, load]);
 
   const rerun = useCallback(async (id: string) => {
-    await fetch(`/api/command-center/jobs/${id}`, { method: "POST" });
+    await cockpitFetch(`/api/command-center/jobs/${id}`, { method: "POST" });
     await load();
   }, [load]);
 

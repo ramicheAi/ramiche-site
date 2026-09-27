@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 // /Users/admin/ramiche-site/src/lib/jobs.ts
 // Jobs backbone: dispatch a tracked job to a tool-enabled Claude Code instance
 // via the local Claude Max proxy (the reliable path the builder uses).
@@ -65,7 +66,10 @@ async function logEvent(jobId: string, kind: string, detail: Record<string, unkn
  * Run a queued job: mark running, dispatch to the proxy, persist result.
  * Designed to be fire-and-forget from the API route (this server is long-lived).
  */
-export async function runJob(jobId: string): Promise<void> {
+export async function runJob(jobId: string, request?: Request): Promise<void> {
+  if (!request) throw new Error("authenticated request required");
+  const identity = await guardProtectedMutation(request);
+  if (!identity.ok) throw new Error("job dispatch denied");
   const db = getSupabaseAdmin();
   if (!db) return;
 

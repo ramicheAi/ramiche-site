@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 /**
  * The Approval Gate — Ramon's one-click queue. Every irreversible action the
@@ -35,7 +37,7 @@ export default function GatePage() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/command-center/gate", { cache: "no-store" });
+      const r = await cockpitFetch("/api/command-center/gate", { cache: "no-store" });
       const d = await r.json();
       setItems(d.items || []);
     } catch { /* */ } finally { setLoading(false); }
@@ -46,7 +48,7 @@ export default function GatePage() {
   const decide = useCallback(async (id: string, action: "approve" | "reject") => {
     setBusy(id);
     try {
-      const r = await fetch("/api/command-center/gate", {
+      const r = await cockpitFetch("/api/command-center/gate", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action }),
       });

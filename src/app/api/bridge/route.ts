@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 // ── Bridge API: Command Center Live Data ──────────────────────────
 // POST: Accept workspace state from local sync script, store in Firestore REST API
 // GET: Proxy read from Firestore for Command Center pages
@@ -13,6 +14,9 @@ export const dynamic = "force-dynamic";
 
 // GET: Read current bridge state
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "all";
   const validTypes = ["agents", "crons", "activity", "agentActivity", "projects", "links", "missions", "schedule", "notifications", "opportunities", "tasks"];
@@ -73,6 +77,9 @@ export async function GET(req: NextRequest) {
 
 // PATCH: Update task status (move, approve, create) from Command Center UI
 export async function PATCH(req: NextRequest) {
+  const guard = await guardProtectedMutation(req);
+  if (!guard.ok) return guard.response;
+
   try {
     const body = await req.json();
     const { action, taskId, fromCol, toCol, task } = body;
@@ -189,6 +196,9 @@ export async function PATCH(req: NextRequest) {
 
 // POST: Sync data from local machine
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const authHeader = (req.headers.get("x-bridge-secret") || "").trim().replace(/\\n$/, "");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

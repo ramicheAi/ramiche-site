@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -25,11 +26,17 @@ export const maxDuration = 120;
 // every API endpoint to render service uptime; without this, the chat route
 // would return 405 to those GET pings and clutter the browser console with
 // red "method not allowed" errors despite the service being healthy.
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return NextResponse.json({ ok: true, accepts: ["POST"] });
 }
 
-export async function HEAD() {
+export async function HEAD(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return new Response(null, { status: 200 });
 }
 
@@ -1220,6 +1227,9 @@ Output the refined synthesis only — do not narrate the changes.`;
 }
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   // Phase E budget guard: wall-clock anchor used to skip the critic pass if
   // synthesis already burned most of the route's 60s maxDuration window.
   const postStartedAt = Date.now();

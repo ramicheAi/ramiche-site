@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 /**
  * Image-gen API.
  *
@@ -72,7 +73,10 @@ async function uploadToSupabase(
   return { ok: true, url: pub.publicUrl };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return NextResponse.json({
     ok: true,
     accepts: ["POST"],
@@ -87,6 +91,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: {
     prompt?: string;
     agentId?: string;

@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { readFile, unlink, writeFile } from "fs/promises";
 import { homedir } from "os";
 import { join } from "path";
@@ -93,6 +94,9 @@ async function transcribeLocalWhisper(audioPath: string): Promise<{ text: string
 }
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let tmpAudio: string | null = null;
   try {
     const fd = await req.formData();

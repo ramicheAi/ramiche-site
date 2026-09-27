@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
@@ -15,11 +16,17 @@ const CORS_HEADERS = {
   "Access-Control-Allow-Headers": "Content-Type",
 };
 
-export async function OPTIONS() {
+export async function OPTIONS(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const raw = await fs.readFile(DATA_PATH, "utf-8");
     const items = JSON.parse(raw);
@@ -30,6 +37,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const p03Guard = await guardProtectedMutation(request);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const body = await request.json();
     const items = body.items || [];

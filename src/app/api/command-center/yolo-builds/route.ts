@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
@@ -148,7 +149,10 @@ function loadBuildsFromDir(buildsDir: string): BuildMeta[] {
   return builds;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     let source: "workspace" | "firestore" | "public" | "empty" = "empty";
     let builds: BuildMeta[] = [];

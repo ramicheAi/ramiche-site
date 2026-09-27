@@ -1,3 +1,4 @@
+import { verifyExactOrigin } from "./server/origin-guard";
 /**
  * API security utilities — input validation, sanitization, and request verification.
  * No external dependencies. Works with Next.js API routes.
@@ -55,11 +56,7 @@ export async function parseBody<T = Record<string, unknown>>(
 
 /** Verify request origin matches allowed domains */
 export function verifyOrigin(req: Request, allowedOrigins: string[]): boolean {
-  const origin = req.headers.get("origin") || "";
-  const referer = req.headers.get("referer") || "";
-  return allowedOrigins.some(
-    (allowed) => origin.startsWith(allowed) || referer.startsWith(allowed)
-  );
+  return verifyExactOrigin(req, { PARALLAX_TRUSTED_ORIGINS: allowedOrigins.join(",") }).ok;
 }
 
 // ── Nonce Generation ────────────────────────────────────────────

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { IP_PORTFOLIO, COMPLIANCE_AREAS } from "@/data/legal-status";
@@ -23,7 +25,7 @@ export default function LegalPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents");
+      const res = await cockpitFetch("/api/command-center/agents");
       if (res.ok) {
         const data = await res.json();
         const legalAgents = (data.agents || []).filter(

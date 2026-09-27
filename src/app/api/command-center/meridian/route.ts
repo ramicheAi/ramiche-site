@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
@@ -31,7 +32,10 @@ function isValidPayload(data: unknown): data is { portfolio: { equity: number } 
   return "equity" in p && typeof (p as { equity: unknown }).equity === "number";
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const raw = await readFile(DATA_PATH, "utf-8");
     const data = JSON.parse(raw) as unknown;

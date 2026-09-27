@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -8,7 +9,10 @@ export const runtime = "nodejs";
 
 /** GET -> per-(vertical × city) performance, best first. The learned ICP — what the
  *  prospector should source more of. Read-only. */
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

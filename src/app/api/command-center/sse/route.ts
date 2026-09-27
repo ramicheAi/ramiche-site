@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest } from "next/server";
 import { execSync } from "child_process";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
@@ -301,6 +302,9 @@ function buildSnapshot() {
 /* ── SSE Handler ─────────────────────────────────────────────────────── */
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -63,8 +65,8 @@ export default function ContentPage() {
     async function fetchData() {
       try {
         const [agentsRes, contentRes] = await Promise.all([
-          fetch("/api/command-center/agents"),
-          fetch("/api/command-center/content"),
+          cockpitFetch("/api/command-center/agents"),
+          cockpitFetch("/api/command-center/content"),
         ]);
 
         if (agentsRes.ok) {

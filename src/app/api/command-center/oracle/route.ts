@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 
 /* ==============================================================================
@@ -27,6 +28,9 @@ Risk management: Position sizing via Kelly Criterion, maximum drawdown limits, c
 Disclaimer: You are an AI providing quantitative analysis and financial education, not a licensed financial advisor. Past performance does not guarantee future results. All trading involves risk of loss.`;
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {

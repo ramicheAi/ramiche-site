@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useEffect, useRef, useState } from "react";
 
@@ -108,7 +110,7 @@ export function useGlobalSearch(query: string, enabled: boolean): GlobalSearchSn
         // Messages — server filtered.
         try {
           const params = new URLSearchParams({ q, limit: "8" });
-          const res = await fetch(`/api/command-center/chat/search?${params.toString()}`, {
+          const res = await cockpitFetch(`/api/command-center/chat/search?${params.toString()}`, {
             cache: "no-store",
           });
           if (res.ok) {
@@ -142,7 +144,7 @@ export function useGlobalSearch(query: string, enabled: boolean): GlobalSearchSn
         // Docs — fetch once, filter client-side.
         try {
           if (!docsRef.current) {
-            const res = await fetch("/api/command-center/docs", { cache: "no-store" });
+            const res = await cockpitFetch("/api/command-center/docs", { cache: "no-store" });
             if (res.ok) {
               const data = (await res.json()) as DocsResponse;
               docsRef.current = data.documents ?? [];
@@ -177,7 +179,7 @@ export function useGlobalSearch(query: string, enabled: boolean): GlobalSearchSn
         // Memory — fetch once, filter client-side across all entries.
         try {
           if (!memoryRef.current) {
-            const res = await fetch("/api/command-center/memory?days=14", { cache: "no-store" });
+            const res = await cockpitFetch("/api/command-center/memory?days=14", { cache: "no-store" });
             if (res.ok) {
               const data = (await res.json()) as MemoryResponse;
               memoryRef.current = data.days ?? [];

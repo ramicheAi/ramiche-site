@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 
@@ -17,6 +18,9 @@ export const runtime = "nodejs";
  * Env: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, EMAIL_FROM (e.g. hello@parallaxvinc.com)
  */
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

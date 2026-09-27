@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 // ── Command Center: Firestore Sync ──────────────────────────────────
 // Reads local filesystem data and syncs to Firestore so the Command
 // Center works fully on Vercel without a tunnel.
@@ -378,7 +379,10 @@ async function syncMeridian(db: Firestore): Promise<SyncResult> {
 
 /* ── GET: Sync Status ──────────────────────────────────────────────── */
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const db = getAdminDb();
   if (!db) {
     return NextResponse.json(
@@ -434,7 +438,10 @@ export async function GET() {
 
 /* ── POST: Perform Sync ────────────────────────────────────────────── */
 
-export async function POST() {
+export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const db = getAdminDb();
   if (!db) {
     return NextResponse.json(

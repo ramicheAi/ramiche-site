@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
@@ -19,7 +21,7 @@ interface Lead {
 export default function ProposalDoc() {
   const { leadId } = useParams<{ leadId: string }>();
   const [lead, setLead] = useState<Lead | null>(null);
-  useEffect(() => { (async () => { const r = await fetch(`/api/command-center/pipeline/leads?limit=500`, { cache: "no-store" }); if (r.ok) { const d = await r.json(); setLead((d.leads || []).find((l: Lead) => l.id === leadId) || null); } })(); }, [leadId]);
+  useEffect(() => { (async () => { const r = await cockpitFetch(`/api/command-center/pipeline/leads?limit=500`, { cache: "no-store" }); if (r.ok) { const d = await r.json(); setLead((d.leads || []).find((l: Lead) => l.id === leadId) || null); } })(); }, [leadId]);
 
   if (!lead) return <Shell><div style={{ padding: 40, textAlign: "center", color: "#9ca3af" }}>Loading proposal…</div></Shell>;
   const rec = lead.meta?.recommendation; const intel = lead.meta?.intel;

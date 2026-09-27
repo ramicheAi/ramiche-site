@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -18,6 +19,9 @@ function svc() {
 
 /** GET /api/command-center/pipeline/leads?stage=qualified&limit=100 */
 export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { db, err } = svc();
   if (err) return err;
 
@@ -38,6 +42,9 @@ export async function GET(req: Request) {
  * Create (or upsert by id) a lead. Logs a stage_change / created event.
  */
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { db, err } = svc();
   if (err) return err;
 

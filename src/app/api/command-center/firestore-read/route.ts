@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 // ── Command Center: Firestore Read ──────────────────────────────────
 // Reads synced data FROM Firestore for when running on Vercel.
 // GET ?collection=agents|crons|memory|yolo[&date=YYYY-MM-DD]
@@ -216,6 +217,9 @@ function stripMeta(
 /* ── GET Handler ───────────────────────────────────────────────────── */
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const collection = req.nextUrl.searchParams.get("collection");
 
   if (!collection || !VALID_COLLECTIONS.has(collection)) {

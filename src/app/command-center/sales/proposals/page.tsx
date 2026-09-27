@@ -1,4 +1,6 @@
 'use client'
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useMemo } from 'react'
 import { InstrumentPage } from '@/components/command-center/po/Instrument'
@@ -91,7 +93,7 @@ export default function SalesProposalsPage() {
     setSaveState('saving')
     try {
       const validUntil = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-      const res = await fetch('/api/command-center/pipeline/proposals', {
+      const res = await cockpitFetch('/api/command-center/pipeline/proposals', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useRef, useCallback, useMemo, Component, type CSSProperties, type ReactNode } from "react";
 import Image from "next/image";
@@ -726,7 +728,7 @@ function fileIconFor(kind: "image" | "video" | "audio" | "pdf" | "file"): string
  */
 async function downloadAttachmentBlob(url: string, filename: string) {
   try {
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await cockpitFetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const blob = await res.blob();
     const objectUrl = URL.createObjectURL(blob);
@@ -751,7 +753,7 @@ async function downloadAttachmentBlob(url: string, filename: string) {
 async function copyImageToClipboard(url: string): Promise<boolean> {
   try {
     if (!navigator.clipboard?.write) return false;
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await cockpitFetch(url, { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const blob = await res.blob();
     // Some browsers (notably Safari) reject anything other than image/png in
@@ -864,7 +866,7 @@ function ImageAttachment({
     if (!canRegen) return;
     setRegenStatus("regenerating");
     try {
-      const res = await fetch("/api/command-center/chat/regenerate-image", {
+      const res = await cockpitFetch("/api/command-center/chat/regenerate-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1786,7 +1788,7 @@ export default function CommandCenterChatPage() {
     setApproveProgress((prev) => ({ ...prev, [messageId]: { actions: {} } }));
     setApprovingSynthId(messageId);
     try {
-      const res = await fetch("/api/command-center/chat/approve/stream", {
+      const res = await cockpitFetch("/api/command-center/chat/approve/stream", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
         body: JSON.stringify({ messageId }),
@@ -1930,7 +1932,7 @@ export default function CommandCenterChatPage() {
     const key = `${synthesisId}:${actionIndex}`;
     setActionStatusPending(key);
     try {
-      const res = await fetch("/api/command-center/chat/action-status", {
+      const res = await cockpitFetch("/api/command-center/chat/action-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ synthesisId, actionIndex, status }),
@@ -2145,7 +2147,7 @@ export default function CommandCenterChatPage() {
           if (globalSearchAgentId) params.set("agentId", globalSearchAgentId);
           if (globalSearchDateFrom) params.set("from", globalSearchDateFrom);
           if (globalSearchDateTo) params.set("to", globalSearchDateTo);
-          const res = await fetch(`/api/command-center/chat/search?${params.toString()}`);
+          const res = await cockpitFetch(`/api/command-center/chat/search?${params.toString()}`);
           const data = (await res.json()) as {
             results?: {
               id: string;
@@ -2488,7 +2490,7 @@ export default function CommandCenterChatPage() {
               const uid = lastPendingUserMessageIdRef.current;
               if (uid) {
                 lastPendingUserMessageIdRef.current = null;
-                void fetch("/api/command-center/chat/mark-read", {
+                void cockpitFetch("/api/command-center/chat/mark-read", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ userMessageId: uid }),
@@ -2724,7 +2726,7 @@ export default function CommandCenterChatPage() {
     };
     const tick = async () => {
       try {
-        const res = await fetch("/api/command-center/agents");
+        const res = await cockpitFetch("/api/command-center/agents");
         if (!res.ok || cancelled) return;
         const data = (await res.json()) as { agents?: Array<{ id: string; status?: string }> };
         const map = new Map<string, "active" | "idle" | "offline">();
@@ -2812,7 +2814,7 @@ export default function CommandCenterChatPage() {
       if (att.file) {
         const fd = new FormData();
         fd.append("file", att.file);
-        const res = await fetch("/api/command-center/chat/upload", { method: "POST", body: fd });
+        const res = await cockpitFetch("/api/command-center/chat/upload", { method: "POST", body: fd });
         const j = (await res.json()) as { url?: string; skipped?: boolean };
         if (j.url) uploads.push({ url: j.url, name: att.name, type: att.type });
       }
@@ -2866,7 +2868,7 @@ export default function CommandCenterChatPage() {
     const runRelay = (userMessageId?: string) => {
       const errorTargetId = userMessageId ?? tempId;
       setRelayError(null);
-      fetch("/api/command-center/chat", {
+      cockpitFetch("/api/command-center/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2994,7 +2996,7 @@ export default function CommandCenterChatPage() {
                     });
                   if (userMessageId) {
                     lastPendingUserMessageIdRef.current = null;
-                    void fetch("/api/command-center/chat/mark-read", {
+                    void cockpitFetch("/api/command-center/chat/mark-read", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ userMessageId }),
@@ -3006,7 +3008,7 @@ export default function CommandCenterChatPage() {
                 const text = String(data.response ?? "");
                 if (userMessageId) {
                   lastPendingUserMessageIdRef.current = null;
-                  void fetch("/api/command-center/chat/mark-read", {
+                  void cockpitFetch("/api/command-center/chat/mark-read", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ userMessageId }),
@@ -3252,7 +3254,7 @@ export default function CommandCenterChatPage() {
   const handleToggleReaction = async (messageId: string, emoji: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(messageId)) return;
-    const res = await fetch("/api/command-center/chat/reactions", {
+    const res = await cockpitFetch("/api/command-center/chat/reactions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messageId, emoji }),
@@ -3290,7 +3292,7 @@ export default function CommandCenterChatPage() {
     e?.stopPropagation();
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(message.id)) return;
     const next = !message.pinned;
-    const res = await fetch("/api/command-center/chat/pin", {
+    const res = await cockpitFetch("/api/command-center/chat/pin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ messageId: message.id, pinned: next }),

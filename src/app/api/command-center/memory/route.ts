@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
@@ -112,6 +113,9 @@ function parseMemoryFile(content: string, filename: string): ParsedMemoryEntry[]
 }
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const days = parseInt(req.nextUrl.searchParams.get("days") || "7", 10);
   const limit = Math.min(Math.max(days, 1), 30);
 

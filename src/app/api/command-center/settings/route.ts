@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import {
   gatewayToolsInvoke,
@@ -62,7 +63,10 @@ function badAction(action: string | undefined) {
   );
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   if (!isOpenClawGatewayConfigured()) {
     return NextResponse.json({ ok: false, configured: false, reachable: false });
   }
@@ -80,6 +84,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: GatewayActionBody = {};
   try {
     body = (await req.json()) as GatewayActionBody;

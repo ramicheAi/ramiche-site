@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { readFile, readdir } from "fs/promises";
 import { join } from "path";
@@ -134,6 +135,9 @@ async function loadDocContent(slug: string, doc: string): Promise<string | null>
 }
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const slug = req.nextUrl.searchParams.get("slug");
   const doc = req.nextUrl.searchParams.get("doc");
 

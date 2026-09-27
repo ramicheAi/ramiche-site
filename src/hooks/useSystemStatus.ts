@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -63,7 +65,7 @@ interface RevenueResponse {
 
 async function safeFetch<T>(url: string, signal: AbortSignal): Promise<T | null> {
   try {
-    const res = await fetch(url, { cache: "no-store", signal });
+    const res = await cockpitFetch(url, { cache: "no-store", signal });
     if (!res.ok) return null;
     return (await res.json()) as T;
   } catch {

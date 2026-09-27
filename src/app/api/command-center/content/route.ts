@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { readdirSync, readFileSync, existsSync, statSync } from "fs";
 import { join } from "path";
@@ -81,7 +82,10 @@ function extractContentFromDirectory(dir: string): ContentItem[] {
   return items;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     if (!existsSync(CONTENT_PIPELINE_DIR)) {
       return NextResponse.json({

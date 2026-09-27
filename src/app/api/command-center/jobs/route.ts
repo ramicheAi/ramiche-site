@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import path from "node:path";
 
 import { NextResponse } from "next/server";
@@ -31,6 +32,9 @@ function svc() {
 
 /** GET /api/command-center/jobs?status=running&limit=50 */
 export async function GET(req: Request) {
+  const guard = await guardPrivateRead(req);
+  if (!guard.ok) return guard.response;
+
   const { db, err } = svc();
   if (err) return err;
   const url = new URL(req.url);
@@ -49,6 +53,9 @@ export async function GET(req: Request) {
  * Creates a queued job and dispatches it to an agent (fire-and-forget).
  */
 export async function POST(req: Request) {
+  const guard = await guardProtectedMutation(req);
+  if (!guard.ok) return guard.response;
+
   const { db, err } = svc();
   if (err) return err;
   const { data: body, error: parseError } = await parseBody(req);
@@ -80,7 +87,7 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Fire-and-forget: this server is long-lived, so the dispatch continues after we respond.
-  void runJob(job.id).catch(() => {});
+  void runJob(job.id, req).catch(() => {});
 
   return NextResponse.json({ job });
 }

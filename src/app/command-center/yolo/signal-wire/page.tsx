@@ -1,4 +1,6 @@
 'use client';
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 
@@ -61,7 +63,7 @@ export default function SignalWirePage() {
   // Fetch live agent data
   useEffect(() => {
     const load = () => {
-      fetch('/api/command-center/agents')
+      cockpitFetch('/api/command-center/agents')
         .then(r => r.json())
         .then(d => { if (d.agents) setAgents(d.agents); })
         .catch(() => {});

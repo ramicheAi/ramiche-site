@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -15,6 +16,9 @@ export const runtime = "nodejs";
  * doesn't retry-storm.
  */
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const raw = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const msg = (raw.message && typeof raw.message === "object" ? raw.message : raw) as Record<string, unknown>;

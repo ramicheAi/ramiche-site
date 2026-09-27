@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -21,7 +23,7 @@ export default function NexusPage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/jobs?limit=60", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/jobs?limit=60", { cache: "no-store" });
       if (res.ok) {
         const d = await res.json();
         setExperiments((Array.isArray(d.jobs) ? d.jobs : []).filter((j: Job) => j.kind === "analysis"));
@@ -36,7 +38,7 @@ export default function NexusPage() {
     if (!h || busy) return;
     setBusy(true);
     try {
-      await fetch("/api/command-center/jobs", {
+      await cockpitFetch("/api/command-center/jobs", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
           title: h.length > 90 ? h.slice(0, 90) + "…" : h,

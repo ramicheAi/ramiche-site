@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
@@ -47,7 +49,7 @@ export default function ProspectorPage() {
     setCategory(cat); setLocation(loc);
     setLoading(true); setMsg(null); setImported(null); setResults([]); setSel(new Set());
     try {
-      const res = await fetch("/api/command-center/prospector/search", {
+      const res = await cockpitFetch("/api/command-center/prospector/search", {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({ category: cat, location: loc.trim(), onlyNoWebsite, limit }),
       });
@@ -69,7 +71,7 @@ export default function ProspectorPage() {
     const chosen = results.filter((r) => sel.has(r.osmId));
     if (chosen.length === 0) return;
     setMsg(null);
-    const res = await fetch("/api/command-center/prospector/import", {
+    const res = await cockpitFetch("/api/command-center/prospector/import", {
       method: "POST", headers: { "content-type": "application/json" },
       body: JSON.stringify({ leads: chosen, product: "Web Development" }),
     });

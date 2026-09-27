@@ -1,3 +1,4 @@
+import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
 // ── Task Approval API ───────────────────────────────────────────────
 // POST: Approve/reject/create tasks from Command Center UI
 
@@ -12,6 +13,9 @@ function fsUrl(path: string) { const b = `${FIRESTORE_BASE}/${path}`; return API
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const authHeader = req.headers.get("x-bridge-secret");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -97,6 +101,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const authHeader = req.headers.get("x-bridge-secret");
   if (!BRIDGE_SECRET || authHeader !== BRIDGE_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });

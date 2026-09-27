@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 /**
  * Phase D — Decisions feed.
  *
@@ -35,6 +36,9 @@ function getSupabaseService() {
 }
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const svc = getSupabaseService();
   if (!svc) {
     return NextResponse.json(

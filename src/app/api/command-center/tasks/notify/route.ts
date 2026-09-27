@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { fsUrl, toFirestoreFields, fromFirestoreFields } from "@/lib/firestore-bridge-rest";
 
@@ -18,6 +19,9 @@ type NotifyBody = {
 
 /** Appends a task-outcome line to Firestore `command-center/notifications` (main hub feed). */
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const body = (await req.json()) as NotifyBody;
     const kind = body.kind as NotifyKind | undefined;

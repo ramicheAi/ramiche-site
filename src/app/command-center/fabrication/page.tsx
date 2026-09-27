@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -149,7 +151,7 @@ export default function FabricationPage() {
   const [mqttStatus, setMqttStatus] = useState<{ available: boolean; connected: boolean; connecting: boolean; protocol: string; note: string } | null>(null);
 
   useEffect(() => {
-    fetch("/api/command-center/agents")
+    cockpitFetch("/api/command-center/agents")
       .then(res => res.json())
       .then(data => {
         const nova = data.agents?.find((a: { id: string; name: string; status?: string; model?: string; role?: string }) => a.id === "nova");
@@ -167,7 +169,7 @@ export default function FabricationPage() {
       .catch(() => {});
 
     const fetchBambu = () => {
-      fetch("/api/command-center/bambu")
+      cockpitFetch("/api/command-center/bambu")
         .then(res => res.json())
         .then(data => {
           if (data.ok && data.printer) {
@@ -187,7 +189,7 @@ export default function FabricationPage() {
     if (!setupIp.trim()) return;
     setConnectingPrinter(true);
     try {
-      const res = await fetch("/api/command-center/bambu", {
+      const res = await cockpitFetch("/api/command-center/bambu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "connect", host: setupIp.trim(), accessCode: setupCode.trim() || undefined, serialNumber: setupSerial.trim() || undefined }),
@@ -204,7 +206,7 @@ export default function FabricationPage() {
 
   const handleDisconnect = async () => {
     try {
-      const res = await fetch("/api/command-center/bambu", {
+      const res = await cockpitFetch("/api/command-center/bambu", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "disconnect" }),

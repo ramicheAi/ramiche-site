@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join, extname } from "path";
@@ -27,6 +28,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
+  const p03Guard = await guardPrivateRead(_req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { path: segments } = await params;
   const relPath = segments.join("/");
 
@@ -49,6 +53,6 @@ export async function GET(
 
   const body = readFileSync(filePath);
   return new NextResponse(body, {
-    headers: { "Content-Type": contentType, "Cache-Control": "public, max-age=3600" },
+    headers: { "Content-Type": contentType, "Cache-Control": "private, no-store", "Content-Security-Policy": "sandbox allow-scripts", "X-Content-Type-Options": "nosniff" },
   });
 }

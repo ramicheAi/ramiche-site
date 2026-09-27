@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -166,6 +167,9 @@ async function* openaiStyleStream(
 }
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: {
     message?: string;
     channelId?: string;

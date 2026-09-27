@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID, AGENT_UUID_TO_SHORT_ID } from "@/lib/cc-agent-dm-uuids";
@@ -42,6 +43,9 @@ function normalizeAgentParam(raw: string | null): string | null {
  * Query: optional text (min 2 chars when used alone) plus optional channel, agent, date range.
  */
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const sp = req.nextUrl.searchParams;
     const rawQ = sp.get("q")?.trim() ?? "";

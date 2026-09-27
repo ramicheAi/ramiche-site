@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
@@ -80,7 +81,10 @@ function respond(
   );
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const workspace = process.env.OPENCLAW_WORKSPACE ?? "/Users/admin/.openclaw/workspace";
   const cronDir = resolveOpenclawCronDir();
   const cronPath = join(cronDir, "jobs.json");

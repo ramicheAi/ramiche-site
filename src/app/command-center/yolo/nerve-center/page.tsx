@@ -1,7 +1,9 @@
+
 // Command Center - YOLO Build - Nerve Center (Experiment Log Dashboard)
 // Status: ALPHA — wired to /api/command-center/yolo-builds
 
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
 
 import { useState, useEffect } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -29,7 +31,7 @@ export default function NerveCenterPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/command-center/yolo-builds")
+    cockpitFetch("/api/command-center/yolo-builds")
       .then(async (r) => {
         if (!r.ok) throw new Error(`yolo-builds ${r.status}`);
         return r.json() as Promise<BuildMeta[]>;

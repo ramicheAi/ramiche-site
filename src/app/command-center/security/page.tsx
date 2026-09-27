@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import ParticleField from "@/components/ParticleField";
@@ -53,7 +55,7 @@ export default function SecurityPage() {
     setScanning(true);
     setWidowStatus("scanning");
     try {
-      const res = await fetch("/api/command-center/security", { method: "POST" });
+      const res = await cockpitFetch("/api/command-center/security", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         const serverChecks: SecurityCheck[] = (data.results || []).map((r: SecurityCheck) => r);

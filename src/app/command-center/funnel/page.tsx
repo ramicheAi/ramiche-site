@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel, PgBtn } from "@/components/command-center/po/Instrument";
@@ -59,8 +61,8 @@ export default function FunnelPage() {
     setLoading(true); setErr(null);
     try {
       const [fr, ir] = await Promise.all([
-        fetch("/api/command-center/pipeline/funnel", { cache: "no-store" }),
-        fetch("/api/command-center/pipeline/icp", { cache: "no-store" }),
+        cockpitFetch("/api/command-center/pipeline/funnel", { cache: "no-store" }),
+        cockpitFetch("/api/command-center/pipeline/icp", { cache: "no-store" }),
       ]);
       const fd = await fr.json();
       if (!fr.ok) throw new Error(fd.error || "failed");

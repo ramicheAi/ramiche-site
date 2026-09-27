@@ -1,4 +1,6 @@
 'use client';
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 /* ============================================================================
  * PARALLAX OS — SANCTUARY view (default /command-center landing).
@@ -35,7 +37,7 @@ function todayKey(): string {
 
 async function loadStats(signal: AbortSignal): Promise<Partial<Stats>> {
   const out: Partial<Stats> = {};
-  const get = (p: string) => fetch(p, { signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const get = (p: string) => cockpitFetch(p, { signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const [agents, jobs, rev, act] = await Promise.all([
     get('/api/command-center/agents'),
     get('/api/command-center/jobs'),
@@ -106,7 +108,7 @@ export default function Sanctuary() {
       if (!t) { voiceLoop.cancelVoice(); return; }
       historyRef.current.push({ role: 'user', content: t });
       try {
-        const res = await fetch('/api/command-center/voice/atlas', {
+        const res = await cockpitFetch('/api/command-center/voice/atlas', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ text: t, history: historyRef.current.slice(0, -1) }),

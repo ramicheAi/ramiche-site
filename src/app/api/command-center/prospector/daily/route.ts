@@ -1,3 +1,4 @@
+import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { geocode, searchBusinesses } from "@/lib/prospector";
@@ -78,5 +79,11 @@ async function run() {
   return NextResponse.json({ imported: data?.length ?? 0, scanned, errors, targets: targets.map((t) => `${t.vertical}·${t.city}`) });
 }
 
-export async function POST() { return run(); }
-export async function GET() { return run(); }
+export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+ return run(); }
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+ return run(); }

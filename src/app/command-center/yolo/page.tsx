@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import ParticleField from "@/components/ParticleField";
@@ -78,7 +80,7 @@ export default function YoloBuildsPage() {
       // Step 1: Fetch live builds from disk API (source of truth)
       let diskBuilds: Build[] = [];
       try {
-        const res = await fetch("/api/command-center/yolo-builds", { cache: "no-store" });
+        const res = await cockpitFetch("/api/command-center/yolo-builds", { cache: "no-store" });
         if (res.ok) {
           const data = await res.json();
           diskBuilds = Array.isArray(data) ? data.map((b: Record<string, unknown>) => ({
@@ -159,7 +161,7 @@ export default function YoloBuildsPage() {
       prev.map((b) => (b.folder === folder ? { ...b, reviewStatus: status } : b)),
     );
     if (status === "rejected" && build) {
-      void fetch("/api/command-center/yolo-approve", {
+      void cockpitFetch("/api/command-center/yolo-approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -193,7 +195,7 @@ export default function YoloBuildsPage() {
     const t = TIER_CONFIG[tier];
     setToast({ message: `${t.icon} Promoted to ${t.label}`, color: t.color });
     if (build) {
-      void fetch("/api/command-center/yolo-approve", {
+      void cockpitFetch("/api/command-center/yolo-approve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

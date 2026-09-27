@@ -1,0 +1,12 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+const { verifyCookie, verifyToken, mint }=vi.hoisted(()=>({verifyCookie:vi.fn(),verifyToken:vi.fn(),mint:vi.fn()}));
+vi.mock('firebase-admin/app',()=>({getApps:()=>[{}],initializeApp:vi.fn(),cert:vi.fn()}));
+vi.mock('firebase-admin/auth',()=>({getAuth:()=>({verifySessionCookie:verifyCookie,verifyIdToken:verifyToken,createSessionCookie:mint})}));
+vi.mock('firebase-admin/firestore',()=>({getFirestore:()=>({})}));
+import { verifySessionCookie, createSessionCookie } from '@/lib/firebase-admin';
+beforeEach(()=>{verifyCookie.mockResolvedValue({uid:'owner',firebase:{sign_in_provider:'password'}});verifyToken.mockResolvedValue({auth_time:Date.now()/1000});mint.mockResolvedValue('fixture-cookie');});
+afterEach(()=>vi.clearAllMocks());
+it('checks revocation using the SDK and exposes signed provider only',async()=>{expect(await verifySessionCookie('fixture')).toMatchObject({uid:'owner',signInProvider:'password'});expect(verifyCookie).toHaveBeenCalledWith('fixture',true);});
+it('denies SDK verification errors',async()=>{verifyCookie.mockRejectedValue(new Error('expired'));expect(await verifySessionCookie('fixture')).toBeNull();});
+it.each([undefined,NaN,Date.now()/1000-301,Date.now()/1000+120])('does not mint using absent, invalid, old or future auth_time %s',async auth_time=>{verifyToken.mockResolvedValue({auth_time});expect(await createSessionCookie('fixture')).toBeNull();expect(mint).not.toHaveBeenCalled();});
+it('checks token revocation and caps default session lifetime within SDK limit',async()=>{expect(await createSessionCookie('fixture')).toBe('fixture-cookie');expect(verifyToken).toHaveBeenCalledWith('fixture',true);expect(mint).toHaveBeenCalledWith('fixture',{expiresIn:432000000});});

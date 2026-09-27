@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -13,6 +14,9 @@ function svc() {
 
 /** GET /api/command-center/jobs/[id] -> job + recent events */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const p03Guard = await guardPrivateRead(_req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { db, err } = svc();
   if (err) return err;
   const { id } = await params;
@@ -34,6 +38,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
  * POST /api/command-center/jobs/[id] -> re-run a finished job (sets it back to queued + dispatches).
  */
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const p03Guard = await guardProtectedMutation(_req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { db, err } = svc();
   if (err) return err;
   const { id } = await params;
@@ -45,6 +52,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   }
 
   await db.from("jobs").update({ status: "queued", result: null, error: null, progress: "re-queued", started_at: null, finished_at: null }).eq("id", id);
-  void runJob(id).catch(() => {});
+  void runJob(id, _req).catch(() => {});
   return NextResponse.json({ ok: true, id });
 }

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -128,7 +130,7 @@ export default function ReportsPage() {
     const key = `${type}-${scope}`;
     setExporting(key);
     try {
-      const res = await fetch(`/api/command-center/export?type=${type}&scope=${scope}`);
+      const res = await cockpitFetch(`/api/command-center/export?type=${type}&scope=${scope}`);
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
 
       const ext = type === "json" ? "json" : "csv";
@@ -163,7 +165,7 @@ export default function ReportsPage() {
   const handleGenerateSummary = useCallback(async () => {
     setSummaryLoading(true);
     try {
-      const res = await fetch("/api/command-center/export?type=summary&scope=full");
+      const res = await cockpitFetch("/api/command-center/export?type=summary&scope=full");
       if (!res.ok) throw new Error(`Summary failed: ${res.status}`);
       const data: SummaryResponse = await res.json();
       setSummaryData(data);
@@ -179,7 +181,7 @@ export default function ReportsPage() {
     let cancelled = false;
     async function fetchRevenue() {
       try {
-        const res = await fetch("/api/command-center/stripe-revenue", { cache: "no-store" });
+        const res = await cockpitFetch("/api/command-center/stripe-revenue", { cache: "no-store" });
         if (!res.ok) throw new Error(`Revenue fetch failed: ${res.status}`);
         const data: RevenueData = await res.json();
         if (!cancelled) setRevenueData(data);

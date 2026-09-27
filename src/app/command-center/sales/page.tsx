@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import pipelineData from "@/data/sales-pipeline.json";
@@ -43,7 +45,7 @@ export default function SalesPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents");
+      const res = await cockpitFetch("/api/command-center/agents");
       if (res.ok) {
         const data = await res.json();
         setAgents((data.agents || []).filter((a: AgentStatus) => ["mercury", "haven", "kiyosaki"].includes(a.id)));
@@ -52,7 +54,7 @@ export default function SalesPage() {
     finally { setLoading(false); }
 
     try {
-      const pres = await fetch("/api/command-center/pipeline/leads?limit=500");
+      const pres = await cockpitFetch("/api/command-center/pipeline/leads?limit=500");
       if (pres.ok) {
         const pdata = await pres.json();
         const rows = Array.isArray(pdata.leads) ? pdata.leads : [];

@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
@@ -62,7 +63,10 @@ function majorVersion(semver: string): number {
   return match ? parseInt(match[1], 10) : 0;
 }
 
-export async function POST() {
+export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const results: ScanResult[] = [];
   const start = Date.now();
 

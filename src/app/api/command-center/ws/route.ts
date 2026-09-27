@@ -1,3 +1,4 @@
+import { guardPrivateRead, guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { fsUrl } from "@/lib/bridge-handlers";
@@ -105,6 +106,9 @@ function isValidType(t: string): t is BusMessage["type"] {
  *   since    (optional) — epoch ms; only return messages after this timestamp
  */
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { searchParams } = req.nextUrl;
   const recipient = searchParams.get("recipient");
   const sinceRaw = searchParams.get("since");
@@ -139,6 +143,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
  * Body: { from, to, type, payload, metadata? }
  */
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let body: IncomingMessage;
   try {
     body = (await req.json()) as IncomingMessage;
@@ -164,11 +171,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const msg: BusMessage = {
     id: randomUUID(),
-    from,
+    from: p03Guard.uid,
     to: type === "broadcast" ? "*" : to,
     type,
     payload,
-    metadata: metadata ?? {},
+    metadata: { ...(metadata ?? {}), authenticatedActorUid: p03Guard.uid },
     timestamp: Date.now(),
   };
 

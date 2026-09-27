@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { VOICE_CONFIG } from "@/lib/voice-config";
@@ -277,7 +279,7 @@ export function useVoiceLoop(options: UseVoiceLoopOptions): UseVoiceLoopResult {
           try {
             const fd = new FormData();
             fd.append("audio", blob, "voice.webm");
-            const res = await fetch("/api/command-center/voice/transcribe", {
+            const res = await cockpitFetch("/api/command-center/voice/transcribe", {
               method: "POST",
               body: fd,
             });
@@ -548,7 +550,7 @@ export function useVoiceLoop(options: UseVoiceLoopOptions): UseVoiceLoopResult {
       // Try server-side TTS first (higher quality sherpa-onnx voice on the Mac).
       let played = false;
       try {
-        const res = await fetch("/api/command-center/voice/speak", {
+        const res = await cockpitFetch("/api/command-center/voice/speak", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: t }),

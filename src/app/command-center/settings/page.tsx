@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -112,7 +114,7 @@ function SettingsContent() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/agents", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (data.agents?.length > 0) {
@@ -136,7 +138,7 @@ function SettingsContent() {
     let cancelled = false;
     const tick = async () => {
       try {
-        const res = await fetch("/api/command-center/settings", { cache: "no-store" });
+        const res = await cockpitFetch("/api/command-center/settings", { cache: "no-store" });
         if (cancelled) return;
         const data = (await res.json()) as {
           ok?: boolean;
@@ -192,8 +194,8 @@ function SettingsContent() {
     void (async () => {
       try {
         const [calRes, fsRes] = await Promise.all([
-          fetch("/api/command-center/calendar", { cache: "no-store" }),
-          fetch("/api/command-center/firestore-sync", { cache: "no-store" }),
+          cockpitFetch("/api/command-center/calendar", { cache: "no-store" }),
+          cockpitFetch("/api/command-center/firestore-sync", { cache: "no-store" }),
         ]);
         if (cancelled) return;
 
@@ -263,7 +265,7 @@ function SettingsContent() {
   const handleSaveModel = async (agentId: string, newModel: string) => {
     setSaveError(null);
     try {
-      const res = await fetch("/api/command-center/agents", {
+      const res = await cockpitFetch("/api/command-center/agents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ agentId, updates: { model: newModel } }),
@@ -284,7 +286,7 @@ function SettingsContent() {
     setGatewayAction(action);
     setGatewayOutput("Executing...");
     try {
-      const res = await fetch("/api/command-center/settings", {
+      const res = await cockpitFetch("/api/command-center/settings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -299,7 +301,7 @@ function SettingsContent() {
       setGatewayOutput(formatted);
       if (action === "reload-crons" && res.ok) {
         try {
-          const cal = await fetch("/api/command-center/calendar", { cache: "no-store" });
+          const cal = await cockpitFetch("/api/command-center/calendar", { cache: "no-store" });
           if (cal.ok) {
             const j = await cal.json();
             if (Array.isArray(j.events)) {

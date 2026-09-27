@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { geocode, searchBusinesses } from "@/lib/prospector";
@@ -7,6 +8,9 @@ export const dynamic = "force-dynamic";
 
 /** POST { category, location, onlyNoWebsite?, limit? } -> { area, results } */
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { data: body, error: parseError } = await parseBody(req);
   if (parseError || !body) return badRequest(parseError || "Invalid request");
 

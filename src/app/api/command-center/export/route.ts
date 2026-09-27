@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,9 @@ export const runtime = "nodejs";
  * static fallbacks or empty. Implementation is dynamically imported to limit serverless bundle.
  */
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { handleExport } = await import("./handler");
   return handleExport(req);
 }

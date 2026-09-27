@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { readFile, unlink } from "fs/promises";
 import { execFile } from "child_process";
 import { promisify } from "util";
@@ -77,6 +78,9 @@ async function elevenLabsTTS(text: string, voiceId: string): Promise<ArrayBuffer
 }
 
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   let outWav: string | null = null;
   try {
     const body = (await req.json()) as { text?: string; voice?: string; voiceId?: string };

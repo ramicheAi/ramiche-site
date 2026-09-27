@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SystemStatus, ServiceState } from "@/hooks/useSystemStatus";
@@ -150,7 +152,7 @@ export function StatusDock({ open, tab, status, onTabChange, onClose }: StatusDo
 
     if (tab === "agents") {
       try {
-        const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+        const res = await cockpitFetch("/api/command-center/agents", { cache: "no-store" });
         if (res.ok) {
           const data = (await res.json()) as AgentsResponse;
           if (id !== reqIdRef.current) return;
@@ -162,7 +164,7 @@ export function StatusDock({ open, tab, status, onTabChange, onClose }: StatusDo
       }
     } else if (tab === "gateway") {
       try {
-        const res = await fetch("/api/command-center/settings", { cache: "no-store" });
+        const res = await cockpitFetch("/api/command-center/settings", { cache: "no-store" });
         if (res.ok) {
           const data = (await res.json()) as GatewayResponse;
           if (id !== reqIdRef.current) return;
@@ -173,7 +175,7 @@ export function StatusDock({ open, tab, status, onTabChange, onClose }: StatusDo
       }
     } else if (tab === "revenue") {
       try {
-        const res = await fetch("/api/command-center/revenue", { cache: "no-store" });
+        const res = await cockpitFetch("/api/command-center/revenue", { cache: "no-store" });
         if (res.ok) {
           const data = (await res.json()) as RevenueResponse;
           if (id !== reqIdRef.current) return;
@@ -185,8 +187,8 @@ export function StatusDock({ open, tab, status, onTabChange, onClose }: StatusDo
     } else if (tab === "network") {
       try {
         const start = performance.now();
-        const res = await fetch("/api/command-center/agents", { cache: "no-store", method: "HEAD" }).catch(() =>
-          fetch("/api/command-center/agents", { cache: "no-store" })
+        const res = await cockpitFetch("/api/command-center/agents", { cache: "no-store", method: "HEAD" }).catch(() =>
+          cockpitFetch("/api/command-center/agents", { cache: "no-store" })
         );
         if (id !== reqIdRef.current) return;
         const elapsed = performance.now() - start;

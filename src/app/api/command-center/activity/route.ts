@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { readdirSync, statSync, existsSync } from "fs";
@@ -94,6 +95,9 @@ const STATIC_EVENTS = [
 ];
 
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const limit = parseInt(req.nextUrl.searchParams.get("limit") || "50", 10);
   const safeLimit = Math.min(Math.max(limit, 1), 200);
 

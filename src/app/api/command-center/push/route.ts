@@ -1,3 +1,4 @@
+import { guardProtectedMutation, guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { AGENT_DM_UUID } from "@/lib/cc-agent-dm-uuids";
@@ -46,6 +47,9 @@ interface PushBody {
  *       matching `process.env.CC_PUSH_SECRET`.
  */
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   if (!authorize(req)) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
@@ -153,7 +157,10 @@ export async function POST(req: NextRequest) {
 }
 
 /** Health check (no auth) so callers can verify the endpoint exists. */
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   return NextResponse.json({
     ok: true,
     endpoint: "POST /api/command-center/push",

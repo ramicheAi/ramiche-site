@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -104,7 +106,7 @@ export default function DecisionsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/command-center/chat/decisions?limit=80");
+      const res = await cockpitFetch("/api/command-center/chat/decisions?limit=80");
       const data = (await res.json().catch(() => null)) as
         | { ok?: boolean; decisions?: Decision[]; error?: string }
         | null;
@@ -134,7 +136,7 @@ export default function DecisionsPage() {
     const key = `${synthesisId}:${actionIndex}`;
     setUpdating(key);
     try {
-      const res = await fetch("/api/command-center/chat/action-status", {
+      const res = await cockpitFetch("/api/command-center/chat/action-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ synthesisId, actionIndex, status }),

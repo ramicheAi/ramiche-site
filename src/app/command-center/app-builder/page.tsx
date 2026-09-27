@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -67,7 +69,7 @@ export default function AppBuilderPage() {
 
   const checkPrereqs = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/app-builder", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/app-builder", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (data.prerequisites) {

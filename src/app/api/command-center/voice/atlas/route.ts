@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,9 @@ interface Turn {
 }
 
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const body = (await req.json().catch(() => ({}))) as { text?: string; history?: Turn[] };
     const text = (body.text || "").trim();

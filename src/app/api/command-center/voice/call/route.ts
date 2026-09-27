@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -20,6 +21,9 @@ export const runtime = "nodejs";
  *                          CLOSER script grounded in that business.
  */
 export async function POST(req: Request) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const { data: body, error: parseError } = await parseBody(req);
   if (parseError || !body) return badRequest(parseError || "Invalid request");
 

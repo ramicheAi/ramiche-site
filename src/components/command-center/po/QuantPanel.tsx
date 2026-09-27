@@ -1,4 +1,6 @@
 'use client';
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 /* ============================================================================
  * QUANT / SIMONS panel — Finance HQ.
@@ -91,7 +93,7 @@ export default function QuantPanel() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/command-center/meridian', { cache: 'no-store' })
+    cockpitFetch('/api/command-center/meridian', { cache: 'no-store' })
       .then(async (r) => {
         const json = (await r.json()) as MeridianSnapshot | Unavailable;
         if (cancelled) return;

@@ -5,10 +5,12 @@
    Unauthenticated → /portal (see next.config redirect → /apex-athlete/portal).
    Public: /portal, /api/auth, /_next, /favicon.ico (+ METTLE auth entry paths).
 
-   Session verification calls GET /api/auth/session (Node + firebase-admin);
-   middleware runs on Edge and cannot import firebase-admin directly.
+   Session verification uses firebase-admin;
+   middleware uses the Node runtime and verifies sessions directly.
    ══════════════════════════════════════════════════════════════ */
 
+import { requireOwnerIdentity, denialResponse } from "@/lib/server/owner-identity";
+import { verifySessionCookie } from "@/lib/firebase-admin";
 import { NextRequest, NextResponse } from "next/server";
 
 const SESSION_COOKIE = "__session";
@@ -47,43 +49,26 @@ async function firebaseSessionValid(req: NextRequest): Promise<boolean> {
   const raw = req.cookies.get(SESSION_COOKIE)?.value;
   if (!raw || raw.length < 20) return false;
 
-  try {
-    const verifyUrl = new URL("/api/auth/session", req.url);
-    const res = await fetch(verifyUrl, {
-      headers: { cookie: req.headers.get("cookie") ?? "" },
-      cache: "no-store",
-    });
-    if (!res.ok) return false;
-    const body = (await res.json()) as { authenticated?: boolean };
-    return body.authenticated === true;
-  } catch {
-    return false;
-  }
+  try { return (await verifySessionCookie(raw)) !== null; }
+  catch { return false; }
 }
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // command.parallaxvinc.com (or any command.* host) root → Command Center.
-  // The Cloudflare tunnel forwards the original host (sometimes via
-  // x-forwarded-host); we rebuild the redirect on that host so the user stays
-  // on their domain instead of bouncing to localhost.
-  const fwdHost = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
-  if (pathname === "/" && fwdHost.startsWith("command.")) {
-    const proto = req.headers.get("x-forwarded-proto") || "https";
-    return NextResponse.redirect(new URL("/command-center", `${proto}://${fwdHost}`));
+  // Hostname only selects a landing page; it never establishes authority.
+  if (pathname === '/' && req.nextUrl.hostname === 'command.parallaxvinc.com') {
+    return NextResponse.redirect(new URL('/command-center', req.url));
   }
-
-  // SECURITY: the command center + its data APIs (leads, pipeline, financials) are
-  // ONLY reachable via the command.* domain, localhost, or the tailnet — NEVER the
-  // public *.vercel.app alias. Without this, anyone could GET the lead list publicly.
-  if (pathname.startsWith("/command-center") || pathname.startsWith("/api/command-center")) {
-    const trusted =
-      fwdHost.startsWith("command.") ||
-      fwdHost.startsWith("localhost") ||
-      fwdHost.startsWith("127.0.0.1") ||
-      fwdHost.endsWith(".ts.net");
-    if (!trusted) return new NextResponse("Not found", { status: 404 });
+  if (pathname === '/command-center' || pathname.startsWith('/command-center/') || pathname === '/status.json') {
+    const identity = await requireOwnerIdentity(req);
+    if (!identity.ok) {
+      if (pathname === '/status.json') return denialResponse(identity.status, identity.reason);
+      return NextResponse.redirect(new URL('/command-login', req.url));
+    }
+    const response = NextResponse.next();
+    response.headers.set('cache-control', 'private, no-store');
+    return response;
   }
 
   if (!isProtectedPath(pathname)) {
@@ -101,7 +86,9 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: [
+    "/status.json",
     "/",
     "/coach",
     "/coach/:path*",

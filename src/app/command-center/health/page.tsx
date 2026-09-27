@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import ParticleField from "@/components/ParticleField";
@@ -82,7 +84,7 @@ export default function SystemHealthPage() {
       SERVICES.map(async (svc) => {
         const start = Date.now();
         try {
-          const res = await fetch(svc.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
+          const res = await cockpitFetch(svc.url, { cache: "no-store", signal: AbortSignal.timeout(5000) });
           // 2xx = up. 405 / 401 / 400 mean the service responded but rejects
           // an unauthenticated GET probe (e.g. POST-only routes such as
           // /api/command-center/chat). Those still indicate the service is up.
@@ -103,7 +105,7 @@ export default function SystemHealthPage() {
 
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/agents", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         setAgents(data.agents || []);
@@ -155,7 +157,7 @@ export default function SystemHealthPage() {
     setScanning(true);
     setScanResult(null);
     try {
-      const res = await fetch("/api/command-center/security", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/security", { cache: "no-store" });
       const data = await res.json();
       setScanResult(JSON.stringify(data, null, 2));
     } catch (err) {

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 /**
  * Daily contextual Bible verse card (Wellness).
@@ -23,7 +25,7 @@ export default function DailyVerse() {
 
   const load = useCallback(async () => {
     try {
-      const r = await fetch("/api/command-center/wellness/verse");
+      const r = await cockpitFetch("/api/command-center/wellness/verse");
       if (r.ok) setVerse(await r.json());
     } catch {
       /* leave empty */
@@ -39,7 +41,7 @@ export default function DailyVerse() {
   const reroll = useCallback(async () => {
     setBusy(true);
     try {
-      const r = await fetch("/api/command-center/wellness/verse", {
+      const r = await cockpitFetch("/api/command-center/wellness/verse", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mood: mood.trim() || undefined }),

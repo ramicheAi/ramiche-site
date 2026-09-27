@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -224,7 +226,7 @@ export function CommandPalette({ open, onClose, onLock, onRefresh }: CommandPale
       const title = instruction.trim();
       if (!title) return;
       onClose();
-      void fetch("/api/command-center/jobs", {
+      void cockpitFetch("/api/command-center/jobs", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ title, kind: "generic", source: "command-bar" }),

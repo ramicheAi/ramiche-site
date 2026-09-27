@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -31,6 +32,9 @@ interface RecentRow {
  * client-side via localStorage so this endpoint stays stateless.
  */
 export async function GET(req: NextRequest) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const sp = req.nextUrl.searchParams;
   const sinceRaw = sp.get("since") ?? "";
   let sinceIso: string | null = null;

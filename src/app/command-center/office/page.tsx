@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage } from "@/components/command-center/po/Instrument";
@@ -93,7 +95,7 @@ export default function OfficePage() {
 
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/agents", { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         if (data?.agents?.length > 0) {
@@ -104,7 +106,7 @@ export default function OfficePage() {
       }
     } catch { /* fall through */ }
     try {
-      const res = await fetch("/api/bridge?type=agents", { cache: "no-store" });
+      const res = await cockpitFetch("/api/bridge?type=agents", { cache: "no-store" });
       if (!res.ok) return;
       const data = await res.json();
       if (data?._syncedAt) setLastSync(data._syncedAt);

@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
@@ -8,7 +9,10 @@ export const runtime = "nodejs";
 
 /** GET -> the lead funnel (sourced → qualified → contacted → proposal → won) +
  *  dead-lead rate + $ pipeline. Read-only; safe to poll for the dashboard. */
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const db = getSupabaseAdmin();
   if (!db) return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
 

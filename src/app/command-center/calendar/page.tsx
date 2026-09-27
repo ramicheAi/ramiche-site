@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import Link from "next/link";
@@ -69,7 +71,7 @@ export default function CalendarPage() {
 
   const fetchCrons = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/calendar", { cache: "no-store" });
+      const res = await cockpitFetch("/api/command-center/calendar", { cache: "no-store" });
       if (!res.ok) {
         setEvents([]);
         setSource("error");

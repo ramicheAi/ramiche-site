@@ -1,127 +1,74 @@
+/**
+ * Telegram Bot API updates webhook.
+ *
+ * P03 posture:
+ *   - Webhook secret REQUIRED (fail closed). This authenticates the transport,
+ *     not a human.
+ *   - Consequential dispatch (synthesis approve → execute) is DENIED because no
+ *     verified Telegram→canonical-human binding exists. Callback payload
+ *     labels (from.id, chat.id, username) are untrusted input, not identity.
+ *   - Denial performs NO side effects, including no Telegram API calls.
+ *
+ * Re-enabling dispatch requires a separately established, verified binding and
+ * its own Ramon approval — not an env flag.
+ */
 import { NextRequest, NextResponse } from "next/server";
-import { approveSynthesisMessage } from "@/lib/cc-approve-synthesis";
 import {
-  telegramAnswerCallbackQuery,
-  verifyTelegramWebhookSecret,
-  TG_CB_APPROVE_PREFIX,
-} from "@/lib/telegram-cc-bot";
+  requireTelegramTransport,
+  telegramConsequentialDispatchDecision,
+} from "@/lib/server/telegram-dispatch-policy";
+import { TG_CB_APPROVE_PREFIX } from "@/lib/telegram-cc-bot";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
-
-type TgCallbackQuery = {
-  id: string;
-  data?: string;
-  message?: { chat?: { id?: number }; message_id?: number };
-};
+export const runtime = "nodejs";
+export const maxDuration = 30;
 
 type TelegramUpdate = {
-  callback_query?: TgCallbackQuery;
+  callback_query?: { id?: string; data?: string };
 };
 
-function tgMarkupDone(label: string) {
-  return {
-    inline_keyboard: [[{ text: label.slice(0, 64), callback_data: "cc_done" }]],
-  };
-}
-
-async function editMarkupDone(
-  chatId: number | string,
-  messageId: number,
-  dispatched: number,
-  total: number
-): Promise<void> {
-  const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-  if (!token) return;
-  await fetch(`https://api.telegram.org/bot${token}/editMessageReplyMarkup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      message_id: messageId,
-      reply_markup: tgMarkupDone(`✓ Dispatched ${dispatched}/${total}`),
-    }),
-    signal: AbortSignal.timeout(15_000),
-  }).catch(() => {});
-}
-
-/** Telegram Bot API updates webhook — handles inline Approve for synthesis rows. */
 export async function POST(req: NextRequest) {
-  if (!verifyTelegramWebhookSecret(req)) {
-    return NextResponse.json({ ok: false }, { status: 401 });
+  const transport = requireTelegramTransport(req);
+  if (!transport.ok) {
+    return NextResponse.json(
+      { ok: false, error: "denied", reason: transport.reason },
+      { status: transport.status }
+    );
   }
 
   let update: TelegramUpdate;
   try {
     update = (await req.json()) as TelegramUpdate;
   } catch {
-    return NextResponse.json({ ok: false }, { status: 400 });
+    return NextResponse.json({ ok: false, error: "invalid json" }, { status: 400 });
   }
 
-  const cq = update.callback_query;
-  if (!cq?.data || !cq.id) {
-    return NextResponse.json({ ok: true });
+  if (!update || typeof update !== "object" || Array.isArray(update)) {
+    return NextResponse.json({ ok: false, error: "invalid update" }, { status: 400 });
+  }
+  const data = update.callback_query?.data;
+  if (typeof data === "string" && data.startsWith(TG_CB_APPROVE_PREFIX)) {
+    const decision = telegramConsequentialDispatchDecision(update);
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "denied",
+        reason: decision.reason,
+        note: "Approve from the authenticated cockpit. Telegram is not an identity source.",
+      },
+      { status: decision.status }
+    );
   }
 
-  const cqMsg = cq.message;
-  const chatId = cqMsg?.chat?.id;
-  const msgId = cqMsg?.message_id;
-
-  if (chatId == null || msgId == null) {
-    await telegramAnswerCallbackQuery(cq.id, "Missing chat/message.", false);
-    return NextResponse.json({ ok: true });
-  }
-
-  const data = cq.data;
-
-  if (data === "cc_done") {
-    await telegramAnswerCallbackQuery(cq.id, "Already dispatched.");
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!data.startsWith(TG_CB_APPROVE_PREFIX)) {
-    return NextResponse.json({ ok: true });
-  }
-
-  const synthesisId = data.slice(TG_CB_APPROVE_PREFIX.length);
-  if (!/^[0-9a-f-]{36}$/i.test(synthesisId)) {
-    await telegramAnswerCallbackQuery(cq.id, "Invalid synthesis id.", true);
-    return NextResponse.json({ ok: true });
-  }
-
-  const result = await approveSynthesisMessage(synthesisId);
-
-  if (!result.ok) {
-    await telegramAnswerCallbackQuery(cq.id, result.error.slice(0, 180), true);
-    return NextResponse.json({ ok: true });
-  }
-
-  if (result.alreadyApproved) {
-    await telegramAnswerCallbackQuery(cq.id, "Already approved.");
-    await editMarkupDone(chatId, msgId, 0, result.total ?? 0);
-    return NextResponse.json({ ok: true });
-  }
-
-  // Phase F: `executed` is the count of actions that passed the verifier
-  // (the renamed `dispatched` from the pre-verifier API). `blocked` is the
-  // count that exhausted retries or self-flagged a hard block.
-  const e = result.executed ?? 0;
-  const b = result.blocked ?? 0;
-  const t = result.total ?? 0;
-  const msg =
-    b > 0
-      ? `Executed ${e}/${t}, blocked ${b}.`
-      : `Executed ${e}/${t}.`;
-  await telegramAnswerCallbackQuery(cq.id, msg);
-  await editMarkupDone(chatId, msgId, e, Math.max(t, 1));
-
-  return NextResponse.json({ ok: true });
+  // Non-consequential updates are acknowledged without action.
+  return NextResponse.json({ ok: true, dispatched: false });
 }
 
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    hint: "POST Telegram updates here. setWebhook(..., { url, secret_token }) must match TELEGRAM_WEBHOOK_SECRET (sent as X-Telegram-Bot-Api-Secret-Token).",
+    hint: "POST Telegram updates here. TELEGRAM_WEBHOOK_SECRET is required (fail closed).",
+    dispatch: "disabled_no_verified_human_binding",
     callback_prefix: TG_CB_APPROVE_PREFIX,
   });
 }

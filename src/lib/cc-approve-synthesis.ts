@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 /**
  * Synthesis approval + handoff execution + verifier loop.
  *
@@ -801,8 +802,12 @@ async function executeAction(
 /** Run Phase C+F approval, threading a callback for streaming progress events. */
 export async function approveSynthesisMessageStreamed(
   messageId: string,
-  onEvent: OnEvent
+  onEvent: OnEvent,
+  request?: Request
 ): Promise<ApproveResult> {
+  if (!request) return { ok: false, error: "authenticated request required", status: 401 };
+  const identity = await guardProtectedMutation(request);
+  if (!identity.ok) return { ok: false, error: identity.reason, status: identity.status };
   if (!messageId || !/^[0-9a-f-]{36}$/i.test(messageId)) {
     return { ok: false, error: "messageId required (uuid)", status: 400 };
   }
@@ -1034,6 +1039,6 @@ export async function approveSynthesisMessageStreamed(
 }
 
 /** Non-streaming approval (legacy entry point — used by /api/.../approve and Telegram). */
-export async function approveSynthesisMessage(messageId: string): Promise<ApproveResult> {
-  return approveSynthesisMessageStreamed(messageId, NOOP_EVENT);
+export async function approveSynthesisMessage(messageId: string, request?: Request): Promise<ApproveResult> {
+  return approveSynthesisMessageStreamed(messageId, NOOP_EVENT, request);
 }

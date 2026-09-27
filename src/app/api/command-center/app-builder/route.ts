@@ -1,3 +1,4 @@
+import { guardPrivateRead } from "@/lib/server/protected-mutation";
 import { NextResponse } from "next/server";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
@@ -59,7 +60,10 @@ function checkPrerequisite(id: string): { status: "configured" | "not-configured
   }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const p03Guard = await guardPrivateRead(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   const prerequisites = ["apple-dev", "app-store-api", "eas-cli", "expo-project"].map(id => ({
     id,
     ...checkPrerequisite(id),

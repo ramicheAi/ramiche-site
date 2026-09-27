@@ -1,4 +1,6 @@
 'use client';
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 /* ============================================================================
  * PARALLAX OS — FINANCE HQ (showpiece #5). Ported from prototype/po-pages.jsx
@@ -93,7 +95,7 @@ export default function FinanceHQ() {
   // seed the live MRR from the real Stripe endpoint when available
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/command-center/stripe-revenue')
+    cockpitFetch('/api/command-center/stripe-revenue')
       .then((r) => r.json())
       .then((d: StripeRevenue) => {
         if (cancelled) return;

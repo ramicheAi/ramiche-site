@@ -79,7 +79,7 @@ describe("api-security", () => {
     const req = new Request("http://x", {
       headers: { referer: "https://app.com/dashboard" },
     });
-    expect(verifyOrigin(req, ["https://app.com"])).toBe(true);
+    expect(verifyOrigin(req, ["https://app.com"])).toBe(false);
   });
 
   it("verifyOrigin returns false when allowed list is empty", () => {

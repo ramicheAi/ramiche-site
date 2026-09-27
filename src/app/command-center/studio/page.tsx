@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -31,7 +33,7 @@ export default function StudioPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch("/api/command-center/agents");
+      const res = await cockpitFetch("/api/command-center/agents");
       if (res.ok) {
         const data = await res.json();
         const studioAgents = (data.agents || []).filter(

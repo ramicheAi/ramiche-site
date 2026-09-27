@@ -1,4 +1,6 @@
 'use client';
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 /* ============================================================================
  * PARALLAX OS — AlertMonitor. Feeds the global alert ticker with REAL criticals
@@ -27,7 +29,7 @@ export default function AlertMonitor() {
     async function tick() {
       const next = new Set<string>();
       const get = (p: string) =>
-        fetch(p, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        cockpitFetch(p, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
       const [jobsRes, revRes] = await Promise.all([
         get('/api/command-center/jobs'),

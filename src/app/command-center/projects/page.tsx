@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -47,7 +49,7 @@ export default function ProjectTracker() {
 
   const fetchProjects = useCallback(() => {
     // Live merged data: shared-projects metadata + filesystem TASKS.md
-    fetch("/api/command-center/projects")
+    cockpitFetch("/api/command-center/projects")
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data?.projects) && data.projects.length > 0) {

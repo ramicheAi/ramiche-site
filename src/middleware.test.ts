@@ -1,0 +1,11 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { NextRequest } from 'next/server';
+const {verify}=vi.hoisted(()=>({verify:vi.fn()}));
+vi.mock('@/lib/firebase-admin',()=>({verifySessionCookie:verify}));
+import { middleware } from './middleware';
+beforeEach(()=>{vi.stubEnv('PARALLAX_OWNER_UID','fixture_owner');verify.mockResolvedValue({uid:'fixture_owner',signInProvider:'password'});});
+afterEach(()=>{vi.unstubAllEnvs();vi.clearAllMocks();});
+it.each(['command.parallaxvinc.com','command.evil.example','localhost','node.ts.net'])('hostname %s cannot authenticate',async host=>{const r=await middleware(new NextRequest('https://'+host+'/command-center',{headers:{'x-forwarded-host':'command.parallaxvinc.com'}}));expect(r.headers.get('location')).toContain('/command-login');expect(verify).not.toHaveBeenCalled();});
+it('protects the static status fallback',async()=>{expect((await middleware(new NextRequest('https://cockpit.example/status.json'))).status).toBe(401);});
+it('allows a verified owner with no hostname identity inference',async()=>{const r=await middleware(new NextRequest('https://cockpit.example/command-center',{headers:{cookie:'__session='+'fixture-cookie-'.repeat(4)}}));expect(r.headers.get('x-middleware-next')).toBe('1');expect(r.headers.get('cache-control')).toContain('no-store');});
+it('denies wrong identity even on canonical host',async()=>{verify.mockResolvedValue({uid:'wrong-owner',signInProvider:'password'});const r=await middleware(new NextRequest('https://command.parallaxvinc.com/command-center',{headers:{cookie:'__session='+'fixture-cookie-'.repeat(4)}}));expect(r.headers.get('location')).toContain('/command-login');});

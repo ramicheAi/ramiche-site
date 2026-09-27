@@ -1,3 +1,4 @@
+import { guardProtectedMutation } from "@/lib/server/protected-mutation";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -8,6 +9,9 @@ export const dynamic = "force-dynamic";
  * Requires SUPABASE_SERVICE_ROLE_KEY — run migration in docs/supabase-cc-chat-migrations.sql first.
  */
 export async function POST(req: NextRequest) {
+  const p03Guard = await guardProtectedMutation(req);
+  if (!p03Guard.ok) return p03Guard.response;
+
   try {
     const { userMessageId } = (await req.json()) as { userMessageId?: string };
     if (!userMessageId) {

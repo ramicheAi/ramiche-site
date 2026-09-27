@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
@@ -46,7 +48,7 @@ export default function DealRoom() {
   const [copied, setCopied] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/command-center/pipeline/leads?limit=500`, { cache: "no-store" });
+    const res = await cockpitFetch(`/api/command-center/pipeline/leads?limit=500`, { cache: "no-store" });
     if (res.ok) { const d = await res.json(); setLead((d.leads || []).find((l: Lead) => l.id === leadId) || null); }
   }, [leadId]);
   useEffect(() => { load(); }, [load]);
@@ -54,7 +56,7 @@ export default function DealRoom() {
   const genKit = useCallback(async (regenerate = false) => {
     setBusy("kit"); setMsg(null);
     const post = (regen: boolean) =>
-      fetch("/api/command-center/leads/kit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, regenerate: regen }) }).then((r) => r.json());
+      cockpitFetch("/api/command-center/leads/kit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, regenerate: regen }) }).then((r) => r.json());
     const apply = (kit: Kit) => setLead((p) => (p ? { ...p, meta: { ...p.meta, kit } } : p));
     try {
       let d = await post(regenerate);
@@ -74,7 +76,7 @@ export default function DealRoom() {
   const research = useCallback(async (regenerate = false) => {
     setBusy("intel"); setMsg(null);
     const post = (regen: boolean) =>
-      fetch("/api/command-center/leads/intel", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, regenerate: regen }) }).then((r) => r.json());
+      cockpitFetch("/api/command-center/leads/intel", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, regenerate: regen }) }).then((r) => r.json());
     const apply = (intel: Intel) => setLead((p) => (p ? { ...p, meta: { ...p.meta, intel } } : p));
     try {
       let d = await post(regenerate);
@@ -94,7 +96,7 @@ export default function DealRoom() {
   const prepClient = useCallback(async () => {
     setBusy("prep"); setMsg(null);
     const pollGen = async (url: string, field: "intel" | "kit") => {
-      const post = (regenerate?: boolean) => fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, ...(regenerate ? { regenerate: true } : {}) }) }).then((r) => r.json());
+      const post = (regenerate?: boolean) => cockpitFetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId, ...(regenerate ? { regenerate: true } : {}) }) }).then((r) => r.json());
       let d = await post();
       if (d[field]) return;
       // A stale cached error (from an earlier failed run) won't clear on its own — the
@@ -106,7 +108,7 @@ export default function DealRoom() {
     try {
       if (!lead?.meta?.intel) { setMsg("🔍 Researching the business on the web… (~1–2 min)"); await pollGen("/api/command-center/leads/intel", "intel"); }
       setMsg("⚗ Diagnosing their digital presence + pricing the offer…");
-      const dres = await fetch("/api/command-center/pipeline/diagnose", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) });
+      const dres = await cockpitFetch("/api/command-center/pipeline/diagnose", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) });
       const dd = await dres.json();
       if (dd.disqualified) { await load(); setMsg(`⛔ Not a fit — ${dd.reason} Marked lost; moving on.`); return; }
       setMsg("✦ Writing the call script, rebuttals & outreach…");
@@ -122,7 +124,7 @@ export default function DealRoom() {
     setBusy("proposal"); setMsg(null);
     try {
       const acv = rec.oneTimeTotal + rec.monthlyTotal * 12;
-      const res = await fetch("/api/command-center/pipeline/proposals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lead_id: leadId, product: "Web + Growth Bundle", monthly_price: rec.monthlyTotal, annual_value: acv, status: "draft", terms: rec }) });
+      const res = await cockpitFetch("/api/command-center/pipeline/proposals", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ lead_id: leadId, product: "Web + Growth Bundle", monthly_price: rec.monthlyTotal, annual_value: acv, status: "draft", terms: rec }) });
       setMsg(res.ok ? "✓ Proposal created (draft)." : ((await res.json()).error || "Proposal failed"));
     } finally { setBusy(null); }
   }, [lead, leadId]);
@@ -131,7 +133,7 @@ export default function DealRoom() {
     if (!window.confirm("Send this cold email now from your Parallax Ventures email?")) return;
     setBusy("send"); setMsg(null);
     try {
-      const res = await fetch("/api/command-center/leads/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) });
+      const res = await cockpitFetch("/api/command-center/leads/send", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ leadId }) });
       const d = await res.json();
       if (d.sent) { setMsg(`✉ Sent to ${d.to}.`); await load(); }
       else if (d.needsSetup) setMsg("Email sending isn't connected yet — use ‘Open in Email’ below for now. (Add SMTP creds to enable one-click send.)");

@@ -1,4 +1,6 @@
 "use client";
+import { cockpitFetch } from '@/lib/cockpit-fetch';
+
 
 import { useState, useEffect } from "react";
 import { InstrumentPage, Panel } from "@/components/command-center/po/Instrument";
@@ -91,7 +93,7 @@ export default function ActivityPage() {
 
     const load = async () => {
       try {
-        const r = await fetch("/api/command-center/activity?limit=80", { cache: "no-store" });
+        const r = await cockpitFetch("/api/command-center/activity?limit=80", { cache: "no-store" });
         const data = (await r.json()) as { events?: ApiEvent[]; source?: string };
         const raw = Array.isArray(data.events) ? data.events : [];
         if (cancelled) return;
