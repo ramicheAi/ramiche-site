@@ -196,7 +196,9 @@ export async function executeCompletion(req: CompletionRequest): Promise<Complet
       };
     }
     const data = await res.json();
-    const choice = data?.choices?.[0];
+    // `data.choices` (not `data?.choices`) on purpose: a literal JSON `null` body must throw here,
+    // into the exception path, exactly as the pre-adapter call sites did.
+    const choice = data.choices?.[0];
     const finish = choice?.finish_reason;
     const usage = usageFromOpenAi(data?.usage);
     return {

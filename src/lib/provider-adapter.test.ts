@@ -222,6 +222,29 @@ describe("executeCompletion", () => {
     }
   });
 
+  it("a literal JSON `null` body is an exception (TypeError), exactly as before the adapter", async () => {
+    mockFetch(() => new Response("null", { status: 200 }));
+    const r = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(r).toMatchObject({ ok: false, kind: "exception" });
+    const err = r.ok === false ? r.error : undefined;
+    expect(err).toBeInstanceOf(TypeError);
+    expect((err as TypeError).message).toContain("Cannot read properties of null");
+    mockFetch(() => new Response("null", { status: 200 }));
+    const lm = await executeCompletion({ provider: "lm-studio", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(lm).toMatchObject({ ok: false, kind: "exception" });
+  });
+
+  it("other JSON shapes keep their old meaning: {} [] 0 \"str\" true are empty replies, not errors", async () => {
+    for (const body of ["{}", "[]", "0", '"str"', "true", '{"choices":null}', '{"choices":"x"}']) {
+      mockFetch(() => new Response(body, { status: 200 }));
+      const r = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+      expect(r, body).toMatchObject({ ok: true, text: null });
+    }
+    mockFetch(() => ok("real reply", { usage: { total_tokens: 4 } }));
+    const good = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
+    expect(good).toMatchObject({ ok: true, text: "real reply", finishReason: "stop", usage: { totalTokens: 4 } });
+  });
+
   it("non-2xx: http failure with status; body only read when asked, truncated to 200 chars", async () => {
     mockFetch(() => new Response("x".repeat(500), { status: 502 }));
     const plain = await executeCompletion({ provider: "claude-max", model: "m", messages: msgs, maxTokens: 1, temperature: 0, timeoutMs: 1000 });
@@ -412,6 +435,28 @@ describe("chat route (non-streaming) through the adapter", () => {
     const attempts = JSON.stringify(r.json);
     expect(attempts).toContain("HTTP 500 — bad gateway");
     expect(attempts).toContain("LM Studio Local Server not running");
+  });
+
+  it("a `null` JSON reply from claude-max logs and falls back exactly like the old exception path", async () => {
+    const nullBody = () => new Response("null", { status: 200 });
+    const r = await postChat({ message: "hi", agentName: "atlas" }, {}, byHost(nullBody, () => ok("lm text")));
+    expect(r.status).toBe(200);
+    expect(recs.map((x) => x.url)).toEqual([CLAUDE_URL, LM_URL]); // fell through to LM Studio
+    expect(r.errs).toContain("[chat] Claude Max proxy error: TypeError: Cannot read properties of null (reading 'choices')");
+    // Both backends returning null: the attempt log carries the exception text, as it did at base.
+    const both = await postChat({ message: "hi", agentName: "atlas" }, {}, byHost(nullBody, nullBody));
+    expect(both.status).toBe(502);
+    expect(JSON.stringify(both.json)).toContain("exception: Cannot read properties of null (reading 'choices')");
+  });
+
+  it("a `null` JSON reply in synthesis logs the pass label and still falls back", async () => {
+    const nullBody = () => new Response("null", { status: 200 });
+    const g = await postChat({ message: "team update", channelMembers: ["atlas", "simons"] }, {}, byHost(nullBody, () => ok("lm take")));
+    const labels = [
+      "[chat] Claude Max proxy error: TypeError: Cannot read properties of null (reading 'choices')",
+      "[chat/synthesis] Claude Max proxy error: TypeError: Cannot read properties of null (reading 'choices')",
+    ];
+    for (const l of labels) expect(g.errs, l).toContain(l);
   });
 
   it("OpenClaw is skipped by default and only tried first when OPENCLAW_CHAT_PRIMARY is set", async () => {
